@@ -10,7 +10,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
     [Fact]
     public void Test1()
     {
-        var foo = IfStatement(
+        var ifStatement = IfStatement(
                 condition: BinaryExpression(
                     IdentifierName("x"),
                     GreaterThanToken,
@@ -18,46 +18,52 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 statement: Block(SingletonList<StatementSyntax>(
                     ReturnStatement(
                         LiteralExpression(2))
-                )))
+                )));
+
+        var ifStatementWithElseClause = ifStatement
                 .WithElseClause(
                     ElseClause(
                         ReturnStatement(
                             LiteralExpression(2))));
 
-        var desc = foo.Descendants().ToArray();
+        testOutputHelper.WriteLine($"Equal: {ifStatement} == {ifStatementWithElseClause} = {ifStatement == ifStatementWithElseClause}");
 
-        var returns = foo.Descendants().OfType<ReturnStatementSyntax>().ToArray();
+        var desc = ifStatementWithElseClause.Descendants().ToArray();
 
-        var s = foo.Statement;
+        var returns = ifStatementWithElseClause.Descendants().OfType<ReturnStatementSyntax>().ToArray();
 
-        var x = foo.ElseClause;
+        var x2 = returns.First().Ancestors().OfType<IfStatementSyntax>().ToList();
 
-        var c = foo.ChildNodesAndTokens();
+        var s = ifStatementWithElseClause.Statement;
+
+        var x = ifStatementWithElseClause.ElseClause;
+
+        var c = ifStatementWithElseClause.ChildNodesAndTokens();
         foreach (var e in c)
         {
             testOutputHelper.WriteLine($"{e.Node?.Kind ?? e.Token.Kind}");
         }
 
         /*
-        var c2 = foo.ChildNodes();
+        var c2 = foo2.ChildNodes();
         foreach (var e in c2)
         {
             testOutputHelper.WriteLine($"{e}");
         }
 
-        var ancestors = foo.Ancestors();
+        var ancestors = foo2.Ancestors();
         foreach (var e in ancestors)
         {
             testOutputHelper.WriteLine($"{e}");
         }
 
-        var descendants = foo.Descendants();
+        var descendants = foo2.Descendants();
         foreach (var e in descendants)
         {
             testOutputHelper.WriteLine($"{e}");
         }
         */
 
-        var f = foo.TrailingTrivia;
+        var f = ifStatementWithElseClause.TrailingTrivia;
     }
 }
