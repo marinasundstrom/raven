@@ -1,24 +1,18 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-
-public struct SyntaxTrivia
+public class SyntaxTrivia : GreenNode
 {
-    public SyntaxTrivia(SyntaxKind kind, SyntaxToken token)
+    public string Text { get; }
+
+    public SyntaxTrivia(
+        SyntaxKind kind,
+        string text,
+        IEnumerable<DiagnosticInfo> diagnostics = null,
+        int startPosition = 0)
+        : base(kind, 0, text.Length, diagnostics, startPosition)
     {
-        Kind = kind;
-        Token = token;
+        Text = text;
     }
 
-    public SyntaxKind Kind { get; }
-
-    public SyntaxToken Token { get; }
-
-    public int Width => Token.Width;
-
-    public string Text => Token.Text!;
-
-    public override string ToString()
-    {
-        return Token.ToString();
-    }
+    public override GreenNode GetSlot(int index) => throw new InvalidOperationException("SyntaxTrivia has no children.");
 }

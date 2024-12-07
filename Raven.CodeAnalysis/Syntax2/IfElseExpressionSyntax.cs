@@ -35,12 +35,12 @@ public sealed class IfElseExpressionSyntax : ExpressionSyntax
         }
 
         _internalNode = new InternalSyntax.IfElseExpressionSyntax(
-            ifKeyword.InternalSyntax,
-            ConditionalExpression.InternalSyntax,
-            ThenKeyword.InternalSyntax,
-            ThenExpression.InternalSyntax,
-            ElseKeyword?.InternalSyntax,
-            ElseExpression?.InternalSyntax
+            ifKeyword.Internal,
+            ConditionalExpression.Internal,
+            ThenKeyword.Internal,
+            ThenExpression.Internal,
+            ElseKeyword?.Internal,
+            ElseExpression?.Internal
         );
     }
 

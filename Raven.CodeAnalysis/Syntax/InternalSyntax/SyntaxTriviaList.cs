@@ -1,29 +1,22 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
-
-public class SyntaxTriviaList : List<SyntaxTrivia>
+public class SyntaxTriviaList : GreenNode
 {
-    public SyntaxTriviaList()
+    private readonly SyntaxTrivia[] _trivias;
+
+    public SyntaxTriviaList(SyntaxTrivia[] trivias = null, int startPosition = 0)
+        : base(SyntaxKind.SyntaxList, trivias?.Length ?? 0, CalculateFullWidth(trivias), startPosition: startPosition)
     {
+        _trivias = trivias ?? Array.Empty<SyntaxTrivia>();
     }
 
-
-    public SyntaxTriviaList(IEnumerable<SyntaxTrivia> collection) : base(collection)
+    public override GreenNode GetSlot(int index)
     {
+        if (index < 0 || index >= SlotCount)
+            throw new IndexOutOfRangeException($"Invalid slot index: {index}");
+        return _trivias[index];
     }
 
-    public int Width => this.Sum(x => x.Width);
-
-    internal string ToFullString()
-    {
-        StringBuilder sb = new StringBuilder();
-        foreach (var item in this)
-        {
-            sb.Append(item.Text);
-        }
-        return sb.ToString();
-    }
+    private static int CalculateFullWidth(SyntaxTrivia[] trivias) =>
+        trivias?.Sum(trivia => trivia.FullWidth) ?? 0;
 }

@@ -1,5 +1,8 @@
-﻿namespace Raven.CodeAnalysis.Syntax;
+﻿using System.Diagnostics;
 
+namespace Raven.CodeAnalysis.Syntax;
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public class TextSpan
 {
     public int Start { get; }
@@ -13,4 +16,9 @@ public class TextSpan
     public int Length { get; }
 
     public int End => Start + Length;
+
+    private string GetDebuggerDisplay()
+    {
+        return $"{Start}..{Start + Length}";
+    }
 }

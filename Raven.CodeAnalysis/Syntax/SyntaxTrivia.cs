@@ -2,29 +2,18 @@
 
 public struct SyntaxTrivia
 {
-    private readonly InternalSyntax.SyntaxTrivia _internalTrivia;
+    private readonly InternalSyntax.SyntaxTrivia _trivia;
+    private readonly SyntaxToken _parent;
 
-    public SyntaxTrivia(SyntaxKind kind, SyntaxToken token)
+    public SyntaxKind Kind => _trivia.Kind;
+    public string Text => _trivia.Text;
+    public IEnumerable<DiagnosticInfo> Diagnostics => _trivia.Diagnostics;
+
+    public SyntaxTrivia(InternalSyntax.SyntaxTrivia trivia, SyntaxToken parent)
     {
-        Token = token;
-        _internalTrivia = new InternalSyntax.SyntaxTrivia(kind, token.InternalSyntax);
+        _trivia = trivia ?? throw new ArgumentNullException(nameof(trivia));
+        _parent = parent;
     }
 
-    internal SyntaxTrivia(InternalSyntax.SyntaxTrivia internalTrivia)
-    {
-        _internalTrivia = internalTrivia;
-    }
-
-    public SyntaxKind Kind => _internalTrivia.Kind;
-
-    public SyntaxToken Token { get; }
-
-    public int Width => Token.Width;
-
-    public string Text => _internalTrivia.Text;
-
-    public override string ToString()
-    {
-        return Token.ToString();
-    }
+    public override string ToString() => Text;
 }

@@ -21,7 +21,7 @@ public sealed class LetDeclarationExpressionSyntax : ExpressionSyntax
         AttachChild(3, assignmentExpression);
 
         _internalNode = new InternalSyntax.LetDeclarationExpressionSyntax(
-            _letKeyword.InternalSyntax, _targetExpression.InternalSyntax, _assignmentToken.InternalSyntax, _assignmentExpression.InternalSyntax);
+            _letKeyword.Internal, _targetExpression.Internal, _assignmentToken.Internal, _assignmentExpression.Internal);
     }
 
     public SyntaxToken LetKeyword => GetOrCreateNode(0, InternalSyntax.LetKeyword, ref _letKeyword)!;

@@ -1,7 +1,6 @@
-﻿using System;
+﻿namespace Raven.CodeAnalysis.Syntax;
 
-namespace Raven.CodeAnalysis.Syntax;
-
+/*
 public static class SyntaxFacts
 {
     public static string? GetSyntaxTokenText(this SyntaxKind kind)
@@ -149,5 +148,6 @@ public static class SyntaxFacts
                 return 0;
         }
     }
-    */
+  
 }
+*/

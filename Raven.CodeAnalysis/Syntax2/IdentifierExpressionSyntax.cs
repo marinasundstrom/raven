@@ -11,7 +11,7 @@ public sealed class IdentifierExpressionSyntax : ExpressionSyntax
         AttachChild(0, token);
 
         _internalNode = new InternalSyntax.IdentifierExpressionSyntax(
-            token.InternalSyntax
+            token.Internal
         );
     }
 

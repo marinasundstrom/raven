@@ -9,7 +9,7 @@ public sealed class NumberExpressionSyntax : ExpressionSyntax
         AttachChild(0, token);
 
         _internalNode = new InternalSyntax.NumberExpressionSyntax(
-            token.InternalSyntax
+            token.Internal
         );
     }
 

@@ -18,9 +18,9 @@ public sealed class BinaryOperationExpression : ExpressionSyntax
         AttachChild(2, eightHandSide);
 
         _internalNode = new InternalSyntax.BinaryOperationExpression(
-            leftHandSide.InternalSyntax,
-            operatorToken.InternalSyntax,
-            eightHandSide.InternalSyntax
+            leftHandSide.Internal,
+            operatorToken.Internal,
+            eightHandSide.Internal
         );
     }
 

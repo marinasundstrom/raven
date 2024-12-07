@@ -1,16 +1,26 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class ElseClauseSyntax : SyntaxNodeWithChildren
+public class ElseClauseSyntax : SyntaxNode
 {
-    public ElseClauseSyntax(SyntaxToken elseToken, StatementSyntax? parseStatement)
+    public ElseClauseSyntax(
+        SyntaxToken elseKeyword,
+        SyntaxList block,
+        int startPosition = 0,
+        IEnumerable<DiagnosticInfo> diagnostics = null)
+        : base(
+              SyntaxKind.ElseClause,
+              [
+                      elseKeyword,
+                      block
+              ],
+              elseKeyword.FullWidth + block.FullWidth,
+              diagnostics,
+              startPosition)
     {
-        this.ElseToken = AddChild(0, elseToken);
-        this.ParseStatement = AddChild(1, parseStatement!);
     }
 
-    public override SyntaxKind Kind => SyntaxKind.ElseClauseSyntax;
-
-    public SyntaxToken ElseToken { get; }
-
-    public StatementSyntax? ParseStatement { get; }
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    {
+        return new Syntax.ElseClauseSyntax(this, parent);
+    }
 }

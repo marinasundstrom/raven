@@ -1,18 +1,38 @@
-﻿namespace Raven.CodeAnalysis.Syntax;
+﻿using System.Collections;
 
-public class SyntaxTriviaList
+namespace Raven.CodeAnalysis.Syntax;
+
+public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
 {
-    private readonly InternalSyntax.SyntaxTriviaList node;
+    public static SyntaxTriviaList Empty => default!;
 
-    internal SyntaxTriviaList(InternalSyntax.SyntaxTriviaList node)
+    private readonly InternalSyntax.SyntaxTriviaList _greenList;
+    private readonly SyntaxToken _parent;
+
+    public SyntaxTriviaList(SyntaxToken parent, InternalSyntax.SyntaxTriviaList greenList)
     {
-        this.node = node;
+        _greenList = greenList ?? throw new ArgumentNullException(nameof(greenList));
+        _parent = parent;
     }
 
-    internal InternalSyntax.SyntaxTriviaList Node => node;
+    public int Count => _greenList.SlotCount;
 
-    public static implicit operator SyntaxTriviaList(InternalSyntax.SyntaxTriviaList e)
+    public SyntaxTrivia this[int index]
     {
-        return new SyntaxTriviaList(e);
+        get
+        {
+            var triviaGreenNode = _greenList.GetSlot(index) as InternalSyntax.SyntaxTrivia;
+            return new SyntaxTrivia(triviaGreenNode, _parent);
+        }
     }
+
+    public IEnumerator<SyntaxTrivia> GetEnumerator()
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            yield return this[i];
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

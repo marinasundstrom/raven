@@ -14,9 +14,9 @@ public sealed class ParenthesisExpressionSyntax : ExpressionSyntax
         AttachChild(2, closingParenToken);
 
         _internalNode = new InternalSyntax.ParenthesisExpressionSyntax(
-          openingParenToken.InternalSyntax,
-          Expression.InternalSyntax,
-          ClosingParenToken.InternalSyntax
+          openingParenToken.Internal,
+          Expression.Internal,
+          ClosingParenToken.Internal
         );
     }
 

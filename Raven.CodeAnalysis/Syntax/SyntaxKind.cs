@@ -2,62 +2,37 @@
 
 public enum SyntaxKind
 {
-    EndOfFileTrivia,
+    // List Kinds
+    SyntaxList,
+    SeparatedSyntaxList,
 
-    WhitespaceTrivia,
-    NewlineTrivia,
+    // Node Kinds
+    MethodDeclaration,
+    IfStatement,
+    ElseClause,
+    Block,
+    Parameter,
+    ConditionExpression,
+    AssignmentExpression,
 
+    // Token Kinds
+    VoidKeyword,
     IdentifierToken,
-    NumberToken,
-
-    OpeningParenToken,
-    ClosingParenToken,
+    OpenParenToken,
+    CloseParenToken,
     OpenBraceToken,
     CloseBraceToken,
-    OpenSquareToken,
-    CloseSquareToken,
-    OpenAngleToken,
-    CloseAngleToken,
-
-    AssignToken,
+    IntKeyword,
+    StringKeyword,
+    IfKeyword,
+    CommaToken,
     EqualsToken,
-    NotEqualsToken,
-    GreaterEqualsToken,
-    LessEqualsToken,
-
     PlusToken,
-    DashToken,
-    SlashToken,
-    BackslashToken,
-    StarToken,
-    PercentToken,
-    ColonToken,
+    GreaterThanToken,
     SemicolonToken,
-    DoublequoteToken,
-    SinglequoteToken,
-    BackquoteToken,
+    NumericLiteralToken,
 
-    VarToken,
-    LetToken,
-    IfToken,
-    ThenToken,
-    ElseToken,
-    TrueToken,
-    FalseToken,
-
-    IfStatementSyntax,
-    ElseClauseSyntax,
-    BlockStatementSyntax,
-    DotToken,
-    InvalidSyntax,
-    TabTrivia,
-    ElasticToken,
-    AssingmentExpression,
-    BooleanFalseExpression,
-    BooleanTrueExpression,
-    IdentifierExpression,
-    IfElseExpression,
-    LetDeclarationExpression,
-    NumberExpression,
-    ParenthesisExpression
+    // Trivia Kinds
+    WhitespaceTrivia,
+    CommentTrivia
 }

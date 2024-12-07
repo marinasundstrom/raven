@@ -1,61 +1,44 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Raven.CodeAnalysis.Syntax;
 
-public struct SyntaxToken : ISyntaxNode, IHasParent
+[StructLayout(LayoutKind.Auto)]
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public struct SyntaxToken : IEquatable<SyntaxToken>
 {
-    private readonly InternalSyntax.SyntaxToken syntaxToken;
+    internal readonly InternalSyntax.SyntaxToken Green;
+    private readonly SyntaxNode _parent;
 
-    internal SyntaxToken(InternalSyntax.SyntaxToken syntaxToken, SyntaxNode parentNode) // IEnumerable<SyntaxTrivia> leadingTrivia, IEnumerable<SyntaxTrivia> trailingTrivia)
-    {
-        this.syntaxToken = syntaxToken;
-        Parent = parentNode;
-    }
+    public string Text => Green.Text;
+    public SyntaxTriviaList LeadingTrivia => new SyntaxTriviaList(this, Green.LeadingTrivia);
+    public SyntaxTriviaList TrailingTrivia => new SyntaxTriviaList(this, Green.TrailingTrivia);
 
-    public SyntaxToken(InternalSyntax.SyntaxToken syntaxToken)
-        : this(syntaxToken, null!)
+    public SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode parent)
     {
 
+        Green = greenToken;
+        _parent = parent;
     }
 
-    public SyntaxKind Kind => syntaxToken.Kind;
-
-    public int Width => syntaxToken.Width;
-
-    public int FullWidth => syntaxToken.FullWidth;
-
-    public TextSpan Span => new TextSpan(Parent?.Span?.End ?? 0, syntaxToken.Width);
-
-    public TextSpan FullSpan => new TextSpan(Parent?.FullSpan?.End ?? 0, syntaxToken.FullWidth);
-
-    public SyntaxNode? Parent { get; internal set; }
-
-    public SyntaxTriviaList LeadingTrivia => syntaxToken.LeadingTrivia;
-
-    public SyntaxTriviaList TrailingTrivia => syntaxToken.TrailingTrivia;
-
-    public string ToFullString()
+    private string GetDebuggerDisplay()
     {
-        return this.syntaxToken.ToFullString();
+        return GetType().Name + " " + (Green != null ? Green.Text : "None") + " " + ToString();
     }
 
-    public override string ToString()
+    public bool Equals(SyntaxToken other)
     {
-        return SyntaxFacts.GetSyntaxTokenText(Kind)!;
+        return other.Kind == other.Kind;
     }
 
-    void IHasParent.SetParent(SyntaxNode parent) => Parent = parent;
+    // Additional properties or methods specific to SyntaxToken
 
-    public SyntaxToken PrependLeadingTrivia(params SyntaxTrivia[] syntaxTrivia)
+    public SyntaxKind Kind => Green.Kind;
+
+    public SyntaxNode Parent => _parent;
+
+    public static explicit operator SyntaxToken(InternalSyntax.SyntaxToken token)
     {
-        return this;
+        return new SyntaxToken(token, null!);
     }
-
-    public SyntaxToken AppendTrailingTrivia(params SyntaxTrivia[] syntaxTrivia)
-    {
-        return this;
-    }
-
-    internal InternalSyntax.SyntaxToken InternalSyntax => syntaxToken;
 }

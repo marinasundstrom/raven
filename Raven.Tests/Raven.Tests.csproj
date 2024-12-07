@@ -24,5 +24,6 @@
 
   <ItemGroup>
     <Folder Include="CodeAnalysis/Syntax/InternalSyntax/" />
+    <Folder Include="CodeAnalysis\Parser\" />
   </ItemGroup>
 </Project>

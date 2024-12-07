@@ -9,7 +9,7 @@ public sealed class BooleanTrueExpressionSyntax : BooleanExpressionSyntax
         AttachChild(0, trueKeyword);
 
         _internalNode = new InternalSyntax.BooleanTrueExpressionSyntax(
-            trueKeyword.InternalSyntax
+            trueKeyword.Internal
         );
     }
 

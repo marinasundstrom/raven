@@ -18,9 +18,9 @@ public sealed class AssignmentExpressionSyntax : ExpressionSyntax
         AttachChild(2, assignmentExpression);
 
         _internalNode = new InternalSyntax.AssignmentExpressionSyntax(
-            targetExpression.InternalSyntax,
-            assignmentToken.InternalSyntax,
-            assignmentExpression.InternalSyntax
+            targetExpression.Internal,
+            assignmentToken.Internal,
+            assignmentExpression.Internal
         );
     }
 
