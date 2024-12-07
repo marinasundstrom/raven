@@ -20,7 +20,7 @@ public class SyntaxList : IEnumerable<SyntaxNode>
         get
         {
             var childGreenNode = _greenList[index].Node;
-            return SyntaxFactory.CreateWrapper(childGreenNode, _parent);
+            return childGreenNode.CreateRed(_parent);
         }
     }
 
@@ -49,5 +49,5 @@ public class SyntaxListItem
     public bool IsToken => _node is InternalSyntax.SyntaxToken;
     public bool IsNode => _node is InternalSyntax.SyntaxNode;
     public SyntaxToken Token => _node as InternalSyntax.SyntaxToken != null ? new SyntaxToken(_node as InternalSyntax.SyntaxToken, _parent) : default;
-    public SyntaxNode NodeSyntax => _node is InternalSyntax.SyntaxNode ? SyntaxFactory.CreateWrapper(_node as InternalSyntax.SyntaxNode, _parent) : null;
+    public SyntaxNode NodeSyntax => _node is InternalSyntax.SyntaxNode ? _node.CreateRed(_parent) : null;
 }

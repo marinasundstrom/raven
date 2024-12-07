@@ -51,5 +51,23 @@ public class SyntaxListItem<TNode>
     public bool IsToken => _node is InternalSyntax.SyntaxToken;
     public bool IsNode => _node is InternalSyntax.SyntaxNode;
     public SyntaxToken Token => _node as InternalSyntax.SyntaxToken != null ? new SyntaxToken(_node as InternalSyntax.SyntaxToken, _parent) : default;
-    public TNode? NodeSyntax => _node is TNode ? (TNode)(object)SyntaxFactory.CreateWrapper(_node as InternalSyntax.SyntaxNode, _parent) : default;
+    public TNode? NodeSyntax => _node is TNode ? (TNode)(object)_node.CreateRed(_parent) : default;
+}
+
+public static partial class SyntaxFactory
+{
+    public static SyntaxList<TNode> EmptyList<TNode>()
+        where TNode : SyntaxNode
+         => new SyntaxList<TNode>(new InternalSyntax.SyntaxList([], 0), null);
+
+    public static SyntaxList<TNode> SingletonList<TNode>(TNode node)
+        where TNode : SyntaxNode
+        => new SyntaxList<TNode>(new InternalSyntax.SyntaxList([
+        new InternalSyntax.SyntaxListItem(node.Green)
+        ], 0), null);
+
+    public static SyntaxList<TNode> List<TNode>(params IEnumerable<TNode> nodes)
+        where TNode : SyntaxNode
+        => new SyntaxList<TNode>(new InternalSyntax.SyntaxList(
+            nodes.Select(node => new InternalSyntax.SyntaxListItem(node.Green)).ToArray(), 0), null);
 }

@@ -2,6 +2,10 @@
 
 public static class SyntaxFactory
 {
+    public static SyntaxToken IdentifierToken(string text) => new SyntaxToken(SyntaxKind.IdentifierToken, text);
+
+    public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString());
+
     public static readonly SyntaxToken OpenParenToken = new SyntaxToken(SyntaxKind.OpenParenToken, "(");
 
     public static readonly SyntaxToken CloseParenToken = new SyntaxToken(SyntaxKind.CloseParenToken, ")");
@@ -14,5 +18,7 @@ public static class SyntaxFactory
 
     public static readonly SyntaxToken IfKeyword = new SyntaxToken(SyntaxKind.IfKeyword, "if");
 
-    public static SyntaxToken Identifier(string text) => new SyntaxToken(SyntaxKind.IdentifierToken, text);
+    public static readonly SyntaxToken ElseKeyword = new SyntaxToken(SyntaxKind.ElseKeyword, "else");
+
+    public static readonly SyntaxToken ReturnKeyword = new SyntaxToken(SyntaxKind.ReturnKeyword, "return");
 }

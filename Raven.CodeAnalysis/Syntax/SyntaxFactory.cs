@@ -4,6 +4,10 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static partial class SyntaxFactory
 {
+    public static SyntaxToken IdentifierToken(string text) => (SyntaxToken)InternalSyntax.SyntaxFactory.IdentifierToken(text);
+
+    public static SyntaxToken NumericLiteral(int value) => (SyntaxToken)InternalSyntax.SyntaxFactory.NumericLiteral(value);
+
     public static readonly SyntaxToken OpenParenToken = (SyntaxToken)InternalSyntax.SyntaxFactory.OpenParenToken;
 
     public static readonly SyntaxToken CloseParenToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CloseParenToken;
@@ -16,7 +20,9 @@ public static partial class SyntaxFactory
 
     public static readonly SyntaxToken IfKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.IfKeyword;
 
-    public static SyntaxToken Identifier(string text) => (SyntaxToken)InternalSyntax.SyntaxFactory.Identifier(text);
+    public static readonly SyntaxToken ElseKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ElseKeyword;
+
+    public static readonly SyntaxToken ReturnKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ReturnKeyword;
 }
 
 static partial class SyntaxFactory

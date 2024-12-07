@@ -10,7 +10,6 @@
 
   <PropertyGroup>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>

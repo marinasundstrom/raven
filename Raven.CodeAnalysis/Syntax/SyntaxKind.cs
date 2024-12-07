@@ -2,12 +2,18 @@
 
 public enum SyntaxKind
 {
+    Unknown,
+
+    IdentifierName,
+    NumericLiteralExpression,
+
     // List Kinds
     SyntaxList,
     SeparatedSyntaxList,
 
     // Node Kinds
     MethodDeclaration,
+    ReturnStatement,
     IfStatement,
     ElseClause,
     Block,
@@ -16,15 +22,19 @@ public enum SyntaxKind
     AssignmentExpression,
 
     // Token Kinds
-    VoidKeyword,
     IdentifierToken,
     OpenParenToken,
     CloseParenToken,
     OpenBraceToken,
     CloseBraceToken,
+
+    VoidKeyword,
     IntKeyword,
     StringKeyword,
     IfKeyword,
+    ElseKeyword,
+    ReturnKeyword,
+
     CommaToken,
     EqualsToken,
     PlusToken,
@@ -34,6 +44,5 @@ public enum SyntaxKind
 
     // Trivia Kinds
     WhitespaceTrivia,
-    CommentTrivia,
-    Identifier
+    CommentTrivia
 }

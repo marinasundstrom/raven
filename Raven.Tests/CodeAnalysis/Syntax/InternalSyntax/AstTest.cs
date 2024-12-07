@@ -18,9 +18,9 @@ public class AstTest
                 OpenParenToken,
                 new SyntaxNode(SyntaxKind.ConditionExpression,
                 [
-                    Identifier("a"),
+                    IdentifierToken("a"),
                     GreaterThanToken,
-                    Identifier("b")
+                    IdentifierToken("b")
                 ], "a > b".Length),
                 CloseParenToken,
                 new SyntaxNode(SyntaxKind.Block,
