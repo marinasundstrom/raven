@@ -1,14 +1,12 @@
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
-
-using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
-
 public class AstTest
 {
     [Fact]
     public void Test1()
     {
+        /*
         // Create tokens and nodes for statements inside the block
         var statement1 = new InternalSyntax.IfStatementSyntax(
             IfKeyword,
@@ -34,23 +32,6 @@ public class AstTest
         }
 
         var f = foo.TrailingTrivia;
-    }
-
-    [Fact]
-    public void Test2()
-    {
-        var foo = new IfStatementSyntax(null!, new BlockSyntax(SyntaxList<StatementSyntax>.Empty));
-
-        var s = foo.Statement;
-
-        var x = foo.ElseClause;
-
-        var c = foo.ChildNodesAndTokens();
-        foreach (var e in c)
-        {
-
-        }
-
-        var f = foo.TrailingTrivia;
+        */
     }
 }

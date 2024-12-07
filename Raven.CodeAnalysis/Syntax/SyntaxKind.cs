@@ -34,5 +34,6 @@ public enum SyntaxKind
 
     // Trivia Kinds
     WhitespaceTrivia,
-    CommentTrivia
+    CommentTrivia,
+    Identifier
 }

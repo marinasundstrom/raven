@@ -220,13 +220,16 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
             })
             .ToArray();
 
-        var last = fieldDeclarations[fieldDeclarations.Length - 1];
+        if (fieldDeclarations.Any())
+        {
+            var last = fieldDeclarations[fieldDeclarations.Length - 1];
 
-        var newTrailingTrivia = last.GetTrailingTrivia()
-            .Add(CarriageReturnLineFeed) // Line break
-            .Add(CarriageReturnLineFeed);
+            var newTrailingTrivia = last.GetTrailingTrivia()
+                .Add(CarriageReturnLineFeed) // Line break
+                .Add(CarriageReturnLineFeed);
 
-        fieldDeclarations[fieldDeclarations.Length - 1] = last.WithTrailingTrivia(newTrailingTrivia);
+            fieldDeclarations[fieldDeclarations.Length - 1] = last.WithTrailingTrivia(newTrailingTrivia);
+        }
 
         return fieldDeclarations;
     }

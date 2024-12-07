@@ -6,22 +6,22 @@ public class SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
 {
     public static readonly SyntaxList<TNode> Empty = default;
 
-    internal readonly InternalSyntax.SyntaxList _greenList;
+    internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;
 
     public SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent)
     {
-        _greenList = greenList ?? throw new ArgumentNullException(nameof(greenList));
+        Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
     }
 
-    public int Count => _greenList.SlotCount;
+    public int Count => Green.SlotCount;
 
     public TNode this[int index]
     {
         get
         {
-            var childGreenNode = _greenList[index].Node;
+            var childGreenNode = Green[index].Node;
             return (TNode)((InternalSyntax.SyntaxNode)childGreenNode).CreateRed(_parent);
         }
     }

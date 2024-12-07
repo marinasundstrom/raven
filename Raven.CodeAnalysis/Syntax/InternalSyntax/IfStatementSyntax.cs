@@ -5,7 +5,7 @@ public class IfStatementSyntax : StatementSyntax
     public IfStatementSyntax(
         SyntaxToken ifKeyword,
         SyntaxToken openParenToken,
-        SyntaxNode condition,
+        ExpressionSyntax condition,
         SyntaxToken closeParenToken,
         StatementSyntax statement,
         int startPosition = 0,

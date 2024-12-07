@@ -1,10 +1,62 @@
 ﻿namespace Raven.CodeAnalysis.Syntax;
 
+public abstract class ExpressionSyntax : SyntaxNode
+{
+    protected ExpressionSyntax(GreenNode greenNode, SyntaxNode parent) : base(greenNode, parent)
+    {
+    }
+
+    protected ExpressionSyntax(GreenNode greenNode, SyntaxTree syntaxTree) : base(greenNode, syntaxTree)
+    {
+    }
+}
+
+public partial class IdentifierSyntax : ExpressionSyntax
+{
+    public partial SyntaxToken IdentifierToken { get; }
+
+    public IdentifierSyntax(
+        InternalSyntax.IdentifierSyntax greenNode,
+        SyntaxNode parent = null)
+        : base(greenNode, parent)
+    {
+    }
+
+    public IdentifierSyntax(SyntaxToken identifierToken)
+          : this(
+                new InternalSyntax.IdentifierSyntax(identifierToken.Green), null)
+    {
+
+    }
+}
+
+public partial class BinaryExpressionSyntax : ExpressionSyntax
+{
+    public partial ExpressionSyntax LeftHandSide { get; }
+    public partial SyntaxToken OperatorToken { get; }
+    public partial ExpressionSyntax RightHandSide { get; }
+
+    public BinaryExpressionSyntax(
+        InternalSyntax.BinaryExpressionSyntax greenNode,
+        SyntaxNode parent = null)
+        : base(greenNode, parent)
+    {
+    }
+
+    public BinaryExpressionSyntax(ExpressionSyntax leftHandSide, SyntaxToken opratorToken, ExpressionSyntax rightHandSide)
+          : this(
+                new InternalSyntax.BinaryExpressionSyntax((InternalSyntax.ExpressionSyntax)leftHandSide.Green, opratorToken.Green, (InternalSyntax.ExpressionSyntax)rightHandSide.Green), null)
+    {
+
+    }
+}
+
+
 public sealed partial class IfStatementSyntax : StatementSyntax
 {
     public partial SyntaxToken IfKeyword { get; }
     public partial SyntaxToken OpenParenToken { get; }
-    public partial SyntaxNode Condition { get; }
+    public partial ExpressionSyntax Condition { get; }
     public partial SyntaxToken CloseParenToken { get; }
     public partial StatementSyntax Statement { get; }
     public partial ElseClauseSyntax? ElseClause { get; }
@@ -14,14 +66,14 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     {
     }
 
-    public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, SyntaxNode condition, SyntaxToken closeParenToken, StatementSyntax statement)
+    public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement)
           : this(
-                new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.SyntaxNode)condition?.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green))
+                new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition?.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green))
     {
 
     }
 
-    public IfStatementSyntax(SyntaxNode condition, StatementSyntax statement)
+    public IfStatementSyntax(ExpressionSyntax condition, StatementSyntax statement)
         : this(SyntaxFactory.IfKeyword, SyntaxFactory.OpenParenToken, condition, SyntaxFactory.CloseParenToken, statement)
     {
 
@@ -40,6 +92,7 @@ public abstract class StatementSyntax : SyntaxNode
     {
     }
 }
+
 public partial class BlockSyntax : StatementSyntax
 {
     public partial SyntaxToken OpenBraceToken { get; }
@@ -55,7 +108,7 @@ public partial class BlockSyntax : StatementSyntax
 
     public BlockSyntax(SyntaxToken openBraceToken, SyntaxList<StatementSyntax> statements, SyntaxToken closeBrace)
           : this(
-                new InternalSyntax.BlockSyntax(openBraceToken.Green, statements?._greenList, closeBrace.Green), null)
+                new InternalSyntax.BlockSyntax(openBraceToken.Green, statements?.Green, closeBrace.Green), null)
     {
 
     }
