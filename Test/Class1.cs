@@ -45,6 +45,7 @@ public partial class TestNode2Syntax : SyntaxNode
     {
     }
 
+    /*
     public TestNode2Syntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, SyntaxNode condition, SyntaxToken closeParenToken, StatementSyntax statement)
           : this(
                 new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.SyntaxNode)condition?.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green), null)
@@ -57,7 +58,7 @@ public partial class TestNode2Syntax : SyntaxNode
     {
 
     }
-
+    */
 }
 
 public partial class TestNode3Syntax : StatementSyntax
