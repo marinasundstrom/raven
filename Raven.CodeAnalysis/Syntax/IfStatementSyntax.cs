@@ -1,3 +1,4 @@
+
 namespace Raven.CodeAnalysis.Syntax;
 
 public sealed partial class IfStatementSyntax : StatementSyntax
@@ -16,7 +17,14 @@ public sealed partial class IfStatementSyntax : StatementSyntax
 
     public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement)
           : this(
-                new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition?.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green))
+                new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green))
+    {
+
+    }
+
+    public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, ElseClauseSyntax elseClause)
+      : this(
+            new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green, (InternalSyntax.ElseClauseSyntax)elseClause.Green))
     {
 
     }
@@ -25,6 +33,17 @@ public sealed partial class IfStatementSyntax : StatementSyntax
         : this(SyntaxFactory.IfKeyword, SyntaxFactory.OpenParenToken, condition, SyntaxFactory.CloseParenToken, statement)
     {
 
+    }
+
+    public IfStatementSyntax(ExpressionSyntax condition, StatementSyntax statement, ElseClauseSyntax elseClause)
+        : this(SyntaxFactory.IfKeyword, SyntaxFactory.OpenParenToken, condition, SyntaxFactory.CloseParenToken, statement, elseClause)
+    {
+
+    }
+
+    public IfStatementSyntax WithElseClause(ElseClauseSyntax elseClause)
+    {
+        return new IfStatementSyntax(Condition, Statement, elseClause);
     }
 
     // Additional properties or methods specific to IfStatement

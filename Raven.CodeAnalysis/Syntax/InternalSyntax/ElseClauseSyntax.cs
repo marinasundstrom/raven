@@ -4,16 +4,16 @@ public class ElseClauseSyntax : SyntaxNode
 {
     public ElseClauseSyntax(
         SyntaxToken elseKeyword,
-        StatementSyntax statementOrBlock,
+        StatementSyntax statement,
         int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.ElseClause,
               [
                       elseKeyword,
-                      statementOrBlock
+                      statement
               ],
-              elseKeyword.FullWidth + statementOrBlock.FullWidth,
+              elseKeyword.FullWidth + statement.FullWidth,
               diagnostics,
               startPosition)
     {

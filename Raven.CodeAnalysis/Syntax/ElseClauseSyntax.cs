@@ -4,7 +4,7 @@ public partial class ElseClauseSyntax : SyntaxNode
 {
     public partial SyntaxToken ElseKeyword { get; }
 
-    public partial StatementSyntax StatementOrBlock { get; }
+    public partial StatementSyntax Statement { get; }
 
     public ElseClauseSyntax(
         InternalSyntax.SyntaxNode greenNode,
@@ -13,9 +13,9 @@ public partial class ElseClauseSyntax : SyntaxNode
     {
     }
 
-    public ElseClauseSyntax(SyntaxToken elseKeyword, StatementSyntax statementOrBlock)
+    public ElseClauseSyntax(SyntaxToken elseKeyword, StatementSyntax statement)
       : this(
-            new InternalSyntax.ElseClauseSyntax(elseKeyword.Green, (InternalSyntax.StatementSyntax)statementOrBlock.Green))
+            new InternalSyntax.ElseClauseSyntax(elseKeyword.Green, (InternalSyntax.StatementSyntax)statement.Green))
     {
 
     }

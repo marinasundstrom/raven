@@ -15,7 +15,7 @@ public partial class BlockSyntax : StatementSyntax
 
     public BlockSyntax(SyntaxToken openBraceToken, SyntaxList<StatementSyntax> statements, SyntaxToken closeBrace)
           : this(
-                new InternalSyntax.BlockSyntax(openBraceToken.Green, statements?.Green, closeBrace.Green), null)
+                new InternalSyntax.BlockSyntax(openBraceToken.Green, statements.Green, closeBrace.Green), null)
     {
 
     }

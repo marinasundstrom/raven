@@ -11,14 +11,22 @@ public class AstTest(ITestOutputHelper testOutputHelper)
     public void Test1()
     {
         var foo = IfStatement(
-                BinaryExpression(
-                IdentifierName("x"),
-                GreaterThanToken,
-                IdentifierName("y")),
-                Block(SingletonList<StatementSyntax>(
+                condition: BinaryExpression(
+                    IdentifierName("x"),
+                    GreaterThanToken,
+                    IdentifierName("y")),
+                statement: Block(SingletonList<StatementSyntax>(
                     ReturnStatement(
                         LiteralExpression(2))
-                )));
+                )))
+                .WithElseClause(
+                    ElseClause(
+                        ReturnStatement(
+                            LiteralExpression(2))));
+
+        var desc = foo.Descendants().ToArray();
+
+        var returns = foo.Descendants().OfType<ReturnStatementSyntax>().ToArray();
 
         var s = foo.Statement;
 

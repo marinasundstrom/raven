@@ -1,10 +1,12 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Syntax;
 
 public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
 {
     private readonly SyntaxNode _node;
+    private ChildSyntaxListItem[]? children;
 
     public ChildSyntaxList(SyntaxNode node)
     {
@@ -15,17 +17,45 @@ public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
     {
         get
         {
-            var childGreenNode = _node.Green.GetSlot(index);
-            return new ChildSyntaxListItem(childGreenNode, _node);
+            if (children is null)
+            {
+                InitializeChildren();
+            }
+            return children[index];
         }
+    }
+
+    private void InitializeChildren()
+    {
+        var tempChildren = new List<ChildSyntaxListItem>();
+        for (int index = 0; index < _node.Green.SlotCount; index++)
+        {
+            var childGreenNode = _node.Green.GetSlot(index);
+            if (childGreenNode is InternalSyntax.SyntaxList syntaxList)
+            {
+                for (int i = 0; i < syntaxList.SlotCount; i++)
+                {
+                    var child = syntaxList.GetSlot(i);
+                    tempChildren.Add(new ChildSyntaxListItem(child, _node));
+                }
+            }
+            else
+            {
+                tempChildren.Add(new ChildSyntaxListItem(childGreenNode, _node));
+            }
+        }
+        children = tempChildren.ToArray();
     }
 
     public IEnumerator<ChildSyntaxListItem> GetEnumerator()
     {
-        for (int i = 0; i < _node.Green.SlotCount; i++)
+        if (children is null)
         {
-            yield return this[i];
+            InitializeChildren();
         }
+        return children
+            .AsEnumerable()
+            .GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -60,11 +90,11 @@ public class ChildSyntaxListItem
         return false;
     }
 
-    public bool AsNode(out SyntaxNode? node)
+    public bool AsNode([NotNullWhen(true)] out SyntaxNode? node)
     {
         if (IsNode)
         {
-            node = Node;
+            node = Node!;
 
             return true;
         }
