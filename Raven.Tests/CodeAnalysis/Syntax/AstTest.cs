@@ -28,15 +28,23 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine($"Equal: {ifStatement} == {ifStatementWithElseClause} = {ifStatement == ifStatementWithElseClause}");
 
-        var desc = ifStatementWithElseClause.Descendants().ToArray();
+        var descendants = ifStatementWithElseClause.Descendants().ToArray();
 
-        var returns = ifStatementWithElseClause.Descendants().OfType<ReturnStatementSyntax>().ToArray();
+        var returnStatements = ifStatementWithElseClause
+            .Descendants()
+            .OfType<ReturnStatementSyntax>().ToArray();
 
-        var x2 = returns.First().Ancestors().OfType<IfStatementSyntax>().ToList();
+        var parentIfStatement = returnStatements
+            .First()
+            .Ancestors()
+            .OfType<IfStatementSyntax>()
+            .ToList();
 
-        var s = ifStatementWithElseClause.Statement;
+        var blockStatement = ifStatementWithElseClause.Statement;
 
-        var x = ifStatementWithElseClause.ElseClause;
+        var blockStatementChildren = blockStatement.ChildNodesAndTokens();
+
+        var elseClause = ifStatementWithElseClause.ElseClause;
 
         var c = ifStatementWithElseClause.ChildNodesAndTokens();
         foreach (var e in c)
