@@ -21,9 +21,15 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
     {
     }
 
-    public MethodDeclarationSyntax WithBody(IfStatementSyntax ifStatementWithElseClause)
+    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, TypeParameterListSyntax parameters, BlockSyntax? body)
+    : this(new InternalSyntax.MethodDeclarationSyntax((InternalSyntax.TypeSyntax)returnType.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, (InternalSyntax.TypeParameterListSyntax)parameters.Green, (InternalSyntax.BlockSyntax)body.Green))
     {
-        return this;
+    }
+
+
+    public MethodDeclarationSyntax WithBody(BlockSyntax body)
+    {
+        return new MethodDeclarationSyntax(this.ReturnType, this.Name, this.ParameterList, body);
     }
 
     // Additional properties or methods specific to MethodDeclaration

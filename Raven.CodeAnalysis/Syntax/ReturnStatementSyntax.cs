@@ -6,6 +6,8 @@ public partial class ReturnStatementSyntax : StatementSyntax
 
     public partial ExpressionSyntax Expression { get; }
 
+    public partial SyntaxToken SemicolonToken { get; }
+
     public ReturnStatementSyntax(
         InternalSyntax.SyntaxNode greenNode,
         SyntaxNode parent = null)
@@ -13,15 +15,15 @@ public partial class ReturnStatementSyntax : StatementSyntax
     {
     }
 
-    public ReturnStatementSyntax(SyntaxToken returnKeyword, ExpressionSyntax expression)
+    public ReturnStatementSyntax(SyntaxToken returnKeyword, ExpressionSyntax expression, SyntaxToken semicolonToken)
       : this(
-            new InternalSyntax.ReturnStatementSyntax(returnKeyword.Green, (InternalSyntax.ExpressionSyntax)expression.Green))
+            new InternalSyntax.ReturnStatementSyntax(returnKeyword.Green, (InternalSyntax.ExpressionSyntax)expression.Green, semicolonToken.Green))
     {
 
     }
 
     public ReturnStatementSyntax(ExpressionSyntax expression)
-      : this(SyntaxFactory.ReturnKeyword, expression)
+      : this(SyntaxFactory.ReturnKeyword, expression, SyntaxFactory.SemicolonToken)
     {
 
     }

@@ -9,6 +9,7 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     public partial SyntaxToken CloseParenToken { get; }
     public partial StatementSyntax Statement { get; }
     public partial ElseClauseSyntax? ElseClause { get; }
+    public partial SyntaxToken? SemicolonToken { get; }
 
     public IfStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null)
         : base(greenNode, parent)

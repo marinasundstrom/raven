@@ -171,9 +171,9 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
                     Identifier("GetNodeSlot"))
                 .WithModifiers(
                     TokenList(
-                        new[]{
+                        [
                             Token(SyntaxKind.InternalKeyword),
-                            Token(SyntaxKind.OverrideKeyword)}))
+                            Token(SyntaxKind.OverrideKeyword)]))
                 .WithParameterList(
                     ParameterList(
                         SingletonSeparatedList<ParameterSyntax>(
@@ -250,11 +250,11 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
                 // Generate properties based on their type
                 if (IsSyntaxNodeOrDerivative(property.Type))
                 {
-                    return GenerateSyntaxNodeProperty(index++, propertyType, propertyName);
+                    return GenerateSyntaxNodeProperty(index++, property, propertyType, propertyName);
                 }
                 else if (IsSyntaxToken(property.Type))
                 {
-                    return GenerateSyntaxTokenProperty(index++, property.ContainingType, propertyType, propertyName);
+                    return GenerateSyntaxTokenProperty(index++, property.ContainingType, property, propertyType, propertyName);
                 }
                 else if (IsSyntaxList(property.Type) || IsSeparatedSyntaxList(property.Type))
                 {
@@ -292,8 +292,15 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
         return typeSymbol.Name == "SeparatedSyntaxList"; // && typeSymbol.ContainingNamespace.ToDisplayString() == "Microsoft.CodeAnalysis";
     }
 
-    private static PropertyDeclarationSyntax GenerateSyntaxNodeProperty(int index, TypeSyntax propertyType, SyntaxToken propertyName)
+    private static PropertyDeclarationSyntax GenerateSyntaxNodeProperty(int index, IPropertySymbol property, TypeSyntax propertyType, SyntaxToken propertyName)
     {
+        List<SyntaxToken> modifiers = [Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword)];
+
+        if (property.IsOverride)
+        {
+            modifiers.Insert(1, Token(SyntaxKind.OverrideKeyword));
+        }
+
         var body = ArrowExpressionClause(
                         CastExpression(
                             propertyType,
@@ -308,14 +315,21 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
                                                 Literal(index))))))));
 
         return PropertyDeclaration(propertyType, propertyName)
-                    .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
+                    .AddModifiers(modifiers.ToArray())
                     .WithExpressionBody(body).WithSemicolonToken(
                         Token(SyntaxKind.SemicolonToken));
         ;
     }
 
-    private static PropertyDeclarationSyntax GenerateSyntaxTokenProperty(int index, INamedTypeSymbol type, TypeSyntax propertyType, SyntaxToken propertyName)
+    private static PropertyDeclarationSyntax GenerateSyntaxTokenProperty(int index, INamedTypeSymbol type, IPropertySymbol property, TypeSyntax propertyType, SyntaxToken propertyName)
     {
+        List<SyntaxToken> modifiers = [Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword)];
+
+        if (property.IsOverride)
+        {
+            modifiers.Insert(1, Token(SyntaxKind.OverrideKeyword));
+        }
+
         var body = ArrowExpressionClause(
                         ObjectCreationExpression(
                             IdentifierName("SyntaxToken"))
@@ -352,7 +366,7 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
                                             ThisExpression())}))));
 
         return PropertyDeclaration(propertyType, propertyName)
-            .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
+            .AddModifiers(modifiers.ToArray())
             .WithExpressionBody(body).WithSemicolonToken(
                         Token(SyntaxKind.SemicolonToken));
     }

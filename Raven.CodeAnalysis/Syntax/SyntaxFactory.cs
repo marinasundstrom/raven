@@ -18,13 +18,29 @@ public static partial class SyntaxFactory
 
     public static readonly SyntaxToken GreaterThanToken = (SyntaxToken)InternalSyntax.SyntaxFactory.GreaterThanToken;
 
+    public static readonly SyntaxToken ImportKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ImportKeyword;
+
+    public static readonly SyntaxToken LetKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.LetKeyword;
+
     public static readonly SyntaxToken IfKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.IfKeyword;
 
     public static readonly SyntaxToken ElseKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ElseKeyword;
 
     public static readonly SyntaxToken ReturnKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ReturnKeyword;
 
+    public static readonly SyntaxToken EqualsToken = (SyntaxToken)InternalSyntax.SyntaxFactory.EqualsToken;
+
     public static readonly SyntaxToken CommaToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CommaToken;
+
+    public static readonly SyntaxToken ColonToken = (SyntaxToken)InternalSyntax.SyntaxFactory.ColonToken;
+
+    public static readonly SyntaxToken SemicolonToken = (SyntaxToken)InternalSyntax.SyntaxFactory.SemicolonToken;
+}
+
+public static partial class SyntaxFactory
+{
+    public static CompilationUnit CompilationUnit()
+        => new CompilationUnit();
 }
 
 static partial class SyntaxFactory

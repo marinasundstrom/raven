@@ -10,12 +10,18 @@ public enum SyntaxKind
     QualifiedName,
     AliasQualifiedName,
 
+    CompilationUnit,
+
+    ImportDirective,
+
     // List Kinds
     SyntaxList,
     SeparatedSyntaxList,
 
     // Node Kinds
     MethodDeclaration,
+    GlobalStatement,
+    ExpressionStatement,
     ReturnStatement,
     IfStatement,
     ElseClause,
@@ -23,6 +29,11 @@ public enum SyntaxKind
     Parameter,
     ConditionExpression,
     AssignmentExpression,
+    VariableDeclaration,
+    VariableDeclarator,
+    TypeAnnotation,
+    EqualsValueClause,
+    LocalDeclaration,
 
     // Token Kinds
     IdentifierToken,
@@ -34,6 +45,7 @@ public enum SyntaxKind
     VoidKeyword,
     IntKeyword,
     StringKeyword,
+    LetKeyword,
     IfKeyword,
     ElseKeyword,
     ReturnKeyword,
@@ -42,6 +54,7 @@ public enum SyntaxKind
     EqualsToken,
     PlusToken,
     GreaterThanToken,
+    ColonToken,
     SemicolonToken,
     NumericLiteralToken,
 

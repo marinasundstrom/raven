@@ -16,12 +16,21 @@ public static class SyntaxFactory
 
     public static readonly SyntaxToken GreaterThanToken = new SyntaxToken(SyntaxKind.GreaterThanToken, ">");
 
+    public static readonly SyntaxToken ImportKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "import");
+
+    public static readonly SyntaxToken LetKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "let");
+
     public static readonly SyntaxToken IfKeyword = new SyntaxToken(SyntaxKind.IfKeyword, "if");
 
     public static readonly SyntaxToken ElseKeyword = new SyntaxToken(SyntaxKind.ElseKeyword, "else");
 
     public static readonly SyntaxToken ReturnKeyword = new SyntaxToken(SyntaxKind.ReturnKeyword, "return");
 
+    public static readonly SyntaxToken EqualsToken = new SyntaxToken(SyntaxKind.EqualsToken, "=");
+
     public static readonly SyntaxToken CommaToken = new SyntaxToken(SyntaxKind.CommaToken, ",");
 
+    public static readonly SyntaxToken ColonToken = new SyntaxToken(SyntaxKind.ColonToken, ":");
+
+    public static readonly SyntaxToken SemicolonToken = new SyntaxToken(SyntaxKind.SemicolonToken, ";");
 }

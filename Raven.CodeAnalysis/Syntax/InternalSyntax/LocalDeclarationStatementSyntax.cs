@@ -1,21 +1,19 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class ReturnStatementSyntax : StatementSyntax
+public class LocalDeclarationStatementSyntax : StatementSyntax
 {
-    public ReturnStatementSyntax(
-        SyntaxToken returnKeyword,
-        ExpressionSyntax expression,
+    public LocalDeclarationStatementSyntax(
+        VariableDeclarationSyntax declaration,
         SyntaxToken semicolonToken,
         int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
-              SyntaxKind.ReturnStatement,
+              SyntaxKind.LocalDeclaration,
               [
-                      returnKeyword,
-                      expression,
+                      declaration,
                       semicolonToken
               ],
-              returnKeyword.FullWidth + expression.FullWidth + semicolonToken.FullWidth,
+              declaration.FullWidth + semicolonToken.FullWidth,
               diagnostics,
               startPosition)
     {
@@ -23,6 +21,6 @@ public class ReturnStatementSyntax : StatementSyntax
 
     public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
     {
-        return new Syntax.ReturnStatementSyntax(this, parent);
+        return new Syntax.LocalDeclarationStatementSyntax(this, parent);
     }
 }

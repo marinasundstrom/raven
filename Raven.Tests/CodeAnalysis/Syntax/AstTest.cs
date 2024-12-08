@@ -36,7 +36,9 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                         Parameter()
                     ])
                 ))
-            .WithBody(ifStatementWithElseClause);
+            .WithBody(
+                Block(
+                    List<StatementSyntax>(ifStatementWithElseClause)));
 
         var r = methodDeclaration.ReturnType;
 
@@ -99,5 +101,82 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         ]);
 
         var foo = x.ToList();
+    }
+
+    [Fact]
+    public void Test3()
+    {
+        var varDecl = LocalDeclarationStatement(
+            VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
+                VariableDeclarator(
+                    IdentifierName("Foo"),
+                    TypeAnnotation(ParseTypeName("int")))
+            ])));
+
+        var varDecl2 = LocalDeclarationStatement(
+            VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
+                VariableDeclarator(
+                    IdentifierName("Foo"),
+                    TypeAnnotation(ParseTypeName("int")),
+                    EqualsValueClause(LiteralExpression(20)))
+            ])));
+    }
+
+    [Fact]
+    public void Test4()
+    {
+        var ifStatement = IfStatement(
+            condition: BinaryExpression(
+                IdentifierName("x"),
+                GreaterThanToken,
+                IdentifierName("y")),
+            statement: Block(List<StatementSyntax>(
+                ReturnStatement(
+                    LiteralExpression(2))
+            )));
+
+        var ifStatementWithElseClause = ifStatement
+                .WithElseClause(
+                    ElseClause(
+                        ReturnStatement(
+                            LiteralExpression(2))));
+
+        var methodDeclaration = MethodDeclaration(
+                ParseTypeName("test"),
+                IdentifierName("FooBar"),
+                TypeParameterList(
+                    SeparatedList<ParameterSyntax>([
+                        Parameter(),
+                        CommaToken,
+                        Parameter()
+                    ])
+                ))
+            .WithBody(
+                Block(
+                    List<StatementSyntax>(
+                        ifStatementWithElseClause)));
+
+        var compilation = CompilationUnit()
+            .WithImports(
+                List(
+                    ImportDirective(IdentifierName("Foo"))))
+            .WithMembers(
+                 List<MemberDeclarationSyntax>(
+                    GlobalStatement(
+                            LocalDeclarationStatement(
+                                VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
+                                    VariableDeclarator(
+                                        IdentifierName("Foo"),
+                                        TypeAnnotation(ParseTypeName("int")),
+                                        EqualsValueClause(LiteralExpression(20)))
+                        ])))),
+                    methodDeclaration));
+
+        var m = compilation.Members;
+
+        var varDelc = compilation
+            .Descendants()
+            .OfType<VariableDeclarationSyntax>()
+            .First();
     }
 }
