@@ -7,6 +7,9 @@ public enum SyntaxKind
     IdentifierName,
     NumericLiteralExpression,
 
+    QualifiedName,
+    AliasQualifiedName,
+
     // List Kinds
     SyntaxList,
     SeparatedSyntaxList,

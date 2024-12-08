@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Syntax;
 public partial class BlockSyntax : StatementSyntax
 {
     public partial SyntaxToken OpenBraceToken { get; }
-    public partial SyntaxList Statements { get; }
+    public partial SyntaxList<StatementSyntax> Statements { get; }
     public partial SyntaxToken CloseBraceToken { get; }
 
     public BlockSyntax(
@@ -13,9 +13,9 @@ public partial class BlockSyntax : StatementSyntax
     {
     }
 
-    public BlockSyntax(SyntaxToken openBraceToken, SyntaxList<StatementSyntax> statements, SyntaxToken closeBrace)
+    public BlockSyntax(SyntaxToken openBraceToken, SyntaxList<StatementSyntax> statements, SyntaxToken closeBraceToken)
           : this(
-                new InternalSyntax.BlockSyntax(openBraceToken.Green, statements.Green, closeBrace.Green), null)
+                new InternalSyntax.BlockSyntax(openBraceToken.Green, statements.Green, closeBraceToken.Green), null)
     {
 
     }

@@ -26,6 +26,22 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                         ReturnStatement(
                             LiteralExpression(2))));
 
+        var methodDeclaration = MethodDeclaration(
+                ParseTypeName("test"),
+                IdentifierName("FooBar"),
+                TypeParameterList(
+                    SeparatedList<ParameterSyntax>([
+                        Parameter(),
+                        CommaToken,
+                        Parameter()
+                    ])
+                ))
+            .WithBody(ifStatementWithElseClause);
+
+        var r = methodDeclaration.ReturnType;
+
+        var pars = methodDeclaration.ParameterList.Parameters.ToList();
+
         testOutputHelper.WriteLine($"Equal: {ifStatement} == {ifStatementWithElseClause} = {ifStatement == ifStatementWithElseClause}");
 
         var descendants = ifStatementWithElseClause.Descendants().ToArray();
@@ -73,5 +89,15 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         */
 
         var f = ifStatementWithElseClause.TrailingTrivia;
+    }
+
+    [Fact]
+    public void Test2()
+    {
+        var x = SeparatedList<ParameterSyntax>([
+            Parameter()
+        ]);
+
+        var foo = x.ToList();
     }
 }

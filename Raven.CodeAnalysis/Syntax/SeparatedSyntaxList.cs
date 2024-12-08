@@ -1,106 +1,75 @@
 ﻿using System.Collections;
 
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
+
 namespace Raven.CodeAnalysis.Syntax;
 
-/*
-public class SyntaxList<T> : IEnumerable<SyntaxListItem<T>>
-    where T : SyntaxNode
+public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
+    where TNode : SyntaxNode
 {
-    private readonly InternalSyntax.SyntaxList _greenList;
+    internal readonly InternalSyntax.SeparatedSyntaxList Green;
     private readonly SyntaxNode _parent;
 
-    public SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent)
+    public SeparatedSyntaxList(InternalSyntax.SeparatedSyntaxList greenList, SyntaxNode parent)
     {
-        _greenList = greenList ?? throw new ArgumentNullException(nameof(greenList));
+        Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
     }
 
-    public int Count => _greenList.SlotCount;
-
-    public SyntaxListItem<T> this[int index] => new SyntaxListItem<T>(_greenList[index], _parent);
-
-    public IEnumerator<SyntaxListItem<T>> GetEnumerator()
+    public SeparatedSyntaxList(params SyntaxNodeOrToken[] items)
     {
-        for (int i = 0; i < Count; i++)
+        var p = items.Select(x => x.Green).ToArray();
+        Green = new SeparatedSyntaxList(p);
+    }
+
+    public int ElementCount => (Green.SlotCount + 1) / 2; // Elements are at even indices
+
+    public TNode this[int index]
+    {
+        get
         {
-            yield return this[i];
+            var node = Green[index * 2];
+            return (TNode)node.CreateRed(_parent);
         }
     }
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-}
-
-public class SyntaxListItem<T>
-    where T : SyntaxNode
-{
-    private readonly InternalSyntax.SyntaxListItem _item;
-    private readonly SyntaxNode _parent;
-
-    public SyntaxListItem(InternalSyntax.SyntaxListItem item, SyntaxNode parent)
-    {
-        _item = item;
-        _parent = parent;
-    }
-
-    /// <summary>
-    /// Indicates whether the item is a SyntaxToken.
-    /// </summary>
-    public bool IsToken => _item.IsToken;
-
-    /// <summary>
-    /// Indicates whether the item is a SyntaxNode.
-    /// </summary>
-    public bool IsNode => _item.IsNode;
-
-    /// <summary>
-    /// Gets the SyntaxToken if the item is a token; otherwise, null.
-    /// </summary>
-    public SyntaxToken Token => new SyntaxToken(_item.Token, _parent);
-
-    /// <summary>
-    /// Gets the SyntaxNode if the item is a node; otherwise, null.
-    /// </summary>
-    public T NodeSyntax => default!; // new SyntaxNode(_item.NodeSyntax, _parent);
-
-    /// <summary>
-    /// Gets the underlying GreenNode.
-    /// </summary>
-    public GreenNode Node => _item.Node;
-}
-*/
-
-
-public class SeparatedSyntaxList : IEnumerable<SyntaxListItem>
-{
-    private readonly InternalSyntax.SyntaxList _greenList;
-    private readonly SyntaxNode _parent;
-
-    public SeparatedSyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent)
-    {
-        _greenList = greenList ?? throw new ArgumentNullException(nameof(greenList));
-        _parent = parent;
-    }
-
-    public int ElementCount => (_greenList.SlotCount + 1) / 2; // Elements are at even indices
-
-    public SyntaxListItem this[int index] => new SyntaxListItem(_greenList[index * 2].Node, _parent);
 
     public SyntaxToken GetSeparator(int index)
     {
         if (index < 0 || index >= ElementCount - 1)
             throw new IndexOutOfRangeException($"Invalid separator index: {index}");
 
-        var separator = _greenList[index * 2 + 1].Node as InternalSyntax.SyntaxToken;
+        var separator = Green[index * 2 + 1] as InternalSyntax.SyntaxToken;
         return separator != null ? new SyntaxToken(separator, _parent) : default;
     }
 
-    public IEnumerator<SyntaxListItem> GetEnumerator()
+    public IEnumerator<TNode> GetEnumerator()
+    {
+        return EnumerateItems()
+            .Where(x => x.IsNode)
+            .Select(x => x.Node)
+            .OfType<TNode>()
+            .GetEnumerator();
+    }
+
+    private IEnumerable<SyntaxNodeOrToken> EnumerateItems()
     {
         for (int i = 0; i < ElementCount; i++)
         {
-            yield return this[i];
+            var item = this[i];
+            yield return new SyntaxNodeOrToken(item.Green, _parent);
         }
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public static partial class SyntaxFactory
+{
+    public static SeparatedSyntaxList<TNode> SeparatedList<TNode>()
+        where TNode : SyntaxNode
+        => new SeparatedSyntaxList<TNode>(null, (SyntaxNode)null);
+
+    public static SeparatedSyntaxList<TNode> SeparatedList<TNode>(params SyntaxNodeOrToken[] items)
+        where TNode : SyntaxNode
+        => new SeparatedSyntaxList<TNode>(items);
 }

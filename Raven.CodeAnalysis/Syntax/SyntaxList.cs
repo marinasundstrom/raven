@@ -49,5 +49,5 @@ public class SyntaxListItem
     public bool IsToken => _node is InternalSyntax.SyntaxToken;
     public bool IsNode => _node is InternalSyntax.SyntaxNode;
     public SyntaxToken Token => _node as InternalSyntax.SyntaxToken != null ? new SyntaxToken(_node as InternalSyntax.SyntaxToken, _parent) : default;
-    public SyntaxNode NodeSyntax => _node is InternalSyntax.SyntaxNode ? _node.CreateRed(_parent) : null;
+    public SyntaxNode Node => _node is InternalSyntax.SyntaxNode ? _node.CreateRed(_parent) : null;
 }

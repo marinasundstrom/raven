@@ -23,6 +23,8 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken ElseKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ElseKeyword;
 
     public static readonly SyntaxToken ReturnKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ReturnKeyword;
+
+    public static readonly SyntaxToken CommaToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CommaToken;
 }
 
 static partial class SyntaxFactory
@@ -70,29 +72,5 @@ static partial class SyntaxFactory
         }
         else
             throw new ArgumentException($"Unknown GreenNode type: {node.GetType().Name}");
-    }
-
-    /// <summary>
-    /// Creates a SyntaxListWrapper from an internal SyntaxList.
-    /// </summary>
-    public static SyntaxList CreateListWrapper(InternalSyntax.SyntaxList list, SyntaxNode parent)
-    {
-        return new SyntaxList(list, parent);
-    }
-
-    /// <summary>
-    /// Creates a SeparatedSyntaxListWrapper from an internal SyntaxList.
-    /// </summary>
-    public static SeparatedSyntaxList CreateSeparatedListWrapper(InternalSyntax.SyntaxList list, SyntaxNode parent)
-    {
-        return new SeparatedSyntaxList(list, parent);
-    }
-
-    /// <summary>
-    /// Creates a SyntaxTriviaListWrapper from an internal SyntaxTriviaList.
-    /// </summary>
-    public static SyntaxTriviaList CreateTriviaListWrapper(InternalSyntax.SyntaxTriviaList triviaList, SyntaxToken parent)
-    {
-        return new SyntaxTriviaList(parent, triviaList);
     }
 }

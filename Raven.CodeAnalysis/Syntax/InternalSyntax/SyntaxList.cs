@@ -2,7 +2,7 @@
 
 public class SyntaxList : GreenNode
 {
-    public static readonly SyntaxList Empty = new SyntaxList([], 0);
+    public static readonly SyntaxList Empty = new([], 0);
 
     private readonly SyntaxListItem[] _items;
 

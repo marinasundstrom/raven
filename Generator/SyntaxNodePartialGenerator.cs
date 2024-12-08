@@ -289,7 +289,7 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
 
     private static bool IsSeparatedSyntaxList(ITypeSymbol typeSymbol)
     {
-        return typeSymbol.Name == "SeparatedSyntaxListSyntaxList"; // && typeSymbol.ContainingNamespace.ToDisplayString() == "Microsoft.CodeAnalysis";
+        return typeSymbol.Name == "SeparatedSyntaxList"; // && typeSymbol.ContainingNamespace.ToDisplayString() == "Microsoft.CodeAnalysis";
     }
 
     private static PropertyDeclarationSyntax GenerateSyntaxNodeProperty(int index, TypeSyntax propertyType, SyntaxToken propertyName)
@@ -357,9 +357,11 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
                         Token(SyntaxKind.SemicolonToken));
     }
 
-
     private static PropertyDeclarationSyntax GenerateSyntaxListProperty(int index, INamedTypeSymbol type, TypeSyntax propertyType, SyntaxToken propertyName)
     {
+        var targetGreenNodeType = propertyType.ToString().Contains("Separated") ?
+            "SeparatedSyntaxList" : "SyntaxList";
+
         return PropertyDeclaration(propertyType, propertyName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
             .WithAccessorList(
@@ -418,7 +420,7 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
                                                                         IdentifierName("CodeAnalysis")),
                                                                     IdentifierName("Syntax")),
                                                                 IdentifierName("InternalSyntax")),
-                                                            IdentifierName("SyntaxList")))),
+                                                            IdentifierName(targetGreenNodeType)))),
                                                 Token(SyntaxKind.CommaToken),
                                                 Argument(
                                                     ThisExpression())})))))))));

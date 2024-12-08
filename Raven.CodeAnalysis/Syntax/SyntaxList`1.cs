@@ -51,7 +51,7 @@ public class SyntaxListItem<TNode>
     public bool IsToken => _node is InternalSyntax.SyntaxToken;
     public bool IsNode => _node is InternalSyntax.SyntaxNode;
     public SyntaxToken Token => _node as InternalSyntax.SyntaxToken != null ? new SyntaxToken(_node as InternalSyntax.SyntaxToken, _parent) : default;
-    public TNode? NodeSyntax => _node is TNode ? (TNode)(object)_node.CreateRed(_parent) : default;
+    public TNode? Node => _node is TNode ? (TNode)(object)_node.CreateRed(_parent) : default;
 }
 
 public static partial class SyntaxFactory

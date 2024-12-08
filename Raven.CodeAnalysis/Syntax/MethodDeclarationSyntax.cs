@@ -1,16 +1,36 @@
-﻿namespace Raven.CodeAnalysis.Syntax;
+﻿using System.Reflection.Metadata;
 
-public partial class MethodDeclarationSyntax : SyntaxNode
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
+
+namespace Raven.CodeAnalysis.Syntax;
+
+public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
 {
-    public partial SyntaxToken ReturnType { get; }
-    public partial SyntaxToken Identifier { get; }
-    public partial SeparatedSyntaxList Parameters { get; }
-    public partial SyntaxList Body { get; }
+    public partial TypeSyntax ReturnType { get; }
+    public partial IdentifierNameSyntax Name { get; }
+    public partial TypeParameterListSyntax ParameterList { get; }
+    public partial BlockSyntax? Body { get; }
 
     public MethodDeclarationSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null)
         : base(greenNode, parent)
     {
     }
 
+    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, TypeParameterListSyntax parameters)
+        : this(new InternalSyntax.MethodDeclarationSyntax((InternalSyntax.TypeSyntax)returnType.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, (InternalSyntax.TypeParameterListSyntax)parameters.Green))
+    {
+    }
+
+    public MethodDeclarationSyntax WithBody(IfStatementSyntax ifStatementWithElseClause)
+    {
+        return this;
+    }
+
     // Additional properties or methods specific to MethodDeclaration
+}
+
+public static partial class SyntaxFactory
+{
+    public static MethodDeclarationSyntax MethodDeclaration(TypeSyntax returnType, IdentifierNameSyntax name, TypeParameterListSyntax parameters)
+        => new MethodDeclarationSyntax(returnType, name, parameters);
 }
