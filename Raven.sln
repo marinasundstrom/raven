@@ -11,8 +11,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Raven.CodeAnalysis", "Raven
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Generator", "Generator\Generator.csproj", "{4E700EDA-66B8-4AED-A8C1-6BE737A1696A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{5EFB6F29-8272-4248-94B6-9525EE62202E}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Generator.Tests", "Generator.Tests\Generator.Tests.csproj", "{611FEDB8-2AD5-449B-9915-695C7D55A27E}"
 EndProject
 Global
@@ -37,10 +35,6 @@ Global
 		{4E700EDA-66B8-4AED-A8C1-6BE737A1696A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E700EDA-66B8-4AED-A8C1-6BE737A1696A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4E700EDA-66B8-4AED-A8C1-6BE737A1696A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5EFB6F29-8272-4248-94B6-9525EE62202E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5EFB6F29-8272-4248-94B6-9525EE62202E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5EFB6F29-8272-4248-94B6-9525EE62202E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5EFB6F29-8272-4248-94B6-9525EE62202E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{611FEDB8-2AD5-449B-9915-695C7D55A27E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{611FEDB8-2AD5-449B-9915-695C7D55A27E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{611FEDB8-2AD5-449B-9915-695C7D55A27E}.Release|Any CPU.ActiveCfg = Release|Any CPU
