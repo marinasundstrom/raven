@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Raven.CodeAnalysis.Syntax;
 
@@ -100,4 +101,21 @@ public abstract class SyntaxNode
     }
 
     internal virtual SyntaxNode? GetNodeSlot(int index) { return null; }
+
+    public virtual TNode GetRed<TNode>(ref TNode node, int index)
+        where TNode : Syntax.SyntaxNode
+    {
+        if (node is not null)
+        {
+            return node;
+        }
+
+        var slot = this.Green.GetSlot(index);
+        if (slot is not null)
+        {
+            node = (TNode)slot.CreateRed(this);
+            return node;
+        }
+        return null!;
+    }
 }

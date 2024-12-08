@@ -132,28 +132,28 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
             }
 
             arms.Add(SwitchExpressionArm(
-                                                ConstantPattern(
-                                                    LiteralExpression(
-                                                        SyntaxKind.NumericLiteralExpression,
-                                                        Literal(index))),
-                                                InvocationExpression(
-                                                    MemberAccessExpression(
-                                                        SyntaxKind.SimpleMemberAccessExpression,
-                                                        IdentifierName("Green"),
-                                                        IdentifierName("GetRed")))
-                                                .WithArgumentList(
-                                                    ArgumentList(
-                                                        SeparatedList<ArgumentSyntax>(
-                                                            new SyntaxNodeOrToken[]{
-                                                                Argument(
-                                                                    IdentifierName("_" + property.Name.ToCamelCase()))
-                                                                .WithRefOrOutKeyword(
-                                                                    Token(SyntaxKind.RefKeyword)),
-                                                                Token(SyntaxKind.CommaToken),
-                                                                Argument(
-                                                                    LiteralExpression(
-                                                                        SyntaxKind.NumericLiteralExpression,
-                                                                        Literal(index)))})))));
+                ConstantPattern(
+                    LiteralExpression(
+                        SyntaxKind.NumericLiteralExpression,
+                        Literal(index))),
+                InvocationExpression(
+                    MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        ThisExpression(),
+                        IdentifierName("GetRed")))
+                .WithArgumentList(
+                    ArgumentList(
+                        SeparatedList<ArgumentSyntax>(
+                            new SyntaxNodeOrToken[]{
+                                Argument(
+                                    IdentifierName("_" + property.Name.ToCamelCase()))
+                                .WithRefOrOutKeyword(
+                                    Token(SyntaxKind.RefKeyword)),
+                                Token(SyntaxKind.CommaToken),
+                                Argument(
+                                    LiteralExpression(
+                                        SyntaxKind.NumericLiteralExpression,
+                                        Literal(index)))})))));
             index++;
         }
 

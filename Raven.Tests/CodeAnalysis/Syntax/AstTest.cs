@@ -163,12 +163,12 @@ public class AstTest(ITestOutputHelper testOutputHelper)
             .WithMembers(
                  List<MemberDeclarationSyntax>(
                     GlobalStatement(
-                            LocalDeclarationStatement(
-                                VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
-                                    VariableDeclarator(
-                                        IdentifierName("Foo"),
-                                        TypeAnnotation(ParseTypeName("int")),
-                                        EqualsValueClause(LiteralExpression(20)))
+                        LocalDeclarationStatement(
+                            VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
+                                VariableDeclarator(
+                                    IdentifierName("Foo"),
+                                    TypeAnnotation(ParseTypeName("int")),
+                                    EqualsValueClause(LiteralExpression(20)))
                         ])))),
                     methodDeclaration));
 

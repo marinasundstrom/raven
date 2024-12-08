@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Raven.CodeAnalysis.Syntax;
 public abstract class GreenNode
 {
@@ -69,23 +71,6 @@ public abstract class GreenNode
 
     public virtual Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
     {
-        return null!;
-    }
-
-    public virtual TNode GetRed<TNode>(ref TNode node, int index)
-        where TNode : Syntax.SyntaxNode
-    {
-        if (node is not null)
-        {
-            return node;
-        }
-
-        var slot = GetSlot(index);
-        if (slot is not null)
-        {
-            node = (TNode)slot.CreateRed(null);
-            return node;
-        }
         return null!;
     }
 }
