@@ -156,7 +156,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                     List<StatementSyntax>(
                         ifStatementWithElseClause)));
 
-        var compilation = CompilationUnit()
+        var compilationUnit = CompilationUnit()
             .WithImports(
                 List(
                     ImportDirective(IdentifierName("Foo"))))
@@ -172,11 +172,21 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                         ])))),
                     methodDeclaration));
 
-        var m = compilation.Members;
+        var m = compilationUnit.Members;
 
-        var varDelc = compilation
+        var varDelc = compilationUnit
             .Descendants()
             .OfType<VariableDeclarationSyntax>()
             .First();
+
+        compilationUnit.NormalizeWhitespace();
+
+        var syntaxtTree = SyntaxTree.Create(compilationUnit);
+
+        var compilation = Compilation.Create("MyCompilation")
+            .AddSyntaxTrees(syntaxtTree);
+        //.AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxtTree);
     }
 }

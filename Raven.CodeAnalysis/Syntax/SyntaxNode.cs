@@ -11,7 +11,24 @@ public abstract class SyntaxNode
     private readonly SyntaxNode _parent;
 
     public SyntaxNode Parent => _parent;
-    public SyntaxTree SyntaxTree => _syntaxTree ?? _parent.SyntaxTree;
+
+    public SyntaxTree? SyntaxTree
+    {
+        get
+        {
+            if (_syntaxTree is not null)
+            {
+                return _syntaxTree;
+            }
+
+            if (_parent is not null)
+            {
+                return _parent.SyntaxTree;
+            }
+
+            return null;
+        }
+    }
 
     public SyntaxKind Kind => Green.Kind;
     public int FullWidth => Green.FullWidth;

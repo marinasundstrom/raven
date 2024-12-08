@@ -35,12 +35,18 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken ColonToken = (SyntaxToken)InternalSyntax.SyntaxFactory.ColonToken;
 
     public static readonly SyntaxToken SemicolonToken = (SyntaxToken)InternalSyntax.SyntaxFactory.SemicolonToken;
+
+    public static readonly SyntaxToken EndOfLineToken = (SyntaxToken)InternalSyntax.SyntaxFactory.EndOfLineToken;
+
+    public static readonly SyntaxToken CarriageReturnToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CarriageReturnToken;
+
+    public static readonly SyntaxToken EndOfFileToken = (SyntaxToken)InternalSyntax.SyntaxFactory.EndOfFileToken;
 }
 
 public static partial class SyntaxFactory
 {
-    public static CompilationUnit CompilationUnit()
-        => new CompilationUnit();
+    public static CompilationUnitSyntax CompilationUnit()
+        => new CompilationUnitSyntax();
 }
 
 static partial class SyntaxFactory

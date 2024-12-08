@@ -33,4 +33,10 @@ public static class SyntaxFactory
     public static readonly SyntaxToken ColonToken = new SyntaxToken(SyntaxKind.ColonToken, ":");
 
     public static readonly SyntaxToken SemicolonToken = new SyntaxToken(SyntaxKind.SemicolonToken, ";");
+
+    public static readonly SyntaxToken EndOfLineToken = new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");
+
+    public static readonly SyntaxToken CarriageReturnToken = new SyntaxToken(SyntaxKind.CarriageReturnToken, "\r");
+
+    public static readonly SyntaxToken EndOfFileToken = new SyntaxToken(SyntaxKind.EndOfFileTokenToken, ";");
 }

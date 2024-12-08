@@ -1,5 +1,5 @@
 ﻿namespace Raven.CodeAnalysis;
 
-internal class Diagnostic
+public class Diagnostic
 {
 }

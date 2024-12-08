@@ -1,17 +1,19 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class CompilationUnit : SyntaxNode
+public class CompilationUnitSyntax : SyntaxNode
 {
-    public CompilationUnit(
+    public CompilationUnitSyntax(
         SyntaxList imports,
         SyntaxList members,
+        SyntaxToken endOfFileToken,
         int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.CompilationUnit,
               [
                       imports,
-                      members
+                      members,
+                      endOfFileToken
               ],
               (imports?.FullWidth ?? 0) + (members?.FullWidth ?? 0),
               diagnostics,
@@ -21,6 +23,6 @@ public class CompilationUnit : SyntaxNode
 
     public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
     {
-        return new CodeAnalysis.CompilationUnit(this, parent);
+        return new Syntax.CompilationUnitSyntax(this, parent);
     }
 }

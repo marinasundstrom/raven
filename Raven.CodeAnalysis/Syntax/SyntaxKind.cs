@@ -60,5 +60,9 @@ public enum SyntaxKind
 
     // Trivia Kinds
     WhitespaceTrivia,
-    CommentTrivia
+    CommentTrivia,
+
+    EndOfLineToken,
+    CarriageReturnToken,
+    EndOfFileTokenToken
 }
