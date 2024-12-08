@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 public class Compilation
 {
     private string _name;
-    private SyntaxTree[] _syntaxTress;
+    private SyntaxTree[] _syntaxTrees;
 
     public Compilation(string name)
     {
@@ -27,13 +27,13 @@ public class Compilation
 
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
     {
-        _syntaxTress = syntaxTrees;
+        _syntaxTrees = syntaxTrees;
         return this;
     }
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
     {
-        return new SemanticModel();
+        return new SemanticModel(this, syntaxTree);
     }
 
     /*
@@ -47,8 +47,4 @@ public class Compilation
                 }
             );
     */
-}
-
-public class SemanticModel
-{
 }

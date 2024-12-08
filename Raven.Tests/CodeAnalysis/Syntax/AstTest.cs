@@ -174,11 +174,6 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         var m = compilationUnit.Members;
 
-        var varDelc = compilationUnit
-            .Descendants()
-            .OfType<VariableDeclarationSyntax>()
-            .First();
-
         compilationUnit.NormalizeWhitespace();
 
         var syntaxtTree = SyntaxTree.Create(compilationUnit);
@@ -188,5 +183,17 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         //.AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
 
         var semanticModel = compilation.GetSemanticModel(syntaxtTree);
+
+        var varDelc = compilationUnit
+            .Descendants()
+            .OfType<VariableDeclarationSyntax>()
+            .First();
+
+        var symbol = semanticModel.GetSymbolInfo(varDelc);
+
+        if (symbol.Symbol is ILocalSymbol localSymbol)
+        {
+            Console.WriteLine(localSymbol.Name);
+        }
     }
 }

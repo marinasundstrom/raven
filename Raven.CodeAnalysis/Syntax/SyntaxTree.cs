@@ -59,4 +59,9 @@ public class SyntaxTree
     {
         _compilationUnit = compilationUnit;
     }
+
+    public Location GetLocation(TextSpan span)
+    {
+        return default!;
+    }
 }
