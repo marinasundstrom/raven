@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis;
 
 public class Compilation
 {
-    private string _name;
+    private readonly string _name;
     private SyntaxTree[] _syntaxTrees;
 
     public Compilation(string name)

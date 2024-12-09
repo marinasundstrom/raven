@@ -20,4 +20,3 @@ public static partial class SyntaxFactory
     public static GlobalStatementSyntax GlobalStatement(StatementSyntax statement)
         => new GlobalStatementSyntax(statement);
 }
-
