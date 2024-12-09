@@ -10,6 +10,10 @@ It is a merger of the projects in the [compiler-projects](https://github.com/mar
 
 Look at unit tests.
 
+## Syntax
+
+Read [here](/docs/syntax.md).
+
 ## Compiler
 
 The Parser and the AST is not yet in sync.
