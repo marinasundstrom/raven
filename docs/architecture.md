@@ -22,6 +22,12 @@ A syntax node is a non-terminal that may have one or more children. There is als
 
 There are multiple derived node types representing the different elements of the source code, such as `MethodDeclarationSyntax` and `IfStatementSyntax`.
 
+#### Syntax lists
+
+A node may have multiple child nodes of the same type. A block may have multiple statements in a list of statement nodes.
+
+Lists aren't themselves nodes. The "child nodes" are children of the parent node.
+
 ### Internal tree
 
 As an implementation detail there is an optimized internal tree that holds the actual information node and token. These nodes can be re-used during the compilation.
