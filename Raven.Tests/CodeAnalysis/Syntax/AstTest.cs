@@ -156,23 +156,24 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                     List<StatementSyntax>(
                         ifStatementWithElseClause)));
 
+        var members = List<MemberDeclarationSyntax>(
+                    NamespaceDeclaration(
+                        IdentifierName("MyApp"),
+                        List<MemberDeclarationSyntax>(
+                            LocalDeclarationStatement(
+                                    VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
+                                        VariableDeclarator(
+                                            IdentifierName("Foo"),
+                                            TypeAnnotation(ParseTypeName("int")),
+                                            EqualsValueClause(LiteralExpression(20)))
+                            ]))),
+                            methodDeclaration)));
+
         var compilationUnit = CompilationUnit()
             .WithImports(
                 List(
                     ImportDirective(IdentifierName("Foo"))))
-            .WithMembers(
-                List<MemberDeclarationSyntax>(
-                    NamespaceDeclaration(IdentifierName("MyApp"),
-                    List<MemberDeclarationSyntax>(
-                        GlobalStatement(
-                            LocalDeclarationStatement(
-                                VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
-                                    VariableDeclarator(
-                                        IdentifierName("Foo"),
-                                        TypeAnnotation(ParseTypeName("int")),
-                                        EqualsValueClause(LiteralExpression(20)))
-                            ])))),
-                        methodDeclaration))));
+            .WithMembers(members);
 
         var m = compilationUnit.Members;
 
