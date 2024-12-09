@@ -8,11 +8,15 @@ The purpose is to build a modern compiler that provides an API for manipulating 
 
 It is a merger of the projects in the [compiler-projects](https://github.com/marinasundstrom/compiler-projects) repo.
 
-Look at unit tests.
+Look at [unit tests](/Raven.Tests/CodeAnalysis/Syntax/AstTest.cs).
 
 ## Syntax
 
 See pseudo-specification [here](/docs/syntax.md).
+
+## Documentation
+
+Read the documentation [here](/docs/).
 
 ### Syntax Tree
 
