@@ -1,4 +1,4 @@
-# Design
+# Architecture
  
 ## Design goals
 
@@ -37,6 +37,18 @@ Parts of the Syntax nodes in the outer syntax tree, or API, is repetitive in nat
 Provided that a Syntax node class is a partial class and its properties of type `SyntaxToken` and `SyntaxNode` are partial, the generator produces the implementation for you when building.
 
 This is what Roslyn also does, but they use T4 templates instead.
+
+## Tokenizer
+
+The tokenizer divides the source code into tokens.
+
+## Parser
+
+The parser reads the tokens and produces syntax according to the rules of the language.
+
+**Note:**
+
+Expression parser logic can be taken from [ExpressionEvaluator](https://github.com/marinasundstrom/ExpressionEvaluator). This is a [Operator-precedence parser](https://en.wikipedia.org/wiki/Operator-precedence_parser), originally based on the IronPython source code (in C#),
 
 ## Semantic model
 

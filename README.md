@@ -12,29 +12,46 @@ Look at unit tests.
 
 ## Syntax
 
-Read [here](/docs/syntax.md).
+See pseudo-specification [here](/docs/syntax.md).
 
-## Compiler
+### Syntax Tree
 
-The Parser and the AST is not yet in sync.
+Here's an example of the AST in C#. As taken from the unit tests.
 
-Syntax to be decided. Should it be a C-style language, or something else?
+```csharp
+using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 
-Expression parser logic can be taken from [ExpressionEvaluator](https://github.com/marinasundstrom/ExpressionEvaluator). This is a [Operator-precedence parser](https://en.wikipedia.org/wiki/Operator-precedence_parser), originally based on the IronPython source code (in C#),
+var ifStatement = IfStatement(
+    condition: BinaryExpression(
+        IdentifierName("x"),
+        GreaterThanToken,
+        IdentifierName("y")),
+    statement: Block(List<StatementSyntax>(
+        ReturnStatement(
+            LiteralExpression(2))
+    )));
 
-### AST
+var ifStatementWithElseClause = ifStatement
+        .WithElseClause(
+            ElseClause(
+                ReturnStatement(
+                    LiteralExpression(2))));
 
-The Abstract Syntax Tree (AST) is immutable. And "changing" a syntax node should result in a copy of the tree.
-
-We need to handle syntax trivia - whitespaces, comments, and other things with no meaning.
-
-
-#### Internal Tree 
-
-Re-usable part. Kept when modifying the tree. 
-
-Nodes that know their children. But not their parent.
-
+var methodDeclaration = MethodDeclaration(
+        ParseTypeName("test"),
+        IdentifierName("FooBar"),
+        TypeParameterList(
+            SeparatedList<ParameterSyntax>([
+                Parameter(),
+                CommaToken,
+                Parameter()
+            ])
+        ))
+    .WithBody(
+        Block(
+            List<StatementSyntax>(
+                ifStatementWithElseClause)));
+```
 
 
 
