@@ -2,13 +2,17 @@
 
 ## Top-level statements
 
+The program starts by writing some statements in a file that becomes its de-facto entrypoint.
+
 ```c#
 import System;
 
-Console.WriteLine("");
+Console.WriteLine("Hello, World!");
 ```
 
 ## Namespace declaration
+
+Each file may define a namespace like so:
 
 ```c#
 namespace Foo;
@@ -21,15 +25,32 @@ import System.IO;
 
 ### Scoped namespaces
 
+You may define multiple namespaces, even nested ones, in one single file by defining block scopes:
+
 ```c#
-namespace Foo 
+
+// Members here
+
+namespace A1
 {
     import System;
     import System.IO;
 
     // Members here
+
+    namespace B1
+    {
+        // Members here
+    }
+}
+
+namespace A.B
+{
+    // Members here
 }
 ```
+
+The outermost undeclared namespace is the global namespace. Meaning whatever is declared there has no prefixed namespace
 
 ## Method declaration
 
