@@ -161,16 +161,18 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 List(
                     ImportDirective(IdentifierName("Foo"))))
             .WithMembers(
-                 List<MemberDeclarationSyntax>(
-                    GlobalStatement(
-                        LocalDeclarationStatement(
-                            VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
-                                VariableDeclarator(
-                                    IdentifierName("Foo"),
-                                    TypeAnnotation(ParseTypeName("int")),
-                                    EqualsValueClause(LiteralExpression(20)))
-                        ])))),
-                    methodDeclaration));
+                List<MemberDeclarationSyntax>(
+                    NamespaceDeclaration(IdentifierName("MyApp"),
+                    List<MemberDeclarationSyntax>(
+                        GlobalStatement(
+                            LocalDeclarationStatement(
+                                VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
+                                    VariableDeclarator(
+                                        IdentifierName("Foo"),
+                                        TypeAnnotation(ParseTypeName("int")),
+                                        EqualsValueClause(LiteralExpression(20)))
+                            ])))),
+                        methodDeclaration))));
 
         var m = compilationUnit.Members;
 

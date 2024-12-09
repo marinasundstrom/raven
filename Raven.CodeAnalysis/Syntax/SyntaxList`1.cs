@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public class SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
 {
-    public static readonly SyntaxList<TNode> Empty = default;
+    public static readonly SyntaxList<TNode> Empty = new SyntaxList<TNode>(new InternalSyntax.SyntaxList([]), null);
 
     internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;

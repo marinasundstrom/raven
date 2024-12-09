@@ -20,6 +20,8 @@ public static partial class SyntaxFactory
 
     public static readonly SyntaxToken ImportKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ImportKeyword;
 
+    public static readonly SyntaxToken NamespaceKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.NamespaceKeyword;
+
     public static readonly SyntaxToken LetKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.LetKeyword;
 
     public static readonly SyntaxToken IfKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.IfKeyword;

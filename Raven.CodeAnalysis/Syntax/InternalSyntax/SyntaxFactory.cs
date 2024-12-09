@@ -18,6 +18,8 @@ public static class SyntaxFactory
 
     public static readonly SyntaxToken ImportKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "import");
 
+    public static readonly SyntaxToken NamespaceKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "namespace");
+
     public static readonly SyntaxToken LetKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "let");
 
     public static readonly SyntaxToken IfKeyword = new SyntaxToken(SyntaxKind.IfKeyword, "if");
