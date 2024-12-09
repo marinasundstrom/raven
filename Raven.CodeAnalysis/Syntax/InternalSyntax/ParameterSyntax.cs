@@ -2,8 +2,14 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 public class ParameterSyntax : SyntaxNode
 {
-    public ParameterSyntax()
-        : base(SyntaxKind.Parameter, [], 0, [], 0)
+    public ParameterSyntax(
+        IdentifierNameSyntax name,
+        TypeAnnotationSyntax? typeAnnotation
+    )
+        : base(SyntaxKind.Parameter, [
+            name,
+            typeAnnotation
+        ], 0, [], 0)
     {
     }
 

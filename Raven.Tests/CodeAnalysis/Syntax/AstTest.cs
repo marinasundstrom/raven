@@ -31,9 +31,9 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 IdentifierName("FooBar"),
                 TypeParameterList(
                     SeparatedList<ParameterSyntax>([
-                        Parameter(),
+                        Parameter(IdentifierName("a")),
                         CommaToken,
-                        Parameter()
+                        Parameter(IdentifierName("b"))
                     ])
                 ))
             .WithBody(
@@ -97,7 +97,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
     public void Test2()
     {
         var x = SeparatedList<ParameterSyntax>([
-            Parameter()
+            Parameter(IdentifierName("x"))
         ]);
 
         var foo = x.ToList();
@@ -146,9 +146,9 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 IdentifierName("FooBar"),
                 TypeParameterList(
                     SeparatedList<ParameterSyntax>([
-                        Parameter(),
+                        Parameter(IdentifierName("a")),
                         CommaToken,
-                        Parameter()
+                        Parameter(IdentifierName("b"))
                     ])
                 ))
             .WithBody(

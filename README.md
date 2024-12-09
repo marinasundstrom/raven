@@ -46,9 +46,9 @@ var methodDeclaration = MethodDeclaration(
         IdentifierName("FooBar"),
         TypeParameterList(
             SeparatedList<ParameterSyntax>([
-                Parameter(),
+                Parameter(IdentifierName("a")),
                 CommaToken,
-                Parameter()
+                Parameter(IdentifierName("b"))
             ])
         ))
     .WithBody(
