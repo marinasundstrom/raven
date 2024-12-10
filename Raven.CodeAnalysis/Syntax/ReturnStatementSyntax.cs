@@ -34,4 +34,7 @@ public static partial class SyntaxFactory
 {
     public static ReturnStatementSyntax ReturnStatement(ExpressionSyntax expression)
         => new ReturnStatementSyntax(expression);
+
+    public static ReturnStatementSyntax ReturnStatement(SyntaxToken returnKeyword, ExpressionSyntax expression, SyntaxToken semicolonToken)
+        => new ReturnStatementSyntax(returnKeyword, expression, semicolonToken);
 }

@@ -48,6 +48,8 @@ public static partial class SyntaxFactory
 
     public static SyntaxTrivia Newline() => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Newline();
 
+    public static SyntaxTrivia Tab() => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Tab();
+
     public static SyntaxTriviaList TriviaList(params IEnumerable<SyntaxTrivia> trivias) => new SyntaxTriviaList(trivias);
 
 }

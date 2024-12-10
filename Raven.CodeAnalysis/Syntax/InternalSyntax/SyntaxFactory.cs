@@ -10,7 +10,9 @@ public static class SyntaxFactory
     public static SyntaxTrivia Whitespace(string text) => new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, text);
 
     public static SyntaxTrivia Newline() => new SyntaxTrivia(SyntaxKind.EndOfLineToken, "\n");
-    
+
+    public static SyntaxTrivia Tab() => new SyntaxTrivia(SyntaxKind.Tab, "\t");
+
     public static readonly SyntaxToken OpenParenToken = new SyntaxToken(SyntaxKind.OpenParenToken, "(");
 
     public static readonly SyntaxToken CloseParenToken = new SyntaxToken(SyntaxKind.CloseParenToken, ")");

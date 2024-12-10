@@ -61,6 +61,7 @@ public enum SyntaxKind
     // Trivia Kinds
     WhitespaceTrivia,
     CommentTrivia,
+    Tab,
 
     EndOfLineToken,
     CarriageReturnToken,

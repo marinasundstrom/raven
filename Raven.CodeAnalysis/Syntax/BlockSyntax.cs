@@ -34,4 +34,7 @@ public static partial class SyntaxFactory
 {
     public static BlockSyntax Block(SyntaxList<StatementSyntax> statements)
         => new BlockSyntax(statements);
+
+    public static BlockSyntax Block(SyntaxToken openBraceToken, SyntaxList<StatementSyntax> statements, SyntaxToken closeBraceToken)
+        => new BlockSyntax(openBraceToken, statements, closeBraceToken);
 }
