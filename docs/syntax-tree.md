@@ -35,9 +35,13 @@ public class GreenNode
 
     public int Width { get; }
 
+    public int SlotCount { get; }
+
     public GreenNode? GetSlot(int index);
 
     // Omitting members such as LeadingTrivia and TrailingTrivia and FullWidth
+
+    // There is also a method for creating a Red node equivalent.
 }
 ```
 
