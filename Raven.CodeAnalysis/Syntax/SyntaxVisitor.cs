@@ -3,12 +3,22 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public abstract class SyntaxVisitor
 {
-    public virtual void VisitNode(SyntaxNode node)
+    public virtual void Visit(SyntaxNode node)
     {
         DefaultVisit(node);
     }
 
     public virtual void DefaultVisit(SyntaxNode node)
+    {
+
+    }
+
+    public virtual void VisitToken(SyntaxToken tokenn)
+    {
+
+    }
+
+    public virtual void VisitTrivia(SyntaxTrivia trivia)
     {
 
     }

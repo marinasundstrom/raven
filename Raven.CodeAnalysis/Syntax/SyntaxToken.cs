@@ -101,4 +101,14 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         var newGreen = Green.WithTrailingTrivia(trivias.Select(x => x.Green));
         return new SyntaxToken(newGreen, Parent);
     }
+
+    public void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitToken(this);
+    }
+
+    public TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitToken(this);
+    }
 }

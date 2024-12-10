@@ -2,12 +2,22 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public abstract class SyntaxVisitor<TResult>
 {
-    public virtual TResult VisitNode(SyntaxNode? node)
+    public virtual TResult Visit(SyntaxNode? node)
     {
         return default!;
     }
 
     public virtual TResult DefaultVisit(SyntaxNode node)
+    {
+        return default!;
+    }
+
+    public virtual TResult VisitToken(SyntaxToken token)
+    {
+        return default!;
+    }
+
+    public virtual TResult VisitTrivia(SyntaxTrivia trivia)
     {
         return default!;
     }

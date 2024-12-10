@@ -21,7 +21,15 @@ public class SyntaxVisitorTest(ITestOutputHelper testOutputHelper)
                 )));
 
         var visitor = new TestSyntaxVisitor();
+        
+        visitor.Visit(ifStatement);
 
-        ifStatement.Accept(visitor);
+        var visitor2 = new TestSyntaxVisitor2();
+
+        var r = visitor2.Visit(ifStatement);
+
+        var rewriter = new TestSyntaxRewriter();
+
+        var newTree = rewriter.Visit(ifStatement);
     }
 }

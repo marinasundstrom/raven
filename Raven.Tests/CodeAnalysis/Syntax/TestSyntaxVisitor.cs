@@ -1,5 +1,5 @@
 
-namespace Raven.CodeAnalysis.Syntax;
+namespace Raven.CodeAnalysis.Syntax.Tests;
 
 public sealed class TestSyntaxVisitor : SyntaxVisitor
 {
