@@ -5,7 +5,6 @@ public class EqualsValueClauseSyntax : StatementSyntax
     public EqualsValueClauseSyntax(
         SyntaxToken equalsToken,
         ExpressionSyntax value,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.EqualsValueClause,
@@ -13,14 +12,12 @@ public class EqualsValueClauseSyntax : StatementSyntax
                       equalsToken,
                       value
               ],
-              equalsToken.FullWidth + value.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.EqualsValueClauseSyntax(this, parent);
+        return new Syntax.EqualsValueClauseSyntax(this, parent, position);
     }
 }

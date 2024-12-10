@@ -38,11 +38,13 @@ public static partial class SyntaxFactory
 
     public static readonly SyntaxToken SemicolonToken = (SyntaxToken)InternalSyntax.SyntaxFactory.SemicolonToken;
 
-    public static readonly SyntaxToken EndOfLineToken = (SyntaxToken)InternalSyntax.SyntaxFactory.EndOfLineToken;
+    public static readonly SyntaxToken EndOfLine = (SyntaxToken)InternalSyntax.SyntaxFactory.EndOfLine;
 
-    public static readonly SyntaxToken CarriageReturnToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CarriageReturnToken;
+    public static readonly SyntaxToken CarriageReturn = (SyntaxToken)InternalSyntax.SyntaxFactory.CarriageReturn;
 
-    public static readonly SyntaxToken EndOfFileToken = (SyntaxToken)InternalSyntax.SyntaxFactory.EndOfFileToken;
+    public static readonly SyntaxToken EndOfFile = (SyntaxToken)InternalSyntax.SyntaxFactory.EndOfFile;
+
+    public static SyntaxTrivia Whitespace(string text) => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Whitespace(text);
 }
 
 public static partial class SyntaxFactory

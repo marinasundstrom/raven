@@ -6,13 +6,13 @@ public partial class ImportDirectiveSyntax : SyntaxNode
 
     public partial IdentifierNameSyntax Namespace { get; }
 
-    internal ImportDirectiveSyntax(GreenNode greenNode, SyntaxNode parent)
-    : base(greenNode, parent)
+    internal ImportDirectiveSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
+        : base(greenNode, parent, position)
     {
     }
 
     public ImportDirectiveSyntax(SyntaxToken importKeyword, IdentifierNameSyntax @namespace)
-    : base(new InternalSyntax.ImportDirectiveSyntax(importKeyword.Green, (InternalSyntax.IdentifierNameSyntax)@namespace.Green), (SyntaxNode)null)
+        : base(new InternalSyntax.ImportDirectiveSyntax(importKeyword.Green, (InternalSyntax.IdentifierNameSyntax)@namespace.Green), (SyntaxNode)null)
     {
 
     }

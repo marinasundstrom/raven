@@ -363,7 +363,24 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
                                                     IdentifierName("SyntaxToken")))),
                                         Token(SyntaxKind.CommaToken),
                                         Argument(
-                                            ThisExpression())}))));
+                                            ThisExpression()),
+                                        Token(SyntaxKind.CommaToken),
+                                        Argument(
+                                            BinaryExpression(
+                                                SyntaxKind.AddExpression,
+                                                IdentifierName("Position"),
+                                                InvocationExpression(
+                                                    MemberAccessExpression(
+                                                        SyntaxKind.SimpleMemberAccessExpression,
+                                                        IdentifierName("Green"),
+                                                        IdentifierName("GetChildStartPosition")))
+                                                .WithArgumentList(
+                                                    ArgumentList(
+                                                        SingletonSeparatedList<ArgumentSyntax>(
+                                                            Argument(LiteralExpression(
+                                                                SyntaxKind.NumericLiteralExpression,
+                                                                Literal(index))))))))
+                                        }))));
 
         return PropertyDeclaration(propertyType, propertyName)
             .AddModifiers(modifiers.ToArray())
@@ -437,7 +454,24 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
                                                             IdentifierName(targetGreenNodeType)))),
                                                 Token(SyntaxKind.CommaToken),
                                                 Argument(
-                                                    ThisExpression())})))))))));
+                                                    ThisExpression()),
+                                                Token(SyntaxKind.CommaToken),
+                                                Argument(
+                                                    BinaryExpression(
+                                                        SyntaxKind.AddExpression,
+                                                        IdentifierName("Position"),
+                                                        InvocationExpression(
+                                                            MemberAccessExpression(
+                                                                SyntaxKind.SimpleMemberAccessExpression,
+                                                                IdentifierName("Green"),
+                                                                IdentifierName("GetChildStartPosition")))
+                                                        .WithArgumentList(
+                                                            ArgumentList(
+                                                                SingletonSeparatedList<ArgumentSyntax>(
+                                                                    Argument(LiteralExpression(
+                                                                        SyntaxKind.NumericLiteralExpression,
+                                                                        Literal(index))))))))
+                                                })))))))));
     }
 
     private static PropertyDeclarationSyntax GenerateDefaultProperty(TypeSyntax propertyType, SyntaxToken propertyName)

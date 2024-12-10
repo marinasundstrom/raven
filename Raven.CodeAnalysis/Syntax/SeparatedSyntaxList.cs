@@ -9,11 +9,13 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 {
     internal readonly InternalSyntax.SeparatedSyntaxList Green;
     private readonly SyntaxNode _parent;
+    private int _position;
 
-    public SeparatedSyntaxList(InternalSyntax.SeparatedSyntaxList greenList, SyntaxNode parent)
+    public SeparatedSyntaxList(InternalSyntax.SeparatedSyntaxList greenList, SyntaxNode parent, int position)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
+        _position = position;
     }
 
     public SeparatedSyntaxList(params SyntaxNodeOrToken[] items)
@@ -22,20 +24,23 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         Green = new SeparatedSyntaxList(p);
     }
 
-    public int ElementCount => (Green.SlotCount + 1) / 2; // Elements are at even indices
+    public int Count => (Green.SlotCount + 1) / 2; // Elements are at even indices
+
+    public int SeparatorCount => Green.SlotCount / 2;
+
 
     public TNode this[int index]
     {
         get
         {
             var node = Green[index * 2];
-            return (TNode)node.CreateRed(_parent);
+            return (TNode)node.CreateRed(_parent, _position = Green.GetChildStartPosition(_position));
         }
     }
 
     public SyntaxToken GetSeparator(int index)
     {
-        if (index < 0 || index >= ElementCount - 1)
+        if (index < 0 || index >= Count - 1)
             throw new IndexOutOfRangeException($"Invalid separator index: {index}");
 
         var separator = Green[index * 2 + 1] as InternalSyntax.SyntaxToken;
@@ -53,10 +58,10 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     private IEnumerable<SyntaxNodeOrToken> EnumerateItems()
     {
-        for (int i = 0; i < ElementCount; i++)
+        for (int i = 0; i < Count; i++)
         {
             var item = this[i];
-            yield return new SyntaxNodeOrToken(item.Green, _parent);
+            yield return new SyntaxNodeOrToken(item.Green, _parent, i, Green.GetChildStartPosition(i));
         }
     }
 

@@ -5,7 +5,6 @@ public class ElseClauseSyntax : SyntaxNode
     public ElseClauseSyntax(
         SyntaxToken elseKeyword,
         StatementSyntax statement,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.ElseClause,
@@ -13,14 +12,12 @@ public class ElseClauseSyntax : SyntaxNode
                       elseKeyword,
                       statement
               ],
-              elseKeyword.FullWidth + statement.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.ElseClauseSyntax(this, parent);
+        return new Syntax.ElseClauseSyntax(this, parent, position);
     }
 }

@@ -9,12 +9,12 @@ public class ParameterSyntax : SyntaxNode
         : base(SyntaxKind.Parameter, [
             name,
             typeAnnotation
-        ], 0, [], 0)
+        ], [])
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.ParameterSyntax(this, parent);
+        return new Syntax.ParameterSyntax(this, parent, position);
     }
 }

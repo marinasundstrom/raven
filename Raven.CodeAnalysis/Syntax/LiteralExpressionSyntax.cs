@@ -2,11 +2,8 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public abstract partial class LiteralExpressionSyntax : ExpressionSyntax
 {
-    protected LiteralExpressionSyntax(GreenNode greenNode, SyntaxNode parent) : base(greenNode, parent)
-    {
-    }
-
-    protected LiteralExpressionSyntax(GreenNode greenNode, SyntaxTree syntaxTree) : base(greenNode, syntaxTree)
+    protected LiteralExpressionSyntax(GreenNode greenNode, SyntaxNode parent, int position)
+        : base(greenNode, parent, position)
     {
     }
 }
@@ -17,14 +14,15 @@ public partial class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
 
     public NumericLiteralExpressionSyntax(
         InternalSyntax.NumericLiteralExpressionSyntax greenNode,
-        SyntaxNode parent = null)
-        : base(greenNode, parent)
+        SyntaxNode parent = null,
+        int position = 0)
+        : base(greenNode, parent, position)
     {
     }
 
     public NumericLiteralExpressionSyntax(SyntaxToken numberToken)
           : this(
-                new InternalSyntax.NumericLiteralExpressionSyntax(numberToken.Green), null)
+                new InternalSyntax.NumericLiteralExpressionSyntax(numberToken.Green), null, 0)
     {
 
     }

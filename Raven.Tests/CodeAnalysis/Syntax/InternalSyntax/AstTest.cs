@@ -21,16 +21,16 @@ public class AstTest
                     IdentifierToken("a"),
                     GreaterThanToken,
                     IdentifierToken("b")
-                ], "a > b".Length),
+                ]),
                 CloseParenToken,
                 new SyntaxNode(SyntaxKind.Block,
                 [
                     // Inner block (empty for simplicity)
                     OpenBraceToken,
                     CloseBraceToken
-                ], "{}".Length)
+                ])
         // ElseClause is optional and omitted here
-        ], "if (a > b) {}".Length);
+        ]);
 
         // Create a SyntaxList containing the statements
         var statementsItems = new SyntaxListItem[]
@@ -44,8 +44,7 @@ public class AstTest
         var block = new BlockSyntax(
             OpenBraceToken,
             statementsList,
-            CloseBraceToken,
-            startPosition: 0
+            CloseBraceToken
         );
 
         /*

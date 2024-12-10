@@ -4,7 +4,6 @@ public class VariableDeclaratorSyntax : StatementSyntax
 {
     public VariableDeclaratorSyntax(
         IdentifierNameSyntax name,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.VariableDeclarator,
@@ -13,16 +12,13 @@ public class VariableDeclaratorSyntax : StatementSyntax
                     null,
                     null,
               ],
-              name.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
     public VariableDeclaratorSyntax(
         IdentifierNameSyntax name,
         TypeAnnotationSyntax typeAnnotation,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.VariableDeclarator,
@@ -31,16 +27,13 @@ public class VariableDeclaratorSyntax : StatementSyntax
                     typeAnnotation,
                     null,
               ],
-              name.FullWidth + typeAnnotation!.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
     public VariableDeclaratorSyntax(
         IdentifierNameSyntax name,
         EqualsValueClauseSyntax equalsValueClause,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.VariableDeclarator,
@@ -49,9 +42,7 @@ public class VariableDeclaratorSyntax : StatementSyntax
                     null,
                     equalsValueClause
               ],
-              name.FullWidth + equalsValueClause!.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
@@ -59,7 +50,6 @@ public class VariableDeclaratorSyntax : StatementSyntax
         IdentifierNameSyntax name,
         TypeAnnotationSyntax typeAnnotation,
         EqualsValueClauseSyntax equalsValueClause,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.VariableDeclarator,
@@ -68,14 +58,12 @@ public class VariableDeclaratorSyntax : StatementSyntax
                     typeAnnotation,
                     equalsValueClause,
               ],
-              name.FullWidth + typeAnnotation!.FullWidth + equalsValueClause.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.VariableDeclaratorSyntax(this, parent);
+        return new Syntax.VariableDeclaratorSyntax(this, parent, position);
     }
 }

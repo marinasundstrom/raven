@@ -1,10 +1,13 @@
-﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+﻿
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 public static class SyntaxFactory
 {
     public static SyntaxToken IdentifierToken(string text) => new SyntaxToken(SyntaxKind.IdentifierToken, text);
 
     public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString());
+
+    public static SyntaxTrivia Whitespace(string text) => new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, text);
 
     public static readonly SyntaxToken OpenParenToken = new SyntaxToken(SyntaxKind.OpenParenToken, "(");
 
@@ -36,9 +39,9 @@ public static class SyntaxFactory
 
     public static readonly SyntaxToken SemicolonToken = new SyntaxToken(SyntaxKind.SemicolonToken, ";");
 
-    public static readonly SyntaxToken EndOfLineToken = new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");
+    public static readonly SyntaxToken EndOfLine = new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");
 
-    public static readonly SyntaxToken CarriageReturnToken = new SyntaxToken(SyntaxKind.CarriageReturnToken, "\r");
+    public static readonly SyntaxToken CarriageReturn = new SyntaxToken(SyntaxKind.CarriageReturnToken, "\r");
 
-    public static readonly SyntaxToken EndOfFileToken = new SyntaxToken(SyntaxKind.EndOfFileTokenToken, ";");
+    public static readonly SyntaxToken EndOfFile = new SyntaxToken(SyntaxKind.EndOfFileTokenToken, ";");
 }

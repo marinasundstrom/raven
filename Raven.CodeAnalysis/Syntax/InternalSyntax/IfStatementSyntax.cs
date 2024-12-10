@@ -9,7 +9,6 @@ public class IfStatementSyntax : StatementSyntax
         SyntaxToken closeParenToken,
         StatementSyntax statement,
         SyntaxToken semicolonToken,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.IfStatement,
@@ -21,9 +20,7 @@ public class IfStatementSyntax : StatementSyntax
                       statement,
                       semicolonToken
               ],
-              ifKeyword.FullWidth + openParenToken.FullWidth + (condition?.FullWidth ?? 0) + closeParenToken.FullWidth + (statement?.FullWidth ?? 0) + semicolonToken.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
@@ -33,7 +30,6 @@ public class IfStatementSyntax : StatementSyntax
         ExpressionSyntax condition,
         SyntaxToken closeParenToken,
         StatementSyntax statement,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
     : base(
           SyntaxKind.IfStatement,
@@ -44,9 +40,7 @@ public class IfStatementSyntax : StatementSyntax
                       closeParenToken,
                       statement,
           ],
-          ifKeyword.FullWidth + openParenToken.FullWidth + (condition?.FullWidth ?? 0) + closeParenToken.FullWidth + (statement?.FullWidth ?? 0),
-          diagnostics,
-          startPosition)
+          diagnostics)
     {
     }
 
@@ -58,7 +52,6 @@ public class IfStatementSyntax : StatementSyntax
         StatementSyntax statement,
         ElseClauseSyntax elseClause,
         SyntaxToken semicolonToken,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.IfStatement,
@@ -71,9 +64,7 @@ public class IfStatementSyntax : StatementSyntax
                           elseClause,
                           semicolonToken
               ],
-              ifKeyword.FullWidth + openParenToken.FullWidth + condition.FullWidth + closeParenToken.FullWidth + statement.FullWidth + (elseClause?.FullWidth ?? 0) + semicolonToken.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
@@ -84,7 +75,6 @@ public class IfStatementSyntax : StatementSyntax
         SyntaxToken closeParenToken,
         StatementSyntax statement,
         ElseClauseSyntax elseClause,
-        int startPosition = 0,
     IEnumerable<DiagnosticInfo> diagnostics = null)
     : base(
           SyntaxKind.IfStatement,
@@ -96,14 +86,12 @@ public class IfStatementSyntax : StatementSyntax
                           statement,
                           elseClause
           ],
-          ifKeyword.FullWidth + openParenToken.FullWidth + condition.FullWidth + closeParenToken.FullWidth + statement.FullWidth + (elseClause?.FullWidth ?? 0),
-          diagnostics,
-          startPosition)
+          diagnostics)
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.IfStatementSyntax(this, parent);
+        return new Syntax.IfStatementSyntax(this, parent, position);
     }
 }

@@ -8,7 +8,6 @@ public class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
         SyntaxToken semicolonToken,
         SyntaxList imports,
         SyntaxList members,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.CompilationUnit,
@@ -19,14 +18,12 @@ public class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
                     members,
                     semicolonToken
               ],
-              (imports?.FullWidth ?? 0) + (members?.FullWidth ?? 0),
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.FileScopedNamespaceDeclarationSyntax(this, parent);
+        return new Syntax.FileScopedNamespaceDeclarationSyntax(this, parent, position);
     }
 }

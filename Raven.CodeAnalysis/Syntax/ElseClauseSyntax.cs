@@ -8,8 +8,9 @@ public partial class ElseClauseSyntax : SyntaxNode
 
     public ElseClauseSyntax(
         InternalSyntax.SyntaxNode greenNode,
-        SyntaxNode parent = null)
-    : base(greenNode, parent)
+        SyntaxNode parent = null,
+        int position = 0)
+    : base(greenNode, parent, position)
     {
     }
 

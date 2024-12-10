@@ -1,21 +1,23 @@
 using System.Runtime.CompilerServices;
 
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
+
 namespace Raven.CodeAnalysis.Syntax;
 public abstract class GreenNode
 {
     public SyntaxKind Kind { get; }
+    public int Width { get; }
     public int FullWidth { get; }
     public int SlotCount { get; }
-    public int StartPosition { get; }
-    public int EndPosition => StartPosition + FullWidth;
+
     public IEnumerable<DiagnosticInfo> Diagnostics { get; }
 
-    protected GreenNode(SyntaxKind kind, int slotCount, int fullWidth, IEnumerable<DiagnosticInfo> diagnostics = null, int startPosition = 0)
+    protected GreenNode(SyntaxKind kind, int slotCount, int width, int fullWidth, IEnumerable<DiagnosticInfo> diagnostics = null)
     {
         Kind = kind;
         SlotCount = slotCount;
+        Width = width;
         FullWidth = fullWidth;
-        StartPosition = startPosition;
         Diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
     }
 
@@ -69,8 +71,62 @@ public abstract class GreenNode
         return node;
     }
 
-    public virtual Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public virtual Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
         return null!;
+    }
+
+    public virtual object? GetValue() => (int)Kind;
+
+    public virtual string? GetValueText() => SyntaxFacts.GetSyntaxTokenText(Kind);
+
+    protected static int CalculateWidth(GreenNode[] items)
+    {
+        if (items is null)
+            return 0;
+
+        if (items.Length == 1)
+        {
+            return items[0].Width;
+        }
+
+        var value = items
+            .Where(item => item is not null)
+            .Sum(item => item.Width);
+
+        return value;
+    }
+
+    protected static int CalculateFullWidth(GreenNode[] items)
+    {
+        if (items is null)
+            return 0;
+
+        if (items.Length == 1)
+        {
+            return items[0].FullWidth;
+        }
+
+        var value = items
+            .Where(item => item is not null)
+            .Sum(item => item.FullWidth);
+
+        return value;
+    }
+
+    public virtual int GetChildStartPosition(int childIndex)
+    {
+        int offset = 0;
+
+        for (int i = 0; i < childIndex; i++)
+        {
+            var slot = GetSlot(i);
+            if (slot != null)
+            {
+                offset += slot.FullWidth;
+            }
+        }
+
+        return offset;
     }
 }

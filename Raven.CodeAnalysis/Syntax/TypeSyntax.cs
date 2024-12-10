@@ -2,24 +2,20 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public abstract partial class TypeSyntax : SyntaxNode
 {
-    protected TypeSyntax(GreenNode greenNode, SyntaxNode parent) : base(greenNode, parent)
-    {
-    }
-
-    protected TypeSyntax(GreenNode greenNode, SyntaxTree syntaxTree) : base(greenNode, syntaxTree)
+    protected TypeSyntax(GreenNode greenNode, SyntaxNode parent, int position) : base(greenNode, parent, position)
     {
     }
 }
 
 public partial class NameSyntax : TypeSyntax
 {
-    internal NameSyntax(GreenNode greenNode, SyntaxNode parent)
-        : base(greenNode, parent)
+    internal NameSyntax(GreenNode greenNode, SyntaxNode parent, int position)
+        : base(greenNode, parent, position)
     {
     }
 
     public NameSyntax(SyntaxToken nameToken)
-    : base(new InternalSyntax.NameSyntax(nameToken.Green), (SyntaxNode)null)
+        : base(new InternalSyntax.NameSyntax(nameToken.Green), (SyntaxNode)null, 0)
     {
 
     }

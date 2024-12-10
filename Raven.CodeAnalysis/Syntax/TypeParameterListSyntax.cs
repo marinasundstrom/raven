@@ -3,16 +3,14 @@ namespace Raven.CodeAnalysis.Syntax;
 public partial class TypeParameterListSyntax : SyntaxNode
 {
     public partial SyntaxToken OpenParenToken { get; }
-    public partial SeparatedSyntaxList<ParameterSyntax> Items { get; }
-
-    public IEnumerable<ParameterSyntax> Parameters => Items.OfType<ParameterSyntax>();
-
+    public partial SeparatedSyntaxList<ParameterSyntax> Parameters { get; }
     public partial SyntaxToken CloseParenToken { get; }
 
     public TypeParameterListSyntax(
         InternalSyntax.TypeParameterListSyntax greenNode,
-        SyntaxNode parent = null)
-        : base(greenNode, parent)
+        SyntaxNode parent = null,
+        int position = 0)
+        : base(greenNode, parent, position)
     {
     }
 

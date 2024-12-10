@@ -2,18 +2,31 @@
 
 public struct SyntaxTrivia
 {
-    private readonly InternalSyntax.SyntaxTrivia _trivia;
-    private readonly SyntaxToken _parent;
+    internal readonly InternalSyntax.SyntaxTrivia Green;
+    private readonly SyntaxToken? _token;
 
-    public SyntaxKind Kind => _trivia.Kind;
-    public string Text => _trivia.Text;
-    public IEnumerable<DiagnosticInfo> Diagnostics => _trivia.Diagnostics;
+    public SyntaxKind Kind => Green.Kind;
+    public string Text => Green.Text;
+    public IEnumerable<DiagnosticInfo> Diagnostics => Green.Diagnostics;
+
+    public SyntaxToken? Token => _token;
 
     public SyntaxTrivia(InternalSyntax.SyntaxTrivia trivia, SyntaxToken parent)
     {
-        _trivia = trivia ?? throw new ArgumentNullException(nameof(trivia));
-        _parent = parent;
+        Green = trivia ?? throw new ArgumentNullException(nameof(trivia));
+        _token = parent;
+    }
+
+    public SyntaxTrivia(SyntaxKind kind)
+    {
+        Green = new InternalSyntax.SyntaxTrivia(kind, SyntaxFacts.GetSyntaxTokenText(kind)!);
+        _token = null!;
     }
 
     public override string ToString() => Text;
+
+    public static explicit operator SyntaxTrivia(InternalSyntax.SyntaxTrivia trivia)
+    {
+        return new SyntaxTrivia(trivia, default!);
+    }
 }

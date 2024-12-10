@@ -5,7 +5,6 @@ public class LocalDeclarationStatementSyntax : StatementSyntax
     public LocalDeclarationStatementSyntax(
         VariableDeclarationSyntax declaration,
         SyntaxToken semicolonToken,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.LocalDeclaration,
@@ -13,14 +12,12 @@ public class LocalDeclarationStatementSyntax : StatementSyntax
                       declaration,
                       semicolonToken
               ],
-              declaration.FullWidth + semicolonToken.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.LocalDeclarationStatementSyntax(this, parent);
+        return new Syntax.LocalDeclarationStatementSyntax(this, parent, position);
     }
 }

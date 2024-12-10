@@ -42,7 +42,11 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         var r = methodDeclaration.ReturnType;
 
-        var pars = methodDeclaration.ParameterList.Parameters.ToList();
+        TypeParameterListSyntax parsLis = methodDeclaration.ParameterList;
+
+        var sep = parsLis.Parameters.GetSeparator(0);
+
+        var pars = parsLis.Parameters.ToList();
 
         testOutputHelper.WriteLine($"Equal: {ifStatement} == {ifStatementWithElseClause} = {ifStatement == ifStatementWithElseClause}");
 
@@ -135,6 +139,9 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                     LiteralExpression(2))
             )));
 
+        var foo1 = ifStatement.Span;
+        var foo2 = ifStatement.FullSpan;
+
         var ifStatementWithElseClause = ifStatement
                 .WithElseClause(
                     ElseClause(
@@ -142,13 +149,13 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                             LiteralExpression(2))));
 
         var methodDeclaration = MethodDeclaration(
-                ParseTypeName("test"),
+                ParseTypeName("int"),
                 IdentifierName("FooBar"),
                 TypeParameterList(
                     SeparatedList<ParameterSyntax>([
-                        Parameter(IdentifierName("a")),
+                        Parameter(IdentifierName("a"), TypeAnnotation(ParseTypeName("int"))),
                         CommaToken,
-                        Parameter(IdentifierName("b"))
+                        Parameter(IdentifierName("b"), TypeAnnotation(ParseTypeName("int")))
                     ])
                 ))
             .WithBody(
@@ -177,7 +184,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         var m = compilationUnit.Members;
 
-        compilationUnit.NormalizeWhitespace();
+        compilationUnit = compilationUnit.NormalizeWhitespace();
 
         var syntaxtTree = SyntaxTree.Create(compilationUnit);
 

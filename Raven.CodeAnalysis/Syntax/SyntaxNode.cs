@@ -31,9 +31,30 @@ public abstract class SyntaxNode
     }
 
     public SyntaxKind Kind => Green.Kind;
+
+    public int Position { get; }
+
+    public int Width => Green.Width;
+
     public int FullWidth => Green.FullWidth;
-    public int StartPosition => Green.StartPosition;
-    public int EndPosition => Green.EndPosition;
+
+    public TextSpan Span
+    {
+        get
+        {
+            var start = Position + LeadingTrivia.Width;
+            return new TextSpan(start, Width);
+        }
+    }
+
+    public TextSpan FullSpan
+    {
+        get
+        {
+            return new TextSpan(Position, FullWidth);
+        }
+    }
+
     public IEnumerable<DiagnosticInfo> Diagnostics => Green.Diagnostics;
 
     /// <summary>
@@ -69,10 +90,11 @@ public abstract class SyntaxNode
         return (SyntaxToken)syntaxNode.Green.GetLastTerminal();
     }
 
-    public SyntaxNode(GreenNode greenNode, SyntaxNode parent)
+    public SyntaxNode(GreenNode greenNode, SyntaxNode parent, int position = 0)
     {
         Green = greenNode ?? throw new ArgumentNullException(nameof(greenNode));
         _parent = parent;
+        Position = position;
     }
 
     public SyntaxNode(GreenNode greenNode, SyntaxTree syntaxTree)
@@ -130,7 +152,8 @@ public abstract class SyntaxNode
         var slot = this.Green.GetSlot(index);
         if (slot is not null)
         {
-            node = (TNode)slot.CreateRed(this);
+            var position = Position + Green.GetChildStartPosition(index);
+            node = (TNode)slot.CreateRed(this, position);
             return node;
         }
         return null!;

@@ -6,12 +6,11 @@ public class GlobalStatementSyntax : SyntaxNode
         : base(SyntaxKind.GlobalStatement,
               [
                     statement
-              ],
-              statement.FullWidth)
+              ])
     {
     }
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.GlobalStatementSyntax(this, parent);
+        return new Syntax.GlobalStatementSyntax(this, parent, position);
     }
 }

@@ -2,12 +2,12 @@
 
 public class SyntaxList : GreenNode
 {
-    public static readonly SyntaxList Empty = new([], 0);
+    public static readonly SyntaxList Empty = new([]);
 
     private readonly SyntaxListItem[] _items;
 
-    public SyntaxList(SyntaxListItem[] items, int startPosition = 0)
-        : base(SyntaxKind.SyntaxList, items?.Length ?? 0, CalculateFullWidth(items), startPosition: startPosition)
+    public SyntaxList(SyntaxListItem[] items)
+        : base(SyntaxKind.SyntaxList, items?.Length ?? 0, CalculateWidth(items), CalculateFullWidth(items))
     {
         _items = items ?? Array.Empty<SyntaxListItem>();
     }
@@ -15,6 +15,9 @@ public class SyntaxList : GreenNode
     public override GreenNode GetSlot(int index) => _items[index].Node;
 
     public SyntaxListItem this[int index] => _items[index];
+
+    private static int CalculateWidth(SyntaxListItem[] items) =>
+        items?.Sum(item => item.Node.Width) ?? 0;
 
     private static int CalculateFullWidth(SyntaxListItem[] items) =>
         items?.Sum(item => item.Node.FullWidth) ?? 0;

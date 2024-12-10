@@ -11,8 +11,8 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
     public partial TypeParameterListSyntax ParameterList { get; }
     public partial BlockSyntax? Body { get; }
 
-    public MethodDeclarationSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null)
-        : base(greenNode, parent)
+    public MethodDeclarationSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
+        : base(greenNode, parent, position)
     {
     }
 

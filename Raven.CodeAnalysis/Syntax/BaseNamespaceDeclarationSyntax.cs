@@ -7,11 +7,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public abstract class BaseNamespaceDeclarationSyntax : MemberDeclarationSyntax
 {
-    public BaseNamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode? parent) : base(greenNode, parent)
-    {
-    }
-
-    public BaseNamespaceDeclarationSyntax(GreenNode greenNode, SyntaxTree syntaxTree) : base(greenNode, syntaxTree)
+    public BaseNamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode? parent, int position) : base(greenNode, parent, position)
     {
     }
 }

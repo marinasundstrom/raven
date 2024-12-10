@@ -19,6 +19,11 @@ public class TextSpan
 
     private string GetDebuggerDisplay()
     {
-        return $"{Start}..{Start + Length}";
+        return $"{Start}..{End}";
+    }
+
+    public override string ToString()
+    {
+        return $"{Start}..{End}";
     }
 }

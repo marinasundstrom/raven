@@ -10,7 +10,6 @@ public class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
         SyntaxList members,
         SyntaxToken closeBraceToken,
         SyntaxToken semicolonToken,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.CompilationUnit,
@@ -23,14 +22,12 @@ public class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
                     closeBraceToken,
                     semicolonToken
               ],
-              (imports?.FullWidth ?? 0) + (members?.FullWidth ?? 0),
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.NamespaceDeclarationSyntax(this, parent);
+        return new Syntax.NamespaceDeclarationSyntax(this, parent, position);
     }
 }

@@ -6,7 +6,6 @@ public class BinaryExpressionSyntax : ExpressionSyntax
         ExpressionSyntax leftHandSide,
         SyntaxToken operatorToken,
         ExpressionSyntax rightHandSide,
-        int startPosition = 0,
         IEnumerable<DiagnosticInfo> diagnostics = null)
         : base(
               SyntaxKind.Block,
@@ -15,15 +14,13 @@ public class BinaryExpressionSyntax : ExpressionSyntax
                       operatorToken,
                       rightHandSide
               ],
-              leftHandSide.FullWidth + (operatorToken?.FullWidth ?? 0) + rightHandSide.FullWidth,
-              diagnostics,
-              startPosition)
+              diagnostics)
     {
 
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.BinaryExpressionSyntax(this, parent);
+        return new Syntax.BinaryExpressionSyntax(this, parent, position);
     }
 }

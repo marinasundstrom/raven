@@ -8,8 +8,9 @@ public partial class BinaryExpressionSyntax : ExpressionSyntax
 
     public BinaryExpressionSyntax(
         InternalSyntax.BinaryExpressionSyntax greenNode,
-        SyntaxNode parent = null)
-        : base(greenNode, parent)
+        SyntaxNode parent = null,
+        int position = 0)
+        : base(greenNode, parent, position)
     {
     }
 

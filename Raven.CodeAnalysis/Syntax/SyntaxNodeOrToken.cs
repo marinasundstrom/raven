@@ -6,11 +6,15 @@ public struct SyntaxNodeOrToken
 {
     internal readonly GreenNode Green;
     private readonly SyntaxNode _parent;
+    private readonly int _index;
+    private readonly int _position;
 
-    public SyntaxNodeOrToken(GreenNode node, SyntaxNode parent)
+    public SyntaxNodeOrToken(GreenNode node, SyntaxNode parent, int index, int position)
     {
         Green = node ?? throw new ArgumentNullException(nameof(node));
         _parent = parent;
+        _index = index;
+        _position = position;
     }
 
     public SyntaxNodeOrToken(SyntaxNode node)
@@ -25,8 +29,8 @@ public struct SyntaxNodeOrToken
 
     public bool IsToken => Green is InternalSyntax.SyntaxToken;
     public bool IsNode => Green is InternalSyntax.SyntaxNode;
-    public SyntaxToken Token => IsToken ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent) : default;
-    public SyntaxNode? Node => IsNode ? Green.CreateRed(_parent) : default;
+    public SyntaxToken Token => IsToken ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent, _position) : default;
+    public SyntaxNode? Node => IsNode ? Green.CreateRed(_parent, _position) : default;
 
     public bool AsToken(out SyntaxToken token)
     {

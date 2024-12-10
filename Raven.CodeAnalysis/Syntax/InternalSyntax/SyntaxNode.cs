@@ -7,10 +7,8 @@ public class SyntaxNode : GreenNode
     public SyntaxNode(
         SyntaxKind kind,
         GreenNode[] slots,
-        int fullWidth,
-        IEnumerable<DiagnosticInfo> diagnostics = null,
-        int startPosition = 0)
-        : base((Syntax.SyntaxKind)kind, slots?.Length ?? 0, fullWidth, diagnostics, startPosition)
+        IEnumerable<DiagnosticInfo> diagnostics = null)
+        : base(kind, slots?.Length ?? 0, CalculateWidth(slots), CalculateFullWidth(slots), diagnostics)
     {
         _slots = slots ?? Array.Empty<GreenNode>();
     }
@@ -21,5 +19,21 @@ public class SyntaxNode : GreenNode
             return null;
         //throw new IndexOutOfRangeException($"Invalid slot index: {index}");
         return _slots[index];
+    }
+
+    public override int GetChildStartPosition(int childIndex)
+    {
+        int offset = 0;
+
+        for (int i = 0; i < childIndex; i++)
+        {
+            var slot = GetSlot(i);
+            if (slot != null)
+            {
+                offset += slot.FullWidth;
+            }
+        }
+
+        return offset;
     }
 }

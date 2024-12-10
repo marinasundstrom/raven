@@ -10,8 +10,7 @@ public class MethodDeclarationSyntax : MemberDeclarationSyntax
                       name,
                       parameters,
                       null
-              ],
-              returnType.FullWidth + name.FullWidth + parameters.FullWidth)
+              ])
     {
     }
 
@@ -22,13 +21,12 @@ public class MethodDeclarationSyntax : MemberDeclarationSyntax
                 name,
                 parameters,
                 body
-          ],
-          returnType.FullWidth + name.FullWidth + parameters.FullWidth)
+          ])
     {
     }
 
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.MethodDeclarationSyntax(this, parent);
+        return new Syntax.MethodDeclarationSyntax(this, parent, position);
     }
 }

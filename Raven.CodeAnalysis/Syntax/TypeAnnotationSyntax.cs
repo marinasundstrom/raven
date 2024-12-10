@@ -7,8 +7,9 @@ public partial class TypeAnnotationSyntax : SyntaxNode
 
     public TypeAnnotationSyntax(
         InternalSyntax.TypeAnnotationSyntax greenNode,
-        SyntaxNode parent = null)
-        : base(greenNode, parent)
+        SyntaxNode parent = null,
+        int position = 0)
+        : base(greenNode, parent, position)
     {
     }
 

@@ -11,8 +11,8 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     public partial ElseClauseSyntax? ElseClause { get; }
     public partial SyntaxToken? SemicolonToken { get; }
 
-    public IfStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null)
-        : base(greenNode, parent)
+    public IfStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
+        : base(greenNode, parent, position)
     {
     }
 

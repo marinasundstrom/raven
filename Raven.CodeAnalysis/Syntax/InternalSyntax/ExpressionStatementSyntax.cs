@@ -6,12 +6,11 @@ public class ExpressionStatementSyntax : StatementSyntax
         : base(SyntaxKind.ExpressionStatement,
               [
                     expression
-              ],
-              expression.FullWidth)
+              ])
     {
     }
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent)
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.ExpressionStatementSyntax(this, parent);
+        return new Syntax.ExpressionStatementSyntax(this, parent, position);
     }
 }
