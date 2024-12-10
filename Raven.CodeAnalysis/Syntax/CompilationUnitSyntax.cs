@@ -50,3 +50,9 @@ public partial class CompilationUnitSyntax : SyntaxNode
         return new CompilationUnitSyntax(syntaxTree, Imports, Members);
     }
 }
+
+public static partial class SyntaxFactory
+{
+    public static CompilationUnitSyntax CompilationUnit()
+        => new CompilationUnitSyntax();
+}

@@ -9,6 +9,12 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
     internal readonly InternalSyntax.SyntaxTriviaList Green;
     private readonly SyntaxToken _parent;
 
+    public SyntaxTriviaList(params IEnumerable<SyntaxTrivia> trivias)
+    {
+        Green = new InternalSyntax.SyntaxTriviaList(trivias.Select(x => x.Green).ToArray());
+        _parent = default;
+    }
+
     public SyntaxTriviaList(SyntaxToken parent, InternalSyntax.SyntaxTriviaList greenList)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
@@ -38,13 +44,24 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    public SyntaxTriviaList AddTrivia(SyntaxTrivia trivia)
+    public SyntaxTriviaList Add(SyntaxTrivia trivia)
     {
         var newGreenList = Green.Add(trivia.Green); // Assumes a method Add exists in InternalSyntax.SyntaxTriviaList
         return new SyntaxTriviaList(_parent, newGreenList);
     }
 
-    public SyntaxTriviaList RemoveTrivia(SyntaxTrivia trivia)
+    public SyntaxTriviaList Remove(SyntaxKind kind)
+    {
+        var greenNodes = Green.Select((node, index) => (node, index))
+                                   .Where(pair => !Equals(pair.node.Kind, kind))
+                                   .Select(pair => pair.node)
+                                   .ToArray();
+
+        var newGreenList = InternalSyntax.SyntaxTriviaList.Create(greenNodes); // Assumes a Create method exists to build a new list
+        return new SyntaxTriviaList(_parent, newGreenList);
+    }
+
+    public SyntaxTriviaList Remove(SyntaxTrivia trivia)
     {
         var greenNodes = Green.Select((node, index) => (node, index))
                                    .Where(pair => !Equals(pair.node, trivia.Green))

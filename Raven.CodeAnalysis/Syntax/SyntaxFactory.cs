@@ -45,14 +45,11 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken EndOfFile = (SyntaxToken)InternalSyntax.SyntaxFactory.EndOfFile;
 
     public static SyntaxTrivia Whitespace(string text) => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Whitespace(text);
-    
-    public static SyntaxTrivia Newline() => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Newline();
-}
 
-public static partial class SyntaxFactory
-{
-    public static CompilationUnitSyntax CompilationUnit()
-        => new CompilationUnitSyntax();
+    public static SyntaxTrivia Newline() => (SyntaxTrivia)InternalSyntax.SyntaxFactory.Newline();
+
+    public static SyntaxTriviaList TriviaList(params IEnumerable<SyntaxTrivia> trivias) => new SyntaxTriviaList(trivias);
+
 }
 
 static partial class SyntaxFactory
