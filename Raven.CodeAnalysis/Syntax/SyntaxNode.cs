@@ -106,13 +106,13 @@ public abstract class SyntaxNode
     /// <summary>
     /// Retrieves all descendant nodes recursively.
     /// </summary>
-    public IEnumerable<SyntaxNode> Descendants()
+    public IEnumerable<SyntaxNode> DescendantNodes()
     {
         foreach (var child in ChildNodes())
         {
             yield return child;
 
-            foreach (var descendant in child.Descendants())
+            foreach (var descendant in child.DescendantNodes())
             {
                 yield return descendant;
             }
@@ -122,7 +122,7 @@ public abstract class SyntaxNode
     /// <summary>
     /// Retrieves all ancestor nodes up to the root.
     /// </summary>
-    public IEnumerable<SyntaxNode> Ancestors()
+    public IEnumerable<SyntaxNode> AncestorNodes()
     {
         var current = _parent;
         while (current != null)

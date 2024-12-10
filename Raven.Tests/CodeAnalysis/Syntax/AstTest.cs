@@ -50,15 +50,15 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine($"Equal: {ifStatement} == {ifStatementWithElseClause} = {ifStatement == ifStatementWithElseClause}");
 
-        var descendants = ifStatementWithElseClause.Descendants().ToArray();
+        var descendants = ifStatementWithElseClause.DescendantNodes().ToArray();
 
         var returnStatements = ifStatementWithElseClause
-            .Descendants()
+            .DescendantNodes()
             .OfType<ReturnStatementSyntax>().ToArray();
 
         var parentIfStatement = returnStatements
             .First()
-            .Ancestors()
+            .AncestorNodes()
             .OfType<IfStatementSyntax>()
             .ToList();
 
@@ -186,16 +186,17 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         compilationUnit = compilationUnit.NormalizeWhitespace();
 
-        var syntaxtTree = SyntaxTree.Create(compilationUnit);
+        var syntaxTree = SyntaxTree.Create(compilationUnit);
 
         var compilation = Compilation.Create("MyCompilation")
-            .AddSyntaxTrees(syntaxtTree);
+            .AddSyntaxTrees(syntaxTree);
         //.AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
 
-        var semanticModel = compilation.GetSemanticModel(syntaxtTree);
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-        var varDelc = compilationUnit
-            .Descendants()
+        var varDelc = compilation.SyntaxTrees.First()
+            .GetSyntaxRoot()
+            .DescendantNodes()
             .OfType<VariableDeclarationSyntax>()
             .First();
 

@@ -14,6 +14,8 @@ public class Compilation
         _name = name;
     }
 
+    public SyntaxTree[] SyntaxTrees => _syntaxTrees;
+
     public static Compilation Create(string name, SyntaxTree[] syntaxTrees /* references */)
     {
         return new Compilation(name)
