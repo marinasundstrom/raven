@@ -26,6 +26,11 @@ public partial class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
     {
 
     }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitLiteralExpression(this);
+    }
 }
 
 public static partial class SyntaxFactory

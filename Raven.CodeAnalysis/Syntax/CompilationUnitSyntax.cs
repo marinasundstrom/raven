@@ -49,6 +49,11 @@ public partial class CompilationUnitSyntax : SyntaxNode
     {
         return new CompilationUnitSyntax(syntaxTree, Imports, Members);
     }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisiCompilationUnit(this);
+    }
 }
 
 public static partial class SyntaxFactory

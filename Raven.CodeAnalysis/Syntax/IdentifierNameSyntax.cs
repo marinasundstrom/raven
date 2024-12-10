@@ -18,6 +18,11 @@ public partial class IdentifierNameSyntax : ExpressionSyntax
     {
 
     }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitIdentifierName(this);
+    }
 }
 
 public static partial class SyntaxFactory

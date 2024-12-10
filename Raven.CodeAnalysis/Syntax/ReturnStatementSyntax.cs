@@ -28,6 +28,11 @@ public partial class ReturnStatementSyntax : StatementSyntax
     {
 
     }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitReturnStatement(this);
+    }
 }
 
 public static partial class SyntaxFactory

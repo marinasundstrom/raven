@@ -36,6 +36,11 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
     {
         return new FileScopedNamespaceDeclarationSyntax(NamespaceKeyword, Name, SemicolonToken, Imports, members);
     }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitFileScopedNamespaceDeclaration(this);
+    }
 }
 
 public static partial class SyntaxFactory

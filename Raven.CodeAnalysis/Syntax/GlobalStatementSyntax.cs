@@ -13,6 +13,11 @@ public partial class GlobalStatementSyntax : MemberDeclarationSyntax
         : this(new InternalSyntax.GlobalStatementSyntax((InternalSyntax.StatementSyntax)statement.Green))
     {
     }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitGlobalStatement(this);
+    }
 }
 
 public static partial class SyntaxFactory

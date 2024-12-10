@@ -18,6 +18,11 @@ public partial class ParameterSyntax : SyntaxNode
     {
 
     }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitParameter(this);
+    }
 }
 
 public static partial class SyntaxFactory

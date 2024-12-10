@@ -42,6 +42,11 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
     {
         return new NamespaceDeclarationSyntax(NamespaceKeyword, Name, OpenBraceToken, Imports, members, CloseBraceToken);
     }
+
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitNamespaceDeclaration(this);
+    }
 }
 
 public static partial class SyntaxFactory

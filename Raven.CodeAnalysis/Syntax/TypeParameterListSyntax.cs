@@ -27,7 +27,10 @@ public partial class TypeParameterListSyntax : SyntaxNode
 
     }
 
-    // Additional properties or methods specific to BlockSyntax can be added here.
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitParameterList(this);
+    }
 }
 
 public static partial class SyntaxFactory

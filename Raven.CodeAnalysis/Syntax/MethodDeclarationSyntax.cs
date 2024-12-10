@@ -26,6 +26,10 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
     {
     }
 
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitMethodDeclaration(this);
+    }
 
     public MethodDeclarationSyntax WithBody(BlockSyntax body)
     {

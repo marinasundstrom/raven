@@ -43,7 +43,10 @@ public partial class VariableDeclaratorSyntax : SyntaxNode
 
     }
 
-    // Additional properties or methods specific to BlockSyntax can be added here.
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitVariableDeclarator(this);
+    }
 }
 
 public static partial class SyntaxFactory

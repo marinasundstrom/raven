@@ -167,3 +167,7 @@ public abstract class SyntaxNode
     {
         return SourceWriter.WriteNodeToText(this, true);
     }
+    public virtual void Accept(SyntaxVisitor visitor) { }
+
+    public virtual TResult Accept<TResult>(SyntaxVisitor<TResult> visitor) { return default!; }
+}

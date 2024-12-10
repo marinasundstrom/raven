@@ -47,7 +47,10 @@ public sealed partial class IfStatementSyntax : StatementSyntax
         return new IfStatementSyntax(Condition, Statement, elseClause);
     }
 
-    // Additional properties or methods specific to IfStatement
+    public override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitIfStatement(this);
+    }
 }
 
 public static partial class SyntaxFactory
