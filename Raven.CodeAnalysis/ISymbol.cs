@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Diagnostics;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -44,12 +43,6 @@ public abstract class SyntaxReference
     {
         return this.SyntaxTree.GetLocation(this.Span);
     }
-}
-
-[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-public abstract class Location
-{
-    public string GetDebuggerDisplay() => "Foo";
 }
 
 public interface INamespaceSymbol : ISymbol

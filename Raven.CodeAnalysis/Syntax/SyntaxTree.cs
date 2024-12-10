@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Syntax;
@@ -10,22 +11,28 @@ namespace Raven.CodeAnalysis.Syntax;
 public class SyntaxTree
 {
     private CompilationUnitSyntax _compilationUnit;
+    private SourceText? _sourceText;
 
-    public SyntaxTree()
+    private SyntaxTree()
     {
 
     }
+
+    private SyntaxTree(SourceText sourceText)
+    {
+        _sourceText = sourceText;
+    }
+
 
     public CompilationUnitSyntax GetSyntaxRoot() { return _compilationUnit; }
 
     public static SyntaxTree ParseText(string text)
     {
-        return null!;
-    }
+        var source = new SourceText(text);
 
-    public CompilationUnitSyntax GetCompilationUnitRoot()
-    {
-        return null!;
+        // TODO: Invoke parser
+
+        return new SyntaxTree(source);
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
@@ -33,7 +40,7 @@ public class SyntaxTree
         return null;
     }
 
-    public IEnumerable<Diagnostic> GetDiagnostics(SyntaxNodeOrToken syntaxNodeOrTokent)
+    public IEnumerable<Diagnostic> GetDiagnostics(SyntaxNodeOrToken syntaxNodeOrToken)
     {
         return null;
     }
@@ -62,6 +69,29 @@ public class SyntaxTree
 
     public Location GetLocation(TextSpan span)
     {
-        return default!;
+        var sourceText = GetText();
+
+        if (sourceText is null)
+            throw new Exception();
+
+        var (line, column) = sourceText.GetLineAndColumn(span);
+        return new Location(line, column);
+    }
+
+    public SourceText? GetText()
+    {
+        return _sourceText;
+    }
+
+    public bool TryGetText([NotNullWhen(true)] out SourceText? text)
+    {
+        if (_sourceText is not null)
+        {
+            text = new SourceText("");
+            return true;
+        }
+        text = null;
+        return false;
+    }
     }
 }
