@@ -204,7 +204,7 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
         // Identify all partial properties in the class
         var fieldDeclarations = classSymbol.GetMembers()
             .OfType<IPropertySymbol>()
-            .Where(property => property.IsPartial() && !IsSyntaxToken(property.Type))
+            .Where(property => property.IsPartial() && !IsSyntaxToken(property.Type) && !IsSyntaxList(property.Type))
             .Select(property =>
             {
                 var propertyType = ParseTypeName(property.Type.ToDisplayString());
