@@ -29,11 +29,11 @@ The `GreenNode` looks something like this:
 ```csharp
 public class GreenNode 
 {
-    public string? Value { get; set; }
+    public string? Value { get; }
 
-    public SyntaxKind Kind { get; set; }
+    public SyntaxKind Kind { get; }
 
-    public int Width { get; set; }
+    public int Width { get; }
 
     public GreenNode? GetSlot(int index);
 
@@ -221,12 +221,13 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Syntax
 {
-    public partial class FileScopedNamespaceDeclarationSyntax
+    public partial class NamespaceDeclarationSyntax
     {
         internal Raven.CodeAnalysis.Syntax.IdentifierNameSyntax _name;
+
         public partial Raven.CodeAnalysis.Syntax.SyntaxToken NamespaceKeyword => new SyntaxToken(Green.GetSlot(0) as Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken, this, Position + Green.GetChildStartPosition(0));
         public partial Raven.CodeAnalysis.Syntax.IdentifierNameSyntax Name => (Raven.CodeAnalysis.Syntax.IdentifierNameSyntax)GetNodeSlot(1);
-        public partial Raven.CodeAnalysis.Syntax.SyntaxToken SemicolonToken => new SyntaxToken(Green.GetSlot(2) as Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken, this, Position + Green.GetChildStartPosition(2));
+        public partial Raven.CodeAnalysis.Syntax.SyntaxToken OpenBraceToken => new SyntaxToken(Green.GetSlot(2) as Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken, this, Position + Green.GetChildStartPosition(2));
 
         public partial Raven.CodeAnalysis.Syntax.SyntaxList<Raven.CodeAnalysis.Syntax.ImportDirectiveSyntax> Imports
         {
@@ -255,6 +256,10 @@ namespace Raven.CodeAnalysis.Syntax
                 return new Raven.CodeAnalysis.Syntax.SyntaxList<Raven.CodeAnalysis.Syntax.MemberDeclarationSyntax>(green as Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxList, this, Position + Green.GetChildStartPosition(4));
             }
         }
+
+        public partial Raven.CodeAnalysis.Syntax.SyntaxToken CloseBraceToken => new SyntaxToken(Green.GetSlot(5) as Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken, this, Position + Green.GetChildStartPosition(5));
+
+        public partial Raven.CodeAnalysis.Syntax.SyntaxToken? SemicolonToken => new SyntaxToken(Green.GetSlot(6) as Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken, this, Position + Green.GetChildStartPosition(6));
 
         internal override SyntaxNode? GetNodeSlot(int index)
         {
