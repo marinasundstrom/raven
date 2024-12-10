@@ -31,6 +31,11 @@ public partial class EqualsValueClauseSyntax : SyntaxNode
     {
         visitor.VisitEqualsValue(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitEqualsValue(this);
+    }
 }
 
 public static partial class SyntaxFactory

@@ -52,7 +52,7 @@ public abstract class SyntaxVisitor<TResult>
         return DefaultVisit(node);
     }
 
-    public virtual TResult VisiCompilationUnit(CompilationUnitSyntax node)
+    public virtual TResult VisitCompilationUnit(CompilationUnitSyntax node)
     {
         return DefaultVisit(node);
     }

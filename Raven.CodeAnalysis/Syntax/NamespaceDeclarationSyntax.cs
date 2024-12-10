@@ -47,6 +47,11 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
     {
         visitor.VisitNamespaceDeclaration(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitNamespaceDeclaration(this);
+    }
 }
 
 public static partial class SyntaxFactory

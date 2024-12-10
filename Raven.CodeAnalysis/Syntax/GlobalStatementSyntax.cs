@@ -18,6 +18,11 @@ public partial class GlobalStatementSyntax : MemberDeclarationSyntax
     {
         visitor.VisitGlobalStatement(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitGlobalStatement(this);
+    }
 }
 
 public static partial class SyntaxFactory

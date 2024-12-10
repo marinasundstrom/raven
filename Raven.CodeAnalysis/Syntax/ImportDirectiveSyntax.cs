@@ -21,6 +21,11 @@ public partial class ImportDirectiveSyntax : SyntaxNode
     {
         visitor.VisitImportDirective(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitImportDirective(this);
+    }
 }
 
 public static partial class SyntaxFactory

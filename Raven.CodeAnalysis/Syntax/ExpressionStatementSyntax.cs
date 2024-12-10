@@ -18,6 +18,11 @@ public partial class ExpressionStatementSyntax : StatementSyntax
     {
         visitor.VisitExpressionStatement(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitExpressionStatement(this);
+    }
 }
 
 public static partial class SyntaxFactory

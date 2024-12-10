@@ -41,6 +41,10 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
     {
         visitor.VisitFileScopedNamespaceDeclaration(this);
     }
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitFileScopedNamespaceDeclaration(this);
+    }
 }
 
 public static partial class SyntaxFactory

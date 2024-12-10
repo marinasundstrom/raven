@@ -23,6 +23,12 @@ public partial class ParameterSyntax : SyntaxNode
     {
         visitor.VisitParameter(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitParameter(this);
+    }
+
 }
 
 public static partial class SyntaxFactory

@@ -30,6 +30,11 @@ public partial class VariableDeclarationSyntax : SyntaxNode
     {
         visitor.VisitVariableDeclaration(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitVariableDeclaration(this);
+    }
 }
 
 public static partial class SyntaxFactory

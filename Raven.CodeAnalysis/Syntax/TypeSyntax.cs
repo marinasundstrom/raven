@@ -26,6 +26,11 @@ public partial class NameSyntax : TypeSyntax
     {
         visitor.VisitType(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitType(this);
+    }
 }
 
 public static partial class SyntaxFactory

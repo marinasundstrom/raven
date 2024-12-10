@@ -51,6 +51,11 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     {
         visitor.VisitIfStatement(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitIfStatement(this);
+    }
 }
 
 public static partial class SyntaxFactory

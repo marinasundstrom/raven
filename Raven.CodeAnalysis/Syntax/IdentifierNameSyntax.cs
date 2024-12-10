@@ -23,6 +23,11 @@ public partial class IdentifierNameSyntax : ExpressionSyntax
     {
         visitor.VisitIdentifierName(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitIdentifierName(this);
+    }
 }
 
 public static partial class SyntaxFactory

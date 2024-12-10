@@ -52,7 +52,12 @@ public partial class CompilationUnitSyntax : SyntaxNode
 
     public override void Accept(SyntaxVisitor visitor)
     {
-        visitor.VisiCompilationUnit(this);
+        visitor.VisitCompilationUnit(this);
+    }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitCompilationUnit(this);
     }
 }
 

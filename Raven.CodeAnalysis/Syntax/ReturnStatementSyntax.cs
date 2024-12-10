@@ -33,6 +33,12 @@ public partial class ReturnStatementSyntax : StatementSyntax
     {
         visitor.VisitReturnStatement(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitReturnStatement(this);
+    }
+
 }
 
 public static partial class SyntaxFactory

@@ -31,12 +31,15 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
         visitor.VisitMethodDeclaration(this);
     }
 
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitMethodDeclaration(this);
+    }
+
     public MethodDeclarationSyntax WithBody(BlockSyntax body)
     {
         return new MethodDeclarationSyntax(this.ReturnType, this.Name, this.ParameterList, body);
     }
-
-    // Additional properties or methods specific to MethodDeclaration
 }
 
 public static partial class SyntaxFactory

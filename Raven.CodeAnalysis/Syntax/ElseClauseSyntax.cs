@@ -31,6 +31,11 @@ public partial class ElseClauseSyntax : SyntaxNode
     {
         visitor.VisitElseClause(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitElseClause(this);
+    }
 }
 
 public static partial class SyntaxFactory

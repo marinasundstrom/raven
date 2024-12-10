@@ -31,6 +31,11 @@ public partial class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
     {
         visitor.VisitLiteralExpression(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitLiteralExpression(this);
+    }
 }
 
 public static partial class SyntaxFactory

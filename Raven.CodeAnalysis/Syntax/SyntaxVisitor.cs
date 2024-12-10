@@ -53,7 +53,7 @@ public abstract class SyntaxVisitor
         DefaultVisit(node);
     }
 
-    public virtual void VisiCompilationUnit(CompilationUnitSyntax node)
+    public virtual void VisitCompilationUnit(CompilationUnitSyntax node)
     {
         DefaultVisit(node);
     }

@@ -31,6 +31,11 @@ public partial class BlockSyntax : StatementSyntax
     {
         visitor.VisitBlock(this);
     }
+
+    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitBlock(this);
+    }
 }
 
 public static partial class SyntaxFactory
