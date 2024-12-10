@@ -21,9 +21,25 @@ public class SyntaxTokenTest(ITestOutputHelper testOutputHelper)
     public void Test2()
     {
         var token = SyntaxFactory.ReturnKeyword;
-        var newToken = token.WithTrailingTrivia(Whitespace(" "));
+        var newToken = token
+                .WithTrailingTrivia(Whitespace(" "));
 
         var span = newToken.Span;
         var fullSpan = newToken.FullSpan;
+    }
+    
+    [Fact]
+    public void Test3()
+    {
+        var token = SyntaxFactory.ReturnKeyword;
+        var newToken = token
+            .WithLeadingTrivia(Whitespace(" "))
+            .WithTrailingTrivia(Newline());
+
+        var span = newToken.Span;
+        var fullSpan = newToken.FullSpan;
+        
+        var str = newToken.ToString();
+        var fullStr = newToken.ToFullString();
     }
 }

@@ -24,7 +24,7 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
         get
         {
             var triviaGreenNode = Green.GetSlot(index) as InternalSyntax.SyntaxTrivia;
-            return new SyntaxTrivia(triviaGreenNode, _parent);
+            return new SyntaxTrivia(triviaGreenNode!, _parent);
         }
     }
 
@@ -37,7 +37,6 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
 
     public SyntaxTriviaList AddTrivia(SyntaxTrivia trivia)
     {
@@ -54,5 +53,10 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
 
         var newGreenList = InternalSyntax.SyntaxTriviaList.Create(greenNodes); // Assumes a Create method exists to build a new list
         return new SyntaxTriviaList(_parent, newGreenList);
+    }
+
+    public override string ToString()
+    {
+        return string.Concat(this.ToArray());
     }
 }

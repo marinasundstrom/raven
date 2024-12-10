@@ -132,8 +132,6 @@ public abstract class SyntaxNode
         }
     }
 
-    public override string ToString() => Kind.ToString();
-
     private string GetDebuggerDisplay()
     {
         return GetType().Name;
@@ -158,4 +156,14 @@ public abstract class SyntaxNode
         }
         return null!;
     }
-}
+
+    public override string ToString()
+    {
+        return SourceWriter.WriteNodeToText(this, false);
+    }
+
+
+    public string ToFullString()
+    {
+        return SourceWriter.WriteNodeToText(this, true);
+    }

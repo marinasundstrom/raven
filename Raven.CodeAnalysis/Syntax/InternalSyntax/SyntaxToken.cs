@@ -6,9 +6,6 @@ public class SyntaxToken : GreenNode
 
     public string Text => GetValueText()!;
 
-    public SyntaxTriviaList LeadingTrivia { get; }
-    public SyntaxTriviaList TrailingTrivia { get; }
-
     public SyntaxToken(
         SyntaxKind kind,
         string text,
@@ -33,8 +30,8 @@ public class SyntaxToken : GreenNode
         diagnostics)
     {
         _value = value;
-        LeadingTrivia = leadingTrivia ?? new SyntaxTriviaList();
-        TrailingTrivia = trailingTrivia ?? new SyntaxTriviaList();
+        LeadingTrivia = leadingTrivia ?? SyntaxTriviaList.Empty;
+        TrailingTrivia = trailingTrivia ?? SyntaxTriviaList.Empty;
     }
 
     public override GreenNode GetSlot(int index) => throw new InvalidOperationException("SyntaxToken has no children.");

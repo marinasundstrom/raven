@@ -139,6 +139,9 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                     LiteralExpression(2))
             )));
 
+        var str = ifStatement.ToString();
+        var str2 = ifStatement.ToFullString();
+
         var foo1 = ifStatement.Span;
         var foo2 = ifStatement.FullSpan;
 
@@ -181,6 +184,8 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 List(
                     ImportDirective(IdentifierName("Foo"))))
             .WithMembers(members);
+
+        var test = compilationUnit.ToFullString();
 
         var m = compilationUnit.Members;
 

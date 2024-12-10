@@ -13,6 +13,7 @@ public class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var block = Block(
             List<StatementSyntax>(
                 ReturnStatement(LiteralExpression(20))
+                    .WithTrailingTrivia(Whitespace(" "))
             )
         );
 

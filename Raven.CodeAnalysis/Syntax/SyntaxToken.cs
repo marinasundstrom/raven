@@ -75,6 +75,16 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         return HashCode.Combine(Green, _parent);
     }
 
+    public override string ToString()
+    {
+        return this.Text;
+    }
+
+    public string ToFullString()
+    {
+        return this.LeadingTrivia.ToString() + this.Text + this.TrailingTrivia.ToString();
+    }
+
     public static explicit operator SyntaxToken(InternalSyntax.SyntaxToken token)
     {
         return new SyntaxToken(token, null!);

@@ -10,6 +10,9 @@ public abstract class GreenNode
     public int FullWidth { get; }
     public int SlotCount { get; }
 
+    public InternalSyntax.SyntaxTriviaList LeadingTrivia { get; protected set; } = InternalSyntax.SyntaxTriviaList.Empty;
+    public InternalSyntax.SyntaxTriviaList TrailingTrivia { get; protected set; } = InternalSyntax.SyntaxTriviaList.Empty;
+
     public IEnumerable<DiagnosticInfo> Diagnostics { get; }
 
     protected GreenNode(SyntaxKind kind, int slotCount, int width, int fullWidth, IEnumerable<DiagnosticInfo> diagnostics = null)
@@ -92,26 +95,20 @@ public abstract class GreenNode
 
         var value = items
             .Where(item => item is not null)
-            .Sum(item => item.Width);
+            .Sum(item => item.FullWidth);
 
         return value;
     }
 
-    protected static int CalculateFullWidth(GreenNode[] items)
+    protected static int CalculateFullWidth(GreenNode[] items,
+        SyntaxTriviaList? leadingTrivia = null, SyntaxTriviaList? trailingTrivia = null)
     {
         if (items is null)
             return 0;
 
-        if (items.Length == 1)
-        {
-            return items[0].FullWidth;
-        }
+        var width = CalculateWidth(items);
 
-        var value = items
-            .Where(item => item is not null)
-            .Sum(item => item.FullWidth);
-
-        return value;
+        return (leadingTrivia?.Width ?? 0) + width + (trailingTrivia?.Width ?? 0);
     }
 
     public virtual int GetChildStartPosition(int childIndex)
