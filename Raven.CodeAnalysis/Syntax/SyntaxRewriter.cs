@@ -36,6 +36,7 @@ public abstract class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
     public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
     {
         return default!;
+    }
 
     public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
     {
