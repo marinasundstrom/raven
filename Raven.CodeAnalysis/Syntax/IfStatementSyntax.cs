@@ -16,13 +16,20 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     {
     }
 
-    public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement)
+    public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, SyntaxToken? semicolonToken = null)
           : this(
-                new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green))
+                new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green, null, semicolonToken?.Green))
     {
 
     }
 
+    public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, ElseClauseSyntax? elseClause = null, SyntaxToken? semicolonToken = null)
+        : this(
+            new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green, (InternalSyntax.ElseClauseSyntax)elseClause?.Green, semicolonToken?.Green))
+    {
+
+    }
+    
     public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, ElseClauseSyntax? elseClause)
       : this(
             new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green, (InternalSyntax.ElseClauseSyntax?)elseClause?.Green))
@@ -31,7 +38,7 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     }
 
     public IfStatementSyntax(ExpressionSyntax condition, StatementSyntax statement)
-        : this(SyntaxFactory.IfKeyword, SyntaxFactory.OpenParenToken, condition, SyntaxFactory.CloseParenToken, statement)
+        : this(SyntaxFactory.IfKeyword, SyntaxFactory.OpenParenToken, condition, SyntaxFactory.CloseParenToken, statement, SyntaxFactory.EndOfLine)
     {
 
     }
@@ -42,11 +49,6 @@ public sealed partial class IfStatementSyntax : StatementSyntax
 
     }
 
-    public IfStatementSyntax WithElseClause(ElseClauseSyntax elseClause)
-    {
-        return new IfStatementSyntax(Condition, Statement, elseClause);
-    }
-
     public override void Accept(SyntaxVisitor visitor)
     {
         visitor.VisitIfStatement(this);
@@ -55,11 +57,6 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
     {
         return visitor.VisitIfStatement(this);
-    }
-
-    public IfStatementSyntax Update(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, ElseClauseSyntax? elseClause)
-    {
-        return new IfStatementSyntax(ifKeyword, openParenToken, condition, closeParenToken, statement, elseClause);
     }
 }
 

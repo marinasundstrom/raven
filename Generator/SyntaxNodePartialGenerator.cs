@@ -80,8 +80,10 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
 
         var accessModifier = Token(SyntaxKind.PublicKeyword);
 
-        var members = GenerateFields(classSymbol)
-                .Concat(ImplementPartialProperties(classSymbol)).ToList();
+        var members = GenerateFields(classSymbol).ToList();
+
+        members.AddRange(
+            ImplementPartialProperties(classSymbol));
 
         var f = GenerateGetNodeSlot(classSymbol);
 
@@ -89,6 +91,12 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
         {
             members.Add(f);
         }
+
+        members.AddRange(
+            GenerateWithMethods(classSymbol));
+
+        members.AddRange(
+            GenerateUpdateMethod(classSymbol));
 
         // Generate the partial class
         var generatedClass = ClassDeclaration(className)
@@ -108,6 +116,110 @@ public class SyntaxNodePartialGenerator : IIncrementalGenerator
             .NormalizeWhitespace();
 
         context.AddSource($"{className}_Generated.cs", SourceText.From(syntaxTree.ToFullString(), Encoding.UTF8));
+    }
+
+    private static IEnumerable<MemberDeclarationSyntax> GenerateWithMethods(INamedTypeSymbol classSymbol)
+    {
+        var typeName = ParseTypeName(classSymbol.Name);
+
+        var parameters = classSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(property => property.IsPartial());
+
+        var withMethodDeclarations = classSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(property => property.IsPartial())
+            .Select(property =>
+            {
+                var propertyType = ParseTypeName(property.Type.ToDisplayString());
+                var propertyName = Identifier(property.Name);
+
+                var paramDef = parameters.Select(param =>
+                {
+                    var paramType = ParseTypeName(param.Type.ToDisplayString());
+
+                    string paramName = param.Name == property.Name ? FixName(param) : param.Name;
+
+                    return Parameter(Identifier(paramName))
+                                    .WithType(paramType);
+                }).ToList();
+
+                var expr = InvocationExpression(
+                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, ThisExpression(), IdentifierName("Update")))
+                .WithArgumentList(
+                    ArgumentList(
+                        SeparatedList<ArgumentSyntax>(
+                            paramDef.Select(p => 
+                                Argument(IdentifierName(p.Identifier))))));
+
+                return MethodDeclaration(
+                   SyntaxFactory.ParseTypeName(classSymbol.Name), $"With{propertyName}")
+                .WithModifiers([Token(SyntaxKind.PublicKeyword)])
+                .WithParameterList(
+                    ParameterList(
+                        SeparatedList([
+                            Parameter(Identifier(FixName(property)))
+                            .WithType(propertyType)
+                ])))
+                .WithExpressionBody(ArrowExpressionClause(expr))
+                    .WithSemicolonToken(
+                        Token(SyntaxKind.SemicolonToken));
+            });
+
+        return withMethodDeclarations;
+    }
+
+    private static string FixName(IPropertySymbol property)
+    {
+        var name = property.Name.ToCamelCase();
+
+        var x = SyntaxFacts.IsKeywordKind(SyntaxFacts.GetKeywordKind(name));
+        if (x)
+        {
+            return $"@{name}";
+        }
+        return name;
+    }
+
+    private static IEnumerable<MemberDeclarationSyntax> GenerateUpdateMethod(INamedTypeSymbol classSymbol)
+    {
+        var parameters = classSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(property => property.IsPartial());
+
+        var paramDef = parameters.Select(property =>
+        {
+            var propertyType = ParseTypeName(property.Type.ToDisplayString());
+            var propertyName = Identifier(property.Name);
+
+            return Parameter(Identifier(FixName(property)))
+                            .WithType(propertyType);
+        }).ToList();
+
+        var typeName = ParseTypeName(classSymbol.Name);
+
+        var expr = ObjectCreationExpression(
+                    typeName)
+                .WithArgumentList(
+                    ArgumentList(
+                        SeparatedList<ArgumentSyntax>(
+                            paramDef.Select(p =>
+                            {
+                                return Argument(IdentifierName(p.Identifier));
+                            }))));
+
+        var updateMethodDeclaration = MethodDeclaration(typeName, "Update")
+                .WithModifiers([Token(SyntaxKind.PublicKeyword)])
+                .WithParameterList(
+                    ParameterList(
+                        SeparatedList(
+                            paramDef
+                )))
+                .WithExpressionBody(ArrowExpressionClause(expr))
+                    .WithSemicolonToken(
+                        Token(SyntaxKind.SemicolonToken));
+
+        return [updateMethodDeclaration];
     }
 
     private static MemberDeclarationSyntax? GenerateGetNodeSlot(INamedTypeSymbol classSymbol)

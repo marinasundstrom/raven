@@ -212,4 +212,26 @@ public class AstTest(ITestOutputHelper testOutputHelper)
             Console.WriteLine(localSymbol.Name);
         }
     }
+
+    [Fact]
+    public void Test5()
+    {
+        var compilationUnit = CompilationUnit()
+            .WithImports(
+                List(
+                    ImportDirective(
+                        ImportKeyword, 
+                        IdentifierName("Foo")
+                                .WithLeadingTrivia(Whitespace(" ")),
+                        SemicolonToken)));
+        
+        var syntaxTree = SyntaxTree.Create(compilationUnit);
+
+        var compilation = Compilation.Create("MyCompilation")
+            .AddSyntaxTrees(syntaxTree);
+
+        var root = compilation.SyntaxTrees.First().GetSyntaxRoot();
+        
+        testOutputHelper.WriteLine(root.ToFullString());
+    }
 }

@@ -29,15 +29,10 @@ public partial class CompilationUnitSyntax : SyntaxNode
     : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports?.Green, members?.Green, SyntaxFactory.EndOfFile.Green), syntaxTree)
     {
     }
-
-    public CompilationUnitSyntax WithImports(SyntaxList<ImportDirectiveSyntax> imports)
+    
+    public CompilationUnitSyntax(SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken? endOfFileToken = null)
+        : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports?.Green, members?.Green, endOfFileToken?.Green), (SyntaxTree)null)
     {
-        return new CompilationUnitSyntax(SyntaxTree, imports, Members);
-    }
-
-    public CompilationUnitSyntax WithMembers(SyntaxList<MemberDeclarationSyntax> members)
-    {
-        return new CompilationUnitSyntax(SyntaxTree, Imports, members);
     }
 
     public CompilationUnitSyntax NormalizeWhitespace()

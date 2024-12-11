@@ -27,16 +27,6 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
     {
     }
 
-    public FileScopedNamespaceDeclarationSyntax WithImports(SyntaxList<ImportDirectiveSyntax> imports)
-    {
-        return new FileScopedNamespaceDeclarationSyntax(NamespaceKeyword, Name, SemicolonToken, imports, Members);
-    }
-
-    public FileScopedNamespaceDeclarationSyntax WithMembers(SyntaxList<MemberDeclarationSyntax> members)
-    {
-        return new FileScopedNamespaceDeclarationSyntax(NamespaceKeyword, Name, SemicolonToken, Imports, members);
-    }
-
     public override void Accept(SyntaxVisitor visitor)
     {
         visitor.VisitFileScopedNamespaceDeclaration(this);

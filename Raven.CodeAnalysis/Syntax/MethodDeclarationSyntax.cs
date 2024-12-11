@@ -35,11 +35,6 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
     {
         return visitor.VisitMethodDeclaration(this);
     }
-
-    public MethodDeclarationSyntax WithBody(BlockSyntax body)
-    {
-        return new MethodDeclarationSyntax(this.ReturnType, this.Name, this.ParameterList, body);
-    }
 }
 
 public static partial class SyntaxFactory

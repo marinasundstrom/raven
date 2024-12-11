@@ -48,6 +48,7 @@ public abstract class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
             (ExpressionSyntax)Visit(node.Condition),
             VisitToken(node.CloseParenToken), 
             (StatementSyntax)Visit(node.Statement), 
-            (ElseClauseSyntax?)(node.ElseClause is not null ? Visit(node.ElseClause) : null));
+            (ElseClauseSyntax?)(node.ElseClause is not null ? Visit(node.ElseClause) : null),
+            node.SemicolonToken);
     }
 }
