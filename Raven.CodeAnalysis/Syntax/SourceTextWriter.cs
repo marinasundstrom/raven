@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax;
 
-public static class SourceWriter
+public static class SourceTextWriter
 {
     public static string WriteNodeToText(SyntaxNode node, bool withSpans = false)
     {

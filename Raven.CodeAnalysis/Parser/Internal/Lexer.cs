@@ -73,7 +73,7 @@ public class Lexer : ILexer
                         stringBuilder.Append(ch);
                     }
 
-                    return new SyntaxToken(SyntaxKind.NumberToken, stringBuilder.ToString());
+                    return new SyntaxToken(SyntaxKind.NumericLiteralToken, stringBuilder.ToString());
                 }
             }
             else
@@ -85,20 +85,22 @@ public class Lexer : ILexer
                     case '+':
                         return new SyntaxToken(SyntaxKind.PlusToken, chStr);
 
-                    case '-':
-                        return new SyntaxToken(SyntaxKind.DashToken, chStr);
+                    /*
 
-                    case '/':
-                        return new SyntaxToken(SyntaxKind.SlashToken, chStr);
+                case '-':
+                    return new SyntaxToken(SyntaxKind.DashToken, chStr);
 
-                    case '\\':
-                        return new SyntaxToken(SyntaxKind.BackslashToken, chStr);
+                case '/':
+                    return new SyntaxToken(SyntaxKind.SlashToken, chStr);
 
-                    case '*':
-                        return new SyntaxToken(SyntaxKind.StarToken, chStr);
+                case '\\':
+                    return new SyntaxToken(SyntaxKind.BackslashToken, chStr);
 
-                    case '%':
-                        return new SyntaxToken(SyntaxKind.PercentToken, chStr);
+                case '*':
+                    return new SyntaxToken(SyntaxKind.StarToken, chStr);
+
+                case '%':
+                    return new SyntaxToken(SyntaxKind.PercentToken, chStr); */
 
 
                     case ':':
@@ -107,22 +109,24 @@ public class Lexer : ILexer
                     case ';':
                         return new SyntaxToken(SyntaxKind.SemicolonToken, chStr);
 
+                    /*
 
-                    case '"':
-                        return new SyntaxToken(SyntaxKind.DoublequoteToken, chStr);
+                   case '"':
+                       return new SyntaxToken(SyntaxKind.DoublequoteToken, chStr);
 
-                    case '\'':
-                        return new SyntaxToken(SyntaxKind.SinglequoteToken, chStr);
+                   case '\'':
+                       return new SyntaxToken(SyntaxKind.SinglequoteToken, chStr);
 
-                    case '`':
-                        return new SyntaxToken(SyntaxKind.BackquoteToken, chStr);
+                   case '`':
+                       return new SyntaxToken(SyntaxKind.BackquoteToken, chStr);
 
+                   */
 
                     case '(':
-                        return new SyntaxToken(SyntaxKind.OpeningParenToken, chStr);
+                        return new SyntaxToken(SyntaxKind.OpenParenToken, chStr);
 
                     case ')':
-                        return new SyntaxToken(SyntaxKind.ClosingParenToken, chStr);
+                        return new SyntaxToken(SyntaxKind.CloseParenToken, chStr);
 
                     case '{':
                         return new SyntaxToken(SyntaxKind.OpenBraceToken, chStr);
@@ -130,17 +134,21 @@ public class Lexer : ILexer
                     case '}':
                         return new SyntaxToken(SyntaxKind.CloseBraceToken, chStr);
 
-                    case '[':
-                        return new SyntaxToken(SyntaxKind.OpenSquareToken, chStr);
+                    /*
 
-                    case ']':
-                        return new SyntaxToken(SyntaxKind.CloseSquareToken, chStr);
+                case '[':
+                    return new SyntaxToken(SyntaxKind.OpenSquareToken, chStr);
 
-                    case '<':
-                        return new SyntaxToken(SyntaxKind.OpenAngleToken, chStr);
+                case ']':
+                    return new SyntaxToken(SyntaxKind.CloseSquareToken, chStr);
 
-                    case '>':
-                        return new SyntaxToken(SyntaxKind.CloseAngleToken, chStr);
+                case '<':
+                    return new SyntaxToken(SyntaxKind.OpenAngleToken, chStr);
+
+                case '>':
+                    return new SyntaxToken(SyntaxKind.CloseAngleToken, chStr);
+
+                    */
 
 
                     case ' ':
@@ -151,31 +159,23 @@ public class Lexer : ILexer
                             length++;
                         }
 
-                        return new SyntaxToken(SyntaxKind.WhitespaceTrivia, string.Intern(new string(' ', length)));
+                        return new SyntaxToken(SyntaxKind.Whitespace, string.Intern(new string(' ', length)));
 
                     case '\t':
-                        length = 1;
+                        return new SyntaxToken(SyntaxKind.TabToken, "\t");
 
-                        while (ReadWhile(' '))
-                        {
-                            length++;
-                        }
-
-                        return new SyntaxToken(SyntaxKind.TabTrivia, string.Empty);
+                    case '\n':
+                        return new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");
 
                     case '\r':
-                        while (ReadChar(out ch) && ch == '\n')
-                        {
-                            return new SyntaxToken(SyntaxKind.NewlineTrivia);
-                        }
-                        break;
+                        return new SyntaxToken(SyntaxKind.CarriageReturnToken, "\r");
                 }
             }
 
-            return new SyntaxToken(SyntaxKind.InvalidSyntax, ch.ToString());
+            return new SyntaxToken(SyntaxKind.None, ch.ToString());
         }
 
-        return new SyntaxToken(SyntaxKind.EndOfFileTrivia, null);
+        return new SyntaxToken(SyntaxKind.EndOfFileToken, string.Empty);
     }
 
     private void ReadChar()

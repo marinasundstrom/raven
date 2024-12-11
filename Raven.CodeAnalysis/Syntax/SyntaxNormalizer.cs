@@ -4,7 +4,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 {
     public override SyntaxToken VisitToken(SyntaxToken token)
     {
-        if (token.Kind == SyntaxKind.None || (token.IsMissing && token.FullWidth == 0))
+        if (token.Kind == SyntaxKind.None || token is { IsMissing: true, FullWidth: 0 })
         {
             return token;
         }

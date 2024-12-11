@@ -159,13 +159,12 @@ public abstract class SyntaxNode
 
     public override string ToString()
     {
-        return SourceWriter.WriteNodeToText(this, false);
+        return SourceTextWriter.WriteNodeToText(this, false);
     }
-
 
     public string ToFullString()
     {
-        return SourceWriter.WriteNodeToText(this, true);
+        return SourceTextWriter.WriteNodeToText(this, true);
     }
 
 

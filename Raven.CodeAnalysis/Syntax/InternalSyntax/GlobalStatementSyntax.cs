@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class GlobalStatementSyntax : SyntaxNode
+public class GlobalStatementSyntax : MemberDeclarationSyntax
 {
     public GlobalStatementSyntax(StatementSyntax statement)
         : base(SyntaxKind.GlobalStatement,

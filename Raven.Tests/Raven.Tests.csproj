@@ -26,8 +26,4 @@
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="CodeAnalysis/Syntax/InternalSyntax/" />
-    <Folder Include="CodeAnalysis\Parser\" />
-  </ItemGroup>
 </Project>

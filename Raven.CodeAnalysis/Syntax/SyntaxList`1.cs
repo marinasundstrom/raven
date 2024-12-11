@@ -23,7 +23,7 @@ public class SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
     {
         get
         {
-            var childGreenNode = Green[index].Node;
+            var childGreenNode = Green[index];
             return (TNode)((InternalSyntax.SyntaxNode)childGreenNode).CreateRed(_parent, _position + Green.GetChildStartPosition(index));
         }
     }
@@ -70,11 +70,11 @@ public static partial class SyntaxFactory
     public static SyntaxList<TNode> SingletonList<TNode>(TNode node)
         where TNode : SyntaxNode
         => new SyntaxList<TNode>(new InternalSyntax.SyntaxList([
-        new InternalSyntax.SyntaxListItem(node.Green)
+        node.Green
         ]), null, 0);
 
     public static SyntaxList<TNode> List<TNode>(params IEnumerable<TNode> nodes)
         where TNode : SyntaxNode
         => new SyntaxList<TNode>(new InternalSyntax.SyntaxList(
-            nodes.Select(node => new InternalSyntax.SyntaxListItem(node.Green)).ToArray()), null);
+            nodes.Select(x => x.Green).ToArray()), null);
 }

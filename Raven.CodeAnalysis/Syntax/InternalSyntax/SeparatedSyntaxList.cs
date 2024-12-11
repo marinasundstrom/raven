@@ -7,7 +7,7 @@ public class SeparatedSyntaxList : GreenNode
     private readonly GreenNode[] _items;
 
     public SeparatedSyntaxList(GreenNode[] items)
-        : base(SyntaxKind.SyntaxList, items?.Length ?? 0, CalculateWidth(items), CalculateFullWidth(items))
+        : base(SyntaxKind.List, items?.Length ?? 0, CalculateWidth(items), CalculateFullWidth(items))
     {
         _items = items ?? Array.Empty<GreenNode>();
     }

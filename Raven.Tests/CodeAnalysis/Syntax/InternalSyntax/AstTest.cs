@@ -33,9 +33,9 @@ public class AstTest
         ]);
 
         // Create a SyntaxList containing the statements
-        var statementsItems = new SyntaxListItem[]
+        var statementsItems = new SyntaxNode[]
         {
-                new SyntaxListItem(statement1)
+             statement1
             // Add more statements as needed
         };
         var statementsList = new SyntaxList(statementsItems);

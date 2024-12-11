@@ -4,6 +4,8 @@ public enum SyntaxKind
 {
     None,
 
+    List,
+
     IdentifierName,
     NumericLiteralExpression,
 
@@ -13,10 +15,6 @@ public enum SyntaxKind
     CompilationUnit,
 
     ImportDirective,
-
-    // List Kinds
-    SyntaxList,
-    SeparatedSyntaxList,
 
     // Node Kinds
     MethodDeclaration,
@@ -60,10 +58,15 @@ public enum SyntaxKind
 
     // Trivia Kinds
     WhitespaceTrivia,
+    TabTrivia,
+    EndOfLineTrivia,
+    CarriageReturnTrivia,
     CommentTrivia,
-    Tab,
 
+
+    Whitespace,
+    TabToken,
     EndOfLineToken,
     CarriageReturnToken,
-    EndOfFileTokenToken
+    EndOfFileToken
 }

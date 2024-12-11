@@ -1,3 +1,4 @@
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -55,4 +56,9 @@ public class SourceText
     public string GetSubstring(TextSpan span) => GetSubstring(span.Start, span.Length);
 
     public string GetSubstring(int start, int length) => _text.Substring(start, length);
+
+    public TextReader GetTextReader()
+    {
+        return new StringReader(_text);
+    }
 }

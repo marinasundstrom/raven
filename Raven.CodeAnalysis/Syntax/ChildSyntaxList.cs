@@ -39,16 +39,22 @@ public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
                 for (int i = 0; i < syntaxList.SlotCount; i++)
                 {
                     var child = syntaxList.GetSlot(i);
-                    tempChildren.Add(new ChildSyntaxListItem(child, _node, position));
+                    if (child is not null)
+                    {
+                        tempChildren.Add(new ChildSyntaxListItem(child, _node, position));
 
-                    position += child.FullWidth;
+                        position += child.FullWidth;
+                    }
                 }
             }
             else
             {
-                tempChildren.Add(new ChildSyntaxListItem(childGreenNode, _node, position));
+                if (childGreenNode is not null)
+                {
+                    tempChildren.Add(new ChildSyntaxListItem(childGreenNode, _node, position));
 
-                position += childGreenNode.FullWidth;
+                    position += childGreenNode.FullWidth;
+                }
             }
         }
         children = tempChildren.ToArray();

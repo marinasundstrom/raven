@@ -13,8 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Parser/**/*.cs" />
-    <Compile Remove="Syntax2/**/*.cs" />
+    <!-- <Compile Remove="Parser/**/*.cs" /> -->
   </ItemGroup>
 
   <ItemGroup>

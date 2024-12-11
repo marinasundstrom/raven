@@ -9,7 +9,7 @@ public class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
     private readonly SyntaxTrivia[] _trivias;
 
     public SyntaxTriviaList(SyntaxTrivia[] trivias)
-        : base(SyntaxKind.SyntaxList, trivias?.Length ?? 0, CalculateWidth(trivias), CalculateFullWidth(trivias))
+        : base(SyntaxKind.List, trivias?.Length ?? 0, CalculateWidth(trivias), CalculateFullWidth(trivias))
     {
         _trivias = trivias ?? Array.Empty<SyntaxTrivia>();
     }

@@ -99,56 +99,58 @@ public static class SyntaxFacts
             return -1;
         }
 
-        public static bool ParseReservedWord(string text, out SyntaxKind syntaxKind)
+        */
+
+    public static bool ParseReservedWord(string text, out SyntaxKind syntaxKind)
+    {
+        if (Enum.TryParse<SyntaxKind>($"{text}Keyword", true, out syntaxKind))
         {
-            if (Enum.TryParse<SyntaxKind>($"{text}Token", true, out syntaxKind))
+            switch (syntaxKind)
             {
-                switch (syntaxKind)
+                case SyntaxKind.LetKeyword:
+                case SyntaxKind.IfKeyword:
+                case SyntaxKind.ElseKeyword:
+                case SyntaxKind.ReturnKeyword:
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /*
+            public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
+            {
+                switch (kind)
                 {
-                    case SyntaxKind.VarToken:
-                    case SyntaxKind.LetToken:
-                    case SyntaxKind.IfToken:
-                    case SyntaxKind.ElseToken:
-                        return true;
+                    case SyntaxKind.StarToken:
+                    case SyntaxKind.SlashToken:
+                        return 5;
+
+                    case SyntaxKind.PlusToken:
+                    case SyntaxKind.DashToken:
+                        return 4;
+
+                    case SyntaxKind.EqualsEqualsToken:
+                    case SyntaxKind.BangEqualsToken:
+                    case SyntaxKind.LessToken:
+                    case SyntaxKind.LessOrEqualsToken:
+                    case SyntaxKind.GreaterToken:
+                    case SyntaxKind.GreaterOrEqualsToken:
+                        return 3;
+
+                    case SyntaxKind.AmpersandToken:
+                    case SyntaxKind.AmpersandAmpersandToken:
+                        return 2;
+
+                    case SyntaxKind.PipeToken:
+                    case SyntaxKind.PipePipeToken:
+                    case SyntaxKind.HatToken:
+                        return 1;
+
+                    default:
+                        return 0;
                 }
             }
-
-            return false;
-        }
-
-        /*
-        public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
-        {
-            switch (kind)
-            {
-                case SyntaxKind.StarToken:
-                case SyntaxKind.SlashToken:
-                    return 5;
-
-                case SyntaxKind.PlusToken:
-                case SyntaxKind.DashToken:
-                    return 4;
-
-                case SyntaxKind.EqualsEqualsToken:
-                case SyntaxKind.BangEqualsToken:
-                case SyntaxKind.LessToken:
-                case SyntaxKind.LessOrEqualsToken:
-                case SyntaxKind.GreaterToken:
-                case SyntaxKind.GreaterOrEqualsToken:
-                    return 3;
-
-                case SyntaxKind.AmpersandToken:
-                case SyntaxKind.AmpersandAmpersandToken:
-                    return 2;
-
-                case SyntaxKind.PipeToken:
-                case SyntaxKind.PipePipeToken:
-                case SyntaxKind.HatToken:
-                    return 1;
-
-                default:
-                    return 0;
-            }
-        }
-      */
+          */
 }

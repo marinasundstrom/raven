@@ -47,12 +47,12 @@ public class Tokenizer
 
         trailingTrivia = ReadTrivia();
 
-        return new SyntaxToken(leadingTrivia, token.Kind, token.Text ?? string.Empty, trailingTrivia);
+        return new SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia);
     }
 
     private SyntaxTriviaList ReadTrivia()
     {
-        SyntaxTriviaList trivia = new SyntaxTriviaList();
+        List<SyntaxTrivia> trivia = [];
 
         while (true)
         {
@@ -60,26 +60,31 @@ public class Tokenizer
 
             switch (token)
             {
-                case SyntaxToken it when it.Kind == SyntaxKind.WhitespaceTrivia:
+                case SyntaxToken it when it.Kind == SyntaxKind.TabToken:
                     lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token));
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.TabTrivia, token.Text));
                     continue;
 
-                case SyntaxToken it when it.Kind == SyntaxKind.NewlineTrivia:
+                case SyntaxToken it when it.Kind == SyntaxKind.Whitespace:
                     lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.NewlineTrivia, token));
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text));
                     continue;
 
-                case SyntaxToken it when it.Kind == SyntaxKind.EndOfFileTrivia:
+                case SyntaxToken it when it.Kind == SyntaxKind.EndOfLineToken:
                     lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfFileTrivia, token));
-                    break;
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
+                    continue;
+
+                case SyntaxToken it when it.Kind == SyntaxKind.CarriageReturnToken:
+                    lexer.ReadToken();
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.CarriageReturnTrivia, token.Text));
+                    continue;
             }
 
             break;
         }
 
-        return trivia;
+        return new SyntaxTriviaList(trivia.ToArray());
     }
 
     private bool ConsumeToken(SyntaxKind kind, out SyntaxToken token)

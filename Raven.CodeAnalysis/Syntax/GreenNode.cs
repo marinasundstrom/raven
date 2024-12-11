@@ -90,7 +90,7 @@ public abstract class GreenNode
 
         if (items.Length == 1)
         {
-            return items[0].Width;
+            return items[0]?.Width ?? 0;
         }
 
         var value = items

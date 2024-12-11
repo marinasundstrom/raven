@@ -21,7 +21,7 @@ public class SyntaxList : IEnumerable<SyntaxNode>
     {
         get
         {
-            var childGreenNode = Green[index].Node;
+            var childGreenNode = Green[index];
             return childGreenNode.CreateRed(_parent, _position + Green.GetChildStartPosition(index));
         }
     }

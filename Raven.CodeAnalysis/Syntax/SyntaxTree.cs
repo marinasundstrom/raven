@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
+using Raven.CodeAnalysis.Parser.Internal;
 using Raven.CodeAnalysis.Syntax;
 
 [assembly: InternalsVisibleTo("Test")]
@@ -30,9 +31,10 @@ public class SyntaxTree
     {
         var source = new SourceText(text);
 
-        // TODO: Invoke parser
+        var parser = new Parser.SyntaxParser(
+            new Tokenizer(new Lexer(source.GetTextReader())));
 
-        return new SyntaxTree(source);
+        return parser.Parse();
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)

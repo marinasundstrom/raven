@@ -13,12 +13,12 @@ public class IfStatementSyntax : StatementSyntax
         : base(
               SyntaxKind.IfStatement,
               [
-                      ifKeyword,
-                      openParenToken,
-                      condition,
-                      closeParenToken,
-                      statement,
-                      semicolonToken
+                    ifKeyword,
+                    openParenToken,
+                    condition,
+                    closeParenToken,
+                    statement,
+                    semicolonToken
               ],
               diagnostics)
     {
@@ -34,11 +34,11 @@ public class IfStatementSyntax : StatementSyntax
     : base(
           SyntaxKind.IfStatement,
           [
-                  ifKeyword,
-                      openParenToken,
-                      condition,
-                      closeParenToken,
-                      statement,
+            ifKeyword,
+            openParenToken,
+            condition,
+            closeParenToken,
+            statement,
           ],
           diagnostics)
     {
@@ -56,13 +56,13 @@ public class IfStatementSyntax : StatementSyntax
         : base(
               SyntaxKind.IfStatement,
               [
-                      ifKeyword,
-                          openParenToken,
-                          condition,
-                          closeParenToken,
-                          statement,
-                          elseClause,
-                          semicolonToken
+                ifKeyword,
+                openParenToken,
+                condition,
+                closeParenToken,
+                statement,
+                elseClause,
+                semicolonToken
               ],
               diagnostics)
     {
@@ -79,12 +79,12 @@ public class IfStatementSyntax : StatementSyntax
     : base(
           SyntaxKind.IfStatement,
           [
-                  ifKeyword,
-                          openParenToken,
-                          condition,
-                          closeParenToken,
-                          statement,
-                          elseClause
+                ifKeyword,
+                openParenToken,
+                condition,
+                closeParenToken,
+                statement,
+                elseClause
           ],
           diagnostics)
     {

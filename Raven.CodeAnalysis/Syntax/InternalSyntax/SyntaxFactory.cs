@@ -11,7 +11,7 @@ public static class SyntaxFactory
 
     public static SyntaxTrivia Newline() => new SyntaxTrivia(SyntaxKind.EndOfLineToken, "\n");
 
-    public static SyntaxTrivia Tab() => new SyntaxTrivia(SyntaxKind.Tab, "\t");
+    public static SyntaxTrivia Tab() => new SyntaxTrivia(SyntaxKind.TabTrivia, "\t");
 
     public static readonly SyntaxToken OpenParenToken = new SyntaxToken(SyntaxKind.OpenParenToken, "(");
 
@@ -47,5 +47,5 @@ public static class SyntaxFactory
 
     public static readonly SyntaxToken CarriageReturn = new SyntaxToken(SyntaxKind.CarriageReturnToken, "\r");
 
-    public static readonly SyntaxToken EndOfFile = new SyntaxToken(SyntaxKind.EndOfFileTokenToken, ";");
+    public static readonly SyntaxToken EndOfFile = new SyntaxToken(SyntaxKind.EndOfFileToken, string.Empty);
 }
