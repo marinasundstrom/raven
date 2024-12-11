@@ -222,7 +222,8 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                     ImportDirective(
                         ImportKeyword, 
                         IdentifierName("Foo")
-                                .WithLeadingTrivia(Whitespace(" ")),
+                                .WithLeadingTrivia(
+                                    TriviaList(Whitespace(" "))),
                         SemicolonToken)));
         
         var syntaxTree = SyntaxTree.Create(compilationUnit);

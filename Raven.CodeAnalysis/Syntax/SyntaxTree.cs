@@ -95,5 +95,29 @@ public class SyntaxTree
         text = null;
         return false;
     }
+
+    public SyntaxTree WithUpdatedText(SourceText sourceText, int changeStart, int changeEnd)
+    {
+        /*
+        var updatedNodes = new List<SyntaxNode>();
+
+        foreach (var node in _nodes)
+        {
+            // Check if the node overlaps with the change
+            if (node.End <= changeStart || node.Start >= changeEnd)
+            {
+                // Unchanged node
+                updatedNodes.Add(node);
+            }
+            else
+            {
+                // Re-parse only the affected node
+                string updatedText = sourceText.Text.Substring(node.Start, node.End - node.Start);
+                updatedNodes.Add(new SyntaxNode(updatedText, node.Start));
+            }
+        }
+        */
+
+        return default!; // new SyntaxTree(updatedNodes);
     }
 }

@@ -76,18 +76,18 @@ public abstract class SyntaxNode
         return new ChildSyntaxList(this);
     }
 
-    public SyntaxTriviaList LeadingTrivia => GetFirstToken(this).LeadingTrivia;
+    public SyntaxTriviaList LeadingTrivia => GetFirstToken().LeadingTrivia;
 
-    public SyntaxTriviaList TrailingTrivia => GetLastToken(this).TrailingTrivia;
+    public SyntaxTriviaList TrailingTrivia => GetLastToken().TrailingTrivia;
 
-    private static SyntaxToken GetFirstToken(SyntaxNode syntaxNode)
+    public SyntaxToken GetFirstToken(bool includeZeroWidth = false)
     {
-        return (SyntaxToken)syntaxNode.Green.GetFirstTerminal();
+        return (SyntaxToken)this.Green.GetFirstTerminal();
     }
 
-    private static SyntaxToken GetLastToken(SyntaxNode syntaxNode)
+    public SyntaxToken GetLastToken(bool includeZeroWidth = false)
     {
-        return (SyntaxToken)syntaxNode.Green.GetLastTerminal();
+        return (SyntaxToken)this.Green.GetLastTerminal();
     }
 
     public SyntaxNode(GreenNode greenNode, SyntaxNode parent, int position = 0)
@@ -167,6 +167,11 @@ public abstract class SyntaxNode
         return SourceTextWriter.WriteNodeToText(this, true);
     }
 
+    internal SyntaxNode ReplaceTokenInListCore(SyntaxToken tokenInList, IEnumerable<SyntaxToken> newTokens)
+    {
+        //ar newGreen = Green.ReplaceToken(tokenInList, newTokens)
+        return this;
+    }
 
     public abstract void Accept(SyntaxVisitor visitor);
 
