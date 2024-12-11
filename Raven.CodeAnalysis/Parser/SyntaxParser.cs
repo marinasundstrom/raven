@@ -97,18 +97,18 @@ public class SyntaxParser
 
         var statement = ParseStatement();
 
-        ElseClauseSyntax? elseClauseSyntax = null;
+        ElseClauseSyntax? elseClause = null;
 
         var elseToken = tokenizer.PeekToken();
 
         if (elseToken.Kind == SyntaxKind.ElseKeyword)
         {
-            elseClauseSyntax = ParseElseClauseSyntax();
+            elseClause = ParseElseClauseSyntax();
         }
 
         Consume(SyntaxKind.SemicolonToken, out var semicolonToken);
 
-        return new IfStatementSyntax(ifKeyword, openParenToken, condition!, closeParenToken, statement!, semicolonToken);
+        return new IfStatementSyntax(ifKeyword, openParenToken, condition!, closeParenToken, statement!, elseClause, semicolonToken);
     }
 
     private ElseClauseSyntax? ParseElseClauseSyntax()
