@@ -12,9 +12,11 @@ Look at [unit tests](/Raven.Tests/CodeAnalysis/Syntax/AstTest.cs).
 
 ## Why the name "Raven"?
 
-Raven is a bird species. And ravens are cool. Old Norse god Odin had two ravens, Huginn and Muninn.
+The name decides the character of the language.
 
-Perhaps should we should use the Old Norse "hrafn", or Danish "ravn"?
+Raven is a species of birds, and ravens are cool. They are important in Old Norse mythology because chief god Odin had two ravens, Huginn ("thought") and Muninn ("memory, mind"), who were his messengers.
+
+Perhaps we should use the Old Norse form "hrafn", or Danish "ravn"?
 
 ## Syntax
 
