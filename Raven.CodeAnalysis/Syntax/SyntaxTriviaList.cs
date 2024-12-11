@@ -77,3 +77,8 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
         return string.Concat(this.ToArray());
     }
 }
+
+public static partial class SyntaxFactory
+{
+    public static SyntaxTriviaList TriviaList(params IEnumerable<SyntaxTrivia> trivias) => new SyntaxTriviaList(trivias);
+}

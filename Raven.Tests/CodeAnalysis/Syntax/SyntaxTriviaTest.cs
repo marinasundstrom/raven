@@ -51,7 +51,7 @@ public class SyntaxTriviaTest
     [Fact]
     public void RemoveTriviaFromList_BySyntaxKind_OneShouldRemain()
     {
-        var triviaList = TriviaList(Whitespace("  "), Newline());
+        var triviaList = TriviaList(Whitespace("  "), LineFeed);
 
         var newTriviaList = triviaList.Remove(SyntaxKind.WhitespaceTrivia);
 

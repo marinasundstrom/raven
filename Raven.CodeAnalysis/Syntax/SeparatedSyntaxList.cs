@@ -34,7 +34,7 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         get
         {
             var node = Green[index * 2];
-            return (TNode)node.CreateRed(_parent, _position = Green.GetChildStartPosition(_position));
+            return (TNode)node.CreateRed(_parent, _position = Green.GetChildStartPosition(index * 2));
         }
     }
 

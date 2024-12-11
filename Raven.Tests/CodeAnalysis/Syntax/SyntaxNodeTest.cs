@@ -12,16 +12,16 @@ public class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     {
         var block = Block(
             OpenBraceToken
-                .WithLeadingTrivia(Newline())
-                .WithTrailingTrivia(Newline()),
+                .WithLeadingTrivia(LineFeed)
+                .WithTrailingTrivia(LineFeed),
             List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword.WithLeadingTrivia(Tab()),
+                ReturnStatement(ReturnKeyword.WithLeadingTrivia(Tab),
                     LiteralExpression(NumericLiteral(42).WithLeadingTrivia(Whitespace(" "))),
-                    SemicolonToken.WithTrailingTrivia(Newline()))
-                    .WithTrailingTrivia(Newline())
+                    SemicolonToken.WithTrailingTrivia(LineFeed))
+                    .WithTrailingTrivia(LineFeed)
             ),
             CloseBraceToken
-                .WithTrailingTrivia(Newline())
+                .WithTrailingTrivia(LineFeed)
         );
 
         var x = block.Statements[0];

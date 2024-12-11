@@ -54,7 +54,7 @@ public class SyntaxTokenTest(ITestOutputHelper testOutputHelper)
         var token = SyntaxFactory.ReturnKeyword;
         var newToken = token
             .WithLeadingTrivia(Whitespace(" "))
-            .WithTrailingTrivia(Newline());
+            .WithTrailingTrivia(LineFeed);
 
         var span = newToken.Span;
         var fullSpan = newToken.FullSpan;

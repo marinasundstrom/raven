@@ -61,6 +61,7 @@ public enum SyntaxKind
     TabTrivia,
     EndOfLineTrivia,
     CarriageReturnTrivia,
+    CarriageReturnLineFeedTrivia,
     CommentTrivia,
 
 

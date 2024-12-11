@@ -16,11 +16,18 @@ public abstract class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
             var result = node.Accept(this);
 
             _recursionDepth--;
+
+            return result;
         }
 
         return null;
     }
-    
+
+    public override SyntaxNode? DefaultVisit(SyntaxNode node)
+    {
+        return node;
+    }
+
     public virtual SyntaxToken VisitToken(SyntaxToken token)
     {
         return default!;

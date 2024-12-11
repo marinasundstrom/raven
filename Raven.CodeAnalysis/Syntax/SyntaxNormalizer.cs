@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Raven.CodeAnalysis.Syntax;
 
 public sealed class SyntaxNormalizer : SyntaxRewriter
