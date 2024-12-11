@@ -10,6 +10,12 @@ It is a merger of the projects in the [compiler-projects](https://github.com/mar
 
 Look at [unit tests](/Raven.Tests/CodeAnalysis/Syntax/AstTest.cs).
 
+## Why the name "Raven"?
+
+Raven is a bird species. And ravens are cool. Old Norse god Odin had two ravens, Huginn and Muninn.
+
+Perhaps should we should use the Old Norse "hrafn", or Danish "ravn"?
+
 ## Syntax
 
 See pseudo-specification [here](/docs/syntax.md).
