@@ -22,6 +22,15 @@ Perhaps we should use the Old Norse form "hrafn", or Danish "ravn"?
 
 See pseudo-specification [here](/docs/syntax.md).
 
+## Development
+
+This project is being developed using the following means:
+* Using AI for answers, about the architecture, and for code to get started.
+* Looking at the actual source code for C# compiler.
+* Looking at de-compiled sources of C# compiler.
+
+So it's quite a lot of reverse engineering.
+
 ## Documentation
 
 Read the documentation [here](/docs/).
