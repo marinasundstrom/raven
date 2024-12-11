@@ -41,7 +41,7 @@ public class GreenNode
 
     // Omitting members such as LeadingTrivia and TrailingTrivia and FullWidth
 
-    // There is also a method for creating a Red node equivalent.
+    // There is also a method for creating the equivalent Red node wrapper.
 }
 ```
 
