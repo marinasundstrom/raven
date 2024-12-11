@@ -36,5 +36,17 @@ public abstract class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
     public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
     {
         return default!;
+
+    public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
+    {
+        // TODO: Generate with source generator
+        
+        return node.Update(
+            VisitToken(node.IfKeyword),
+            VisitToken(node.OpenParenToken),
+            (ExpressionSyntax)Visit(node.Condition),
+            VisitToken(node.CloseParenToken), 
+            (StatementSyntax)Visit(node.Statement), 
+            (ElseClauseSyntax?)(node.ElseClause is not null ? Visit(node.ElseClause) : null));
     }
 }

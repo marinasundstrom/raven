@@ -36,6 +36,21 @@ public partial class BlockSyntax : StatementSyntax
     {
         return visitor.VisitBlock(this);
     }
+    
+    public BlockSyntax WithOpenBraceToken(SyntaxToken openBrace)
+    {
+        return new BlockSyntax(openBrace, Statements, CloseBraceToken);
+    }
+
+    public BlockSyntax WithStatements(SyntaxList<StatementSyntax> statements)
+    {
+        return new BlockSyntax(OpenBraceToken, statements, CloseBraceToken);
+    }
+    
+    public BlockSyntax WithCloseBraceToken(SyntaxToken closeBrace)
+    {
+        return new BlockSyntax(OpenBraceToken, Statements, closeBrace);
+    }
 }
 
 public static partial class SyntaxFactory

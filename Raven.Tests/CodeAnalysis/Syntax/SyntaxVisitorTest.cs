@@ -28,8 +28,10 @@ public class SyntaxVisitorTest(ITestOutputHelper testOutputHelper)
 
         var r = visitor2.Visit(ifStatement);
 
-        var rewriter = new TestSyntaxRewriter();
+        var rewriter = new IndentationFixer();
 
         var newTree = rewriter.Visit(ifStatement);
+
+        testOutputHelper.WriteLine(newTree.ToFullString());
     }
 }

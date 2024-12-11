@@ -5,7 +5,10 @@ public abstract class SyntaxVisitor
 {
     public virtual void Visit(SyntaxNode node)
     {
-        DefaultVisit(node);
+        if (node != null)
+        {
+            ((SyntaxNode)node).Accept(this);
+        }
     }
 
     public virtual void DefaultVisit(SyntaxNode node)
