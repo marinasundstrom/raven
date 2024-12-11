@@ -12,17 +12,7 @@ public abstract class SyntaxVisitor
     {
 
     }
-
-    public virtual void VisitToken(SyntaxToken tokenn)
-    {
-
-    }
-
-    public virtual void VisitTrivia(SyntaxTrivia trivia)
-    {
-
-    }
-
+    
     public virtual void VisitIdentifierName(IdentifierNameSyntax node)
     {
         DefaultVisit(node);

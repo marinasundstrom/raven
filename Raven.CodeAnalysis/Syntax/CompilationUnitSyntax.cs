@@ -42,7 +42,7 @@ public partial class CompilationUnitSyntax : SyntaxNode
 
     public CompilationUnitSyntax NormalizeWhitespace()
     {
-        return this;
+        return (CompilationUnitSyntax)new SyntaxNormalizer().Visit(this);
     }
 
     public CompilationUnitSyntax WithRoot(SyntaxTree syntaxTree)

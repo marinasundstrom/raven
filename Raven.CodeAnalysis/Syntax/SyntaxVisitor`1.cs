@@ -11,17 +11,7 @@ public abstract class SyntaxVisitor<TResult>
     {
         return default!;
     }
-
-    public virtual TResult VisitToken(SyntaxToken token)
-    {
-        return default!;
-    }
-
-    public virtual TResult VisitTrivia(SyntaxTrivia trivia)
-    {
-        return default!;
-    }
-
+    
     public virtual TResult VisitIdentifierName(IdentifierNameSyntax node)
     {
         return DefaultVisit(node);

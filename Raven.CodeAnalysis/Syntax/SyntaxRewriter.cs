@@ -20,4 +20,14 @@ public abstract class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
 
         return null;
     }
+    
+    public virtual SyntaxToken VisitToken(SyntaxToken token)
+    {
+        return default!;
+    }
+
+    public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
+    {
+        return default!;
+    }
 }

@@ -29,14 +29,4 @@ public struct SyntaxTrivia
     {
         return new SyntaxTrivia(trivia, default!);
     }
-
-    public void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitTrivia(this);
-    }
-
-    public TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
-    {
-        return visitor.VisitTrivia(this);
-    }
 }

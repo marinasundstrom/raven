@@ -2,7 +2,7 @@
 
 public enum SyntaxKind
 {
-    Unknown,
+    None,
 
     IdentifierName,
     NumericLiteralExpression,
