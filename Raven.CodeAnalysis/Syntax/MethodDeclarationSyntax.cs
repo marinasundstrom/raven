@@ -8,7 +8,7 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
 {
     public partial TypeSyntax ReturnType { get; }
     public partial IdentifierNameSyntax Name { get; }
-    public partial TypeParameterListSyntax ParameterList { get; }
+    public partial ParameterListSyntax ParameterList { get; }
     public partial BlockSyntax? Body { get; }
 
     public MethodDeclarationSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
@@ -16,12 +16,12 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
     {
     }
 
-    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, TypeParameterListSyntax parameters)
+    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, ParameterListSyntax parameters)
         : this(new InternalSyntax.MethodDeclarationSyntax((InternalSyntax.TypeSyntax)returnType.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, (InternalSyntax.TypeParameterListSyntax)parameters.Green))
     {
     }
 
-    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, TypeParameterListSyntax parameters, BlockSyntax? body)
+    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, ParameterListSyntax parameters, BlockSyntax? body)
     : this(new InternalSyntax.MethodDeclarationSyntax((InternalSyntax.TypeSyntax)returnType.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, (InternalSyntax.TypeParameterListSyntax)parameters.Green, (InternalSyntax.BlockSyntax)body.Green))
     {
     }
@@ -39,6 +39,6 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
 
 public static partial class SyntaxFactory
 {
-    public static MethodDeclarationSyntax MethodDeclaration(TypeSyntax returnType, IdentifierNameSyntax name, TypeParameterListSyntax parameters)
+    public static MethodDeclarationSyntax MethodDeclaration(TypeSyntax returnType, IdentifierNameSyntax name, ParameterListSyntax parameters)
         => new MethodDeclarationSyntax(returnType, name, parameters);
 }

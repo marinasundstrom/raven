@@ -29,12 +29,12 @@ public partial class EqualsValueClauseSyntax : SyntaxNode
 
     public override void Accept(SyntaxVisitor visitor)
     {
-        visitor.VisitEqualsValue(this);
+        visitor.VisitEqualsValueClause(this);
     }
 
     public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
     {
-        return visitor.VisitEqualsValue(this);
+        return visitor.VisitEqualsValueClause(this);
     }
 }
 

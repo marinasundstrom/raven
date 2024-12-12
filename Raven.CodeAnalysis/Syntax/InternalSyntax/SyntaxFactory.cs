@@ -7,17 +7,16 @@ public static class SyntaxFactory
 
     public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString());
 
-    
     public static SyntaxTrivia Whitespace(string text) => new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, text);
 
     public static readonly SyntaxTrivia LineFeed = new SyntaxTrivia(SyntaxKind.EndOfLineToken, "\n");
-    
+
     public static readonly SyntaxTrivia CarriageReturnLineFeed = new SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, "\r\n");
 
     public static readonly SyntaxTrivia Space = new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, " ");
-    
+
     public static readonly SyntaxTrivia Tab = new SyntaxTrivia(SyntaxKind.TabTrivia, "\t");
-    
+
 
     public static readonly SyntaxToken OpenParenToken = new SyntaxToken(SyntaxKind.OpenParenToken, "(");
 
@@ -52,6 +51,6 @@ public static class SyntaxFactory
     public static readonly SyntaxToken EndOfLine = new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");
 
     public static readonly SyntaxToken CarriageReturn = new SyntaxToken(SyntaxKind.CarriageReturnToken, "\r");
-    
+
     public static readonly SyntaxToken EndOfFile = new SyntaxToken(SyntaxKind.EndOfFileToken, string.Empty);
 }

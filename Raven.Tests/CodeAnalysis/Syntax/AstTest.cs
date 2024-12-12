@@ -42,7 +42,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         var r = methodDeclaration.ReturnType;
 
-        TypeParameterListSyntax parsLis = methodDeclaration.ParameterList;
+        ParameterListSyntax parsLis = methodDeclaration.ParameterList;
 
         var sep = parsLis.Parameters.GetSeparator(0);
 
@@ -220,19 +220,19 @@ public class AstTest(ITestOutputHelper testOutputHelper)
             .WithImports(
                 List(
                     ImportDirective(
-                        ImportKeyword, 
+                        ImportKeyword,
                         IdentifierName("Foo")
                                 .WithLeadingTrivia(
                                     TriviaList(Whitespace(" "))),
                         SemicolonToken)));
-        
+
         var syntaxTree = SyntaxTree.Create(compilationUnit);
 
         var compilation = Compilation.Create("MyCompilation")
             .AddSyntaxTrees(syntaxTree);
 
         var root = compilation.SyntaxTrees.First().GetSyntaxRoot();
-        
+
         testOutputHelper.WriteLine(root.ToFullString());
     }
 }

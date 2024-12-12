@@ -29,12 +29,12 @@ public partial class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
 
     public override void Accept(SyntaxVisitor visitor)
     {
-        visitor.VisitLiteralExpression(this);
+        visitor.VisitNumericLiteralExpression(this);
     }
 
     public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
     {
-        return visitor.VisitLiteralExpression(this);
+        return visitor.VisitNumericLiteralExpression(this);
     }
 }
 

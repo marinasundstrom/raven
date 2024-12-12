@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Syntax;
 
-public abstract class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
+public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
 {
     private int _recursionDepth;
 
@@ -41,13 +41,13 @@ public abstract class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
     public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
     {
         // TODO: Generate with source generator
-        
+
         return node.Update(
             VisitToken(node.IfKeyword),
             VisitToken(node.OpenParenToken),
             (ExpressionSyntax)Visit(node.Condition),
-            VisitToken(node.CloseParenToken), 
-            (StatementSyntax)Visit(node.Statement), 
+            VisitToken(node.CloseParenToken),
+            (StatementSyntax)Visit(node.Statement),
             (ElseClauseSyntax?)(node.ElseClause is not null ? Visit(node.ElseClause) : null),
             node.SemicolonToken);
     }

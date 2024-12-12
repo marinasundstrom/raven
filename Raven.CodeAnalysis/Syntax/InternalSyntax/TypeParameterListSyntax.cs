@@ -20,6 +20,6 @@ public class TypeParameterListSyntax : SyntaxNode
 
     public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
-        return new Syntax.TypeParameterListSyntax(this, parent, position);
+        return new Syntax.ParameterListSyntax(this, parent, position);
     }
 }

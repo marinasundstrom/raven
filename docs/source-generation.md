@@ -18,3 +18,15 @@ For each `partial` class that is extending `SyntaxNode`, or a class that is exte
 
 * ``Update`` methods.
 
+### Visitor
+
+* Generate `Visit*` methods (e.g. `VisitIfStatement`)
+
+
+### Rewriter
+
+* Generate overrides that invoke `node.Update( ... )`
+
+### Syntax Factory
+
+Generate methods for creating nodes, token, trivias.

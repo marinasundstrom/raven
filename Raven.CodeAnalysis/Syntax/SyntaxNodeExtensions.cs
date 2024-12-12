@@ -8,7 +8,7 @@ public static class SyntaxNodeExtensions
         return (TRoot)root.ReplaceTokenInListCore(tokenInList, newTokens);
     }
 
-    public static TSyntax WithLeadingTrivia<TSyntax>(this TSyntax node, SyntaxTriviaList trivia)
+    public static TSyntax WithLeadingTrivia<TSyntax>(this TSyntax node, params IEnumerable<SyntaxTrivia> trivia)
         where TSyntax : SyntaxNode
     {
         var first = node.GetFirstToken(includeZeroWidth: true);
@@ -16,10 +16,11 @@ public static class SyntaxNodeExtensions
         return node.ReplaceToken(first, newFirst);
     }
 
-    public static TSyntax WithTrailingTrivia<TSyntax>(this TSyntax node, params SyntaxTriviaList trivia)
+    public static TSyntax WithTrailingTrivia<TSyntax>(this TSyntax node, params IEnumerable<SyntaxTrivia> trivia)
         where TSyntax : SyntaxNode
     {
         var last = node.GetLastToken(includeZeroWidth: true);
         var newLast = last.WithTrailingTrivia(trivia);
-        return node.ReplaceToken(last, newLast);    }
+        return node.ReplaceToken(last, newLast);
+    }
 }

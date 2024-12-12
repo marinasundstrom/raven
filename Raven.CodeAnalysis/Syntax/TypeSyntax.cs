@@ -24,12 +24,12 @@ public partial class NameSyntax : TypeSyntax
 
     public override void Accept(SyntaxVisitor visitor)
     {
-        visitor.VisitType(this);
+        visitor.VisitName(this);
     }
 
     public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
     {
-        return visitor.VisitType(this);
+        return visitor.VisitName(this);
     }
 }
 

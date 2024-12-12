@@ -23,9 +23,10 @@ public sealed class IndentationFixer : SyntaxRewriter
     {
         return node.Accept(this);
     }
-    
+
     public override SyntaxToken VisitToken(SyntaxToken token)
-    { ;
+    {
+        ;
         return token;
     }
 
@@ -34,7 +35,7 @@ public sealed class IndentationFixer : SyntaxRewriter
         return trivia;
     }
 
-    public override SyntaxNode VisitBlock(BlockSyntax node)
+    public override BlockSyntax VisitBlock(BlockSyntax node)
     {
         _indentLevel++;
 
