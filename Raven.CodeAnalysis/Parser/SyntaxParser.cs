@@ -25,7 +25,7 @@ public class SyntaxParser
         tokenizer = new Tokenizer(new Lexer(sourceText.GetTextReader()));
 
         var compilationUnit = ParseCompilationUnit();
-        return SyntaxTree.Create(compilationUnit, _diagnosticBag);
+        return SyntaxTree.Create(sourceText, compilationUnit, _diagnosticBag);
     }
 
     private CompilationUnitSyntax ParseCompilationUnit()

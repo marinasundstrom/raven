@@ -123,4 +123,63 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
     }
+    
+    [Fact]
+    public void ReplaceNode()
+    {
+        var code = """
+                   if (foo)  {
+                       return 0;
+                   } else if (bar ) {
+                       return 1;
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var diagnostics = syntaxTree.GetDiagnostics();
+
+        foreach (var diagnostic in diagnostics)
+        {
+            testOutputHelper.WriteLine($"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
+        }
+
+        var root = syntaxTree.GetSyntaxRoot();
+
+        var x = root.DescendantNodes().OfType<IdentifierNameSyntax>().First();
+
+        root = (CompilationUnitSyntax)root.ReplaceNode(x, IdentifierName("c"));
+
+        var str = root.ToFullString();
+
+        testOutputHelper.WriteLine(str);
+
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
+    }
+    
+    [Fact]
+    public void FindNodeBySpanAndReplace()
+    {
+        var code = """
+                   if (foo)  {
+                       return 0;
+                   } else if (bar ) {
+                       return 1;
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var root = syntaxTree.GetSyntaxRoot();
+
+        var found = syntaxTree.GetNodeForSpan(new TextSpan(5, 2));
+        
+        root = (CompilationUnitSyntax)root.ReplaceNode(found!, IdentifierName("c"));
+
+        var str = root.ToFullString();
+
+        testOutputHelper.WriteLine(str);
+
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
+    }
 }

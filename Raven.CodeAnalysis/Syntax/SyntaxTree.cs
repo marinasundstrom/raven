@@ -79,9 +79,9 @@ public class SyntaxTree
     }
 
 
-    internal static SyntaxTree Create(CompilationUnitSyntax compilationUnit, DiagnosticBag diagnosticBag)
+    internal static SyntaxTree Create(SourceText sourceText, CompilationUnitSyntax compilationUnit, DiagnosticBag diagnosticBag)
     {
-        var syntaxTree = new SyntaxTree(diagnosticBag);
+        var syntaxTree = new SyntaxTree(sourceText, diagnosticBag);
 
         compilationUnit = compilationUnit
             .WithRoot(syntaxTree);
@@ -123,6 +123,23 @@ public class SyntaxTree
         return false;
     }
 
+    public SyntaxNode? GetNodeForSpan(TextSpan span)
+    {
+        // Ensure the SyntaxTree corresponds to the SourceText
+        if (!this.TryGetText(out var syntaxTreeText))
+            throw new ArgumentException("SourceText does not match the provided SyntaxTree.");
+
+        // Get the root node of the syntax tree
+        var root = GetSyntaxRoot();
+
+        // Find the node whose span matches the given TextSpan
+        var matchingNode = root.DescendantNodes()
+            .Where(node => node.FullSpan.Contains(span))
+            .OrderBy(node => node.FullSpan.Length); // Sort by span length to get the shortest;
+
+        return matchingNode.FirstOrDefault();
+    }
+    
     public SyntaxTree WithUpdatedText(SourceText sourceText, int changeStart, int changeEnd)
     {
         /*
