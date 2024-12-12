@@ -5,16 +5,14 @@ public class CompilationUnitSyntax : SyntaxNode
     public CompilationUnitSyntax(
         SyntaxList imports,
         SyntaxList members,
-        SyntaxToken endOfFileToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken endOfFileToken)
         : base(
               SyntaxKind.CompilationUnit,
               [
                       imports,
                       members,
                       endOfFileToken
-              ],
-              diagnostics)
+              ])
     {
     }
 

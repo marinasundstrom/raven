@@ -7,8 +7,7 @@ public class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
         IdentifierNameSyntax name,
         SyntaxToken semicolonToken,
         SyntaxList imports,
-        SyntaxList members,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxList members)
         : base(
               SyntaxKind.CompilationUnit,
               [
@@ -17,8 +16,7 @@ public class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
                     imports,
                     members,
                     semicolonToken
-              ],
-              diagnostics)
+              ])
     {
     }
 

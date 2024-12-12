@@ -7,7 +7,6 @@ public struct SyntaxTrivia
 
     public SyntaxKind Kind => Green.Kind;
     public string Text => Green.Text;
-    public IEnumerable<DiagnosticInfo> Diagnostics => Green.Diagnostics;
 
     public SyntaxToken? Token => _token;
 
@@ -38,8 +37,8 @@ public static partial class SyntaxFactory
     public static readonly SyntaxTrivia LineFeed = (SyntaxTrivia)InternalSyntax.SyntaxFactory.LineFeed;
 
     public static readonly SyntaxTrivia CarriageReturnLineFeed = (SyntaxTrivia)InternalSyntax.SyntaxFactory.CarriageReturnLineFeed;
-    
+
     public static readonly SyntaxTrivia Space = (SyntaxTrivia)InternalSyntax.SyntaxFactory.Space;
-    
+
     public static readonly SyntaxTrivia Tab = (SyntaxTrivia)InternalSyntax.SyntaxFactory.Tab;
 }

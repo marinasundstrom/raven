@@ -9,8 +9,7 @@ public class IfStatementSyntax : StatementSyntax
         SyntaxToken closeParenToken,
         StatementSyntax statement,
         ElseClauseSyntax elseClause,
-        SyntaxToken semicolonToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken semicolonToken)
         : base(
               SyntaxKind.IfStatement,
               [
@@ -21,8 +20,7 @@ public class IfStatementSyntax : StatementSyntax
                 statement,
                 elseClause,
                 semicolonToken
-              ],
-              diagnostics)
+              ])
     {
     }
 
@@ -32,8 +30,7 @@ public class IfStatementSyntax : StatementSyntax
         SyntaxNode condition,
         SyntaxToken closeParenToken,
         StatementSyntax statement,
-        ElseClauseSyntax elseClause,
-    IEnumerable<DiagnosticInfo> diagnostics = null)
+        ElseClauseSyntax elseClause)
     : base(
           SyntaxKind.IfStatement,
           [
@@ -43,8 +40,7 @@ public class IfStatementSyntax : StatementSyntax
                 closeParenToken,
                 statement,
                 elseClause
-          ],
-          diagnostics)
+          ])
     {
     }
 

@@ -5,16 +5,14 @@ public class TypeParameterListSyntax : SyntaxNode
     public TypeParameterListSyntax(
         SyntaxToken openParenToken,
         SeparatedSyntaxList parameters,
-        SyntaxToken closeParentToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken closeParentToken)
         : base(
               SyntaxKind.Block,
               [
                       openParenToken,
                       parameters,
                       closeParentToken
-              ],
-              diagnostics)
+              ])
     {
     }
 

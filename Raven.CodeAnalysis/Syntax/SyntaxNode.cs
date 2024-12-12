@@ -55,8 +55,6 @@ public abstract class SyntaxNode
         }
     }
 
-    public IEnumerable<DiagnosticInfo> Diagnostics => Green.Diagnostics;
-
     /// <summary>
     /// Gets a list of the child nodes in prefix document order.
     /// </summary>

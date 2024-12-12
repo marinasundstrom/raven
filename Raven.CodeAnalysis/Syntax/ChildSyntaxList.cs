@@ -34,8 +34,11 @@ public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
         for (int index = 0; index < _node.Green.SlotCount; index++)
         {
             var childGreenNode = _node.Green.GetSlot(index);
-            if (childGreenNode is InternalSyntax.SyntaxList syntaxList)
+            if (childGreenNode is InternalSyntax.SyntaxList
+                || childGreenNode is InternalSyntax.SeparatedSyntaxList)
             {
+                var syntaxList = childGreenNode;
+
                 for (int i = 0; i < syntaxList.SlotCount; i++)
                 {
                     var child = syntaxList.GetSlot(i);

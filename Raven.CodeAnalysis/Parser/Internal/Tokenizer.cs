@@ -1,13 +1,14 @@
 ﻿using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
+using SyntaxToken = Raven.CodeAnalysis.Syntax.SyntaxToken;
 
 namespace Raven.CodeAnalysis.Parser.Internal;
 
 public class Tokenizer
 {
     private readonly ILexer lexer;
-    private SyntaxToken? lookaheadToken;
+    private Syntax.InternalSyntax.SyntaxToken? lookaheadToken;
 
     public Tokenizer(ILexer lexer)
     {
@@ -20,9 +21,15 @@ public class Tokenizer
         {
             var token = lookaheadToken;
             lookaheadToken = null;
-            return token;
+            return CreateRedToken(token);
         }
-        return ReadTokenCore();
+        var readToken = ReadTokenCore();
+        return CreateRedToken(readToken);
+    }
+
+    private static SyntaxToken CreateRedToken(Syntax.InternalSyntax.SyntaxToken readToken)
+    {
+        return new SyntaxToken(readToken, null!, 0);
     }
 
     public SyntaxToken PeekToken()
@@ -31,12 +38,12 @@ public class Tokenizer
         {
             lookaheadToken = ReadTokenCore();
         }
-        return lookaheadToken!;
+        return CreateRedToken(lookaheadToken);
     }
 
-    private SyntaxToken ReadTokenCore()
+    private Syntax.InternalSyntax.SyntaxToken ReadTokenCore()
     {
-        SyntaxToken token;
+        Syntax.InternalSyntax.SyntaxToken token;
 
         SyntaxTriviaList leadingTrivia;
         SyntaxTriviaList trailingTrivia;
@@ -47,7 +54,7 @@ public class Tokenizer
 
         trailingTrivia = ReadTrivia();
 
-        return new SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia);
+        return new Syntax.InternalSyntax.SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia);
     }
 
     private SyntaxTriviaList ReadTrivia()
@@ -60,22 +67,22 @@ public class Tokenizer
 
             switch (token)
             {
-                case SyntaxToken it when it.Kind == SyntaxKind.TabToken:
+                case Syntax.InternalSyntax.SyntaxToken it when it.Kind == SyntaxKind.TabToken:
                     lexer.ReadToken();
                     trivia.Add(new SyntaxTrivia(SyntaxKind.TabTrivia, token.Text));
                     continue;
 
-                case SyntaxToken it when it.Kind == SyntaxKind.Whitespace:
+                case Syntax.InternalSyntax.SyntaxToken it when it.Kind == SyntaxKind.Whitespace:
                     lexer.ReadToken();
                     trivia.Add(new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text));
                     continue;
 
-                case SyntaxToken it when it.Kind == SyntaxKind.EndOfLineToken:
+                case Syntax.InternalSyntax.SyntaxToken it when it.Kind == SyntaxKind.EndOfLineToken:
                     lexer.ReadToken();
                     trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
                     continue;
 
-                case SyntaxToken it when it.Kind == SyntaxKind.CarriageReturnToken:
+                case Syntax.InternalSyntax.SyntaxToken it when it.Kind == SyntaxKind.CarriageReturnToken:
                     lexer.ReadToken();
                     trivia.Add(new SyntaxTrivia(SyntaxKind.CarriageReturnTrivia, token.Text));
                     continue;
@@ -85,16 +92,5 @@ public class Tokenizer
         }
 
         return new SyntaxTriviaList(trivia.ToArray());
-    }
-
-    private bool ConsumeToken(SyntaxKind kind, out SyntaxToken token)
-    {
-        token = lexer.PeekToken();
-        if (token.Kind == kind)
-        {
-            lexer.ReadToken();
-            return true;
-        }
-        return false;
     }
 }

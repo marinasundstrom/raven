@@ -6,9 +6,8 @@ public class SyntaxNode : GreenNode
 
     public SyntaxNode(
         SyntaxKind kind,
-        GreenNode[] slots,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
-        : base(kind, slots?.Length ?? 0, CalculateWidth(slots), CalculateFullWidth(slots), diagnostics)
+        GreenNode[] slots)
+        : base(kind, slots?.Length ?? 0, CalculateWidth(slots), CalculateFullWidth(slots))
     {
         _slots = slots ?? Array.Empty<GreenNode>();
     }

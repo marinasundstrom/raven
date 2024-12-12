@@ -9,7 +9,7 @@ public class ParameterSyntax : SyntaxNode
         : base(SyntaxKind.Parameter, [
             name,
             typeAnnotation
-        ], [])
+        ])
     {
     }
 

@@ -4,15 +4,13 @@ public class LocalDeclarationStatementSyntax : StatementSyntax
 {
     public LocalDeclarationStatementSyntax(
         VariableDeclarationSyntax declaration,
-        SyntaxToken semicolonToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken semicolonToken)
         : base(
               SyntaxKind.LocalDeclaration,
               [
                       declaration,
                       semicolonToken
-              ],
-              diagnostics)
+              ])
     {
     }
 

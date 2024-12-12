@@ -5,16 +5,14 @@ public class BinaryExpressionSyntax : ExpressionSyntax
     public BinaryExpressionSyntax(
         ExpressionSyntax leftHandSide,
         SyntaxToken operatorToken,
-        ExpressionSyntax rightHandSide,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        ExpressionSyntax rightHandSide)
         : base(
               SyntaxKind.Block,
               [
                       leftHandSide,
                       operatorToken,
                       rightHandSide
-              ],
-              diagnostics)
+              ])
     {
 
     }

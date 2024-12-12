@@ -13,15 +13,12 @@ public abstract class GreenNode
     public InternalSyntax.SyntaxTriviaList LeadingTrivia { get; protected set; } = InternalSyntax.SyntaxTriviaList.Empty;
     public InternalSyntax.SyntaxTriviaList TrailingTrivia { get; protected set; } = InternalSyntax.SyntaxTriviaList.Empty;
 
-    public IEnumerable<DiagnosticInfo> Diagnostics { get; }
-
-    protected GreenNode(SyntaxKind kind, int slotCount, int width, int fullWidth, IEnumerable<DiagnosticInfo> diagnostics = null)
+    protected GreenNode(SyntaxKind kind, int slotCount, int width, int fullWidth)
     {
         Kind = kind;
         SlotCount = slotCount;
         Width = width;
         FullWidth = fullWidth;
-        Diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
     }
 
     public abstract GreenNode GetSlot(int index);

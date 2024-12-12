@@ -26,6 +26,9 @@ public partial class LocalDeclarationStatementSyntax : StatementSyntax
 
 public static partial class SyntaxFactory
 {
+    public static LocalDeclarationStatementSyntax LocalDeclarationStatement(VariableDeclarationSyntax declaration, SyntaxToken semicolonToken)
+        => new LocalDeclarationStatementSyntax(declaration, semicolonToken);
+    
     public static LocalDeclarationStatementSyntax LocalDeclarationStatement(VariableDeclarationSyntax declaration)
-        => new LocalDeclarationStatementSyntax(declaration, SyntaxFactory.SemicolonToken);
+        => LocalDeclarationStatement(declaration, SemicolonToken);
 }

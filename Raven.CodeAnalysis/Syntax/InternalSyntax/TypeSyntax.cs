@@ -3,8 +3,8 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 public abstract class TypeSyntax : SyntaxNode
 {
-    protected TypeSyntax(SyntaxKind kind, GreenNode[] slots, IEnumerable<DiagnosticInfo> diagnostics = null)
-        : base(kind, slots, diagnostics)
+    protected TypeSyntax(SyntaxKind kind, GreenNode[] slots)
+        : base(kind, slots)
     {
     }
 }
@@ -13,7 +13,7 @@ public abstract class TypeSyntax : SyntaxNode
 public class NameSyntax : TypeSyntax
 {
     public NameSyntax(SyntaxToken nameToken)
-        : base(SyntaxKind.QualifiedName, [nameToken], [])
+        : base(SyntaxKind.QualifiedName, [nameToken])
     {
     }
 

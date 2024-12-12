@@ -143,8 +143,7 @@ public class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
         SyntaxList imports,
         SyntaxList members,
         SyntaxToken closeBraceToken,
-        SyntaxToken semicolonToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken semicolonToken)
         : base(
               SyntaxKind.CompilationUnit,
               [
@@ -155,8 +154,7 @@ public class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
                     members,
                     closeBraceToken,
                     semicolonToken
-              ],
-              diagnostics)
+              ])
     {
     }
 

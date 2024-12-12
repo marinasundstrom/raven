@@ -2,8 +2,8 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 public abstract class LiteralExpressionSyntax : ExpressionSyntax
 {
-    protected LiteralExpressionSyntax(SyntaxKind kind, GreenNode[] slots, IEnumerable<DiagnosticInfo> diagnostics = null)
-        : base(kind, slots, diagnostics)
+    protected LiteralExpressionSyntax(SyntaxKind kind, GreenNode[] slots)
+        : base(kind, slots)
     {
     }
 }
@@ -11,14 +11,12 @@ public abstract class LiteralExpressionSyntax : ExpressionSyntax
 public class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
 {
     public NumericLiteralExpressionSyntax(
-        SyntaxToken numberToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken numberToken)
         : base(
               SyntaxKind.NumericLiteralExpression,
               [
                 numberToken
-              ],
-              diagnostics)
+              ])
     {
     }
 

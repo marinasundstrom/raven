@@ -4,15 +4,13 @@ public class TypeAnnotationSyntax : StatementSyntax
 {
     public TypeAnnotationSyntax(
         SyntaxToken colonToken,
-        TypeSyntax type,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        TypeSyntax type)
         : base(
               SyntaxKind.TypeAnnotation,
               [
                       colonToken,
                       type
-              ],
-              diagnostics)
+              ])
     {
     }
 

@@ -13,48 +13,75 @@ public class SyntaxTree
 {
     private CompilationUnitSyntax _compilationUnit;
     private SourceText? _sourceText;
+    private DiagnosticBag _diagnosticBag;
 
     private SyntaxTree()
     {
+        _diagnosticBag = new DiagnosticBag();
+    }
 
+    private SyntaxTree(DiagnosticBag diagnosticBag)
+    : this(null, diagnosticBag)
+    {
+
+    }
+
+    private SyntaxTree(SourceText sourceText, DiagnosticBag diagnosticBag)
+    {
+        _sourceText = sourceText;
+        _diagnosticBag = diagnosticBag;
     }
 
     private SyntaxTree(SourceText sourceText)
+        : this(sourceText, new DiagnosticBag())
     {
-        _sourceText = sourceText;
-    }
 
+    }
 
     public CompilationUnitSyntax GetSyntaxRoot() { return _compilationUnit; }
 
     public static SyntaxTree ParseText(string text)
     {
-        var source = new SourceText(text);
+        var sourceText = new SourceText(text);
 
-        var parser = new Parser.SyntaxParser(
-            new Tokenizer(new Lexer(source.GetTextReader())));
+        DiagnosticBag diagnosticBag = new DiagnosticBag();
 
-        return parser.Parse();
+        var parser = new Parser.SyntaxParser(diagnosticBag);
+
+        return parser.Parse(sourceText);
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
-        return null;
+        return _diagnosticBag.ToImmutableArray();
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(SyntaxNodeOrToken syntaxNodeOrToken)
     {
-        return null;
+        throw new NotImplementedException(); //_diagnosticBag.ToImmutableArray();
     }
 
     public object GetChanges(SyntaxTree syntaxTree)
     {
-        return null;
+        throw new NotImplementedException();
     }
 
     public static SyntaxTree Create(CompilationUnitSyntax compilationUnit)
     {
         var syntaxTree = new SyntaxTree();
+
+        compilationUnit = compilationUnit
+            .WithRoot(syntaxTree);
+
+        syntaxTree.AddSyntaxTree(compilationUnit);
+
+        return syntaxTree;
+    }
+
+
+    internal static SyntaxTree Create(CompilationUnitSyntax compilationUnit, DiagnosticBag diagnosticBag)
+    {
+        var syntaxTree = new SyntaxTree(diagnosticBag);
 
         compilationUnit = compilationUnit
             .WithRoot(syntaxTree);

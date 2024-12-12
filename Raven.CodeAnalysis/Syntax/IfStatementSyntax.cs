@@ -54,4 +54,7 @@ public static partial class SyntaxFactory
 {
     public static IfStatementSyntax IfStatement(ExpressionSyntax condition, StatementSyntax statement)
         => new IfStatementSyntax(condition, statement);
+
+    public static IfStatementSyntax IfStatement(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, SyntaxToken? semicolonToken)
+        => new IfStatementSyntax(ifKeyword, openParenToken, condition, closeParenToken, statement, semicolonToken);
 }

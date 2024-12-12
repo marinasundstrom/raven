@@ -3,14 +3,12 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 public class IdentifierNameSyntax : ExpressionSyntax
 {
     public IdentifierNameSyntax(
-        SyntaxToken identifierToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken identifierToken)
         : base(
               SyntaxKind.IdentifierName,
               [
                       identifierToken,
-              ],
-              diagnostics)
+              ])
     {
     }
 

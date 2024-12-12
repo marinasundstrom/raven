@@ -3,62 +3,54 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 public class VariableDeclaratorSyntax : StatementSyntax
 {
     public VariableDeclaratorSyntax(
-        IdentifierNameSyntax name,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        IdentifierNameSyntax name)
         : base(
               SyntaxKind.VariableDeclarator,
               [
                     name,
                     null,
                     null,
-              ],
-              diagnostics)
+              ])
     {
     }
 
     public VariableDeclaratorSyntax(
         IdentifierNameSyntax name,
-        TypeAnnotationSyntax typeAnnotation,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        TypeAnnotationSyntax typeAnnotation)
         : base(
               SyntaxKind.VariableDeclarator,
               [
                     name,
                     typeAnnotation,
                     null,
-              ],
-              diagnostics)
+              ])
     {
     }
 
     public VariableDeclaratorSyntax(
         IdentifierNameSyntax name,
-        EqualsValueClauseSyntax equalsValueClause,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        EqualsValueClauseSyntax equalsValueClause)
         : base(
               SyntaxKind.VariableDeclarator,
               [
                     name,
                     null,
                     equalsValueClause
-              ],
-              diagnostics)
+              ])
     {
     }
 
     public VariableDeclaratorSyntax(
         IdentifierNameSyntax name,
         TypeAnnotationSyntax typeAnnotation,
-        EqualsValueClauseSyntax equalsValueClause,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        EqualsValueClauseSyntax equalsValueClause)
         : base(
               SyntaxKind.VariableDeclarator,
               [
                     name,
                     typeAnnotation,
                     equalsValueClause,
-              ],
-              diagnostics)
+              ])
     {
     }
 

@@ -11,8 +11,8 @@ public class SyntaxToken : GreenNode
         string text,
         SyntaxTriviaList leadingTrivia = null,
         SyntaxTriviaList trailingTrivia = null,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
-    : this(kind, text, text.Length, leadingTrivia, trailingTrivia, diagnostics)
+        int position = -1)
+    : this(kind, text, text.Length, leadingTrivia, trailingTrivia, position)
     {
 
     }
@@ -23,11 +23,10 @@ public class SyntaxToken : GreenNode
         int width,
         SyntaxTriviaList leadingTrivia = null,
         SyntaxTriviaList trailingTrivia = null,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        int position = -1)
         : base(kind, 0,
         width,
-        (leadingTrivia?.FullWidth ?? 0) + width + (trailingTrivia?.FullWidth ?? 0),
-        diagnostics)
+        (leadingTrivia?.FullWidth ?? 0) + width + (trailingTrivia?.FullWidth ?? 0))
     {
         _value = value;
         LeadingTrivia = leadingTrivia ?? SyntaxTriviaList.Empty;

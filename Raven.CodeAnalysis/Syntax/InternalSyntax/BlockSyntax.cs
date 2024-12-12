@@ -6,16 +6,14 @@ public class BlockSyntax : StatementSyntax
     public BlockSyntax(
         SyntaxToken openBraceToken,
         SyntaxList statements,
-        SyntaxToken closeBraceToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken closeBraceToken)
         : base(
               SyntaxKind.Block,
               [
                       openBraceToken,
                       statements,
                       closeBraceToken
-              ],
-              diagnostics)
+              ])
     {
     }
 

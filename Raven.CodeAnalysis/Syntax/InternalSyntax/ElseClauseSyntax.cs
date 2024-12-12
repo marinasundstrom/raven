@@ -4,15 +4,13 @@ public class ElseClauseSyntax : SyntaxNode
 {
     public ElseClauseSyntax(
         SyntaxToken elseKeyword,
-        StatementSyntax statement,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        StatementSyntax statement)
         : base(
               SyntaxKind.ElseClause,
               [
                       elseKeyword,
                       statement
-              ],
-              diagnostics)
+              ])
     {
     }
 

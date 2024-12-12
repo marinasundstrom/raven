@@ -5,16 +5,14 @@ public class ReturnStatementSyntax : StatementSyntax
     public ReturnStatementSyntax(
         SyntaxToken returnKeyword,
         ExpressionSyntax expression,
-        SyntaxToken semicolonToken,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SyntaxToken semicolonToken)
         : base(
               SyntaxKind.ReturnStatement,
               [
                       returnKeyword,
                       expression,
                       semicolonToken
-              ],
-              diagnostics)
+              ])
     {
     }
 

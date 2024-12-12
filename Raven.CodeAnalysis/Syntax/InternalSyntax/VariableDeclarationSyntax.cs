@@ -4,15 +4,13 @@ public class VariableDeclarationSyntax : SyntaxNode
 {
     public VariableDeclarationSyntax(
         SyntaxToken letKeyword,
-        SeparatedSyntaxList variableDeclarators,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
+        SeparatedSyntaxList variableDeclarators)
         : base(
               SyntaxKind.VariableDeclaration,
               [
                       letKeyword,
                       variableDeclarators
-              ],
-              diagnostics)
+              ])
     {
     }
 

@@ -30,5 +30,8 @@ public partial class VariableDeclarationSyntax : SyntaxNode
 public static partial class SyntaxFactory
 {
     public static VariableDeclarationSyntax VariableDeclaration(SeparatedSyntaxList<VariableDeclaratorSyntax> declarators)
-        => new VariableDeclarationSyntax(declarators);
+        => VariableDeclaration(LetKeyword, declarators);
+    
+    public static VariableDeclarationSyntax VariableDeclaration(SyntaxToken letKeyword, SeparatedSyntaxList<VariableDeclaratorSyntax> declarators)
+        => new VariableDeclarationSyntax(letKeyword, declarators);
 }

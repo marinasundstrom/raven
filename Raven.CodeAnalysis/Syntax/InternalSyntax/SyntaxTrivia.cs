@@ -6,9 +6,8 @@ public class SyntaxTrivia : GreenNode
 
     public SyntaxTrivia(
         SyntaxKind kind,
-        string text,
-        IEnumerable<DiagnosticInfo> diagnostics = null)
-        : base(kind, 0, text.Length, text.Length, diagnostics)
+        string text)
+        : base(kind, 0, text.Length, text.Length)
     {
         Text = text;
     }

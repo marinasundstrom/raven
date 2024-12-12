@@ -1,21 +1,31 @@
-﻿using Raven.CodeAnalysis.Syntax;
+﻿
+
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
 public class Diagnostic
 {
-    public string Message { get; }
-    public TextSpan Span { get; }
-    public DiagnosticSeverity Severity { get; }
+    public DiagnosticDescriptor Descriptor { get; }
+    public Location Location { get; }
 
-    public Diagnostic(string message, TextSpan span, DiagnosticSeverity severity)
+    private Diagnostic(DiagnosticDescriptor descriptor, Location location)
     {
-        Message = message;
-        Span = span;
-        Severity = severity;
+        Descriptor = descriptor;
+        Location = location;
     }
 
-    public override string ToString() => $"{Severity}: {Message}";
+    public override string ToString() => $"{Descriptor.Id}: {Descriptor.MessageFormat}";
+
+    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location)
+    {
+        return new Diagnostic(descriptor, location);
+    }
+
+    internal static Diagnostic Create(object semicolonExpected, object value)
+    {
+        throw new NotImplementedException();
+    }
 }
 
 public enum DiagnosticSeverity
