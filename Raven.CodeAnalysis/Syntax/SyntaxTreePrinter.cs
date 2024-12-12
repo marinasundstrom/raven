@@ -32,7 +32,7 @@ public static class SyntaxTreePrinter
             }
             else if (includeTokens && child.AsToken(out var token))
             {
-                sb.AppendLine($"{indent + "  "}{token.Kind}");
+                sb.AppendLine($"{indent + "  "}{token.Kind}{(token.IsMissing ? "*" : string.Empty)}");
             }
         }
     }

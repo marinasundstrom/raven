@@ -71,7 +71,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
     public void Diagnostic()
     {
         var code = """
-                   let x;
+                   let x
                    return 0f
                    """;
 

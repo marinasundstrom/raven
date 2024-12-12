@@ -11,9 +11,9 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     private readonly SyntaxNode _parent;
 
     public string Text => Green.Text;
-    
-    public bool IsMissing => false;
-    
+
+    public bool IsMissing => Green.IsMissing;
+
     public int Width => Green.Width;
     public int FullWidth => Green.FullWidth;
 
@@ -36,7 +36,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     // Additional properties or methods specific to SyntaxToken
 
     public SyntaxKind Kind => Green.Kind;
-    
+
     public bool IsKind(SyntaxKind kind) => Green.Kind == kind;
 
     public SyntaxNode Parent => _parent;

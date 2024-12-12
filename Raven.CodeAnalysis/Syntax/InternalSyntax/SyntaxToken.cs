@@ -10,9 +10,8 @@ public class SyntaxToken : GreenNode
         SyntaxKind kind,
         string text,
         SyntaxTriviaList leadingTrivia = null,
-        SyntaxTriviaList trailingTrivia = null,
-        int position = -1)
-    : this(kind, text, text.Length, leadingTrivia, trailingTrivia, position)
+        SyntaxTriviaList trailingTrivia = null)
+    : this(kind, text, text.Length, leadingTrivia, trailingTrivia)
     {
 
     }
@@ -22,8 +21,7 @@ public class SyntaxToken : GreenNode
         object value,
         int width,
         SyntaxTriviaList leadingTrivia = null,
-        SyntaxTriviaList trailingTrivia = null,
-        int position = -1)
+        SyntaxTriviaList trailingTrivia = null)
         : base(kind, 0,
         width,
         (leadingTrivia?.FullWidth ?? 0) + width + (trailingTrivia?.FullWidth ?? 0))
@@ -32,6 +30,8 @@ public class SyntaxToken : GreenNode
         LeadingTrivia = leadingTrivia ?? SyntaxTriviaList.Empty;
         TrailingTrivia = trailingTrivia ?? SyntaxTriviaList.Empty;
     }
+
+    public bool IsMissing { get; private set; }
 
     public override GreenNode GetSlot(int index) => throw new InvalidOperationException("SyntaxToken has no children.");
 
@@ -47,5 +47,10 @@ public class SyntaxToken : GreenNode
     public SyntaxToken WithTrailingTrivia(IEnumerable<SyntaxTrivia> trivias)
     {
         return new SyntaxToken(Kind, Text, LeadingTrivia, SyntaxTriviaList.Create(trivias.ToArray())); ;
+    }
+
+    internal static SyntaxToken Missing(SyntaxKind kind)
+    {
+        return new SyntaxToken(kind, string.Empty) { IsMissing = true };
     }
 }

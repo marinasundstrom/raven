@@ -12,9 +12,8 @@ namespace Raven.CodeAnalysis.Parser;
 public class SyntaxParser
 {
     private Tokenizer tokenizer;
+    private int currentSpanPosition = 0;
     private readonly DiagnosticBag _diagnosticBag;
-
-    int currentSpanPosition = 0;
 
     public SyntaxParser(DiagnosticBag diagnosticBag)
     {
@@ -24,7 +23,7 @@ public class SyntaxParser
     public Syntax.SyntaxTree Parse(SourceText sourceText)
     {
         tokenizer = new Tokenizer(new Lexer(sourceText.GetTextReader()));
-            
+
         var compilationUnit = ParseCompilationUnit();
         return SyntaxTree.Create(compilationUnit, _diagnosticBag);
     }
@@ -73,6 +72,8 @@ public class SyntaxParser
 
         if (!Consume(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
+            semicolonToken = SyntaxFactory.MissingToken(SyntaxKind.SemicolonToken);
+
             _diagnosticBag.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
@@ -93,7 +94,7 @@ public class SyntaxParser
             case SyntaxKind.LetKeyword:
                 return ParseLocalDeclarationStatementSyntax();
         }
-        
+
         var expression = ParseExpression();
         return ExpressionStatement(expression);
     }
@@ -101,9 +102,11 @@ public class SyntaxParser
     public LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()
     {
         var declaration = ParseVariableDeclarationSyntax();
-        
+
         if (!Consume(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
+            semicolonToken = SyntaxFactory.MissingToken(SyntaxKind.SemicolonToken);
+
             _diagnosticBag.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,

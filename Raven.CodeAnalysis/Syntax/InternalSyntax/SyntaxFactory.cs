@@ -3,6 +3,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 public static class SyntaxFactory
 {
+    public static SyntaxToken MissingToken(SyntaxKind kind) => SyntaxToken.Missing(kind);
     public static SyntaxToken IdentifierToken(string text) => new SyntaxToken(SyntaxKind.IdentifierToken, text);
 
     public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString());
