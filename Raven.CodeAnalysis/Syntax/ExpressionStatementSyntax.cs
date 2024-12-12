@@ -13,16 +13,6 @@ public partial class ExpressionStatementSyntax : StatementSyntax
         : this(new InternalSyntax.ExpressionStatementSyntax((InternalSyntax.ExpressionSyntax)expression.Green))
     {
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitExpressionStatement(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitExpressionStatement(this);
-    }
 }
 
 public static partial class SyntaxFactory

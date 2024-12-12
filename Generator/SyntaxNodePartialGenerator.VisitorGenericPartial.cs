@@ -17,32 +17,32 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
         var methodName = $"Visit{classSymbol.Name.Replace("Syntax", string.Empty)}";
 
-        methods.Add(SyntaxFactory.MethodDeclaration(
-            SyntaxFactory.IdentifierName("TResult"),
-            SyntaxFactory.Identifier(methodName))
+        methods.Add(MethodDeclaration(
+            IdentifierName("TResult"),
+            Identifier(methodName))
             .WithModifiers(
-                SyntaxFactory.TokenList(
+                TokenList(
                     [
-                            SyntaxFactory.Token(SyntaxKind.PublicKeyword),
-                                SyntaxFactory.Token(SyntaxKind.VirtualKeyword)]))
+                            Token(SyntaxKind.PublicKeyword),
+                                Token(SyntaxKind.VirtualKeyword)]))
                             .WithParameterList(
-                                SyntaxFactory.ParameterList(
-                                    SyntaxFactory.SingletonSeparatedList<ParameterSyntax>(
-                                        SyntaxFactory.Parameter(
-                                            SyntaxFactory.Identifier("node"))
+                                ParameterList(
+                                    SingletonSeparatedList<ParameterSyntax>(
+                                        Parameter(
+                                            Identifier("node"))
                                         .WithType(
-                                            SyntaxFactory.IdentifierName(className)))))
+                                            IdentifierName(className)))))
                             .WithBody(
-                                SyntaxFactory.Block(
-                                    SyntaxFactory.SingletonList<StatementSyntax>(
-                                        SyntaxFactory.ReturnStatement(
-                                            SyntaxFactory.InvocationExpression(
-                                                SyntaxFactory.IdentifierName("DefaultVisit"))
+                                Block(
+                                    SingletonList<StatementSyntax>(
+                                        ReturnStatement(
+                                            InvocationExpression(
+                                                IdentifierName("DefaultVisit"))
                                             .WithArgumentList(
-                                                SyntaxFactory.ArgumentList(
-                                                    SyntaxFactory.SingletonSeparatedList<ArgumentSyntax>(
-                                                        SyntaxFactory.Argument(
-                                                            SyntaxFactory.IdentifierName("node"))))))))));
+                                                ArgumentList(
+                                                    SingletonSeparatedList<ArgumentSyntax>(
+                                                        Argument(
+                                                            IdentifierName("node"))))))))));
 
 
         // Generate the partial class

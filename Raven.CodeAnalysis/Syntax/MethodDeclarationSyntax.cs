@@ -25,16 +25,6 @@ public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
     : this(new InternalSyntax.MethodDeclarationSyntax((InternalSyntax.TypeSyntax)returnType.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, (InternalSyntax.TypeParameterListSyntax)parameters.Green, (InternalSyntax.BlockSyntax)body.Green))
     {
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitMethodDeclaration(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitMethodDeclaration(this);
-    }
 }
 
 public static partial class SyntaxFactory

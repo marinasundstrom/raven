@@ -32,16 +32,6 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
         : this(new Syntax.InternalSyntax.NamespaceDeclarationSyntax(SyntaxFactory.NamespaceKeyword.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, SyntaxFactory.OpenBraceToken.Green, imports?.Green, members?.Green, SyntaxFactory.CloseBraceToken.Green, SyntaxFactory.SemicolonToken.Green), (SyntaxNode)null)
     {
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitNamespaceDeclaration(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitNamespaceDeclaration(this);
-    }
 }
 
 public static partial class SyntaxFactory

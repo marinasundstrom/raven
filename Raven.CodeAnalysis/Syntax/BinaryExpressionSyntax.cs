@@ -20,16 +20,6 @@ public partial class BinaryExpressionSyntax : ExpressionSyntax
     {
 
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitBinaryExpression(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitBinaryExpression(this);
-    }
 }
 
 public static partial class SyntaxFactory

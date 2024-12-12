@@ -25,16 +25,6 @@ public partial class TypeAnnotationSyntax : SyntaxNode
     {
 
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitTypeAnnotation(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitTypeAnnotation(this);
-    }
 }
 
 public static partial class SyntaxFactory

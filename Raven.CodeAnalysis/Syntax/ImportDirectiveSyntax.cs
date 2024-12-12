@@ -5,7 +5,7 @@ public partial class ImportDirectiveSyntax : SyntaxNode
     public partial SyntaxToken ImportKeyword { get; }
 
     public partial IdentifierNameSyntax Namespace { get; }
-    
+
     public partial SyntaxToken SemicolonToken { get; }
 
     internal ImportDirectiveSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
@@ -17,16 +17,6 @@ public partial class ImportDirectiveSyntax : SyntaxNode
         : base(new InternalSyntax.ImportDirectiveSyntax(importKeyword.Green, (InternalSyntax.IdentifierNameSyntax)@namespace.Green, semicolonToken.Green), (SyntaxNode)null)
     {
 
-    }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitImportDirective(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitImportDirective(this);
     }
 }
 

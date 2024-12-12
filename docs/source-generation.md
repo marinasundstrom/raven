@@ -16,7 +16,10 @@ For each `partial` class that is extending `SyntaxNode`, or a class that is exte
 
 * `With*` methods (e.g. `WithName`, `WithIfKeyword`)
 
-* ``Update`` methods.
+* `Update` method - for updating the entire node.
+
+* `Accept` methods for the `SyntaxVisitor` and `SyntaxVisitor<TResult>` classes.
+
 
 ### Visitor
 
@@ -26,6 +29,7 @@ For each `partial` class that is extending `SyntaxNode`, or a class that is exte
 ### Rewriter
 
 * Generate overrides that invoke `node.Update( ... )`
+
 
 ### Syntax Factory
 

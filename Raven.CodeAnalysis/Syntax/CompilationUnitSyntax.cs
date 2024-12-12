@@ -29,7 +29,7 @@ public partial class CompilationUnitSyntax : SyntaxNode
     : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports?.Green, members?.Green, SyntaxFactory.EndOfFile.Green), syntaxTree)
     {
     }
-    
+
     public CompilationUnitSyntax(SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken? endOfFileToken = null)
         : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports?.Green, members?.Green, endOfFileToken?.Green), (SyntaxTree)null)
     {
@@ -43,16 +43,6 @@ public partial class CompilationUnitSyntax : SyntaxNode
     public CompilationUnitSyntax WithRoot(SyntaxTree syntaxTree)
     {
         return new CompilationUnitSyntax(syntaxTree, Imports, Members);
-    }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitCompilationUnit(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitCompilationUnit(this);
     }
 }
 

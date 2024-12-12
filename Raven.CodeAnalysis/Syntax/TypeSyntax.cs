@@ -21,16 +21,6 @@ public partial class NameSyntax : TypeSyntax
     }
 
     public partial SyntaxToken NameToken { get; }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitName(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitName(this);
-    }
 }
 
 public static partial class SyntaxFactory

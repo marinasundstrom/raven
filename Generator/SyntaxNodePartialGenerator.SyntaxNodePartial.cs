@@ -1,5 +1,6 @@
 ﻿namespace Generator;
 
+using System;
 using System.Linq;
 
 using Microsoft.CodeAnalysis;
@@ -40,12 +41,95 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         members.AddRange(
             GenerateWithMethods(classSymbol));
 
+        members.AddRange(
+            GenerateAcceptMethods(classSymbol));
+
         // Generate the partial class
         var generatedClass = ClassDeclaration(className)
             .WithModifiers(TokenList(accessModifier, Token(SyntaxKind.PartialKeyword)))
             .AddMembers(members.ToArray());
 
         return generatedClass;
+    }
+
+    private static IEnumerable<MemberDeclarationSyntax> GenerateAcceptMethods(INamedTypeSymbol classSymbol)
+    {
+        var typeName = ParseTypeName(classSymbol.Name);
+
+        var methodName = $"Visit{classSymbol.Name.Replace("Syntax", string.Empty)}";
+
+        IEnumerable<MethodDeclarationSyntax> methods = [
+            MethodDeclaration(
+                PredefinedType(
+                    Token(SyntaxKind.VoidKeyword)),
+                Identifier("Accept"))
+            .WithModifiers(
+                TokenList(
+                    [
+                        Token(SyntaxKind.PublicKeyword),
+                        Token(SyntaxKind.OverrideKeyword)]))
+            .WithParameterList(
+                ParameterList(
+                    SingletonSeparatedList(
+                        Parameter(
+                            Identifier("visitor"))
+                        .WithType(
+                            IdentifierName("SyntaxVisitor")))))
+            .WithBody(
+                Block(
+                    SingletonList<StatementSyntax>(
+                        ExpressionStatement(
+                            InvocationExpression(
+                                MemberAccessExpression(
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    IdentifierName("visitor"),
+                                    IdentifierName(methodName)))
+                            .WithArgumentList(
+                                ArgumentList(
+                                    SingletonSeparatedList(
+                                        Argument(
+                                            ThisExpression())))))))),
+            MethodDeclaration(
+                IdentifierName("TNode"),
+                Identifier("Accept"))
+            .WithModifiers(
+                TokenList(
+                    [
+                        Token(SyntaxKind.PublicKeyword),
+                        Token(SyntaxKind.OverrideKeyword)]))
+            .WithTypeParameterList(
+                TypeParameterList(
+                    SingletonSeparatedList(
+                        TypeParameter(
+                            Identifier("TNode")))))
+            .WithParameterList(
+                ParameterList(
+                    SingletonSeparatedList(
+                        Parameter(
+                            Identifier("visitor"))
+                        .WithType(
+                            GenericName(
+                                Identifier("SyntaxVisitor"))
+                            .WithTypeArgumentList(
+                                TypeArgumentList(
+                                    SingletonSeparatedList<TypeSyntax>(
+                                        IdentifierName("TNode"))))))))
+            .WithBody(
+                Block(
+                    SingletonList<StatementSyntax>(
+                        ReturnStatement(
+                            InvocationExpression(
+                                MemberAccessExpression(
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    IdentifierName("visitor"),
+                                    IdentifierName(methodName)))
+                            .WithArgumentList(
+                                ArgumentList(
+                                    SingletonSeparatedList(
+                                        Argument(
+                                            ThisExpression()))))))))];
+
+        return methods;
     }
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateWithMethods(INamedTypeSymbol classSymbol)
@@ -83,7 +167,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                                 Argument(IdentifierName(p.Identifier))))));
 
                 return MethodDeclaration(
-                   SyntaxFactory.ParseTypeName(classSymbol.Name), $"With{propertyName}")
+                   ParseTypeName(classSymbol.Name), $"With{propertyName}")
                 .WithModifiers([Token(SyntaxKind.PublicKeyword)])
                 .WithParameterList(
                     ParameterList(

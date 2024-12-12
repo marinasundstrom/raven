@@ -29,7 +29,7 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     {
 
     }
-    
+
     public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, ElseClauseSyntax? elseClause)
       : this(
             new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green, (InternalSyntax.ElseClauseSyntax?)elseClause?.Green))
@@ -47,16 +47,6 @@ public sealed partial class IfStatementSyntax : StatementSyntax
         : this(SyntaxFactory.IfKeyword, SyntaxFactory.OpenParenToken, condition, SyntaxFactory.CloseParenToken, statement, elseClause)
     {
 
-    }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitIfStatement(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitIfStatement(this);
     }
 }
 

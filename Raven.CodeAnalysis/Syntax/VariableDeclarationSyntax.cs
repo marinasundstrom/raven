@@ -25,16 +25,6 @@ public partial class VariableDeclarationSyntax : SyntaxNode
     {
 
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitVariableDeclaration(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitVariableDeclaration(this);
-    }
 }
 
 public static partial class SyntaxFactory

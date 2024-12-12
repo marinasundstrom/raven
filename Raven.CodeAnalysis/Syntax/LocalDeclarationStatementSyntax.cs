@@ -22,16 +22,6 @@ public partial class LocalDeclarationStatementSyntax : StatementSyntax
     {
 
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitLocalDeclarationStatement(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitLocalDeclarationStatement(this);
-    }
 }
 
 public static partial class SyntaxFactory

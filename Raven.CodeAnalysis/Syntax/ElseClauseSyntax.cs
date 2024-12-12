@@ -26,16 +26,6 @@ public partial class ElseClauseSyntax : SyntaxNode
     {
 
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitElseClause(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitElseClause(this);
-    }
 }
 
 public static partial class SyntaxFactory

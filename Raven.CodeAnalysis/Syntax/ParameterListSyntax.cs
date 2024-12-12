@@ -26,16 +26,6 @@ public partial class ParameterListSyntax : SyntaxNode
     {
 
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitParameterList(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitParameterList(this);
-    }
 }
 
 public static partial class SyntaxFactory

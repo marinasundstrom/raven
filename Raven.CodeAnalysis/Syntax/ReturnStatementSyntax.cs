@@ -28,17 +28,6 @@ public partial class ReturnStatementSyntax : StatementSyntax
     {
 
     }
-
-    public override void Accept(SyntaxVisitor visitor)
-    {
-        visitor.VisitReturnStatement(this);
-    }
-
-    public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
-    {
-        return visitor.VisitReturnStatement(this);
-    }
-
 }
 
 public static partial class SyntaxFactory
