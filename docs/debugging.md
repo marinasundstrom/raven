@@ -8,7 +8,7 @@ Using the `PrintSyntaxTree` and `GetSyntaxTreeRepresentation` extension methods.
 
 ### Example
 
-Assume you have a syntax node that represent this code:
+Assuming you have a syntax node that represent this code:
 
 ```csharp
 if (foo)  {
@@ -85,3 +85,19 @@ CompilationUnit
             CloseBraceToken
   EndOfFileToken
 ```
+
+## Source generator
+
+### Debugging
+
+Uncommenting this line should make the debugger launch in Visual Studio:
+
+```csharp
+Debugger.Launch();
+```
+
+This occurs when the generator is running, that is, when the ``Raven.CodeAnalysis`` re-compiles:
+
+### Inspecting generated source code
+
+The output of the source generator is found in `Raven.CodeAnalysis/obj/Debug/net9.0/generated`
