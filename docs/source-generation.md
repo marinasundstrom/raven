@@ -34,3 +34,15 @@ For each `partial` class that is extending `SyntaxNode`, or a class that is exte
 ### Syntax Factory
 
 Generate methods for creating nodes, token, trivias.
+
+### Green Tree
+
+There is also a source generator for the internal tree.
+
+#### SyntaxNode
+
+For the syntax nodes these methods are implemented:
+
+* "Default" constructor (private)
+* `CreateRed`
+* `WithUpdatedChildren`
