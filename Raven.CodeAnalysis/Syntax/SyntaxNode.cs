@@ -175,6 +175,9 @@ public abstract class SyntaxNode
 
         if (newNode == null)
             throw new ArgumentNullException(nameof(newNode));
+        
+        if(newNode.Parent is not null) 
+            throw new ArgumentNullException(nameof(newNode), "Syntax node is not part of the current syntax tree.");
 
         // Step 1: Traverse and locate the node to replace in the green tree
         var greenToReplace = oldNode.Green;

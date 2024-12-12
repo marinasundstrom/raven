@@ -120,5 +120,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
         var str = root.ToFullString();
 
         testOutputHelper.WriteLine(str);
+
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
     }
 }
