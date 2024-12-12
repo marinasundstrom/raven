@@ -64,6 +64,6 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(str);
 
-        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation());
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
     }
 }
