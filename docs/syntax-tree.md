@@ -119,7 +119,9 @@ The implementation of the red nodes is a repetitive and tedious process. But it 
 
 Every navigation property in a syntax node has to call the same methods for resolving the red node from a green child node.
 
-The C# source generator handles this.
+Our source generator does this implementation for you.
+
+What exactly is generated is being outlined [here](source-generation.md).
 
 For the generator to work, each syntax node has to be a `partial class` extending either `SyntaxNode`, or a class that derive from `SyntaxNode`. 
 
