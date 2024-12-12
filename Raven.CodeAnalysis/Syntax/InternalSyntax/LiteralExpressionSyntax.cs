@@ -8,7 +8,7 @@ public abstract class LiteralExpressionSyntax : ExpressionSyntax
     }
 }
 
-public class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
+public partial class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
 {
     public NumericLiteralExpressionSyntax(
         SyntaxToken numberToken)
@@ -18,10 +18,5 @@ public class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
                 numberToken
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.NumericLiteralExpressionSyntax(this, parent, position);
     }
 }

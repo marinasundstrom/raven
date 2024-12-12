@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class VariableDeclaratorSyntax : StatementSyntax
+public partial class VariableDeclaratorSyntax : StatementSyntax
 {
     public VariableDeclaratorSyntax(
         IdentifierNameSyntax name)
@@ -52,10 +52,5 @@ public class VariableDeclaratorSyntax : StatementSyntax
                     equalsValueClause,
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.VariableDeclaratorSyntax(this, parent, position);
     }
 }

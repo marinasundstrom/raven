@@ -110,9 +110,12 @@ public abstract class SyntaxNode
         {
             yield return child;
 
-            foreach (var descendant in child.DescendantNodes())
+            if (child is not null)
             {
-                yield return descendant;
+                foreach (var descendant in child.DescendantNodes())
+                {
+                    yield return descendant;
+                }
             }
         }
     }
@@ -163,6 +166,22 @@ public abstract class SyntaxNode
     public string ToFullString()
     {
         return SourceTextWriter.WriteNodeToText(this, true);
+    }
+
+    public SyntaxNode ReplaceNode(SyntaxNode oldNode, SyntaxNode newNode)
+    {
+        if (oldNode == null)
+            throw new ArgumentNullException(nameof(oldNode));
+
+        if (newNode == null)
+            throw new ArgumentNullException(nameof(newNode));
+
+        // Step 1: Traverse and locate the node to replace in the green tree
+        var greenToReplace = oldNode.Green;
+        var newGreen = this.Green.ReplaceNode(greenToReplace, newNode.Green);
+
+        // Step 2: Rebuild the red tree with the updated green node
+        return newGreen.CreateRed(this.Parent, this.Position);
     }
 
     internal SyntaxNode ReplaceTokenInListCore(SyntaxToken tokenInList, IEnumerable<SyntaxToken> newTokens)

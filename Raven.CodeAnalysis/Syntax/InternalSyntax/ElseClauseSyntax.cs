@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class ElseClauseSyntax : SyntaxNode
+public partial class ElseClauseSyntax : SyntaxNode
 {
     public ElseClauseSyntax(
         SyntaxToken elseKeyword,
@@ -12,10 +12,5 @@ public class ElseClauseSyntax : SyntaxNode
                       statement
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.ElseClauseSyntax(this, parent, position);
     }
 }

@@ -65,4 +65,9 @@ public class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
     {
         return GetEnumerator();
     }
+
+    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    {
+        return new SyntaxList(newChildren);
+    }
 }

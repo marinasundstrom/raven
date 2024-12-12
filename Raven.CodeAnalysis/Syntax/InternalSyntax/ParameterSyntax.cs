@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class ParameterSyntax : SyntaxNode
+public partial class ParameterSyntax : SyntaxNode
 {
     public ParameterSyntax(
         IdentifierNameSyntax name,
@@ -11,10 +11,5 @@ public class ParameterSyntax : SyntaxNode
             typeAnnotation
         ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.ParameterSyntax(this, parent, position);
     }
 }

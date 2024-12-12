@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class IfStatementSyntax : StatementSyntax
+public partial class IfStatementSyntax : StatementSyntax
 {
     public IfStatementSyntax(
         SyntaxToken ifKeyword,
@@ -42,10 +42,5 @@ public class IfStatementSyntax : StatementSyntax
                 elseClause
           ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.IfStatementSyntax(this, parent, position);
     }
 }

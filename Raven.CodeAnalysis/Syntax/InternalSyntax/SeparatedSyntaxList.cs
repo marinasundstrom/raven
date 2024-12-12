@@ -15,4 +15,9 @@ public class SeparatedSyntaxList : GreenNode
     public override GreenNode GetSlot(int index) => _items[index];
 
     public GreenNode this[int index] => _items[index];
+
+    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    {
+        return new SeparatedSyntaxList(newChildren);
+    }
 }

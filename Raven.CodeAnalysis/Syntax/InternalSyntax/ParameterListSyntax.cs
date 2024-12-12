@@ -1,8 +1,8 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class TypeParameterListSyntax : SyntaxNode
+public partial class ParameterListSyntax : SyntaxNode
 {
-    public TypeParameterListSyntax(
+    public ParameterListSyntax(
         SyntaxToken openParenToken,
         SeparatedSyntaxList parameters,
         SyntaxToken closeParentToken)
@@ -14,10 +14,5 @@ public class TypeParameterListSyntax : SyntaxNode
                       closeParentToken
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.ParameterListSyntax(this, parent, position);
     }
 }

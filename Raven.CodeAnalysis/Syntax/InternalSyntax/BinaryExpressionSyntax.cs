@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class BinaryExpressionSyntax : ExpressionSyntax
+public partial class BinaryExpressionSyntax : ExpressionSyntax
 {
     public BinaryExpressionSyntax(
         ExpressionSyntax leftHandSide,
@@ -15,10 +15,5 @@ public class BinaryExpressionSyntax : ExpressionSyntax
               ])
     {
 
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.BinaryExpressionSyntax(this, parent, position);
     }
 }

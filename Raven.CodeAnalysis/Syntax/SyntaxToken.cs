@@ -22,7 +22,6 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 
     public SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode parent, int position = 0)
     {
-
         Green = greenToken;
         _parent = parent;
         StartPosition = position;

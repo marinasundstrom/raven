@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class EqualsValueClauseSyntax : StatementSyntax
+public partial class EqualsValueClauseSyntax : StatementSyntax
 {
     public EqualsValueClauseSyntax(
         SyntaxToken equalsToken,
@@ -12,10 +12,5 @@ public class EqualsValueClauseSyntax : StatementSyntax
                       value
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.EqualsValueClauseSyntax(this, parent, position);
     }
 }

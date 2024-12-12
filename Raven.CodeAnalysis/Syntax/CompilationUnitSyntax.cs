@@ -12,7 +12,11 @@ public partial class CompilationUnitSyntax : SyntaxNode
 
     public partial SyntaxToken EndOfFileToken { get; }
 
-    public CompilationUnitSyntax(GreenNode greenNode, SyntaxNode parent) : base(greenNode, parent, 0)
+    public CompilationUnitSyntax(
+        InternalSyntax.SyntaxNode greenNode,
+        SyntaxNode parent = null,
+        int position = 0)
+    : base(greenNode, parent, position)
     {
     }
 
@@ -21,7 +25,7 @@ public partial class CompilationUnitSyntax : SyntaxNode
     }
 
     public CompilationUnitSyntax()
-    : this(new Syntax.InternalSyntax.CompilationUnitSyntax(null, null, SyntaxFactory.EndOfFile.Green), (SyntaxNode)null)
+    : this(new Syntax.InternalSyntax.CompilationUnitSyntax(SyntaxList<ImportDirectiveSyntax>.Empty.Green, SyntaxList<MemberDeclarationSyntax>.Empty.Green, SyntaxFactory.EndOfFile.Green), (SyntaxNode)null)
     {
     }
 

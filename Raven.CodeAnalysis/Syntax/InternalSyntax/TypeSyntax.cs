@@ -10,15 +10,10 @@ public abstract class TypeSyntax : SyntaxNode
 }
 
 
-public class NameSyntax : TypeSyntax
+public partial class NameSyntax : TypeSyntax
 {
     public NameSyntax(SyntaxToken nameToken)
         : base(SyntaxKind.QualifiedName, [nameToken])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.NameSyntax(this, parent, position);
     }
 }

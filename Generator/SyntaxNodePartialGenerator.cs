@@ -55,7 +55,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         var baseType = classSymbol.BaseType;
         while (baseType != null)
         {
-            if (baseType.Name == "SyntaxNode") // && baseType.ContainingNamespace.ToDisplayString() == "Microsoft.CodeAnalysis")
+            if (baseType.Name == "SyntaxNode" && baseType.ContainingNamespace.ToDisplayString() == "Raven.CodeAnalysis.Syntax")
             {
                 return true;
             }

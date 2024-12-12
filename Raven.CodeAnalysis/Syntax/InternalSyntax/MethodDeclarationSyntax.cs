@@ -1,9 +1,9 @@
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class MethodDeclarationSyntax : MemberDeclarationSyntax
+public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
 {
-    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, TypeParameterListSyntax parameters)
+    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, ParameterListSyntax parameters)
         : base(SyntaxKind.MethodDeclaration,
               [
                       returnType,
@@ -14,7 +14,7 @@ public class MethodDeclarationSyntax : MemberDeclarationSyntax
     {
     }
 
-    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, TypeParameterListSyntax parameters, BlockSyntax body)
+    public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, ParameterListSyntax parameters, BlockSyntax body)
     : base(SyntaxKind.MethodDeclaration,
           [
                   returnType,
@@ -23,10 +23,5 @@ public class MethodDeclarationSyntax : MemberDeclarationSyntax
                 body
           ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.MethodDeclarationSyntax(this, parent, position);
     }
 }

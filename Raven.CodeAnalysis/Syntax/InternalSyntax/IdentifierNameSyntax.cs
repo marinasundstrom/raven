@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class IdentifierNameSyntax : ExpressionSyntax
+public partial class IdentifierNameSyntax : ExpressionSyntax
 {
     public IdentifierNameSyntax(
         SyntaxToken identifierToken)
@@ -10,10 +10,5 @@ public class IdentifierNameSyntax : ExpressionSyntax
                       identifierToken,
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.IdentifierNameSyntax(this, parent, position);
     }
 }

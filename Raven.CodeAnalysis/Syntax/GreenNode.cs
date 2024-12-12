@@ -123,4 +123,29 @@ public abstract class GreenNode
 
         return offset;
     }
+    public GreenNode ReplaceNode(GreenNode oldNode, GreenNode newNode)
+    {
+        if (this == oldNode)
+        {
+            return newNode;
+        }
+
+        var updatedChildren = new GreenNode[this.SlotCount];
+        for (int i = 0; i < this.SlotCount; i++)
+        {
+            var child = this.GetSlot(i);
+            if (child == oldNode)
+            {
+                updatedChildren[i] = newNode;
+            }
+            else
+            {
+                updatedChildren[i] = child?.ReplaceNode(oldNode, newNode) ?? child;
+            }
+        }
+
+        return WithUpdatedChildren(updatedChildren);
+    }
+
+    protected virtual GreenNode WithUpdatedChildren(GreenNode[] newChildren) => this;
 }

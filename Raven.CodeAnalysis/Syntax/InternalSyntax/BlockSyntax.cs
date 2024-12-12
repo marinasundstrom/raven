@@ -1,7 +1,7 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 
-public class BlockSyntax : StatementSyntax
+public partial class BlockSyntax : StatementSyntax
 {
     public BlockSyntax(
         SyntaxToken openBraceToken,
@@ -15,10 +15,5 @@ public class BlockSyntax : StatementSyntax
                       closeBraceToken
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.BlockSyntax(this, parent, position);
     }
 }

@@ -7,7 +7,7 @@ public partial class ParameterListSyntax : SyntaxNode
     public partial SyntaxToken CloseParenToken { get; }
 
     public ParameterListSyntax(
-        InternalSyntax.TypeParameterListSyntax greenNode,
+        InternalSyntax.ParameterListSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)
         : base(greenNode, parent, position)
@@ -16,7 +16,7 @@ public partial class ParameterListSyntax : SyntaxNode
 
     public ParameterListSyntax(SyntaxToken openParenToken, SeparatedSyntaxList<ParameterSyntax> parameters, SyntaxToken closeParenToken)
           : this(
-                new InternalSyntax.TypeParameterListSyntax(openParenToken.Green, parameters.Green, closeParenToken.Green), null)
+                new InternalSyntax.ParameterListSyntax(openParenToken.Green, parameters.Green, closeParenToken.Green), null)
     {
 
     }

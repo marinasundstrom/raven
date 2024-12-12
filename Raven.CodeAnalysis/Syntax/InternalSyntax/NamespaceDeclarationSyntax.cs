@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
+public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 {
     public NamespaceDeclarationSyntax(
         SyntaxToken namespaceKeyword,
@@ -22,10 +22,5 @@ public class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
                     semicolonToken
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.NamespaceDeclarationSyntax(this, parent, position);
     }
 }

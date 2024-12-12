@@ -35,4 +35,9 @@ public class SyntaxNode : GreenNode
 
         return offset;
     }
+
+    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    {
+        return new SyntaxNode(Kind, newChildren);
+    }
 }

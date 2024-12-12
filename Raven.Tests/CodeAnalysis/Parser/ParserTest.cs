@@ -72,7 +72,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
     {
         var code = """
                    let x
-                   return 0f
+                   return 0;
                    """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -86,10 +86,39 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         var root = syntaxTree.GetSyntaxRoot();
 
+        var x = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+
         var str = root.ToFullString();
 
         testOutputHelper.WriteLine(str);
 
         testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
+    }
+
+    [Fact]
+    public void Diagnostic2()
+    {
+        var code = """
+                   return 0;
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var diagnostics = syntaxTree.GetDiagnostics();
+
+        foreach (var diagnostic in diagnostics)
+        {
+            testOutputHelper.WriteLine($"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
+        }
+
+        var root = syntaxTree.GetSyntaxRoot();
+
+        var x = root.DescendantNodes().OfType<IdentifierNameSyntax>().First();
+
+        root = (CompilationUnitSyntax)root.ReplaceNode(x, IdentifierName("c"));
+
+        var str = root.ToFullString();
+
+        testOutputHelper.WriteLine(str);
     }
 }

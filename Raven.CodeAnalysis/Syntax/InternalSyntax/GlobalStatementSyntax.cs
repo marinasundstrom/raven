@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class GlobalStatementSyntax : MemberDeclarationSyntax
+public partial class GlobalStatementSyntax : MemberDeclarationSyntax
 {
     public GlobalStatementSyntax(StatementSyntax statement)
         : base(SyntaxKind.GlobalStatement,
@@ -8,9 +8,5 @@ public class GlobalStatementSyntax : MemberDeclarationSyntax
                     statement
               ])
     {
-    }
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.GlobalStatementSyntax(this, parent, position);
     }
 }

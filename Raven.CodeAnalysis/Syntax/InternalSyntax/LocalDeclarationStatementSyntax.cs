@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class LocalDeclarationStatementSyntax : StatementSyntax
+public partial class LocalDeclarationStatementSyntax : StatementSyntax
 {
     public LocalDeclarationStatementSyntax(
         VariableDeclarationSyntax declaration,
@@ -12,10 +12,5 @@ public class LocalDeclarationStatementSyntax : StatementSyntax
                       semicolonToken
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.LocalDeclarationStatementSyntax(this, parent, position);
     }
 }

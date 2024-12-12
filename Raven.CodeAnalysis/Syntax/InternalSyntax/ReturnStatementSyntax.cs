@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class ReturnStatementSyntax : StatementSyntax
+public partial class ReturnStatementSyntax : StatementSyntax
 {
     public ReturnStatementSyntax(
         SyntaxToken returnKeyword,
@@ -14,10 +14,5 @@ public class ReturnStatementSyntax : StatementSyntax
                       semicolonToken
               ])
     {
-    }
-
-    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
-    {
-        return new Syntax.ReturnStatementSyntax(this, parent, position);
     }
 }
