@@ -33,22 +33,55 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return default!;
     }
 
-    public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
+    /// <summary>
+    /// Temporary
+    /// </summary>
+    public virtual SyntaxToken? VisitToken(SyntaxToken? token)
     {
-        return default!;
+        return default;
     }
 
-    public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
+    public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
     {
-        // TODO: Generate with source generator
+        return default;
+    }
 
-        return node.Update(
-            VisitToken(node.IfKeyword),
-            VisitToken(node.OpenParenToken),
-            (ExpressionSyntax)Visit(node.Condition),
-            VisitToken(node.CloseParenToken),
-            (StatementSyntax)Visit(node.Statement),
-            (ElseClauseSyntax?)(node.ElseClause is not null ? Visit(node.ElseClause) : null),
-            node.SemicolonToken);
+    public virtual SyntaxNode? VisitStatement(StatementSyntax node)
+    {
+        return node.Accept(this);
+    }
+
+    public virtual SyntaxNode? VisitExpression(ExpressionSyntax node)
+    {
+        return node.Accept(this);
+    }
+
+    public virtual SyntaxNode? VisitType(TypeSyntax node)
+    {
+        return node.Accept(this);
+    }
+
+    public virtual SyntaxList<TElement>? VisitList<TElement>(SyntaxList<TElement> list)
+        where TElement : SyntaxNode
+    {
+        List<TElement> newList = [];
+
+        foreach (var item in list)
+        {
+            newList.Add((TElement)item.Accept(this));
+        }
+        return SyntaxFactory.List<TElement>(list);
+    }
+
+    public virtual SeparatedSyntaxList<TElement>? VisitList<TElement>(SeparatedSyntaxList<TElement> list)
+        where TElement : SyntaxNode
+    {
+        List<TElement> newList = [];
+
+        foreach (var item in list)
+        {
+            newList.Add((TElement)item.Accept(this));
+        }
+        return SyntaxFactory.SeparatedList<TElement>(list.Select(x => new SyntaxNodeOrToken(x)).ToArray());
     }
 }

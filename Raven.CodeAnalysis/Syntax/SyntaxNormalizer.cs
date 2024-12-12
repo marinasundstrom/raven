@@ -10,7 +10,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         {
             return token;
         }
-        
+
         return base.VisitToken(token);
     }
 

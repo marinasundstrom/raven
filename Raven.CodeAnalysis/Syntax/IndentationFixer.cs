@@ -26,7 +26,6 @@ public sealed class IndentationFixer : SyntaxRewriter
 
     public override SyntaxToken VisitToken(SyntaxToken token)
     {
-        ;
         return token;
     }
 

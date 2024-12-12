@@ -35,10 +35,10 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         }
 
         members.AddRange(
-            GenerateWithMethods(classSymbol));
+            GenerateUpdateMethod(classSymbol));
 
         members.AddRange(
-            GenerateUpdateMethod(classSymbol));
+            GenerateWithMethods(classSymbol));
 
         // Generate the partial class
         var generatedClass = ClassDeclaration(className)
