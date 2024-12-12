@@ -14,6 +14,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
     {
         var code = """
         if (foo)  {
+        
             return 0;
         }
         """;
@@ -43,7 +44,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(str);
     }
-    
+
     [Fact]
     public void ParseIfStatementWithElseClause2()
     {
@@ -57,8 +58,12 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var str = syntaxTree.GetSyntaxRoot().ToFullString();
+        var root = syntaxTree.GetSyntaxRoot();
+
+        var str = root.ToFullString();
 
         testOutputHelper.WriteLine(str);
+
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation());
     }
 }
