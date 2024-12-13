@@ -127,4 +127,9 @@ public class SourceText
             new TextChange(new TextSpan(oldSpanStart, oldSpanLength), changedText)
         };
     }
+
+    public string GetSubText(TextSpan span)
+    {
+        return _text.Substring(span.Start, span.Length);
+    }
 }

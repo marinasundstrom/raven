@@ -41,7 +41,12 @@ public class SyntaxTree
     {
         var sourceText = SourceText.From(text);
 
-        DiagnosticBag diagnosticBag = new DiagnosticBag();
+        return ParseText(sourceText);
+    }
+    
+    public static SyntaxTree ParseText(SourceText sourceText)
+    {
+        DiagnosticBag diagnosticBag = new();
 
         var parser = new Parser.SyntaxParser(diagnosticBag);
 
@@ -115,7 +120,7 @@ public class SyntaxTree
     {
         if (_sourceText is not null)
         {
-            text = SourceText.From("");
+            text = _sourceText;
             return true;
         }
         text = null;
@@ -137,5 +142,45 @@ public class SyntaxTree
             .OrderBy(node => node.FullSpan.Length); // Sort by span length to get the shortest;
 
         return matchingNode.FirstOrDefault();
+    }
+
+    public SyntaxTree WithChangedText(SourceText newText)
+    {
+        var oldText = _sourceText;
+        
+        var changes = newText.GetChangeRanges(oldText);
+
+        if (changes.Count == 0)
+            return this;
+
+        var root = GetRoot();
+
+        CompilationUnitSyntax newCompilationUnit = root;
+        
+        foreach (var change in changes)
+        {
+            var changedNode = GetNodeForSpan(change.Span);
+
+            if (changedNode is null)
+                continue;
+
+            var changedText = oldText.GetSubText(change.Span);
+
+            var newText2 = change.NewText;
+
+            var diagnosticBag = new DiagnosticBag();
+                
+            SyntaxNode? newNode = ParseText(newText2, diagnosticBag);
+
+            newCompilationUnit = (CompilationUnitSyntax)newCompilationUnit
+                .ReplaceNode(changedNode, newNode);
+        }
+
+        return SyntaxTree.Create(newText, newCompilationUnit, _diagnosticBag);
+    }
+
+    private SyntaxNode? ParseText(string changedText, DiagnosticBag diagnosticBag)
+    {
+        return SyntaxFactory.IdentifierName("FooBar");
     }
 }

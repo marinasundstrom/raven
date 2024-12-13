@@ -13,11 +13,11 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
     public void ParseIfStatement()
     {
         var code = """
-        if (foo)  {
-        
-            return 0;
-        }
-        """;
+                   if (foo)  {
+                   
+                       return 0;
+                   }
+                   """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
@@ -81,7 +81,8 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         foreach (var diagnostic in diagnostics)
         {
-            testOutputHelper.WriteLine($"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
+            testOutputHelper.WriteLine(
+                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
         }
 
         var root = syntaxTree.GetRoot();
@@ -108,7 +109,8 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         foreach (var diagnostic in diagnostics)
         {
-            testOutputHelper.WriteLine($"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
+            testOutputHelper.WriteLine(
+                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
         }
 
         var root = syntaxTree.GetRoot();
@@ -123,7 +125,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
     }
-    
+
     [Fact]
     public void ReplaceNode()
     {
@@ -141,7 +143,8 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         foreach (var diagnostic in diagnostics)
         {
-            testOutputHelper.WriteLine($"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
+            testOutputHelper.WriteLine(
+                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
         }
 
         var root = syntaxTree.GetRoot();
@@ -156,7 +159,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
     }
-    
+
     [Fact]
     public void FindNodeBySpanAndReplace()
     {
@@ -173,7 +176,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
         var root = syntaxTree.GetRoot();
 
         var found = syntaxTree.GetNodeForSpan(new TextSpan(5, 2));
-        
+
         root = (CompilationUnitSyntax)root.ReplaceNode(found!, IdentifierName("c"));
 
         var str = root.ToFullString();
@@ -182,7 +185,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
     }
-    
+
     [Fact]
     public void FindNodeBySpanAndReplace2()
     {
@@ -196,15 +199,15 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
             testOutputHelper.WriteLine(change.ToString());
         }
     }
-        
+
     [Fact]
     public void FindNodeBySpanAndReplace3()
     {
         var originalText = SourceText.From("Hello, Foo!");
-        
+
         var textChange = new TextChange(
             new TextSpan(2, 9), // Span of the text to replace
-            "MyUpdatedMethod"   // New text to insert
+            "MyUpdatedMethod" // New text to insert
         );
 
         var updatedText = originalText.WithChange(textChange);
