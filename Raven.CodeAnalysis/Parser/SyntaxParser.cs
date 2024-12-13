@@ -22,7 +22,9 @@ public class SyntaxParser
 
     public Syntax.SyntaxTree Parse(SourceText sourceText)
     {
-        tokenizer = new Tokenizer(new Lexer(sourceText.GetTextReader()));
+        using var textReader = sourceText.GetTextReader();
+
+        tokenizer = new Tokenizer(new Lexer(textReader));
 
         var compilationUnit = ParseCompilationUnit();
         return SyntaxTree.Create(sourceText, compilationUnit, _diagnosticBag);
@@ -514,5 +516,23 @@ public class SyntaxParser
         var token = tokenizer.ReadToken();
         currentSpanPosition += token.FullWidth;
         return token;
+    }
+
+    public SyntaxNode? ParseSyntax(SyntaxKind kind, SourceText sourceText, int position)
+    {
+        using var textReader = sourceText.GetTextReader(position);
+
+        tokenizer = new Tokenizer(new Lexer(textReader));
+
+        switch (kind)
+        {
+            case SyntaxKind.IfStatement:
+                return ParseStatement();
+
+            case SyntaxKind.IdentifierName:
+                return ParseSimpleName();
+        }
+
+        throw new Exception();
     }
 }

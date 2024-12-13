@@ -43,7 +43,7 @@ public class SyntaxTree
 
         return ParseText(sourceText);
     }
-    
+
     public static SyntaxTree ParseText(SourceText sourceText)
     {
         DiagnosticBag diagnosticBag = new();
@@ -137,17 +137,17 @@ public class SyntaxTree
         var root = GetRoot();
 
         // Find the node whose span matches the given TextSpan
-        var matchingNode = root.DescendantNodes()
-            .Where(node => node.FullSpan.Contains(span))
+        var matchingNodes = root.DescendantNodes()
+            .Where(node => node.FullSpan.Contains(span)) // Good, or bad?
             .OrderBy(node => node.FullSpan.Length); // Sort by span length to get the shortest;
 
-        return matchingNode.FirstOrDefault();
+        return matchingNodes.FirstOrDefault();
     }
 
     public SyntaxTree WithChangedText(SourceText newText)
     {
         var oldText = _sourceText;
-        
+
         var changes = newText.GetChangeRanges(oldText);
 
         if (changes.Count == 0)
@@ -156,7 +156,7 @@ public class SyntaxTree
         var root = GetRoot();
 
         CompilationUnitSyntax newCompilationUnit = root;
-        
+
         foreach (var change in changes)
         {
             var changedNode = GetNodeForSpan(change.Span);
@@ -164,13 +164,9 @@ public class SyntaxTree
             if (changedNode is null)
                 continue;
 
-            var changedText = oldText.GetSubText(change.Span);
-
-            var newText2 = change.NewText;
-
             var diagnosticBag = new DiagnosticBag();
-                
-            SyntaxNode? newNode = ParseText(newText2, diagnosticBag);
+
+            SyntaxNode? newNode = ParseText(newText, changedNode, diagnosticBag);
 
             newCompilationUnit = (CompilationUnitSyntax)newCompilationUnit
                 .ReplaceNode(changedNode, newNode);
@@ -179,8 +175,14 @@ public class SyntaxTree
         return SyntaxTree.Create(newText, newCompilationUnit, _diagnosticBag);
     }
 
-    private SyntaxNode? ParseText(string changedText, DiagnosticBag diagnosticBag)
+    private SyntaxNode? ParseText(SourceText newText, SyntaxNode nodeToReplace, DiagnosticBag diagnosticBag)
     {
-        return SyntaxFactory.IdentifierName("FooBar");
+        var position = nodeToReplace.FullSpan.Start;
+
+        var nodeKind = nodeToReplace.Kind;
+
+        var parser = new Parser.SyntaxParser(diagnosticBag);
+
+        return parser.ParseSyntax(nodeKind, newText, position);
     }
 }

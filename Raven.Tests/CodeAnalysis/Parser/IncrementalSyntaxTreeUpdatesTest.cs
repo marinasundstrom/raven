@@ -17,20 +17,20 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
                 return 1;
             }
             """);
-        
+
         var syntaxTree = SyntaxTree.ParseText(sourceText);
-        
+
         var textChange = new TextChange(
             new TextSpan(4, 3), // Span of the text to replace
             "x"   // New text to insert
         );
 
         var changedSourceText = sourceText.WithChange(textChange);
-        
+
         var updatedTree = syntaxTree.WithChangedText(changedSourceText);
 
         var newRoot = updatedTree.GetRoot();
-        
+
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
         testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(true));

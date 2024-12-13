@@ -1,4 +1,6 @@
 
+using System.Text;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -42,7 +44,7 @@ public class SourceText
         string updatedText = _text.Substring(0, position) + newText + _text.Substring(position);
         return From(updatedText);
     }
-    
+
     public SourceText WithChange(TextChange change)
     {
         if (change.Span.Start < 0 || change.Span.Start > _text.Length ||
@@ -81,7 +83,15 @@ public class SourceText
     {
         return new StringReader(_text);
     }
-    
+
+    public TextReader GetTextReader(int position)
+    {
+        MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(_text));
+        StreamReader reader = new StreamReader(stream);
+        stream.Seek(position, SeekOrigin.Begin);
+        return reader;
+    }
+
     public IReadOnlyList<TextChange> GetChangeRanges(SourceText oldText)
     {
         if (oldText == null)
