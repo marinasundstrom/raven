@@ -29,7 +29,7 @@ public static class SyntaxFactory
 
     public static readonly SyntaxToken GreaterThanToken = new SyntaxToken(SyntaxKind.GreaterThanToken, ">");
 
-    public static readonly SyntaxToken ImportKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "import");
+    public static readonly SyntaxToken ImportKeyword = new SyntaxToken(SyntaxKind.ImportKeyword, "import");
 
     public static readonly SyntaxToken NamespaceKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "namespace");
 

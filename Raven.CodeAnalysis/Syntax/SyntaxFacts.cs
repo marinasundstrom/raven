@@ -88,7 +88,7 @@ public static class SyntaxFacts
                     return 1;
 
                 case SyntaxKind.VarToken:
-                case SyntaxKind.LetToken:
+                case SyntaxKind.:
                     return 3;
                 case SyntaxKind.IfToken:
                     return 2;

@@ -26,4 +26,10 @@ public static class SyntaxNodeExtensions
         var newLast = last.WithTrailingTrivia(trivia);
         return (TSyntax)node.ReplaceToken(last, newLast);
     }
+    
+    public static TSyntax NormalizeWhitespace<TSyntax>(this TSyntax node)
+        where TSyntax : SyntaxNode
+    {
+        return new SyntaxNormalizer().Visit(node);
+    }
 }

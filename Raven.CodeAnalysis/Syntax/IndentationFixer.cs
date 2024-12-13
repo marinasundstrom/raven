@@ -21,7 +21,7 @@ public sealed class IndentationFixer : SyntaxRewriter
     [return: NotNullIfNotNull("node")]
     public override SyntaxNode? Visit(SyntaxNode? node)
     {
-        return node.Accept(this);
+        return node?.Accept(this);
     }
 
     public override SyntaxToken VisitToken(SyntaxToken token)

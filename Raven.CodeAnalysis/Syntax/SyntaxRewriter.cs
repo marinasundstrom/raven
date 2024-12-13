@@ -30,7 +30,7 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
 
     public virtual SyntaxToken VisitToken(SyntaxToken token)
     {
-        return default!;
+        return token;
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         {
             newList.Add((TElement)item.Accept(this));
         }
-        return SyntaxFactory.List<TElement>(list);
+        return SyntaxFactory.List<TElement>(newList);
     }
 
     public virtual SeparatedSyntaxList<TElement>? VisitList<TElement>(SeparatedSyntaxList<TElement> list)
@@ -82,6 +82,6 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         {
             newList.Add((TElement)item.Accept(this));
         }
-        return SyntaxFactory.SeparatedList<TElement>(list.Select(x => new SyntaxNodeOrToken(x)).ToArray());
+        return SyntaxFactory.SeparatedList<TElement>(newList.Select(x => new SyntaxNodeOrToken(x)).ToArray());
     }
 }

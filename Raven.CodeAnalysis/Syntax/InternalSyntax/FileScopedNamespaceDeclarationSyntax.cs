@@ -13,9 +13,9 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
               [
                     namespaceKeyword,
                     name,
+                    semicolonToken,
                     imports,
-                    members,
-                    semicolonToken
+                    members
               ])
     {
     }

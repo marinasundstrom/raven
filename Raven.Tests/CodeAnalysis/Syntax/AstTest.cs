@@ -141,10 +141,12 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         var str = ifStatement.ToString();
         var str2 = ifStatement.ToFullString();
-
+        
         var foo1 = ifStatement.Span;
         var foo2 = ifStatement.FullSpan;
-
+        
+        //testOutputHelper.WriteLine(ifStatement.NormalizeWhitespace().ToFullString());
+        
         var ifStatementWithElseClause = ifStatement
                 .WithElseClause(
                     ElseClause(
@@ -165,9 +167,11 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 Block(
                     List<StatementSyntax>(
                         ifStatementWithElseClause)));
+        
+        testOutputHelper.WriteLine(ifStatementWithElseClause.NormalizeWhitespace().ToFullString());
 
         var members = List<MemberDeclarationSyntax>(
-                    NamespaceDeclaration(
+                    FileScopedNamespaceDeclaration(
                         IdentifierName("MyApp"),
                         List<MemberDeclarationSyntax>(
                             LocalDeclarationStatement(
@@ -178,6 +182,9 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                                             EqualsValueClause(LiteralExpression(20)))
                             ]))),
                             methodDeclaration)));
+
+        var fo = members.OfType<FileScopedNamespaceDeclarationSyntax>().First();
+        var x = fo.Name;
 
         var compilationUnit = CompilationUnit()
             .WithImports(
@@ -190,6 +197,8 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         var m = compilationUnit.Members;
 
         compilationUnit = compilationUnit.NormalizeWhitespace();
+
+        testOutputHelper.WriteLine(compilationUnit.ToFullString());
 
         var syntaxTree = SyntaxTree.Create(compilationUnit);
 
@@ -234,5 +243,24 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         var root = compilation.SyntaxTrees.First().GetRoot();
 
         testOutputHelper.WriteLine(root.ToFullString());
+    }
+
+    [Fact]
+    public void Test6()
+    {
+        var compilationUnit = CompilationUnit()
+            .WithImports(
+                List(
+                ImportDirective(IdentifierName("Test"))));
+            
+        compilationUnit = compilationUnit.NormalizeWhitespace();
+        
+        var test = compilationUnit.ToFullString();
+
+        var m = compilationUnit.Members;
+
+        compilationUnit = compilationUnit.NormalizeWhitespace();
+
+        testOutputHelper.WriteLine(compilationUnit.ToFullString());
     }
 }

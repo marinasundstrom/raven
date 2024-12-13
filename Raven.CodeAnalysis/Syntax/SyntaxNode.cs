@@ -6,7 +6,8 @@ namespace Raven.CodeAnalysis.Syntax;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public abstract class SyntaxNode
 {
-    public static readonly ConditionalWeakTable<GreenNode, SyntaxNode> Cache = new ConditionalWeakTable<GreenNode, SyntaxNode>();
+    public static readonly ConditionalWeakTable<GreenNode, SyntaxNode> Cache =
+        new ConditionalWeakTable<GreenNode, SyntaxNode>();
 
     internal readonly GreenNode Green;
     private readonly SyntaxTree _syntaxTree;
@@ -158,6 +159,7 @@ public abstract class SyntaxNode
             node = (TNode)Cache.GetValue(slot, (s) => s.CreateRed(this, position));
             return node;
         }
+
         return null!;
     }
 
@@ -178,7 +180,7 @@ public abstract class SyntaxNode
         var newGreen = this.Green.ReplaceNode(greenToReplace, newToken.Green);
 
         // Step 2: Rebuild the red tree with the updated green node
-        return newGreen.CreateRed(this.Parent, this.Position); 
+        return newGreen.CreateRed(this.Parent, this.Position);
     }
 
     public SyntaxNode ReplaceNode(SyntaxNode oldNode, SyntaxNode newNode)
@@ -188,8 +190,8 @@ public abstract class SyntaxNode
 
         if (newNode == null)
             throw new ArgumentNullException(nameof(newNode));
-        
-        if(newNode.Parent is not null) 
+
+        if (newNode.Parent is not null)
             throw new ArgumentException(nameof(newNode), "Syntax node is not part of the current syntax tree.");
 
         // Step 1: Traverse and locate the node to replace in the green tree
