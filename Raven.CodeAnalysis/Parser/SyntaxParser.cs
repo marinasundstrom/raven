@@ -184,6 +184,10 @@ public class SyntaxParser
     private ExpressionSyntax? ParseExpressionSyntax()
     {
         var token = ReadToken();
+        if (token.IsKind(SyntaxKind.NumericLiteralToken))
+        {
+            return new NumericLiteralExpressionSyntax(token);
+        }
         return new IdentifierNameSyntax(token);
     }
 
