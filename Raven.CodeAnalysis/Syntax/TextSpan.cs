@@ -9,6 +9,9 @@ public class TextSpan
 
     public TextSpan(int start, int length)
     {
+        if (start < 0 || length < 0)
+            throw new ArgumentOutOfRangeException();
+        
         Start = start;
         Length = length;
     }

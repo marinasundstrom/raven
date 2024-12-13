@@ -4,9 +4,6 @@ using System.Runtime.CompilerServices;
 using Raven.CodeAnalysis.Parser.Internal;
 using Raven.CodeAnalysis.Syntax;
 
-[assembly: InternalsVisibleTo("Test")]
-[assembly: InternalsVisibleTo("Raven.Tests")]
-
 namespace Raven.CodeAnalysis.Syntax;
 
 public class SyntaxTree
@@ -38,11 +35,11 @@ public class SyntaxTree
 
     }
 
-    public CompilationUnitSyntax GetSyntaxRoot() { return _compilationUnit; }
+    public CompilationUnitSyntax GetRoot() { return _compilationUnit; }
 
     public static SyntaxTree ParseText(string text)
     {
-        var sourceText = new SourceText(text);
+        var sourceText = SourceText.From(text);
 
         DiagnosticBag diagnosticBag = new DiagnosticBag();
 
@@ -58,12 +55,14 @@ public class SyntaxTree
 
     public IEnumerable<Diagnostic> GetDiagnostics(SyntaxNodeOrToken syntaxNodeOrToken)
     {
-        throw new NotImplementedException(); //_diagnosticBag.ToImmutableArray();
+        TextSpan span = syntaxNodeOrToken.Node?.Span ?? syntaxNodeOrToken.Token.Span;
+
+        return GetDiagnostics().Where(x => x.Location.Span.Contains(span));
     }
 
-    public object GetChanges(SyntaxTree syntaxTree)
+    public IEnumerable<TextChange> GetChanges(SyntaxTree oldTree)
     {
-        throw new NotImplementedException();
+        return oldTree.GetText().GetChangeRanges(this.GetText());
     }
 
     public static SyntaxTree Create(CompilationUnitSyntax compilationUnit)
@@ -116,7 +115,7 @@ public class SyntaxTree
     {
         if (_sourceText is not null)
         {
-            text = new SourceText("");
+            text = SourceText.From("");
             return true;
         }
         text = null;
@@ -130,7 +129,7 @@ public class SyntaxTree
             throw new ArgumentException("SourceText does not match the provided SyntaxTree.");
 
         // Get the root node of the syntax tree
-        var root = GetSyntaxRoot();
+        var root = GetRoot();
 
         // Find the node whose span matches the given TextSpan
         var matchingNode = root.DescendantNodes()
@@ -138,30 +137,5 @@ public class SyntaxTree
             .OrderBy(node => node.FullSpan.Length); // Sort by span length to get the shortest;
 
         return matchingNode.FirstOrDefault();
-    }
-    
-    public SyntaxTree WithUpdatedText(SourceText sourceText, int changeStart, int changeEnd)
-    {
-        /*
-        var updatedNodes = new List<SyntaxNode>();
-
-        foreach (var node in _nodes)
-        {
-            // Check if the node overlaps with the change
-            if (node.End <= changeStart || node.Start >= changeEnd)
-            {
-                // Unchanged node
-                updatedNodes.Add(node);
-            }
-            else
-            {
-                // Re-parse only the affected node
-                string updatedText = sourceText.Text.Substring(node.Start, node.End - node.Start);
-                updatedNodes.Add(new SyntaxNode(updatedText, node.Start));
-            }
-        }
-        */
-
-        return default!; // new SyntaxTree(updatedNodes);
     }
 }

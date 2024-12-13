@@ -200,7 +200,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
         var varDelc = compilation.SyntaxTrees.First()
-            .GetSyntaxRoot()
+            .GetRoot()
             .DescendantNodes()
             .OfType<VariableDeclarationSyntax>()
             .First();
@@ -231,7 +231,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         var compilation = Compilation.Create("MyCompilation")
             .AddSyntaxTrees(syntaxTree);
 
-        var root = compilation.SyntaxTrees.First().GetSyntaxRoot();
+        var root = compilation.SyntaxTrees.First().GetRoot();
 
         testOutputHelper.WriteLine(root.ToFullString());
     }

@@ -17,7 +17,7 @@ public class SemanticModel
 
     public void CreateModel()
     {
-        var root = SyntaxTree.GetSyntaxRoot();
+        var root = SyntaxTree.GetRoot();
 
         foreach (var memberDeclaration in root.Members)
         {

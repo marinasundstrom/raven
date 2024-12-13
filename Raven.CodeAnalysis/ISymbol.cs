@@ -61,8 +61,7 @@ public interface INamedTypeSymbol : ITypeSymbol
 
 }
 
-
-internal interface ILocalSymbol : ISymbol
+public interface ILocalSymbol : ISymbol
 {
     string Name { get; }
 
