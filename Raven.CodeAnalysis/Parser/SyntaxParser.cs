@@ -20,7 +20,7 @@ public class SyntaxParser
         _diagnosticBag = diagnosticBag;
     }
 
-    public Syntax.SyntaxTree Parse(SourceText sourceText)
+    public SyntaxTree Parse(SourceText sourceText)
     {
         using var textReader = sourceText.GetTextReader();
 
@@ -36,7 +36,7 @@ public class SyntaxParser
 
         while (!Consume(SyntaxKind.EndOfFileToken, out var endOfFileToken))
         {
-            var statement = ParseStatement();
+            var statement = ParseStatementSyntax();
             var globalStatement = GlobalStatement(statement);
 
             memberDeclarations.Add(globalStatement);
@@ -47,7 +47,7 @@ public class SyntaxParser
             .WithEndOfFileToken(EndOfFile);
     }
 
-    public StatementSyntax? ParseStatement()
+    public StatementSyntax? ParseStatementSyntax()
     {
         var token = tokenizer.PeekToken();
 
@@ -60,21 +60,21 @@ public class SyntaxParser
                 return ParseIfStatementSyntax();
 
             case SyntaxKind.ReturnKeyword:
-                return ParseReturnStatementSyntax();
+                return ParseReturnStatementSyntaxCore();
         }
 
         return ParseDeclarationOrExpressionStatementSyntax();
     }
 
-    private StatementSyntax? ParseReturnStatementSyntax()
+    private StatementSyntax? ParseReturnStatementSyntaxCore()
     {
         var returnKeyword = ReadToken();
 
-        var expression = ParseExpression();
+        var expression = ParseExpressionSyntax();
 
         if (!Consume(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
-            semicolonToken = SyntaxFactory.MissingToken(SyntaxKind.SemicolonToken);
+            semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
             _diagnosticBag.Add(
                 Diagnostic.Create(
@@ -97,7 +97,7 @@ public class SyntaxParser
                 return ParseLocalDeclarationStatementSyntax();
         }
 
-        var expression = ParseExpression();
+        var expression = ParseExpressionSyntax();
         return ExpressionStatement(expression);
     }
 
@@ -107,7 +107,7 @@ public class SyntaxParser
 
         if (!Consume(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
-            semicolonToken = SyntaxFactory.MissingToken(SyntaxKind.SemicolonToken);
+            semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
             _diagnosticBag.Add(
                 Diagnostic.Create(
@@ -144,11 +144,11 @@ public class SyntaxParser
 
         Consume(SyntaxKind.OpenParenToken, out var openParenToken);
 
-        var condition = ParseExpression();
+        var condition = ParseExpressionSyntax();
 
         Consume(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        var statement = ParseStatement();
+        var statement = ParseStatementSyntax();
 
         ElseClauseSyntax? elseClause = null;
 
@@ -159,9 +159,12 @@ public class SyntaxParser
             elseClause = ParseElseClauseSyntax();
         }
 
-        Consume(SyntaxKind.SemicolonToken, out var semicolonToken);
+        var ifStatement = IfStatement(ifKeyword, openParenToken, condition!, closeParenToken, statement!, null);
 
-        var ifStatement = IfStatement(ifKeyword, openParenToken, condition!, closeParenToken, statement!, semicolonToken);
+        if (Consume(SyntaxKind.SemicolonToken, out var semicolonToken))
+        {
+            ifStatement = ifStatement.WithSemicolonToken(semicolonToken);
+        }
 
         if (elseClause is not null)
         {
@@ -175,10 +178,10 @@ public class SyntaxParser
     {
         var elseKeyword = ReadToken();
 
-        return new ElseClauseSyntax(elseKeyword, ParseStatement());
+        return new ElseClauseSyntax(elseKeyword, ParseStatementSyntax());
     }
 
-    private ExpressionSyntax? ParseExpression()
+    private ExpressionSyntax? ParseExpressionSyntax()
     {
         var token = ReadToken();
         return new IdentifierNameSyntax(token);
@@ -202,7 +205,8 @@ public class SyntaxParser
 
         while (!Consume(untilToken, out token))
         {
-            statements.Add(ParseStatement());
+            var statement = ParseStatementSyntax();
+            statements.Add(statement);
         }
         return List(statements.ToArray());
     }
@@ -501,7 +505,6 @@ public class SyntaxParser
             ReadTokenCore();
             return true;
         }
-        token = token;
         return false;
     }
 
@@ -524,15 +527,23 @@ public class SyntaxParser
 
         tokenizer = new Tokenizer(new Lexer(textReader));
 
+        SetCurrentSpan(position);
+
         switch (kind)
         {
+            case SyntaxKind.Block:
             case SyntaxKind.IfStatement:
-                return ParseStatement();
+                return ParseStatementSyntax();
 
             case SyntaxKind.IdentifierName:
                 return ParseSimpleName();
         }
 
         throw new Exception();
+    }
+
+    private void SetCurrentSpan(int position)
+    {
+        currentSpanPosition = position;
     }
 }

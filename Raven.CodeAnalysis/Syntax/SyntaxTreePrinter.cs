@@ -2,6 +2,7 @@ using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
 
+/*
 public static class SyntaxTreePrinter
 {
     public static void PrintSyntaxTree(this SyntaxNode node, bool includeTokens = false)
@@ -37,3 +38,4 @@ public static class SyntaxTreePrinter
         }
     }
 }
+*/

@@ -127,7 +127,12 @@ public class SyntaxTree
         return false;
     }
 
-    public SyntaxNode? GetNodeForSpan(TextSpan span)
+    /// <summary>
+    /// Gets the nodes in span.
+    /// </summary>
+    /// <param name="span"></param>
+    /// <returns>An enumerable of nodes that return the the innermost node first</returns>
+    public IEnumerable<SyntaxNode> GetNodesInSpan(TextSpan span)
     {
         // Ensure the SyntaxTree corresponds to the SourceText
         if (!this.TryGetText(out var syntaxTreeText))
@@ -136,11 +141,35 @@ public class SyntaxTree
         // Get the root node of the syntax tree
         var root = GetRoot();
 
-        // Find the node whose span matches the given TextSpan
-        var matchingNodes = root.DescendantNodes()
-            .Where(node => node.FullSpan.Contains(span)) // Good, or bad?
-            .OrderBy(node => node.FullSpan.Length); // Sort by span length to get the shortest;
+        // Find the nodes whose span matches the given TextSpan
 
+        var matchingNodes = root.DescendantNodes()
+            .Where(node => node.Span.Contains(span))
+            .Reverse();
+
+        return matchingNodes;
+    }
+
+    public SyntaxNode? GetNodeToReplace(TextSpan span)
+    {
+        var matchingNodes = GetNodesInSpan(span);
+        var node = matchingNodes.FirstOrDefault();
+        if (span.Length == 0)
+        {
+            // TEMPORARY:
+            // If the length of "span" is 0, then something has been added to the tree.
+            // We should get the parent node of the innermost instead.
+            node = node?.Parent;
+        }
+        return node;
+    }
+
+
+    public SyntaxNode? GetNodeForSpan(TextSpan span)
+    {
+        // Get the first node whose span matches the given TextSpan
+
+        var matchingNodes = GetNodesInSpan(span);
         return matchingNodes.FirstOrDefault();
     }
 
@@ -159,14 +188,14 @@ public class SyntaxTree
 
         foreach (var change in changes)
         {
-            var changedNode = GetNodeForSpan(change.Span);
+            var changedNode = GetNodeToReplace(change.Span);
 
             if (changedNode is null)
                 continue;
 
             var diagnosticBag = new DiagnosticBag();
 
-            SyntaxNode? newNode = ParseText(newText, changedNode, diagnosticBag);
+            SyntaxNode? newNode = ParseNodeFromText(newText, changedNode, diagnosticBag);
 
             newCompilationUnit = (CompilationUnitSyntax)newCompilationUnit
                 .ReplaceNode(changedNode, newNode);
@@ -175,7 +204,7 @@ public class SyntaxTree
         return SyntaxTree.Create(newText, newCompilationUnit, _diagnosticBag);
     }
 
-    private SyntaxNode? ParseText(SourceText newText, SyntaxNode nodeToReplace, DiagnosticBag diagnosticBag)
+    private SyntaxNode? ParseNodeFromText(SourceText newText, SyntaxNode nodeToReplace, DiagnosticBag diagnosticBag)
     {
         var position = nodeToReplace.FullSpan.Start;
 
