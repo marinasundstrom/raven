@@ -2,10 +2,11 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static class SyntaxNodeExtensions
 {
-    public static TRoot ReplaceToken<TRoot>(this TRoot root, SyntaxToken tokenInList, params IEnumerable<SyntaxToken> newTokens)
+    public static TRoot ReplaceToken<TRoot>(this TRoot root, SyntaxToken tokenInList,
+        params IEnumerable<SyntaxToken> newTokens)
         where TRoot : SyntaxNode
     {
-        return (TRoot)root.ReplaceTokenInListCore(tokenInList, newTokens);
+        return default!; // (TRoot)root.ReplaceTokenInListCore(tokenInList, newTokens);
     }
 
     public static TSyntax WithLeadingTrivia<TSyntax>(this TSyntax node, params IEnumerable<SyntaxTrivia> trivia)

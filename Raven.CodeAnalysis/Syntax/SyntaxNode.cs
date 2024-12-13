@@ -177,7 +177,7 @@ public abstract class SyntaxNode
             throw new ArgumentNullException(nameof(newNode));
         
         if(newNode.Parent is not null) 
-            throw new ArgumentNullException(nameof(newNode), "Syntax node is not part of the current syntax tree.");
+            throw new ArgumentException(nameof(newNode), "Syntax node is not part of the current syntax tree.");
 
         // Step 1: Traverse and locate the node to replace in the green tree
         var greenToReplace = oldNode.Green;
@@ -185,12 +185,6 @@ public abstract class SyntaxNode
 
         // Step 2: Rebuild the red tree with the updated green node
         return newGreen.CreateRed(this.Parent, this.Position);
-    }
-
-    internal SyntaxNode ReplaceTokenInListCore(SyntaxToken tokenInList, IEnumerable<SyntaxToken> newTokens)
-    {
-        //ar newGreen = Green.ReplaceToken(tokenInList, newTokens)
-        return this;
     }
 
     public abstract void Accept(SyntaxVisitor visitor);

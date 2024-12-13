@@ -208,10 +208,11 @@ public class SyntaxTree
     {
         var position = nodeToReplace.FullSpan.Start;
 
-        var nodeKind = nodeToReplace.Kind;
+        var parent = nodeToReplace.Parent;
+        var requestedSyntaxType = parent.GetPropertyTypeForChild(nodeToReplace);
 
         var parser = new Parser.SyntaxParser(diagnosticBag);
 
-        return parser.ParseSyntax(nodeKind, newText, position);
+        return parser.ParseSyntax(requestedSyntaxType, newText, position);
     }
 }

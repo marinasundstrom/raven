@@ -525,7 +525,7 @@ public class SyntaxParser
         return token;
     }
 
-    public SyntaxNode? ParseSyntax(SyntaxKind kind, SourceText sourceText, int position)
+    public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)
     {
         using var textReader = sourceText.GetTextReader(position);
 
@@ -533,14 +533,25 @@ public class SyntaxParser
 
         SetCurrentSpan(position);
 
-        switch (kind)
+        if (requestedSyntaxType == typeof(StatementSyntax))
         {
-            case SyntaxKind.Block:
-            case SyntaxKind.IfStatement:
-                return ParseStatementSyntax();
-
-            case SyntaxKind.IdentifierName:
-                return ParseSimpleName();
+            return ParseStatementSyntax();
+        }
+        else if (requestedSyntaxType == typeof(IfStatementSyntax))
+        {
+            return ParseIfStatementSyntax();
+        }
+        else if (requestedSyntaxType == typeof(BlockSyntax))
+        {
+            return ParseBlockSyntax();
+        }     
+        else if (requestedSyntaxType == typeof(ExpressionSyntax))
+        {
+            return ParseExpressionSyntax();
+        }
+        else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
+        {
+            return ParseSimpleName();
         }
 
         throw new Exception();
