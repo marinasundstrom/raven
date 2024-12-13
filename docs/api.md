@@ -44,37 +44,37 @@ root.PrintSyntaxTree(includeTokens: true)
 The printed syntax tree will look similar to this:
 
 ```
-CompilationUnit
-  GlobalStatement
-    IfStatement
-      IfKeyword
-      OpenParenToken
-      IdentifierName
-        IdentifierToken
-      CloseParenToken
-      Block
-        OpenBraceToken
-        ReturnStatement
-          ReturnKeyword
-          IdentifierName
-            NumericLiteralToken
-          SemicolonToken
-        CloseBraceToken
-      ElseClause
-        ElseKeyword
-        IfStatement
-          IfKeyword
-          OpenParenToken
-          IdentifierName
-            IdentifierToken
-          CloseParenToken
-          Block
-            OpenBraceToken
-            ReturnStatement
-              ReturnKeyword
-              IdentifierName
-                NumericLiteralToken
-              SemicolonToken
-            CloseBraceToken
-  EndOfFileToken
+├── CompilationUnit
+│   ├── GlobalStatement
+│   │   └── IfStatement
+│   │       ├── IfKeyword "if"
+│   │       ├── OpenParenToken "("
+│   │       ├── IdentifierName
+│   │       │   └── IdentifierToken "foo"
+│   │       ├── CloseParenToken ")"
+│   │       ├── Block
+│   │       │   ├── OpenBraceToken "{"
+│   │       │   ├── ReturnStatement
+│   │       │   │   ├── ReturnKeyword "return"
+│   │       │   │   ├── NumericLiteralExpression
+│   │       │   │   │   └── NumericLiteralToken "0"
+│   │       │   │   └── SemicolonToken ";"
+│   │       │   └── CloseBraceToken "}"
+│   │       └── ElseClause
+│   │           ├── ElseKeyword "else"
+│   │           └── IfStatement
+│   │               ├── IfKeyword "if"
+│   │               ├── OpenParenToken "("
+│   │               ├── IdentifierName
+│   │               │   └── IdentifierToken "bar"
+│   │               ├── CloseParenToken ")"
+│   │               └── Block
+│   │                   ├── OpenBraceToken "{"
+│   │                   ├── ReturnStatement
+│   │                   │   ├── ReturnKeyword "return"
+│   │                   │   ├── NumericLiteralExpression
+│   │                   │   │   └── NumericLiteralToken "1"
+│   │                   │   └── SemicolonToken ";"
+│   │                   └── CloseBraceToken "}"
+│   └── EndOfFileToken ""
 ```
