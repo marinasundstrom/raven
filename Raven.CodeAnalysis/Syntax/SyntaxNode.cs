@@ -171,6 +171,16 @@ public abstract class SyntaxNode
         return SourceTextWriter.WriteNodeToText(this, true);
     }
 
+    public SyntaxNode ReplaceToken(SyntaxToken oldToken, SyntaxToken newToken)
+    {
+        // Step 1: Traverse and locate the node to replace in the green tree
+        var greenToReplace = oldToken.Green;
+        var newGreen = this.Green.ReplaceNode(greenToReplace, newToken.Green);
+
+        // Step 2: Rebuild the red tree with the updated green node
+        return newGreen.CreateRed(this.Parent, this.Position); 
+    }
+
     public SyntaxNode ReplaceNode(SyntaxNode oldNode, SyntaxNode newNode)
     {
         if (oldNode == null)
