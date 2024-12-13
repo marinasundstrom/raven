@@ -30,7 +30,17 @@ public struct SyntaxNodeOrToken
     public bool IsToken => Green is InternalSyntax.SyntaxToken;
     public bool IsNode => Green is InternalSyntax.SyntaxNode;
     public SyntaxToken Token => IsToken ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent, _position) : default;
-    public SyntaxNode? Node => IsNode ? Green.CreateRed(_parent, _position) : default;
+
+    public SyntaxNode? Node
+    {
+        get
+        {
+            int i = _position;
+            SyntaxNode? node = _parent;
+            
+            return IsNode ? SyntaxNode.Cache.GetValue(Green, (s) => s.CreateRed(node, i)) : default;
+        }
+    }
 
     public bool AsToken(out SyntaxToken token)
     {

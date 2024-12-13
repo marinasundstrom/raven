@@ -58,7 +58,13 @@ public class SyntaxListItem<TNode>
     public bool IsNode => Green is InternalSyntax.SyntaxNode;
 
     public SyntaxToken Token => IsToken ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent, _position + Green.GetChildStartPosition(_index)) : default;
-    public TNode? Node => IsNode ? (TNode)(object)Green.CreateRed(_parent, _position + Green.GetChildStartPosition(_index)) : default;
+    public TNode? Node
+    {
+        get
+        {
+            return IsNode ? (TNode?)(object?)SyntaxNode.Cache.GetValue(Green, (s) => s.CreateRed(_parent, _position + Green.GetChildStartPosition(_index))) : default;
+        }
+    }
 }
 
 public static partial class SyntaxFactory

@@ -17,7 +17,8 @@ public static class SyntaxNodeReflectionExtensions
             var propertyValue = property.GetValue(parent);
 
             // Direct match: property equals childNode
-            if (propertyValue is SyntaxNode node && node.Green == childNode.Green)
+            // Comparing green nodes since actual green node might differ.
+            if (propertyValue is SyntaxNode node && node == childNode)
             {
                 return property.PropertyType;
             }

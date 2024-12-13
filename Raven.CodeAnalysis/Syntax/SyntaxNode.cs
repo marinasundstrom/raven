@@ -6,6 +6,8 @@ namespace Raven.CodeAnalysis.Syntax;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public abstract class SyntaxNode
 {
+    public static readonly ConditionalWeakTable<GreenNode, SyntaxNode> Cache = new ConditionalWeakTable<GreenNode, SyntaxNode>();
+
     internal readonly GreenNode Green;
     private readonly SyntaxTree _syntaxTree;
     private readonly SyntaxNode _parent;
@@ -152,7 +154,8 @@ public abstract class SyntaxNode
         if (slot is not null)
         {
             var position = Position + Green.GetChildStartPosition(index);
-            node = (TNode)slot.CreateRed(this, position);
+
+            node = (TNode)Cache.GetValue(slot, (s) => s.CreateRed(this, position));
             return node;
         }
         return null!;

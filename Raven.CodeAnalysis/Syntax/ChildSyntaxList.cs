@@ -93,7 +93,13 @@ public class ChildSyntaxListItem
     public bool IsToken => _node is InternalSyntax.SyntaxToken;
     public bool IsNode => _node is InternalSyntax.SyntaxNode;
     public SyntaxToken Token => IsToken ? new SyntaxToken(_node as InternalSyntax.SyntaxToken, _parent, _position) : default;
-    public SyntaxNode? Node => IsNode ? _node.CreateRed(_parent, _position) : null;
+    public SyntaxNode? Node
+    {
+        get
+        {
+            return IsNode ? (SyntaxNode?)SyntaxNode.Cache.GetValue(_node, (s) => s.CreateRed(_parent, _position)) : null;
+        }
+    }
 
     public bool AsToken(out SyntaxToken token)
     {
