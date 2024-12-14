@@ -195,7 +195,7 @@ public class SyntaxTree
 
             var diagnosticBag = new DiagnosticBag();
 
-            SyntaxNode? newNode = ParseNodeFromText(newText, changedNode, diagnosticBag);
+            SyntaxNode? newNode = ParseNodeFromText(change.Span, newText, changedNode, diagnosticBag);
 
             newCompilationUnit = (CompilationUnitSyntax)newCompilationUnit
                 .ReplaceNode(changedNode, newNode);
@@ -204,12 +204,21 @@ public class SyntaxTree
         return SyntaxTree.Create(newText, newCompilationUnit, _diagnosticBag);
     }
 
-    private SyntaxNode? ParseNodeFromText(SourceText newText, SyntaxNode nodeToReplace, DiagnosticBag diagnosticBag)
+    private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace, DiagnosticBag diagnosticBag)
     {
-        var position = nodeToReplace.FullSpan.Start;
+        Type requestedSyntaxType;
 
-        var parent = nodeToReplace.Parent;
-        var requestedSyntaxType = parent.GetPropertyTypeForChild(nodeToReplace);
+        if (changeSpan.Length == 0)
+        {
+            requestedSyntaxType = nodeToReplace.GetType();
+        }
+        else
+        {
+            var parent = nodeToReplace.Parent;
+            requestedSyntaxType = parent.GetPropertyTypeForChild(nodeToReplace)!;
+        }
+
+        var position = nodeToReplace.FullSpan.Start;
 
         var parser = new Parser.SyntaxParser(diagnosticBag);
 
