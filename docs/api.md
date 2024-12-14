@@ -22,7 +22,7 @@ Assuming you want to parse source code into a syntax tree, this example shows yo
 var syntaxTree = SyntaxTree.ParseText(code);
 
 // Will get you the CompilationUnit (root syntax node)
-var root = syntaxTree.GetSyntaxRoot();
+var root = syntaxTree.GetRoot();
 ```
 
 ### Turn syntax tree into source code

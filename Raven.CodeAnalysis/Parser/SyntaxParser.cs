@@ -533,6 +533,11 @@ public class SyntaxParser
 
         SetCurrentSpan(position);
 
+        return ParseRequestedType(requestedSyntaxType);
+    }
+
+    private SyntaxNode? ParseRequestedType(Type requestedSyntaxType)
+    {
         if (requestedSyntaxType == typeof(StatementSyntax))
         {
             return ParseStatementSyntax();
@@ -544,7 +549,7 @@ public class SyntaxParser
         else if (requestedSyntaxType == typeof(BlockSyntax))
         {
             return ParseBlockSyntax();
-        }     
+        }
         else if (requestedSyntaxType == typeof(ExpressionSyntax))
         {
             return ParseExpressionSyntax();
@@ -554,7 +559,7 @@ public class SyntaxParser
             return ParseSimpleName();
         }
 
-        throw new Exception();
+        throw new NotSupportedException("Syntax not supported");
     }
 
     private void SetCurrentSpan(int position)
