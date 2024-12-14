@@ -141,17 +141,17 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         var str = ifStatement.ToString();
         var str2 = ifStatement.ToFullString();
-        
+
         var foo1 = ifStatement.Span;
         var foo2 = ifStatement.FullSpan;
-        
+
         //testOutputHelper.WriteLine(ifStatement.NormalizeWhitespace().ToFullString());
-        
+
         var ifStatementWithElseClause = ifStatement
                 .WithElseClause(
                     ElseClause(
                         ReturnStatement(
-                            LiteralExpression(2))));
+                            LiteralExpression(1))));
 
         var methodDeclaration = MethodDeclaration(
                 ParseTypeName("int"),
@@ -167,8 +167,8 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 Block(
                     List<StatementSyntax>(
                         ifStatementWithElseClause)));
-        
-        testOutputHelper.WriteLine(ifStatementWithElseClause.NormalizeWhitespace().ToFullString());
+
+        //testOutputHelper.WriteLine(ifStatementWithElseClause.NormalizeWhitespace().ToFullString());
 
         var members = List<MemberDeclarationSyntax>(
                     FileScopedNamespaceDeclaration(
@@ -181,15 +181,14 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                                             TypeAnnotation(ParseTypeName("int")),
                                             EqualsValueClause(LiteralExpression(20)))
                             ]))),
-                            methodDeclaration)));
+                            methodDeclaration)).WithImports(
+                                List(
+                                    ImportDirective(IdentifierName("Foo")))));
 
         var fo = members.OfType<FileScopedNamespaceDeclarationSyntax>().First();
         var x = fo.Name;
 
         var compilationUnit = CompilationUnit()
-            .WithImports(
-                List(
-                    ImportDirective(IdentifierName("Foo"))))
             .WithMembers(members);
 
         var test = compilationUnit.ToFullString();
@@ -252,9 +251,9 @@ public class AstTest(ITestOutputHelper testOutputHelper)
             .WithImports(
                 List(
                 ImportDirective(IdentifierName("Test"))));
-            
+
         compilationUnit = compilationUnit.NormalizeWhitespace();
-        
+
         var test = compilationUnit.ToFullString();
 
         var m = compilationUnit.Members;

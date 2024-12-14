@@ -31,8 +31,14 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode? VisitStatement(StatementSyntax node)
     {
-        var statement = base.VisitStatement(node);
-        var leadingTrivia = statement!.LeadingTrivia;
+        var statement = base.VisitStatement(node)!;
+
+        if (node is BlockSyntax && node?.Parent is IfStatementSyntax)
+        {
+            return statement;
+        }
+
+        var leadingTrivia = statement.LeadingTrivia;
         return statement.WithLeadingTrivia(FormatTrivia());
     }
 
@@ -42,39 +48,95 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var ifKeyword = node.IfKeyword.WithTrailingTrivia(SyntaxFactory.Space);
 
         // Visit the child nodes (condition and statement).
-        var condition = (ExpressionSyntax)Visit(node.Condition);
-        var statement = (StatementSyntax)VisitStatement(node.Statement);
+        var condition = (ExpressionSyntax)VisitExpression(node.Condition)!;
+        var statement = (StatementSyntax)VisitStatement(node.Statement)!;
 
         var closeParenToken = node.CloseParenToken.WithTrailingTrivia(SyntaxFactory.Space);
 
         // Reconstruct the node with the updated `if` keyword.
-        return node.Update(ifKeyword, node.OpenParenToken, condition, closeParenToken, statement, node.ElseClause, node.SemicolonToken);
+        return node.Update(ifKeyword, node.OpenParenToken, condition, closeParenToken, statement, (ElseClauseSyntax?)VisitElseClause(node.ElseClause!), node.SemicolonToken);
+    }
+
+    public override SyntaxNode? VisitElseClause(ElseClauseSyntax node)
+    {
+        var elseKeyword = node.ElseKeyword
+            .WithLeadingTrivia(SyntaxFactory.Space);
+
+        StatementSyntax statement = null!;
+
+        if (node.Statement is not BlockSyntax)
+        {
+            IncreaseIdent();
+
+            elseKeyword = elseKeyword
+                .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+
+            statement = (StatementSyntax)VisitStatement(node.Statement)!;
+
+            DecreaseIndent();
+        }
+        else
+        {
+            statement = (StatementSyntax)VisitStatement(node.Statement)!;
+        }
+
+        return node.Update(elseKeyword, statement);
     }
 
     public override SyntaxNode? VisitBlock(BlockSyntax node)
     {
-        _indentLevel++;
-
         // Normalize open brace `{` with a trailing space.
         var openBrace = node.OpenBraceToken.WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+
+        IncreaseIdent();
 
         // Visit child statements to normalize them recursively.
         var statements = node.Statements.Select(VisitStatement).OfType<StatementSyntax>().ToList();
 
-        // Normalize close brace `}` with leading trivia to ensure proper spacing.
-        var closeBrace = node.CloseBraceToken.WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+        DecreaseIndent();
 
-        _indentLevel--;
+        // Normalize close brace `}` with leading trivia to ensure proper spacing.
+        var closeBrace = node.CloseBraceToken
+            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, IndentationTrivia());
 
         // Reconstruct the block with normalized components.
         return node.Update(openBrace, SyntaxFactory.List(statements), closeBrace);
+    }
+
+    private void IncreaseIdent()
+    {
+        _indentLevel++;
+    }
+
+    private void DecreaseIndent()
+    {
+        _indentLevel--;
+    }
+
+    public override SyntaxNode? VisitVariableDeclaration(VariableDeclarationSyntax node)
+    {
+        return node.Update(node.LetKeyword.WithTrailingTrivia(SyntaxFactory.Space), VisitList(node.Declarators)!);
+    }
+
+    public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
+    {
+        return node.Update(node.Name
+            .WithTrailingTrivia(SyntaxFactory.Space), (TypeAnnotationSyntax)VisitTypeAnnotation(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
+    }
+
+    public override SyntaxNode? VisitEqualsValueClause(EqualsValueClauseSyntax node)
+    {
+        return node.Update(node.EqualsToken
+            .WithLeadingTrivia(SyntaxFactory.Space)
+            .WithTrailingTrivia(SyntaxFactory.Space),
+            (ExpressionSyntax)VisitExpression(node.Value)!);
     }
 
     public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
     {
         var returnKeyword = node.ReturnKeyword.WithTrailingTrivia(SyntaxFactory.Space);
 
-        var expression = (ExpressionSyntax)Visit(node.Expression);
+        var expression = Visit(node.Expression);
 
         return node.Update(returnKeyword, expression, node.SemicolonToken);
     }
@@ -85,7 +147,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var ns = (IdentifierNameSyntax)VisitIdentifierName(node.Namespace)!;
 
-        return node.Update(importKeyword, ns, node.SemicolonToken);
+        var semicolonToken = node.SemicolonToken
+            .WithTrailingTrivia(
+                SyntaxFactory.CarriageReturnLineFeed,
+                SyntaxFactory.CarriageReturnLineFeed);
+
+        return node.Update(importKeyword, ns, semicolonToken);
     }
 
     public override SyntaxNode? VisitFileScopedNamespaceDeclaration(FileScopedNamespaceDeclarationSyntax node)
@@ -94,34 +161,72 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var name = (IdentifierNameSyntax)VisitIdentifierName(node.Name)!;
 
-        return node.Update(namespaceKeyword, name, node.SemicolonToken, VisitList<ImportDirectiveSyntax>(node.Imports), VisitList<MemberDeclarationSyntax>(node.Members));
+        var semicolonToken = node.SemicolonToken
+            .WithTrailingTrivia(
+                SyntaxFactory.CarriageReturnLineFeed,
+                SyntaxFactory.CarriageReturnLineFeed);
+
+        return node.Update(namespaceKeyword, name, semicolonToken, VisitList(node.Imports)!, VisitList(node.Members)!);
     }
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
     {
         var operatorToken = node.OperatorToken.WithTrailingTrivia(SyntaxFactory.Space);
 
-        var left = (ExpressionSyntax)Visit(node.LeftHandSide)
+        var left = Visit(node.LeftHandSide)
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        var right = (ExpressionSyntax)Visit(node.LeftHandSide);
+        var right = Visit(node.RightHandSide);
 
         return node.Update(left, operatorToken, right);
     }
 
     public override SyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        // Ensure newlines between methods
-        var newNode = base.VisitMethodDeclaration(node);
-        return newNode.WithLeadingTrivia(SyntaxFactory.TriviaList(
-            SyntaxFactory.CarriageReturnLineFeed,
-            SyntaxFactory.CarriageReturnLineFeed
+        var returnType = (TypeSyntax)VisitType(node.ReturnType)!
+           .WithTrailingTrivia(SyntaxFactory.Space);
+
+        var name = (IdentifierNameSyntax)VisitIdentifierName(node.Name)!
+            .WithTrailingTrivia(SyntaxFactory.Space);
+
+        var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
+            .WithTrailingTrivia(SyntaxFactory.Space);
+
+        return node.Update(returnType, name, parameterList, (BlockSyntax?)VisitBlock(node.Body))
+            .WithLeadingTrivia(SyntaxFactory.TriviaList(
+                SyntaxFactory.CarriageReturnLineFeed,
+                SyntaxFactory.CarriageReturnLineFeed
         ));
+    }
+
+    public override SyntaxNode? VisitParameterList(ParameterListSyntax node)
+    {
+        return base.VisitParameterList(node);
+    }
+
+    public override SyntaxNode? VisitParameter(ParameterSyntax node)
+    {
+        var name = node.Name.WithTrailingTrivia(SyntaxFactory.Space);
+
+        return node.Update(name,
+            node.TypeAnnotation is not null ? (TypeAnnotationSyntax?)VisitTypeAnnotation(node.TypeAnnotation) : null);
+    }
+
+    public override SyntaxNode? VisitTypeAnnotation(TypeAnnotationSyntax node)
+    {
+        var colonToken = node.ColonToken.WithTrailingTrivia(SyntaxFactory.Space);
+
+        return node.Update(colonToken, (TypeSyntax)VisitType(node.Type)!);
     }
 
     private SyntaxTriviaList FormatTrivia()
     {
-        return SyntaxFactory.TriviaList(SyntaxFactory.Whitespace(GetIndentation()));
+        return SyntaxFactory.TriviaList(IndentationTrivia());
+    }
+
+    private SyntaxTrivia IndentationTrivia()
+    {
+        return SyntaxFactory.Whitespace(GetIndentation());
     }
 
     private string GetIndentation()
