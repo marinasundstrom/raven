@@ -58,20 +58,24 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     private IEnumerable<SyntaxNodeOrToken> EnumerateItems()
     {
-        for (int i = 0; i < Count; i++)
+        for (int i = 0; i < Green.SlotCount; i++)
         {
-            var item = this[i];
-            yield return new SyntaxNodeOrToken(item.Green, _parent, i, Green.GetChildStartPosition(i));
+            var node = Green.GetSlot(i);
+            yield return new SyntaxNodeOrToken(node, _parent, i, Green.GetChildStartPosition(i));
         }
     }
 
     public IEnumerable<SyntaxNodeOrToken> GetWithSeparators()
     {
-        for (int i = 0; i < Green.SlotCount; i++)
-        {
-            var item = Green.GetSlot(i);
-            yield return new SyntaxNodeOrToken(item, _parent, i, Green.GetChildStartPosition(i));
-        }
+        return EnumerateItems();
+    }
+
+    public IEnumerable<SyntaxToken> GetSeparators()
+    {
+        return EnumerateItems()
+                .Where(x => x.IsToken)
+                .Select(x => x.Token)
+                .OfType<SyntaxToken>();
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
