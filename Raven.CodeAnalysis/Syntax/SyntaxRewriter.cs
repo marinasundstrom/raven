@@ -76,12 +76,20 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
     public virtual SeparatedSyntaxList<TElement>? VisitList<TElement>(SeparatedSyntaxList<TElement> list)
         where TElement : SyntaxNode
     {
-        List<TElement> newList = [];
+        List<SyntaxNodeOrToken> newList = [];
 
-        foreach (var item in list)
+        foreach (var item in list.GetWithSeparators())
         {
-            newList.Add((TElement)item.Accept(this));
+            if (item.AsNode(out var node))
+            {
+                newList.Add(
+                    new SyntaxNodeOrToken(node.Accept(this)!));
+            }
+            else if (item.AsToken(out var token))
+            {
+                newList.Add(VisitToken(token));
+            }
         }
-        return SyntaxFactory.SeparatedList<TElement>(newList.Select(x => new SyntaxNodeOrToken(x)).ToArray());
+        return SyntaxFactory.SeparatedList<TElement>(newList.ToArray());
     }
 }

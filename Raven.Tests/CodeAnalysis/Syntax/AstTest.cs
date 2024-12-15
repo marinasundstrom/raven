@@ -113,14 +113,14 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         var varDecl = LocalDeclarationStatement(
             VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
                 VariableDeclarator(
-                    IdentifierName("Foo"),
+                    IdentifierName("foo"),
                     TypeAnnotation(ParseTypeName("int")))
             ])));
 
         var varDecl2 = LocalDeclarationStatement(
             VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
                 VariableDeclarator(
-                    IdentifierName("Foo"),
+                    IdentifierName("foo"),
                     TypeAnnotation(ParseTypeName("int")),
                     EqualsValueClause(LiteralExpression(20)))
             ])));
@@ -177,8 +177,13 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                             LocalDeclarationStatement(
                                     VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([
                                         VariableDeclarator(
-                                            IdentifierName("Foo"),
+                                            IdentifierName("foo"),
                                             TypeAnnotation(ParseTypeName("int")),
+                                            EqualsValueClause(LiteralExpression(20))),
+                                        CommaToken,
+                                        VariableDeclarator(
+                                            IdentifierName("foo2"),
+                                            TypeAnnotation(ParseTypeName("string")),
                                             EqualsValueClause(LiteralExpression(20)))
                             ]))),
                             methodDeclaration)).WithImports(

@@ -54,7 +54,8 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var closeParenToken = node.CloseParenToken.WithTrailingTrivia(SyntaxFactory.Space);
 
         // Reconstruct the node with the updated `if` keyword.
-        return node.Update(ifKeyword, node.OpenParenToken, condition, closeParenToken, statement, (ElseClauseSyntax?)VisitElseClause(node.ElseClause!), node.SemicolonToken);
+        return node.Update(ifKeyword, node.OpenParenToken, condition, closeParenToken, statement,
+            node.ElseClause is null ? null : (ElseClauseSyntax?)VisitElseClause(node.ElseClause!), node.SemicolonToken);
     }
 
     public override SyntaxNode? VisitElseClause(ElseClauseSyntax node)
@@ -115,7 +116,25 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode? VisitVariableDeclaration(VariableDeclarationSyntax node)
     {
-        return node.Update(node.LetKeyword.WithTrailingTrivia(SyntaxFactory.Space), VisitList(node.Declarators)!);
+
+        List<SyntaxNodeOrToken> newList = [];
+
+        foreach (var item in node.Declarators.GetWithSeparators())
+        {
+            if (item.AsNode(out var node2))
+            {
+                newList.Add(
+                    new SyntaxNodeOrToken(node2.Accept(this)!));
+            }
+            else if (item.AsToken(out var token))
+            {
+                newList.Add(token.WithTrailingTrivia(SyntaxFactory.Space));
+            }
+        }
+
+        var declarators = SyntaxFactory.SeparatedList<VariableDeclaratorSyntax>(newList.ToArray());
+
+        return node.Update(node.LetKeyword.WithTrailingTrivia(SyntaxFactory.Space), declarators!);
     }
 
     public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
@@ -201,7 +220,24 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode? VisitParameterList(ParameterListSyntax node)
     {
-        return base.VisitParameterList(node);
+        List<SyntaxNodeOrToken> newList = [];
+
+        foreach (var item in node.Parameters.GetWithSeparators())
+        {
+            if (item.AsNode(out var node2))
+            {
+                newList.Add(
+                    new SyntaxNodeOrToken(node2.Accept(this)!));
+            }
+            else if (item.AsToken(out var token))
+            {
+                newList.Add(token.WithTrailingTrivia(SyntaxFactory.Space));
+            }
+        }
+
+        var parameters = SyntaxFactory.SeparatedList<ParameterSyntax>(newList.ToArray());
+
+        return node.Update(node.OpenParenToken, parameters!, node.CloseParenToken);
     }
 
     public override SyntaxNode? VisitParameter(ParameterSyntax node)

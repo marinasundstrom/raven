@@ -65,12 +65,21 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         }
     }
 
+    public IEnumerable<SyntaxNodeOrToken> GetWithSeparators()
+    {
+        for (int i = 0; i < Green.SlotCount; i++)
+        {
+            var item = Green.GetSlot(i);
+            yield return new SyntaxNodeOrToken(item, _parent, i, Green.GetChildStartPosition(i));
+        }
+    }
+
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
 public static partial class SyntaxFactory
 {
-    public static SeparatedSyntaxList<TNode> SeparatedList<TNode>()
+    public static SeparatedSyntaxList<TNode> EmptySeparatedList<TNode>()
         where TNode : SyntaxNode
         => new SeparatedSyntaxList<TNode>(null, (SyntaxNode)null);
 
