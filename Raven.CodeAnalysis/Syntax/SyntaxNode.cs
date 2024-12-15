@@ -15,6 +15,8 @@ public abstract class SyntaxNode
 
     public SyntaxNode Parent => _parent;
 
+    public bool IsMissing { get; private set; }
+
     public SyntaxTree? SyntaxTree
     {
         get

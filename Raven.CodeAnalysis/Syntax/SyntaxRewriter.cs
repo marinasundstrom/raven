@@ -61,6 +61,16 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return node.Accept(this);
     }
 
+    public virtual SyntaxNode? VisitName(NameSyntax node)
+    {
+        return node.Accept(this);
+    }
+
+    public virtual SyntaxNode? VisitSimpleName(SimpleNameSyntax node)
+    {
+        return node.Accept(this);
+    }
+
     public virtual SyntaxList<TElement>? VisitList<TElement>(SyntaxList<TElement> list)
         where TElement : SyntaxNode
     {

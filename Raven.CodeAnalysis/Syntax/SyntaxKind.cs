@@ -7,12 +7,13 @@ public enum SyntaxKind
     List,
 
     IdentifierName,
+    GenericName,
+    QualifiedName,
+    AliasQualifiedName,
+
     NumericLiteralExpression,
     BooleanLiteralExpression,
     StringLiteralExpression,
-
-    QualifiedName,
-    AliasQualifiedName,
 
     CompilationUnit,
 

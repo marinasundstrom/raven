@@ -59,7 +59,7 @@ var ifStatementWithElseClause = ifStatement
                     LiteralExpression(2))));
 
 var methodDeclaration = MethodDeclaration(
-        ParseTypeName("test"),
+        IdentifierName("test"),
         IdentifierName("FooBar"),
         TypeParameterList(
             SeparatedList<ParameterSyntax>([

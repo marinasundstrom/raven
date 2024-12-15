@@ -162,6 +162,14 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                                                         Argument(
                                                             IdentifierName("position"))})))))));
 
+        List<MemberDeclarationSyntax> members = [constructor];
+
+        if (!classSymbol.IsAbstract)
+        {
+            members.Add(createRed);
+            members.Add(withUpdatedChildren);
+        }
+
         var ns =
                 FileScopedNamespaceDeclaration(
                     QualifiedName(
@@ -185,11 +193,7 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                                     SimpleBaseType(
                                         IdentifierName("StatementSyntax"))))) */
                         .WithMembers(
-                            List<MemberDeclarationSyntax>(
-                                [
-                                constructor,
-                                createRed,
-                                withUpdatedChildren]))));
+                            List<MemberDeclarationSyntax>(members))));
 
 
         // Convert to source text and add to the compilation
