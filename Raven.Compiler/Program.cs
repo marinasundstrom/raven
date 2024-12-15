@@ -16,3 +16,10 @@ Console.WriteLine(root.GetSyntaxTreeRepresentation(includeTokens: true, includeT
 Console.WriteLine();
 
 Console.WriteLine(root.ToFullString());
+
+Console.WriteLine();
+
+foreach (var diagnostic in syntaxTree.GetDiagnostics())
+{
+    Console.WriteLine(diagnostic.ToString());
+}

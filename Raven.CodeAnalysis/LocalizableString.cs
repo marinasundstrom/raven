@@ -8,6 +8,11 @@ public abstract class LocalizableString
     {
         return new LocalizableStringImpl(value);
     }
+
+    public static implicit operator string(LocalizableString value)
+    {
+        return value.ToString()!;
+    }
 }
 
 public class LocalizableStringImpl : LocalizableString
