@@ -141,4 +141,79 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         var nodes = SyntaxNode.Cache;
     }
+
+    [Fact]
+    public void IncrementalParsing5()
+    {
+        var sourceText = SourceText.From(
+            """
+            if (foo)  {
+                return 0;
+            }
+            """);
+
+        var syntaxTree = SyntaxTree.ParseText(sourceText);
+
+        var oldRoot = syntaxTree.GetRoot();
+
+        testOutputHelper.WriteLine(oldRoot.ToFullString());
+
+        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+
+        var changedSourceText = SourceText.From(
+            """
+            if (foo)  {
+                if(x) {}
+            }
+            """);
+
+        var updatedTree = syntaxTree.WithChangedText(changedSourceText);
+
+        var newRoot = updatedTree.GetRoot();
+
+        testOutputHelper.WriteLine(newRoot.ToFullString());
+
+        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+
+        var nodes = SyntaxNode.Cache;
+    }
+
+    [Fact]
+    public void IncrementalParsing6()
+    {
+        var sourceText = SourceText.From(
+            """
+            if (foo)  {
+                if(x) {}
+            }
+            """);
+
+        var syntaxTree = SyntaxTree.ParseText(sourceText);
+
+        var oldRoot = syntaxTree.GetRoot();
+
+        testOutputHelper.WriteLine(oldRoot.ToFullString());
+
+        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+
+        var changedSourceText = SourceText.From(
+            """
+            if (foo)  {
+                if(x) {
+                
+                } 
+                else {}
+            }
+            """);
+
+        var updatedTree = syntaxTree.WithChangedText(changedSourceText);
+
+        var newRoot = updatedTree.GetRoot();
+
+        testOutputHelper.WriteLine(newRoot.ToFullString());
+
+        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+
+        var nodes = SyntaxNode.Cache;
+    }
 }

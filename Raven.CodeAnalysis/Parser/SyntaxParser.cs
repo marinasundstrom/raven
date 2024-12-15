@@ -62,13 +62,13 @@ public class SyntaxParser
                 return ParseIfStatementSyntax();
 
             case SyntaxKind.ReturnKeyword:
-                return ParseReturnStatementSyntaxCore();
+                return ParseReturnStatementSyntax();
         }
 
         return ParseDeclarationOrExpressionStatementSyntax();
     }
 
-    private StatementSyntax? ParseReturnStatementSyntaxCore()
+    private StatementSyntax? ParseReturnStatementSyntax()
     {
         var returnKeyword = ReadToken();
 
@@ -583,6 +583,10 @@ public class SyntaxParser
         else if (requestedSyntaxType == typeof(IfStatementSyntax))
         {
             return ParseIfStatementSyntax();
+        }
+        else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
+        {
+            return ParseReturnStatementSyntax();
         }
         else if (requestedSyntaxType == typeof(BlockSyntax))
         {

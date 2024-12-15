@@ -1,25 +1,14 @@
-﻿using System;
-using System.Text;
-
-using Raven.CodeAnalysis;
+﻿using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 
-namespace Raven.Compiler;
+var fileName = args.Length > 0 ? args[0] : "../../../test.rav";
 
-class Program
-{
-    static void Main(string[] args)
-    {
-        var fileName = args.Length > 0 ? args[0] : "../../../test.rav";
+var sourceText = SourceText.From(File.OpenRead(fileName));
 
-        var sourceText = SourceText.From(File.OpenRead(fileName));
+var syntaxTree = SyntaxTree.ParseText(sourceText);
 
-        var syntaxTree = SyntaxTree.ParseText(sourceText);
+var root = syntaxTree.GetRoot();
 
-        var oldRoot = syntaxTree.GetRoot();
+//Console.WriteLine(root.ToFullString());
 
-        //Console.WriteLine(oldRoot.ToFullString());
-
-        Console.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
-    }
-}
+Console.WriteLine(root.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));

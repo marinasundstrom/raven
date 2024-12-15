@@ -216,7 +216,17 @@ public class SyntaxTree
         else
         {
             var parent = nodeToReplace.Parent;
-            requestedSyntaxType = parent.GetPropertyTypeForChild(nodeToReplace)!;
+
+            if (parent is BlockSyntax block)
+            {
+                //block.ReplaceNode(nodeToReplace, );
+
+                requestedSyntaxType = typeof(StatementSyntax);
+            }
+            else
+            {
+                requestedSyntaxType = parent.GetPropertyTypeForChild(nodeToReplace)!;
+            }
         }
 
         var position = nodeToReplace.FullSpan.Start;
