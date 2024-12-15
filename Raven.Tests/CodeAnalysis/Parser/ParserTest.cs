@@ -1,3 +1,5 @@
+using System.Text;
+
 using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
@@ -192,7 +194,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
         var originalText = SourceText.From("Hello, World!");
         var updatedText = originalText.WithChange(7, "Universe");
 
-        var changes = updatedText.GetChangeRanges(originalText);
+        var changes = updatedText.GetTextChanges(originalText);
 
         foreach (var change in changes)
         {
@@ -212,7 +214,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         var updatedText = originalText.WithChange(textChange);
 
-        var changes = updatedText.GetChangeRanges(originalText);
+        var changes = updatedText.GetTextChanges(originalText);
 
         foreach (var change in changes)
         {

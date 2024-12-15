@@ -1,4 +1,4 @@
-
+using System.Collections.Immutable;
 using System.Text;
 
 using Raven.CodeAnalysis.Syntax;
@@ -8,17 +8,38 @@ namespace Raven.CodeAnalysis;
 public class SourceText
 {
     private readonly string _text;
+    private readonly Encoding _encoding;
     private readonly List<int> _lineStarts;
 
-    private SourceText(string text)
+    public Encoding Encoding => _encoding;
+
+    private SourceText(string text, Encoding? encoding = default)
     {
         _text = text ?? throw new ArgumentNullException(nameof(text));
+        _encoding = encoding ?? Encoding.UTF8;
         _lineStarts = ComputeLineStarts(_text);
     }
 
-    public static SourceText From(string text)
+    public static SourceText From(string text, Encoding? encoding = default)
     {
-        return new SourceText(text);
+        return new SourceText(text, encoding);
+    }
+
+    public static SourceText From(Stream stream, Encoding? encoding = default)
+    {
+        encoding ??= Encoding.UTF8;
+
+        using var textReader = new StreamReader(stream, encoding);
+
+        return new SourceText(textReader.ReadToEnd(), encoding);
+    }
+
+    public char this[int index]
+    {
+        get
+        {
+            throw new Exception();
+        }
     }
 
     private List<int> ComputeLineStarts(string text)
@@ -42,7 +63,7 @@ public class SourceText
 
         // Apply the change
         string updatedText = _text.Substring(0, position) + newText + _text.Substring(position);
-        return From(updatedText);
+        return From(updatedText, Encoding);
     }
 
     public SourceText WithChange(TextChange change)
@@ -57,7 +78,7 @@ public class SourceText
                              _text.Substring(change.Span.End);
 
         // Return a new SourceText instance with the updated text
-        return SourceText.From(updatedText);
+        return SourceText.From(updatedText, Encoding);
     }
 
     public (int line, int column) GetLineAndColumn(int position)
@@ -75,10 +96,6 @@ public class SourceText
 
     public (int line, int column) GetLineAndColumn(TextSpan span) => GetLineAndColumn(span.Start + span.Length);
 
-    public string GetSubstring(TextSpan span) => GetSubstring(span.Start, span.Length);
-
-    public string GetSubstring(int start, int length) => _text.Substring(start, length);
-
     public TextReader GetTextReader()
     {
         return new StringReader(_text);
@@ -92,7 +109,7 @@ public class SourceText
         return reader;
     }
 
-    public IReadOnlyList<TextChange> GetChangeRanges(SourceText oldText)
+    public IReadOnlyList<TextChange> GetTextChanges(SourceText oldText)
     {
         if (oldText == null)
             throw new ArgumentNullException(nameof(oldText));
@@ -138,8 +155,58 @@ public class SourceText
         };
     }
 
-    public string GetSubText(TextSpan span)
+    public IReadOnlyList<TextChangeRange> GetChangeRanges(SourceText oldText)
     {
-        return _text.Substring(span.Start, span.Length);
+        throw new NotImplementedException();
+    }
+
+    public bool ContentEquals(SourceText other)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void CopyTo(int sourceIndex, char[] destination, int destinationIndex, int count)
+    {
+        throw new NotImplementedException();
+    }
+
+    public ImmutableArray<byte> GetChecksum()
+    {
+        throw new NotImplementedException();
+    }
+
+    public ImmutableArray<byte> GetContentHash()
+    {
+        throw new NotImplementedException();
+    }
+
+    public string GetSubText(TextSpan span) => _text.Substring(span.Start, span.Length);
+
+    public string GetSubText(int start, int length) => _text.Substring(start, length);
+
+    public SourceText Replace(TextSpan span, string newText)
+    {
+        throw new NotImplementedException();
+    }
+
+    public SourceText Replace(int start, int length, string newText)
+    {
+        throw new NotImplementedException();
+    }
+
+    public TextLineCollection GetLines()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Write(TextWriter textWriter, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Write(TextWriter textWriter, TextSpan span, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+
     }
 }

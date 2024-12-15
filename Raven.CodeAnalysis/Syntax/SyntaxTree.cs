@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 using Raven.CodeAnalysis.Parser.Internal;
 using Raven.CodeAnalysis.Syntax;
@@ -67,7 +68,7 @@ public class SyntaxTree
 
     public IEnumerable<TextChange> GetChanges(SyntaxTree oldTree)
     {
-        return oldTree.GetText().GetChangeRanges(this.GetText());
+        return oldTree.GetText().GetTextChanges(this.GetText());
     }
 
     public static SyntaxTree Create(CompilationUnitSyntax compilationUnit)
@@ -177,7 +178,7 @@ public class SyntaxTree
     {
         var oldText = _sourceText;
 
-        var changes = newText.GetChangeRanges(oldText);
+        var changes = newText.GetTextChanges(oldText);
 
         if (changes.Count == 0)
             return this;
