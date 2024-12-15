@@ -137,6 +137,17 @@ public class Lexer : ILexer
                     return new SyntaxToken(SyntaxKind.CloseSquareToken, chStr);
                     */
 
+                    case '=':
+                        return new SyntaxToken(SyntaxKind.EqualsToken, chStr);
+
+                    case '!':
+                        if (PeekChar(out var ch6) && ch == '=')
+                        {
+                            ReadChar();
+                            return new SyntaxToken(SyntaxKind.NotEqualsToken, "!=");
+                        }
+                        return new SyntaxToken(SyntaxKind.ExclamationToken, chStr);
+
                     case '<':
                         if (PeekChar(out var ch2) && ch == '=')
                         {

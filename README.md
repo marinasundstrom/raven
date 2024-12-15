@@ -22,6 +22,15 @@ Perhaps we should use the Old Norse form "hrafn", or Danish "ravn"?
 
 See pseudo-specification [here](/docs/syntax.md).
 
+```
+let x : int = 2;
+
+if (x > 2) {
+    return (6 + 2) * 2;
+} else
+    return 1;
+```
+
 ## Development
 
 This project is being developed using the following means:

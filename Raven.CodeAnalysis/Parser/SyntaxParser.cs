@@ -6,6 +6,7 @@ using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 using Raven.CodeAnalysis.Syntax;
+using System.Reflection.Metadata;
 
 namespace Raven.CodeAnalysis.Parser;
 
@@ -128,10 +129,52 @@ public class SyntaxParser
 
         var name = ParseSimpleName();
 
+        EqualsValueClauseSyntax? initializer = null;
+
+        var typeAnnotation = ParseTypeAnnotationSyntax();
+
+        if (PeekToken().IsKind(SyntaxKind.EqualsToken))
+        {
+            initializer = ParseEqualsValueSyntax();
+        }
+
         var declarators = SeparatedList<VariableDeclaratorSyntax>(
-            VariableDeclarator(name));
+            VariableDeclarator(name, typeAnnotation, initializer));
 
         return VariableDeclaration(letKeyword, declarators);
+    }
+
+    private TypeAnnotationSyntax? ParseTypeAnnotationSyntax()
+    {
+        if (Consume(SyntaxKind.ColonToken, out var colonToken))
+        {
+            TypeSyntax type = ParseSimpleName();
+
+            return TypeAnnotation(colonToken, type);
+        }
+
+        return null;
+    }
+
+    private EqualsValueClauseSyntax? ParseEqualsValueSyntax()
+    {
+        var equalsToken = ReadToken();
+
+        var expr = ParseExpressionSyntax();
+
+        if (expr is null)
+        {
+            /*
+            DiagnosticBag.Add(
+                Diagnostic.Create(
+                    CompilerDiagnostics.ExpressionExpected,
+                    new Location(
+                        new TextSpan(currentSpanPosition, 1))
+                ));
+            */
+        }
+
+        return new EqualsValueClauseSyntax(equalsToken, expr);
     }
 
     private IdentifierNameSyntax ParseSimpleName()

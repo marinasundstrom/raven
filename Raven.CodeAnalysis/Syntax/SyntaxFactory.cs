@@ -44,6 +44,7 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken SlashToken = (SyntaxToken)InternalSyntax.SyntaxFactory.SlashToken;
     public static readonly SyntaxToken StarToken = (SyntaxToken)InternalSyntax.SyntaxFactory.StarToken;
     public static readonly SyntaxToken CaretToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CaretToken;
+    public static readonly SyntaxToken ExclamationToken = (SyntaxToken)InternalSyntax.SyntaxFactory.ExclamationToken;
 
     public static readonly SyntaxToken CommaToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CommaToken;
     public static readonly SyntaxToken ColonToken = (SyntaxToken)InternalSyntax.SyntaxFactory.ColonToken;

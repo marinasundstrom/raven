@@ -96,6 +96,7 @@ public enum SyntaxKind
     SlashToken,
     StarToken,
     CaretToken,
+    ExclamationToken,
 
     ColonToken,
     SemicolonToken,

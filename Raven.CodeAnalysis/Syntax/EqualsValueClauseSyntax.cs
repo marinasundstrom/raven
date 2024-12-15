@@ -16,7 +16,7 @@ public partial class EqualsValueClauseSyntax : SyntaxNode
 
     public EqualsValueClauseSyntax(SyntaxToken equalsToken, ExpressionSyntax value)
       : this(
-            new InternalSyntax.EqualsValueClauseSyntax(equalsToken.Green, (InternalSyntax.ExpressionSyntax)value.Green))
+            new InternalSyntax.EqualsValueClauseSyntax(equalsToken.Green, (InternalSyntax.ExpressionSyntax)value?.Green))
     {
 
     }

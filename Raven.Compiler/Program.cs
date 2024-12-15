@@ -3,7 +3,9 @@ using Raven.CodeAnalysis.Syntax;
 
 var fileName = args.Length > 0 ? args[0] : "../../../test.rav";
 
-var sourceText = SourceText.From(File.OpenRead(fileName));
+using var file = File.OpenRead(fileName);
+
+var sourceText = SourceText.From(file);
 
 var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText);
 

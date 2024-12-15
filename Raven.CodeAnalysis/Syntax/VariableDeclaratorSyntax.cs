@@ -31,7 +31,7 @@ public partial class VariableDeclaratorSyntax : SyntaxNode
 
     public VariableDeclaratorSyntax(IdentifierNameSyntax name, EqualsValueClauseSyntax initializer)
       : this(
-            new InternalSyntax.VariableDeclaratorSyntax((InternalSyntax.IdentifierNameSyntax)name.Green, (InternalSyntax.EqualsValueClauseSyntax)initializer.Green), null)
+            new InternalSyntax.VariableDeclaratorSyntax((InternalSyntax.IdentifierNameSyntax)name.Green, (InternalSyntax.EqualsValueClauseSyntax)initializer?.Green), null)
     {
 
     }
