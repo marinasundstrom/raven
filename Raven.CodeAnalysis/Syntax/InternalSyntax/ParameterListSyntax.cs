@@ -7,7 +7,7 @@ public partial class ParameterListSyntax : SyntaxNode
         SeparatedSyntaxList parameters,
         SyntaxToken closeParentToken)
         : base(
-              SyntaxKind.Block,
+              SyntaxKind.ParameterList,
               [
                       openParenToken,
                       parameters,

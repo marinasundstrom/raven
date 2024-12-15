@@ -11,7 +11,7 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
         SyntaxToken closeBraceToken,
         SyntaxToken semicolonToken)
         : base(
-              SyntaxKind.CompilationUnit,
+              SyntaxKind.NamespaceDeclaration,
               [
                     namespaceKeyword,
                     name,

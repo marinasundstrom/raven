@@ -85,23 +85,17 @@ public class Lexer : ILexer
                     case '+':
                         return new SyntaxToken(SyntaxKind.PlusToken, chStr);
 
-                    /*
+                    case '-':
+                        return new SyntaxToken(SyntaxKind.MinusToken, chStr);
 
-                case '-':
-                    return new SyntaxToken(SyntaxKind.DashToken, chStr);
+                    case '/':
+                        return new SyntaxToken(SyntaxKind.SlashToken, chStr);
 
-                case '/':
-                    return new SyntaxToken(SyntaxKind.SlashToken, chStr);
+                    case '*':
+                        return new SyntaxToken(SyntaxKind.StarToken, chStr);
 
-                case '\\':
-                    return new SyntaxToken(SyntaxKind.BackslashToken, chStr);
-
-                case '*':
-                    return new SyntaxToken(SyntaxKind.StarToken, chStr);
-
-                case '%':
-                    return new SyntaxToken(SyntaxKind.PercentToken, chStr); */
-
+                    case '%':
+                        return new SyntaxToken(SyntaxKind.PercentToken, chStr);
 
                     case ':':
                         return new SyntaxToken(SyntaxKind.ColonToken, chStr);
@@ -110,7 +104,7 @@ public class Lexer : ILexer
                         return new SyntaxToken(SyntaxKind.SemicolonToken, chStr);
 
                     /*
-
+                    
                    case '"':
                        return new SyntaxToken(SyntaxKind.DoublequoteToken, chStr);
 
@@ -141,14 +135,23 @@ public class Lexer : ILexer
 
                 case ']':
                     return new SyntaxToken(SyntaxKind.CloseSquareToken, chStr);
-
-                case '<':
-                    return new SyntaxToken(SyntaxKind.OpenAngleToken, chStr);
-
-                case '>':
-                    return new SyntaxToken(SyntaxKind.CloseAngleToken, chStr);
-
                     */
+
+                    case '<':
+                        if (PeekChar(out var ch2) && ch == '=')
+                        {
+                            ReadChar();
+                            return new SyntaxToken(SyntaxKind.LessThanEqualsToken, "<=");
+                        }
+                        return new SyntaxToken(SyntaxKind.LessThanToken, chStr);
+
+                    case '>':
+                        if (PeekChar(out var ch3) && ch == '=')
+                        {
+                            ReadChar();
+                            return new SyntaxToken(SyntaxKind.GreaterOrEqualsToken, ">=");
+                        }
+                        return new SyntaxToken(SyntaxKind.GreaterThanToken, chStr);
 
 
                     case ' ':

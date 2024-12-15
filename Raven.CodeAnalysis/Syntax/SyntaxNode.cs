@@ -33,7 +33,7 @@ public abstract class SyntaxNode
         }
     }
 
-    public SyntaxKind Kind => Green.Kind;
+    public virtual SyntaxKind Kind => Green.Kind;
 
     public int Position { get; }
 

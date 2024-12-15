@@ -28,9 +28,32 @@ public partial class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
     }
 }
 
+
+public partial class BooleanLiteralExpressionSyntax : LiteralExpressionSyntax
+{
+    public partial SyntaxToken NumberToken { get; }
+
+    public BooleanLiteralExpressionSyntax(
+        InternalSyntax.BooleanLiteralExpressionSyntax greenNode,
+        SyntaxNode parent = null,
+        int position = 0)
+        : base(greenNode, parent, position)
+    {
+    }
+
+    public BooleanLiteralExpressionSyntax(SyntaxToken token)
+          : this(
+                new InternalSyntax.BooleanLiteralExpressionSyntax(token.Green), null, 0)
+    {
+
+    }
+}
+
 public static partial class SyntaxFactory
 {
-    public static LiteralExpressionSyntax LiteralExpression(SyntaxToken numberToken) => new NumericLiteralExpressionSyntax(numberToken);
+    public static NumericLiteralExpressionSyntax LiteralExpression(SyntaxToken numberToken) => new NumericLiteralExpressionSyntax(numberToken);
 
     public static LiteralExpressionSyntax LiteralExpression(int number) => LiteralExpression(NumericLiteral(number));
+
+    public static BooleanLiteralExpressionSyntax BooleanLiteralExpression(SyntaxToken booleanLiteralToken) => new BooleanLiteralExpressionSyntax(booleanLiteralToken);
 }

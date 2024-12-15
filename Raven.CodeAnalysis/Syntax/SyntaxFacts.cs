@@ -118,39 +118,42 @@ public static class SyntaxFacts
         return false;
     }
 
-    /*
-            public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
-            {
-                switch (kind)
-                {
-                    case SyntaxKind.StarToken:
-                    case SyntaxKind.SlashToken:
-                        return 5;
+    public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
+    {
+        switch (kind)
+        {
+            case SyntaxKind.PercentToken:
+            case SyntaxKind.StarToken:
+            case SyntaxKind.SlashToken:
+                return 5;
 
-                    case SyntaxKind.PlusToken:
-                    case SyntaxKind.DashToken:
-                        return 4;
+            case SyntaxKind.PlusToken:
+            case SyntaxKind.MinusToken:
+                //case SyntaxKind.DashToken:
+                return 4;
 
-                    case SyntaxKind.EqualsEqualsToken:
-                    case SyntaxKind.BangEqualsToken:
-                    case SyntaxKind.LessToken:
-                    case SyntaxKind.LessOrEqualsToken:
-                    case SyntaxKind.GreaterToken:
-                    case SyntaxKind.GreaterOrEqualsToken:
-                        return 3;
+            /*
+            case SyntaxKind.EqualsEqualsToken:
+            case SyntaxKind.BangEqualsToken: */
+            case SyntaxKind.LessThanToken:
+            case SyntaxKind.LessThanEqualsToken:
+            case SyntaxKind.GreaterThanToken:
+            case SyntaxKind.GreaterOrEqualsToken:
+                return 3;
 
-                    case SyntaxKind.AmpersandToken:
-                    case SyntaxKind.AmpersandAmpersandToken:
-                        return 2;
+            /*
+            case SyntaxKind.AmpersandToken:
+            case SyntaxKind.AmpersandAmpersandToken:
+                return 2;
 
-                    case SyntaxKind.PipeToken:
-                    case SyntaxKind.PipePipeToken:
-                    case SyntaxKind.HatToken:
-                        return 1;
+            case SyntaxKind.PipeToken:
+            case SyntaxKind.PipePipeToken:
+            case SyntaxKind.HatToken:
+                return 1;
+                */
 
-                    default:
-                        return 0;
-                }
-            }
-          */
+            default:
+                return 0;
+        }
+    }
 }

@@ -20,3 +20,16 @@ public partial class NumericLiteralExpressionSyntax : LiteralExpressionSyntax
     {
     }
 }
+
+public partial class BooleanLiteralExpressionSyntax : LiteralExpressionSyntax
+{
+    public BooleanLiteralExpressionSyntax(
+        SyntaxToken token)
+        : base(
+              SyntaxKind.BooleanLiteralExpression,
+              [
+                token
+              ])
+    {
+    }
+}

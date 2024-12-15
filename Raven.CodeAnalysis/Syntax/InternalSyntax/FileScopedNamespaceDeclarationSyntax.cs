@@ -9,7 +9,7 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
         SyntaxList imports,
         SyntaxList members)
         : base(
-              SyntaxKind.CompilationUnit,
+              SyntaxKind.FileScopedNamespaceDeclaration,
               [
                     namespaceKeyword,
                     name,

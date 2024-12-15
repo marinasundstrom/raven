@@ -8,6 +8,8 @@ public enum SyntaxKind
 
     IdentifierName,
     NumericLiteralExpression,
+    BooleanLiteralExpression,
+    StringLiteralExpression,
 
     QualifiedName,
     AliasQualifiedName,
@@ -16,29 +18,44 @@ public enum SyntaxKind
 
     ImportDirective,
 
-    // Node Kinds
+    NamespaceDeclaration,
+    FileScopedNamespaceDeclaration,
     MethodDeclaration,
+    ParameterList,
+    Parameter,
     GlobalStatement,
+
     ExpressionStatement,
     ReturnStatement,
     IfStatement,
     ElseClause,
     Block,
-    Parameter,
-    ConditionExpression,
-    AssignmentExpression,
+
     VariableDeclaration,
     VariableDeclarator,
     TypeAnnotation,
     EqualsValueClause,
     LocalDeclaration,
 
+    ParenthesizedExpression,
+    UnaryExpression,
+    BinaryExpression,
+
+    AddExpression,
+    SubtractExpression,
+    MultiplyExpression,
+    DivideExpression,
+    ModuloExpression,
+    EqualsExpression,
+    NotEqualsExpression,
+    LessThanExpression,
+    GreaterThanExpression,
+    LessThanOrEqualExpression,
+    GreaterThanOrEqualExpression,
+
     // Token Kinds
     IdentifierToken,
-    OpenParenToken,
-    CloseParenToken,
-    OpenBraceToken,
-    CloseBraceToken,
+    NumericLiteralToken,
 
     VoidKeyword,
     IntKeyword,
@@ -46,30 +63,55 @@ public enum SyntaxKind
     BoolKeyword,
     CharKeyword,
     ImportKeyword,
+    NamespaceKeyword,
     LetKeyword,
     IfKeyword,
     ElseKeyword,
     ReturnKeyword,
+    TrueKeyword,
+    FalseKeyword,
+    NotKeyword,
+
+
+    OrToken,
+    AndToken,
+
+    LessThanToken,
+    GreaterThanToken,
+    GreaterOrEqualsToken,
+    LessThanEqualsToken,
+
+    OpenParenToken,
+    CloseParenToken,
+    OpenBraceToken,
+    CloseBraceToken,
 
     CommaToken,
     EqualsToken,
+    NotEqualsToken,
     PlusToken,
-    GreaterThanToken,
+    MinusToken,
+    PercentToken,
+    SlashToken,
+    StarToken,
+    CaretToken,
+
     ColonToken,
     SemicolonToken,
-    NumericLiteralToken,
 
     // Trivia Kinds
     WhitespaceTrivia,
-    TabTrivia,
-    EndOfLineTrivia,
+    LineFeedTrivia,
     CarriageReturnTrivia,
     CarriageReturnLineFeedTrivia,
+    TabTrivia,
     CommentTrivia,
 
 
+    EndOfLineTrivia,
     Whitespace,
     TabToken,
+
     EndOfLineToken,
     CarriageReturnToken,
     EndOfFileToken

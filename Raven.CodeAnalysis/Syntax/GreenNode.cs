@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Syntax.InternalSyntax;
 namespace Raven.CodeAnalysis.Syntax;
 public abstract class GreenNode
 {
-    public SyntaxKind Kind { get; }
+    public virtual SyntaxKind Kind { get; }
     public int Width { get; }
     public int FullWidth { get; }
     public int SlotCount { get; }

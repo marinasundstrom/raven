@@ -16,7 +16,7 @@ public class AstTest
         [
             IfKeyword,
                 OpenParenToken,
-                new SyntaxNode(SyntaxKind.ConditionExpression,
+                new SyntaxNode(SyntaxKind.GreaterThanExpression,
                 [
                     IdentifierToken("a"),
                     GreaterThanToken,

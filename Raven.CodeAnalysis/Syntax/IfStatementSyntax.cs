@@ -16,9 +16,9 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     {
     }
 
-    public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, SyntaxToken? semicolonToken = null)
+    public IfStatementSyntax(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement)
           : this(
-                new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green, null, semicolonToken?.Green))
+                new InternalSyntax.IfStatementSyntax(ifKeyword.Green, openParenToken.Green, (InternalSyntax.ExpressionSyntax)condition.Green, closeParenToken.Green, (InternalSyntax.StatementSyntax)statement.Green, null))
     {
 
     }
@@ -38,7 +38,7 @@ public sealed partial class IfStatementSyntax : StatementSyntax
     }
 
     public IfStatementSyntax(ExpressionSyntax condition, StatementSyntax statement)
-        : this(SyntaxFactory.IfKeyword, SyntaxFactory.OpenParenToken, condition, SyntaxFactory.CloseParenToken, statement, SyntaxFactory.EndOfLine)
+        : this(SyntaxFactory.IfKeyword, SyntaxFactory.OpenParenToken, condition, SyntaxFactory.CloseParenToken, statement)
     {
 
     }
@@ -55,6 +55,6 @@ public static partial class SyntaxFactory
     public static IfStatementSyntax IfStatement(ExpressionSyntax condition, StatementSyntax statement)
         => new IfStatementSyntax(condition, statement);
 
-    public static IfStatementSyntax IfStatement(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement, SyntaxToken? semicolonToken)
-        => new IfStatementSyntax(ifKeyword, openParenToken, condition, closeParenToken, statement, semicolonToken);
+    public static IfStatementSyntax IfStatement(SyntaxToken ifKeyword, SyntaxToken openParenToken, ExpressionSyntax condition, SyntaxToken closeParenToken, StatementSyntax statement)
+        => new IfStatementSyntax(ifKeyword, openParenToken, condition, closeParenToken, statement);
 }

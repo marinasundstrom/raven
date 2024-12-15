@@ -36,8 +36,6 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 
     public SyntaxKind Kind => Green.Kind;
 
-    public bool IsKind(SyntaxKind kind) => Green.Kind == kind;
-
     public SyntaxNode Parent => _parent;
 
     public int StartPosition { get; }

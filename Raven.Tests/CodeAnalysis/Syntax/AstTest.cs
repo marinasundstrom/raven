@@ -198,11 +198,15 @@ public class AstTest(ITestOutputHelper testOutputHelper)
 
         var test = compilationUnit.ToFullString();
 
+        testOutputHelper.WriteLine(compilationUnit.ToFullString());
+
         var m = compilationUnit.Members;
 
         compilationUnit = compilationUnit.NormalizeWhitespace();
 
-        testOutputHelper.WriteLine(compilationUnit.ToFullString());
+        var full = compilationUnit.ToFullString();
+
+        testOutputHelper.WriteLine(full);
 
         var syntaxTree = SyntaxTree.Create(compilationUnit);
 
@@ -224,6 +228,8 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         {
             Console.WriteLine(localSymbol.Name);
         }
+
+        testOutputHelper.WriteLine(syntaxTree.GetRoot().GetSyntaxTreeRepresentation());
     }
 
     [Fact]
