@@ -1,5 +1,9 @@
 # Syntax
 
+## File extension
+
+The file extension for source code files is: `.rav`.
+
 ## Top-level statements
 
 The program starts by writing some statements in a file that becomes its de-facto entrypoint.
