@@ -236,3 +236,10 @@ public class SyntaxTree
         return parser.ParseSyntax(requestedSyntaxType, newText, position);
     }
 }
+
+public static partial class SyntaxFactory
+{
+    public static SyntaxTree ParseSyntaxTree(SourceText sourceText) => SyntaxTree.ParseText(sourceText);
+
+    public static SyntaxTree ParseSyntaxTree(string text) => SyntaxTree.ParseText(text);
+}
