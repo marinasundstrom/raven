@@ -62,7 +62,7 @@ public class SyntaxListItem<TNode>
     {
         get
         {
-            return IsNode ? (TNode?)(object?)SyntaxNode.Cache.GetValue(Green, (s) => s.CreateRed(_parent, _position + Green.GetChildStartPosition(_index))) : default;
+            return IsNode ? (TNode?)(object?)SyntaxNodeCache.GetValue(Green, (s) => s.CreateRed(_parent, _position + Green.GetChildStartPosition(_index))) : default;
         }
     }
 }

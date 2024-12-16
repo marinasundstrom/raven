@@ -5,103 +5,10 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-public abstract class SourceSymbol : ISymbol
-{
-    protected SourceSymbol(SymbolKind kind, string name, ISymbol containingSymbol,
-        INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
-        Location[] locations, SyntaxReference[] declaringSyntaxReferences)
-    {
-        Kind = kind;
-        Name = name;
-        ContainingType = containingType;
-        ContainingNamespace = containingNamespace;
-        ContainingSymbol = containingSymbol;
-        Locations = [..locations];
-        DeclaringSyntaxReferences = [..declaringSyntaxReferences];
-    }
-
-    public SymbolKind Kind 
-    {
-        get; 
-        private set;
-    }
-
-    public string Name 
-    {
-        get; 
-        private set;
-    }
-
-    public ISymbol? ContainingSymbol 
-    {
-        get; 
-        private set;
-    }
-
-    public INamedTypeSymbol? ContainingType 
-    {
-        get; 
-        private set;
-    }
-
-    public INamespaceSymbol? ContainingNamespace 
-    {
-        get; 
-        private set;
-    }
-
-    public ImmutableArray<Location> Locations
-    {
-        get; 
-        private set;
-    }
-
-    public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences
-    {
-        get; 
-        private set;
-    }
-
-    public bool Equals(ISymbol? other)
-    {
-        throw new NotImplementedException();
-    }
-}
-
-public class SourceMethodSymbol : SourceSymbol, IMethodSymbol
-{
-    public SourceMethodSymbol(string name, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences) 
-            : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
-    {
-        ReturnType = returnType;
-    }
-    
-    public ITypeSymbol ReturnType { get; }
-}
-
-public class SourceNamespaceSymbol : SourceSymbol, INamespaceSymbol
-{
-    public SourceNamespaceSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences) 
-        : base(SymbolKind.Namespace, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
-    {
-    }
-}
-
-public class SourceLocalSymbol : SourceSymbol, ILocalSymbol
-{
-    public SourceLocalSymbol(string name, ITypeSymbol type, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences) 
-        : base(SymbolKind.Local, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
-    {
-        Type = type;
-    }
-
-    public ITypeSymbol Type { get; }
-}
-
 public class SemanticModel
 {
     List<ISymbol> _symbols = new List<ISymbol>();
-    
+
     public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
     {
         Compilation = compilation;
@@ -113,20 +20,20 @@ public class SemanticModel
     private void CreateModel()
     {
         var root = SyntaxTree.GetRoot();
-        
+
         Location[] locations = [SyntaxTree.GetLocation(root.Span)];
-        
-        SyntaxReference[] references = [ new SyntaxReference(SyntaxTree, root.Span) ];
+
+        SyntaxReference[] references = [new SyntaxReference(SyntaxTree, root.Span)];
 
         var symbol = new SourceNamespaceSymbol(
-            "global", null!, null, null, 
+            "global", null!, null, null,
             locations, references);
 
         foreach (var memberDeclaration in root.Members)
         {
             AnalyzeMemberDeclaration(symbol, memberDeclaration);
         }
-        
+
         _symbols.Add(symbol);
     }
 
@@ -135,16 +42,16 @@ public class SemanticModel
         if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
             Location[] locations = [SyntaxTree.GetLocation(methodDeclaration.Span)];
-        
-            SyntaxReference[] references = [ new SyntaxReference(SyntaxTree, methodDeclaration.Span) ];
+
+            SyntaxReference[] references = [new SyntaxReference(SyntaxTree, methodDeclaration.Span)];
 
             ITypeSymbol typeSymbol = null!;
 
             var symbol = new SourceMethodSymbol(
-                methodDeclaration.Name.ToString(), typeSymbol, null!, null, null, 
+                methodDeclaration.Name.ToString(), typeSymbol, null!, null, null,
                 locations, references);
-                
-            _symbols.Add(symbol);   
+
+            _symbols.Add(symbol);
         }
         else if (memberDeclaration is GlobalStatementSyntax globalStatement)
         {
@@ -160,15 +67,15 @@ public class SemanticModel
             foreach (var declarator in localDeclarationStatement.Declaration.Declarators)
             {
                 Location[] locations = [SyntaxTree.GetLocation(declarator.Span)];
-        
-                SyntaxReference[] references = [ new SyntaxReference(SyntaxTree, declarator.Span) ];
+
+                SyntaxReference[] references = [new SyntaxReference(SyntaxTree, declarator.Span)];
 
                 ITypeSymbol returnType = null!;
 
                 var symbol = new SourceLocalSymbol(
-                    declarator.Name.ToString(), returnType, declaringSymbol!, null, null, 
+                    declarator.Name.ToString(), returnType, declaringSymbol!, null, null,
                     locations, references);
-                
+
                 _symbols.Add(symbol);
             }
         }
@@ -176,6 +83,8 @@ public class SemanticModel
         {
             foreach (var s in block.Statements)
             {
+                var x = s == s;
+
                 AnalyzeStatement(declaringSymbol, s);
             }
         }
@@ -227,7 +136,7 @@ public class SemanticModel
         return _symbols.FirstOrDefault(x => x.DeclaringSyntaxReferences.Any(x2 => x2.GetSyntax() == node));
     }
 
-    public ImmutableArray<ISymbol> LookupSymbols(int position, 
+    public ImmutableArray<ISymbol> LookupSymbols(int position,
         INamespaceOrTypeSymbol container, string name, bool includeReducedExtensionMethods)
     {
         return default!;

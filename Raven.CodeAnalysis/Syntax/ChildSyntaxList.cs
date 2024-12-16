@@ -97,7 +97,7 @@ public class ChildSyntaxListItem
     {
         get
         {
-            return IsNode ? (SyntaxNode?)SyntaxNode.Cache.GetValue(_node, (s) => s.CreateRed(_parent, _position)) : null;
+            return IsNode ? (SyntaxNode?)SyntaxNodeCache.GetValue(_node, (s) => s.CreateRed(_parent, _position)) : null;
         }
     }
 

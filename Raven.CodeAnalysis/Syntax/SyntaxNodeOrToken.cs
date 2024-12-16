@@ -37,8 +37,8 @@ public struct SyntaxNodeOrToken
         {
             int i = _position;
             SyntaxNode? node = _parent;
-            
-            return IsNode ? SyntaxNode.Cache.GetValue(Green, (s) => s.CreateRed(node, i)) : default;
+
+            return IsNode ? SyntaxNodeCache.GetValue(Green, (s) => s.CreateRed(node, i)) : default;
         }
     }
 

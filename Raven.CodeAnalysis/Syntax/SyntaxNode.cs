@@ -1,14 +1,10 @@
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
 namespace Raven.CodeAnalysis.Syntax;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-public abstract class SyntaxNode
+public abstract class SyntaxNode : IEquatable<SyntaxNode>
 {
-    public static readonly ConditionalWeakTable<GreenNode, SyntaxNode> Cache =
-        new ConditionalWeakTable<GreenNode, SyntaxNode>();
-
     internal readonly GreenNode Green;
     private readonly SyntaxTree _syntaxTree;
     private readonly SyntaxNode _parent;
@@ -158,7 +154,10 @@ public abstract class SyntaxNode
         {
             var position = Position + Green.GetChildStartPosition(index);
 
-            node = (TNode)Cache.GetValue(slot, (s) => s.CreateRed(this, position));
+            node = (TNode)SyntaxNodeCache.GetValue(slot, (s) =>
+            {
+                return s.CreateRed(this, position);
+            });
             return node;
         }
 
@@ -207,4 +206,48 @@ public abstract class SyntaxNode
     public abstract void Accept(SyntaxVisitor visitor);
 
     public abstract TResult Accept<TResult>(SyntaxVisitor<TResult> visitor);
+
+    public static bool operator ==(SyntaxNode left, SyntaxNode? right) => Equals(left, right);
+
+    public static bool operator !=(SyntaxNode left, SyntaxNode? right) => !Equals(left, right);
+
+    public bool Equals(SyntaxNode? other)
+    {
+        if (other is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return Green.Equals(other.Green) && _syntaxTree.Equals(other._syntaxTree) && ((Object)_parent).Equals(other._parent);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, obj))
+        {
+            return true;
+        }
+
+        if (obj.GetType() != GetType())
+        {
+            return false;
+        }
+
+        return Equals((SyntaxNode)obj);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Green, _syntaxTree, _parent);
+    }
 }

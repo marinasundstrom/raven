@@ -139,7 +139,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
 
-        var nodes = SyntaxNode.Cache;
+        var nodes = SyntaxNodeCache.Cache;
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
 
-        var nodes = SyntaxNode.Cache;
+        var nodes = SyntaxNodeCache.Cache;
     }
 
     [Fact]
@@ -214,6 +214,6 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
 
-        var nodes = SyntaxNode.Cache;
+        var nodes = SyntaxNodeCache.Cache;
     }
 }
