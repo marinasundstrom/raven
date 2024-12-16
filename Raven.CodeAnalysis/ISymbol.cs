@@ -6,6 +6,9 @@ namespace Raven.CodeAnalysis;
 
 public enum SymbolKind
 {
+    Namespace,
+    Type,
+    Method,
     Local
 }
 
@@ -26,18 +29,29 @@ public interface ISymbol : IEquatable<ISymbol?>
     ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; }
 }
 
-public abstract class SyntaxReference
+public class SyntaxReference
 {
-    public abstract SyntaxTree SyntaxTree { get; }
+    public SyntaxReference(SyntaxTree syntaxTree, TextSpan span)
+    {
+        SyntaxTree = syntaxTree;
+        Span = span;
+    }
 
-    public abstract TextSpan Span { get; }
+    public SyntaxTree SyntaxTree { get; }
 
-    public abstract SyntaxNode GetSyntax(CancellationToken cancellationToken = default);
+    public TextSpan Span { get; }
 
+    public SyntaxNode GetSyntax(CancellationToken cancellationToken = default)
+    {
+        return SyntaxTree.GetNodeForSpan(Span)!;
+    }
+    
+    /*
     public virtual Task<SyntaxNode> GetSyntaxAsync(CancellationToken cancellationToken = default)
     {
         return Task.FromResult(this.GetSyntax(cancellationToken));
-    }
+    } 
+    */
 
     internal Location GetLocation()
     {
@@ -45,13 +59,17 @@ public abstract class SyntaxReference
     }
 }
 
-public interface INamespaceSymbol : ISymbol
+public interface INamespaceSymbol : INamespaceOrTypeSymbol
 {
 
 }
 
+public interface IMethodSymbol : ISymbol
+{
+    ITypeSymbol ReturnType { get; }
+}
 
-public interface ITypeSymbol : ISymbol
+public interface ITypeSymbol : INamespaceOrTypeSymbol
 {
 
 }
@@ -63,7 +81,11 @@ public interface INamedTypeSymbol : ITypeSymbol
 
 public interface ILocalSymbol : ISymbol
 {
-    string Name { get; }
-
     ITypeSymbol Type { get; }
+}
+
+public interface INamespaceOrTypeSymbol : ISymbol
+{
+    
+    
 }

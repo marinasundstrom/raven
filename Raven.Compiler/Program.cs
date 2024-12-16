@@ -23,3 +23,21 @@ foreach (var diagnostic in syntaxTree.GetDiagnostics())
 {
     Console.WriteLine(diagnostic.ToString());
 }
+
+var compilation = Compilation.Create("MyCompilation")
+    .AddSyntaxTrees(syntaxTree);
+
+syntaxTree = compilation.SyntaxTrees.First();
+
+var semanticModel = compilation.GetSemanticModel(syntaxTree);
+
+var variableDeclarator = syntaxTree.GetRoot()
+    .DescendantNodes()
+    .OfType<VariableDeclaratorSyntax>()
+    .First();
+
+var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol;
+
+var symbol2 = semanticModel.GetSymbolInfo(variableDeclarator).Symbol as ILocalSymbol;
+
+Console.WriteLine();

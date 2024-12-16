@@ -523,7 +523,7 @@ public class SyntaxParser
         var token = ReadToken();
         if (token.IsKind(SyntaxKind.NumericLiteralToken))
         {
-            return new NumericLiteralExpressionSyntax(token);
+            return LiteralExpression(token);
         }
 
         throw new Exception();
@@ -534,7 +534,7 @@ public class SyntaxParser
         var token = ReadToken();
         if (token.IsKind(SyntaxKind.IdentifierToken))
         {
-            return new IdentifierNameSyntax(token);
+            return IdentifierName(token);
         }
 
         throw new Exception();

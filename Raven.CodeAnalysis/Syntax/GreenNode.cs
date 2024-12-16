@@ -26,35 +26,38 @@ public abstract class GreenNode
     internal GreenNode? GetFirstTerminal()
     {
         GreenNode? node = this;
-
-        GreenNode? firstChild = null;
-
-        do
+        
+        for (int i = 0, n = node.SlotCount; i < n; i++)
         {
-            for (int i = 0, n = node.SlotCount; i < n; i++)
+            var child = node.GetSlot(i);
+            if (child != null)
             {
-                var child = node.GetSlot(i);
-                if (child != null)
+                if (child is InternalSyntax.SyntaxToken)
                 {
-                    firstChild = child;
-                    break;
+                    return child;
+                }
+                else
+                {
+                    var c= child.GetFirstTerminal();
+                    if (c is not null)
+                    {
+                        return c;
+                    }
                 }
             }
-            node = firstChild;
         }
-        while (node is not null and not InternalSyntax.SyntaxToken);
-
-        return node;
+        
+        return null;
     }
 
     internal GreenNode? GetLastTerminal()
     {
         GreenNode? node = this;
 
-        GreenNode? lastChild = null;
-
         do
         {
+            GreenNode? lastChild = null;
+
             for (int i = node.SlotCount - 1; i >= 0; i--)
             {
                 var child = node.GetSlot(i);
@@ -64,9 +67,10 @@ public abstract class GreenNode
                     break;
                 }
             }
+
             node = lastChild;
         }
-        while (node is not null and not InternalSyntax.SyntaxToken);
+        while (node != null && node is not InternalSyntax.SyntaxToken);
 
         return node;
     }

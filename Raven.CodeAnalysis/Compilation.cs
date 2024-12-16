@@ -35,6 +35,10 @@ public class Compilation
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
     {
+        if (!_syntaxTrees.Contains((syntaxTree)))
+        {
+            throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
+        }
         return new SemanticModel(this, syntaxTree);
     }
 

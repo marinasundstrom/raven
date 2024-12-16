@@ -14,9 +14,9 @@ public partial class BinaryExpressionSyntax : ExpressionSyntax
     {
     }
 
-    public BinaryExpressionSyntax(ExpressionSyntax leftHandSide, SyntaxToken opratorToken, ExpressionSyntax rightHandSide)
+    public BinaryExpressionSyntax(ExpressionSyntax leftHandSide, SyntaxToken operatorToken, ExpressionSyntax rightHandSide)
           : this(
-                new InternalSyntax.BinaryExpressionSyntax((InternalSyntax.ExpressionSyntax)leftHandSide.Green, opratorToken.Green, (InternalSyntax.ExpressionSyntax)rightHandSide.Green), null)
+                new InternalSyntax.BinaryExpressionSyntax((InternalSyntax.ExpressionSyntax)leftHandSide.Green, operatorToken.Green, (InternalSyntax.ExpressionSyntax)rightHandSide.Green), null)
     {
 
     }

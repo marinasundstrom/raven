@@ -94,7 +94,7 @@ public class SourceText
         return (line + 1, column + 1); // 1-based indexing
     }
 
-    public (int line, int column) GetLineAndColumn(TextSpan span) => GetLineAndColumn(span.Start + span.Length);
+    public (int line, int column) GetLineAndColumn(TextSpan span) => GetLineAndColumn(span.Start);
 
     public TextReader GetTextReader()
     {
