@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class ElseClauseSyntax : SyntaxNode
+internal partial class ElseClauseSyntax : SyntaxNode
 {
     public ElseClauseSyntax(
         SyntaxToken elseKeyword,

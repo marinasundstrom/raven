@@ -9,7 +9,7 @@ public struct SyntaxNodeOrToken
     private readonly int _index;
     private readonly int _position;
 
-    public SyntaxNodeOrToken(GreenNode node, SyntaxNode parent, int index, int position)
+    internal SyntaxNodeOrToken(GreenNode node, SyntaxNode parent, int index, int position)
     {
         Green = node ?? throw new ArgumentNullException(nameof(node));
         _parent = parent;

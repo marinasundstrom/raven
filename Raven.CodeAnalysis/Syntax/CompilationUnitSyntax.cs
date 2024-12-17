@@ -12,7 +12,7 @@ public partial class CompilationUnitSyntax : SyntaxNode
 
     public partial SyntaxToken EndOfFileToken { get; }
 
-    public CompilationUnitSyntax(
+    internal CompilationUnitSyntax(
         InternalSyntax.SyntaxNode greenNode,
         SyntaxNode parent = null,
         int position = 0)

@@ -10,7 +10,7 @@ public struct SyntaxTrivia
 
     public SyntaxToken? Token => _token;
 
-    public SyntaxTrivia(InternalSyntax.SyntaxTrivia trivia, SyntaxToken parent)
+    internal SyntaxTrivia(InternalSyntax.SyntaxTrivia trivia, SyntaxToken parent)
     {
         Green = trivia ?? throw new ArgumentNullException(nameof(trivia));
         _token = parent;
@@ -23,11 +23,6 @@ public struct SyntaxTrivia
     }
 
     public override string ToString() => Text;
-
-    public static explicit operator SyntaxTrivia(InternalSyntax.SyntaxTrivia trivia)
-    {
-        return new SyntaxTrivia(trivia, default!);
-    }
 }
 
 public static partial class SyntaxFactory

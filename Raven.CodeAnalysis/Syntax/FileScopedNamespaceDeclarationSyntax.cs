@@ -12,7 +12,7 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
 
     public partial SyntaxList<MemberDeclarationSyntax> Members { get; }
 
-    public FileScopedNamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
+    internal FileScopedNamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
         : base(greenNode, parent, position)
     {
     }

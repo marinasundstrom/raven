@@ -10,9 +10,9 @@ public class Tokenizer
     private readonly ILexer lexer;
     private Syntax.InternalSyntax.SyntaxToken? lookaheadToken;
 
-    public Tokenizer(ILexer lexer)
+    public Tokenizer(TextReader textReader)
     {
-        this.lexer = lexer;
+        this.lexer = new Lexer(textReader);
     }
 
     public SyntaxToken ReadToken()

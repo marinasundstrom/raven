@@ -8,7 +8,7 @@ public partial class ReturnStatementSyntax : StatementSyntax
 
     public partial SyntaxToken SemicolonToken { get; }
 
-    public ReturnStatementSyntax(
+    internal ReturnStatementSyntax(
         InternalSyntax.SyntaxNode greenNode,
         SyntaxNode parent = null,
         int position = 0)

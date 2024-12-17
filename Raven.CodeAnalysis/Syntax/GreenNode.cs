@@ -10,8 +10,8 @@ public abstract class GreenNode
     public int FullWidth { get; }
     public int SlotCount { get; }
 
-    public InternalSyntax.SyntaxTriviaList LeadingTrivia { get; protected set; } = InternalSyntax.SyntaxTriviaList.Empty;
-    public InternalSyntax.SyntaxTriviaList TrailingTrivia { get; protected set; } = InternalSyntax.SyntaxTriviaList.Empty;
+    internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
+    internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
 
     protected GreenNode(SyntaxKind kind, int slotCount, int width, int fullWidth)
     {
@@ -23,22 +23,22 @@ public abstract class GreenNode
 
     public abstract GreenNode GetSlot(int index);
 
-    internal GreenNode? GetFirstTerminal()
+    internal SyntaxToken? GetFirstTerminal()
     {
         GreenNode? node = this;
-        
+
         for (int i = 0, n = node.SlotCount; i < n; i++)
         {
             var child = node.GetSlot(i);
             if (child != null)
             {
-                if (child is InternalSyntax.SyntaxToken)
+                if (child is InternalSyntax.SyntaxToken t)
                 {
-                    return child;
+                    return (SyntaxToken?)t;
                 }
                 else
                 {
-                    var c= child.GetFirstTerminal();
+                    var c = child.GetFirstTerminal();
                     if (c is not null)
                     {
                         return c;
@@ -46,11 +46,11 @@ public abstract class GreenNode
                 }
             }
         }
-        
+
         return null;
     }
 
-    internal GreenNode? GetLastTerminal()
+    internal SyntaxToken? GetLastTerminal()
     {
         GreenNode? node = this;
 
@@ -72,7 +72,7 @@ public abstract class GreenNode
         }
         while (node != null && node is not InternalSyntax.SyntaxToken);
 
-        return node;
+        return (SyntaxToken?)(node as InternalSyntax.SyntaxToken);
     }
 
     public virtual Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)

@@ -16,7 +16,7 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 
     public partial SyntaxToken? SemicolonToken { get; }
 
-    public NamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
+    internal NamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
         : base(greenNode, parent, position)
     {
     }

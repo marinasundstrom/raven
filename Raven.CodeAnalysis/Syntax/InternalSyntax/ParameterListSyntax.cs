@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class ParameterListSyntax : SyntaxNode
+internal partial class ParameterListSyntax : SyntaxNode
 {
     public ParameterListSyntax(
         SyntaxToken openParenToken,

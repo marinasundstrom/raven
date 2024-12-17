@@ -4,7 +4,7 @@ public partial class GlobalStatementSyntax : MemberDeclarationSyntax
 {
     public partial StatementSyntax Statement { get; }
 
-    public GlobalStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
+    internal GlobalStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)
     {
     }

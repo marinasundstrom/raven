@@ -9,7 +9,7 @@ public partial class InvocationExpressionSyntax : ExpressionSyntax
     public partial ExpressionSyntax Expression { get; }
     public partial ArgumentListSyntax ArgumentList { get; }
 
-    public InvocationExpressionSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
+    internal InvocationExpressionSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)
     {
     }

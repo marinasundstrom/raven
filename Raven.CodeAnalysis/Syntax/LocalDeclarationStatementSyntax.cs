@@ -8,7 +8,7 @@ public partial class LocalDeclarationStatementSyntax : StatementSyntax
 
     public partial SyntaxToken SemicolonToken { get; }
 
-    public LocalDeclarationStatementSyntax(
+    internal LocalDeclarationStatementSyntax(
         InternalSyntax.SyntaxNode greenNode,
         SyntaxNode parent = null,
         int position = 0)
@@ -28,7 +28,7 @@ public static partial class SyntaxFactory
 {
     public static LocalDeclarationStatementSyntax LocalDeclarationStatement(VariableDeclarationSyntax declaration, SyntaxToken semicolonToken)
         => new LocalDeclarationStatementSyntax(declaration, semicolonToken);
-    
+
     public static LocalDeclarationStatementSyntax LocalDeclarationStatement(VariableDeclarationSyntax declaration)
         => LocalDeclarationStatement(declaration, SemicolonToken);
 }

@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class SeparatedSyntaxList : GreenNode
+internal class SeparatedSyntaxList : GreenNode
 {
     public static readonly SeparatedSyntaxList Empty = new([]);
 

@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class LocalDeclarationStatementSyntax : StatementSyntax
+internal partial class LocalDeclarationStatementSyntax : StatementSyntax
 {
     public LocalDeclarationStatementSyntax(
         VariableDeclarationSyntax declaration,

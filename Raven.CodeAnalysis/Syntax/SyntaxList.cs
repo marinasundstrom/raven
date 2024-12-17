@@ -8,7 +8,7 @@ public struct SyntaxList : IEnumerable<SyntaxNode>
     private readonly SyntaxNode _parent;
     private readonly int _position;
 
-    public SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position)
+    internal SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
@@ -69,7 +69,7 @@ public struct SyntaxList : IEnumerable<SyntaxNode>
         private readonly int _index;
         private readonly int _position;
 
-        public SyntaxListItem(GreenNode node, SyntaxNode parent, int index, int position)
+        internal SyntaxListItem(GreenNode node, SyntaxNode parent, int index, int position)
         {
             Green = node ?? throw new ArgumentNullException(nameof(node));
             _parent = parent;

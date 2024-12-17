@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
+internal partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 {
     public FileScopedNamespaceDeclarationSyntax(
         SyntaxToken namespaceKeyword,

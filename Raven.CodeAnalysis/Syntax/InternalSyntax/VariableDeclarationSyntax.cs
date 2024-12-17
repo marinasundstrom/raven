@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class VariableDeclarationSyntax : SyntaxNode
+internal partial class VariableDeclarationSyntax : SyntaxNode
 {
     public VariableDeclarationSyntax(
         SyntaxToken letKeyword,

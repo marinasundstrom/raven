@@ -6,7 +6,7 @@ public partial class EqualsValueClauseSyntax : SyntaxNode
 
     public partial ExpressionSyntax Value { get; }
 
-    public EqualsValueClauseSyntax(
+    internal EqualsValueClauseSyntax(
         InternalSyntax.SyntaxNode greenNode,
         SyntaxNode parent = null,
         int position = 0)

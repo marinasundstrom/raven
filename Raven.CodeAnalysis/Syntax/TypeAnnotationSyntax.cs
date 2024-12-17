@@ -5,7 +5,7 @@ public partial class TypeAnnotationSyntax : SyntaxNode
     public partial SyntaxToken ColonToken { get; }
     public partial TypeSyntax Type { get; }
 
-    public TypeAnnotationSyntax(
+    internal TypeAnnotationSyntax(
         InternalSyntax.TypeAnnotationSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

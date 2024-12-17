@@ -4,7 +4,7 @@ public partial class ArgumentSyntax : SyntaxNode
 {
     public partial ExpressionSyntax Expression { get; }
 
-    public ArgumentSyntax(GreenNode greenNode, SyntaxNode parent, int position)
+    internal ArgumentSyntax(GreenNode greenNode, SyntaxNode parent, int position)
         : base(greenNode, parent, position)
     {
     }

@@ -7,7 +7,7 @@ public partial class VariableDeclaratorSyntax : SyntaxNode
 
     public partial EqualsValueClauseSyntax? Initializer { get; }
 
-    public VariableDeclaratorSyntax(
+    internal VariableDeclaratorSyntax(
         InternalSyntax.VariableDeclaratorSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

@@ -6,7 +6,7 @@ public partial class ArgumentListSyntax : SyntaxNode
     public partial SeparatedSyntaxList<ArgumentSyntax> Arguments { get; }
     public partial SyntaxToken CloseParenToken { get; }
 
-    public ArgumentListSyntax(
+    internal ArgumentListSyntax(
         InternalSyntax.ArgumentListSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

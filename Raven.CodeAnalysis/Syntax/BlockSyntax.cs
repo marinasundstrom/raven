@@ -6,7 +6,7 @@ public partial class BlockSyntax : StatementSyntax
     public partial SyntaxList<StatementSyntax> Statements { get; }
     public partial SyntaxToken CloseBraceToken { get; }
 
-    public BlockSyntax(
+    internal BlockSyntax(
         InternalSyntax.BlockSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

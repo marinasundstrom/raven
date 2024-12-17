@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 
-using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis;
 

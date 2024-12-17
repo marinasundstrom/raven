@@ -11,7 +11,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     private readonly SyntaxNode _parent;
     private int _position;
 
-    public SeparatedSyntaxList(InternalSyntax.SeparatedSyntaxList greenList, SyntaxNode parent, int position)
+    internal SeparatedSyntaxList(InternalSyntax.SeparatedSyntaxList greenList, SyntaxNode parent, int position)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;

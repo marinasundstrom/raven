@@ -2,7 +2,7 @@
 
 namespace Raven.CodeAnalysis.Parser.Internal;
 
-public interface ILexer
+internal interface ILexer
 {
     bool IsEndOfLine { get; }
 

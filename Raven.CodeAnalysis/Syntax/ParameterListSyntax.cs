@@ -6,7 +6,7 @@ public partial class ParameterListSyntax : SyntaxNode
     public partial SeparatedSyntaxList<ParameterSyntax> Parameters { get; }
     public partial SyntaxToken CloseParenToken { get; }
 
-    public ParameterListSyntax(
+    internal ParameterListSyntax(
         InternalSyntax.ParameterListSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

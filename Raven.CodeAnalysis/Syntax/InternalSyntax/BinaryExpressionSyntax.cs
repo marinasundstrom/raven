@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class BinaryExpressionSyntax : ExpressionSyntax
+internal partial class BinaryExpressionSyntax : ExpressionSyntax
 {
     public BinaryExpressionSyntax(
         SyntaxKind kind,

@@ -8,7 +8,7 @@ public partial class ParenthesizedExpressionSyntax : ExpressionSyntax
 
     public partial SyntaxToken CloseParenToken { get; }
 
-    public ParenthesizedExpressionSyntax(
+    internal ParenthesizedExpressionSyntax(
         InternalSyntax.ParenthesizedExpressionSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

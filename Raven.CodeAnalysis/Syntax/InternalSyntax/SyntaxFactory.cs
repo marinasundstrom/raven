@@ -1,7 +1,7 @@
 ﻿
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public static class SyntaxFactory
+internal static class SyntaxFactory
 {
     public static SyntaxToken MissingToken(SyntaxKind kind) => SyntaxToken.Missing(kind);
 

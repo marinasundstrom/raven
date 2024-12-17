@@ -6,7 +6,7 @@ public partial class ElseClauseSyntax : SyntaxNode
 
     public partial StatementSyntax Statement { get; }
 
-    public ElseClauseSyntax(
+    internal ElseClauseSyntax(
         InternalSyntax.SyntaxNode greenNode,
         SyntaxNode parent = null,
         int position = 0)

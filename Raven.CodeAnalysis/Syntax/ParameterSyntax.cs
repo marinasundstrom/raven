@@ -6,7 +6,7 @@ public partial class ParameterSyntax : SyntaxNode
 
     public partial TypeAnnotationSyntax? TypeAnnotation { get; }
 
-    public ParameterSyntax(GreenNode greenNode, SyntaxNode parent, int position)
+    internal ParameterSyntax(GreenNode greenNode, SyntaxNode parent, int position)
         : base(greenNode, parent, position)
     {
     }

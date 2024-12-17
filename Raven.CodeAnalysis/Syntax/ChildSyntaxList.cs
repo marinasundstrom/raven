@@ -83,7 +83,7 @@ public class ChildSyntaxListItem
     private readonly SyntaxNode _parent;
     private readonly int _position;
 
-    public ChildSyntaxListItem(GreenNode node, SyntaxNode parent, int position)
+    internal ChildSyntaxListItem(GreenNode node, SyntaxNode parent, int position)
     {
         _node = node ?? throw new ArgumentNullException(nameof(node));
         _parent = parent;

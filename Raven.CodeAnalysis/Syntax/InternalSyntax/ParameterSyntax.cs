@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class ParameterSyntax : SyntaxNode
+internal partial class ParameterSyntax : SyntaxNode
 {
     public ParameterSyntax(
         IdentifierNameSyntax name,

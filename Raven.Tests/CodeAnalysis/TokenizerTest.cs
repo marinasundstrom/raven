@@ -26,7 +26,7 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
         Tokenizer tokenizer = GetTokenizer(str);
 
         var result = tokenizer.ReadToken();
-        
+
         result.Kind.ShouldBe(SyntaxKind.IdentifierToken);
     }
 
@@ -41,7 +41,7 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
         Tokenizer tokenizer = GetTokenizer(str);
 
         var result = tokenizer.ReadToken();
-        
+
         result.Kind.ShouldBe(SyntaxKind.VoidKeyword);
     }
 
@@ -56,10 +56,10 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
         Tokenizer tokenizer = GetTokenizer(str);
 
         var result = tokenizer.ReadToken();
-        
+
         result.Kind.ShouldBe(SyntaxKind.NumericLiteralToken);
     }
-    
+
     [Fact]
     public void ReadTokenWithLeadingTrivia()
     {
@@ -71,11 +71,11 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
         Tokenizer tokenizer = GetTokenizer(str);
 
         var result = tokenizer.ReadToken();
-        
+
         result.LeadingTrivia.ShouldContain(x => x.Kind == SyntaxKind.WhitespaceTrivia);
         result.TrailingTrivia.ShouldBeEmpty();
     }
-    
+
     [Fact]
     public void ReadTokenWithTrailingTrivia()
     {
@@ -91,7 +91,7 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
         result.LeadingTrivia.ShouldBeEmpty();
         result.TrailingTrivia.ShouldContain(x => x.Kind == SyntaxKind.WhitespaceTrivia);
     }
-    
+
     [Fact]
     public void Test()
     {
@@ -106,7 +106,7 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
 
         var tokens = (new TokenIterator(tokenizer)).ToList();
     }
-    
+
     [Fact]
     public void Test2()
     {
@@ -139,11 +139,11 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
 
         var tokens = (new TokenIterator(tokenizer)).ToList();
     }
-    
+
     private static Tokenizer GetTokenizer(string str)
     {
         StringReader stringReader = new StringReader(str);
-        return new Tokenizer(new Lexer(stringReader));
+        return new Tokenizer(stringReader);
     }
 }
 

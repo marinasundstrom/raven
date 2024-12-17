@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class CompilationUnitSyntax : SyntaxNode
+internal partial class CompilationUnitSyntax : SyntaxNode
 {
     public CompilationUnitSyntax(
         SyntaxList imports,

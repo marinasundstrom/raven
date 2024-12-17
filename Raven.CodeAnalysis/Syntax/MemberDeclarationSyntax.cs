@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public abstract class MemberDeclarationSyntax : SyntaxNode
 {
-    public MemberDeclarationSyntax(GreenNode greenNode, SyntaxNode? parent, int position)
+    internal MemberDeclarationSyntax(GreenNode greenNode, SyntaxNode? parent, int position)
         : base(greenNode, parent, position)
     {
     }

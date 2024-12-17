@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public abstract partial class TypeSyntax : ExpressionSyntax
 {
-    protected TypeSyntax(GreenNode greenNode, SyntaxNode parent, int position) : base(greenNode, parent, position)
+    internal TypeSyntax(GreenNode greenNode, SyntaxNode parent, int position) : base(greenNode, parent, position)
     {
     }
 }
@@ -33,7 +33,7 @@ public partial class IdentifierNameSyntax : SimpleNameSyntax
 {
     public override partial SyntaxToken Identifier { get; }
 
-    public IdentifierNameSyntax(
+    internal IdentifierNameSyntax(
         InternalSyntax.IdentifierNameSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)
@@ -55,7 +55,7 @@ public partial class GenericNameSyntax : SimpleNameSyntax
 
     //public partial TypeArgumentListSyntax TypeArgumentList { get; }
 
-    public GenericNameSyntax(
+    internal GenericNameSyntax(
         InternalSyntax.GenericNameSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

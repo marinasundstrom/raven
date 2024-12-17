@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class IfStatementSyntax : StatementSyntax
+internal partial class IfStatementSyntax : StatementSyntax
 {
     public IfStatementSyntax(
         SyntaxToken ifKeyword,

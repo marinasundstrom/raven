@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class SyntaxNode : GreenNode
+internal class SyntaxNode : GreenNode
 {
     private readonly GreenNode[] _slots;
 

@@ -20,7 +20,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     public SyntaxTriviaList LeadingTrivia => new SyntaxTriviaList(this, Green.LeadingTrivia);
     public SyntaxTriviaList TrailingTrivia => new SyntaxTriviaList(this, Green.TrailingTrivia);
 
-    public SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode parent, int position = 0)
+    internal SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode parent, int position = 0)
     {
         Green = greenToken;
         _parent = parent;
@@ -87,11 +87,6 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     public string ToFullString()
     {
         return this.LeadingTrivia.ToString() + this.Text + this.TrailingTrivia.ToString();
-    }
-
-    public static explicit operator SyntaxToken(InternalSyntax.SyntaxToken token)
-    {
-        return new SyntaxToken(token, null!);
     }
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)

@@ -5,7 +5,7 @@ public partial class LiteralExpressionSyntax : ExpressionSyntax
     public override partial SyntaxKind Kind { get; }
     public partial SyntaxToken Token { get; }
 
-    public LiteralExpressionSyntax(GreenNode greenNode, SyntaxNode parent = null, int position = 0)
+    internal LiteralExpressionSyntax(GreenNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)
     {
     }

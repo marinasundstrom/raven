@@ -7,7 +7,7 @@ public partial class BinaryExpressionSyntax : ExpressionSyntax
     public partial SyntaxToken OperatorToken { get; }
     public partial ExpressionSyntax RightHandSide { get; }
 
-    public BinaryExpressionSyntax(
+    internal BinaryExpressionSyntax(
         InternalSyntax.BinaryExpressionSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

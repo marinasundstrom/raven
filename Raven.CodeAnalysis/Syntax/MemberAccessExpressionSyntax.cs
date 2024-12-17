@@ -7,7 +7,7 @@ public partial class MemberAccessExpressionSyntax : ExpressionSyntax
     public partial SyntaxToken OperatorToken { get; }
     public partial SimpleNameSyntax Name { get; }
 
-    public MemberAccessExpressionSyntax(
+    internal MemberAccessExpressionSyntax(
         InternalSyntax.MemberAccessExpressionSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

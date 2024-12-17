@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class MemberAccessExpressionSyntax : ExpressionSyntax
+internal partial class MemberAccessExpressionSyntax : ExpressionSyntax
 {
     public MemberAccessExpressionSyntax(
         SyntaxKind kind,

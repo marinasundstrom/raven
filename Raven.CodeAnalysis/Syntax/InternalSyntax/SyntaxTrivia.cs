@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class SyntaxTrivia : GreenNode
+internal class SyntaxTrivia : GreenNode
 {
     public string Text { get; }
 
@@ -13,4 +13,9 @@ public class SyntaxTrivia : GreenNode
     }
 
     public override GreenNode GetSlot(int index) => throw new InvalidOperationException("SyntaxTrivia has no children.");
+
+    public static explicit operator Syntax.SyntaxTrivia(InternalSyntax.SyntaxTrivia trivia)
+    {
+        return new Syntax.SyntaxTrivia(trivia, default!);
+    }
 }

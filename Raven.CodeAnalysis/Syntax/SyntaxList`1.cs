@@ -10,7 +10,7 @@ public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
     private readonly SyntaxNode _parent;
     private readonly int _position;
 
-    public SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position = 0)
+    internal SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position = 0)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
@@ -90,8 +90,8 @@ public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
             get
             {
                 var parent = _parent;
-                var position = _position + Green.GetChildStartPosition(_index); 
-                
+                var position = _position + Green.GetChildStartPosition(_index);
+
                 return IsNode
                     ? (TNode?)(object?)SyntaxNodeCache.GetValue(Green,
                         (s) => s.CreateRed(parent, position))

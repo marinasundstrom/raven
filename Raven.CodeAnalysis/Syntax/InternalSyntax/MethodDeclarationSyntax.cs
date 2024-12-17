@@ -1,7 +1,7 @@
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class MethodDeclarationSyntax : MemberDeclarationSyntax
+internal partial class MethodDeclarationSyntax : MemberDeclarationSyntax
 {
     public MethodDeclarationSyntax(TypeSyntax returnType, IdentifierNameSyntax name, ParameterListSyntax parameters)
         : base(SyntaxKind.MethodDeclaration,

@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class VariableDeclaratorSyntax : StatementSyntax
+internal partial class VariableDeclaratorSyntax : StatementSyntax
 {
     public VariableDeclaratorSyntax(
         IdentifierNameSyntax name)

@@ -229,7 +229,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
             Console.WriteLine(localSymbol.Name);
         }
 
-        testOutputHelper.WriteLine(syntaxTree.GetRoot().GetSyntaxTreeRepresentation(includeSpans: true, includeLocation: true));
+        testOutputHelper.WriteLine(syntaxTree.GetRoot().GetSyntaxTreeRepresentation(includeSpans: true, includeLocation: true, includeTrivia: true));
     }
 
     [Fact]

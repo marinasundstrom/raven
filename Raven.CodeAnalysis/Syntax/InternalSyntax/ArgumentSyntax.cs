@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class ArgumentSyntax : SyntaxNode
+internal partial class ArgumentSyntax : SyntaxNode
 {
     public ArgumentSyntax(
         ExpressionSyntax expression)

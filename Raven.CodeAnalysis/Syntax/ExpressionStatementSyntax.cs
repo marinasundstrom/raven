@@ -4,7 +4,7 @@ public partial class ExpressionStatementSyntax : StatementSyntax
 {
     public partial ExpressionSyntax Expression { get; }
 
-    public ExpressionStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
+    internal ExpressionStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)
     {
     }

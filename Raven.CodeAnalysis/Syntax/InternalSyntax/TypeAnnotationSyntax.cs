@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class TypeAnnotationSyntax : StatementSyntax
+internal partial class TypeAnnotationSyntax : StatementSyntax
 {
     public TypeAnnotationSyntax(
         SyntaxToken colonToken,

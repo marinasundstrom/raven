@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class EqualsValueClauseSyntax : StatementSyntax
+internal partial class EqualsValueClauseSyntax : StatementSyntax
 {
     public EqualsValueClauseSyntax(
         SyntaxToken equalsToken,

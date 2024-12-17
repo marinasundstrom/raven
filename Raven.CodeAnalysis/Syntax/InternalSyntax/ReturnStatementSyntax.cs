@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class ReturnStatementSyntax : StatementSyntax
+internal partial class ReturnStatementSyntax : StatementSyntax
 {
     public ReturnStatementSyntax(
         SyntaxToken returnKeyword,

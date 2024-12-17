@@ -6,7 +6,7 @@ public partial class UnaryExpressionSyntax : ExpressionSyntax
 
     public partial ExpressionSyntax Expression { get; }
 
-    public UnaryExpressionSyntax(
+    internal UnaryExpressionSyntax(
         InternalSyntax.UnaryExpressionSyntax greenNode,
         SyntaxNode parent = null,
         int position = 0)

@@ -185,7 +185,7 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                         .WithModifiers(
                             TokenList(
                                 [
-                            Token(SyntaxKind.PublicKeyword),
+                            Token(SyntaxKind.InternalKeyword),
                             Token(SyntaxKind.PartialKeyword)]))
                         /*.WithBaseList(
                             BaseList(

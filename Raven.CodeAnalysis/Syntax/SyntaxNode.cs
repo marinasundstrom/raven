@@ -81,12 +81,12 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
     public SyntaxToken GetFirstToken(bool includeZeroWidth = false)
     {
-        return (SyntaxToken)Green.GetFirstTerminal();
+        return (SyntaxToken)Green.GetFirstTerminal()!;
     }
 
     public SyntaxToken GetLastToken(bool includeZeroWidth = false)
     {
-        return (SyntaxToken)Green.GetLastTerminal();
+        return (SyntaxToken)Green.GetLastTerminal()!;
     }
 
     public SyntaxNode(GreenNode greenNode, SyntaxNode parent, int position = 0)
@@ -206,7 +206,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     public abstract void Accept(SyntaxVisitor visitor);
 
     public abstract TResult Accept<TResult>(SyntaxVisitor<TResult> visitor);
-    
+
     public Location GetLocation()
     {
         if (SyntaxTree is null)

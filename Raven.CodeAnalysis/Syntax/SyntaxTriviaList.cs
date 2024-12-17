@@ -15,7 +15,7 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
         _parent = default;
     }
 
-    public SyntaxTriviaList(SyntaxToken parent, InternalSyntax.SyntaxTriviaList greenList)
+    internal SyntaxTriviaList(SyntaxToken parent, InternalSyntax.SyntaxTriviaList greenList)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;

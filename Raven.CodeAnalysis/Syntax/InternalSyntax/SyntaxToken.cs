@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class SyntaxToken : GreenNode
+internal class SyntaxToken : GreenNode
 {
     private readonly object _value;
 
@@ -52,5 +52,10 @@ public class SyntaxToken : GreenNode
     internal static SyntaxToken Missing(SyntaxKind kind)
     {
         return new SyntaxToken(kind, string.Empty) { IsMissing = true };
+    }
+
+    public static explicit operator Syntax.SyntaxToken(InternalSyntax.SyntaxToken token)
+    {
+        return new Syntax.SyntaxToken(token, null!);
     }
 }

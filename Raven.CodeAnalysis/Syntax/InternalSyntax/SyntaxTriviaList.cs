@@ -3,7 +3,7 @@ using System.Formats.Asn1;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
+internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
 {
     public readonly static SyntaxTriviaList Empty = new SyntaxTriviaList([]);
     private readonly SyntaxTrivia[] _trivias;

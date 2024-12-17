@@ -7,7 +7,7 @@ using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
 
 namespace Raven.CodeAnalysis.Parser.Internal;
 
-public class Lexer : ILexer
+internal class Lexer : ILexer
 {
     private readonly TextReader textReader;
     private StringBuilder? stringBuilder;

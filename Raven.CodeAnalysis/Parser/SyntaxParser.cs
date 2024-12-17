@@ -25,7 +25,7 @@ public class SyntaxParser
     {
         using var textReader = sourceText.GetTextReader();
 
-        tokenizer = new Tokenizer(new Lexer(textReader));
+        tokenizer = new Tokenizer(textReader);
 
         var compilationUnit = ParseCompilationUnit();
         return SyntaxTree.Create(sourceText, compilationUnit, DiagnosticBag);
@@ -691,7 +691,7 @@ public class SyntaxParser
     {
         using var textReader = sourceText.GetTextReader(position);
 
-        tokenizer = new Tokenizer(new Lexer(textReader));
+        tokenizer = new Tokenizer(textReader);
 
         SetCurrentSpan(position);
 

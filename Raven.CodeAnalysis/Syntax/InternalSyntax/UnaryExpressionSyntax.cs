@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class UnaryExpressionSyntax : ExpressionSyntax
+internal partial class UnaryExpressionSyntax : ExpressionSyntax
 {
     public UnaryExpressionSyntax(
         SyntaxToken operatorToken,

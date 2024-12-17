@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-public partial class ParenthesizedExpressionSyntax : ExpressionSyntax
+internal partial class ParenthesizedExpressionSyntax : ExpressionSyntax
 {
     public ParenthesizedExpressionSyntax(
         SyntaxToken openParenToken,
