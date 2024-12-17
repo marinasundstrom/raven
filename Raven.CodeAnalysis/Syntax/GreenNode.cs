@@ -91,7 +91,7 @@ public abstract class GreenNode
 
         if (items.Length == 1)
         {
-            return items[0]?.Width ?? 0;
+            return items[0]?.FullWidth ?? 0;
         }
 
         var value = items
