@@ -32,11 +32,26 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         return GetType().Name + " " + (Green != null ? Green.Text : "None") + " " + ToString();
     }
 
-    // Additional properties or methods specific to SyntaxToken
-
     public SyntaxKind Kind => Green.Kind;
 
+    public object? Value => Green.GetValue();
+
+    public string? ValueText => Green.GetValueText();
+
     public SyntaxNode Parent => _parent;
+
+    public SyntaxTree? SyntaxTree
+    {
+        get
+        {
+            if (_parent is not null)
+            {
+                return _parent.SyntaxTree;
+            }
+
+            return null;
+        }
+    }
 
     public int StartPosition { get; }
 
@@ -104,5 +119,14 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     {
         var newGreen = Green.WithTrailingTrivia(trivias.Select(x => x.Green));
         return new SyntaxToken(newGreen, Parent);
+    }
+
+    public Location GetLocation()
+    {
+        if (SyntaxTree is null)
+        {
+            return default(Location)!;
+        }
+        return SyntaxTree!.GetLocation(this.Span);
     }
 }

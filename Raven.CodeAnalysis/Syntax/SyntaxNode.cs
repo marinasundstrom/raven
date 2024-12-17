@@ -248,6 +248,15 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(Green, _syntaxTree, _parent);
+        return HashCode.Combine(Green, _parent);
+    }
+
+    public Location GetLocation()
+    {
+        if (SyntaxTree is null)
+        {
+            return default(Location)!;
+        }
+        return SyntaxTree!.GetLocation(this.Span);
     }
 }

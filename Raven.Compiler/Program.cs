@@ -36,6 +36,8 @@ var variableDeclarator = syntaxTree.GetRoot()
     .OfType<VariableDeclaratorSyntax>()
     .First();
 
+var loc = variableDeclarator.GetLocation();
+
 var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol;
 
 var symbol2 = semanticModel.GetSymbolInfo(variableDeclarator).Symbol as ILocalSymbol;
