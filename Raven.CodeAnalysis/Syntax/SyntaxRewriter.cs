@@ -71,7 +71,21 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return node.Accept(this);
     }
 
-    public virtual SyntaxList<TElement>? VisitList<TElement>(SyntaxList<TElement> list)
+    public virtual SyntaxList<TElement>? VisitList<TElement>(SyntaxList<TElement>? list0)
+        where TElement : SyntaxNode
+    {
+        var list = list0.GetValueOrDefault();
+
+        List<TElement> newList = [];
+
+        foreach (var item in list)
+        {
+            newList.Add((TElement)item.Accept(this));
+        }
+        return SyntaxFactory.List<TElement>(newList);
+    }
+
+    public virtual SyntaxList<TElement> VisitList<TElement>(SyntaxList<TElement> list)
         where TElement : SyntaxNode
     {
         List<TElement> newList = [];
@@ -83,8 +97,30 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return SyntaxFactory.List<TElement>(newList);
     }
 
-    public virtual SeparatedSyntaxList<TElement>? VisitList<TElement>(SeparatedSyntaxList<TElement> list)
+    public virtual SeparatedSyntaxList<TElement>? VisitList<TElement>(SeparatedSyntaxList<TElement>? list0)
         where TElement : SyntaxNode
+    {
+        var list = list0.GetValueOrDefault();
+
+        List<SyntaxNodeOrToken> newList = [];
+
+        foreach (var item in list.GetWithSeparators())
+        {
+            if (item.AsNode(out var node))
+            {
+                newList.Add(
+                    new SyntaxNodeOrToken(node.Accept(this)!));
+            }
+            else if (item.AsToken(out var token))
+            {
+                newList.Add(VisitToken(token));
+            }
+        }
+        return SyntaxFactory.SeparatedList<TElement>(newList.ToArray());
+    }
+
+    public virtual SeparatedSyntaxList<TElement> VisitList<TElement>(SeparatedSyntaxList<TElement> list)
+    where TElement : SyntaxNode
     {
         List<SyntaxNodeOrToken> newList = [];
 

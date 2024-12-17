@@ -23,13 +23,13 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 
     public NamespaceDeclarationSyntax(SyntaxToken namespaceKeyword, IdentifierNameSyntax name,
         SyntaxToken openBraceToken, SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? semicolonToken = null)
-        : this(new Syntax.InternalSyntax.NamespaceDeclarationSyntax(namespaceKeyword.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, openBraceToken.Green, imports?.Green, members?.Green, closeBraceToken.Green, SyntaxFactory.SemicolonToken.Green), (SyntaxNode)null)
+        : this(new Syntax.InternalSyntax.NamespaceDeclarationSyntax(namespaceKeyword.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, openBraceToken.Green, imports.Green, members.Green, closeBraceToken.Green, SyntaxFactory.SemicolonToken.Green), (SyntaxNode)null)
     {
     }
 
     public NamespaceDeclarationSyntax(IdentifierNameSyntax name,
         SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members)
-        : this(new Syntax.InternalSyntax.NamespaceDeclarationSyntax(SyntaxFactory.NamespaceKeyword.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, SyntaxFactory.OpenBraceToken.Green, imports?.Green, members?.Green, SyntaxFactory.CloseBraceToken.Green, SyntaxFactory.SemicolonToken.Green), (SyntaxNode)null)
+        : this(new Syntax.InternalSyntax.NamespaceDeclarationSyntax(SyntaxFactory.NamespaceKeyword.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, SyntaxFactory.OpenBraceToken.Green, imports.Green, members.Green, SyntaxFactory.CloseBraceToken.Green, SyntaxFactory.SemicolonToken.Green), (SyntaxNode)null)
     {
     }
 }

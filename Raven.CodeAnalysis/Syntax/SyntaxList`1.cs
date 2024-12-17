@@ -2,7 +2,7 @@ using System.Collections;
 
 namespace Raven.CodeAnalysis.Syntax;
 
-public class SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
+public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
 {
     public static readonly SyntaxList<TNode> Empty = new SyntaxList<TNode>(new InternalSyntax.SyntaxList([]), null, 0);
 
@@ -37,6 +37,29 @@ public class SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public static bool operator ==(SyntaxList<TNode> left, SyntaxList<TNode>? right) => Equals(left, right);
+
+    public static bool operator !=(SyntaxList<TNode> left, SyntaxList<TNode>? right) => !Equals(left, right);
+
+    public static bool operator ==(SyntaxList<TNode>? left, SyntaxList<TNode>? right) => Equals(left, right);
+
+    public static bool operator !=(SyntaxList<TNode>? left, SyntaxList<TNode>? right) => !Equals(left, right);
+
+    public bool Equals(SyntaxList<TNode> other)
+    {
+        return Green == other.Green && _parent == other._parent;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is SyntaxList<TNode> other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Green, _parent);
+    }
 }
 
 public class SyntaxListItem<TNode>

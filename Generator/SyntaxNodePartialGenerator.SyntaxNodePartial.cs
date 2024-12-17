@@ -212,6 +212,24 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
         var typeName = ParseTypeName(classSymbol.Name);
 
+        ExpressionSyntax condition = null!;
+
+        foreach (var p in parameters)
+        {
+            var expr1 = BinaryExpression(SyntaxKind.NotEqualsExpression,
+                IdentifierName(p.Name), IdentifierName(FixName(p)));
+
+            if (condition is null)
+            {
+                condition = expr1;
+            }
+            else
+            {
+                condition = BinaryExpression(SyntaxKind.LogicalOrExpression,
+                    condition, expr1);
+            }
+        }
+
         var expr = ObjectCreationExpression(
                     typeName)
                 .WithArgumentList(
@@ -228,10 +246,11 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                     ParameterList(
                         SeparatedList(
                             paramDef
-                )))
-                .WithExpressionBody(ArrowExpressionClause(expr))
-                    .WithSemicolonToken(
-                        Token(SyntaxKind.SemicolonToken));
+                ))).WithBody(
+                    Block(
+                        IfStatement(condition,
+                            Block(ReturnStatement(expr))),
+                        ReturnStatement(ThisExpression())));
 
         return [updateMethodDeclaration];
     }

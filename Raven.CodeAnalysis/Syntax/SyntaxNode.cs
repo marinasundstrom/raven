@@ -206,6 +206,15 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     public abstract void Accept(SyntaxVisitor visitor);
 
     public abstract TResult Accept<TResult>(SyntaxVisitor<TResult> visitor);
+    
+    public Location GetLocation()
+    {
+        if (SyntaxTree is null)
+        {
+            return default(Location)!;
+        }
+        return SyntaxTree!.GetLocation(Span);
+    }
 
     public static bool operator ==(SyntaxNode left, SyntaxNode? right) => Equals(left, right);
 
@@ -249,14 +258,5 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     public override int GetHashCode()
     {
         return HashCode.Combine(Green, _parent);
-    }
-
-    public Location GetLocation()
-    {
-        if (SyntaxTree is null)
-        {
-            return default(Location)!;
-        }
-        return SyntaxTree!.GetLocation(Span);
     }
 }

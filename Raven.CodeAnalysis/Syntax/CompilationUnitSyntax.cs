@@ -30,12 +30,12 @@ public partial class CompilationUnitSyntax : SyntaxNode
     }
 
     public CompilationUnitSyntax(SyntaxTree syntaxTree, SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members)
-    : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports?.Green, members?.Green, SyntaxFactory.EndOfFile.Green), syntaxTree)
+    : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports.Green, members.Green, SyntaxFactory.EndOfFile.Green), syntaxTree)
     {
     }
 
     public CompilationUnitSyntax(SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken? endOfFileToken = null)
-        : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports?.Green, members?.Green, endOfFileToken?.Green), (SyntaxTree)null)
+        : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports.Green, members.Green, endOfFileToken?.Green), (SyntaxTree)null)
     {
     }
 

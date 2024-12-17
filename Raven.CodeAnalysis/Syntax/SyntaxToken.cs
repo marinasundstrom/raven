@@ -79,21 +79,6 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         }
     }
 
-    public bool Equals(SyntaxToken other)
-    {
-        return Green == other.Green && _parent == other._parent;
-    }
-
-    public override bool Equals(object? obj)
-    {
-        return obj is SyntaxToken other && Equals(other);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(Green, _parent);
-    }
-
     public override string ToString()
     {
         return this.Text;
@@ -128,5 +113,28 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
             return default(Location)!;
         }
         return SyntaxTree!.GetLocation(this.Span);
+    }
+
+    public static bool operator ==(SyntaxToken left, SyntaxToken? right) => Equals(left, right);
+
+    public static bool operator !=(SyntaxToken left, SyntaxToken? right) => !Equals(left, right);
+
+    public static bool operator ==(SyntaxToken? left, SyntaxToken? right) => Equals(left, right);
+
+    public static bool operator !=(SyntaxToken? left, SyntaxToken? right) => !Equals(left, right);
+
+    public bool Equals(SyntaxToken other)
+    {
+        return Green == other.Green && _parent == other._parent;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is SyntaxToken other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Green, _parent);
     }
 }

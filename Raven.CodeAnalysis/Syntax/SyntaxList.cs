@@ -2,7 +2,7 @@ using System.Collections;
 
 namespace Raven.CodeAnalysis.Syntax;
 
-public class SyntaxList : IEnumerable<SyntaxNode>
+public struct SyntaxList : IEnumerable<SyntaxNode>
 {
     internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;
@@ -22,8 +22,10 @@ public class SyntaxList : IEnumerable<SyntaxNode>
         get
         {
             var childGreenNode = Green[index];
+            var parent = _parent;
+            var position = _position + Green.GetChildStartPosition(index);
 
-            return SyntaxNodeCache.GetValue(childGreenNode, (s) => s.CreateRed(_parent, _position + Green.GetChildStartPosition(index)));
+            return SyntaxNodeCache.GetValue(childGreenNode, (s) => s.CreateRed(parent, position));
         }
     }
 
@@ -36,6 +38,29 @@ public class SyntaxList : IEnumerable<SyntaxNode>
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public static bool operator ==(SyntaxList left, SyntaxList? right) => Equals(left, right);
+
+    public static bool operator !=(SyntaxList left, SyntaxList? right) => !Equals(left, right);
+
+    public static bool operator ==(SyntaxList? left, SyntaxList? right) => Equals(left, right);
+
+    public static bool operator !=(SyntaxList? left, SyntaxList? right) => !Equals(left, right);
+
+    public bool Equals(SyntaxList other)
+    {
+        return Green == other.Green && _parent == other._parent;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is SyntaxList other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Green, _parent);
+    }
 }
 
 public class SyntaxListItem

@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 namespace Raven.CodeAnalysis.Syntax;
 
-public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
+public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     where TNode : SyntaxNode
 {
     internal readonly InternalSyntax.SeparatedSyntaxList Green;
@@ -34,7 +34,10 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         get
         {
             var node = Green[index * 2];
-            return (TNode)SyntaxNodeCache.GetValue(node, (s) => s.CreateRed(_parent, _position + Green.GetChildStartPosition(index * 2)));
+            var parent = _parent;
+            var position = _position + Green.GetChildStartPosition(index * 2);
+
+            return (TNode)SyntaxNodeCache.GetValue(node, (s) => s.CreateRed(parent, position));
         }
     }
 
@@ -79,6 +82,29 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public static bool operator ==(SeparatedSyntaxList<TNode> left, SeparatedSyntaxList<TNode>? right) => Equals(left, right);
+
+    public static bool operator !=(SeparatedSyntaxList<TNode> left, SeparatedSyntaxList<TNode>? right) => !Equals(left, right);
+
+    public static bool operator ==(SeparatedSyntaxList<TNode>? left, SeparatedSyntaxList<TNode>? right) => Equals(left, right);
+
+    public static bool operator !=(SeparatedSyntaxList<TNode>? left, SeparatedSyntaxList<TNode>? right) => !Equals(left, right);
+
+    public bool Equals(SeparatedSyntaxList<TNode> other)
+    {
+        return Green == other.Green && _parent == other._parent;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is SeparatedSyntaxList<TNode> other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Green, _parent);
+    }
 }
 
 public static partial class SyntaxFactory
