@@ -105,14 +105,7 @@ public static class SyntaxFacts
     {
         if (Enum.TryParse<SyntaxKind>($"{text}Keyword", true, out syntaxKind))
         {
-            switch (syntaxKind)
-            {
-                case SyntaxKind.LetKeyword:
-                case SyntaxKind.IfKeyword:
-                case SyntaxKind.ElseKeyword:
-                case SyntaxKind.ReturnKeyword:
-                    return true;
-            }
+            return true;
         }
 
         return false;
