@@ -7,27 +7,27 @@ public static class PrettySyntaxTreePrinter
     public static void PrintSyntaxTree(this SyntaxNode node, bool includeTokens = false, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, int maxDepth = int.MaxValue)
     {
         var sb = new StringBuilder();
-        PrintSyntaxTreeCore(node, sb, "", true, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth);
+        PrintSyntaxTreeCore(node, sb, "", true, true, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth);
         Console.WriteLine(sb.ToString());
     }
 
     public static string GetSyntaxTreeRepresentation(this SyntaxNode node, bool includeTokens = false, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, int maxDepth = int.MaxValue)
     {
         var sb = new StringBuilder();
-        PrintSyntaxTreeCore(node, sb, "", false, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth);
+        PrintSyntaxTreeCore(node, sb, "", true, false, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth);
         return sb.ToString();
     }
 
-    private static void PrintSyntaxTreeCore(SyntaxNode node, StringBuilder sb, string indent, bool isLast, bool includeTokens, bool includeTrivia, bool includeSpans, bool includeLocation, int maxDepth, int currentDepth = 0)
+    private static void PrintSyntaxTreeCore(SyntaxNode node, StringBuilder sb, string indent, bool isFirst, bool isLast, bool includeTokens, bool includeTrivia, bool includeSpans, bool includeLocation, int maxDepth, int currentDepth = 0)
     {
         if (currentDepth > maxDepth)
             return;
 
         // Visual markers for tree structure
-        var marker = isLast ? "└── " : "├── ";
+        var marker = isLast ? "└── " :  isFirst ? string.Empty : "├── ";
         sb.AppendLine($"{indent}{marker}{node.Kind}{(includeSpans ? $"{Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
-        var newIndent = indent + (isLast ? "    " : "│   ");
+        var newIndent = isFirst ? String.Empty : indent + (isLast ? "    " : "│   ");
 
         var children = node.ChildNodesAndTokens().ToArray();
         for (int i = 0; i < children.Length; i++)
@@ -35,7 +35,7 @@ public static class PrettySyntaxTreePrinter
             var isChildLast = i == children.Length - 1;
             if (children[i].AsNode(out var childNode))
             {
-                PrintSyntaxTreeCore(childNode, sb, newIndent, isChildLast, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth, currentDepth + 1);
+                PrintSyntaxTreeCore(childNode, sb, newIndent, false, isChildLast, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth, currentDepth + 1);
             }
             else if (includeTokens && children[i].AsToken(out var token))
             {
