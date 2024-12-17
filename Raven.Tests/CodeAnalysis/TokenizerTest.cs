@@ -1,5 +1,3 @@
-using System.Collections;
-
 using Raven.CodeAnalysis.Parser;
 using Raven.CodeAnalysis.Syntax;
 
@@ -137,23 +135,5 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
     {
         StringReader stringReader = new StringReader(str);
         return new Tokenizer(stringReader);
-    }
-}
-
-public class TokenIterator(Tokenizer tokenizer) : IEnumerable<SyntaxToken>
-{
-    public IEnumerator<SyntaxToken> GetEnumerator()
-    {
-        SyntaxToken token;
-        do
-        {
-            token = tokenizer.ReadToken();
-            yield return token;
-        } while (token.Kind != SyntaxKind.EndOfFileToken);
-    }
-
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
     }
 }
