@@ -84,7 +84,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(oldRoot.ToFullString());
 
-        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
 
         var changedSourceText = SourceText.From(
             """
@@ -103,7 +103,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(oldRoot.ToFullString());
 
-        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
 
         var changedSourceText = SourceText.From(
             """
@@ -137,7 +137,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
 
         var nodes = SyntaxNodeCache.Cache;
     }
@@ -158,7 +158,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(oldRoot.ToFullString());
 
-        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
 
         var changedSourceText = SourceText.From(
             """
@@ -173,7 +173,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
 
         var nodes = SyntaxNodeCache.Cache;
     }
@@ -194,7 +194,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(oldRoot.ToFullString());
 
-        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
 
         var changedSourceText = SourceText.From(
             """
@@ -212,7 +212,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false));
+        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
 
         var nodes = SyntaxNodeCache.Cache;
     }

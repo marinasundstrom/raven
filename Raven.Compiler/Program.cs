@@ -11,7 +11,7 @@ var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText);
 
 var root = syntaxTree.GetRoot();
 
-Console.WriteLine(root.GetSyntaxTreeRepresentation(includeTokens: true, includeTrivia: false, includeSpans: false, includeLocation: true));
+Console.WriteLine(root.GetSyntaxTreeRepresentation(includeTrivia: true, includeSpans: true, includeLocation: true));
 
 Console.WriteLine();
 

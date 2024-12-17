@@ -4,14 +4,14 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static class PrettySyntaxTreePrinter
 {
-    public static void PrintSyntaxTree(this SyntaxNode node, bool includeTokens = false, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, int maxDepth = int.MaxValue)
+    public static void PrintSyntaxTree(this SyntaxNode node, bool includeTokens = true, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, int maxDepth = int.MaxValue)
     {
         var sb = new StringBuilder();
         PrintSyntaxTreeCore(node, sb, "", true, true, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth);
         Console.WriteLine(sb.ToString());
     }
 
-    public static string GetSyntaxTreeRepresentation(this SyntaxNode node, bool includeTokens = false, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, int maxDepth = int.MaxValue)
+    public static string GetSyntaxTreeRepresentation(this SyntaxNode node, bool includeTokens = true, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, int maxDepth = int.MaxValue)
     {
         var sb = new StringBuilder();
         PrintSyntaxTreeCore(node, sb, "", true, false, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth);
@@ -24,8 +24,8 @@ public static class PrettySyntaxTreePrinter
             return;
 
         // Visual markers for tree structure
-        var marker = isLast ? "└── " :  isFirst ? string.Empty : "├── ";
-        sb.AppendLine($"{indent}{marker}{node.Kind}{(includeSpans ? $"{Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
+        var marker = isLast ? "└── " : isFirst ? string.Empty : "├── ";
+        sb.AppendLine($"{indent}{marker}{node.Kind}{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
         var newIndent = isFirst ? String.Empty : indent + (isLast ? "    " : "│   ");
 
@@ -50,7 +50,7 @@ public static class PrettySyntaxTreePrinter
                 }
 
                 // Print token
-                sb.AppendLine($"{newIndent}{(isChildLast ? "└── " : "├── ")}{token.Kind}{(token.IsMissing ? " (Missing)" : "")} \"{token.Text}\"{(includeSpans ? $"{Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent}{(isChildLast ? "└── " : "├── ")}{token.Kind}{(token.IsMissing ? " (Missing)" : "")} \"{token.Text}\"{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
 
                 // Include trivia if specified
                 if (includeTrivia)

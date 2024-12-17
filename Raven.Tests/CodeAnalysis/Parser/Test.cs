@@ -28,7 +28,7 @@ public class Test2(ITestOutputHelper testOutputHelper)
         var str = root.ToFullString();
 
         testOutputHelper.WriteLine(str);
-        
-        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(includeTokens: true, includeSpans: true, includeTrivia: true, includeLocation: true));
+
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(includeSpans: true, includeTrivia: true, includeLocation: true));
     }
 }

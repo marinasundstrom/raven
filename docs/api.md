@@ -38,43 +38,62 @@ var sourceCode = root.ToFullString();
 You can also print the node hierarchy to the console:
 
 ```
-root.PrintSyntaxTree(includeTokens: true)
+root.PrintSyntaxTree(includeTrivia: true, includeSpans: true, includeLocation: true);
 ```
 
 The printed syntax tree will look similar to this:
 
 ```
-├── CompilationUnit
-│   ├── GlobalStatement
-│   │   └── IfStatement
-│   │       ├── IfKeyword "if"
-│   │       ├── OpenParenToken "("
-│   │       ├── IdentifierName
-│   │       │   └── IdentifierToken "foo"
-│   │       ├── CloseParenToken ")"
-│   │       ├── Block
-│   │       │   ├── OpenBraceToken "{"
-│   │       │   ├── ReturnStatement
-│   │       │   │   ├── ReturnKeyword "return"
-│   │       │   │   ├── NumericLiteralExpression
-│   │       │   │   │   └── NumericLiteralToken "0"
-│   │       │   │   └── SemicolonToken ";"
-│   │       │   └── CloseBraceToken "}"
-│   │       └── ElseClause
-│   │           ├── ElseKeyword "else"
-│   │           └── IfStatement
-│   │               ├── IfKeyword "if"
-│   │               ├── OpenParenToken "("
-│   │               ├── IdentifierName
-│   │               │   └── IdentifierToken "bar"
-│   │               ├── CloseParenToken ")"
-│   │               └── Block
-│   │                   ├── OpenBraceToken "{"
-│   │                   ├── ReturnStatement
-│   │                   │   ├── ReturnKeyword "return"
-│   │                   │   ├── NumericLiteralExpression
-│   │                   │   │   └── NumericLiteralToken "1"
-│   │                   │   └── SemicolonToken ";"
-│   │                   └── CloseBraceToken "}"
-│   └── EndOfFileToken ""
+CompilationUnit [0..64] (1:1)
+├── GlobalStatement [0..64] (1:1)
+│   └── IfStatement [0..64] (1:1)
+│       ├── IfKeyword "if" [0..2] (1:1)
+│       │   [Trailing Trivia] WhitespaceTrivia: " "
+│       ├── OpenParenToken "(" [3..4] (1:4)
+│       ├── IdentifierName [4..7] (1:5)
+│       │   └── IdentifierToken "foo" [4..7] (1:5)
+│       ├── CloseParenToken ")" [7..8] (1:8)
+│       │   [Trailing Trivia] WhitespaceTrivia: "  "
+│       ├── Block [10..30] (1:11)
+│       │   ├── OpenBraceToken "{" [10..11] (1:11)
+│       │   │   [Trailing Trivia] CarriageReturnTrivia: "\r"
+│       │   │   [Trailing Trivia] EndOfLineTrivia: "\n"
+│       │   │   [Trailing Trivia] WhitespaceTrivia: "    "
+│       │   ├── ReturnStatement [17..28] (2:5)
+│       │   │   ├── ReturnKeyword "return" [17..23] (2:5)
+│       │   │   │   [Trailing Trivia] WhitespaceTrivia: " "
+│       │   │   ├── NumericLiteralExpression [24..25] (2:12)
+│       │   │   │   └── NumericLiteralToken "0" [24..25] (2:12)
+│       │   │   └── SemicolonToken ";" [25..26] (2:13)
+│       │   │   └── [Trailing Trivia] CarriageReturnTrivia: "\r"
+│       │   │   └── [Trailing Trivia] EndOfLineTrivia: "\n"
+│       │   └── CloseBraceToken "}" [28..29] (3:1)
+│       │   └── [Trailing Trivia] WhitespaceTrivia: " "
+│       └── ElseClause [30..64] (3:3)
+│           ├── ElseKeyword "else" [30..34] (3:3)
+│           │   [Trailing Trivia] WhitespaceTrivia: " "
+│           └── IfStatement [35..64] (3:8)
+│               ├── IfKeyword "if" [35..37] (3:8)
+│               │   [Trailing Trivia] WhitespaceTrivia: " "
+│               ├── OpenParenToken "(" [38..39] (3:11)
+│               ├── IdentifierName [39..43] (3:12)
+│               │   └── IdentifierToken "bar" [39..42] (3:12)
+│               │   └── [Trailing Trivia] WhitespaceTrivia: " "
+│               ├── CloseParenToken ")" [43..44] (3:16)
+│               │   [Trailing Trivia] WhitespaceTrivia: " "
+│               └── Block [45..64] (3:18)
+│                   ├── OpenBraceToken "{" [45..46] (3:18)
+│                   │   [Trailing Trivia] CarriageReturnTrivia: "\r"
+│                   │   [Trailing Trivia] EndOfLineTrivia: "\n"
+│                   │   [Trailing Trivia] WhitespaceTrivia: "    "
+│                   ├── ReturnStatement [52..63] (4:5)
+│                   │   ├── ReturnKeyword "return" [52..58] (4:5)
+│                   │   │   [Trailing Trivia] WhitespaceTrivia: " "
+│                   │   ├── NumericLiteralExpression [59..60] (4:12)
+│                   │   │   └── NumericLiteralToken "1" [59..60] (4:12)
+│                   │   └── SemicolonToken ";" [60..61] (4:13)
+│                   │   └── [Trailing Trivia] CarriageReturnTrivia: "\r"
+│                   │   └── [Trailing Trivia] EndOfLineTrivia: "\n"
+│                   └── CloseBraceToken "}" [63..64] (5:1)
+└── EndOfFileToken "" [64..64] (5:2)
 ```
