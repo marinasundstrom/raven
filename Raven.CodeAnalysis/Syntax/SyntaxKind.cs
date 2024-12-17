@@ -12,8 +12,11 @@ public enum SyntaxKind
     AliasQualifiedName,
 
     NumericLiteralExpression,
-    BooleanLiteralExpression,
+    TrueLiteralExpression,
+    FalseLiteralExpression,
+    CharacterLiteralExpression,
     StringLiteralExpression,
+    NothingLiteralExpression,
 
     CompilationUnit,
 
@@ -54,9 +57,17 @@ public enum SyntaxKind
     LessThanOrEqualExpression,
     GreaterThanOrEqualExpression,
 
+    SimpleMemberAccessExpression,
+    //PointeMemberAccessExpression,
+    InvocationExpression,
+    ArgumentList,
+    Argument,
+
     // Token Kinds
     IdentifierToken,
     NumericLiteralToken,
+    CharacterLiteralToken,
+    StringLiteralToken,
 
     VoidKeyword,
     IntKeyword,
@@ -95,6 +106,7 @@ public enum SyntaxKind
     PercentToken,
     SlashToken,
     StarToken,
+    DotToken,
     CaretToken,
     ExclamationToken,
 
@@ -108,7 +120,6 @@ public enum SyntaxKind
     CarriageReturnLineFeedTrivia,
     TabTrivia,
     CommentTrivia,
-
 
     EndOfLineTrivia,
     Whitespace,

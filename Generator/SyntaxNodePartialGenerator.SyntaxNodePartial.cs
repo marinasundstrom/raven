@@ -387,7 +387,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                     return GenerateSyntaxListProperty(index++, property.ContainingType, propertyType, propertyName);
                 }
 
-                return GenerateDefaultProperty(propertyType, propertyName);
+                return GenerateDefaultProperty(property, propertyType, propertyName);
             })
             .ToArray();
 
@@ -600,11 +600,49 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                                                 })))))))));
     }
 
-    private static PropertyDeclarationSyntax GenerateDefaultProperty(TypeSyntax propertyType, SyntaxToken propertyName)
+    private static PropertyDeclarationSyntax GenerateDefaultProperty(IPropertySymbol property, TypeSyntax propertyType, SyntaxToken propertyName)
     {
-        return PropertyDeclaration(propertyType, propertyName)
-            .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
-            .AddAccessorListAccessors(
+        List<SyntaxToken> modifiers = [Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword)];
+
+        if (property.IsOverride)
+        {
+            modifiers.Insert(1, Token(SyntaxKind.OverrideKeyword));
+        }
+
+        var prop = PropertyDeclaration(propertyType, propertyName)
+            .AddModifiers(modifiers.ToArray());
+
+        if (property.Name == "Kind")
+        {
+            return prop = prop.WithExpressionBody(
+                    ArrowExpressionClause(
+                        MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            IdentifierName("Green"),
+                            IdentifierName("Kind"))))
+                .WithSemicolonToken(
+                    Token(SyntaxKind.SemicolonToken));
+        }
+
+        /*
+        prop = prop.WithAccessorList(
+                    AccessorList(
+                        List(
+                            [
+                                AccessorDeclaration(
+                                    SyntaxKind.GetAccessorDeclaration)
+                                .WithSemicolonToken(
+                                    Token(SyntaxKind.SemicolonToken)),
+                                AccessorDeclaration(
+                                    SyntaxKind.SetAccessorDeclaration)
+                                .WithModifiers(
+                                    TokenList(
+                                        Token(SyntaxKind.PrivateKeyword)))
+                                .WithSemicolonToken(
+                                    Token(SyntaxKind.SemicolonToken))])));
+        */
+
+        return prop.AddAccessorListAccessors(
                 AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
                     .WithBody(Block(
                                     SingletonList<StatementSyntax>(

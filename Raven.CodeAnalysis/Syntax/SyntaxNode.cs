@@ -223,7 +223,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
             return true;
         }
 
-        return Green.Equals(other.Green) && _syntaxTree.Equals(other._syntaxTree) && ((Object)_parent).Equals(other._parent);
+        return Green.Equals(other.Green) && ((Object)_parent).Equals(other._parent);
     }
 
     public override bool Equals(object? obj)

@@ -97,6 +97,12 @@ public class Lexer : ILexer
                     case '%':
                         return new SyntaxToken(SyntaxKind.PercentToken, chStr);
 
+                    case '.':
+                        return new SyntaxToken(SyntaxKind.DotToken, chStr);
+
+                    case ',':
+                        return new SyntaxToken(SyntaxKind.CommaToken, chStr);
+
                     case ':':
                         return new SyntaxToken(SyntaxKind.ColonToken, chStr);
 
@@ -174,6 +180,49 @@ public class Lexer : ILexer
                         }
 
                         return new SyntaxToken(SyntaxKind.Whitespace, string.Intern(new string(' ', length)));
+
+
+                    case '\'':
+                        stringBuilder = new StringBuilder();
+
+                        stringBuilder.Append(ch);
+
+                        while (PeekChar(out var ch9) && !IsEndOfLine)
+                        {
+                            stringBuilder.Append(ch9);
+                            ReadChar();
+
+                            if (PeekChar(out ch9) && ch9 == '\'')
+                            {
+                                ReadChar();
+                                stringBuilder.Append(ch9);
+                                break;
+                            }
+                        }
+
+                        return new SyntaxToken(SyntaxKind.CharacterLiteralToken, stringBuilder.ToString());
+
+
+                    case '\"':
+                        stringBuilder = new StringBuilder();
+
+                        stringBuilder.Append(ch);
+
+                        while (PeekChar(out var ch8) && ch8 != '\"' && !IsEndOfLine)
+                        {
+                            stringBuilder.Append(ch8);
+                            ReadChar();
+
+                            if (PeekChar(out ch8) && ch8 == '\"')
+                            {
+                                ReadChar();
+                                stringBuilder.Append(ch8);
+                                break;
+                            }
+                        }
+
+                        return new SyntaxToken(SyntaxKind.StringLiteralToken, stringBuilder.ToString());
+
 
                     case '\t':
                         return new SyntaxToken(SyntaxKind.TabToken, "\t");

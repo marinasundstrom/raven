@@ -1,12 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
+﻿using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Parser.Internal;
 
 using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
-using Raven.CodeAnalysis.Syntax;
-using System.Reflection.Metadata;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Parser;
 
@@ -440,6 +438,8 @@ public class SyntaxParser
     {
         ExpressionSyntax expr = ParsePrimaryExpression();
 
+        expr = AddTrailers(expr);
+
         if (Consume(SyntaxKind.CaretToken, out var token))
         {
             ExpressionSyntax right = ParseFactorExpression();
@@ -447,6 +447,65 @@ public class SyntaxParser
         }
 
         return expr;
+    }
+
+    private ExpressionSyntax AddTrailers(ExpressionSyntax expr)
+    {
+        while (true) // Loop to handle consecutive member access and invocations
+        {
+            var token = PeekToken();
+
+            if (token.Kind == SyntaxKind.OpenParenToken) // Invocation
+            {
+                var argumentList = ParseArgumentListSyntax();
+                expr = InvocationExpression(expr, argumentList);
+            }
+            else if (token.Kind == SyntaxKind.DotToken) // Member Access
+            {
+                var dotToken = ReadToken();
+                var memberName = ParseSimpleName();
+                expr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expr, dotToken, memberName);
+            }
+            else
+            {
+                // No more trailers, break out of the loop
+                break;
+            }
+        }
+
+        return expr;
+    }
+
+    private ArgumentListSyntax ParseArgumentListSyntax()
+    {
+        var openParenToken = ReadToken();
+
+        List<SyntaxNodeOrToken> argumentList = new List<SyntaxNodeOrToken>();
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.IsKind(SyntaxKind.CloseParenToken))
+                break;
+
+            var expression = ParseExpressionSyntax();
+            if (expression is null)
+                break;
+
+            argumentList.Add(Argument(expression));
+
+            var commaToken = PeekToken();
+            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            {
+                ReadToken();
+                argumentList.Add(commaToken);
+            }
+        }
+
+        ConsumeOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return ArgumentList(openParenToken, SeparatedList<ArgumentSyntax>(argumentList.ToArray()), closeParenToken);
     }
 
     /// <summary>
@@ -464,36 +523,58 @@ public class SyntaxParser
         switch (token.Kind)
         {
             case SyntaxKind.IdentifierToken:
-                expr = ParseIdentifierNameSyntax();
-                break;
+                return ParseIdentifierNameSyntax();
+
+            //return ParseIdentifierNameSyntax();
+            /*
+                expr = ParserNameOrMemberAccess(
+                    ParseIdentifierNameSyntax()
+                );
+
+                if (PeekToken().Kind == SyntaxKind.OpenParenToken)
+                {
+                    expr = InvocationExpression(expr, ParseArgumentListSyntax());
+                }
+            break;  */
 
             case SyntaxKind.TrueKeyword:
                 ReadToken();
-                expr = BooleanLiteralExpression(token);
+                expr = LiteralExpression(SyntaxKind.TrueLiteralExpression, token);
                 break;
 
             case SyntaxKind.FalseKeyword:
                 ReadToken();
-                expr = BooleanLiteralExpression(token);
+                expr = LiteralExpression(SyntaxKind.FalseLiteralExpression, token);
                 break;
-
-            /*
-        case SyntaxKind.IfKeyword:
-            expr = ParseIfThenElseExpression();
-            break;
-
-        case SyntaxKind.LetKeyword:
-            expr = ParseLetExpression();
-            break;
-            */
 
             case SyntaxKind.NumericLiteralToken:
                 expr = ParseNumericLiteralExpressionSyntax();
                 break;
 
+            case SyntaxKind.StringLiteralToken:
+                ReadToken();
+                expr = LiteralExpression(SyntaxKind.StringLiteralExpression, token);
+                break;
+
+            case SyntaxKind.CharacterLiteralToken:
+                ReadToken();
+                expr = LiteralExpression(SyntaxKind.CharacterLiteralExpression, token);
+                break;
+
             case SyntaxKind.OpenParenToken:
                 expr = ParseParenthesisExpression();
                 break;
+        }
+
+        return expr;
+    }
+
+    private ExpressionSyntax ParserNameOrMemberAccess(ExpressionSyntax? expr = null)
+    {
+        expr ??= ParseIdentifierNameSyntax();
+        while (Consume(SyntaxKind.DotToken, out var dotToken))
+        {
+            expr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expr, dotToken, ParseSimpleName());
         }
 
         return expr;
@@ -523,7 +604,7 @@ public class SyntaxParser
         var token = ReadToken();
         if (token.IsKind(SyntaxKind.NumericLiteralToken))
         {
-            return LiteralExpression(token);
+            return LiteralExpression(SyntaxKind.NumericLiteralExpression, token);
         }
 
         throw new Exception();

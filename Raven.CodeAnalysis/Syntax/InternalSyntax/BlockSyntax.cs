@@ -1,6 +1,5 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-
 public partial class BlockSyntax : StatementSyntax
 {
     public BlockSyntax(

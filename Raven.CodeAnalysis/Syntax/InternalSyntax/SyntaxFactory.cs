@@ -44,6 +44,7 @@ public static class SyntaxFactory
     public static readonly SyntaxToken PercentToken = new SyntaxToken(SyntaxKind.PercentToken, "%");
     public static readonly SyntaxToken SlashToken = new SyntaxToken(SyntaxKind.SlashToken, "/");
     public static readonly SyntaxToken StarToken = new SyntaxToken(SyntaxKind.StarToken, "*");
+    public static readonly SyntaxToken DotToken = new SyntaxToken(SyntaxKind.DotToken, ".");
     public static readonly SyntaxToken CaretToken = new SyntaxToken(SyntaxKind.CaretToken, "^");
     public static readonly SyntaxToken ExclamationToken = new SyntaxToken(SyntaxKind.ExclamationToken, "!");
 

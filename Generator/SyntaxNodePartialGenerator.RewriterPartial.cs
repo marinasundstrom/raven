@@ -36,6 +36,11 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                     Token(SyntaxKind.DotToken),
                     IdentifierName(childPropertyName));
 
+            if (property.Name == "Kind")
+            {
+                return Argument(accessNodeChild);
+            }
+
             var isList = propertyType.ToString().Contains("SyntaxList");
 
             var updateMethodNameStr = isList

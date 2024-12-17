@@ -43,6 +43,7 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken PercentToken = (SyntaxToken)InternalSyntax.SyntaxFactory.PercentToken;
     public static readonly SyntaxToken SlashToken = (SyntaxToken)InternalSyntax.SyntaxFactory.SlashToken;
     public static readonly SyntaxToken StarToken = (SyntaxToken)InternalSyntax.SyntaxFactory.StarToken;
+    public static readonly SyntaxToken DotToken = (SyntaxToken)InternalSyntax.SyntaxFactory.DotToken;
     public static readonly SyntaxToken CaretToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CaretToken;
     public static readonly SyntaxToken ExclamationToken = (SyntaxToken)InternalSyntax.SyntaxFactory.ExclamationToken;
 

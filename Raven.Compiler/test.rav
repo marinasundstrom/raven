@@ -3,4 +3,5 @@ let x : int = 2
 if (x > 2) {
     return (6 + 2) * 2;
 } else
-    return 1;
+    return foo.bar(2)
+        .GetId(1, z + 2, "Foo");
