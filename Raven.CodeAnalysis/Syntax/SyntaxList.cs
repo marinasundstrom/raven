@@ -61,25 +61,38 @@ public struct SyntaxList : IEnumerable<SyntaxNode>
     {
         return HashCode.Combine(Green, _parent);
     }
-}
 
-public class SyntaxListItem
-{
-    internal readonly GreenNode Green;
-    private readonly SyntaxNode _parent;
-    private readonly int _index;
-    private readonly int _position;
-
-    public SyntaxListItem(GreenNode node, SyntaxNode parent, int index, int position)
+    public struct SyntaxListItem
     {
-        Green = node ?? throw new ArgumentNullException(nameof(node));
-        _parent = parent;
-        _index = index;
-        _position = position;
-    }
+        internal readonly GreenNode Green;
+        private readonly SyntaxNode _parent;
+        private readonly int _index;
+        private readonly int _position;
 
-    public bool IsToken => Green is InternalSyntax.SyntaxToken;
-    public bool IsNode => Green is InternalSyntax.SyntaxNode;
-    public SyntaxToken Token => Green as InternalSyntax.SyntaxToken != null ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent, _position + Green.GetChildStartPosition(_index)) : default;
-    public SyntaxNode Node => Green is InternalSyntax.SyntaxNode ? Green.CreateRed(_parent, _position + Green.GetChildStartPosition(_index)) : null;
+        public SyntaxListItem(GreenNode node, SyntaxNode parent, int index, int position)
+        {
+            Green = node ?? throw new ArgumentNullException(nameof(node));
+            _parent = parent;
+            _index = index;
+            _position = position;
+        }
+
+        public bool IsToken => Green is InternalSyntax.SyntaxToken;
+        public bool IsNode => Green is InternalSyntax.SyntaxNode;
+
+        public SyntaxToken Token => Green as InternalSyntax.SyntaxToken != null
+            ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent,
+                _position + Green.GetChildStartPosition(_index))
+            : default;
+
+        public SyntaxNode? Node
+        {
+            get
+            {
+                return Green is InternalSyntax.SyntaxNode
+                    ? Green.CreateRed(_parent, _position + Green.GetChildStartPosition(_index))
+                    : null;
+            }
+        }
+    }
 }

@@ -24,7 +24,8 @@ public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
         get
         {
             var childGreenNode = Green[index];
-            return (TNode)((InternalSyntax.SyntaxNode)childGreenNode).CreateRed(_parent, _position + Green.GetChildStartPosition(index));
+            return (TNode)((InternalSyntax.SyntaxNode)childGreenNode).CreateRed(_parent,
+                _position + Green.GetChildStartPosition(index));
         }
     }
 
@@ -60,32 +61,42 @@ public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
     {
         return HashCode.Combine(Green, _parent);
     }
-}
 
-public class SyntaxListItem<TNode>
-{
-    internal readonly GreenNode Green;
-    private readonly SyntaxNode _parent;
-    private readonly int _index;
-    private readonly int _position;
-
-    public SyntaxListItem(GreenNode node, SyntaxNode parent, int index, int position)
+    private struct SyntaxListItem<TNode>
     {
-        Green = node ?? throw new ArgumentNullException(nameof(node));
-        _parent = parent;
-        _index = index;
-        _position = position;
-    }
+        internal readonly GreenNode Green;
+        private readonly SyntaxNode _parent;
+        private readonly int _index;
+        private readonly int _position;
 
-    public bool IsToken => Green is InternalSyntax.SyntaxToken;
-    public bool IsNode => Green is InternalSyntax.SyntaxNode;
-
-    public SyntaxToken Token => IsToken ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent, _position + Green.GetChildStartPosition(_index)) : default;
-    public TNode? Node
-    {
-        get
+        public SyntaxListItem(GreenNode node, SyntaxNode parent, int index, int position)
         {
-            return IsNode ? (TNode?)(object?)SyntaxNodeCache.GetValue(Green, (s) => s.CreateRed(_parent, _position + Green.GetChildStartPosition(_index))) : default;
+            Green = node ?? throw new ArgumentNullException(nameof(node));
+            _parent = parent;
+            _index = index;
+            _position = position;
+        }
+
+        public bool IsToken => Green is InternalSyntax.SyntaxToken;
+        public bool IsNode => Green is InternalSyntax.SyntaxNode;
+
+        public SyntaxToken Token => IsToken
+            ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent,
+                _position + Green.GetChildStartPosition(_index))
+            : default;
+
+        public TNode? Node
+        {
+            get
+            {
+                var parent = _parent;
+                var position = _position + Green.GetChildStartPosition(_index); 
+                
+                return IsNode
+                    ? (TNode?)(object?)SyntaxNodeCache.GetValue(Green,
+                        (s) => s.CreateRed(parent, position))
+                    : default;
+            }
         }
     }
 }
