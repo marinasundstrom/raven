@@ -61,7 +61,7 @@ public class SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         for (int i = 0; i < Green.SlotCount; i++)
         {
             var node = Green.GetSlot(i);
-            yield return new SyntaxNodeOrToken(node, _parent, i, Green.GetChildStartPosition(i));
+            yield return new SyntaxNodeOrToken(node, _parent, i, _position + Green.GetChildStartPosition(i));
         }
     }
 

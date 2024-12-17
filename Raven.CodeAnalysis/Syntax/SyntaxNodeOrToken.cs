@@ -31,16 +31,20 @@ public struct SyntaxNodeOrToken
     public bool IsNode => Green is InternalSyntax.SyntaxNode;
     public SyntaxToken Token => IsToken ? new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent, _position) : default;
 
+    //public SyntaxNode? Node => IsNode ? Green.CreateRed(_parent, _position) : default;
+
     public SyntaxNode? Node
     {
         get
         {
-            int i = _position;
-            SyntaxNode? node = _parent;
+            int position = _position;
+            SyntaxNode? parent = _parent;
+            GreenNode? green = Green;
 
-            return IsNode ? SyntaxNodeCache.GetValue(Green, (s) => s.CreateRed(node, i)) : default;
+            return IsNode ? SyntaxNodeCache.GetValue(Green, (s) => s.CreateRed(parent, position)) : default;
         }
     }
+
 
     public bool AsToken(out SyntaxToken token)
     {
