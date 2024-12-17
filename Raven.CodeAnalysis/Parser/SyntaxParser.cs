@@ -48,7 +48,7 @@ public class SyntaxParser
             .WithEndOfFileToken(EndOfFile);
     }
 
-    public StatementSyntax? ParseStatementSyntax()
+    private StatementSyntax? ParseStatementSyntax()
     {
         var token = PeekToken();
 
@@ -102,7 +102,7 @@ public class SyntaxParser
         return ExpressionStatement(expression);
     }
 
-    public LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()
+    private LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()
     {
         var declaration = ParseVariableDeclarationSyntax();
 
@@ -229,7 +229,7 @@ public class SyntaxParser
         return ParseOrExpression();
     }
 
-    public BlockSyntax? ParseBlockSyntax()
+    private BlockSyntax? ParseBlockSyntax()
     {
         if (Consume(SyntaxKind.OpenBraceToken, out var openBraceToken))
         {
