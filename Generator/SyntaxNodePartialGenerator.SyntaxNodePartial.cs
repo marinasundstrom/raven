@@ -251,6 +251,11 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
         foreach (var property in properties)
         {
+            if (property.Name == "Kind")
+            {
+                continue;
+            }
+
             if (!IsSyntaxNodeOrDerivative(property.Type))
             {
                 index++;

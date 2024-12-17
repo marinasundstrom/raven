@@ -197,7 +197,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var right = Visit(node.RightHandSide);
 
-        return node.Update(left, operatorToken, right);
+        return node.Update(node.Kind, left, operatorToken, right);
     }
 
     public override SyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node)

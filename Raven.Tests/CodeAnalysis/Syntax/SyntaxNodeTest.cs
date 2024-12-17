@@ -16,7 +16,7 @@ public class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
                 .WithTrailingTrivia(LineFeed),
             List<StatementSyntax>(
                 ReturnStatement(ReturnKeyword.WithLeadingTrivia(Whitespace("    ")),
-                    LiteralExpression(NumericLiteral(42).WithLeadingTrivia(Whitespace(" "))),
+                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42).WithLeadingTrivia(Whitespace(" "))),
                     SemicolonToken.WithTrailingTrivia(LineFeed))
                     .WithTrailingTrivia(LineFeed)
             ),

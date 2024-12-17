@@ -17,7 +17,7 @@ public class SyntaxVisitorTest(ITestOutputHelper testOutputHelper)
                     IdentifierName("y")),
                 statement: Block(SingletonList<StatementSyntax>(
                     ReturnStatement(
-                        LiteralExpression(2))
+                        LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(2)))
                 )));
         /*
         var visitor = new TestSyntaxVisitor();

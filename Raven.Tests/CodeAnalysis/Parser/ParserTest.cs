@@ -117,7 +117,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         var root = syntaxTree.GetRoot();
 
-        var x = root.DescendantNodes().OfType<NumericLiteralExpressionSyntax>().First();
+        var x = root.DescendantNodes().OfType<LiteralExpressionSyntax>().First();
 
         root = (CompilationUnitSyntax)root.ReplaceNode(x, IdentifierName("c"));
 

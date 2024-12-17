@@ -17,14 +17,14 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                     IdentifierName("y")),
                 statement: Block(SingletonList<StatementSyntax>(
                     ReturnStatement(
-                        LiteralExpression(2))
+                        LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(2)))
                 )));
 
         var ifStatementWithElseClause = ifStatement
                 .WithElseClause(
                     ElseClause(
                         ReturnStatement(
-                            LiteralExpression(2))));
+                            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(2)))));
 
         var methodDeclaration = MethodDeclaration(
                 ParseTypeName("test"),
@@ -122,7 +122,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 VariableDeclarator(
                     IdentifierName("foo"),
                     TypeAnnotation(ParseTypeName("int")),
-                    EqualsValueClause(LiteralExpression(20)))
+                    EqualsValueClause(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(20))))
             ])));
     }
 
@@ -136,7 +136,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 IdentifierName("y")),
             statement: Block(List<StatementSyntax>(
                 ReturnStatement(
-                    LiteralExpression(2))
+                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(2)))
             )));
 
         var str = ifStatement.ToString();
@@ -151,7 +151,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                 .WithElseClause(
                     ElseClause(
                         ReturnStatement(
-                            LiteralExpression(1))));
+                            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(1)))));
 
         var methodDeclaration = MethodDeclaration(
                 ParseTypeName("int"),
@@ -179,12 +179,12 @@ public class AstTest(ITestOutputHelper testOutputHelper)
                                         VariableDeclarator(
                                             IdentifierName("foo"),
                                             TypeAnnotation(ParseTypeName("int")),
-                                            EqualsValueClause(LiteralExpression(20))),
+                                            EqualsValueClause(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(20)))),
                                         CommaToken,
                                         VariableDeclarator(
                                             IdentifierName("foo2"),
                                             TypeAnnotation(ParseTypeName("string")),
-                                            EqualsValueClause(LiteralExpression(20)))
+                                            EqualsValueClause(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42))))
                             ]))),
                             methodDeclaration)).WithImports(
                                 List(
