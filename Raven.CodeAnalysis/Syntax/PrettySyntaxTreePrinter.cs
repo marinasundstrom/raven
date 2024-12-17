@@ -45,7 +45,7 @@ public static class PrettySyntaxTreePrinter
                     // Leading trivia
                     foreach (var trivia in token.LeadingTrivia)
                     {
-                        sb.AppendLine($"{newIndent}{(isChildLast ? "└── " : "│   ")}[Leading Trivia] {trivia.Kind}: \"{TriviaToString(trivia)}\"");
+                        sb.AppendLine($"{newIndent}{(isChildLast ? "    " : "│   ")}[Leading Trivia] {trivia.Kind}: \"{TriviaToString(trivia)}\"");
                     }
                 }
 
@@ -58,7 +58,7 @@ public static class PrettySyntaxTreePrinter
                     // Trailing trivia
                     foreach (var trivia in token.TrailingTrivia)
                     {
-                        sb.AppendLine($"{newIndent}{(isChildLast ? "└── " : "│   ")}[Trailing Trivia] {trivia.Kind}: \"{TriviaToString(trivia)}\"");
+                        sb.AppendLine($"{newIndent}{(isChildLast ? "    " : "│   ")}[Trailing Trivia] {trivia.Kind}: \"{TriviaToString(trivia)}\"");
                     }
                 }
             }
