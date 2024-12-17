@@ -114,6 +114,10 @@ public class SyntaxTree
 
     public SourceText? GetText()
     {
+        if (_sourceText is null)
+        {
+            _sourceText = SourceText.From(GetRoot().ToFullString());
+        }
         return _sourceText;
     }
 
@@ -123,6 +127,10 @@ public class SyntaxTree
         {
             text = _sourceText;
             return true;
+        }
+        if (_sourceText is null)
+        {
+            _sourceText = SourceText.From(GetRoot().ToFullString());
         }
         text = null;
         return false;

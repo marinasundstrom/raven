@@ -56,17 +56,15 @@ CompilationUnit [0..64] (1:1)
 │       │   [Trailing Trivia] WhitespaceTrivia: "  "
 │       ├── Block [10..30] (1:11)
 │       │   ├── OpenBraceToken "{" [10..11] (1:11)
-│       │   │   [Trailing Trivia] CarriageReturnTrivia: "\r"
-│       │   │   [Trailing Trivia] EndOfLineTrivia: "\n"
-│       │   │   [Trailing Trivia] WhitespaceTrivia: "    "
-│       │   ├── ReturnStatement [17..28] (2:5)
+│       │   │   [Trailing Trivia] CarriageReturnLineFeedTrivia: "\r\n"
+│       │   ├── ReturnStatement [17..32] (2:5)
+│       │   │   │   [Leading Trivia] WhitespaceTrivia: "    "
 │       │   │   ├── ReturnKeyword "return" [17..23] (2:5)
 │       │   │   │   [Trailing Trivia] WhitespaceTrivia: " "
 │       │   │   ├── NumericLiteralExpression [24..25] (2:12)
 │       │   │   │   └── NumericLiteralToken "0" [24..25] (2:12)
 │       │   │   └── SemicolonToken ";" [25..26] (2:13)
-│       │   │   └── [Trailing Trivia] CarriageReturnTrivia: "\r"
-│       │   │   └── [Trailing Trivia] EndOfLineTrivia: "\n"
+│       │   │   └── [Trailing Trivia] CarriageReturnLineFeedTrivia: "\r\n"
 │       │   └── CloseBraceToken "}" [28..29] (3:1)
 │       │   └── [Trailing Trivia] WhitespaceTrivia: " "
 │       └── ElseClause [30..64] (3:3)
@@ -83,17 +81,15 @@ CompilationUnit [0..64] (1:1)
 │               │   [Trailing Trivia] WhitespaceTrivia: " "
 │               └── Block [45..64] (3:18)
 │                   ├── OpenBraceToken "{" [45..46] (3:18)
-│                   │   [Trailing Trivia] CarriageReturnTrivia: "\r"
-│                   │   [Trailing Trivia] EndOfLineTrivia: "\n"
-│                   │   [Trailing Trivia] WhitespaceTrivia: "    "
-│                   ├── ReturnStatement [52..63] (4:5)
+│                   │   [Trailing Trivia] CarriageReturnLineFeedTrivia: "\r\n"
+│                   ├── ReturnStatement [52..67] (4:5)
+│                   │   │   [Leading Trivia] WhitespaceTrivia: "    "
 │                   │   ├── ReturnKeyword "return" [52..58] (4:5)
 │                   │   │   [Trailing Trivia] WhitespaceTrivia: " "
 │                   │   ├── NumericLiteralExpression [59..60] (4:12)
 │                   │   │   └── NumericLiteralToken "1" [59..60] (4:12)
 │                   │   └── SemicolonToken ";" [60..61] (4:13)
-│                   │   └── [Trailing Trivia] CarriageReturnTrivia: "\r"
-│                   │   └── [Trailing Trivia] EndOfLineTrivia: "\n"
+│                   │   └── [Trailing Trivia] CarriageReturnLineFeedTrivia: "\r\n"
 │                   └── CloseBraceToken "}" [63..64] (5:1)
 └── EndOfFileToken "" [64..64] (5:2)
 ```

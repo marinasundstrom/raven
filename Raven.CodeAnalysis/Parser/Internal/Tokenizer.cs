@@ -48,16 +48,16 @@ public class Tokenizer
         SyntaxTriviaList leadingTrivia;
         SyntaxTriviaList trailingTrivia;
 
-        leadingTrivia = ReadTrivia();
+        leadingTrivia = ReadTrivia(isTrailingTrivia: false);
 
         token = lexer.ReadToken();
 
-        trailingTrivia = ReadTrivia();
+        trailingTrivia = ReadTrivia(isTrailingTrivia: true);
 
         return new Syntax.InternalSyntax.SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia);
     }
 
-    private SyntaxTriviaList ReadTrivia()
+    private SyntaxTriviaList ReadTrivia(bool isTrailingTrivia)
     {
         List<SyntaxTrivia> trivia = [];
 
@@ -65,27 +65,60 @@ public class Tokenizer
         {
             var token = lexer.PeekToken();
 
-            switch (token)
+            switch (token.Kind)
             {
-                case Syntax.InternalSyntax.SyntaxToken it when it.Kind == SyntaxKind.TabToken:
+                case SyntaxKind.TabToken:
                     lexer.ReadToken();
                     trivia.Add(new SyntaxTrivia(SyntaxKind.TabTrivia, token.Text));
                     continue;
-
-                case Syntax.InternalSyntax.SyntaxToken it when it.Kind == SyntaxKind.Whitespace:
+                case SyntaxKind.Whitespace:
                     lexer.ReadToken();
                     trivia.Add(new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text));
                     continue;
 
-                case Syntax.InternalSyntax.SyntaxToken it when it.Kind == SyntaxKind.EndOfLineToken:
-                    lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
-                    continue;
+                case SyntaxKind.EndOfLineToken:
+                    {
+                        Syntax.InternalSyntax.SyntaxToken peeked;
+                        do
+                        {
+                            lexer.ReadToken();
+                            trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
+                            peeked = lexer.PeekToken();
+                        } while (peeked.Kind == SyntaxKind.EndOfLineToken);
 
-                case Syntax.InternalSyntax.SyntaxToken it when it.Kind == SyntaxKind.CarriageReturnToken:
-                    lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.CarriageReturnTrivia, token.Text));
-                    continue;
+                        if (isTrailingTrivia)
+                        {
+                            break;
+                        }
+                        continue;
+                    }
+                case SyntaxKind.CarriageReturnToken:
+                    {
+                        Syntax.InternalSyntax.SyntaxToken peeked2;
+                        do
+                        {
+                            lexer.ReadToken();
+                            var next = lexer.PeekToken();
+                            if (next.Kind == SyntaxKind.EndOfLineToken)
+                            {
+                                lexer.ReadToken();
+                                trivia.Add(
+                                    new SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, token.Text + next.Text));
+                            }
+                            else
+                            {
+                                trivia.Add(new SyntaxTrivia(SyntaxKind.CarriageReturnTrivia, token.Text));
+                            }
+
+                            peeked2 = lexer.PeekToken();
+                        } while (peeked2.Kind == SyntaxKind.CarriageReturnToken);
+
+                        if (isTrailingTrivia)
+                        {
+                            break;
+                        }
+                        continue;
+                    }
             }
 
             break;

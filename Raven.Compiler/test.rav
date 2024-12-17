@@ -1,6 +1,6 @@
 let x : int = 2
 
-if (x > 2) {
+if (x > 2 ) {
     return (6 + 2) * 2;
 } else
     return foo.bar(2)

@@ -15,16 +15,17 @@ public class Test2(ITestOutputHelper testOutputHelper)
     public void ParseIfStatement()
     {
         var code = """
-                   let x;
+                   if (foo)  {
+                       return 0;
+                   } else if (bar ) {
+                       return 1;
+                   }
                    """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
         var root = syntaxTree.GetRoot();
-
-        var x = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
-        var z = x.GetFirstToken();
-
+        
         var str = root.ToFullString();
 
         testOutputHelper.WriteLine(str);
