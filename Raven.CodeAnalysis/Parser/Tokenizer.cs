@@ -1,9 +1,10 @@
-﻿using Raven.CodeAnalysis.Syntax.InternalSyntax;
+﻿using Raven.CodeAnalysis.Parser.Internal;
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
 using SyntaxToken = Raven.CodeAnalysis.Syntax.SyntaxToken;
 
-namespace Raven.CodeAnalysis.Parser.Internal;
+namespace Raven.CodeAnalysis.Parser;
 
 public class Tokenizer
 {

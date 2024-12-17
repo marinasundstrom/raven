@@ -1,18 +1,11 @@
 using System.Collections;
-using System.Text;
 
-using Raven.CodeAnalysis.Parser.Internal;
+using Raven.CodeAnalysis.Parser;
 using Raven.CodeAnalysis.Syntax;
 
 using Shouldly;
 
-using Xunit;
-using Xunit.Abstractions;
-
 namespace Raven.CodeAnalysis.Tests;
-
-using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
-
 public class TokenizerTest(ITestOutputHelper testOutputHelper)
 {
     [Fact]
