@@ -12,6 +12,7 @@ public class SyntaxVisitorTest(ITestOutputHelper testOutputHelper)
     {
         var ifStatement = IfStatement(
                 condition: BinaryExpression(
+                    SyntaxKind.GreaterThanExpression,
                     IdentifierName("x"),
                     GreaterThanToken,
                     IdentifierName("y")),

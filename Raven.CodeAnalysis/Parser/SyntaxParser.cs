@@ -259,9 +259,58 @@ public class SyntaxParser
         SyntaxToken token;
         while (Consume(SyntaxKind.OrToken, out token))
         {
-            ret = BinaryExpression(ret, token, ParseAndExpression());
+            ret = BinaryExpression(SyntaxKind.LogicalOrExpression, ret, token, ParseAndExpression());
         }
         return ret;
+    }
+    
+    private SyntaxKind GetBinaryExpressionKind(SyntaxToken operatorToken)
+    {
+        switch (operatorToken.Kind)
+        {
+            case SyntaxKind.PlusToken:
+                return SyntaxKind.AddExpression;
+
+            case SyntaxKind.MinusToken:
+                return SyntaxKind.SubtractExpression;
+
+            case SyntaxKind.StarToken:
+                return SyntaxKind.MultiplyExpression;
+
+            case SyntaxKind.SlashToken:
+                return SyntaxKind.DivideExpression;
+
+            case SyntaxKind.PercentToken:
+                return SyntaxKind.ModuloExpression;
+
+            case SyntaxKind.EqualsToken:
+                return SyntaxKind.EqualsExpression;
+
+            case SyntaxKind.NotEqualsToken:
+                return SyntaxKind.NotEqualsExpression;
+
+            case SyntaxKind.LessThanEqualsToken:
+                return SyntaxKind.LessThanExpression;
+
+            case SyntaxKind.GreaterThanToken:
+                return SyntaxKind.GreaterThanExpression;
+
+            case SyntaxKind.LessThanOrEqualExpression:
+                return SyntaxKind.LessThanOrEqualExpression;
+
+            case SyntaxKind.GreaterOrEqualsToken:
+                return SyntaxKind.GreaterThanOrEqualExpression;
+           
+            /*
+            case SyntaxKind.LogicalAndToken:
+                return SyntaxKind.LogicalAndExpression;
+            
+            case SyntaxKind.LogicalOrToken:
+                return SyntaxKind.LogicalOrExpression;
+            */
+        }
+
+        throw new ArgumentException("Kind is not valid for this expression.");
     }
 
     private ExpressionSyntax ParseAndExpression()
@@ -270,7 +319,7 @@ public class SyntaxParser
         SyntaxToken token;
         while (Consume(SyntaxKind.AndToken, out token))
         {
-            ret = BinaryExpression(ret, token, ParseAndExpression());
+            ret = BinaryExpression(SyntaxKind.LogicalAndExpression, ret, token, ParseAndExpression());
         }
         return ret;
     }
@@ -313,7 +362,7 @@ public class SyntaxParser
                     return expr;
             }
             ExpressionSyntax rhs = ParseComparisonExpression();
-            expr = BinaryExpression(expr, token, rhs);
+            expr = BinaryExpression(GetBinaryExpressionKind(token), expr, token, rhs);
         }
     }
 
@@ -339,7 +388,7 @@ public class SyntaxParser
             if (prec >= precedence)
             {
                 var right = ParseExpressionCore(prec + 1);
-                expr = BinaryExpression(expr, operatorCandidate, right);
+                expr = BinaryExpression(GetBinaryExpressionKind(operatorCandidate),expr, operatorCandidate, right);
             }
             else
             {
@@ -443,7 +492,7 @@ public class SyntaxParser
         if (Consume(SyntaxKind.CaretToken, out var token))
         {
             ExpressionSyntax right = ParseFactorExpression();
-            expr = BinaryExpression(expr, token, right);
+            expr = BinaryExpression(SyntaxKind.PowerExpression,  expr, token, right);
         }
 
         return expr;
