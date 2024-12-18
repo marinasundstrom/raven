@@ -408,7 +408,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                 }
                 else if (IsSyntaxList(property.Type) || IsSeparatedSyntaxList(property.Type))
                 {
-                    return GenerateSyntaxListProperty(index++, property.ContainingType, propertyType, propertyName);
+                    return GenerateSyntaxListProperty(index++, property, property.ContainingType, propertyType, propertyName);
                 }
 
                 return GenerateDefaultProperty(property, propertyType, propertyName);
@@ -538,13 +538,20 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                         Token(SyntaxKind.SemicolonToken));
     }
 
-    private static PropertyDeclarationSyntax GenerateSyntaxListProperty(int index, INamedTypeSymbol type, TypeSyntax propertyType, SyntaxToken propertyName)
+    private static PropertyDeclarationSyntax GenerateSyntaxListProperty(int index, IPropertySymbol property, INamedTypeSymbol type, TypeSyntax propertyType, SyntaxToken propertyName)
     {
         var targetGreenNodeType = propertyType.ToString().Contains("Separated") ?
             "SeparatedSyntaxList" : "SyntaxList";
 
+        List<SyntaxToken> modifiers = [Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword)];
+
+        if (property.IsOverride)
+        {
+            modifiers.Insert(1, Token(SyntaxKind.OverrideKeyword));
+        }
+
         return PropertyDeclaration(propertyType, propertyName)
-            .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
+            .AddModifiers(modifiers.ToArray())
             .WithAccessorList(
                     AccessorList(
                         SingletonList<AccessorDeclarationSyntax>(

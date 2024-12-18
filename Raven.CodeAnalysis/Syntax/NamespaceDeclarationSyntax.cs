@@ -4,13 +4,13 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 {
     public partial SyntaxToken NamespaceKeyword { get; }
 
-    public partial IdentifierNameSyntax Name { get; }
+    public override partial NameSyntax Name { get; }
 
     public partial SyntaxToken OpenBraceToken { get; }
 
-    public partial SyntaxList<ImportDirectiveSyntax> Imports { get; }
+    public override partial SyntaxList<ImportDirectiveSyntax> Imports { get; }
 
-    public partial SyntaxList<MemberDeclarationSyntax> Members { get; }
+    public override partial SyntaxList<MemberDeclarationSyntax> Members { get; }
 
     public partial SyntaxToken CloseBraceToken { get; }
 

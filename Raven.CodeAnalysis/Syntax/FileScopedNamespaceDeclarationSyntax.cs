@@ -4,13 +4,13 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
 {
     public partial SyntaxToken NamespaceKeyword { get; }
 
-    public partial NameSyntax Name { get; }
+    public override partial NameSyntax Name { get; }
 
     public partial SyntaxToken SemicolonToken { get; }
 
-    public partial SyntaxList<ImportDirectiveSyntax> Imports { get; }
+    public override partial SyntaxList<ImportDirectiveSyntax> Imports { get; }
 
-    public partial SyntaxList<MemberDeclarationSyntax> Members { get; }
+    public override partial SyntaxList<MemberDeclarationSyntax> Members { get; }
 
     internal FileScopedNamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
         : base(greenNode, parent, position)

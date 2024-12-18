@@ -18,7 +18,7 @@ public class SemanticModel
 
         CreateModel();
     }
-    
+
     public Compilation Compilation { get; }
 
     public SyntaxTree SyntaxTree { get; }
@@ -45,7 +45,26 @@ public class SemanticModel
 
     private void AnalyzeMemberDeclaration(ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
     {
-        if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
+        if (memberDeclaration is BaseNamespaceDeclarationSyntax namespaceDeclarationSyntax)
+        {
+            Location[] locations = [SyntaxTree.GetLocation(namespaceDeclarationSyntax.Span)];
+
+            SyntaxReference[] references = [new SyntaxReference(SyntaxTree, namespaceDeclarationSyntax.Span)];
+
+            ITypeSymbol typeSymbol = null!;
+
+            var symbol = new SourceNamespaceSymbol(
+                namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, null!, (INamespaceSymbol?)declaringSymbol,
+                locations, references);
+
+            _symbols.Add(symbol);
+
+            foreach (var memberDeclaration2 in namespaceDeclarationSyntax.Members)
+            {
+                AnalyzeMemberDeclaration(symbol, memberDeclaration2);
+            }
+        }
+        else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
             Location[] locations = [SyntaxTree.GetLocation(methodDeclaration.Span)];
 
@@ -122,7 +141,7 @@ public class SemanticModel
     {
         Console.WriteLine(expression.SyntaxTree);
     }
-    
+
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
         var symbols = _symbols.Where(x => x.DeclaringSyntaxReferences.Any(x2 => x2.GetSyntax() == node));
