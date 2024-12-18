@@ -645,18 +645,6 @@ public class SyntaxParser
             case SyntaxKind.IdentifierToken:
                 return ParseIdentifierNameSyntax();
 
-            //return ParseIdentifierNameSyntax();
-            /*
-                expr = ParserNameOrMemberAccess(
-                    ParseIdentifierNameSyntax()
-                );
-
-                if (PeekToken().Kind == SyntaxKind.OpenParenToken)
-                {
-                    expr = InvocationExpression(expr, ParseArgumentListSyntax());
-                }
-            break;  */
-
             case SyntaxKind.TrueKeyword:
                 ReadToken();
                 expr = LiteralExpression(SyntaxKind.TrueLiteralExpression, token);
@@ -684,17 +672,6 @@ public class SyntaxParser
             case SyntaxKind.OpenParenToken:
                 expr = ParseParenthesisExpression();
                 break;
-        }
-
-        return expr;
-    }
-
-    private ExpressionSyntax ParserNameOrMemberAccess(ExpressionSyntax? expr = null)
-    {
-        expr ??= ParseIdentifierNameSyntax();
-        while (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
-        {
-            expr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expr, dotToken, ParseSimpleName());
         }
 
         return expr;
