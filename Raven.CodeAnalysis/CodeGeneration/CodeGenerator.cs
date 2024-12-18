@@ -12,6 +12,16 @@ public class CodeGenerator
     PersistedAssemblyBuilder assemblyBuilder;
     ModuleBuilder moduleBuilder;
 
+    IEnumerable<string> versions = [
+        ".NETStandard,Version=v2.0",
+        ".NETStandard,Version=v2.1",
+        ".NETFramework,Version=v7.8",
+        ".NETCoreApp,Version=v6.0",
+        ".NETCoreApp,Version=v7.0",
+        ".NETCoreApp,Version=v8.0",
+        ".NETCoreApp,Version=v9.0"
+    ];
+
     public void Generate(Compilation compilation, string assemblyPath)
     {
         string assemblyNameStr = Path.GetFileNameWithoutExtension(assemblyPath);
@@ -19,7 +29,12 @@ public class CodeGenerator
         var assemblyName = new AssemblyName(assemblyNameStr);
         assemblyName.Version = new Version(1, 0, 0, 0);
 
-        assemblyBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly);
+        var targetFrameworkAttribute = new CustomAttributeBuilder(
+            typeof(System.Runtime.Versioning.TargetFrameworkAttribute).GetConstructor([typeof(string)]),
+            [".NETCoreApp,Version=v9.0"] // Replace with your version
+        );
+
+        assemblyBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, [targetFrameworkAttribute]);
 
         moduleBuilder = assemblyBuilder.DefineDynamicModule("MyModule");
 
