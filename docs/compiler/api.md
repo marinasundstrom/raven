@@ -10,7 +10,6 @@ In this section we will walk through how to do basic syntax analysis.
 
 Assuming you want to parse source code into a syntax tree, this example shows you how to:
 
-
 ```csharp
 let x : int = 2
 
@@ -32,19 +31,142 @@ var root = syntaxTree.GetRoot();
 
 ### Turn syntax tree into source code
 
-If you want to turn the tree into source code:
+If you want to turn the tree back into source code:
 
 ```
 var sourceCode = root.ToFullString();
 ```
 
-### Print the syntax hierarchy
+Will output this again:
+
+```csharp
+let x : int = 2
+
+if (x > 2) {
+    return (6 + 2) * 2;
+} else
+    return foo.bar(2)
+        .GetId(1, z + 2, "Foo");
+```
+
+### Modifying syntax tree
+
+Updating a `SyntaxNode` creates a new node, in a detached state, without a parent.
+
+```csharp
+var sourceCode =
+                """
+                let x : int = "foo";
+                """;
+
+var syntaxTree = SyntaxTree.ParseText(sourceCode);
+
+var root = syntaxTree.GetRoot();
+
+// Visualize the parsed code
+root.PrintSyntaxTree(includeTrivia: true);
+
+var oldNode = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+
+var newNode = oldNode.WithName(
+    SyntaxFactory.IdentifierName("Foo"));
+
+// Visualize the changed node
+newNode.PrintSyntaxTree(includeTrivia: true);
+
+// Print the resulting code
+Console.WriteLine(newNode.ToFullString());
+
+Console.WriteLine(newNode.Parent is null); // true
+```
+
+If you want to change a entire tree then perform node replacement from the root (i.e. `CompilationUnit`).
+
+```csharp
+using Raven.CodeAnalysis.Syntax;
+
+var sourceCode =
+                """
+                let x : int = "foo";
+                """;
+
+var syntaxTree = SyntaxTree.ParseText(sourceCode);
+
+var root = syntaxTree.GetRoot();
+
+// Visualize the parsed code
+root.PrintSyntaxTree(includeTrivia: true);
+
+var oldNode = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+
+var newNode = oldNode.WithInitializer(
+    SyntaxFactory.EqualsValueClause(
+        SyntaxFactory.EqualsToken.WithTrailingTrivia(SyntaxFactory.Space),
+        SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
+            SyntaxFactory.NumericLiteral(42))));
+
+// Visualize the new node
+newNode.PrintSyntaxTree(includeTrivia: true);
+
+// Replace node
+var newCompilationUnit = root.ReplaceNode(oldNode, newNode);
+
+// Visualize the integrated changes
+newCompilationUnit.PrintSyntaxTree(includeTrivia: true);
+
+// Print the resulting code
+Console.WriteLine(newCompilationUnit.ToFullString());
+```
+
+Then you just wrap it in a new tree:
+
+```csharp
+var newTree = SyntaxTree.Create(newCompilationUnit);
+```
+
+The updated tree would be:
+
+```
+CompilationUnit
+├── GlobalStatement
+│   └── LocalDeclaration
+│       ├── VariableDeclaration
+│       │   ├── LetKeyword "let"
+│       │   │   [Trailing Trivia] WhitespaceTrivia: " "
+│       │   └── VariableDeclarator
+│       │       ├── IdentifierName
+│       │       │   └── IdentifierToken "x"
+│       │       │       [Trailing Trivia] WhitespaceTrivia: " "
+│       │       ├── TypeAnnotation
+│       │       │   ├── ColonToken ":"
+│       │       │   │   [Trailing Trivia] WhitespaceTrivia: " "
+│       │       │   └── IdentifierName
+│       │       │       └── IntKeyword "int"
+│       │       │           [Trailing Trivia] WhitespaceTrivia: " "
+│       │       └── EqualsValueClause
+│       │           ├── EqualsToken "="
+│       │           │   [Trailing Trivia] WhitespaceTrivia: " "
+│       │           └── NumericLiteralExpression
+│       │               └── NumericLiteralToken "42"
+│       └── SemicolonToken ";"
+└── EndOfFileToken ""
+```
+
+And the resulting code:
+
+```
+let x : int = 42;
+```
+
+### Visualize the syntax hierarchy
 
 You can also print the node hierarchy to the console:
 
-```
+```csharp
 root.PrintSyntaxTree(includeTrivia: true, includeSpans: true, includeLocation: true);
 ```
+
+Printing source locations requires the node to be part of a tree.
 
 The printed syntax tree will look similar to this:
 

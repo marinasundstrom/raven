@@ -24,7 +24,23 @@ public static class PrettySyntaxTreePrinter
             return;
 
         // Visual markers for tree structure
-        var marker = isLast ? "└── " : isFirst ? string.Empty : "├── ";
+        string? marker;
+        if (isLast && !isFirst)
+        {
+            marker = "└── ";
+        }
+        else
+        {
+            if (isFirst)
+            {
+                marker = string.Empty;
+            }
+            else
+            {
+                marker = "├── ";
+            }
+        }
+
         sb.AppendLine($"{indent}{marker}{node.Kind}{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
         var newIndent = isFirst ? String.Empty : indent + (isLast ? "    " : "│   ");

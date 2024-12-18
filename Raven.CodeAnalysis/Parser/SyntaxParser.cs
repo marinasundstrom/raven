@@ -257,7 +257,7 @@ public class SyntaxParser
     {
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {
-            TypeSyntax type = ParseSimpleName();
+            TypeSyntax type = ParseName();
 
             return TypeAnnotation(colonToken, type);
         }
