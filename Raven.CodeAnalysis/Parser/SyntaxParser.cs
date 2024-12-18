@@ -10,22 +10,21 @@ namespace Raven.CodeAnalysis.Parser;
 
 public class SyntaxParser
 {
-    private Tokenizer tokenizer;
-    private int currentSpanPosition = 0;
-    private readonly DiagnosticBag _diagnosticBag;
+    private Tokenizer _tokenizer;
+    private int _currentSpanPosition = 0;
 
-    public DiagnosticBag DiagnosticBag => _diagnosticBag;
+    public DiagnosticBag DiagnosticBag { get; }
 
     public SyntaxParser(DiagnosticBag diagnosticBag)
     {
-        _diagnosticBag = diagnosticBag;
+        DiagnosticBag = diagnosticBag;
     }
 
     public SyntaxTree Parse(SourceText sourceText)
     {
         using var textReader = sourceText.GetTextReader();
 
-        tokenizer = new Tokenizer(textReader);
+        _tokenizer = new Tokenizer(textReader);
 
         var compilationUnit = ParseCompilationUnit();
         return SyntaxTree.Create(sourceText, compilationUnit, DiagnosticBag);
@@ -81,7 +80,7 @@ public class SyntaxParser
                 Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     new Location(
-                        new TextSpan(currentSpanPosition, semicolonToken.FullWidth))
+                        new TextSpan(_currentSpanPosition, semicolonToken.FullWidth))
                 ));
         }
 
@@ -114,7 +113,7 @@ public class SyntaxParser
                 Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     new Location(
-                        new TextSpan(currentSpanPosition, semicolonToken.FullWidth))
+                        new TextSpan(_currentSpanPosition, semicolonToken.FullWidth))
                 ));
         }
 
@@ -601,7 +600,7 @@ public class SyntaxParser
                 Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     new Location(
-                        new TextSpan(currentSpanPosition, closeParenToken.FullWidth))
+                        new TextSpan(_currentSpanPosition, closeParenToken.FullWidth))
                 )); ;
         }
 
@@ -682,7 +681,7 @@ public class SyntaxParser
         return false;
     }
 
-    private SyntaxToken PeekToken() => tokenizer.PeekToken();
+    private SyntaxToken PeekToken() => _tokenizer.PeekToken();
 
     private SyntaxToken ReadToken()
     {
@@ -691,8 +690,8 @@ public class SyntaxParser
 
     private SyntaxToken ReadTokenCore()
     {
-        var token = tokenizer.ReadToken();
-        currentSpanPosition += token.FullWidth;
+        var token = _tokenizer.ReadToken();
+        _currentSpanPosition += token.FullWidth;
         return token;
     }
 
@@ -700,7 +699,7 @@ public class SyntaxParser
     {
         using var textReader = sourceText.GetTextReader(position);
 
-        tokenizer = new Tokenizer(textReader);
+        _tokenizer = new Tokenizer(textReader);
 
         SetCurrentSpan(position);
 
@@ -739,6 +738,6 @@ public class SyntaxParser
 
     private void SetCurrentSpan(int position)
     {
-        currentSpanPosition = position;
+        _currentSpanPosition = position;
     }
 }

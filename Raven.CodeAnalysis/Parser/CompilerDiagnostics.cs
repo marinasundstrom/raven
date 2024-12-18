@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Parser;
 
 internal class CompilerDiagnostics
 {
-    public readonly static DiagnosticDescriptor IdentifierExpected = DiagnosticDescriptor.Create(
+    public static readonly DiagnosticDescriptor IdentifierExpected = DiagnosticDescriptor.Create(
         id: "RAV1001",
         title: "Identifier expected",
         description: "",
@@ -11,7 +11,7 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
-    public readonly static DiagnosticDescriptor SemicolonExpected = DiagnosticDescriptor.Create(
+    public static readonly DiagnosticDescriptor SemicolonExpected = DiagnosticDescriptor.Create(
         id: "RAV1002",
         title: "Semicolon expected",
         description: "",
@@ -20,7 +20,7 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
-    public readonly static DiagnosticDescriptor CharacterExpected = DiagnosticDescriptor.Create(
+    public static readonly DiagnosticDescriptor CharacterExpected = DiagnosticDescriptor.Create(
         id: "RAV1003",
         title: "Character expected",
         description: "",
@@ -29,7 +29,7 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
-    public readonly static DiagnosticDescriptor DuplicateModifier = DiagnosticDescriptor.Create(
+    public static readonly DiagnosticDescriptor DuplicateModifier = DiagnosticDescriptor.Create(
         id: "RAV1004",
         title: "Duplicate modifier",
         description: "",
@@ -38,7 +38,7 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
-    public readonly static DiagnosticDescriptor UnrecognizedEscapeSequence = DiagnosticDescriptor.Create(
+    public static readonly DiagnosticDescriptor UnrecognizedEscapeSequence = DiagnosticDescriptor.Create(
         id: "RAV1009",
         title: "Unrecognized escape sequence",
         description: "",
@@ -47,7 +47,7 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
-    public readonly static DiagnosticDescriptor NewlineInConstant = DiagnosticDescriptor.Create(
+    public static readonly DiagnosticDescriptor NewlineInConstant = DiagnosticDescriptor.Create(
         id: "RAV1010",
         title: "Newline in constant",
         description: "",

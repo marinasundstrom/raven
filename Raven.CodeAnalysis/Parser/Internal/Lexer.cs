@@ -9,21 +9,21 @@ namespace Raven.CodeAnalysis.Parser.Internal;
 
 internal class Lexer : ILexer
 {
-    private readonly TextReader textReader;
-    private StringBuilder? stringBuilder;
-    private SyntaxToken? lookaheadToken;
+    private readonly TextReader _textReader;
+    private StringBuilder? _stringBuilder;
+    private SyntaxToken? _lookaheadToken;
 
     public Lexer(TextReader textReader)
     {
-        this.textReader = textReader;
+        this._textReader = textReader;
     }
 
     public SyntaxToken ReadToken()
     {
-        if (lookaheadToken != null)
+        if (_lookaheadToken != null)
         {
-            var token = (SyntaxToken)lookaheadToken;
-            lookaheadToken = null;
+            var token = (SyntaxToken)_lookaheadToken;
+            _lookaheadToken = null;
             return token;
         }
         return ReadTokenCore();
@@ -31,11 +31,11 @@ internal class Lexer : ILexer
 
     public SyntaxToken PeekToken()
     {
-        if (lookaheadToken == null)
+        if (_lookaheadToken == null)
         {
-            lookaheadToken = ReadTokenCore();
+            _lookaheadToken = ReadTokenCore();
         }
-        return (SyntaxToken)lookaheadToken;
+        return (SyntaxToken)_lookaheadToken;
     }
 
     private SyntaxToken ReadTokenCore()
@@ -44,9 +44,9 @@ internal class Lexer : ILexer
         {
             if (char.IsLetterOrDigit(ch))
             {
-                stringBuilder = new StringBuilder();
+                _stringBuilder = new StringBuilder();
 
-                stringBuilder.Append(ch);
+                _stringBuilder.Append(ch);
 
                 if (char.IsLetter(ch))
                 {
@@ -55,25 +55,25 @@ internal class Lexer : ILexer
                     while (PeekChar(out ch) && (char.IsLetter(ch) || char.IsDigit(ch) || ch == '_' || ch == '$'))
                     {
                         ReadChar();
-                        stringBuilder.Append(ch);
+                        _stringBuilder.Append(ch);
                     }
 
-                    if (!Syntax.SyntaxFacts.ParseReservedWord(stringBuilder.ToString(), out syntaxKind))
+                    if (!Syntax.SyntaxFacts.ParseReservedWord(_stringBuilder.ToString(), out syntaxKind))
                     {
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
 
-                    return new SyntaxToken(syntaxKind, stringBuilder.ToString());
+                    return new SyntaxToken(syntaxKind, _stringBuilder.ToString());
                 }
                 else if (char.IsDigit(ch))
                 {
                     while (PeekChar(out ch) && char.IsDigit(ch))
                     {
                         ReadChar();
-                        stringBuilder.Append(ch);
+                        _stringBuilder.Append(ch);
                     }
 
-                    return new SyntaxToken(SyntaxKind.NumericLiteralToken, stringBuilder.ToString());
+                    return new SyntaxToken(SyntaxKind.NumericLiteralToken, _stringBuilder.ToString());
                 }
             }
             else
@@ -183,45 +183,45 @@ internal class Lexer : ILexer
 
 
                     case '\'':
-                        stringBuilder = new StringBuilder();
+                        _stringBuilder = new StringBuilder();
 
-                        stringBuilder.Append(ch);
+                        _stringBuilder.Append(ch);
 
                         while (PeekChar(out var ch9) && !IsEndOfLine)
                         {
-                            stringBuilder.Append(ch9);
+                            _stringBuilder.Append(ch9);
                             ReadChar();
 
                             if (PeekChar(out ch9) && ch9 == '\'')
                             {
                                 ReadChar();
-                                stringBuilder.Append(ch9);
+                                _stringBuilder.Append(ch9);
                                 break;
                             }
                         }
 
-                        return new SyntaxToken(SyntaxKind.CharacterLiteralToken, stringBuilder.ToString());
+                        return new SyntaxToken(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString());
 
 
                     case '\"':
-                        stringBuilder = new StringBuilder();
+                        _stringBuilder = new StringBuilder();
 
-                        stringBuilder.Append(ch);
+                        _stringBuilder.Append(ch);
 
                         while (PeekChar(out var ch8) && ch8 != '\"' && !IsEndOfLine)
                         {
-                            stringBuilder.Append(ch8);
+                            _stringBuilder.Append(ch8);
                             ReadChar();
 
                             if (PeekChar(out ch8) && ch8 == '\"')
                             {
                                 ReadChar();
-                                stringBuilder.Append(ch8);
+                                _stringBuilder.Append(ch8);
                                 break;
                             }
                         }
 
-                        return new SyntaxToken(SyntaxKind.StringLiteralToken, stringBuilder.ToString());
+                        return new SyntaxToken(SyntaxKind.StringLiteralToken, _stringBuilder.ToString());
 
 
                     case '\t':
@@ -243,13 +243,13 @@ internal class Lexer : ILexer
 
     private void ReadChar()
     {
-        textReader.Read();
+        _textReader.Read();
     }
 
 
     private bool ReadChar(out char ch)
     {
-        var value = textReader.Read();
+        var value = _textReader.Read();
         if (value == -1)
         {
             ch = default;
@@ -261,7 +261,7 @@ internal class Lexer : ILexer
 
     private bool PeekChar(out char ch)
     {
-        var value = textReader.Peek();
+        var value = _textReader.Peek();
         if (value == -1)
         {
             ch = default;
@@ -274,14 +274,14 @@ internal class Lexer : ILexer
 
     private bool ReadWhile(char ch)
     {
-        var value = textReader.Peek();
+        var value = _textReader.Peek();
         if (value == ch)
         {
-            textReader.Read();
+            _textReader.Read();
             return true;
         }
         return false;
     }
 
-    public bool IsEndOfLine => textReader.Peek() == -1;
+    public bool IsEndOfLine => _textReader.Peek() == -1;
 }
