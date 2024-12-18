@@ -110,20 +110,22 @@ public static class SyntaxFacts
 
         return false;
     }
-
-    public static int GetBinaryOperatorPrecedence(this SyntaxKind kind)
+    
+    public static bool TryResolveOperatorPrecedence(SyntaxKind kind, out int precedence)
     {
         switch (kind)
         {
             case SyntaxKind.PercentToken:
             case SyntaxKind.StarToken:
             case SyntaxKind.SlashToken:
-                return 5;
+                precedence = 5;
+                break;
 
             case SyntaxKind.PlusToken:
             case SyntaxKind.MinusToken:
                 //case SyntaxKind.DashToken:
-                return 4;
+                precedence = 4;
+                break;
 
             /*
             case SyntaxKind.EqualsEqualsToken:
@@ -132,7 +134,8 @@ public static class SyntaxFacts
             case SyntaxKind.LessThanEqualsToken:
             case SyntaxKind.GreaterThanToken:
             case SyntaxKind.GreaterOrEqualsToken:
-                return 3;
+                precedence = 3;
+                break;
 
             /*
             case SyntaxKind.AmpersandToken:
@@ -146,7 +149,10 @@ public static class SyntaxFacts
                 */
 
             default:
-                return 0;
+                precedence = -1;
+                return false;
         }
+
+        return true;
     }
 }

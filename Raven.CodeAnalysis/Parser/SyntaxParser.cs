@@ -405,47 +405,7 @@ public class SyntaxParser
     /// <param name="precedence">The operator precedence for the resolved operation.</param>
     private bool TryResolveOperatorPrecedence(SyntaxToken candidateToken, out int precedence)
     {
-        switch (candidateToken.Kind)
-        {
-            case SyntaxKind.PercentToken:
-            case SyntaxKind.StarToken:
-            case SyntaxKind.SlashToken:
-                precedence = 5;
-                break;
-
-            case SyntaxKind.PlusToken:
-            case SyntaxKind.MinusToken:
-                //case SyntaxKind.DashToken:
-                precedence = 4;
-                break;
-
-            /*
-            case SyntaxKind.EqualsEqualsToken:
-            case SyntaxKind.BangEqualsToken: */
-            case SyntaxKind.LessThanToken:
-            case SyntaxKind.LessThanEqualsToken:
-            case SyntaxKind.GreaterThanToken:
-            case SyntaxKind.GreaterOrEqualsToken:
-                precedence = 3;
-                break;
-
-            /*
-            case SyntaxKind.AmpersandToken:
-            case SyntaxKind.AmpersandAmpersandToken:
-                return 2;
-
-            case SyntaxKind.PipeToken:
-            case SyntaxKind.PipePipeToken:
-            case SyntaxKind.HatToken:
-                return 1;
-                */
-
-            default:
-                precedence = -1;
-                return false;
-        }
-
-        return true;
+        return SyntaxFacts.TryResolveOperatorPrecedence(candidateToken.Kind, out precedence);
     }
 
     /// <summary>
