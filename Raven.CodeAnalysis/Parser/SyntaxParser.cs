@@ -169,6 +169,10 @@ public class SyntaxParser
 
             case SyntaxKind.ReturnKeyword:
                 return ParseReturnStatementSyntax();
+
+            case SyntaxKind.SemicolonToken:
+                ReadToken();
+                return EmptyStatement(token);
         }
 
         return ParseDeclarationOrExpressionStatementSyntax();

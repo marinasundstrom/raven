@@ -130,5 +130,6 @@ public enum SyntaxKind
 
     EndOfLineToken,
     CarriageReturnToken,
-    EndOfFileToken
+    EndOfFileToken,
+    EmptyStatement
 }
