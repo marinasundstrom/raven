@@ -30,6 +30,12 @@ public static class PrettySyntaxTreePrinter
         var newIndent = isFirst ? String.Empty : indent + (isLast ? "    " : "│   ");
 
         var children = node.ChildNodesAndTokens().ToArray();
+
+        if (!includeTokens)
+        {
+            children = children.Where(x => x.IsNode).ToArray();
+        }
+
         for (int i = 0; i < children.Length; i++)
         {
             var isChildLast = i == children.Length - 1;
