@@ -175,6 +175,7 @@ public class AstTest(ITestOutputHelper testOutputHelper)
         var members = List<MemberDeclarationSyntax>(
                     FileScopedNamespaceDeclaration(
                         IdentifierName("MyApp"),
+                        EmptyList<ImportDirectiveSyntax>(),
                         List<MemberDeclarationSyntax>(
                             LocalDeclarationStatement(
                                     VariableDeclaration(SeparatedList<VariableDeclaratorSyntax>([

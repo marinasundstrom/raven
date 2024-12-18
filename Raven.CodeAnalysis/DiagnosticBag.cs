@@ -4,7 +4,17 @@ namespace Raven.CodeAnalysis;
 
 public class DiagnosticBag
 {
-    private readonly List<Diagnostic> _diagnostics = new();
+    private readonly List<Diagnostic> _diagnostics;
+
+    public DiagnosticBag()
+    {
+        _diagnostics = new();
+    }
+
+    internal DiagnosticBag(IEnumerable<Diagnostic> enumerable)
+    {
+        _diagnostics = enumerable.ToList();
+    }
 
     public void Add(Diagnostic diagnostic)
     {
@@ -18,6 +28,6 @@ public class DiagnosticBag
 
     public ImmutableArray<Diagnostic> ToImmutableArray()
     {
-        return [.._diagnostics];
+        return [.. _diagnostics];
     }
 }

@@ -5,6 +5,7 @@ using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ConstrainedExecution;
 
 namespace Raven.CodeAnalysis.Parser;
 
@@ -13,11 +14,11 @@ public class SyntaxParser
     private Tokenizer _tokenizer;
     private int _currentSpanPosition = 0;
 
-    public DiagnosticBag DiagnosticBag { get; }
+    public DiagnosticBag Diagnostics { get; }
 
-    public SyntaxParser(DiagnosticBag diagnosticBag)
+    public SyntaxParser(DiagnosticBag diagnostics)
     {
-        DiagnosticBag = diagnosticBag;
+        Diagnostics = diagnostics;
     }
 
     public SyntaxTree Parse(SourceText sourceText)
@@ -27,24 +28,131 @@ public class SyntaxParser
         _tokenizer = new Tokenizer(textReader);
 
         var compilationUnit = ParseCompilationUnit();
-        return SyntaxTree.Create(sourceText, compilationUnit, DiagnosticBag);
+        return SyntaxTree.Create(sourceText, compilationUnit, Diagnostics);
     }
 
     private CompilationUnitSyntax ParseCompilationUnit()
     {
+        List<ImportDirectiveSyntax> importDirectives = [];
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
-        while (!Consume(SyntaxKind.EndOfFileToken, out var endOfFileToken))
-        {
-            var statement = ParseStatementSyntax();
-            var globalStatement = GlobalStatement(statement);
+        SyntaxToken nextToken;
 
-            memberDeclarations.Add(globalStatement);
+        while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
+        {
+            ParseNamespaceMemberDeclarations(importDirectives, memberDeclarations, nextToken);
         }
 
         return CompilationUnit()
+            .WithImports(List(importDirectives.ToArray()))
             .WithMembers(List(memberDeclarations.ToArray()))
-            .WithEndOfFileToken(EndOfFile);
+            .WithEndOfFileToken(nextToken);
+    }
+
+    private MemberDeclarationSyntax ParseNamespaceDeclaration()
+    {
+        List<ImportDirectiveSyntax> importDirectives = [];
+        List<MemberDeclarationSyntax> memberDeclarations = [];
+
+        var namespaceKeyword = ReadToken();
+
+        var name = ParseName();
+
+        if (ConsumeToken(SyntaxKind.OpenBraceToken, out var openBraceToken))
+        {
+            while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) && !nextToken.IsKind(SyntaxKind.CloseBraceToken))
+            {
+                ParseNamespaceMemberDeclarations(importDirectives, memberDeclarations, nextToken);
+            }
+
+            if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
+            {
+                Diagnostics.Add(
+                    Diagnostic.Create(
+                        CompilerDiagnostics.CharacterExpected,
+                        new Location(
+                            new TextSpan(_currentSpanPosition, closeBraceToken.FullWidth)),
+                        ["}"]
+                    ));
+            }
+
+            ConsumeTokenOrNull(SyntaxKind.SemicolonToken, out var semicolonToken);
+
+            return NamespaceDeclaration(namespaceKeyword, name, openBraceToken, List(importDirectives), List(memberDeclarations), closeBraceToken, semicolonToken);
+        }
+
+        return ParseFileScopedNamespaceDeclarationCore(importDirectives, memberDeclarations, namespaceKeyword, name);
+    }
+
+    private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations, SyntaxToken namespaceKeyword, NameSyntax name)
+    {
+        if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
+        {
+            Diagnostics.Add(
+                Diagnostic.Create(
+                    CompilerDiagnostics.SemicolonExpected,
+                    new Location(
+                        new TextSpan(_currentSpanPosition, semicolonToken.FullWidth))
+                ));
+        }
+
+        while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken))
+        {
+            ParseNamespaceMemberDeclarations(importDirectives, memberDeclarations, nextToken);
+        }
+
+        return FileScopedNamespaceDeclaration(namespaceKeyword, name, semicolonToken, List(importDirectives), List(memberDeclarations));
+    }
+
+    private void ParseNamespaceMemberDeclarations(List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations, SyntaxToken nextToken)
+    {
+        if (nextToken.IsKind(SyntaxKind.ImportKeyword))
+        {
+            var importDirective = ParseImportDirective();
+            importDirectives.Add(importDirective);
+        }
+        else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
+        {
+            var namespaceDeclaration = ParseNamespaceDeclaration();
+            memberDeclarations.Add(namespaceDeclaration);
+        }
+        else
+        {
+            // Should warn
+
+            var statement = ParseStatementSyntax();
+            var globalStatement = GlobalStatement(statement);
+            memberDeclarations.Add(globalStatement);
+        }
+    }
+
+    private ImportDirectiveSyntax ParseImportDirective()
+    {
+        var importKeyword = ReadToken();
+
+        var namespaceName = ParseName();
+
+        if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
+        {
+            Diagnostics.Add(
+                Diagnostic.Create(
+                    CompilerDiagnostics.SemicolonExpected,
+                    new Location(
+                        new TextSpan(_currentSpanPosition, semicolonToken.FullWidth))
+                ));
+        }
+
+        return ImportDirective(importKeyword, namespaceName, semicolonToken);
+    }
+
+    private NameSyntax ParseName()
+    {
+        NameSyntax left = ParseSimpleName();
+        while (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
+        {
+            left = QualifiedName(left, dotToken, ParseSimpleName());
+        }
+        return left;
     }
 
     private StatementSyntax? ParseStatementSyntax()
@@ -72,11 +180,11 @@ public class SyntaxParser
 
         var expression = ParseExpressionSyntax();
 
-        if (!Consume(SyntaxKind.SemicolonToken, out var semicolonToken))
+        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            DiagnosticBag.Add(
+            Diagnostics.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     new Location(
@@ -105,11 +213,11 @@ public class SyntaxParser
     {
         var declaration = ParseVariableDeclarationSyntax();
 
-        if (!Consume(SyntaxKind.SemicolonToken, out var semicolonToken))
+        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            DiagnosticBag.Add(
+            Diagnostics.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     new Location(
@@ -143,7 +251,7 @@ public class SyntaxParser
 
     private TypeAnnotationSyntax? ParseTypeAnnotationSyntax()
     {
-        if (Consume(SyntaxKind.ColonToken, out var colonToken))
+        if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {
             TypeSyntax type = ParseSimpleName();
 
@@ -184,11 +292,11 @@ public class SyntaxParser
     {
         var ifKeyword = ReadToken();
 
-        Consume(SyntaxKind.OpenParenToken, out var openParenToken);
+        ConsumeToken(SyntaxKind.OpenParenToken, out var openParenToken);
 
         var condition = ParseExpressionSyntax();
 
-        Consume(SyntaxKind.CloseParenToken, out var closeParenToken);
+        ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         var statement = ParseStatementSyntax();
 
@@ -203,7 +311,7 @@ public class SyntaxParser
 
         var ifStatement = IfStatement(ifKeyword, openParenToken, condition!, closeParenToken, statement!);
 
-        if (Consume(SyntaxKind.SemicolonToken, out var semicolonToken))
+        if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
             ifStatement = ifStatement.WithSemicolonToken(semicolonToken);
         }
@@ -230,7 +338,7 @@ public class SyntaxParser
 
     private BlockSyntax? ParseBlockSyntax()
     {
-        if (Consume(SyntaxKind.OpenBraceToken, out var openBraceToken))
+        if (ConsumeToken(SyntaxKind.OpenBraceToken, out var openBraceToken))
         {
             var statements = ParseStatementsList(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
@@ -244,7 +352,7 @@ public class SyntaxParser
     {
         List<StatementSyntax> statements = [];
 
-        while (!Consume(untilToken, out token))
+        while (!ConsumeToken(untilToken, out token))
         {
             var statement = ParseStatementSyntax();
             statements.Add(statement);
@@ -256,13 +364,13 @@ public class SyntaxParser
     {
         ExpressionSyntax ret = ParseAndExpression();
         SyntaxToken token;
-        while (Consume(SyntaxKind.OrToken, out token))
+        while (ConsumeToken(SyntaxKind.OrToken, out token))
         {
             ret = BinaryExpression(SyntaxKind.LogicalOrExpression, ret, token, ParseAndExpression());
         }
         return ret;
     }
-    
+
     private SyntaxKind GetBinaryExpressionKind(SyntaxToken operatorToken)
     {
         switch (operatorToken.Kind)
@@ -299,14 +407,14 @@ public class SyntaxParser
 
             case SyntaxKind.GreaterOrEqualsToken:
                 return SyntaxKind.GreaterThanOrEqualExpression;
-           
-            /*
-            case SyntaxKind.LogicalAndToken:
-                return SyntaxKind.LogicalAndExpression;
-            
-            case SyntaxKind.LogicalOrToken:
-                return SyntaxKind.LogicalOrExpression;
-            */
+
+                /*
+                case SyntaxKind.LogicalAndToken:
+                    return SyntaxKind.LogicalAndExpression;
+
+                case SyntaxKind.LogicalOrToken:
+                    return SyntaxKind.LogicalOrExpression;
+                */
         }
 
         throw new ArgumentException("Kind is not valid for this expression.");
@@ -316,7 +424,7 @@ public class SyntaxParser
     {
         ExpressionSyntax ret = ParseNotExpression();
         SyntaxToken token;
-        while (Consume(SyntaxKind.AndToken, out token))
+        while (ConsumeToken(SyntaxKind.AndToken, out token))
         {
             ret = BinaryExpression(SyntaxKind.LogicalAndExpression, ret, token, ParseAndExpression());
         }
@@ -325,7 +433,7 @@ public class SyntaxParser
 
     private ExpressionSyntax ParseNotExpression()
     {
-        if (Consume(SyntaxKind.NotKeyword, out var token))
+        if (ConsumeToken(SyntaxKind.NotKeyword, out var token))
         {
             ExpressionSyntax ret = new UnaryExpressionSyntax(token, ParseNotExpression());
             return ret;
@@ -387,7 +495,7 @@ public class SyntaxParser
             if (prec >= precedence)
             {
                 var right = ParseExpressionCore(prec + 1);
-                expr = BinaryExpression(GetBinaryExpressionKind(operatorCandidate),expr, operatorCandidate, right);
+                expr = BinaryExpression(GetBinaryExpressionKind(operatorCandidate), expr, operatorCandidate, right);
             }
             else
             {
@@ -448,10 +556,10 @@ public class SyntaxParser
 
         expr = AddTrailers(expr);
 
-        if (Consume(SyntaxKind.CaretToken, out var token))
+        if (ConsumeToken(SyntaxKind.CaretToken, out var token))
         {
             ExpressionSyntax right = ParseFactorExpression();
-            expr = BinaryExpression(SyntaxKind.PowerExpression,  expr, token, right);
+            expr = BinaryExpression(SyntaxKind.PowerExpression, expr, token, right);
         }
 
         return expr;
@@ -511,7 +619,7 @@ public class SyntaxParser
             }
         }
 
-        ConsumeOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         return ArgumentList(openParenToken, SeparatedList<ArgumentSyntax>(argumentList.ToArray()), closeParenToken);
     }
@@ -580,7 +688,7 @@ public class SyntaxParser
     private ExpressionSyntax ParserNameOrMemberAccess(ExpressionSyntax? expr = null)
     {
         expr ??= ParseIdentifierNameSyntax();
-        while (Consume(SyntaxKind.DotToken, out var dotToken))
+        while (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
         {
             expr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expr, dotToken, ParseSimpleName());
         }
@@ -594,9 +702,9 @@ public class SyntaxParser
 
         var expr = ParseExpressionSyntax();
 
-        if (!ConsumeOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken))
+        if (!ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken))
         {
-            DiagnosticBag.Add(
+            Diagnostics.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     new Location(
@@ -655,10 +763,19 @@ public class SyntaxParser
 
         return expr;
     }
-
     */
 
-    private bool Consume(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
+    private bool IsNextToken(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
+    {
+        token = PeekToken();
+        if (token.Kind == kind)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    private bool ConsumeToken(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
     {
         token = PeekToken();
         if (token.Kind == kind)
@@ -669,16 +786,27 @@ public class SyntaxParser
         return false;
     }
 
-    private bool ConsumeOrMissing(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
+    private bool ConsumeTokenOrMissing(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
     {
-        token = PeekToken();
-        if (token.Kind == kind)
+        var hasConsumedToken = ConsumeToken(kind, out token);
+        if (!hasConsumedToken)
         {
-            ReadTokenCore();
-            return true;
+            token = MissingToken(kind);
+            return false;
         }
-        token = MissingToken(kind);
-        return false;
+        return true;
+    }
+
+    private bool ConsumeTokenOrNull(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken? token)
+    {
+        var hasConsumedToken = ConsumeToken(kind, out var t);
+        if (!hasConsumedToken)
+        {
+            token = null;
+            return false;
+        }
+        token = t;
+        return true;
     }
 
     private SyntaxToken PeekToken() => _tokenizer.PeekToken();

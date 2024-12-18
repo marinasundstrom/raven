@@ -39,7 +39,7 @@ public class Compilation
         {
             throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
         }
-        return new SemanticModel(this, syntaxTree);
+        return new SemanticModel(this, syntaxTree, new DiagnosticBag(syntaxTree.GetDiagnostics()));
     }
 
     /*

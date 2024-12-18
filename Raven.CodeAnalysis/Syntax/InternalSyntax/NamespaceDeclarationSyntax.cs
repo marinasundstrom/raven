@@ -4,7 +4,7 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
 {
     public NamespaceDeclarationSyntax(
         SyntaxToken namespaceKeyword,
-        IdentifierNameSyntax name,
+        NameSyntax name,
         SyntaxToken openBraceToken,
         SyntaxList imports,
         SyntaxList members,

@@ -7,15 +7,21 @@ namespace Raven.CodeAnalysis;
 
 public class SemanticModel
 {
+    private readonly DiagnosticBag Diagnostics;
     List<ISymbol> _symbols = new List<ISymbol>();
 
-    public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
+    public SemanticModel(Compilation compilation, SyntaxTree syntaxTree, DiagnosticBag diagnostics)
     {
+        Diagnostics = diagnostics;
         Compilation = compilation;
         SyntaxTree = syntaxTree;
 
         CreateModel();
     }
+    
+    public Compilation Compilation { get; }
+
+    public SyntaxTree SyntaxTree { get; }
 
     private void CreateModel()
     {
@@ -116,11 +122,7 @@ public class SemanticModel
     {
         Console.WriteLine(expression.SyntaxTree);
     }
-
-    public Compilation Compilation { get; }
-
-    public SyntaxTree SyntaxTree { get; }
-
+    
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
         var symbols = _symbols.Where(x => x.DeclaringSyntaxReferences.Any(x2 => x2.GetSyntax() == node));

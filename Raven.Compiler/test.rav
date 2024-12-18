@@ -1,3 +1,8 @@
+namespace Test;
+
+import System;
+import System.Net;
+
 let x : int = 2
 
 if (x > 2 ) {

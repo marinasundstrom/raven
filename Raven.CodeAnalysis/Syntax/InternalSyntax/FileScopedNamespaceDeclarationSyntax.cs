@@ -4,7 +4,7 @@ internal partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDecla
 {
     public FileScopedNamespaceDeclarationSyntax(
         SyntaxToken namespaceKeyword,
-        IdentifierNameSyntax name,
+        NameSyntax name,
         SyntaxToken semicolonToken,
         SyntaxList imports,
         SyntaxList members)
