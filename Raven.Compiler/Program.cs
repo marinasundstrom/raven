@@ -1,4 +1,5 @@
 ﻿using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.CodeGeneration;
 using Raven.CodeAnalysis.Syntax;
 
 var fileName = args.Length > 0 ? args[0] : "../../../test.rav";
@@ -41,5 +42,8 @@ var loc = variableDeclarator.GetLocation();
 var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol;
 
 var symbol2 = semanticModel.GetSymbolInfo(variableDeclarator).Symbol as ILocalSymbol;
+
+new CodeGenerator()
+    .Generate(compilation, "MyAssembly.dll");
 
 Console.WriteLine();
