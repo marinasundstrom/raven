@@ -1,4 +1,4 @@
-# API
+# Compiler API
 
 This documents is meant to show the API of the Raven compiler.
 

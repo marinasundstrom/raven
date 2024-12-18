@@ -1,4 +1,4 @@
-# Syntax
+# Language specification
 
 ## File extension
 

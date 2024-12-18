@@ -1,4 +1,4 @@
-# Syntax (Proposal)
+# Proposals
 
 ## Expression-first
 

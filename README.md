@@ -20,7 +20,7 @@ Perhaps we should use the Old Norse form "hrafn", or Danish "ravn"?
 
 ## Syntax
 
-See pseudo-specification [here](/docs/syntax.md).
+See pseudo-specification [here](/docs/lang/spec/language-specification.md).
 
 ```
 let x : int = 2;
