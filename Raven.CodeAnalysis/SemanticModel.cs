@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -108,8 +109,6 @@ public class SemanticModel
         {
             foreach (var s in block.Statements)
             {
-                var x = s == s;
-
                 AnalyzeStatement(declaringSymbol, s);
             }
         }

@@ -400,13 +400,13 @@ public class SyntaxParser
             case SyntaxKind.NotEqualsToken:
                 return SyntaxKind.NotEqualsExpression;
 
-            case SyntaxKind.LessThanEqualsToken:
+            case SyntaxKind.LessThanToken:
                 return SyntaxKind.LessThanExpression;
 
             case SyntaxKind.GreaterThanToken:
                 return SyntaxKind.GreaterThanExpression;
 
-            case SyntaxKind.LessThanOrEqualExpression:
+            case SyntaxKind.LessThanEqualsToken:
                 return SyntaxKind.LessThanOrEqualExpression;
 
             case SyntaxKind.GreaterOrEqualsToken:
