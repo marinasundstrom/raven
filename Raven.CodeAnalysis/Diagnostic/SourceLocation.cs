@@ -3,7 +3,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
-public class SourceLocation : Location
+internal class SourceLocation : Location
 {
     internal SourceLocation(SyntaxTree sourceTree, TextSpan sourceSpan)
     {

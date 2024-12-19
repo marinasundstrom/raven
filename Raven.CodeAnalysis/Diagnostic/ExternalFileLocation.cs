@@ -3,7 +3,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
-public class ExternalFileLocation : Location
+internal class ExternalFileLocation : Location
 {
     private string _filePath;
     private TextSpan _textSpan;

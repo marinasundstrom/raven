@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public class NoLocation : Location
+internal class NoLocation : Location
 {
     internal NoLocation()
     {

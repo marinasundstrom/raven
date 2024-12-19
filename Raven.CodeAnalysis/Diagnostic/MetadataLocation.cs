@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public class MetadataLocation : Location
+internal class MetadataLocation : Location
 {
     private MetadataLocation()
     {
