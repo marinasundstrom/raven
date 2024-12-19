@@ -26,7 +26,11 @@ foreach (var diagnostic in syntaxTree.GetDiagnostics())
 }
 
 var compilation = Compilation.Create("MyCompilation")
-    .AddSyntaxTrees(syntaxTree);
+    .AddSyntaxTrees(syntaxTree)
+    .AddReferences([
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
+    ]);
 
 syntaxTree = compilation.SyntaxTrees.First();
 

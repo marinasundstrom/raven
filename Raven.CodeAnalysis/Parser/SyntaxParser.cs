@@ -6,6 +6,7 @@ using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ConstrainedExecution;
+using System.Text;
 
 namespace Raven.CodeAnalysis.Parser;
 
@@ -14,10 +15,13 @@ public class SyntaxParser
     private Tokenizer _tokenizer;
     private int _currentSpanPosition = 0;
 
+    public ParseOptions Options { get; }
+    public Encoding Encoding { get; }
     public DiagnosticBag Diagnostics { get; }
 
-    public SyntaxParser(DiagnosticBag diagnostics)
+    public SyntaxParser(ParseOptions options, DiagnosticBag diagnostics)
     {
+        Options = options ?? new ParseOptions();
         Diagnostics = diagnostics;
     }
 
@@ -28,7 +32,7 @@ public class SyntaxParser
         _tokenizer = new Tokenizer(textReader);
 
         var compilationUnit = ParseCompilationUnit();
-        return SyntaxTree.Create(sourceText, compilationUnit, Diagnostics);
+        return Syntax.SyntaxTree.Create(sourceText, compilationUnit, Options, Diagnostics);
     }
 
     private CompilationUnitSyntax ParseCompilationUnit()
