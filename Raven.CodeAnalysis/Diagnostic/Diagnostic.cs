@@ -18,12 +18,14 @@ public class Diagnostic
         _messageArgs = messageArgs;
     }
 
-    public override string ToString() => $"{Descriptor.Id}: {string.Format(Descriptor.MessageFormat.ToString(), _messageArgs ?? [])}";
+    public override string ToString() => GetMessage();
 
     public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, object[]? messageArgs = null)
     {
         return new Diagnostic(descriptor, location, messageArgs);
     }
+    
+    public string GetMessage() => $"{Descriptor.DefaultSeverity} {Descriptor.Id}: {string.Format(Descriptor.MessageFormat.ToString(), _messageArgs ?? [])}";
 }
 
 public enum DiagnosticSeverity

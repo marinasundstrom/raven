@@ -138,7 +138,7 @@ public class SemanticModel
 
     private void AnalyzeExpression(ISymbol declaringSymbol, ExpressionSyntax expression)
     {
-        Console.WriteLine(expression.SyntaxTree);
+        //Console.WriteLine(expression.SyntaxTree);
     }
 
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)

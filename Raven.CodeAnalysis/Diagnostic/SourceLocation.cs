@@ -21,7 +21,7 @@ internal class SourceLocation : Location
 
         return new FileLinePositionSpan(
             SourceTree.FilePath,
-            new LinePosition(col - 1, line - 1),
+            new LinePosition(line - 1, col - 1),
             default);
     }
 }

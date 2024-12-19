@@ -16,7 +16,7 @@ internal class CompilerDiagnostics
         title: "Semicolon expected",
         description: "",
         helpLinkUri: "",
-        messageFormat: "; expected",
+        messageFormat: "';' expected",
         category: "compiler",
         DiagnosticSeverity.Error);
 

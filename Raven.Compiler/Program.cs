@@ -5,6 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 var filePath = args.Length > 0 ? args[0] : "../../../test.rav";
+filePath = Path.GetFullPath(filePath);
 
 using var file = File.OpenRead(filePath);
 
@@ -24,8 +25,10 @@ Console.WriteLine();
 
 foreach (var diagnostic in syntaxTree.GetDiagnostics())
 {
-    var loc1 = diagnostic.Location.GetLineSpan();
-    Console.WriteLine($"{diagnostic} ({(loc1.StartLinePosition.Line + 1)}:{(loc1.StartLinePosition.Character + 1)})");
+    var descriptor = diagnostic.Descriptor;   
+    var location = diagnostic.Location.GetLineSpan();
+    
+    Console.WriteLine($"{Path.GetRelativePath(Environment.CurrentDirectory, location.Path)}({(location.StartLinePosition.Line + 1)},{(location.StartLinePosition.Character + 1)}): {diagnostic}");
 }
 
 var compilation = Compilation.Create("MyCompilation") // new CompilationOptions(OutputKind.ConsoleApplication))

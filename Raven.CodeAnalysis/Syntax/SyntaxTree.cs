@@ -98,7 +98,8 @@ public class SyntaxTree
             throw new Exception();
 
         var (line, col) = sourceText.GetLineAndColumn(span);
-        return Location.Create(FilePath, span, new LinePositionSpan(new LinePosition(line - 1, col - 1), default));
+
+        return Location.Create(this, span);
     }
 
     public SourceText? GetText()
