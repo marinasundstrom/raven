@@ -1,6 +1,7 @@
 using System.Text;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 using Xunit.Abstractions;
@@ -83,8 +84,11 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         foreach (var diagnostic in diagnostics)
         {
+            //var location = diagnostic.Location.GetLineSpan();
+            //var start = location.EndLinePosition;
+            
             testOutputHelper.WriteLine(
-                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
+                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.SourceSpan}]");
         }
 
         var root = syntaxTree.GetRoot();
@@ -111,8 +115,11 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         foreach (var diagnostic in diagnostics)
         {
+            //var location = diagnostic.Location.GetLineSpan();
+            //var start = location.EndLinePosition;
+            
             testOutputHelper.WriteLine(
-                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
+                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.SourceSpan}]");
         }
 
         var root = syntaxTree.GetRoot();
@@ -145,8 +152,11 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
 
         foreach (var diagnostic in diagnostics)
         {
+            //var location = diagnostic.Location.GetLineSpan();
+            //var start = location.EndLinePosition;
+            
             testOutputHelper.WriteLine(
-                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.Span}]");
+                $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.SourceSpan}]");
         }
 
         var root = syntaxTree.GetRoot();

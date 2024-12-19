@@ -1,4 +1,4 @@
-namespace Raven.CodeAnalysis.Parser;
+namespace Raven.CodeAnalysis;
 
 internal class CompilerDiagnostics
 {

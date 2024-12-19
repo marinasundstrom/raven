@@ -13,10 +13,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- <Compile Remove="Parser/**/*.cs" /> -->
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Generator\Generator.csproj"
       PrivateAssets="all"
       ReferenceOutputAssembly="true"

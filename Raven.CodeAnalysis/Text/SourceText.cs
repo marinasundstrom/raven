@@ -3,7 +3,7 @@ using System.Text;
 
 using Raven.CodeAnalysis.Syntax;
 
-namespace Raven.CodeAnalysis;
+namespace Raven.CodeAnalysis.Text;
 
 public class SourceText
 {
@@ -12,12 +12,14 @@ public class SourceText
     private readonly List<int> _lineStarts;
 
     public Encoding Encoding => _encoding;
+    
+    public int Length => _text.Length;
 
     private SourceText(string text, Encoding? encoding = default)
     {
         _text = text ?? throw new ArgumentNullException(nameof(text));
         _encoding = encoding ?? Encoding.UTF8;
-        _lineStarts = ComputeLineStarts(_text);
+        _lineStarts = TextUtils.ComputeLineStarts(_text);
     }
 
     public static SourceText From(string text, Encoding? encoding = default)
@@ -41,20 +43,6 @@ public class SourceText
             throw new Exception();
         }
     }
-
-    private List<int> ComputeLineStarts(string text)
-    {
-        var lineStarts = new List<int> { 0 };
-        for (int i = 0; i < text.Length; i++)
-        {
-            if (text[i] == '\n' || (text[i] == '\r' && (i + 1 == text.Length || text[i + 1] != '\n')))
-            {
-                lineStarts.Add(i + 1);
-            }
-        }
-        return lineStarts;
-    }
-
 
     public SourceText WithChange(int position, string newText)
     {
@@ -80,21 +68,16 @@ public class SourceText
         // Return a new SourceText instance with the updated text
         return SourceText.From(updatedText, Encoding);
     }
+    
+    public (int line, int column) GetLineAndColumn(TextSpan span) => GetLineAndColumn(span.Start);
 
-    public (int line, int column) GetLineAndColumn(int position)
+    private (int line, int column) GetLineAndColumn(int position)
     {
         if (position < 0 || position > _text.Length)
             throw new ArgumentOutOfRangeException(nameof(position));
-
-        int line = _lineStarts.BinarySearch(position);
-        if (line < 0)
-            line = ~line - 1;
-
-        int column = position - _lineStarts[line];
-        return (line + 1, column + 1); // 1-based indexing
+        
+        return TextUtils.GetLineAndColumn(_lineStarts, position);
     }
-
-    public (int line, int column) GetLineAndColumn(TextSpan span) => GetLineAndColumn(span.Start);
 
     public TextReader GetTextReader()
     {

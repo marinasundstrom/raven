@@ -1,6 +1,6 @@
 using Raven.CodeAnalysis.Syntax;
 
-namespace Raven.CodeAnalysis;
+namespace Raven.CodeAnalysis.Text;
 
 public struct TextChange
 {

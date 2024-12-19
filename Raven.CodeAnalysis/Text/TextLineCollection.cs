@@ -1,7 +1,7 @@
 
 using System.Collections;
 
-namespace Raven.CodeAnalysis;
+namespace Raven.CodeAnalysis.Text;
 
 public class TextLineCollection : IEnumerable<TextLine>
 {

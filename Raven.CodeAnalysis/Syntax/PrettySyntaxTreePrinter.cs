@@ -89,7 +89,9 @@ public static class PrettySyntaxTreePrinter
 
     private static string Location(Location location)
     {
-        return $"({location.Line}:{location.Column})";
+        var lineSpan = location.GetLineSpan();
+        var start = lineSpan.StartLinePosition;
+        return $"({(start.Line + 1)}:{start.Character + 1})";
     }
 
     private static string Span(TextSpan span)

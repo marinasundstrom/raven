@@ -1,10 +1,8 @@
 using System.Collections;
 
-using Raven.CodeAnalysis.Syntax;
+namespace Raven.CodeAnalysis.Syntax.Parser;
 
-namespace Raven.CodeAnalysis.Parser;
-
-public class TokenIterator(Tokenizer tokenizer) : IEnumerable<SyntaxToken>
+internal class TokenIterator(Tokenizer tokenizer) : IEnumerable<SyntaxToken>
 {
     public IEnumerator<SyntaxToken> GetEnumerator()
     {

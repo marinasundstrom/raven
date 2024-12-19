@@ -1,5 +1,7 @@
 using System.Diagnostics;
 
+using Raven.CodeAnalysis.Text;
+
 namespace Raven.CodeAnalysis.Syntax;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]

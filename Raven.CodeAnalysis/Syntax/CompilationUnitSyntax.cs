@@ -39,7 +39,7 @@ public partial class CompilationUnitSyntax : SyntaxNode
     {
     }
 
-    public CompilationUnitSyntax WithRoot(SyntaxTree syntaxTree)
+    internal CompilationUnitSyntax WithSyntaxTree(SyntaxTree syntaxTree)
     {
         return new CompilationUnitSyntax(syntaxTree, Imports, Members);
     }

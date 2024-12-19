@@ -1,6 +1,7 @@
 using System.Text;
+using Raven.CodeAnalysis.Syntax;
 
-namespace Raven.CodeAnalysis.Syntax;
+namespace Raven.CodeAnalysis.Text;
 
 public static class SourceTextWriter
 {
@@ -14,7 +15,7 @@ public static class SourceTextWriter
 
     private static void WriteNodeToText(SyntaxNode node, StringBuilder builder, bool withSpans)
     {
-        if (node == null)
+        if (node is null)
             return;
 
         // Recursively write child nodes

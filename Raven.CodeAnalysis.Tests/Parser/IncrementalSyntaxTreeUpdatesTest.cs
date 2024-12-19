@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Xunit.Abstractions;
 
@@ -212,7 +213,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
 
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
+        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: true, includeLocation: true));
 
         var nodes = SyntaxNodeCache.Cache;
     }

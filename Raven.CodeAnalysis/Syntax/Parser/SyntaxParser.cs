@@ -1,28 +1,27 @@
-﻿using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Parser.Internal;
-
-using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
-
-using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.ConstrainedExecution;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
-namespace Raven.CodeAnalysis.Parser;
+using Raven.CodeAnalysis.Text;
 
-public class SyntaxParser
+using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
+
+namespace Raven.CodeAnalysis.Syntax.Parser;
+
+internal class SyntaxParser
 {
+    List<InternalDiagnostic> _diagnostics = new();
+    
+    private string _filePath = string.Empty;
     private Tokenizer _tokenizer;
     private int _currentSpanPosition = 0;
 
     public ParseOptions Options { get; }
     public Encoding Encoding { get; }
-    public DiagnosticBag Diagnostics { get; }
 
-    public SyntaxParser(ParseOptions options, DiagnosticBag diagnostics)
+    public SyntaxParser(string? filePath, ParseOptions options)
     {
+        _filePath = filePath ?? string.Empty;
         Options = options ?? new ParseOptions();
-        Diagnostics = diagnostics;
     }
 
     public SyntaxTree Parse(SourceText sourceText)
@@ -32,7 +31,30 @@ public class SyntaxParser
         _tokenizer = new Tokenizer(textReader);
 
         var compilationUnit = ParseCompilationUnit();
-        return Syntax.SyntaxTree.Create(sourceText, compilationUnit, Options, Diagnostics);
+
+        var sourceTree = new SyntaxTree(null, _filePath, Options);
+        
+        compilationUnit = compilationUnit
+            .WithSyntaxTree(sourceTree);
+        
+        sourceTree.AttachSyntaxRoot(compilationUnit);
+        
+        sourceTree.AddDiagnostics(CollectDiagnostics(compilationUnit.SyntaxTree));
+        
+        return sourceTree;
+    }
+
+    private DiagnosticBag CollectDiagnostics(SyntaxTree sourceTree)
+    {
+        List<Diagnostic> diagnostics = new();
+        
+        foreach (var diagnostic in _diagnostics)
+        {
+            var location = sourceTree.GetLocation(diagnostic.Span);
+            diagnostics.Add(Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args));
+        }
+
+        return new DiagnosticBag(diagnostics);
     }
 
     private CompilationUnitSyntax ParseCompilationUnit()
@@ -71,11 +93,10 @@ public class SyntaxParser
 
             if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
             {
-                Diagnostics.Add(
-                    Diagnostic.Create(
+                _diagnostics.Add(
+                    InternalDiagnostic.Create(
                         CompilerDiagnostics.CharacterExpected,
-                        new Location(
-                            new TextSpan(_currentSpanPosition, closeBraceToken.FullWidth)),
+                        GetTokenSpan(closeBraceToken),
                         ["}"]
                     ));
             }
@@ -92,11 +113,10 @@ public class SyntaxParser
     {
         if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
-            Diagnostics.Add(
-                Diagnostic.Create(
+            _diagnostics.Add(
+                InternalDiagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    new Location(
-                        new TextSpan(_currentSpanPosition, semicolonToken.FullWidth))
+                    GetTokenSpan(semicolonToken)
                 ));
         }
 
@@ -106,6 +126,11 @@ public class SyntaxParser
         }
 
         return FileScopedNamespaceDeclaration(namespaceKeyword, name, semicolonToken, List(importDirectives), List(memberDeclarations));
+    }
+
+    private TextSpan GetTokenSpan(SyntaxToken token)
+    {
+        return new TextSpan(_currentSpanPosition, token.FullWidth);
     }
 
     private void ParseNamespaceMemberDeclarations(List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations, SyntaxToken nextToken)
@@ -138,11 +163,10 @@ public class SyntaxParser
 
         if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
-            Diagnostics.Add(
-                Diagnostic.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    new Location(
-                        new TextSpan(_currentSpanPosition, semicolonToken.FullWidth))
+            _diagnostics.Add(
+                InternalDiagnostic.Create(
+                    CompilerDiagnostics.SemicolonExpected, 
+                    GetTokenSpan(semicolonToken)
                 ));
         }
 
@@ -192,11 +216,10 @@ public class SyntaxParser
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            Diagnostics.Add(
-                Diagnostic.Create(
+            _diagnostics.Add(
+                InternalDiagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    new Location(
-                        new TextSpan(_currentSpanPosition, semicolonToken.FullWidth))
+                    GetTokenSpan(semicolonToken)
                 ));
         }
 
@@ -225,11 +248,10 @@ public class SyntaxParser
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            Diagnostics.Add(
-                Diagnostic.Create(
+            _diagnostics.Add(
+                InternalDiagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    new Location(
-                        new TextSpan(_currentSpanPosition, semicolonToken.FullWidth))
+                    GetTokenSpan((semicolonToken))
                 ));
         }
 
@@ -279,7 +301,7 @@ public class SyntaxParser
         {
             /*
             DiagnosticBag.Add(
-                Diagnostic.Create(
+                InternalDiagnostic.Create(
                     CompilerDiagnostics.ExpressionExpected,
                     new Location(
                         new TextSpan(currentSpanPosition, 1))
@@ -689,11 +711,10 @@ public class SyntaxParser
 
         if (!ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken))
         {
-            Diagnostics.Add(
-                Diagnostic.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    new Location(
-                        new TextSpan(_currentSpanPosition, closeParenToken.FullWidth))
+            _diagnostics.Add(
+                InternalDiagnostic.Create(
+                    CompilerDiagnostics.SemicolonExpected, 
+                    GetTokenSpan(closeParenToken)
                 )); ;
         }
 
@@ -738,7 +759,7 @@ public class SyntaxParser
             }
             else
             {
-                Diagnostics.AddError(string.Format(Strings.Error_UnexpectedToken, token3.Value), token3.GetSpan());
+                _diagnostics.AddError(string.Format(Strings.Error_UnexpectedToken, token3.Value), token3.GetSpan());
             }
         }
         else
@@ -852,5 +873,24 @@ public class SyntaxParser
     private void SetCurrentSpan(int position)
     {
         _currentSpanPosition = position;
+    }
+    
+    public class InternalDiagnostic
+    {
+        public DiagnosticDescriptor Descriptor { get; }
+        public TextSpan Span { get; }
+        public object[] Args { get; }
+
+        private InternalDiagnostic(DiagnosticDescriptor descriptor, TextSpan span, object[] args)
+        {
+            Descriptor = descriptor;
+            Span = span;
+            Args = args;
+        }
+
+        public static InternalDiagnostic Create(DiagnosticDescriptor descriptor, TextSpan span, params object[] args)
+        {
+            return new InternalDiagnostic(descriptor, span, args);
+        }
     }
 }

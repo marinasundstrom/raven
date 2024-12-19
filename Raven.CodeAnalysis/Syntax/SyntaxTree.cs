@@ -2,49 +2,43 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-using Raven.CodeAnalysis.Parser.Internal;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
 
 public class SyntaxTree
 {
     private CompilationUnitSyntax _compilationUnit;
-    private SourceText? _sourceText;
+    private SourceText _sourceText;
     private readonly ParseOptions _options;
-    private readonly DiagnosticBag _diagnosticBag;
-    private readonly Encoding _encoding;
+    private DiagnosticBag? _diagnosticBag = new DiagnosticBag();
 
-    public Encoding Encoding => _sourceText?.Encoding ?? _encoding;
-
-    private SyntaxTree(ParseOptions options, Encoding? encoding)
-    {
-        _encoding = encoding ?? Encoding.UTF8;
-        _options = options ?? new ParseOptions();
-        _diagnosticBag = new DiagnosticBag();
-    }
-
-    private SyntaxTree(SourceText sourceText, ParseOptions? options, DiagnosticBag diagnosticBag)
+    internal SyntaxTree(SourceText sourceText, string filePath, ParseOptions? options)
     {
         _sourceText = sourceText;
+        FilePath = filePath ?? string.Empty;
         _options = options ?? new ParseOptions();
-        _diagnosticBag = diagnosticBag;
     }
+
+    public Encoding Encoding => _sourceText.Encoding;
+    public string FilePath { get; }
+    public bool HasCompilationUnit => _compilationUnit is not null;
+    public int Length => _sourceText.Length;
+    public ParseOptions Options { get; }
 
     public CompilationUnitSyntax GetRoot() { return _compilationUnit; }
 
-    public static SyntaxTree ParseText(string text, ParseOptions? options = null, Encoding? encoding = null)
+    public static SyntaxTree ParseText(string text, ParseOptions? options = null, Encoding? encoding = null, string? path = null)
     {
         var sourceText = SourceText.From(text, encoding);
 
         return ParseText(sourceText, options);
     }
 
-    public static SyntaxTree ParseText(SourceText sourceText, ParseOptions? options = null)
+    public static SyntaxTree ParseText(SourceText sourceText, ParseOptions? options = null, string? path = null)
     {
-        DiagnosticBag diagnosticBag = new();
-
-        var parser = new Parser.SyntaxParser(options ?? new ParseOptions(), diagnosticBag);
+        var parser = new Parser.SyntaxParser(path, options ?? new ParseOptions());
 
         return parser.Parse(sourceText);
     }
@@ -58,7 +52,7 @@ public class SyntaxTree
     {
         TextSpan span = syntaxNodeOrToken.Node?.Span ?? syntaxNodeOrToken.Token.Span;
 
-        return GetDiagnostics().Where(x => x.Location.Span.Contains(span));
+        return GetDiagnostics().Where(x => x.Location.SourceSpan.Contains(span));
     }
 
     public IEnumerable<TextChange> GetChanges(SyntaxTree oldTree)
@@ -68,30 +62,30 @@ public class SyntaxTree
 
     public static SyntaxTree Create(CompilationUnitSyntax compilationUnit, ParseOptions? options = null, Encoding? encoding = null)
     {
-        var syntaxTree = new SyntaxTree(options, encoding);
+        var syntaxTree = new SyntaxTree(null, string.Empty, options);
 
         compilationUnit = compilationUnit
-            .WithRoot(syntaxTree);
+            .WithSyntaxTree(syntaxTree);
 
-        syntaxTree.AddSyntaxTree(compilationUnit);
+        syntaxTree.AttachSyntaxRoot(compilationUnit);
 
         return syntaxTree;
     }
 
 
-    internal static SyntaxTree Create(SourceText sourceText, CompilationUnitSyntax compilationUnit, ParseOptions options, DiagnosticBag diagnosticBag)
+    internal static SyntaxTree Create(SourceText sourceText, CompilationUnitSyntax compilationUnit, ParseOptions options)
     {
-        var syntaxTree = new SyntaxTree(sourceText, options, diagnosticBag);
+        var syntaxTree = new SyntaxTree(sourceText, string.Empty, options);
 
         compilationUnit = compilationUnit
-            .WithRoot(syntaxTree);
+            .WithSyntaxTree(syntaxTree);
 
-        syntaxTree.AddSyntaxTree(compilationUnit);
+        syntaxTree.AttachSyntaxRoot(compilationUnit);
 
         return syntaxTree;
     }
 
-    private void AddSyntaxTree(CompilationUnitSyntax compilationUnit)
+    internal void AttachSyntaxRoot(CompilationUnitSyntax compilationUnit)
     {
         _compilationUnit = compilationUnit;
     }
@@ -103,8 +97,8 @@ public class SyntaxTree
         if (sourceText is null)
             throw new Exception();
 
-        var (line, column) = sourceText.GetLineAndColumn(span);
-        return new Location(line, column);
+        var (line, col) = sourceText.GetLineAndColumn(span);
+        return Location.Create(FilePath, span, new LinePositionSpan(new LinePosition(line - 1, col - 1), default));
     }
 
     public SourceText? GetText()
@@ -125,7 +119,8 @@ public class SyntaxTree
         }
         if (_sourceText is null)
         {
-            _sourceText = SourceText.From(GetRoot().ToFullString());
+            text = _sourceText = SourceText.From(GetRoot().ToFullString());
+            return true;
         }
         text = null;
         return false;
@@ -179,7 +174,7 @@ public class SyntaxTree
 
     public SyntaxTree WithChangedText(SourceText newText)
     {
-        var oldText = _sourceText;
+        var oldText = GetText();
 
         var changes = newText.GetTextChanges(oldText);
 
@@ -205,7 +200,7 @@ public class SyntaxTree
                 .ReplaceNode(changedNode, newNode);
         }
 
-        return SyntaxTree.Create(newText, newCompilationUnit, _options, _diagnosticBag);
+        return SyntaxTree.Create(newText, newCompilationUnit, _options);
     }
 
     private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace, DiagnosticBag diagnosticBag)
@@ -234,17 +229,22 @@ public class SyntaxTree
 
         var position = nodeToReplace.FullSpan.Start;
 
-        var parser = new Parser.SyntaxParser(_options, diagnosticBag);
+        var parser = new Parser.SyntaxParser(string.Empty, _options);
 
         return parser.ParseSyntax(requestedSyntaxType, newText, position);
+    }
+
+    internal void AddDiagnostics(DiagnosticBag diagnostics)
+    {
+        _diagnosticBag = diagnostics;
     }
 }
 
 public static partial class SyntaxFactory
 {
-    public static SyntaxTree ParseSyntaxTree(SourceText sourceText, ParseOptions? options = null) => Syntax.SyntaxTree.ParseText(sourceText, options);
+    public static SyntaxTree ParseSyntaxTree(SourceText sourceText, ParseOptions? options = null, string? filePath = null) => Syntax.SyntaxTree.ParseText(sourceText, options, filePath);
 
-    public static SyntaxTree ParseSyntaxTree(string text, ParseOptions? options = null, Encoding? encoding = null) => Syntax.SyntaxTree.ParseText(text, options, encoding);
+    public static SyntaxTree ParseSyntaxTree(string text, ParseOptions? options = null, Encoding? encoding = null, string? filePath = null) => Syntax.SyntaxTree.ParseText(text, options, encoding, filePath);
 
     //public static SyntaxTree SyntaxTree(CompilationUnitSyntax root, ParseOptions? options = default, string path = "", Encoding? encoding = default)
     //    => Syntax.SyntaxTree.Create(root, options, encoding);

@@ -1,5 +1,6 @@
 using Raven.CodeAnalysis.Parser;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Syntax.Parser;
 
 using Shouldly;
 
