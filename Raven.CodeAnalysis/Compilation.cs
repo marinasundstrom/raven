@@ -3,6 +3,7 @@
 using System.Collections.Immutable;
 using System.Reflection;
 
+using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -13,27 +14,30 @@ public class Compilation
     private SyntaxTree[] _syntaxTrees;
     private MetadataReference[] _references;
 
-    private Compilation(string name)
+    public CompilationOptions Options { get; }
+
+    private Compilation(string name, CompilationOptions? options = null)
     {
         _name = name;
+        Options = options ?? new CompilationOptions();
     }
 
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
 
-    public static Compilation Create(string name, SyntaxTree[] syntaxTrees)
+    public static Compilation Create(string name, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
-        return new Compilation(name)
+        return new Compilation(name, options)
             .AddSyntaxTrees(syntaxTrees);
     }
-    
-    public static Compilation Create(string name)
+
+    public static Compilation Create(string name, CompilationOptions? options = null)
     {
-        return new Compilation(name);
+        return new Compilation(name, options);
     }
-    
-    public static Compilation Create(string name, SyntaxTree[] syntaxTrees, MetadataReference[] references)
+
+    public static Compilation Create(string name, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
-        return Create(name, syntaxTrees)
+        return Create(name, syntaxTrees, options)
             .AddReferences(references);
     }
 
@@ -42,7 +46,7 @@ public class Compilation
         _syntaxTrees = syntaxTrees;
         return this;
     }
-    
+
     public Compilation AddReferences(MetadataReference[] references)
     {
         _references = references;
@@ -59,9 +63,27 @@ public class Compilation
     }
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);
+
+    public void Emit(Stream peStream, Stream? pdbStream = null)
+    {
+        new CodeGenerator().Generate(this, peStream, pdbStream);
+    }
 }
 
-public class CompilationOptions(OutputKind outputKind) { }
+public class CompilationOptions
+{
+    public CompilationOptions()
+    {
+        OutputKind = OutputKind.ConsoleApplication;
+    }
+
+    public CompilationOptions(OutputKind outputKind)
+    {
+        OutputKind = outputKind;
+    }
+
+    public OutputKind OutputKind { get; }
+}
 
 public enum OutputKind
 {

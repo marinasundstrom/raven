@@ -10,7 +10,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
-public class CodeGenerator
+internal class CodeGenerator
 {
     PersistedAssemblyBuilder assemblyBuilder;
     ModuleBuilder moduleBuilder;
@@ -26,11 +26,9 @@ public class CodeGenerator
     ];
     private Label end;
 
-    public void Generate(Compilation compilation, string assemblyPath)
+    public void Generate(Compilation compilation, Stream peStream, Stream? pdbStream)
     {
-        string assemblyNameStr = Path.GetFileNameWithoutExtension(assemblyPath);
-
-        var assemblyName = new AssemblyName(assemblyNameStr);
+        var assemblyName = new AssemblyName("TestApp");
         assemblyName.Version = new Version(1, 0, 0, 0);
 
         var targetFrameworkAttribute = new CustomAttributeBuilder(
@@ -68,8 +66,7 @@ public class CodeGenerator
         BlobBuilder peBlob = new BlobBuilder();
         peBuilder.Serialize(peBlob);
 
-        using var fileStream = new FileStream(assemblyPath, FileMode.Create, FileAccess.Write);
-        peBlob.WriteContentTo(fileStream);
+        peBlob.WriteContentTo(peStream);
     }
 
     private TypeBuilder GenerateType()

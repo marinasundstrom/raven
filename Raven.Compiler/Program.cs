@@ -1,5 +1,4 @@
 ﻿using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Syntax;
 
 var fileName = args.Length > 0 ? args[0] : "../../../test.rav";
@@ -25,12 +24,14 @@ foreach (var diagnostic in syntaxTree.GetDiagnostics())
     Console.WriteLine(diagnostic.ToString());
 }
 
-var compilation = Compilation.Create("MyCompilation")
-    .AddSyntaxTrees(syntaxTree)
+var compilation = Compilation.Create("MyCompilation") // new CompilationOptions(OutputKind.ConsoleApplication))
+    .AddSyntaxTrees(syntaxTree);
+    /*
     .AddReferences([
         MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
     ]);
+    */
 
 syntaxTree = compilation.SyntaxTrees.First();
 
@@ -48,6 +49,7 @@ var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol
 var symbol2 = semanticModel.GetSymbolInfo(variableDeclarator).Symbol as ILocalSymbol;
 
 // INFO: This is incomplete and won't work with the sample
-//new CodeGenerator().Generate(compilation, "MyAssembly.dll");
+// using var stream = File.OpenWrite("MyAssembly.exe");
+// compilation.Emit(stream);
 
 Console.WriteLine();
