@@ -13,10 +13,12 @@ internal class SyntaxParser
     
     private string _filePath = string.Empty;
     private Tokenizer _tokenizer;
-    private int _currentSpanPosition = 0;
+    private int _currentPosition = 0;
 
     public ParseOptions Options { get; }
     public Encoding Encoding { get; }
+    
+    private SyntaxToken CurrentToken { get; set; }
 
     public SyntaxParser(string? filePath, ParseOptions options)
     {
@@ -96,7 +98,7 @@ internal class SyntaxParser
                 _diagnostics.Add(
                     InternalDiagnostic.Create(
                         CompilerDiagnostics.CharacterExpected,
-                        GetTokenSpan(closeBraceToken),
+                        GetEndOfLastToken(),
                         ["}"]
                     ));
             }
@@ -116,7 +118,7 @@ internal class SyntaxParser
             _diagnostics.Add(
                 InternalDiagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    GetTokenSpan(semicolonToken)
+                    GetEndOfLastToken()
                 ));
         }
 
@@ -126,11 +128,6 @@ internal class SyntaxParser
         }
 
         return FileScopedNamespaceDeclaration(namespaceKeyword, name, semicolonToken, List(importDirectives), List(memberDeclarations));
-    }
-
-    private TextSpan GetTokenSpan(SyntaxToken token)
-    {
-        return new TextSpan(_currentSpanPosition, token.FullWidth);
     }
 
     private void ParseNamespaceMemberDeclarations(List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations, SyntaxToken nextToken)
@@ -166,7 +163,7 @@ internal class SyntaxParser
             _diagnostics.Add(
                 InternalDiagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected, 
-                    GetTokenSpan(semicolonToken)
+                    GetEndOfLastToken()
                 ));
         }
 
@@ -219,7 +216,7 @@ internal class SyntaxParser
             _diagnostics.Add(
                 InternalDiagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    GetTokenSpan(semicolonToken)
+                    GetEndOfLastToken()
                 ));
         }
 
@@ -251,13 +248,13 @@ internal class SyntaxParser
             _diagnostics.Add(
                 InternalDiagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    GetTokenSpan((semicolonToken))
+                    GetEndOfLastToken()
                 ));
         }
 
         return LocalDeclarationStatement(declaration, semicolonToken);
     }
-
+    
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
     {
         var letKeyword = ReadToken();
@@ -714,7 +711,7 @@ internal class SyntaxParser
             _diagnostics.Add(
                 InternalDiagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected, 
-                    GetTokenSpan(closeParenToken)
+                    GetEndOfLastToken()
                 )); ;
         }
 
@@ -742,35 +739,48 @@ internal class SyntaxParser
 
         throw new Exception();
     }
-
-    /*
-
-    private ExpressionSyntax ParseNumberExpression()
+    
+    public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)
     {
-        SyntaxToken token, token2, token3;
-        ExpressionSyntax expr = null;
+        using var textReader = sourceText.GetTextReader(position);
 
-        token = ReadToken();
-        if (Consume(SyntaxKind.Period, out token2))
-        {
-            if (Consume(SyntaxKind.Number, out token3))
-            {
-                expr = new RealNumberExpression(token, token2, token3);
-            }
-            else
-            {
-                _diagnostics.AddError(string.Format(Strings.Error_UnexpectedToken, token3.Value), token3.GetSpan());
-            }
-        }
-        else
-        {
-            expr = new IntegerNumberExpression(token);
-        }
+        _tokenizer = new Tokenizer(textReader);
 
-        return expr;
+        SetCurrentSpan(position);
+
+        return ParseRequestedType(requestedSyntaxType);
     }
-    */
 
+    private SyntaxNode? ParseRequestedType(Type requestedSyntaxType)
+    {
+        if (requestedSyntaxType == typeof(StatementSyntax))
+        {
+            return ParseStatementSyntax();
+        }
+        else if (requestedSyntaxType == typeof(IfStatementSyntax))
+        {
+            return ParseIfStatementSyntax();
+        }
+        else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
+        {
+            return ParseReturnStatementSyntax();
+        }
+        else if (requestedSyntaxType == typeof(BlockSyntax))
+        {
+            return ParseBlockSyntax();
+        }
+        else if (requestedSyntaxType == typeof(ExpressionSyntax))
+        {
+            return ParseExpressionSyntax();
+        }
+        else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
+        {
+            return ParseSimpleName();
+        }
+
+        throw new NotSupportedException("Syntax not supported");
+    }
+    
     private bool IsNextToken(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
     {
         token = PeekToken();
@@ -824,55 +834,19 @@ internal class SyntaxParser
 
     private SyntaxToken ReadTokenCore()
     {
-        var token = _tokenizer.ReadToken();
-        _currentSpanPosition += token.FullWidth;
-        return token;
+        CurrentToken = _tokenizer.ReadToken();
+        _currentPosition += CurrentToken.FullWidth;
+        return CurrentToken;
     }
-
-    public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)
+    
+    private TextSpan GetEndOfLastToken()
     {
-        using var textReader = sourceText.GetTextReader(position);
-
-        _tokenizer = new Tokenizer(textReader);
-
-        SetCurrentSpan(position);
-
-        return ParseRequestedType(requestedSyntaxType);
-    }
-
-    private SyntaxNode? ParseRequestedType(Type requestedSyntaxType)
-    {
-        if (requestedSyntaxType == typeof(StatementSyntax))
-        {
-            return ParseStatementSyntax();
-        }
-        else if (requestedSyntaxType == typeof(IfStatementSyntax))
-        {
-            return ParseIfStatementSyntax();
-        }
-        else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
-        {
-            return ParseReturnStatementSyntax();
-        }
-        else if (requestedSyntaxType == typeof(BlockSyntax))
-        {
-            return ParseBlockSyntax();
-        }
-        else if (requestedSyntaxType == typeof(ExpressionSyntax))
-        {
-            return ParseExpressionSyntax();
-        }
-        else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
-        {
-            return ParseSimpleName();
-        }
-
-        throw new NotSupportedException("Syntax not supported");
+        return new TextSpan(_currentPosition - CurrentToken.TrailingTrivia.Count, 0);
     }
 
     private void SetCurrentSpan(int position)
     {
-        _currentSpanPosition = position;
+        _currentPosition = position;
     }
     
     public class InternalDiagnostic
