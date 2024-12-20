@@ -12,7 +12,7 @@ internal class MetadataFieldSymbol : MetadataSymbol, IFieldSymbol
         _fieldInfo = fieldInfo;
     }
 
-    public override SymbolKind Kind => SymbolKind.Property;
+    public override SymbolKind Kind => SymbolKind.Field;
     public override string Name => _fieldInfo.Name;
     
     public ITypeSymbol Type { get; }

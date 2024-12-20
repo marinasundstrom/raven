@@ -101,12 +101,12 @@ public interface IPropertySymbol : ISymbol
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol
 {
-
+    
 }
 
 public interface INamedTypeSymbol : ITypeSymbol
 {
-
+    
 }
 
 public interface ILocalSymbol : ISymbol

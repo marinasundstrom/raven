@@ -7,5 +7,4 @@ internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
     {
         
     }
-
 }
