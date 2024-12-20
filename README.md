@@ -22,14 +22,28 @@ Perhaps we should use the Old Norse form "hrafn", or Danish "ravn"?
 
 See pseudo-specification [here](/docs/lang/spec/language-specification.md).
 
-```
-let x : int = 2;
+### Sample
 
-if (x > 2) {
-    return (6 + 2) * 2;
-} else
-    return 1;
+From this [file](Raven.Compiler/test.rav):
+
 ```
+import System;
+import System.Net;
+
+let x : int = 2
+
+if (x > 2 ) {
+    return (6 + 2) * 2;;
+} else
+    return foo.bar(2)
+        .GetId(1, z + 2, "Foo")
+```
+
+## API
+
+The compiler API is described [here](docs/compiler/api.md).
+
+The actual compiler app [project](Raven.Compiler) demonstrates how to utilize the API.
 
 ## Development
 
@@ -43,45 +57,3 @@ So it's quite a lot of reverse engineering.
 ## Documentation
 
 Read the documentation [here](/docs/).
-
-### Syntax Tree
-
-Here's an example of the AST in C#. As taken from the unit tests.
-
-```csharp
-using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
-
-var ifStatement = IfStatement(
-    condition: BinaryExpression(
-        IdentifierName("x"),
-        GreaterThanToken,
-        IdentifierName("y")),
-    statement: Block(List<StatementSyntax>(
-        ReturnStatement(
-            LiteralExpression(2))
-    )));
-
-var ifStatementWithElseClause = ifStatement
-        .WithElseClause(
-            ElseClause(
-                ReturnStatement(
-                    LiteralExpression(2))));
-
-var methodDeclaration = MethodDeclaration(
-        IdentifierName("test"),
-        IdentifierName("FooBar"),
-        TypeParameterList(
-            SeparatedList<ParameterSyntax>([
-                Parameter(IdentifierName("a")),
-                CommaToken,
-                Parameter(IdentifierName("b"))
-            ])
-        ))
-    .WithBody(
-        Block(
-            List<StatementSyntax>(
-                ifStatementWithElseClause)));
-```
-
-
-
