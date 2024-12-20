@@ -56,6 +56,8 @@ var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol
 
 var symbol2 = semanticModel.GetSymbolInfo(variableDeclarator).Symbol as ILocalSymbol;
 
+Console.WriteLine(symbol!.ContainingSymbol!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
 // INFO: This is incomplete and won't work with the sample
 using var stream = File.OpenWrite("MyAssembly.exe");
 compilation.Emit(stream);

@@ -19,6 +19,11 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
     
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
+    
+    public ImmutableArray<IMethodSymbol> Constructors { get; }
+    public IMethodSymbol? StaticConstructor { get; }
+    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
 
     public ImmutableArray<ISymbol> GetMembers()
     {

@@ -29,4 +29,6 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
     {
         _members.Add(member);
     }
+
+    public bool IsGlobalNamespace => ContainingNamespace is null;
 }

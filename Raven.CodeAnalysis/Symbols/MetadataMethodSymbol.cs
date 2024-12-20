@@ -16,5 +16,5 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
     public override SymbolKind Kind => SymbolKind.Method;
     public override string Name => _methodInfo.Name;
     public ITypeSymbol ReturnType { get; }
-    public ImmutableArray<IParameterSymbol> Parameters { get; set; }
+    public ImmutableArray<IParameterSymbol> Parameters { get; set; } = [];
 }

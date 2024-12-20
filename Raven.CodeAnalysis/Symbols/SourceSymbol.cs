@@ -5,94 +5,15 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal abstract class SourceSymbol : ISymbol
+internal abstract class SourceSymbol : Symbol
 {
     protected SourceSymbol(SymbolKind kind, string name, ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
         Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+        : base(containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-        Kind = kind;
         Name = name;
-        ContainingType = containingType;
-        ContainingNamespace = containingNamespace;
-        ContainingSymbol = containingSymbol;
-        Locations = [.. locations];
-        DeclaringSyntaxReferences = [.. declaringSyntaxReferences];
-
-        if (this is ITypeSymbol or INamespaceSymbol)
-        {
-            if (containingNamespace is NamespaceSymbol ns)
-            {
-                ns.AddMember(this);
-            }
-        }
-
-        if (containingType is SourceTypeSymbol t)
-        {
-            t.AddMember(this);
-        }
-        else if (containingType is MetadataTypeSymbol t2)
-        {
-            t2.AddMember(this);
-        }
     }
 
-    public SymbolKind Kind
-    {
-        get;
-        private set;
-    }
-
-    public string Name
-    {
-        get;
-        private set;
-    }
-
-    public ISymbol? ContainingSymbol
-    {
-        get;
-        private set;
-    }
-
-    public INamedTypeSymbol? ContainingType
-    {
-        get;
-        private set;
-    }
-
-    public INamespaceSymbol? ContainingNamespace
-    {
-        get;
-        private set;
-    }
-
-    public ImmutableArray<Location> Locations
-    {
-        get;
-        private set;
-    }
-
-    public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences
-    {
-        get;
-        private set;
-    }
-
-    public virtual bool IsImplicitlyDeclared => false;
-    
-    public virtual  string ToDisplayString()
-    {
-        return Name;
-    }
-
-    public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
-    {
-        return comparer.Equals(this, other);
-    }
-
-    public bool Equals(ISymbol? other)
-    {
-        throw new NotImplementedException();
-    }
+    public override string Name { get; }
 }

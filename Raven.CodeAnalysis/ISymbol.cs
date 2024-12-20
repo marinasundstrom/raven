@@ -28,14 +28,30 @@ public interface ISymbol : IEquatable<ISymbol?>
     INamespaceSymbol? ContainingNamespace { get; }
 
     ImmutableArray<Location> Locations { get; }
+    
+    Accessibility DeclaredAccessibility { get; }
 
     ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; }
     
     bool IsImplicitlyDeclared { get; }
     
-    string ToDisplayString();
-    
     bool Equals(ISymbol? other, SymbolEqualityComparer comparer);
+
+    string ToDisplayString(SymbolDisplayFormat format = default);
+}
+
+public enum Accessibility
+{
+    NotApplicable = 0,
+    Private = 1,
+    ProtectedAndFriend = 2,
+    ProtectedAndInternal = 2,
+    ProtectedAndProtected = 3,
+    Friend = 4,
+    Internal = 4,
+    ProtectedOrFriend = 5,
+    ProtectedOrInternal = 5,
+    Public = 6,
 }
 
 public class SyntaxReference
@@ -71,17 +87,14 @@ public class SyntaxReference
 public interface INamespaceOrTypeSymbol : ISymbol
 {
     bool IsNamespace { get;  }
-    
     bool IsType { get;  }
-
     ImmutableArray<ISymbol> GetMembers();
-    
     ImmutableArray<ISymbol> GetMembers(string name);
 }
 
 public interface INamespaceSymbol : INamespaceOrTypeSymbol
 {
-    
+    bool IsGlobalNamespace { get; }
 }
 
 public interface IMethodSymbol : ISymbol
@@ -104,9 +117,7 @@ public interface IFieldSymbol : ISymbol
 public interface IPropertySymbol : ISymbol
 {
     ITypeSymbol Type { get; }
-    
     IMethodSymbol? GetMethod { get; }
-    
     IMethodSymbol? SetMethod { get; }
 }
 
@@ -117,7 +128,14 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
 public interface INamedTypeSymbol : ITypeSymbol
 {
-    
+    ImmutableArray<IMethodSymbol> Constructors { get; }
+    IMethodSymbol? StaticConstructor { get; }
+    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+}
+
+public interface ITypeParameterSymbol: ISymbol
+{
 }
 
 public interface ILocalSymbol : ISymbol

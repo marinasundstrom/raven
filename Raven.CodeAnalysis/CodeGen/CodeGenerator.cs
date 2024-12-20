@@ -18,7 +18,8 @@ internal class CodeGenerator
 
     private IDictionary<ISymbol, TypeBuilder> _typeBuilders = new Dictionary<ISymbol, TypeBuilder>();
     private IDictionary<ISymbol, MethodBuilder> _methodBuilders = new Dictionary<ISymbol, MethodBuilder>();
-    
+    private IDictionary<ISymbol, LocalBuilder> _localBuilders = new Dictionary<ISymbol, LocalBuilder>();
+
     IEnumerable<string> versions = [
         ".NETStandard,Version=v2.0",
         ".NETStandard,Version=v2.1",
@@ -49,10 +50,7 @@ internal class CodeGenerator
 
         GenerateNamespace(globalNamespace);
 
-        foreach (var (k, t) in _typeBuilders)
-        {
-            t.CreateType();
-        }
+        CreateTypes();
 
         MetadataBuilder metadataBuilder = assemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
         MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(entryPoint.MetadataToken);
@@ -69,6 +67,14 @@ internal class CodeGenerator
         peBuilder.Serialize(peBlob);
 
         peBlob.WriteContentTo(peStream);
+    }
+
+    private void CreateTypes()
+    {
+        foreach (var (k, t) in _typeBuilders)
+        {
+            t.CreateType();
+        }
     }
 
     private void GenerateNamespace(INamespaceSymbol @namespace)
@@ -91,7 +97,7 @@ internal class CodeGenerator
         var syntaxReference = type.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is not null)
         {
-            TypeBuilder typeBuilder = moduleBuilder.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
+            TypeBuilder typeBuilder = moduleBuilder.DefineType(type.Name, TypeAttributes.Public | TypeAttributes.Class);
 
             _typeBuilders[type] = typeBuilder;
             
@@ -99,32 +105,38 @@ internal class CodeGenerator
             {
                 if (member is IMethodSymbol method)
                 {
-                    MethodBuilder methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard, typeof(int), []);
-
-                    _methodBuilders[type] = methodBuilder;
-                    
-                    ILGenerator il = methodBuilder.GetILGenerator();
-
-                    var syntax = syntaxReference.GetSyntax();
-
-                    if (syntax is CompilationUnitSyntax compilationUnit)
-                    {
-                        var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
-                            .Select(x => x.Statement);
-                        
-                        GenerateIL(method, typeBuilder, methodBuilder, statements, il);
-                    }
-                    else  if (syntax is MethodDeclarationSyntax methodDeclaration)
-                    {
-                        GenerateIL(method, typeBuilder, methodBuilder, methodDeclaration.Body.Statements.ToList(), il);
-                    }
-                    
-                    if (method.Name == "Main")
-                    {
-                        entryPoint = methodBuilder;
-                    }
+                    GenerateMethod(type, typeBuilder, syntaxReference, method);
                 }
             }
+        }
+    }
+
+    private void GenerateMethod(ITypeSymbol type, TypeBuilder typeBuilder, SyntaxReference syntaxReference,
+        IMethodSymbol method)
+    {
+        MethodBuilder methodBuilder = typeBuilder.DefineMethod(method.Name, MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard, typeof(int), []);
+
+        _methodBuilders[type] = methodBuilder;
+                    
+        ILGenerator il = methodBuilder.GetILGenerator();
+
+        var syntax = syntaxReference.GetSyntax();
+
+        if (syntax is CompilationUnitSyntax compilationUnit)
+        {
+            var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
+                .Select(x => x.Statement);
+                        
+            GenerateIL(method, typeBuilder, methodBuilder, statements, il);
+        }
+        else  if (syntax is MethodDeclarationSyntax methodDeclaration)
+        {
+            GenerateIL(method, typeBuilder, methodBuilder, methodDeclaration.Body.Statements.ToList(), il);
+        }
+                    
+        if (method.Name == "Main")
+        {
+            entryPoint = methodBuilder;
         }
     }
 
