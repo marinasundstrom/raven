@@ -58,7 +58,7 @@ var symbol2 = semanticModel.GetSymbolInfo(variableDeclarator).Symbol as ILocalSy
 
 Console.WriteLine(symbol!.ContainingSymbol!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
-// INFO: This is incomplete and won't work with the sample
+// INFO: The sample will compile, but not all constructs are supported yet.
 using var stream = File.OpenWrite("MyAssembly.exe");
 compilation.Emit(stream);
 
