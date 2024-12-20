@@ -5,8 +5,10 @@ internal class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     public SourcePropertySymbol(string name, ITypeSymbol propertyType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Property, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-        PropertyType = propertyType;
+        Type = propertyType;
     }
 
-    public ITypeSymbol PropertyType { get; }
+    public ITypeSymbol Type { get; }
+    public IMethodSymbol? GetMethod { get; }
+    public IMethodSymbol? SetMethod { get; }
 }

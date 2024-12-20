@@ -14,6 +14,5 @@ internal class MetadataParameterSymbol : MetadataSymbol, IParameterSymbol
 
     public override SymbolKind Kind => SymbolKind.Parameter;
     public override string Name => _parameterInfo.Name;
-    
-    public ITypeSymbol ParameterType { get; }
+    public ITypeSymbol Type { get; }
 }

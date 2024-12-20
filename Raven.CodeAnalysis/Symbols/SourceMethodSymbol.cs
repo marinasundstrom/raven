@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal class SourceMethodSymbol : SourceSymbol, IMethodSymbol
@@ -9,4 +11,5 @@ internal class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     }
 
     public ITypeSymbol ReturnType { get; }
+    public ImmutableArray<IParameterSymbol> Parameters { get; set; }
 }

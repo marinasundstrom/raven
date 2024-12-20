@@ -15,5 +15,7 @@ internal class MetadataPropertySymbol : MetadataSymbol, IPropertySymbol
     public override SymbolKind Kind => SymbolKind.Property;
     public override string Name => _propertyInfo.Name;
     
-    public ITypeSymbol PropertyType { get; }
+    public ITypeSymbol Type { get; }
+    public IMethodSymbol? GetMethod { get; }
+    public IMethodSymbol? SetMethod { get; }
 }

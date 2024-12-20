@@ -63,6 +63,16 @@ internal abstract class SourceSymbol : ISymbol
     }
 
     public virtual bool IsImplicitlyDeclared => false;
+    
+    public virtual  string ToDisplayString()
+    {
+        return Name;
+    }
+
+    public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
+    {
+        return comparer.Equals(this, other);
+    }
 
     public bool Equals(ISymbol? other)
     {

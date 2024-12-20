@@ -32,6 +32,10 @@ public interface ISymbol : IEquatable<ISymbol?>
     ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; }
     
     bool IsImplicitlyDeclared { get; }
+    
+    string ToDisplayString();
+    
+    bool Equals(ISymbol? other, SymbolEqualityComparer comparer);
 }
 
 public class SyntaxReference
@@ -66,29 +70,34 @@ public class SyntaxReference
 
 public interface INamespaceSymbol : INamespaceOrTypeSymbol
 {
-
+    
 }
 
 public interface IMethodSymbol : ISymbol
 {
     ITypeSymbol ReturnType { get; }
-}
-
-public interface IFieldSymbol : ISymbol
-{
-    ITypeSymbol FieldType { get; }
-}
-
-public interface IPropertySymbol : ISymbol
-{
-    ITypeSymbol PropertyType { get; }
+    ImmutableArray<IParameterSymbol> Parameters { get; set; }
 }
 
 public interface IParameterSymbol : ISymbol
 {
-    ITypeSymbol ParameterType { get; }
+    ITypeSymbol Type { get; }
 }
 
+
+public interface IFieldSymbol : ISymbol
+{
+    ITypeSymbol Type { get; }
+}
+
+public interface IPropertySymbol : ISymbol
+{
+    ITypeSymbol Type { get; }
+    
+    IMethodSymbol? GetMethod { get; }
+    
+    IMethodSymbol? SetMethod { get; }
+}
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol
 {

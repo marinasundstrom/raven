@@ -5,8 +5,8 @@ internal class SourceParameterSymbol : SourceSymbol, IParameterSymbol
     public SourceParameterSymbol(string name, ITypeSymbol parameterType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Parameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-        ParameterType = parameterType;
+        Type = parameterType;
     }
 
-    public ITypeSymbol ParameterType { get; }
+    public ITypeSymbol Type { get; }
 }

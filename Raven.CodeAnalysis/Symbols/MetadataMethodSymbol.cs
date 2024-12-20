@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -14,6 +15,6 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
 
     public override SymbolKind Kind => SymbolKind.Method;
     public override string Name => _methodInfo.Name;
-    
     public ITypeSymbol ReturnType { get; }
+    public ImmutableArray<IParameterSymbol> Parameters { get; set; }
 }
