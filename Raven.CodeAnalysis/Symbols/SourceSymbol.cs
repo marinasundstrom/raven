@@ -18,6 +18,23 @@ internal abstract class SourceSymbol : ISymbol
         ContainingSymbol = containingSymbol;
         Locations = [.. locations];
         DeclaringSyntaxReferences = [.. declaringSyntaxReferences];
+
+        if (this is ITypeSymbol or INamespaceSymbol)
+        {
+            if (containingNamespace is NamespaceSymbol ns)
+            {
+                ns.AddMember(this);
+            }
+        }
+
+        if (containingType is SourceTypeSymbol t)
+        {
+            t.AddMember(this);
+        }
+        else if (containingType is MetadataTypeSymbol t2)
+        {
+            t2.AddMember(this);
+        }
     }
 
     public SymbolKind Kind

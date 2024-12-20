@@ -68,6 +68,17 @@ public class SyntaxReference
     }
 }
 
+public interface INamespaceOrTypeSymbol : ISymbol
+{
+    bool IsNamespace { get;  }
+    
+    bool IsType { get;  }
+
+    ImmutableArray<ISymbol> GetMembers();
+    
+    ImmutableArray<ISymbol> GetMembers(string name);
+}
+
 public interface INamespaceSymbol : INamespaceOrTypeSymbol
 {
     
@@ -112,10 +123,4 @@ public interface INamedTypeSymbol : ITypeSymbol
 public interface ILocalSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
-}
-
-public interface INamespaceOrTypeSymbol : ISymbol
-{
-    
-    
 }

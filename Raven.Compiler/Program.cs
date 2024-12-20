@@ -31,7 +31,9 @@ foreach (var diagnostic in syntaxTree.GetDiagnostics())
     Console.WriteLine($"{Path.GetRelativePath(Environment.CurrentDirectory, location.Path)}({(location.StartLinePosition.Line + 1)},{(location.StartLinePosition.Character + 1)}): {diagnostic}");
 }
 
-var compilation = Compilation.Create("MyCompilation") // new CompilationOptions(OutputKind.ConsoleApplication))
+var name = Path.GetFileNameWithoutExtension(filePath);
+
+var compilation = Compilation.Create(name) // new CompilationOptions(OutputKind.ConsoleApplication))
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
         MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
@@ -55,7 +57,7 @@ var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol
 var symbol2 = semanticModel.GetSymbolInfo(variableDeclarator).Symbol as ILocalSymbol;
 
 // INFO: This is incomplete and won't work with the sample
-// using var stream = File.OpenWrite("MyAssembly.exe");
-// compilation.Emit(stream);
+using var stream = File.OpenWrite("MyAssembly.exe");
+compilation.Emit(stream);
 
 Console.WriteLine();

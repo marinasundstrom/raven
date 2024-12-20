@@ -9,18 +9,19 @@ namespace Raven.CodeAnalysis;
 
 public class Compilation
 {
-    private readonly string _name;
     private SyntaxTree[] _syntaxTrees;
     private MetadataReference[] _references;
     private List<ISymbol> _symbols = new List<ISymbol>();
     
     private Compilation(string name, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
-        _name = name;
+        Name = name;
         _syntaxTrees = syntaxTrees;
         _references = references;
         Options = options ?? new CompilationOptions();
     }
+    
+    public string Name { get; }
     
     public CompilationOptions Options { get; }
     
@@ -46,13 +47,13 @@ public class Compilation
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
     {
         // TODO: Create new compilation
-        return new Compilation(_name, syntaxTrees, _references, Options);
+        return new Compilation(Name, syntaxTrees, _references, Options);
     }
 
     public Compilation AddReferences(MetadataReference[] references)
     {
         // TODO: Create new compilation
-        return new Compilation(_name, _syntaxTrees, references, Options);
+        return new Compilation(Name, _syntaxTrees, references, Options);
     }
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
@@ -73,6 +74,12 @@ public class Compilation
     
     public Compilation ProcessSymbolsTemp()
     {
+        var globalNamespace = new NamespaceSymbol(
+            "", null!, null, null,
+            [], []);
+
+        GlobalNamespace = globalNamespace;
+        
         foreach (var syntaxTree in SyntaxTrees)
         {
             var root = syntaxTree.GetRoot();
@@ -80,24 +87,20 @@ public class Compilation
             Location[] locations = [syntaxTree.GetLocation(root.Span)];
 
             SyntaxReference[] references = [new SyntaxReference(syntaxTree, root.Span)];
-
-            var namespaceSymbol = new NamespaceSymbol(
-                "", null!, null, null,
-                locations, references);
-
+            
             var globalStatements = root.Members.OfType<GlobalStatementSyntax>();
             if (globalStatements.Any())
             {
                 ITypeSymbol typeSymbol = null!;
                 
                 var symbol2 = new SourceTypeSymbol(
-                    "Program", namespaceSymbol!, null, namespaceSymbol,
-                    [], []);
+                    "Program", globalNamespace!, null, globalNamespace,
+                    locations, references);
 
                 _symbols.Add(symbol2);
 
                 var symbol = new SourceMethodSymbol(
-                    "Main", typeSymbol, symbol2!, symbol2, namespaceSymbol,
+                    "Main", typeSymbol, symbol2!, symbol2, globalNamespace,
                     [syntaxTree.GetLocation(root.Span)], [new SyntaxReference(syntaxTree, root.Span)]);
 
                 _symbols.Add(symbol);
@@ -106,11 +109,11 @@ public class Compilation
             {
                 foreach (var memberDeclaration in root.Members)
                 {
-                    AnalyzeMemberDeclaration(syntaxTree, namespaceSymbol, memberDeclaration);
+                    AnalyzeMemberDeclaration(syntaxTree, globalNamespace, memberDeclaration);
                 }
             }
 
-            _symbols.Add(namespaceSymbol);   
+            _symbols.Add(globalNamespace);   
         }
 
         return this;

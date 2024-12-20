@@ -12,9 +12,13 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal class CodeGenerator
 {
-    PersistedAssemblyBuilder assemblyBuilder;
-    ModuleBuilder moduleBuilder;
+    private PersistedAssemblyBuilder assemblyBuilder;
+    private ModuleBuilder moduleBuilder;
+    private MethodBuilder entryPoint;
 
+    private IDictionary<ISymbol, TypeBuilder> _typeBuilders = new Dictionary<ISymbol, TypeBuilder>();
+    private IDictionary<ISymbol, MethodBuilder> _methodBuilders = new Dictionary<ISymbol, MethodBuilder>();
+    
     IEnumerable<string> versions = [
         ".NETStandard,Version=v2.0",
         ".NETStandard,Version=v2.1",
@@ -24,11 +28,12 @@ internal class CodeGenerator
         ".NETCoreApp,Version=v8.0",
         ".NETCoreApp,Version=v9.0"
     ];
+    
     private Label end;
 
     public void Generate(Compilation compilation, Stream peStream, Stream? pdbStream)
     {
-        var assemblyName = new AssemblyName("TestApp");
+        var assemblyName = new AssemblyName(compilation.Name);
         assemblyName.Version = new Version(1, 0, 0, 0);
 
         var targetFrameworkAttribute = new CustomAttributeBuilder(
@@ -40,17 +45,14 @@ internal class CodeGenerator
 
         moduleBuilder = assemblyBuilder.DefineDynamicModule("MyModule");
 
-        TypeBuilder tb = GenerateType();
+        var globalNamespace = compilation.GlobalNamespace;
 
-        tb.CreateType();
+        GenerateNamespace(globalNamespace);
 
-        //assemblyBuilder.Save(assemblyPath); // or could save to a Stream
-
-        var compilationUnit = compilation.SyntaxTrees.First().GetRoot();
-
-        var (tb2, entryPoint) = GenerateEntryPointType(compilationUnit);
-
-        tb2.CreateType();
+        foreach (var (k, t) in _typeBuilders)
+        {
+            t.CreateType();
+        }
 
         MetadataBuilder metadataBuilder = assemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
         MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(entryPoint.MetadataToken);
@@ -69,78 +71,78 @@ internal class CodeGenerator
         peBlob.WriteContentTo(peStream);
     }
 
-    private TypeBuilder GenerateType()
+    private void GenerateNamespace(INamespaceSymbol @namespace)
     {
-        TypeBuilder tb = moduleBuilder.DefineType("MyType", TypeAttributes.Public | TypeAttributes.Class);
-
-        GenerateMethod(tb);
-
-        return tb;
-    }
-
-    private (TypeBuilder, MethodInfo) GenerateEntryPointType(CompilationUnitSyntax compilationUnit)
-    {
-        TypeBuilder tb = moduleBuilder.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
-
-        var entryPointMethod = GenerateEntryPoint(tb, compilationUnit);
-
-        return (tb, entryPointMethod);
-    }
-
-    private static MethodBuilder GenerateMethod(TypeBuilder tb)
-    {
-        var mb = tb.DefineMethod("SumMethod", MethodAttributes.Public | MethodAttributes.Static,
-            typeof(int), [typeof(int), typeof(int)]);
-
-        ILGenerator il = mb.GetILGenerator();
-        il.Emit(OpCodes.Ldarg_0);
-        il.Emit(OpCodes.Ldarg_1);
-        il.Emit(OpCodes.Add);
-        il.Emit(OpCodes.Ret);
-
-        return mb;
-    }
-
-    private MethodBuilder GenerateEntryPoint(TypeBuilder typeBuilder, CompilationUnitSyntax compilationUnit)
-    {
-        MethodBuilder entryPoint = typeBuilder.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard, typeof(int), []);
-        ILGenerator iLGenerator = entryPoint.GetILGenerator();
-
-        var members = compilationUnit.Members;
-
-        end = iLGenerator.DefineLabel();
-
-        GenerateNamespace(typeBuilder, entryPoint, iLGenerator, members);
-
-        iLGenerator.MarkLabel(end);
-
-        //iLGenerator.Emit(OpCodes.Ret);
-
-        return entryPoint;
-    }
-
-    private void GenerateNamespace(TypeBuilder typeBuilder, MethodBuilder entryPoint, ILGenerator iLGenerator, SyntaxList<MemberDeclarationSyntax> members)
-    {
-        foreach (var member in members)
+        foreach (var member in @namespace.GetMembers())
         {
-            if (member is GlobalStatementSyntax globalStatement)
+            if (member is ITypeSymbol type)
             {
-                GenerateStatement(typeBuilder, entryPoint, iLGenerator, globalStatement.Statement);
+                GenerateType(type);
             }
-            else if (member is BaseNamespaceDeclarationSyntax baseNamespaceDeclaration)
+            else  if (member is INamespaceSymbol ns)
             {
-                GenerateNamespace(typeBuilder, entryPoint, iLGenerator, baseNamespaceDeclaration.Members);
+                GenerateNamespace(ns);
             }
         }
     }
 
-    private void GenerateStatement(TypeBuilder typeBuilder, MethodBuilder entryPoint, ILGenerator iLGenerator, StatementSyntax statement)
+    private void GenerateType(ITypeSymbol type)
+    {
+        var syntaxReference = type.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference is not null)
+        {
+            TypeBuilder typeBuilder = moduleBuilder.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
+
+            _typeBuilders[type] = typeBuilder;
+            
+            foreach (var member in type.GetMembers())
+            {
+                if (member is IMethodSymbol method)
+                {
+                    MethodBuilder methodBuilder = typeBuilder.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard, typeof(int), []);
+
+                    _methodBuilders[type] = methodBuilder;
+                    
+                    ILGenerator il = methodBuilder.GetILGenerator();
+
+                    var syntax = syntaxReference.GetSyntax();
+
+                    if (syntax is CompilationUnitSyntax compilationUnit)
+                    {
+                        var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
+                            .Select(x => x.Statement);
+                        
+                        GenerateIL(method, typeBuilder, methodBuilder, statements, il);
+                    }
+                    else  if (syntax is MethodDeclarationSyntax methodDeclaration)
+                    {
+                        GenerateIL(method, typeBuilder, methodBuilder, methodDeclaration.Body.Statements.ToList(), il);
+                    }
+                    
+                    if (method.Name == "Main")
+                    {
+                        entryPoint = methodBuilder;
+                    }
+                }
+            }
+        }
+    }
+
+    private void GenerateIL(IMethodSymbol symbol, TypeBuilder typeBuilder, MethodBuilder methodBuilder, IEnumerable<StatementSyntax> statements, ILGenerator ilGenerator)
+    {
+        foreach (var statement in statements)
+        {
+            GenerateStatement(typeBuilder, methodBuilder, ilGenerator, statement);
+        }
+    }
+
+    private void GenerateStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement)
     {
         if (statement is ReturnStatementSyntax returnStatement)
         {
             if (returnStatement.Expression is ExpressionSyntax expression)
             {
-                GenerateExpression(typeBuilder, entryPoint, iLGenerator, statement, expression);
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expression);
             }
 
             iLGenerator.Emit(OpCodes.Ret);
@@ -149,24 +151,24 @@ internal class CodeGenerator
         {
             foreach (var s in block.Statements)
             {
-                GenerateStatement(typeBuilder, entryPoint, iLGenerator, s);
+                GenerateStatement(typeBuilder, methodBuilder, iLGenerator, s);
             }
         }
         else if (statement is IfStatementSyntax ifStatementSyntax)
         {
-            GenerateExpression(typeBuilder, entryPoint, iLGenerator, statement, ifStatementSyntax.Condition);
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax.Condition);
 
             var elseLabel = iLGenerator.DefineLabel();
 
             GenerateBranchOpForCondition(ifStatementSyntax.Condition, iLGenerator, elseLabel);
 
-            GenerateStatement(typeBuilder, entryPoint, iLGenerator, ifStatementSyntax.Statement);
+            GenerateStatement(typeBuilder, methodBuilder, iLGenerator, ifStatementSyntax.Statement);
 
             if (ifStatementSyntax.ElseClause is ElseClauseSyntax elseClause)
             {
                 iLGenerator.MarkLabel(elseLabel);
 
-                GenerateStatement(typeBuilder, entryPoint, iLGenerator, elseClause.Statement);
+                GenerateStatement(typeBuilder, methodBuilder, iLGenerator, elseClause.Statement);
             }
         }
     }
