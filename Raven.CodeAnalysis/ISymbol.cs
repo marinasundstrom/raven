@@ -9,7 +9,10 @@ public enum SymbolKind
     Namespace,
     Type,
     Method,
-    Local
+    Parameter,
+    Local,
+    Property,
+    Field
 }
 
 public interface ISymbol : IEquatable<ISymbol?>
@@ -27,6 +30,8 @@ public interface ISymbol : IEquatable<ISymbol?>
     ImmutableArray<Location> Locations { get; }
 
     ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; }
+    
+    bool IsImplicitlyDeclared { get; }
 }
 
 public class SyntaxReference
@@ -68,6 +73,22 @@ public interface IMethodSymbol : ISymbol
 {
     ITypeSymbol ReturnType { get; }
 }
+
+public interface IFieldSymbol : ISymbol
+{
+    ITypeSymbol FieldType { get; }
+}
+
+public interface IPropertySymbol : ISymbol
+{
+    ITypeSymbol PropertyType { get; }
+}
+
+public interface IParameterSymbol : ISymbol
+{
+    ITypeSymbol ParameterType { get; }
+}
+
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol
 {

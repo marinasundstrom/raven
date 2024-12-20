@@ -32,4 +32,24 @@ public static class SyntaxNodeExtensions
     {
         return new SyntaxNormalizer().Visit(node);
     }
+    
+    public static IEnumerable<SyntaxNode> AncestorNodesAndSelf(this SyntaxNode node)
+    {
+        yield return node;
+
+        foreach (var n in node.AncestorNodes())
+        {
+            yield return n;
+        }
+    }
+    
+    public static IEnumerable<SyntaxNode> DescendantNodesAndSelf(this SyntaxNode node)
+    {
+        yield return node;
+
+        foreach (var n in node.DescendantNodes())
+        {
+            yield return n;
+        }
+    }
 }

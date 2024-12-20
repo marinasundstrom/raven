@@ -9,10 +9,12 @@ namespace Raven.CodeAnalysis;
 public class SemanticModel
 {
     private readonly DiagnosticBag Diagnostics;
-    List<ISymbol> _symbols = new List<ISymbol>();
+    private readonly List<ISymbol> _symbols = new List<ISymbol>();
+    private readonly List<ISymbol> _localSymbols = new List<ISymbol>();
 
-    public SemanticModel(Compilation compilation, SyntaxTree syntaxTree, DiagnosticBag diagnostics)
+    public SemanticModel(Compilation compilation, List<ISymbol> symbols, SyntaxTree syntaxTree, DiagnosticBag diagnostics)
     {
+        _symbols = symbols;
         Diagnostics = diagnostics;
         Compilation = compilation;
         SyntaxTree = syntaxTree;
@@ -20,71 +22,33 @@ public class SemanticModel
         CreateModel();
     }
 
+    private void CreateModel()
+    {
+        foreach (var symbol in _symbols.OfType<SourceMethodSymbol>())
+        {
+            var syntaxRef  = symbol.DeclaringSyntaxReferences.First();
+            var syntax = syntaxRef.GetSyntax();
+
+            if (syntax is MethodDeclarationSyntax methodDeclaration)
+            {
+                
+            }
+            else if (syntax is CompilationUnitSyntax compilationUnit)
+            {
+                foreach (var member in compilationUnit.Members)
+                {
+                    if (member is GlobalStatementSyntax globalStatement)
+                    {
+                        AnalyzeStatement(symbol, globalStatement.Statement);
+                    }
+                }
+            }
+        }
+    }
+
     public Compilation Compilation { get; }
 
     public SyntaxTree SyntaxTree { get; }
-
-    private void CreateModel()
-    {
-        var root = SyntaxTree.GetRoot();
-
-        Location[] locations = [SyntaxTree.GetLocation(root.Span)];
-
-        SyntaxReference[] references = [new SyntaxReference(SyntaxTree, root.Span)];
-
-        var symbol = new SourceNamespaceSymbol(
-            "global", null!, null, null,
-            locations, references);
-
-        foreach (var memberDeclaration in root.Members)
-        {
-            AnalyzeMemberDeclaration(symbol, memberDeclaration);
-        }
-
-        _symbols.Add(symbol);
-    }
-
-    private void AnalyzeMemberDeclaration(ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
-    {
-        if (memberDeclaration is BaseNamespaceDeclarationSyntax namespaceDeclarationSyntax)
-        {
-            Location[] locations = [SyntaxTree.GetLocation(namespaceDeclarationSyntax.Span)];
-
-            SyntaxReference[] references = [new SyntaxReference(SyntaxTree, namespaceDeclarationSyntax.Span)];
-
-            ITypeSymbol typeSymbol = null!;
-
-            var symbol = new SourceNamespaceSymbol(
-                namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, null!, (INamespaceSymbol?)declaringSymbol,
-                locations, references);
-
-            _symbols.Add(symbol);
-
-            foreach (var memberDeclaration2 in namespaceDeclarationSyntax.Members)
-            {
-                AnalyzeMemberDeclaration(symbol, memberDeclaration2);
-            }
-        }
-        else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
-        {
-            Location[] locations = [SyntaxTree.GetLocation(methodDeclaration.Span)];
-
-            SyntaxReference[] references = [new SyntaxReference(SyntaxTree, methodDeclaration.Span)];
-
-            ITypeSymbol typeSymbol = null!;
-
-            var symbol = new SourceMethodSymbol(
-                methodDeclaration.Name.ToString(), typeSymbol, null!, null, null,
-                locations, references);
-
-            _symbols.Add(symbol);
-        }
-        else if (memberDeclaration is GlobalStatementSyntax globalStatement)
-        {
-            var statement = globalStatement.Statement;
-            AnalyzeStatement(declaringSymbol, statement);
-        }
-    }
 
     private void AnalyzeStatement(ISymbol declaringSymbol, StatementSyntax statement)
     {
@@ -102,7 +66,7 @@ public class SemanticModel
                     declarator.Name.ToString(), returnType, declaringSymbol!, null, null,
                     locations, references);
 
-                _symbols.Add(symbol);
+                _localSymbols.Add(symbol);
             }
         }
         else if (statement is BlockSyntax block)
@@ -143,7 +107,7 @@ public class SemanticModel
 
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
-        var symbols = _symbols.Where(x => x.DeclaringSyntaxReferences.Any(x2 => x2.GetSyntax() == node));
+        var symbols = _symbols.Concat(_localSymbols).Where(x => x.DeclaringSyntaxReferences.Any(x2 => x2.GetSyntax() == node));
         if (symbols.Count() == 1)
         {
             return new SymbolInfo(symbols.First());
@@ -153,7 +117,7 @@ public class SemanticModel
 
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
-        return _symbols.FirstOrDefault(x => x.DeclaringSyntaxReferences.Any(x2 => x2.GetSyntax() == node));
+        return _symbols.Concat(_localSymbols).FirstOrDefault(x => x.DeclaringSyntaxReferences.Any(x2 => x2.GetSyntax() == node));
     }
 
     public ImmutableArray<ISymbol> LookupSymbols(int position,

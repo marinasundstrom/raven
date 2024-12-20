@@ -32,13 +32,12 @@ foreach (var diagnostic in syntaxTree.GetDiagnostics())
 }
 
 var compilation = Compilation.Create("MyCompilation") // new CompilationOptions(OutputKind.ConsoleApplication))
-    .AddSyntaxTrees(syntaxTree);
-    /*
+    .AddSyntaxTrees(syntaxTree)
     .AddReferences([
         MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
-    ]);
-    */
+    ])
+    .ProcessSymbolsTemp(); // Temp
 
 syntaxTree = compilation.SyntaxTrees.First();
 

@@ -1,35 +1,27 @@
 using System.Collections.Immutable;
-using System.Runtime.CompilerServices;
-
-using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal abstract class SourceSymbol : ISymbol
+internal abstract class MetadataSymbol : ISymbol
 {
-    protected SourceSymbol(SymbolKind kind, string name, ISymbol containingSymbol,
+    protected MetadataSymbol(ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
-        Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+        Location[] locations)
     {
-        Kind = kind;
-        Name = name;
         ContainingType = containingType;
         ContainingNamespace = containingNamespace;
         ContainingSymbol = containingSymbol;
         Locations = [.. locations];
-        DeclaringSyntaxReferences = [.. declaringSyntaxReferences];
     }
 
-    public SymbolKind Kind
+    public abstract SymbolKind Kind
     {
         get;
-        private set;
     }
 
-    public string Name
+    public abstract string Name
     {
         get;
-        private set;
     }
 
     public ISymbol? ContainingSymbol
@@ -61,7 +53,7 @@ internal abstract class SourceSymbol : ISymbol
         get;
         private set;
     }
-
+    
     public virtual bool IsImplicitlyDeclared => false;
 
     public bool Equals(ISymbol? other)

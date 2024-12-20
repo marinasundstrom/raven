@@ -143,7 +143,7 @@ public class SyntaxTree
 
         // Find the nodes whose span matches the given TextSpan
 
-        var matchingNodes = root.DescendantNodes()
+        var matchingNodes = root.DescendantNodesAndSelf()
             .Where(node => node.Span.Contains(span))
             .Reverse();
 
