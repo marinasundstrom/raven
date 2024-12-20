@@ -1,59 +1,75 @@
-# Raven programming language
+# Raven Programming Language
 
-Experimental compiler based on the .NET Roslyn compiler architecture.
+**Raven** is an experimental compiler inspired by the .NET Roslyn compiler architecture.
 
-Built for fun and learning!
+This project is built for fun and learning, with the purpose of designing a modern compiler that provides an API for manipulating syntax in an efficient, immutable manner—a concept often referred to as "Compiler-as-a-Service."
 
-The purpose is to build a modern compiler that provides an API for manipulating syntax is an efficient immutable fashion. This could be referred to as a "Compiler-as-a-Service".
+Raven is a merger and continued work on the projects from the [compiler-projects](https://github.com/marinasundstrom/compiler-projects) repository.
 
-It is a merger of the projects in the [compiler-projects](https://github.com/marinasundstrom/compiler-projects) repo.
+---
 
-Look at [unit tests](/Raven.Tests/CodeAnalysis/Syntax/AstTest.cs).
+## Why the Name "Raven"?
 
-## Why the name "Raven"?
+The name reflects the character and essence of the language.
 
-The name decides the character of the language.
+Ravens are remarkable birds, known for their intelligence and adaptability. In Old Norse mythology, ravens held significant importance as messengers of Odin, the chief god. His two ravens, **Huginn** ("thought") and **Muninn** ("memory" or "mind"), symbolized the power of intellect and reflection—qualities that align with the goals of this programming language.
 
-Raven is a species of birds, and ravens are cool. They are important in Old Norse mythology because chief god Odin had two ravens, Huginn ("thought") and Muninn ("memory, mind"), who were his messengers.
+The choice of "Raven" as the name is also a nod to its mythological roots and the fascinating traits of these birds. Alternatively, we could consider using the Old Norse term **"Hrafn"** or the Danish **"Ravn"** to further emphasize these connections.
 
-Perhaps we should use the Old Norse form "hrafn", or Danish "ravn"?
+---
+
+## Project Goals
+
+- **Create a Programming Language**: Build a programming language from the ground up, covering essential aspects of language design and implementation.
+- **Focus on Parsing and Semantic Analysis**: Dive into the foundational processes of parsing and semantic analysis to understand and implement key components of a compiler.
+- **Serve as a Reference for Compiler Construction**: Provide a documented reference for those interested in compiler construction, detailing the development process and design decisions.
+- **Pragmatic Scope**: Acknowledge the extensive features of mature frameworks like Roslyn (over 10 years in development) and focus on implementing a feasible subset of features rather than aiming for full parity.
+
+---
 
 ## Syntax
 
-See pseudo-specification [here](/docs/lang/spec/language-specification.md).
+See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
 
 ### Sample
 
-From this [file](Raven.Compiler/test.rav):
+Here’s a sample of the Raven syntax, taken from [this file](Raven.Compiler/test.rav):
 
-```
+```raven
 import System;
 import System.Net;
 
 let x : int = 2
 
-if (x > 2 ) {
+if (x > 2) {
     return (6 + 2) * 2;;
 } else
     return foo.bar(2)
         .GetId(1, z + 2, "Foo")
 ```
 
+---
+
 ## API
 
-The compiler API is described [here](docs/compiler/api.md).
+The compiler API is detailed [here](docs/compiler/api.md).
 
-The actual compiler app [project](Raven.Compiler) demonstrates how to utilize the API.
+The [Raven.Compiler project](Raven.Compiler/Program.cs) demonstrates how to utilize the API in practice.
+
+---
 
 ## Development
 
-This project is being developed using the following means:
-* Using AI for answers, about the architecture, and for code to get started.
-* Looking at the actual source code for C# compiler.
-* Looking at de-compiled sources of C# compiler.
+This project is being developed through a combination of:
 
-So it's quite a lot of reverse engineering.
+- **AI Assistance**: Using AI for guidance on architecture and generating initial code.
+- **Source Code Analysis**: Studying the source code of the C# compiler for insights.
+- **Reverse Engineering**: Examining decompiled sources of the C# compiler to understand its inner workings.
+
+For a deeper look into the language's structure, check out the [unit tests](/Raven.CodeAnalysis.Tests/Syntax/AstTest.cs).
+
+---
 
 ## Documentation
 
-Read the documentation [here](/docs/).
+Comprehensive project documentation is available [here](/docs/).
