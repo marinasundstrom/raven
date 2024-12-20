@@ -31,9 +31,9 @@ public partial class ArgumentListSyntax : SyntaxNode
 public static partial class SyntaxFactory
 {
 
-    public static ArgumentListSyntax ArgumentList(SyntaxToken openParenToken, SeparatedSyntaxList<ArgumentSyntax> arguments, SyntaxToken closeParenToken)
-        => new ArgumentListSyntax(openParenToken, arguments, closeParenToken);
+    public static ArgumentListSyntax ArgumentList(SyntaxToken lessThanToken, SeparatedSyntaxList<ArgumentSyntax> arguments, SyntaxToken greaterThanToken)
+        => new ArgumentListSyntax(lessThanToken, arguments, greaterThanToken);
 
     public static ArgumentListSyntax ArgumentList(SeparatedSyntaxList<ArgumentSyntax> arguments)
-        => new ArgumentListSyntax(arguments);
+        => ArgumentList(SyntaxFactory.OpenParenToken, arguments, SyntaxFactory.CloseParenToken);
 }

@@ -10,6 +10,9 @@ public enum SyntaxKind
     GenericName,
     QualifiedName,
     AliasQualifiedName,
+    
+    TypeArgumentList,
+    TypeArgument,
 
     NumericLiteralExpression,
     TrueLiteralExpression,
@@ -131,5 +134,5 @@ public enum SyntaxKind
     EndOfLineToken,
     CarriageReturnToken,
     EndOfFileToken,
-    EmptyStatement
+    EmptyStatement,
 }

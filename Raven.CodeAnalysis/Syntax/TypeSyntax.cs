@@ -11,7 +11,7 @@ public abstract partial class TypeSyntax : ExpressionSyntax
 
 public abstract class NameSyntax : TypeSyntax
 {
-    public int Arity { get; set; }
+    public virtual int Arity => 0;
 
     internal NameSyntax(GreenNode greenNode, SyntaxNode parent, int position)
         : base(greenNode, parent, position)
@@ -53,7 +53,9 @@ public partial class GenericNameSyntax : SimpleNameSyntax
 {
     public override partial SyntaxToken Identifier { get; }
 
-    //public partial TypeArgumentListSyntax TypeArgumentList { get; }
+    public partial TypeArgumentListSyntax TypeArgumentList { get; }
+
+    public override int Arity => TypeArgumentList.Count;
 
     internal GenericNameSyntax(
         InternalSyntax.GenericNameSyntax greenNode,
@@ -63,9 +65,9 @@ public partial class GenericNameSyntax : SimpleNameSyntax
     {
     }
 
-    public GenericNameSyntax(SyntaxToken identifier)
+    public GenericNameSyntax(SyntaxToken identifier, TypeArgumentListSyntax typeArgumentList)
           : this(
-                new InternalSyntax.GenericNameSyntax(identifier.Green), null)
+                new InternalSyntax.GenericNameSyntax(identifier.Green, (InternalSyntax.TypeArgumentListSyntax)typeArgumentList.Green), null)
     {
 
     }
@@ -120,7 +122,7 @@ public static partial class SyntaxFactory
 
     public static TypeSyntax ParseTypeName(string text) => new IdentifierNameSyntax(IdentifierToken(text));
 
-    public static GenericNameSyntax GenericName(SyntaxToken identifier /*, TypeArgumentSyntax typeArgumentSyntax */) => new GenericNameSyntax(identifier);
+    public static GenericNameSyntax GenericName(SyntaxToken identifier, TypeArgumentListSyntax typeArgumentList) => new GenericNameSyntax(identifier, typeArgumentList);
 
     public static QualifiedNameSyntax QualifiedName(NameSyntax left, SyntaxToken dotToken, IdentifierNameSyntax right) => new QualifiedNameSyntax(left, dotToken, right);
 

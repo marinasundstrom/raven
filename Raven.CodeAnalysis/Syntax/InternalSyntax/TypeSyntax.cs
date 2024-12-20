@@ -34,8 +34,8 @@ internal partial class IdentifierNameSyntax : SimpleNameSyntax
 
 internal partial class GenericNameSyntax : SimpleNameSyntax
 {
-    public GenericNameSyntax(SyntaxToken nameToken)
-        : base(SyntaxKind.GenericName, [nameToken])
+    public GenericNameSyntax(SyntaxToken nameToken, TypeArgumentListSyntax typeArgumentList)
+        : base(SyntaxKind.GenericName, [nameToken, typeArgumentList])
     {
     }
 }
