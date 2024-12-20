@@ -33,7 +33,7 @@ var root = syntaxTree.GetRoot();
 
 If you want to turn the tree back into source code:
 
-```
+```csharp
 var sourceCode = root.ToFullString();
 ```
 
@@ -158,6 +158,40 @@ And the resulting code:
 let x : int = 42;
 ```
 
+### Applying changes from source text
+
+You can also apply changes on a tree directly from an updated version of your source. The compiler will make sure that syntax nodes will be re-used in an efficient manner.
+
+```csharp
+using Raven.CodeAnalysis.Syntax;
+
+var sourceText = SourceText.From(
+    """
+    if (foo)  {
+        return 0;
+    }
+    """);
+
+var syntaxTree = SyntaxTree.ParseText(sourceText);
+
+var changedSourceText = SourceText.From(
+    """
+    if (foo)  {
+        return 0;
+    } else if (bar ) {
+        return 1;
+    }
+    """);
+
+var updatedTree = syntaxTree.WithChangedText(changedSourceText);
+
+var newRoot = updatedTree.GetRoot();
+
+Console.WriteLine(newRoot.ToFullString());
+
+newRoot.PrintSyntaxTree(true);
+```
+
 ### Visualize the syntax hierarchy
 
 You can also print the node hierarchy to the console:
@@ -167,6 +201,18 @@ root.PrintSyntaxTree(includeTrivia: true, includeSpans: true, includeLocation: t
 ```
 
 Printing source locations requires the node to be part of a tree.
+
+So for:
+
+```csharp
+let x : int = 2
+
+if (x > 2) {
+    return (6 + 2) * 2;
+} else
+    return foo.bar(2)
+        .GetId(1, z + 2, "Foo");
+```
 
 The printed syntax tree will look similar to this:
 
