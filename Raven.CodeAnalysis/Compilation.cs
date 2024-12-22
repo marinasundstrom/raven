@@ -81,7 +81,7 @@ public class Compilation
         new CodeGenerator().Generate(this, peStream, pdbStream);
     }
 
-    public Compilation ProcessSymbolsTemp()
+    public Compilation AnalyzeCodeTemp()
     {
         var globalNamespace = new NamespaceSymbol(
             "", null!, null, null,

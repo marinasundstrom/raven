@@ -150,12 +150,25 @@ public class SemanticModel
         {
             AnalyzeExpression(declaringSymbol, invocationExpression.Expression, out var baseSymbols);
 
+            if (!baseSymbols.Any())
+            {
+                symbols = [];
+                return;
+            }
+
             if (!baseSymbols.Any(x => x.Kind == SymbolKind.Method || x.Kind == SymbolKind.Field))
             {
+                var expr = invocationExpression.Expression;
+
+                if (expr is MemberAccessExpressionSyntax)
+                {
+                    expr = ((MemberAccessExpressionSyntax)expr).Name;
+                }
+
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.MethodNameExpected,
-                        invocationExpression.Expression.GetLocation()
+                        expr.GetLocation()
                     ));
 
                 symbols = [];
