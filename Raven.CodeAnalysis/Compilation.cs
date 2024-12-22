@@ -12,7 +12,8 @@ public class Compilation
     private SyntaxTree[] _syntaxTrees;
     private MetadataReference[] _references;
     private List<ISymbol> _symbols = new List<ISymbol>();
-    
+    private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
+
     private Compilation(string name, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
         Name = name;
@@ -20,13 +21,13 @@ public class Compilation
         _references = references;
         Options = options ?? new CompilationOptions();
     }
-    
+
     public string Name { get; }
-    
+
     public CompilationOptions Options { get; }
-    
+
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
-    
+
     public INamespaceSymbol GlobalNamespace { get; private set; }
 
     public static Compilation Create(string name, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
@@ -58,11 +59,19 @@ public class Compilation
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
     {
-        if (!_syntaxTrees.Contains((syntaxTree)))
+        if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
+        {
+            return semanticModel;
+        }
+
+        if (!_syntaxTrees.Contains(syntaxTree))
         {
             throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
         }
-        return new SemanticModel(this, _symbols, syntaxTree, new DiagnosticBag(syntaxTree.GetDiagnostics()));
+
+        semanticModel = new SemanticModel(this, _symbols, syntaxTree);
+        _semanticModels[syntaxTree] = semanticModel;
+        return semanticModel;
     }
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);
@@ -71,7 +80,7 @@ public class Compilation
     {
         new CodeGenerator().Generate(this, peStream, pdbStream);
     }
-    
+
     public Compilation ProcessSymbolsTemp()
     {
         var globalNamespace = new NamespaceSymbol(
@@ -79,7 +88,9 @@ public class Compilation
             [], []);
 
         GlobalNamespace = globalNamespace;
-        
+
+        LoadMetadataReferences();
+
         foreach (var syntaxTree in SyntaxTrees)
         {
             var root = syntaxTree.GetRoot();
@@ -87,12 +98,12 @@ public class Compilation
             Location[] locations = [syntaxTree.GetLocation(root.Span)];
 
             SyntaxReference[] references = [new SyntaxReference(syntaxTree, root.Span)];
-            
+
             var globalStatements = root.Members.OfType<GlobalStatementSyntax>();
             if (globalStatements.Any())
             {
                 ITypeSymbol typeSymbol = null!;
-                
+
                 var symbol2 = new SourceTypeSymbol(
                     "Program", globalNamespace!, null, globalNamespace,
                     locations, references);
@@ -113,10 +124,107 @@ public class Compilation
                 }
             }
 
-            _symbols.Add(globalNamespace);   
+            _symbols.Add(globalNamespace);
         }
 
         return this;
+    }
+
+    private void LoadMetadataReferences()
+    {
+        List<Assembly> assemblies = _references
+            .OfType<PortableExecutableReference>()
+            .Select(portableExecutableReference => Assembly.LoadFile(portableExecutableReference.Location))
+            .ToList();
+
+        assemblies.Insert(0, typeof(object).Assembly);
+
+        foreach (var assembly in assemblies)
+        {
+            var module = assembly.GetModules().First();
+
+            foreach (var type in module.GetTypes())
+            {
+                var ns = GetOrCreateNamespaceSymbol(type.Namespace);
+
+                var symbol = new MetadataTypeSymbol(
+                    type.GetTypeInfo(), ns, null, ns,
+                    []);
+
+                foreach (var mi in type.GetMethods())
+                {
+                    var symbol2 = new MetadataMethodSymbol(
+                        mi, null, symbol!, symbol, ns,
+                        []);
+
+                    _symbols.Add(symbol2);
+                }
+
+                foreach (var pi in type.GetProperties())
+                {
+                    var symbol3 = new MetadataPropertySymbol(
+                        pi, null, symbol!, symbol, ns,
+                        []);
+
+                    _symbols.Add(symbol3);
+                }
+
+                _symbols.Add(symbol);
+            }
+        }
+    }
+
+    private INamespaceSymbol? GetNamespaceSymbol(string? ns)
+    {
+        if (ns is null)
+            return GlobalNamespace;
+
+        // Split the namespace into parts
+        var namespaceParts = ns.Split('.');
+
+        // Start with the global namespace
+        var currentNamespace = GlobalNamespace;
+
+        // Traverse the namespace hierarchy
+        foreach (var part in namespaceParts)
+        {
+            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as NamespaceSymbol;
+
+            if (currentNamespace == null)
+            {
+                return null; // Namespace not found
+            }
+        }
+
+        return currentNamespace;
+    }
+
+    private INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
+    {
+        if (ns is null)
+            return GlobalNamespace;
+
+        // Split the namespace into parts
+        var namespaceParts = ns.Split('.');
+
+        // Start with the global namespace
+        var currentNamespace = GlobalNamespace;
+
+        // Traverse the namespace hierarchy
+        foreach (var part in namespaceParts)
+        {
+            var parent = currentNamespace;
+            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as NamespaceSymbol;
+
+            if (currentNamespace == null)
+            {
+                currentNamespace = new NamespaceSymbol(part, parent, null, parent, [], []);
+                _symbols.Add(currentNamespace);
+                return currentNamespace; // Namespace not found
+            }
+        }
+
+        return currentNamespace;
     }
 
     private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
@@ -154,6 +262,21 @@ public class Compilation
 
             _symbols.Add(symbol);
         }
+    }
+
+    public ImmutableArray<Diagnostic> GetDiagnostics()
+    {
+        List<Diagnostic> diagnostics = new List<Diagnostic>();
+
+        foreach (var item in SyntaxTrees)
+        {
+            diagnostics.AddRange(item.GetDiagnostics());
+
+            var model = GetSemanticModel(item);
+            diagnostics.AddRange(model.GetDiagnostics());
+        }
+
+        return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
     }
 }
 

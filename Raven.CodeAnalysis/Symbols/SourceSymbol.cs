@@ -10,10 +10,8 @@ internal abstract class SourceSymbol : Symbol
     protected SourceSymbol(SymbolKind kind, string name, ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
         Location[] locations, SyntaxReference[] declaringSyntaxReferences)
-        : base(containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+        : base(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-        Name = name;
-    }
 
-    public override string Name { get; }
+    }
 }

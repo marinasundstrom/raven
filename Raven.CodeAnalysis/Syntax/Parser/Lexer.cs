@@ -84,6 +84,13 @@ internal class Lexer : ILexer
                         return new InternalSyntax.SyntaxToken(SyntaxKind.MinusToken, chStr);
 
                     case '/':
+                        /*
+                        if (PeekChar(out var ch10) && ch10 == '/')
+                        {
+                            ReadChar();
+                            return new InternalSyntax.SyntaxTr(SyntaxKind.LessThanEqualsToken, "<=");
+                        }
+                        */
                         return new InternalSyntax.SyntaxToken(SyntaxKind.SlashToken, chStr);
 
                     case '*':
@@ -142,7 +149,7 @@ internal class Lexer : ILexer
                         return new InternalSyntax.SyntaxToken(SyntaxKind.EqualsToken, chStr);
 
                     case '!':
-                        if (PeekChar(out var ch6) && ch == '=')
+                        if (PeekChar(out var ch6) && ch6 == '=')
                         {
                             ReadChar();
                             return new InternalSyntax.SyntaxToken(SyntaxKind.NotEqualsToken, "!=");
@@ -150,7 +157,7 @@ internal class Lexer : ILexer
                         return new InternalSyntax.SyntaxToken(SyntaxKind.ExclamationToken, chStr);
 
                     case '<':
-                        if (PeekChar(out var ch2) && ch == '=')
+                        if (PeekChar(out var ch2) && ch2 == '=')
                         {
                             ReadChar();
                             return new InternalSyntax.SyntaxToken(SyntaxKind.LessThanEqualsToken, "<=");
@@ -158,7 +165,7 @@ internal class Lexer : ILexer
                         return new InternalSyntax.SyntaxToken(SyntaxKind.LessThanToken, chStr);
 
                     case '>':
-                        if (PeekChar(out var ch3) && ch == '=')
+                        if (PeekChar(out var ch3) && ch3 == '=')
                         {
                             ReadChar();
                             return new InternalSyntax.SyntaxToken(SyntaxKind.GreaterOrEqualsToken, ">=");

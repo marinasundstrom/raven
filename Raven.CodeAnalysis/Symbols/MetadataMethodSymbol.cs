@@ -7,10 +7,19 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
 {
     private readonly MethodInfo _methodInfo;
 
-    public MetadataMethodSymbol(MethodInfo methodInfo,  ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public MetadataMethodSymbol(MethodInfo methodInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _methodInfo = methodInfo;
+
+        foreach (var param in _methodInfo.GetParameters())
+        {
+            var symbol2 = new MetadataParameterSymbol(
+                  param, null, this, this.ContainingType, this.ContainingNamespace,
+                  []);
+
+            Parameters = [symbol2];
+        }
     }
 
     public override SymbolKind Kind => SymbolKind.Method;

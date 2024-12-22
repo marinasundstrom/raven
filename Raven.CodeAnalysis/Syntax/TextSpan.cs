@@ -3,7 +3,7 @@
 namespace Raven.CodeAnalysis.Syntax;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-public class TextSpan
+public class TextSpan : IComparable<TextSpan>
 {
     public int Start { get; }
 
@@ -11,7 +11,7 @@ public class TextSpan
     {
         if (start < 0 || length < 0)
             throw new ArgumentOutOfRangeException();
-        
+
         Start = start;
         Length = length;
     }
@@ -28,5 +28,11 @@ public class TextSpan
     public override string ToString()
     {
         return $"{Start}..{End}";
+    }
+
+    public int CompareTo(TextSpan? other)
+    {
+        // Compare by Span Start
+        return Start.CompareTo(other?.Start);
     }
 }

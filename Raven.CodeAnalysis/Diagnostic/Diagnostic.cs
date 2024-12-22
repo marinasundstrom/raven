@@ -1,5 +1,6 @@
 ﻿
 
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -26,6 +27,11 @@ public class Diagnostic
     }
     
     public string GetMessage() => $"{Descriptor.DefaultSeverity} {Descriptor.Id}: {string.Format(Descriptor.MessageFormat.ToString(), _messageArgs ?? [])}";
+
+    internal static Diagnostic Create(object methodNameExpected, Location location)
+    {
+        throw new NotImplementedException();
+    }
 }
 
 public enum DiagnosticSeverity

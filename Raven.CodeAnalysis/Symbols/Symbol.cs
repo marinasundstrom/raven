@@ -1,16 +1,34 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 
+using Raven.CodeAnalysis.Syntax;
+
 namespace Raven.CodeAnalysis.Symbols;
 
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal abstract class Symbol : ISymbol
 {
     protected Symbol(
+        SymbolKind kind,
+        string name,
         ISymbol containingSymbol,
-        INamedTypeSymbol? containingType, 
+        INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
-        Location[] locations, 
+        Location[] locations,
+        SyntaxReference[] declaringSyntaxReferences)
+        : this(containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+    {
+        Kind = kind;
+        Name = name;
+    }
+
+    protected Symbol(
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations,
         SyntaxReference[] declaringSyntaxReferences)
     {
         ContainingType = containingType;
@@ -36,8 +54,8 @@ internal abstract class Symbol : ISymbol
             t2.AddMember(this);
         }
     }
-    
-    
+
+
     public virtual SymbolKind Kind
     {
         get;
@@ -81,7 +99,7 @@ internal abstract class Symbol : ISymbol
     }
 
     public virtual bool IsImplicitlyDeclared => false;
-    
+
     public string ToDisplayString(SymbolDisplayFormat format = default!)
     {
         if (format is null)
@@ -183,7 +201,7 @@ internal abstract class Symbol : ISymbol
         // Replace any special characters or keywords with escaped versions
         return identifier; //identifier.Replace("<", "&lt;").Replace(">", "&gt;");
     }
-    
+
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
     {
         return comparer.Equals(this, other);
@@ -208,7 +226,7 @@ internal abstract class Symbol : ISymbol
 
         return Equals((ISymbol)other);
     }
-    
+
     private string GetFullNamespace(ISymbol symbol)
     {
         var namespaces = new List<string>();
@@ -224,7 +242,7 @@ internal abstract class Symbol : ISymbol
         // Join namespaces with '.'
         return string.Join(".", namespaces);
     }
-    
+
     private string GetFullType(ISymbol symbol)
     {
         var types = new List<string>();
@@ -239,5 +257,12 @@ internal abstract class Symbol : ISymbol
 
         // Join types with '.'
         return string.Join(".", types);
+    }
+
+    private string GetDebuggerDisplay() => ToDisplayString();
+
+    public override string ToString()
+    {
+        return ToDisplayString();
     }
 }

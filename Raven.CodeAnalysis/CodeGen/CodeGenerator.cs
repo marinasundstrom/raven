@@ -183,6 +183,10 @@ internal class CodeGenerator
                 GenerateStatement(typeBuilder, methodBuilder, iLGenerator, elseClause.Statement);
             }
         }
+        else if (statement is ExpressionStatementSyntax expressionStatement)
+        {
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement.Expression);
+        }
     }
 
     private static void GenerateBranchOpForCondition(ExpressionSyntax expression, ILGenerator iLGenerator, Label end)
@@ -212,12 +216,12 @@ internal class CodeGenerator
         }
     }
 
-    private void GenerateExpression(TypeBuilder typeBuilder, MethodBuilder entryPoint, ILGenerator iLGenerator, StatementSyntax statement, ExpressionSyntax expression)
+    private void GenerateExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ExpressionSyntax expression)
     {
         if (expression is BinaryExpressionSyntax binaryExpression)
         {
-            GenerateExpression(typeBuilder, entryPoint, iLGenerator, statement, binaryExpression.LeftHandSide);
-            GenerateExpression(typeBuilder, entryPoint, iLGenerator, statement, binaryExpression.RightHandSide);
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression.LeftHandSide);
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression.RightHandSide);
 
             switch (binaryExpression.Kind)
             {
@@ -242,12 +246,25 @@ internal class CodeGenerator
                     break;
             }
         }
+        else if (expression is MemberAccessExpressionSyntax memberAccessExpression)
+        {
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression.Expression);
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression.Name);
+        }
         else if (expression is InvocationExpressionSyntax invocationExpression)
         {
+            // Resolve target identifier or access
+            // If method or delegate, then invoke
+            
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, invocationExpression.Expression);
+            
             iLGenerator.Emit(OpCodes.Ldc_I4, 42);
         }
         else if (expression is IdentifierNameSyntax identifierName)
         {
+            // Resolve target identifier or access
+            // If local, property, or field, then load
+            
             iLGenerator.Emit(OpCodes.Ldc_I4, 100);
         }
         else if (expression is LiteralExpressionSyntax literalExpression)
@@ -256,7 +273,7 @@ internal class CodeGenerator
         }
         else if (expression is ParenthesizedExpressionSyntax parenthesized)
         {
-            GenerateExpression(typeBuilder, entryPoint, iLGenerator, statement, parenthesized.Expression);
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, parenthesized.Expression);
         }
     }
 

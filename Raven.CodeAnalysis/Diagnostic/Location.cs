@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Text;
 namespace Raven.CodeAnalysis;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-public abstract class Location
+public abstract class Location : IComparable<Location>
 {
     public static Location None { get; } = new NoLocation();
 
@@ -42,7 +42,7 @@ public abstract class Location
     {
         string result = this.GetType().Name;
         var pos = GetLineSpan();
-            
+
         if (pos.Path != null)
         {
             // user-visible line and column counts are 1-based, but internally are 0-based.
@@ -55,5 +55,34 @@ public abstract class Location
     public virtual FileLinePositionSpan GetLineSpan()
     {
         return default;
+    }
+
+    // Implement the comparison logic
+    public int CompareTo(Location? other)
+    {
+        if (other == null)
+            return 1;
+
+        var lineSpan = GetLineSpan();
+
+        /*
+        // Compare by Path
+        int pathComparison = string.Compare(GetLineSpan().Path, other.GetLineSpan().Path, StringComparison.OrdinalIgnoreCase);
+        if (pathComparison != 0)
+            return pathComparison; */
+
+        /*
+                // Compare by Start Line
+                int startLineComparison = GetLineSpan().StartLinePosition.Line.CompareTo(other.GetLineSpan().StartLinePosition.Line);
+                if (startLineComparison != 0)
+                    return startLineComparison;
+
+                // Compare by Start Character
+                int startCharComparison = GetLineSpan().StartLinePosition.Character.CompareTo(other.GetLineSpan().StartLinePosition.Character);
+                if (startCharComparison != 0)
+                    return startCharComparison;
+        */
+        // Compare by Span Start
+        return SourceSpan.Start.CompareTo(other.SourceSpan.Start);
     }
 }
