@@ -13,6 +13,8 @@ public class Diagnostic
 
     public Location Location { get; }
 
+    public object[]? GetMessageArgs() => _messageArgs;
+
     public Diagnostic(DiagnosticDescriptor descriptor, Location location, object[]? messageArgs)
     {
         Descriptor = descriptor;

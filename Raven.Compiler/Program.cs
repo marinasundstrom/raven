@@ -1,6 +1,10 @@
-﻿using Raven.CodeAnalysis;
+﻿using System.Drawing;
+
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
+
+using Spectre.Console;
 
 // ravc test.rav
 // dotnet run -- test.rav
@@ -49,7 +53,19 @@ static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics)
         var descriptor = diagnostic.Descriptor;
         var location = diagnostic.Location.GetLineSpan();
 
-        Console.WriteLine($"{Path.GetRelativePath(Environment.CurrentDirectory, location.Path)}({location.StartLinePosition.Line + 1},{location.StartLinePosition.Character + 1}): {diagnostic}");
+        var fileDirectory = Path.GetDirectoryName(location.Path);
+        var fileName = Path.GetFileName(location.Path);
+
+        var fileLocation = $"({location.StartLinePosition.Line + 1},{location.StartLinePosition.Character + 1})";
+
+        var color = diagnostic.Descriptor.DefaultSeverity switch
+        {
+            DiagnosticSeverity.Warning => ConsoleColor.Green,
+            DiagnosticSeverity.Error => ConsoleColor.Red,
+            _ => ConsoleColor.Black
+        };
+
+        AnsiConsole.Write(new Markup($"{fileDirectory}/[bold]{fileName}[/]{fileLocation}: [bold {color}]{descriptor.DefaultSeverity.ToString().ToLower()} {descriptor.Id}[/]: {string.Format(descriptor.MessageFormat, diagnostic.GetMessageArgs() ?? [])}\n"));
     }
 }
 
