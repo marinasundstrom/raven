@@ -29,6 +29,12 @@ public static class ConsoleEx
             var location = diagnostic.Location.GetLineSpan();
 
             var fileDirectory = Path.GetDirectoryName(location.Path);
+
+            if (!string.IsNullOrEmpty(fileDirectory))
+            {
+                fileDirectory += "/";
+            }
+
             var fileName = Path.GetFileName(location.Path);
 
             var fileLocation = $"({location.StartLinePosition.Line + 1},{location.StartLinePosition.Character + 1})";
@@ -40,7 +46,7 @@ public static class ConsoleEx
                 _ => ConsoleColor.Black
             };
 
-            AnsiConsole.MarkupLine($"{fileDirectory}/[bold]{fileName}[/]{fileLocation}: [bold {color}]{descriptor.DefaultSeverity.ToString().ToLower()} {descriptor.Id}[/]: {string.Format(descriptor.MessageFormat, diagnostic.GetMessageArgs() ?? [])}");
+            AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{descriptor.DefaultSeverity.ToString().ToLower()} {descriptor.Id}[/]: {string.Format(descriptor.MessageFormat, diagnostic.GetMessageArgs() ?? [])}");
         }
     }
 }

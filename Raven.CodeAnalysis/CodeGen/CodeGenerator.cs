@@ -29,12 +29,12 @@ internal class CodeGenerator
         ".NETCoreApp,Version=v8.0",
         ".NETCoreApp,Version=v9.0"
     ];
-    
+
     private Label end;
 
     public void Generate(Compilation compilation, Stream peStream, Stream? pdbStream)
     {
-        var assemblyName = new AssemblyName(compilation.Name);
+        var assemblyName = new AssemblyName(compilation.AssemblyName);
         assemblyName.Version = new Version(1, 0, 0, 0);
 
         var targetFrameworkAttribute = new CustomAttributeBuilder(
@@ -85,7 +85,7 @@ internal class CodeGenerator
             {
                 GenerateType(type);
             }
-            else  if (member is INamespaceSymbol ns)
+            else if (member is INamespaceSymbol ns)
             {
                 GenerateNamespace(ns);
             }
@@ -100,7 +100,7 @@ internal class CodeGenerator
             TypeBuilder typeBuilder = moduleBuilder.DefineType(type.Name, TypeAttributes.Public | TypeAttributes.Class);
 
             _typeBuilders[type] = typeBuilder;
-            
+
             foreach (var member in type.GetMembers())
             {
                 if (member is IMethodSymbol method)
@@ -117,7 +117,7 @@ internal class CodeGenerator
         MethodBuilder methodBuilder = typeBuilder.DefineMethod(method.Name, MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard, typeof(int), []);
 
         _methodBuilders[type] = methodBuilder;
-                    
+
         ILGenerator il = methodBuilder.GetILGenerator();
 
         var syntax = syntaxReference.GetSyntax();
@@ -126,14 +126,14 @@ internal class CodeGenerator
         {
             var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
                 .Select(x => x.Statement);
-                        
+
             GenerateIL(method, typeBuilder, methodBuilder, statements, il);
         }
-        else  if (syntax is MethodDeclarationSyntax methodDeclaration)
+        else if (syntax is MethodDeclarationSyntax methodDeclaration)
         {
             GenerateIL(method, typeBuilder, methodBuilder, methodDeclaration.Body.Statements.ToList(), il);
         }
-                    
+
         if (method.Name == "Main")
         {
             entryPoint = methodBuilder;
@@ -255,16 +255,16 @@ internal class CodeGenerator
         {
             // Resolve target identifier or access
             // If method or delegate, then invoke
-            
+
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, invocationExpression.Expression);
-            
+
             iLGenerator.Emit(OpCodes.Ldc_I4, 42);
         }
         else if (expression is IdentifierNameSyntax identifierName)
         {
             // Resolve target identifier or access
             // If local, property, or field, then load
-            
+
             iLGenerator.Emit(OpCodes.Ldc_I4, 100);
         }
         else if (expression is LiteralExpressionSyntax literalExpression)

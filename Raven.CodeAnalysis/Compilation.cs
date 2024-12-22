@@ -14,15 +14,15 @@ public class Compilation
     private List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
 
-    private Compilation(string name, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
+    private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
-        Name = name;
+        AssemblyName = assemblyName ?? "assembly";
         _syntaxTrees = syntaxTrees;
         _references = references;
         Options = options ?? new CompilationOptions();
     }
 
-    public string Name { get; }
+    public string AssemblyName { get; }
 
     public CompilationOptions Options { get; }
 
@@ -30,31 +30,35 @@ public class Compilation
 
     public INamespaceSymbol GlobalNamespace { get; private set; }
 
-    public static Compilation Create(string name, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
+    public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
-        return new Compilation(name, syntaxTrees, [], options);
+        return new Compilation(assemblyName, syntaxTrees, [], options);
     }
 
-    public static Compilation Create(string name, CompilationOptions? options = null)
+    public static Compilation Create(string assemblyName, CompilationOptions? options = null)
     {
-        return new Compilation(name, [], [], options);
+        return new Compilation(assemblyName, [], [], options);
     }
 
-    public static Compilation Create(string name, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
+    public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
-        return new Compilation(name, syntaxTrees, references, options);
+        return new Compilation(assemblyName, syntaxTrees, references, options);
     }
 
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
     {
         // TODO: Create new compilation
-        return new Compilation(Name, syntaxTrees, _references, Options);
+        return new Compilation(AssemblyName, syntaxTrees, _references, Options);
     }
 
     public Compilation AddReferences(MetadataReference[] references)
     {
-        // TODO: Create new compilation
-        return new Compilation(Name, _syntaxTrees, references, Options);
+        return new Compilation(AssemblyName, _syntaxTrees, references, Options);
+    }
+
+    public Compilation WithAssemblyName(string? assemblyName)
+    {
+        return new Compilation(assemblyName, _syntaxTrees, _references, Options);
     }
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)

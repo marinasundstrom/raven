@@ -38,7 +38,7 @@ public class SyntaxTree
 
     public static SyntaxTree ParseText(SourceText sourceText, ParseOptions? options = null, string? path = null)
     {
-        var parser = new Parser.SyntaxParser(path, options ?? new ParseOptions());
+        var parser = new Parser.SyntaxParser(path ?? "file", options ?? new ParseOptions());
 
         return parser.Parse(sourceText);
     }
