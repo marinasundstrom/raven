@@ -53,7 +53,7 @@ public class SemanticModel
 
     private DiagnosticBag Diagnostics => _diagnostics;
 
-    public IImmutableList<Diagnostic> GetDiagnostics() => _diagnostics.ToImmutableArray();
+    public IImmutableList<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default) => _diagnostics.ToImmutableArray();
 
     private void AnalyzeStatement(ISymbol declaringSymbol, StatementSyntax statement)
     {

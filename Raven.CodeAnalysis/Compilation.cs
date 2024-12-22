@@ -90,6 +90,11 @@ public class Compilation
         return new EmitResult(true, diagnostics);
     }
 
+    public IMethodSymbol? GetEntryPoint(CancellationToken cancellationToken = default)
+    {
+        return _symbols.SingleOrDefault(x => x.Name == "Name" && x.ContainingType!.Name == "Program") as IMethodSymbol;
+    }
+
     public Compilation AnalyzeCodeTemp()
     {
         var globalNamespace = new NamespaceSymbol(
@@ -273,16 +278,16 @@ public class Compilation
         }
     }
 
-    public ImmutableArray<Diagnostic> GetDiagnostics()
+    public ImmutableArray<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
         List<Diagnostic> diagnostics = new List<Diagnostic>();
 
         foreach (var item in SyntaxTrees)
         {
-            diagnostics.AddRange(item.GetDiagnostics());
+            diagnostics.AddRange(item.GetDiagnostics(cancellationToken));
 
             var model = GetSemanticModel(item);
-            diagnostics.AddRange(model.GetDiagnostics());
+            diagnostics.AddRange(model.GetDiagnostics(cancellationToken));
         }
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
