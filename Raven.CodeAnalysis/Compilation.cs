@@ -76,9 +76,18 @@ public class Compilation
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);
 
-    public void Emit(Stream peStream, Stream? pdbStream = null)
+    public EmitResult Emit(Stream peStream, Stream? pdbStream = null)
     {
+        var diagnostics = GetDiagnostics();
+
+        if (diagnostics.Any(x => x.Descriptor.DefaultSeverity == DiagnosticSeverity.Error))
+        {
+            return new EmitResult(false, diagnostics);
+        }
+
         new CodeGenerator().Generate(this, peStream, pdbStream);
+
+        return new EmitResult(true, diagnostics);
     }
 
     public Compilation AnalyzeCodeTemp()
@@ -278,6 +287,18 @@ public class Compilation
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
     }
+}
+
+public class EmitResult
+{
+    internal EmitResult(bool success, ImmutableArray<Diagnostic> diagnostics)
+    {
+        Success = success;
+        Diagnostics = diagnostics;
+    }
+
+    public bool Success { get; }
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
 }
 
 public class CompilationOptions

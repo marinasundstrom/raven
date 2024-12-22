@@ -23,13 +23,25 @@ var compilation = Compilation.Create(compilationName)
     ])
     .AnalyzeCodeTemp(); // Temporary
 
-PrintDiagnostics(compilation.GetDiagnostics());
-
 // INFO: The sample will compile, but not all constructs are supported yet.
 using var stream = File.OpenWrite("MyAssembly.exe");
-compilation.Emit(stream);
 
-Console.WriteLine();
+var result = compilation.Emit(stream);
+
+
+// Check the result
+if (!result.Success)
+{
+    PrintDiagnostics(result.Diagnostics);
+
+    Console.WriteLine();
+
+    Console.WriteLine($"Build failed with {result.Diagnostics.Count()} error(s)");
+}
+else
+{
+    Console.WriteLine("Build succeeded");
+}
 
 static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics)
 {
@@ -38,7 +50,7 @@ static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics)
         var descriptor = diagnostic.Descriptor;
         var location = diagnostic.Location.GetLineSpan();
 
-        Console.WriteLine($"{Path.GetRelativePath(Environment.CurrentDirectory, location.Path)}({(location.StartLinePosition.Line + 1)},{(location.StartLinePosition.Character + 1)}): {diagnostic}");
+        Console.WriteLine($"{Path.GetRelativePath(Environment.CurrentDirectory, location.Path)}({location.StartLinePosition.Line + 1},{location.StartLinePosition.Character + 1}): {diagnostic}");
     }
 }
 

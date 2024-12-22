@@ -10,6 +10,7 @@ public class Diagnostic
     private readonly object[]? _messageArgs;
 
     public DiagnosticDescriptor Descriptor { get; }
+
     public Location Location { get; }
 
     public Diagnostic(DiagnosticDescriptor descriptor, Location location, object[]? messageArgs)
@@ -25,13 +26,8 @@ public class Diagnostic
     {
         return new Diagnostic(descriptor, location, messageArgs);
     }
-    
-    public string GetMessage() => $"{Descriptor.DefaultSeverity} {Descriptor.Id}: {string.Format(Descriptor.MessageFormat.ToString(), _messageArgs ?? [])}";
 
-    internal static Diagnostic Create(object methodNameExpected, Location location)
-    {
-        throw new NotImplementedException();
-    }
+    public string GetMessage() => $"{Descriptor.DefaultSeverity.ToString().ToLower()} {Descriptor.Id}: {string.Format(Descriptor.MessageFormat, _messageArgs ?? [])}";
 }
 
 public enum DiagnosticSeverity
