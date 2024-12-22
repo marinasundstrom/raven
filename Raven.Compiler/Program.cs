@@ -28,7 +28,6 @@ using var stream = File.OpenWrite("MyAssembly.exe");
 
 var result = compilation.Emit(stream);
 
-
 // Check the result
 if (!result.Success)
 {
