@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <WarningsAsErrors>Nullable</WarningsAsErrors>
+    <AssemblyName>ravc</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

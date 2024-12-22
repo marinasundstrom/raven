@@ -1,8 +1,9 @@
-﻿using System.Runtime.CompilerServices;
-
-using Raven.CodeAnalysis;
+﻿using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
+
+// ravc test.rav
+// dotnet run -- test.rav
 
 var filePath = args.Length > 0 ? args[0] : "../../../test.rav";
 filePath = Path.GetFullPath(filePath);
@@ -15,31 +16,16 @@ var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
 
 var root = syntaxTree.GetRoot();
 
-//Console.WriteLine(root.GetSyntaxTreeRepresentation(includeTrivia: true, includeSpans: true, includeLocation: true));
+var compilationName = Path.GetFileNameWithoutExtension(filePath);
 
-//Console.WriteLine();
-
-//Console.WriteLine(root.ToFullString());
-
-//Console.WriteLine();
-
-var name = Path.GetFileNameWithoutExtension(filePath);
-
-var compilation = Compilation.Create(name) // new CompilationOptions(OutputKind.ConsoleApplication))
+var compilation = Compilation.Create(compilationName) // new CompilationOptions(OutputKind.ConsoleApplication))
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
-        //MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
     ])
-    .ProcessSymbolsTemp(); // Temp
-
-syntaxTree = compilation.SyntaxTrees.First();
-
-//ListNamespaces(compilation);
+    .ProcessSymbolsTemp(); // Temporary
 
 PrintDiagnostics(compilation.GetDiagnostics());
-
-//GetSymbols(syntaxTree, semanticModel);
 
 // INFO: The sample will compile, but not all constructs are supported yet.
 using var stream = File.OpenWrite("MyAssembly.exe");
@@ -68,8 +54,12 @@ static void ListNamespaces(Compilation compilation)
     }
 }
 
-static void GetSymbols(SyntaxTree syntaxTree, SemanticModel semanticModel)
+static void GetSymbol(Compilation compilation)
 {
+    var syntaxTree = compilation.SyntaxTrees.First();
+
+    var semanticModel = compilation.GetSemanticModel(syntaxTree);
+
     var variableDeclarator = syntaxTree.GetRoot()
         .DescendantNodes()
         .OfType<VariableDeclaratorSyntax>()
@@ -79,5 +69,5 @@ static void GetSymbols(SyntaxTree syntaxTree, SemanticModel semanticModel)
 
     var symbol = semanticModel.GetSymbolInfo(variableDeclarator).Symbol as ILocalSymbol;
 
-    //Console.WriteLine(symbol!.ContainingSymbol!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+    Console.WriteLine(symbol!.ContainingSymbol!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 }
