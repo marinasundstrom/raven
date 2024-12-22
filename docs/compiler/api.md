@@ -174,7 +174,6 @@ var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText);
 var compilation = Compilation.Create("MyCompilation")
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
-        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
     ]);
 
@@ -202,12 +201,20 @@ var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText);
 var compilation = Compilation.Create("MyCompilation")
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
-        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
     ]);
 
 using var stream = File.OpenWrite("MyAssembly.exe");
-compilation.Emit(stream);
+var result = compilation.Emit(stream);
+
+if(result.Success) 
+{
+    Console.WriteLine("Build succeeded");
+}
+
+// Get diagnostics
+var diagnostics = result.Diagnostics;
+
 ```
 
 This will generate an executable (`MyAssembly.exe`) from your source code.
