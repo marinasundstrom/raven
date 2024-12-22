@@ -137,9 +137,9 @@ public class SemanticModel
             {
                 Diagnostics.Add(
                     Diagnostic.Create(
-                        CompilerDiagnostics.MemberDoesNotContainDefinition,
+                        CompilerDiagnostics.TypeNameDoesNotExistInType,
                         memberAccessExpression.Name.Identifier.GetLocation(),
-                        [baseSymbols.First().ToDisplayString(), name]
+                        [name, baseSymbols.First().ToDisplayString()]
                     ));
             }
 

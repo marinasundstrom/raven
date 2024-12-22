@@ -112,10 +112,19 @@ internal class CompilerDiagnostics
 
     public static readonly DiagnosticDescriptor OperatorCannotBeAppliedToOperandOfType = DiagnosticDescriptor.Create(
         id: "RAV0023",
-        title: "Operator cannot be applied to operand of specific type ",
+        title: "Operator cannot be applied to operand of specific type",
         description: "",
         helpLinkUri: "",
         messageFormat: "Operator '{0}' cannot be applied to operand of type '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
+    public static readonly DiagnosticDescriptor TypeNameDoesNotExistInType = DiagnosticDescriptor.Create(
+        id: "RAV0426",
+        title: "Type name does not exist in type",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The type name '{0}' does not exist in the type '{1}'",
         category: "compiler",
         DiagnosticSeverity.Error);
 }
