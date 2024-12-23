@@ -6,6 +6,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices.Marshalling;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -31,22 +32,29 @@ internal class CodeGenerator
     ];
 
     private Label end;
+    private readonly Compilation _compilation;
 
-    public void Generate(Compilation compilation, Stream peStream, Stream? pdbStream)
+    public CodeGenerator(Compilation compilation)
     {
-        var assemblyName = new AssemblyName(compilation.AssemblyName);
+        _compilation = compilation;
+    }
+
+    public void Generate(Stream peStream, Stream? pdbStream)
+    {
+        var assemblyName = new AssemblyName(_compilation.AssemblyName);
         assemblyName.Version = new Version(1, 0, 0, 0);
 
         var targetFrameworkAttribute = new CustomAttributeBuilder(
             typeof(System.Runtime.Versioning.TargetFrameworkAttribute).GetConstructor([typeof(string)]),
-            [".NETCoreApp,Version=v9.0"] // Replace with your version
+            [".NETCoreApp,Version=v9.0"]  // Replace with your version
         );
 
-        assemblyBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, [targetFrameworkAttribute]);
-
+        assemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly, [targetFrameworkAttribute]);
         moduleBuilder = assemblyBuilder.DefineDynamicModule("MyModule");
 
-        var globalNamespace = compilation.GlobalNamespace;
+        //Assembly systemRuntime = Assembly.Load("System.Runtime");
+
+        var globalNamespace = _compilation.GlobalNamespace;
 
         GenerateNamespace(globalNamespace);
 
@@ -114,7 +122,7 @@ internal class CodeGenerator
     private void GenerateMethod(ITypeSymbol type, TypeBuilder typeBuilder, SyntaxReference syntaxReference,
         IMethodSymbol method)
     {
-        MethodBuilder methodBuilder = typeBuilder.DefineMethod(method.Name, MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard, typeof(int), []);
+        MethodBuilder methodBuilder = typeBuilder.DefineMethod(method.Name, MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard, _compilation.CoreAssembly.GetType(typeof(void).FullName), []);
 
         _methodBuilders[type] = methodBuilder;
 
@@ -146,6 +154,8 @@ internal class CodeGenerator
         {
             GenerateStatement(typeBuilder, methodBuilder, ilGenerator, statement);
         }
+
+        ilGenerator.Emit(OpCodes.Ret);
     }
 
     private void GenerateStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement)
@@ -256,9 +266,21 @@ internal class CodeGenerator
             // Resolve target identifier or access
             // If method or delegate, then invoke
 
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, invocationExpression.Expression);
+            foreach (var argument in invocationExpression.ArgumentList.Arguments)
+            {
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
+            }
 
-            iLGenerator.Emit(OpCodes.Ldc_I4, 42);
+            var target = _compilation
+                .GetSemanticModel(invocationExpression.SyntaxTree)
+                .GetSymbolInfo(invocationExpression).Symbol as MetadataMethodSymbol;
+
+            if (!target.GetMethodInfo().IsStatic /* target.IsStatic */)
+            {
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, invocationExpression.Expression);
+            }
+
+            iLGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
         }
         else if (expression is IdentifierNameSyntax identifierName)
         {
@@ -269,7 +291,15 @@ internal class CodeGenerator
         }
         else if (expression is LiteralExpressionSyntax literalExpression)
         {
-            iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(literalExpression.Token.ValueText));
+            if (literalExpression.Kind == SyntaxKind.StringLiteralExpression)
+            {
+                var v = literalExpression.Token.ValueText;
+                iLGenerator.Emit(OpCodes.Ldstr, v.Substring(1, v.Length - 2));
+            }
+            else
+            {
+                iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(literalExpression.Token.ValueText));
+            }
         }
         else if (expression is ParenthesizedExpressionSyntax parenthesized)
         {

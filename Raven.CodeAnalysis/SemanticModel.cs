@@ -137,14 +137,13 @@ public class SemanticModel
             {
                 _bindings[expression] = new SymbolInfo(CandidateReason.NotATypeOrNamespace, []);
 
-                /*
+                // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.TypeNameDoesNotExistInType,
                         memberAccessExpression.Name.Identifier.GetLocation(),
                         [name, baseSymbols.First().ToDisplayString()]
                     ));
-                */
 
                 symbols = resolvedSymbols.ToImmutable();
                 return;
@@ -168,11 +167,13 @@ public class SemanticModel
             var candidateMethods = baseSymbols.OfType<IMethodSymbol>().ToList();
             if (!candidateMethods.Any())
             {
+                // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.MethodNameExpected,
                         invocationExpression.Expression.GetLocation()
                     ));
+
                 symbols = ImmutableArray<ISymbol>.Empty;
                 return;
             }
@@ -191,13 +192,12 @@ public class SemanticModel
 
             if (bestMethod is null)
             {
-                /*
+                // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.NoOverloadForMethod,
                         invocationExpression.Expression.GetLocation()
                     ));
-                */
 
                 symbols = ImmutableArray<ISymbol>.Empty;
 

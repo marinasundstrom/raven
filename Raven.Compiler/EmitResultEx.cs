@@ -4,7 +4,7 @@ using static Raven.ConsoleEx;
 
 namespace Raven;
 
-public static class EmitResultEx
+static class EmitResultEx
 {
     public static void Print(this EmitResult result)
     {

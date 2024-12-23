@@ -50,4 +50,6 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
             }).OfType<IParameterSymbol>().ToImmutableArray();
         }
     }
+
+    public MethodInfo GetMethodInfo() => _methodInfo;
 }

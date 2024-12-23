@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
@@ -29,6 +30,8 @@ public class Compilation
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
 
     public INamespaceSymbol GlobalNamespace { get; private set; }
+
+    public Assembly CoreAssembly { get; private set; }
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
@@ -89,7 +92,7 @@ public class Compilation
             return new EmitResult(false, diagnostics);
         }
 
-        new CodeGenerator().Generate(this, peStream, pdbStream);
+        new CodeGenerator(this).Generate(peStream, pdbStream);
 
         return new EmitResult(true, diagnostics);
     }
@@ -150,12 +153,34 @@ public class Compilation
 
     private void LoadMetadataReferences()
     {
-        List<Assembly> assemblies = _references
+        List<Assembly> assemblies = new(); /* _references
             .OfType<PortableExecutableReference>()
             .Select(portableExecutableReference => Assembly.LoadFile(portableExecutableReference.Location))
-            .ToList();
+            .ToList(); */
 
-        assemblies.Insert(0, typeof(object).Assembly);
+        string referencePath = "";
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            referencePath = @"/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net9.0";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            referencePath = @"C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\9.0.0\ref\net9.0";
+        }
+
+        PathAssemblyResolver resolver = new(Directory.GetFiles(referencePath, "*.dll"));
+        /*using*/
+        MetadataLoadContext context = new(resolver);
+        Assembly coreAssembly = context.CoreAssembly!;
+
+        CoreAssembly = coreAssembly;
+
+        Type objectType = coreAssembly.GetType(typeof(object).FullName!)!;
+        Type console = coreAssembly.GetType(typeof(Console).FullName!)!;
+
+        assemblies.Insert(0, objectType.Assembly);
+        assemblies.Insert(0, console.Assembly);
 
         foreach (var assembly in assemblies)
         {

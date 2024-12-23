@@ -4,7 +4,7 @@ using Spectre.Console;
 
 namespace Raven;
 
-public static class ConsoleEx
+static class ConsoleEx
 {
     public static void SucceededWithWarnings(int warningsCount)
     {
