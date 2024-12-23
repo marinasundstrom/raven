@@ -11,7 +11,7 @@ public class SemanticModel
     private readonly DiagnosticBag _diagnostics;
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly List<ISymbol> _localSymbols = new List<ISymbol>();
-    private readonly Dictionary<SyntaxNode, ImmutableArray<ISymbol>> _bindings = new();
+    private readonly Dictionary<SyntaxNode, SymbolInfo> _bindings = new();
 
     public SemanticModel(Compilation compilation, List<ISymbol> symbols, SyntaxTree syntaxTree)
     {
@@ -76,7 +76,7 @@ public class SemanticModel
                     AnalyzeExpression(declaringSymbol, declarator.Initializer.Value, out var x);
                 }
 
-                _bindings[declarator] = [symbol];
+                _bindings[declarator] = new SymbolInfo(symbol);
                 _localSymbols.Add(symbol);
             }
         }
@@ -135,51 +135,79 @@ public class SemanticModel
 
             if (!resolvedSymbols.Any())
             {
+                _bindings[expression] = new SymbolInfo(CandidateReason.NotATypeOrNamespace, []);
+
+                /*
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.TypeNameDoesNotExistInType,
                         memberAccessExpression.Name.Identifier.GetLocation(),
                         [name, baseSymbols.First().ToDisplayString()]
                     ));
+                */
+
+                symbols = resolvedSymbols.ToImmutable();
+                return;
             }
 
             symbols = resolvedSymbols.ToImmutable();
-            _bindings[expression] = symbols;
+            _bindings[expression] = new SymbolInfo(symbols.First());
         }
         else if (expression is InvocationExpressionSyntax invocationExpression)
         {
+            // Analyze the base expression to get potential methods or delegates
             AnalyzeExpression(declaringSymbol, invocationExpression.Expression, out var baseSymbols);
 
             if (!baseSymbols.Any())
             {
-                symbols = [];
+                symbols = ImmutableArray<ISymbol>.Empty;
                 return;
             }
 
-            if (!baseSymbols.Any(x => x.Kind == SymbolKind.Method || x.Kind == SymbolKind.Field))
+            // Ensure we are invoking a method or delegate
+            var candidateMethods = baseSymbols.OfType<IMethodSymbol>().ToList();
+            if (!candidateMethods.Any())
             {
-                var expr = invocationExpression.Expression;
-
-                if (expr is MemberAccessExpressionSyntax)
-                {
-                    expr = ((MemberAccessExpressionSyntax)expr).Name;
-                }
-
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.MethodNameExpected,
-                        expr.GetLocation()
+                        invocationExpression.Expression.GetLocation()
                     ));
-
-                symbols = [];
+                symbols = ImmutableArray<ISymbol>.Empty;
                 return;
             }
 
-            // Is invocable: Method or Delegate
-            // Is overloaded?
+            // Collect argument types
+            var argumentTypes = new List<ITypeSymbol>();
+            foreach (var argument in invocationExpression.ArgumentList.Arguments)
+            {
+                AnalyzeExpression(declaringSymbol, argument.Expression, out var argSymbols);
+                var typeSymbol = argSymbols.OfType<ITypeSymbol>().FirstOrDefault();
+                argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
+            }
 
-            symbols = [.. baseSymbols.OfType<IMethodSymbol>()];
-            _bindings[expression] = symbols;
+            // Perform overload resolution
+            var bestMethod = ResolveMethodOverload(candidateMethods, argumentTypes);
+
+            if (bestMethod is null)
+            {
+                /*
+                Diagnostics.Add(
+                    Diagnostic.Create(
+                        CompilerDiagnostics.NoOverloadForMethod,
+                        invocationExpression.Expression.GetLocation()
+                    ));
+                */
+
+                symbols = ImmutableArray<ISymbol>.Empty;
+
+                _bindings[expression] = new SymbolInfo(CandidateReason.OverloadResolutionFailure, symbols);
+            }
+            else
+            {
+                symbols = [bestMethod.ReturnType];
+                _bindings[expression] = new SymbolInfo(bestMethod);
+            }
         }
         else if (expression is IdentifierNameSyntax name)
         {
@@ -189,7 +217,29 @@ public class SemanticModel
                 .. _localSymbols.Where(x => x.Name == identifier),
                 .. _symbols.Where(x => x.Name == identifier),
             ];
-            _bindings[name] = symbols;
+
+            if (symbols.Count() == 1)
+            {
+                _bindings[name] = new SymbolInfo(symbols.First());
+            }
+            else
+            {
+                _bindings[name] = new SymbolInfo(CandidateReason.Ambiguous, symbols);
+            }
+        }
+        else if (expression is LiteralExpressionSyntax literalExpression)
+        {
+            if (literalExpression.Kind == SyntaxKind.StringLiteralExpression)
+            {
+                var symbol = Compilation.GetTypeByMetadataName("System.String")!;
+                symbols = [symbol];
+
+                _bindings[literalExpression] = new SymbolInfo(symbol);
+            }
+            else
+            {
+                symbols = [];
+            }
         }
         else
         {
@@ -197,15 +247,56 @@ public class SemanticModel
         }
     }
 
+    private IMethodSymbol? ResolveMethodOverload(List<IMethodSymbol> candidateMethods, List<ITypeSymbol> argumentTypes)
+    {
+        IMethodSymbol? bestMatch = null;
+        int bestScore = int.MinValue;
+
+        foreach (var method in candidateMethods)
+        {
+            var parameters = method.Parameters;
+            int score = 0;
+
+            if (parameters.Length < argumentTypes.Count)
+                continue; // Not enough parameters to match
+
+            for (int i = 0; i < argumentTypes.Count; i++)
+            {
+                var paramType = parameters[i].Type;
+
+                var argType = argumentTypes[i];
+
+                // Check for exact match or assignable types
+                if (argType.Equals(paramType, SymbolEqualityComparer.Default))
+                {
+                    score += 2; // Exact match
+                }
+                else if (argType != null && Compilation.ClassifyConversion(argType, paramType).IsImplicit)
+                {
+                    score += 1; // Implicit conversion
+                }
+                else
+                {
+                    score = int.MinValue; // No match
+                    break;
+                }
+            }
+
+            if (score > bestScore)
+            {
+                bestMatch = method;
+                bestScore = score;
+            }
+        }
+
+        return bestMatch;
+    }
+
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
-        if (_bindings.TryGetValue(node, out var symbols))
+        if (_bindings.TryGetValue(node, out var symbolInfo))
         {
-            if (symbols.Length == 1)
-            {
-                return new SymbolInfo(symbols[0]);
-            }
-            return new SymbolInfo(CandidateReason.OverloadResolutionFailure, symbols);
+            return symbolInfo;
         }
 
         return new SymbolInfo(CandidateReason.None, ImmutableArray<ISymbol>.Empty);

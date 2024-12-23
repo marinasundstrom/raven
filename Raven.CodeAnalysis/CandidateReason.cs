@@ -4,5 +4,18 @@ public enum CandidateReason
 {
     None,
     NotATypeOrNamespace,
-    OverloadResolutionFailure
+    NotAnEvent,
+    NotAWithEventsMember,
+    NotAnAttributeType,
+    WrongArity,
+    NotCreatable,
+    NotReferenceable,
+    Inaccessible,
+    NotAValue,
+    NotInvocable,
+    StaticInstanceMismatch,
+    OverloadResolutionFailure,
+    LateBound,
+    Ambiguous,
+    MemberGroup
 }

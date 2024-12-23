@@ -4,10 +4,12 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal abstract class MetadataSymbol : Symbol
 {
-    protected MetadataSymbol(ISymbol containingSymbol,
+    protected readonly Compilation _compilation;
+
+    protected MetadataSymbol(Compilation compilation, ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
         Location[] locations) : base(containingSymbol, containingType, containingNamespace, locations, [])
     {
-
+        _compilation = compilation;
     }
 }

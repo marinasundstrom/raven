@@ -9,17 +9,21 @@ internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
     public SourceTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-        
+
     }
-    
+
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
-    
+
     public ImmutableArray<IMethodSymbol> Constructors { get; }
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
-    
+
+    public SpecialType SpecialType => throw new NotImplementedException();
+
+    public bool IsValueType => throw new NotImplementedException();
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return _members.ToImmutableArray();

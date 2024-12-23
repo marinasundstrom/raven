@@ -6,24 +6,48 @@ namespace Raven.CodeAnalysis.Symbols;
 internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
 {
     private readonly MethodInfo _methodInfo;
+    private ITypeSymbol? _returnType;
+    private ImmutableArray<IParameterSymbol>? _parameters;
 
-    public MetadataMethodSymbol(MethodInfo methodInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
-        : base(containingSymbol, containingType, containingNamespace, locations)
+    public MetadataMethodSymbol(Compilation compilation, MethodInfo methodInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+        : base(compilation, containingSymbol, containingType, containingNamespace, locations)
     {
         _methodInfo = methodInfo;
-
-        foreach (var param in _methodInfo.GetParameters())
-        {
-            var symbol2 = new MetadataParameterSymbol(
-                  param, null, this, this.ContainingType, this.ContainingNamespace,
-                  []);
-
-            Parameters = [symbol2];
-        }
     }
 
     public override SymbolKind Kind => SymbolKind.Method;
     public override string Name => _methodInfo.Name;
-    public ITypeSymbol ReturnType { get; }
-    public ImmutableArray<IParameterSymbol> Parameters { get; set; } = [];
+    public ITypeSymbol ReturnType
+    {
+        get
+        {
+            if (_returnType == null)
+            {
+
+                _returnType = _compilation.GetType(_methodInfo.ReturnType);
+
+                /*
+                _returnType = _methodInfo.ReturnType == typeof(void)
+                    ? _compilation.GetSpecialType(SpecialType.System_Void)
+                    : _compilation.GetType(_methodInfo.ReturnType);
+                    */
+            }
+            return _returnType;
+        }
+    }
+
+    public ImmutableArray<IParameterSymbol> Parameters
+    {
+        get
+        {
+            return _parameters ??= _methodInfo.GetParameters().Select(param =>
+            {
+                var t = _compilation.GetType(param.ParameterType);
+
+                return new MetadataParameterSymbol(_compilation,
+                      param, null, this, this.ContainingType, this.ContainingNamespace,
+                      []);
+            }).OfType<IParameterSymbol>().ToImmutableArray();
+        }
+    }
 }

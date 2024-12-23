@@ -28,13 +28,13 @@ public interface ISymbol : IEquatable<ISymbol?>
     INamespaceSymbol? ContainingNamespace { get; }
 
     ImmutableArray<Location> Locations { get; }
-    
+
     Accessibility DeclaredAccessibility { get; }
 
     ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; }
-    
+
     bool IsImplicitlyDeclared { get; }
-    
+
     bool Equals(ISymbol? other, SymbolEqualityComparer comparer);
 
     string ToDisplayString(SymbolDisplayFormat format = default);
@@ -70,7 +70,7 @@ public class SyntaxReference
     {
         return SyntaxTree.GetNodeForSpan(Span)!;
     }
-    
+
     /*
     public virtual Task<SyntaxNode> GetSyntaxAsync(CancellationToken cancellationToken = default)
     {
@@ -86,8 +86,8 @@ public class SyntaxReference
 
 public interface INamespaceOrTypeSymbol : ISymbol
 {
-    bool IsNamespace { get;  }
-    bool IsType { get;  }
+    bool IsNamespace { get; }
+    bool IsType { get; }
     ImmutableArray<ISymbol> GetMembers();
     ImmutableArray<ISymbol> GetMembers(string name);
 }
@@ -100,7 +100,7 @@ public interface INamespaceSymbol : INamespaceOrTypeSymbol
 public interface IMethodSymbol : ISymbol
 {
     ITypeSymbol ReturnType { get; }
-    ImmutableArray<IParameterSymbol> Parameters { get; set; }
+    ImmutableArray<IParameterSymbol> Parameters { get; }
 }
 
 public interface IParameterSymbol : ISymbol
@@ -123,7 +123,8 @@ public interface IPropertySymbol : ISymbol
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol
 {
-    
+    SpecialType SpecialType { get; }
+    bool IsValueType { get; }
 }
 
 public interface INamedTypeSymbol : ITypeSymbol
@@ -134,7 +135,7 @@ public interface INamedTypeSymbol : ITypeSymbol
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
 }
 
-public interface ITypeParameterSymbol: ISymbol
+public interface ITypeParameterSymbol : ISymbol
 {
 }
 
