@@ -54,5 +54,17 @@ static class AppHostBuilder
             """);
         }
     }
+}
 
+public static class TargetFrameworks
+{
+    public static readonly IEnumerable<string> Versions = [
+        ".NETStandard,Version=v2.0",
+        ".NETStandard,Version=v2.1",
+        ".NETFramework,Version=v7.8",
+        ".NETCoreApp,Version=v6.0",
+        ".NETCoreApp,Version=v7.0",
+        ".NETCoreApp,Version=v8.0",
+        ".NETCoreApp,Version=v9.0"
+    ];
 }

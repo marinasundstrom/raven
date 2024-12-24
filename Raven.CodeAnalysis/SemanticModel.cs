@@ -73,7 +73,7 @@ public class SemanticModel
 
                 if (declarator?.Initializer?.Value is not null)
                 {
-                    AnalyzeExpression(declaringSymbol, declarator.Initializer.Value, out var x);
+                    AnalyzeExpression(declaringSymbol, declaringSymbol, declarator.Initializer.Value, out var x);
                 }
 
                 _bindings[declarator] = new SymbolInfo(symbol);
@@ -89,7 +89,7 @@ public class SemanticModel
         }
         else if (statement is IfStatementSyntax ifStatement)
         {
-            AnalyzeExpression(declaringSymbol, ifStatement.Condition, out var s);
+            AnalyzeExpression(declaringSymbol, declaringSymbol, ifStatement.Condition, out var s);
 
             AnalyzeStatement(declaringSymbol, ifStatement.Statement);
 
@@ -102,20 +102,20 @@ public class SemanticModel
         {
             if (returnStatement.Expression is not null)
             {
-                AnalyzeExpression(declaringSymbol, returnStatement.Expression, out var s);
+                AnalyzeExpression(declaringSymbol, declaringSymbol, returnStatement.Expression, out var s);
             }
         }
         else if (statement is ExpressionStatementSyntax expressionStatement)
         {
-            AnalyzeExpression(declaringSymbol, expressionStatement.Expression, out var s);
+            AnalyzeExpression(declaringSymbol, declaringSymbol, expressionStatement.Expression, out var s);
         }
     }
 
-    private void AnalyzeExpression(ISymbol declaringSymbol, ExpressionSyntax expression, out ImmutableArray<ISymbol> symbols)
+    private void AnalyzeExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, out ImmutableArray<ISymbol> symbols)
     {
         if (expression is MemberAccessExpressionSyntax memberAccessExpression)
         {
-            AnalyzeExpression(declaringSymbol, memberAccessExpression.Expression, out var baseSymbols);
+            AnalyzeExpression(declaringSymbol, containingSymbol, memberAccessExpression.Expression, out var baseSymbols);
 
             var name = memberAccessExpression.Name.Identifier.Text;
 
@@ -155,7 +155,7 @@ public class SemanticModel
         else if (expression is InvocationExpressionSyntax invocationExpression)
         {
             // Analyze the base expression to get potential methods or delegates
-            AnalyzeExpression(declaringSymbol, invocationExpression.Expression, out var baseSymbols);
+            AnalyzeExpression(declaringSymbol, containingSymbol, invocationExpression.Expression, out var baseSymbols);
 
             if (!baseSymbols.Any())
             {
@@ -182,7 +182,7 @@ public class SemanticModel
             var argumentTypes = new List<ITypeSymbol>();
             foreach (var argument in invocationExpression.ArgumentList.Arguments)
             {
-                AnalyzeExpression(declaringSymbol, argument.Expression, out var argSymbols);
+                AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
                 var typeSymbol = argSymbols.OfType<ITypeSymbol>().FirstOrDefault();
                 argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
             }
@@ -215,7 +215,7 @@ public class SemanticModel
             symbols =
             [
                 .. _localSymbols.Where(x => x.Name == identifier),
-                .. _symbols.Where(x => x.Name == identifier),
+                .. _symbols.Where(x => x.Name == identifier && (x.ContainingSymbol == containingSymbol || x.ContainingSymbol == declaringSymbol || x.ContainingSymbol == Compilation.GlobalNamespace)),
             ];
 
             if (symbols.Count() == 1)

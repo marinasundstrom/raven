@@ -21,16 +21,6 @@ internal class CodeGenerator
     private IDictionary<ISymbol, MethodBuilder> _methodBuilders = new Dictionary<ISymbol, MethodBuilder>();
     private IDictionary<ISymbol, LocalBuilder> _localBuilders = new Dictionary<ISymbol, LocalBuilder>();
 
-    IEnumerable<string> versions = [
-        ".NETStandard,Version=v2.0",
-        ".NETStandard,Version=v2.1",
-        ".NETFramework,Version=v7.8",
-        ".NETCoreApp,Version=v6.0",
-        ".NETCoreApp,Version=v7.0",
-        ".NETCoreApp,Version=v8.0",
-        ".NETCoreApp,Version=v9.0"
-    ];
-
     private Label end;
     private readonly Compilation _compilation;
 
@@ -45,6 +35,7 @@ internal class CodeGenerator
         assemblyName.Version = new Version(1, 0, 0, 0);
 
         var targetFrameworkAttribute = new CustomAttributeBuilder(
+            // TODO: This should not be set here
             typeof(System.Runtime.Versioning.TargetFrameworkAttribute).GetConstructor([typeof(string)]),
             [".NETCoreApp,Version=v9.0"]  // Replace with your version
         );

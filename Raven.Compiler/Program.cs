@@ -22,8 +22,9 @@ var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 var compilation = Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
-        //MetadataReference.CreateFromFile(typeof(Object).Assembly.Location),
-        MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
+        // INFO: Only compiles on Mac. But runs on any platform.
+        MetadataReference.CreateFromFile("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net9.0/System.Runtime.dll"),
+        MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
     ])
     .AnalyzeCodeTemp(); // Temporary
 

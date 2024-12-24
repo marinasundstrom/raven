@@ -1,6 +1,9 @@
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Loader;
+
+using Microsoft.VisualBasic;
 
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
@@ -153,34 +156,18 @@ public class Compilation
 
     private void LoadMetadataReferences()
     {
-        List<Assembly> assemblies = new(); /* _references
+        List<string> paths = _references
             .OfType<PortableExecutableReference>()
-            .Select(portableExecutableReference => Assembly.LoadFile(portableExecutableReference.Location))
-            .ToList(); */
+            .Select(portableExecutableReference => portableExecutableReference.Location)
+            .ToList();
 
-        string referencePath = "";
+        var resolver = new PathAssemblyResolver(paths);
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            referencePath = @"/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net9.0";
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            referencePath = @"C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\9.0.0\ref\net9.0";
-        }
+        var metadataLoadContext = new MetadataLoadContext(resolver);
 
-        PathAssemblyResolver resolver = new(Directory.GetFiles(referencePath, "*.dll"));
-        /*using*/
-        MetadataLoadContext context = new(resolver);
-        Assembly coreAssembly = context.CoreAssembly!;
+        var assemblies = paths.Select(x => metadataLoadContext.LoadFromAssemblyPath(x));
 
-        CoreAssembly = coreAssembly;
-
-        Type objectType = coreAssembly.GetType(typeof(object).FullName!)!;
-        Type console = coreAssembly.GetType(typeof(Console).FullName!)!;
-
-        assemblies.Insert(0, objectType.Assembly);
-        assemblies.Insert(0, console.Assembly);
+        CoreAssembly = metadataLoadContext.CoreAssembly!;
 
         foreach (var assembly in assemblies)
         {
