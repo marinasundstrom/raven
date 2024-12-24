@@ -33,7 +33,7 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
 
             if (type == typeof(object))
                 return SpecialType.System_Object;
-            if (type == typeof(string))
+            if (type.FullName == "System.String")
                 return SpecialType.System_String;
             if (type == typeof(bool))
                 return SpecialType.System_Boolean;

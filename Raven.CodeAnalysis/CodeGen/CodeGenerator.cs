@@ -43,8 +43,6 @@ internal class CodeGenerator
         assemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly, [targetFrameworkAttribute]);
         moduleBuilder = assemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
-        //Assembly systemRuntime = Assembly.Load("System.Runtime");
-
         var globalNamespace = _compilation.GlobalNamespace;
 
         GenerateNamespace(globalNamespace);
@@ -230,6 +228,18 @@ internal class CodeGenerator
         {
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression.LeftHandSide);
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression.RightHandSide);
+
+            var semanticModel = _compilation.GetSemanticModel(expression.SyntaxTree!);
+
+            var methodSymbol = semanticModel.GetSymbolInfo(binaryExpression).Symbol as IMethodSymbol;
+
+            if (methodSymbol is not null)
+            {
+                var concatMethod = methodSymbol as MetadataMethodSymbol;
+
+                iLGenerator.Emit(OpCodes.Call, concatMethod.GetMethodInfo());
+                return;
+            }
 
             switch (binaryExpression.Kind)
             {

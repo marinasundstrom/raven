@@ -184,6 +184,10 @@ public class SemanticModel
             {
                 AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
                 var typeSymbol = argSymbols.OfType<ITypeSymbol>().FirstOrDefault();
+                if (typeSymbol is null)
+                {
+                    typeSymbol = argSymbols.OfType<IMethodSymbol>().FirstOrDefault()?.ReturnType;
+                }
                 argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
             }
 
@@ -239,6 +243,45 @@ public class SemanticModel
             else
             {
                 symbols = [];
+            }
+        }
+        else if (expression is BinaryExpressionSyntax binaryExpression)
+        {
+            AnalyzeExpression(declaringSymbol, containingSymbol, binaryExpression.LeftHandSide, out var lhsSymbols);
+            AnalyzeExpression(declaringSymbol, containingSymbol, binaryExpression.RightHandSide, out var rhsSymbols);
+
+            if (lhsSymbols.Count() == 1 && rhsSymbols.Count() == 1)
+            {
+                var lhsSymbol = lhsSymbols.First() as ITypeSymbol;
+                var rhsSymbol = rhsSymbols.First() as ITypeSymbol;
+
+                if (lhsSymbol.SpecialType == SpecialType.System_String && rhsSymbol.SpecialType == SpecialType.System_String)
+                {
+                    var symbol = Compilation
+                        .GetTypeByMetadataName("System.String")
+                        .GetMembers()
+                        .OfType<IMethodSymbol>()
+                        .Where(x => x.Name == "Concat"
+                            && x.Parameters.Count() == 2
+                            && x.Parameters[0].Type.SpecialType == SpecialType.System_String
+                            && x.Parameters[1].Type.SpecialType == SpecialType.System_String);
+
+                    symbols = [symbol.First()];
+
+                    _bindings[binaryExpression] = new SymbolInfo(symbol.First());
+                }
+                else
+                {
+                    symbols = [];
+
+                    _bindings[binaryExpression] = new SymbolInfo(CandidateReason.None, symbols);
+                }
+            }
+            else
+            {
+                symbols = [];
+
+                _bindings[binaryExpression] = new SymbolInfo(CandidateReason.None, symbols);
             }
         }
         else
