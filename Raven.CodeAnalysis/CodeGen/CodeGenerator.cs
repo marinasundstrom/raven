@@ -41,7 +41,7 @@ internal class CodeGenerator
         );
 
         assemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly, [targetFrameworkAttribute]);
-        moduleBuilder = assemblyBuilder.DefineDynamicModule("MyModule");
+        moduleBuilder = assemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
         //Assembly systemRuntime = Assembly.Load("System.Runtime");
 
