@@ -11,7 +11,7 @@ static class ReferenceAssemblyPaths
         return Directory.GetFiles(assemblyDir!, "*.dll");
     }
 
-    private static string? GetReferenceAssemblyDir(string sdkVersion = "9.0.0", string targetFramework = "net9.0")
+    public static string? GetReferenceAssemblyDir(string sdkVersion = "9.0.0", string targetFramework = "net9.0")
     {
         string? referencePath = null;
 

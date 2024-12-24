@@ -19,11 +19,12 @@ var root = syntaxTree.GetRoot();
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
+var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+
 var compilation = Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
-        // INFO: Only compiles on Mac. But runs on any platform.
-        MetadataReference.CreateFromFile("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net9.0/System.Runtime.dll"),
+        MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
     ])
     .AnalyzeCodeTemp(); // Temporary
