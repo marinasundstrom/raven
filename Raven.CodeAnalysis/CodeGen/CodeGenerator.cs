@@ -55,8 +55,15 @@ internal class CodeGenerator
         MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(entryPoint.MetadataToken);
         DebugDirectoryBuilder debugDirectoryBuilder = GeneratePdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
 
+        Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
+        {
+            OutputKind.ConsoleApplication => Characteristics.ExecutableImage,
+            OutputKind.DynamicallyLinkedLibrary => Characteristics.Dll,
+            _ => Characteristics.Dll,
+        };
+
         ManagedPEBuilder peBuilder = new ManagedPEBuilder(
-                        header: new PEHeaderBuilder(imageCharacteristics: Characteristics.ExecutableImage, subsystem: Subsystem.WindowsCui),
+                        header: new PEHeaderBuilder(imageCharacteristics: imageCharacteristics, subsystem: Subsystem.WindowsCui),
                         metadataRootBuilder: new MetadataRootBuilder(metadataBuilder),
                         ilStream: ilStream,
                         debugDirectoryBuilder: debugDirectoryBuilder,
