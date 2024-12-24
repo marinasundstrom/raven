@@ -10,6 +10,8 @@ Some helpful tools:
 
 * [ILSpy](https://github.com/icsharpcode/ILSpy) - .NET de-compiler that can be used to inspect assemblies and turn instructions back into C#. Useful when trying to understand generated IL code, as well as when understanding the C# compiler. Since a lot of Roslyn's source code is generated and not available in the repository.
 
+* [SharpLab](https://sharplab.io/) - Online C#/VB/F# compiler playground. You can view lowered code, IL, and syntax trees. Test the latest experimental C# features.
+
 * [Roslyn Quoter](https://roslynquoter.azurewebsites.net/) - Turns C# code into Roslyn syntax node definitions in C#. Useful as a reference when designing syntax nodes. Also for when working on our "Generator" project.
 
 ## Compilers
