@@ -121,7 +121,7 @@ public class Compilation
 
             Location[] locations = [syntaxTree.GetLocation(root.Span)];
 
-            SyntaxReference[] references = [new SyntaxReference(syntaxTree, root.Span)];
+            SyntaxReference[] references = [new SyntaxReference(syntaxTree, root)];
 
             var globalStatements = root.Members.OfType<GlobalStatementSyntax>();
             if (globalStatements.Any())
@@ -136,7 +136,7 @@ public class Compilation
 
                 var symbol = new SourceMethodSymbol(
                     "Main", typeSymbol, symbol2!, symbol2, globalNamespace,
-                    [syntaxTree.GetLocation(root.Span)], [new SyntaxReference(syntaxTree, root.Span)]);
+                    [syntaxTree.GetLocation(root.Span)], [new SyntaxReference(syntaxTree, root)]);
 
                 _symbols.Add(symbol);
             }

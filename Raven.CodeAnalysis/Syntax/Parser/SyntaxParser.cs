@@ -144,7 +144,7 @@ internal class SyntaxParser
         }
         else
         {
-            // Should warn
+            // Should warn (?)
 
             var statement = ParseStatementSyntax();
             var globalStatement = GlobalStatement(statement);

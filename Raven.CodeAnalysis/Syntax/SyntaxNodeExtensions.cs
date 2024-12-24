@@ -26,13 +26,13 @@ public static class SyntaxNodeExtensions
         var newLast = last.WithTrailingTrivia(trivia);
         return (TSyntax)node.ReplaceToken(last, newLast);
     }
-    
+
     public static TSyntax NormalizeWhitespace<TSyntax>(this TSyntax node)
         where TSyntax : SyntaxNode
     {
         return new SyntaxNormalizer().Visit(node);
     }
-    
+
     public static IEnumerable<SyntaxNode> AncestorNodesAndSelf(this SyntaxNode node)
     {
         yield return node;
@@ -42,7 +42,7 @@ public static class SyntaxNodeExtensions
             yield return n;
         }
     }
-    
+
     public static IEnumerable<SyntaxNode> DescendantNodesAndSelf(this SyntaxNode node)
     {
         yield return node;

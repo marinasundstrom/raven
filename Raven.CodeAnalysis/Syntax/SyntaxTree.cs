@@ -27,7 +27,7 @@ public class SyntaxTree
     public int Length => _sourceText.Length;
     public ParseOptions Options { get; }
 
-    public CompilationUnitSyntax GetRoot() { return _compilationUnit; }
+    public CompilationUnitSyntax GetRoot(CancellationToken cancellationToken = default) { return _compilationUnit; }
 
     public static SyntaxTree ParseText(string text, ParseOptions? options = null, Encoding? encoding = null, string? path = null)
     {

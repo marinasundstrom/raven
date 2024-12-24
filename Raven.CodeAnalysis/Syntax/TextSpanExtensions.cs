@@ -13,4 +13,10 @@ public static class TextSpanExtensions
     {
         return position >= span.Start && position < span.End;
     }
+
+    // Checks if this TextSpan intersects with the specified TextSpan.
+    public static bool IntersectsWith(this TextSpan span, TextSpan otherSpan)
+    {
+        return span.Start < otherSpan.End && otherSpan.Start < span.End;
+    }
 }

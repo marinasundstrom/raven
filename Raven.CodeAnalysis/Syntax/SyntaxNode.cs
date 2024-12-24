@@ -261,4 +261,52 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     {
         return HashCode.Combine(Green, _parent);
     }
+
+    public SyntaxNode FindNode(TextSpan span,
+                               bool findInsideTrivia = false,
+                               bool getInnermostNodeForTie = false)
+    {
+        if (!FullSpan.IntersectsWith(span))
+            return null!;
+
+        SyntaxNode? bestMatchFromChildren = null;
+        foreach (var child in ChildNodes())
+        {
+            if (!child.FullSpan.Contains(span))
+                continue;
+
+            var childMatch = child.FindNode(span, findInsideTrivia, getInnermostNodeForTie);
+            if (childMatch is not null)
+            {
+                // If we don't already have a match, take it.
+                if (bestMatchFromChildren is null)
+                {
+                    bestMatchFromChildren = childMatch;
+                }
+                else
+                {
+                    // Both matches presumably have the same span; handle tie-breaking:
+                    if (getInnermostNodeForTie)
+                    {
+                        // The childMatch is presumably "inner", so prefer the childMatch.
+                        bestMatchFromChildren = childMatch;
+                    }
+                    else
+                    {
+                        // Keep the existing match for "outermost" behavior.
+                    }
+                }
+            }
+        }
+
+        if (bestMatchFromChildren is not null)
+            return bestMatchFromChildren;
+
+        if (Span.Contains(span))
+        {
+            return this;
+        }
+
+        return null!;
+    }
 }

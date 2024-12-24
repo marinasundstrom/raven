@@ -56,6 +56,16 @@ public enum Accessibility
 
 public class SyntaxReference
 {
+    private SyntaxNode? _node;
+
+    // WORKAROUND: SyntaxReference should not store node
+    public SyntaxReference(SyntaxTree syntaxTree, SyntaxNode node)
+    {
+        SyntaxTree = syntaxTree;
+        Span = node.Span;
+        _node = node;
+    }
+
     public SyntaxReference(SyntaxTree syntaxTree, TextSpan span)
     {
         SyntaxTree = syntaxTree;
@@ -68,7 +78,23 @@ public class SyntaxReference
 
     public SyntaxNode GetSyntax(CancellationToken cancellationToken = default)
     {
-        return SyntaxTree.GetNodeForSpan(Span)!;
+        // WORKAROUND: SyntaxReference should not store node
+        return _node ?? SyntaxTree.GetNodeForSpan(Span)!;
+
+        //return SyntaxTree.GetRoot(cancellationToken).FindNode(Span, getInnermostNodeForTie: true);
+
+        /*
+        var root = SyntaxTree.GetRoot(cancellationToken);
+
+        var candidate = root.FindNode(Span, getInnermostNodeForTie: true);
+
+        // Now walk up the ancestor chain to see all nodes with the same span
+        var allMatches = candidate
+            .AncestorNodesAndSelf()
+            .Where(n => n.Span == Span).ToArray();
+
+        return allMatches.First();
+        */
     }
 
     /*

@@ -76,7 +76,7 @@ public class SemanticModel
                     AnalyzeExpression(declaringSymbol, declaringSymbol, declarator.Initializer.Value, out var x);
                 }
 
-                _bindings[declarator] = new SymbolInfo(symbol);
+                Bind(declarator, symbol);
                 _localSymbols.Add(symbol);
             }
         }
@@ -135,7 +135,7 @@ public class SemanticModel
 
             if (!resolvedSymbols.Any())
             {
-                _bindings[expression] = new SymbolInfo(CandidateReason.NotATypeOrNamespace, []);
+                Bind(expression, CandidateReason.NotATypeOrNamespace, []);
 
                 // TODO: Centralize
                 Diagnostics.Add(
@@ -150,7 +150,7 @@ public class SemanticModel
             }
 
             symbols = resolvedSymbols.ToImmutable();
-            _bindings[expression] = new SymbolInfo(symbols.First());
+            Bind(expression, symbols.First());
         }
         else if (expression is InvocationExpressionSyntax invocationExpression)
         {
@@ -183,11 +183,8 @@ public class SemanticModel
             foreach (var argument in invocationExpression.ArgumentList.Arguments)
             {
                 AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
+
                 var typeSymbol = argSymbols.OfType<ITypeSymbol>().FirstOrDefault();
-                if (typeSymbol is null)
-                {
-                    typeSymbol = argSymbols.OfType<IMethodSymbol>().FirstOrDefault()?.ReturnType;
-                }
                 argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
             }
 
@@ -204,13 +201,12 @@ public class SemanticModel
                     ));
 
                 symbols = ImmutableArray<ISymbol>.Empty;
-
-                _bindings[expression] = new SymbolInfo(CandidateReason.OverloadResolutionFailure, symbols);
+                Bind(expression, CandidateReason.OverloadResolutionFailure, symbols);
             }
             else
             {
                 symbols = [bestMethod.ReturnType];
-                _bindings[expression] = new SymbolInfo(bestMethod);
+                Bind(expression, bestMethod);
             }
         }
         else if (expression is IdentifierNameSyntax name)
@@ -224,11 +220,11 @@ public class SemanticModel
 
             if (symbols.Count() == 1)
             {
-                _bindings[name] = new SymbolInfo(symbols.First());
+                Bind(name, symbols.First());
             }
             else
             {
-                _bindings[name] = new SymbolInfo(CandidateReason.Ambiguous, symbols);
+                Bind(name, CandidateReason.Ambiguous, symbols);
             }
         }
         else if (expression is LiteralExpressionSyntax literalExpression)
@@ -237,8 +233,7 @@ public class SemanticModel
             {
                 var symbol = Compilation.GetTypeByMetadataName("System.String")!;
                 symbols = [symbol];
-
-                _bindings[literalExpression] = new SymbolInfo(symbol);
+                Bind(literalExpression, symbol);
             }
             else
             {
@@ -264,24 +259,22 @@ public class SemanticModel
                         .Where(x => x.Name == "Concat"
                             && x.Parameters.Count() == 2
                             && x.Parameters[0].Type.SpecialType == SpecialType.System_String
-                            && x.Parameters[1].Type.SpecialType == SpecialType.System_String);
+                            && x.Parameters[1].Type.SpecialType == SpecialType.System_String)
+                            .First();
 
-                    symbols = [symbol.First()];
-
-                    _bindings[binaryExpression] = new SymbolInfo(symbol.First());
+                    symbols = [symbol.ReturnType];
+                    Bind(binaryExpression, symbol);
                 }
                 else
                 {
                     symbols = [];
-
-                    _bindings[binaryExpression] = new SymbolInfo(CandidateReason.None, symbols);
+                    Bind(binaryExpression, CandidateReason.None, symbols);
                 }
             }
             else
             {
                 symbols = [];
-
-                _bindings[binaryExpression] = new SymbolInfo(CandidateReason.None, symbols);
+                Bind(binaryExpression, CandidateReason.None, symbols);
             }
         }
         else
@@ -354,5 +347,15 @@ public class SemanticModel
         INamespaceOrTypeSymbol container, string name, bool includeReducedExtensionMethods)
     {
         return default!;
+    }
+
+    private void Bind(SyntaxNode node, ISymbol symbol)
+    {
+        _bindings[node] = new SymbolInfo(symbol);
+    }
+
+    private void Bind(SyntaxNode node, CandidateReason reason, params IEnumerable<ISymbol> symbols)
+    {
+        _bindings[node] = new SymbolInfo(reason, symbols.ToImmutableArray());
     }
 }
