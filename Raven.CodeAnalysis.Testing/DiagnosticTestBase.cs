@@ -1,4 +1,4 @@
-namespace Raven.CodeAnalysis.Tests.Framework;
+namespace Raven.CodeAnalysis.Testing;
 
 public abstract class DiagnosticTestBase
 {

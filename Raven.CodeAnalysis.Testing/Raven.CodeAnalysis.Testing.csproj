@@ -26,7 +26,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
-    <ProjectReference Include="..\Raven.CodeAnalysis.Testing\Raven.CodeAnalysis.Testing.csproj" />
   </ItemGroup>
 
 </Project>

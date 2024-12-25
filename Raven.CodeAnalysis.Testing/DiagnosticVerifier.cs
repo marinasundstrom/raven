@@ -9,7 +9,7 @@ using NSubstitute;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
-namespace Raven.CodeAnalysis.Tests.Framework;
+namespace Raven.CodeAnalysis.Testing;
 
 public class Test
 {

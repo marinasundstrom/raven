@@ -2,7 +2,7 @@ using System;
 
 using Shouldly;
 
-namespace Raven.CodeAnalysis.Tests.Framework;
+namespace Raven.CodeAnalysis.Testing;
 
 public class DiagnosticVerifierTest
 {

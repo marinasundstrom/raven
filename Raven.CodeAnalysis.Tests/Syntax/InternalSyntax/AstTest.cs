@@ -1,11 +1,4 @@
-using Xunit;
-
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Tests;
-
-using static SyntaxFactory;
-
-using SyntaxKind = Raven.CodeAnalysis.Syntax.SyntaxKind;
-
 public class AstTest
 {
     [Fact]

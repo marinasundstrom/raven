@@ -1,5 +1,3 @@
-using Shouldly;
-
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
