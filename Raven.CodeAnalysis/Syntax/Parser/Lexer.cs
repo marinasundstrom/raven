@@ -4,20 +4,25 @@ namespace Raven.CodeAnalysis.Syntax.Parser;
 
 internal class Lexer : ILexer
 {
+    private readonly List<InternalDiagnostic> _diagnostics;
+
     private readonly TextReader _textReader;
     private StringBuilder? _stringBuilder;
     private InternalSyntax.SyntaxToken? _lookaheadToken;
+    private int _currentPosition = 0;
+    private int _tokenStartPosition = 0;
 
-    public Lexer(TextReader textReader)
+    public Lexer(TextReader textReader, List<InternalDiagnostic> diagnostics)
     {
         this._textReader = textReader;
+        _diagnostics = diagnostics;
     }
 
     public InternalSyntax.SyntaxToken ReadToken()
     {
         if (_lookaheadToken != null)
         {
-            var token = (InternalSyntax.SyntaxToken)_lookaheadToken;
+            var token = _lookaheadToken;
             _lookaheadToken = null;
             return token;
         }
@@ -35,6 +40,8 @@ internal class Lexer : ILexer
 
     private InternalSyntax.SyntaxToken ReadTokenCore()
     {
+        _tokenStartPosition = _currentPosition;
+
         while (ReadChar(out var ch))
         {
             if (char.IsLetterOrDigit(ch))
@@ -189,10 +196,21 @@ internal class Lexer : ILexer
 
                         _stringBuilder.Append(ch);
 
-                        while (PeekChar(out var ch9) && !IsEndOfLine)
+                        while (PeekChar(out var ch9))
                         {
                             _stringBuilder.Append(ch9);
                             ReadChar();
+
+                            if (IsEndOfLine)
+                            {
+                                _diagnostics.Add(
+                                    InternalDiagnostic.Create(
+                                        CompilerDiagnostics.NewlineInConstant,
+                                        GetTokenStartPositionSpan()
+                                    ));
+
+                                break;
+                            }
 
                             if (PeekChar(out ch9) && ch9 == '\'')
                             {
@@ -210,10 +228,21 @@ internal class Lexer : ILexer
 
                         _stringBuilder.Append(ch);
 
-                        while (PeekChar(out var ch8) && ch8 != '\"' && !IsEndOfLine)
+                        while (PeekChar(out var ch8) && ch8 != '\"')
                         {
                             _stringBuilder.Append(ch8);
                             ReadChar();
+
+                            if (IsEndOfLine)
+                            {
+                                _diagnostics.Add(
+                                    InternalDiagnostic.Create(
+                                        CompilerDiagnostics.NewlineInConstant,
+                                        GetTokenStartPositionSpan()
+                                    ));
+
+                                break;
+                            }
 
                             if (PeekChar(out ch8) && ch8 == '\"')
                             {
@@ -243,15 +272,33 @@ internal class Lexer : ILexer
         return new InternalSyntax.SyntaxToken(SyntaxKind.EndOfFileToken, string.Empty);
     }
 
-    private void ReadChar()
+    private TextSpan GetTokenStartPositionSpan()
     {
-        _textReader.Read();
+        //System.Console.WriteLine("Hello" + ", World!);
+        return new TextSpan(_tokenStartPosition, 0);
     }
 
+    private TextSpan GetEndPositionSpan(int offset = 0)
+    {
+        //System.Console.WriteLine("Hello" + ", World!);
+        return new TextSpan(_currentPosition + offset, 0);
+    }
+
+    private char ReadChar()
+    {
+        return (char)ReadCore();
+    }
+
+    private int ReadCore()
+    {
+        var ch = _textReader.Read();
+        _currentPosition++;
+        return ch;
+    }
 
     private bool ReadChar(out char ch)
     {
-        var value = _textReader.Read();
+        var value = ReadCore();
         if (value == -1)
         {
             ch = default;

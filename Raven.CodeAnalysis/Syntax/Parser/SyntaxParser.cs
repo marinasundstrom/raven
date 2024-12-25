@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis.Syntax.Parser;
 
 internal class SyntaxParser
 {
-    List<InternalDiagnostic> _diagnostics = new();
+    private List<InternalDiagnostic> _diagnostics = new();
 
     private string _filePath = string.Empty;
     private Tokenizer _tokenizer;
@@ -30,7 +30,7 @@ internal class SyntaxParser
     {
         using var textReader = sourceText.GetTextReader();
 
-        _tokenizer = new Tokenizer(textReader);
+        _tokenizer = new Tokenizer(textReader, _diagnostics);
 
         var compilationUnit = ParseCompilationUnit();
 
@@ -756,7 +756,7 @@ internal class SyntaxParser
     {
         using var textReader = sourceText.GetTextReader(position);
 
-        _tokenizer = new Tokenizer(textReader);
+        _tokenizer = new Tokenizer(textReader, _diagnostics);
 
         SetCurrentSpan(position);
 
@@ -859,24 +859,5 @@ internal class SyntaxParser
     private void SetCurrentSpan(int position)
     {
         _currentPosition = position;
-    }
-
-    public class InternalDiagnostic
-    {
-        public DiagnosticDescriptor Descriptor { get; }
-        public TextSpan Span { get; }
-        public object[] Args { get; }
-
-        private InternalDiagnostic(DiagnosticDescriptor descriptor, TextSpan span, object[] args)
-        {
-            Descriptor = descriptor;
-            Span = span;
-            Args = args;
-        }
-
-        public static InternalDiagnostic Create(DiagnosticDescriptor descriptor, TextSpan span, params object[] args)
-        {
-            return new InternalDiagnostic(descriptor, span, args);
-        }
     }
 }

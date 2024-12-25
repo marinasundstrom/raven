@@ -5,9 +5,9 @@ internal class Tokenizer
     private readonly ILexer _lexer;
     private Syntax.InternalSyntax.SyntaxToken? _lookaheadToken;
 
-    public Tokenizer(TextReader textReader)
+    public Tokenizer(TextReader textReader, List<InternalDiagnostic> diagnostics)
     {
-        this._lexer = new Lexer(textReader);
+        _lexer = new Lexer(textReader, diagnostics);
     }
 
     public SyntaxToken ReadToken()

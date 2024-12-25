@@ -132,4 +132,11 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     {
         return HashCode.Combine(Green, _parent);
     }
+
+    public bool ContainsDiagnostics => SyntaxTree?.GetDiagnostics(this).Any() ?? false;
+
+    public IEnumerable<Diagnostic> GetDiagnostics()
+    {
+        return SyntaxTree?.GetDiagnostics(this) ?? Enumerable.Empty<Diagnostic>();
+    }
 }

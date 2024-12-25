@@ -1,3 +1,4 @@
+
 namespace Raven.CodeAnalysis;
 
 internal class CompilerDiagnostics
@@ -205,4 +206,50 @@ internal class CompilerDiagnostics
         messageFormat: "No overload for method {0} takes ‘{1}’ arguments",
         category: "compiler",
         DiagnosticSeverity.Error);
+
+    public static readonly DiagnosticDescriptor[] AllDescriptors =
+    {
+        IdentifierExpected,
+        SemicolonExpected,
+        CharacterExpected,
+        DuplicateModifier,
+        UnrecognizedEscapeSequence,
+        NewlineInConstant,
+        MethodNameExpected,
+        NonInvocableMember,
+        UnassignedOutParameter,
+        VariableUsedLikeAType,
+        UseOfUnassignedVariable,
+        MemberDoesNotContainDefinition,
+        OperatorCannotBeAppliedToOperandOfType,
+        TypeNameDoesNotExistInType,
+        CallIsAmbiguous,
+        CannotConvertFromTypeToType,
+        NoOverloadForMethod
+    };
+
+    public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
+    {
+        return diagnosticId switch
+        {
+            "RAV1001" => IdentifierExpected,
+            "RAV1002" => SemicolonExpected,
+            "RAV1003" => CharacterExpected,
+            "RAV1004" => DuplicateModifier,
+            "RAV1009" => UnrecognizedEscapeSequence,
+            "RAV1010" => NewlineInConstant,
+            "RAV0149" => MethodNameExpected,
+            "RAV1955" => NonInvocableMember,
+            "RAV0269" => UnassignedOutParameter,
+            "RAV0118" => VariableUsedLikeAType,
+            "RAV0165" => UseOfUnassignedVariable,
+            "RAV0117" => MemberDoesNotContainDefinition,
+            "RAV0023" => OperatorCannotBeAppliedToOperandOfType,
+            "RAV0426" => TypeNameDoesNotExistInType,
+            "RAV0121" => CallIsAmbiguous,
+            "RAV1503" => CannotConvertFromTypeToType,
+            "RAV1501" => NoOverloadForMethod,
+            _ => null // Return null if the diagnostic ID is not recognized
+        };
+    }
 }

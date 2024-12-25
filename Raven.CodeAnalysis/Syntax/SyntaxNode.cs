@@ -309,4 +309,11 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
         return null!;
     }
+
+    public bool ContainsDiagnostics => SyntaxTree?.GetDiagnostics(this).Any() ?? false;
+
+    public IEnumerable<Diagnostic> GetDiagnostics()
+    {
+        return SyntaxTree?.GetDiagnostics(this) ?? Enumerable.Empty<Diagnostic>();
+    }
 }

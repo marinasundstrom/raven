@@ -135,6 +135,6 @@ public class TokenizerTest(ITestOutputHelper testOutputHelper)
     private static Tokenizer GetTokenizer(string str)
     {
         StringReader stringReader = new StringReader(str);
-        return new Tokenizer(stringReader);
+        return new Tokenizer(stringReader, new List<InternalDiagnostic>());
     }
 }
