@@ -1,9 +1,5 @@
 using System.Collections.Immutable;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Runtime.Loader;
-
-using Microsoft.VisualBasic;
 
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
@@ -427,7 +423,7 @@ public class Compilation
         return null;
     }
 
-    Dictionary<TypeInfo, ITypeSymbol> typeSymbolMappings = new();
+    Dictionary<System.Reflection.TypeInfo, ITypeSymbol> typeSymbolMappings = new();
 
     public ITypeSymbol GetType(Type type)
     {

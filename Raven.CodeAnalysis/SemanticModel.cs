@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
@@ -268,13 +269,13 @@ public class SemanticModel
                 else
                 {
                     symbols = [];
-                    Bind(binaryExpression, CandidateReason.None, symbols);
+                    Bind(binaryExpression, CandidateReason.None, []);
                 }
             }
             else
             {
                 symbols = [];
-                Bind(binaryExpression, CandidateReason.None, symbols);
+                Bind(binaryExpression, CandidateReason.None, []);
             }
         }
         else
@@ -358,4 +359,111 @@ public class SemanticModel
     {
         _bindings[node] = new SymbolInfo(reason, symbols.ToImmutableArray());
     }
+
+    public TypeInfo GetTypeInfo(SyntaxNode node, CancellationToken cancellationToken = default)
+    {
+        // Get the symbol associated with the syntax node
+        var symbolInfo = GetSymbolInfo(node).Symbol;
+
+        // If a symbol is found, attempt to determine its type
+        if (symbolInfo is not null)
+        {
+            // Handle specific types of symbols
+            if (symbolInfo is ITypeSymbol typeSymbol)
+            {
+                // Directly return the TypeInfo for type symbols
+                return new TypeInfo(typeSymbol, null);
+            }
+            else if (symbolInfo is IMethodSymbol methodSymbol)
+            {
+                // Return the return type of the method
+                return new TypeInfo(methodSymbol.ReturnType, null);
+            }
+            else if (symbolInfo is IPropertySymbol propertySymbol)
+            {
+                // Return the type of the property
+                return new TypeInfo(propertySymbol.Type, null);
+            }
+            else if (symbolInfo is IFieldSymbol fieldSymbol)
+            {
+                // Return the type of the field
+                return new TypeInfo(fieldSymbol.Type, null);
+            }
+        }
+
+        // Handle cases where no symbol is found
+        if (node is LiteralExpressionSyntax literalExpression)
+        {
+            // Infer the type of the literal
+            var literalType = InferLiteralType(literalExpression);
+            return new TypeInfo(literalType, null);
+        }
+
+        // If no type could be determined, return null TypeInfo
+        return new TypeInfo(null, null);
+    }
+
+    private ITypeSymbol InferLiteralType(LiteralExpressionSyntax literal)
+    {
+        // Example inference logic for literals
+        return literal.Token.Value switch
+        {
+            int => GetTypeSymbol("int"),
+            string => GetTypeSymbol("string"),
+            double => GetTypeSymbol("double"),
+            bool => GetTypeSymbol("bool"),
+            _ => null
+        };
+    }
+
+    private ITypeSymbol GetTypeSymbol(string typeName)
+    {
+        // Resolve a type symbol from its name (example logic)
+        // Implementation depends on your symbol table or compilation context
+        return null; // Replace with actual logic to resolve type symbols
+    }
+}
+
+public class TypeInfo
+{
+    internal TypeInfo(ITypeSymbol type, ITypeSymbol? convertedType)
+    {
+        Type = type;
+        ConvertedType = convertedType;
+    }
+
+    public NullabilityInfo ConvertedNullability { get; }
+
+    public ITypeSymbol? ConvertedType { get; }
+
+    public NullabilityInfo Nullability { get; }
+
+    public ITypeSymbol? Type { get; }
+}
+
+[System.Diagnostics.DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public readonly struct NullabilityInfo : IEquatable<NullabilityInfo>
+{
+    public NullableAnnotation Annotation { get; }
+
+    public NullableFlowState FlowState { get; }
+
+    public bool Equals(NullabilityInfo other)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public enum NullableAnnotation
+{
+    None,
+    NotAnnotated,
+    Annotated
+}
+
+public enum NullableFlowState
+{
+    None,
+    NotNull,
+    MaybeNull
 }
