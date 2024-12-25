@@ -18,11 +18,7 @@ public class StringLiteralTests : DiagnosticTestBase
 
         var verifier = CreateVerifier(testCode);
 
-        var result = verifier.GetResult();
-
-        Assert.Empty(result.MatchedDiagnostics);
-        Assert.Empty(result.MissingDiagnostics);
-        Assert.Empty(result.UnexpectedDiagnostics);
+        verifier.Verify();
     }
 
     [Fact]
@@ -40,10 +36,6 @@ public class StringLiteralTests : DiagnosticTestBase
                     new DiagnosticResult("RAV1002").WithLocation(1, 16)
                ]);
 
-        var result = verifier.GetResult();
-
-        result.MatchedDiagnostics.Count.ShouldBe(2);
-        Assert.Empty(result.MissingDiagnostics);
-        Assert.Empty(result.UnexpectedDiagnostics);
+        verifier.Verify();
     }
 }
