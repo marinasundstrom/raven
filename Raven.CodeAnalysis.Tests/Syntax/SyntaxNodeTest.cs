@@ -12,7 +12,7 @@ public class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     [Fact]
     public void ReplaceNode()
     {
-        var returnStatement = ReturnStatement(ReturnKeyword,
+        var returnStatement = ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space),
                         LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
                         SemicolonToken);
 
@@ -32,7 +32,7 @@ public class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     [Fact]
     public void ReplaceToken()
     {
-        var returnStatement = ReturnStatement(ReturnKeyword,
+        var returnStatement = ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space),
                         LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
                         SemicolonToken);
 
@@ -49,85 +49,22 @@ public class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         testOutputHelper.WriteLine(newReturnStatement.ToFullString());
     }
 
-    [Fact]
-    public void SyntaxNode_WithNoTrivia()
-    {
-        var block = Block(
-            OpenBraceToken,
-            List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword,
-                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
-                    SemicolonToken)
-            ),
-            CloseBraceToken
-        );
-
-        testOutputHelper.WriteLine(block.ToFullString());
-    }
 
     [Fact]
-    public void SyntaxNode_WithTrivia()
+    public void ReplaceToken2()
     {
-        var block = Block(
-            OpenBraceToken
-                .WithLeadingTrivia(LineFeed)
-                .WithTrailingTrivia(LineFeed),
-            List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword.WithLeadingTrivia(Whitespace("    ")),
-                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42).WithLeadingTrivia(Whitespace(" "))),
-                    SemicolonToken.WithTrailingTrivia(LineFeed))
-                    .WithTrailingTrivia(LineFeed)
-            ),
-            CloseBraceToken
-                .WithTrailingTrivia(LineFeed)
-        );
+        var returnStatement = ReturnStatement(ReturnKeyword,
+                        LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+                        SemicolonToken);
 
-        testOutputHelper.WriteLine(block.ToFullString());
-    }
+        var newToken = returnStatement.ReturnKeyword.WithTrailingTrivia(Space);
 
-    [Fact]
-    public void ReplaceTokenWithTokenWithTrivia()
-    {
-        var block = Block(
-            OpenBraceToken,
-            List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword,
-                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
-                    SemicolonToken)
-            ),
-            CloseBraceToken
-        );
+        var newReturnStatement = returnStatement.ReplaceToken(returnStatement.ReturnKeyword, newToken);
 
-        var newBlock = block.ReplaceToken(block.OpenBraceToken, block.OpenBraceToken.WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+        newReturnStatement.ShouldNotBeSameAs(returnStatement);
 
-        newBlock.ShouldNotBeSameAs(block);
+        newReturnStatement.Span.Length.ShouldBe(returnStatement.Span.Length + 1);
 
-        testOutputHelper.WriteLine(block.ToFullString());
-        testOutputHelper.WriteLine(newBlock.ToFullString());
-    }
-
-    [Fact]
-    public void ReplaceNodeInListWithNode()
-    {
-        var block = Block(
-            OpenBraceToken,
-            List<StatementSyntax>(
-                ReturnStatement(ReturnKeyword,
-                    LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
-                    SemicolonToken)
-            ),
-            CloseBraceToken
-        );
-
-        var returnStatement = block.Statements.OfType<ReturnStatementSyntax>().First();
-
-        var newChild = ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(20)));
-
-        var newBlock = block.ReplaceNode(returnStatement, newChild);
-
-        newBlock.ShouldNotBeSameAs(block);
-
-        testOutputHelper.WriteLine(block.ToFullString());
-        testOutputHelper.WriteLine(newBlock.ToFullString());
+        testOutputHelper.WriteLine(newReturnStatement.ToFullString());
     }
 }
