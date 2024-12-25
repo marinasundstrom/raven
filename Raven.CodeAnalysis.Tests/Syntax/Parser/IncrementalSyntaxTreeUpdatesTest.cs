@@ -3,7 +3,7 @@ using Raven.CodeAnalysis.Text;
 
 using Xunit.Abstractions;
 
-namespace Raven.CodeAnalysis.Parser.Tests;
+namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper)
 {

@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Text;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Raven.CodeAnalysis.Parser.Tests;
+namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 
@@ -86,7 +86,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
         {
             //var location = diagnostic.Location.GetLineSpan();
             //var start = location.EndLinePosition;
-            
+
             testOutputHelper.WriteLine(
                 $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.SourceSpan}]");
         }
@@ -117,7 +117,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
         {
             //var location = diagnostic.Location.GetLineSpan();
             //var start = location.EndLinePosition;
-            
+
             testOutputHelper.WriteLine(
                 $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.SourceSpan}]");
         }
@@ -154,7 +154,7 @@ public class ParserTest(ITestOutputHelper testOutputHelper)
         {
             //var location = diagnostic.Location.GetLineSpan();
             //var start = location.EndLinePosition;
-            
+
             testOutputHelper.WriteLine(
                 $"{diagnostic.Descriptor.Id}: {diagnostic.Descriptor.Title} [{diagnostic.Location.SourceSpan}]");
         }

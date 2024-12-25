@@ -1,11 +1,10 @@
-using Raven.CodeAnalysis.Parser;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.Parser;
 
 using Shouldly;
 
-namespace Raven.CodeAnalysis.Tests;
-public class TokenizerTest(ITestOutputHelper testOutputHelper)
+namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
+public class TokenizerTest
 {
     [Fact]
     public void ReadIdentifierToken()

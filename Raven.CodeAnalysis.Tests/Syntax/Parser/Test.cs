@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Raven.CodeAnalysis.Parser.Tests;
+namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 
@@ -25,7 +25,7 @@ public class Test2(ITestOutputHelper testOutputHelper)
         var syntaxTree = SyntaxTree.ParseText(code);
 
         var root = syntaxTree.GetRoot();
-        
+
         var str = root.ToFullString();
 
         testOutputHelper.WriteLine(str);
