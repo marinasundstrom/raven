@@ -17,7 +17,7 @@ public class SyntaxTree
     internal SyntaxTree(SourceText sourceText, string filePath, ParseOptions? options)
     {
         _sourceText = sourceText;
-        FilePath = filePath ?? string.Empty;
+        FilePath = filePath ?? "file";
         _options = options ?? new ParseOptions();
     }
 
@@ -60,9 +60,11 @@ public class SyntaxTree
         return oldTree.GetText().GetTextChanges(this.GetText());
     }
 
-    public static SyntaxTree Create(CompilationUnitSyntax compilationUnit, ParseOptions? options = null, Encoding? encoding = null)
+    public static SyntaxTree Create(CompilationUnitSyntax compilationUnit, ParseOptions? options = null, Encoding? encoding = null, string? filePath = null)
     {
-        var syntaxTree = new SyntaxTree(null, string.Empty, options);
+        var sourceText = SourceText.From(compilationUnit.ToFullString(), encoding);
+
+        var syntaxTree = new SyntaxTree(sourceText, filePath, options);
 
         compilationUnit = compilationUnit
             .WithSyntaxTree(syntaxTree);
@@ -186,6 +188,8 @@ public class SyntaxTree
 
         CompilationUnitSyntax newCompilationUnit = root;
 
+        bool reparse = false;
+
         foreach (var change in changes)
         {
             var changedNode = GetNodeToReplace(change.Span);
@@ -197,11 +201,24 @@ public class SyntaxTree
 
             SyntaxNode? newNode = ParseNodeFromText(change.Span, newText, changedNode, diagnosticBag);
 
+            if (newNode is null)
+            {
+                // Failed to resolve target syntax type
+                reparse = true;
+                break;
+            }
+
             newCompilationUnit = (CompilationUnitSyntax)newCompilationUnit
                 .ReplaceNode(changedNode, newNode);
         }
 
-        return SyntaxTree.Create(newText, newCompilationUnit, _options);
+        if (reparse)
+        {
+            // Fallback: Reparse the entire tree
+            return SyntaxTree.ParseText(newText, _options, FilePath);
+        }
+
+        return SyntaxTree.Create(newCompilationUnit, _options, Encoding, FilePath);
     }
 
     private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace, DiagnosticBag diagnosticBag)

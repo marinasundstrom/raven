@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.Parser;
 
-public class InternalDiagnostic
+internal class InternalDiagnostic
 {
     public DiagnosticDescriptor Descriptor { get; }
     public TextSpan Span { get; }

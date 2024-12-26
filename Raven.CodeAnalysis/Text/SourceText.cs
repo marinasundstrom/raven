@@ -12,7 +12,7 @@ public class SourceText
     private readonly List<int> _lineStarts;
 
     public Encoding Encoding => _encoding;
-    
+
     public int Length => _text.Length;
 
     private SourceText(string text, Encoding? encoding = default)
@@ -68,14 +68,14 @@ public class SourceText
         // Return a new SourceText instance with the updated text
         return SourceText.From(updatedText, Encoding);
     }
-    
+
     public (int line, int column) GetLineAndColumn(TextSpan span) => GetLineAndColumn(span.Start);
 
     private (int line, int column) GetLineAndColumn(int position)
     {
         if (position < 0 || position > _text.Length)
             throw new ArgumentOutOfRangeException(nameof(position));
-        
+
         return TextUtils.GetLineAndColumn(_lineStarts, position);
     }
 
@@ -145,7 +145,7 @@ public class SourceText
 
     public bool ContentEquals(SourceText other)
     {
-        throw new NotImplementedException();
+        return _text.Equals(other._text);
     }
 
     public void CopyTo(int sourceIndex, char[] destination, int destinationIndex, int count)
@@ -190,6 +190,15 @@ public class SourceText
     public void Write(TextWriter textWriter, TextSpan span, CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
+    }
 
+    public override string ToString()
+    {
+        return _text.ToString();
+    }
+
+    public string ToString(TextSpan span)
+    {
+        return GetSubText(span);
     }
 }

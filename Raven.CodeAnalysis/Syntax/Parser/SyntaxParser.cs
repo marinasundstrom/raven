@@ -34,7 +34,7 @@ internal class SyntaxParser
 
         var compilationUnit = ParseCompilationUnit();
 
-        var sourceTree = new SyntaxTree(null, _filePath, Options);
+        var sourceTree = new SyntaxTree(sourceText, _filePath, Options);
 
         compilationUnit = compilationUnit
             .WithSyntaxTree(sourceTree);
