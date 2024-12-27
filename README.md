@@ -54,7 +54,7 @@ if (x > 2) {
 
 The compiler API is detailed [here](docs/compiler/api.md).
 
-The [Raven.Compiler project](Raven.Compiler/Program.cs) demonstrates how to utilize the API in practice.
+The [Raven.Compiler project](src/Raven.Compiler/Program.cs) demonstrates how to utilize the API in practice.
 
 ---
 

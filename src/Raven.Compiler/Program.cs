@@ -5,8 +5,8 @@ using Raven.CodeAnalysis.Text;
 
 using static Raven.AppHostBuilder;
 
-// ravc test.rav
-// dotnet run -- test.rav
+// ravc test.rav [-o test.exe]
+// dotnet run -- test.rav [-o test.exe]
 
 var filePath = args.Length > 0 ? args[0] : "../../../test.rav";
 filePath = Path.GetFullPath(filePath);
