@@ -10,10 +10,11 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     internal readonly GreenNode Green;
     private readonly SyntaxTree _syntaxTree;
     private readonly SyntaxNode _parent;
+    private bool _isMissing = false;
 
     public SyntaxNode Parent => _parent;
 
-    public bool IsMissing { get; private set; }
+    public bool IsMissing => _isMissing = ChildNodesAndTokens().All(child => child.IsNode ? child.Node!.IsMissing : child.Token.IsMissing);
 
     public SyntaxTree? SyntaxTree
     {

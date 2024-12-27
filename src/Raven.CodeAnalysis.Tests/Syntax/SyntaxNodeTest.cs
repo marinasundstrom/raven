@@ -62,4 +62,30 @@ public class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(newReturnStatement.ToFullString());
     }
+
+    [Fact]
+    public void AllChildrenMissing_MissingNode()
+    {
+        var block = Block(
+            MissingToken(SyntaxKind.OpenBraceToken),
+            List<StatementSyntax>(),
+            MissingToken(SyntaxKind.CloseBraceToken));
+
+        block.IsMissing.ShouldBe(true);
+
+        testOutputHelper.WriteLine(block.ToFullString());
+    }
+
+    [Fact]
+    public void SomeChildrenMissing_NotMissingNode()
+    {
+        var block = Block(
+            OpenBraceToken,
+            List<StatementSyntax>(),
+            MissingToken(SyntaxKind.CloseBraceToken));
+
+        block.IsMissing.ShouldBe(false);
+
+        testOutputHelper.WriteLine(block.ToFullString());
+    }
 }
