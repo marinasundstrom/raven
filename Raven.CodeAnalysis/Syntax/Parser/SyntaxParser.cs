@@ -758,7 +758,7 @@ internal class SyntaxParser
 
         _tokenizer = new Tokenizer(textReader, _diagnostics);
 
-        SetCurrentSpan(position);
+        SetCurrentPosition(position);
 
         return ParseRequestedType(requestedSyntaxType);
     }
@@ -773,21 +773,25 @@ internal class SyntaxParser
         {
             return ParseIfStatementSyntax();
         }
-        else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
+        else if (requestedSyntaxType == typeof(ExpressionSyntax))
         {
-            return ParseReturnStatementSyntax();
+            return ParseExpressionSyntax();
         }
         else if (requestedSyntaxType == typeof(BlockSyntax))
         {
             return ParseBlockSyntax();
         }
-        else if (requestedSyntaxType == typeof(ExpressionSyntax))
+        else if (requestedSyntaxType == typeof(ReturnStatementSyntax))
         {
-            return ParseExpressionSyntax();
+            return ParseReturnStatementSyntax();
+        }
+        else if (requestedSyntaxType == typeof(NameSyntax))
+        {
+            return ParseName();
         }
         else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
         {
-            return ParseSimpleName();
+            return ParseIdentifierNameSyntax();
         }
 
         throw new NotSupportedException("Syntax not supported");
@@ -856,7 +860,7 @@ internal class SyntaxParser
         return new TextSpan(_currentPosition - CurrentToken.TrailingTrivia.Count, 0);
     }
 
-    private void SetCurrentSpan(int position)
+    private void SetCurrentPosition(int position)
     {
         _currentPosition = position;
     }
