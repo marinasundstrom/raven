@@ -25,7 +25,7 @@ Trivia is associated with tokens and categorized as either leading or trailing, 
 
 * **Leading Trivia**: Consists of any trivia on a new line before a token. Whitespaces at the start of a new line are attached as leading trivia to the first token on that line.
 
-## Methods
+## Parsing methods
 
 - **`SyntaxTree Parse(SourceText sourceText)`**: Parses the entire source code file and generates a complete `SyntaxTree` that represents the structure of the source code.
 
