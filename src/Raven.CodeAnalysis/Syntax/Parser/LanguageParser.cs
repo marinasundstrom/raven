@@ -277,7 +277,7 @@ internal class LanguageParser
 
         var typeAnnotation = ParseTypeAnnotationSyntax();
 
-        if (PeekToken().IsKind(SyntaxKind.EqualsToken))
+        if (IsNextToken(SyntaxKind.EqualsToken, out var _))
         {
             initializer = ParseEqualsValueSyntax();
         }
@@ -800,6 +800,16 @@ internal class LanguageParser
     private bool IsNextToken(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
     {
         token = PeekToken();
+        if (token.Kind == kind)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    private bool IsNextToken(SyntaxKind kind)
+    {
+        var token = PeekToken();
         if (token.Kind == kind)
         {
             return true;

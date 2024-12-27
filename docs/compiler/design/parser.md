@@ -2,6 +2,8 @@
 
 The Parser processes the token stream, analyzes the sequence, and constructs the syntax tree, representing the hierarchical structure of the source code.
 
+Parsing is handled by the classes **`LanguageParser`**, **`Tokenizer`**, and **`Lexer`**.
+
 ## Tokenization
 
 ### Token
@@ -51,7 +53,10 @@ Here are the most common methods used when reading the token stream.
     Performs the core logic for retrieving the next token. Updates the `_currentPosition` by adding the full width of the token.  
 
 - **`bool IsNextToken(SyntaxKind kind)`**  
-  Checks if the next token matches the specified `SyntaxKind`.  
+  Checks if the next token matches the specified `SyntaxKind`. Returns true if the token matches, else false. 
+
+- **`bool IsNextToken(SyntaxKind kind, out SyntaxToken token)`**  
+  Checks if the next token matches the specified `SyntaxKind`. Returns true if the token matches, else false. The actual token is assigned to `token`. 
 
 - **`bool ConsumeToken(SyntaxKind kind, out SyntaxToken token)`**  
   Attempts to consume the specified token. If the token matches, it advances the position and sets the consumed token in `token`. If it does not match, the actual token is assigned to `token`, and the method returns `false`.  
@@ -69,3 +74,40 @@ Here are the most common methods used when reading the token stream.
 
 - **`void SetCurrentPosition(int position)`**  
   Updates the current position to the specified value. This change will affect the span.  
+
+  ## Example: Parsing syntax
+
+  ```csharp
+  private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
+  {
+      var letKeyword = ReadToken();
+
+      var name = ParseSimpleName();
+
+      EqualsValueClauseSyntax? initializer = null;
+
+      var typeAnnotation = ParseTypeAnnotationSyntax();
+
+      if (IsNextToken(SyntaxKind.EqualsToken))
+      {
+          initializer = ParseEqualsValueSyntax();
+      }
+
+      var declarators = SeparatedList<VariableDeclaratorSyntax>(
+          VariableDeclarator(name, typeAnnotation, initializer));
+
+      return VariableDeclaration(letKeyword, declarators);
+  }
+
+  private TypeAnnotationSyntax? ParseTypeAnnotationSyntax()
+  {
+      if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
+      {
+          TypeSyntax type = ParseName();
+
+          return TypeAnnotation(colonToken, type);
+      }
+
+      return null;
+  }
+  ```
