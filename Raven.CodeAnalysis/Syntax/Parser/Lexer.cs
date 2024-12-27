@@ -35,7 +35,7 @@ internal class Lexer : ILexer
         {
             _lookaheadToken = ReadTokenCore();
         }
-        return (InternalSyntax.SyntaxToken)_lookaheadToken;
+        return _lookaheadToken;
     }
 
     private InternalSyntax.SyntaxToken ReadTokenCore()
@@ -60,7 +60,7 @@ internal class Lexer : ILexer
                         _stringBuilder.Append(ch);
                     }
 
-                    if (!Syntax.SyntaxFacts.ParseReservedWord(_stringBuilder.ToString(), out syntaxKind))
+                    if (!SyntaxFacts.ParseReservedWord(_stringBuilder.ToString(), out syntaxKind))
                     {
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }

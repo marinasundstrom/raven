@@ -7,7 +7,7 @@ using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 
 namespace Raven.CodeAnalysis.Syntax.Parser;
 
-internal class SyntaxParser
+internal class LanguageParser
 {
     private List<InternalDiagnostic> _diagnostics = new();
 
@@ -20,7 +20,7 @@ internal class SyntaxParser
 
     private SyntaxToken CurrentToken { get; set; }
 
-    public SyntaxParser(string? filePath, ParseOptions options)
+    public LanguageParser(string? filePath, ParseOptions options)
     {
         _filePath = filePath ?? string.Empty;
         Options = options ?? new ParseOptions();

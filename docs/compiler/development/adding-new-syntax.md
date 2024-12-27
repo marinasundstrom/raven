@@ -62,7 +62,7 @@ As we have done for `StatementSyntax` and `ExpressionSyntax`, with the methods `
 
 ## Add syntax to Parser
 
-Add and implement method for parsing syntax in `SyntaxParser`.
+Add and implement method for parsing syntax in `LanguageParser`.
 
 Re-use existing methods for syntax parts, unless really necessary to have specialized methods.
 

@@ -1,9 +1,9 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.Parser;
 
-internal class Tokenizer
+internal class Tokenizer : ITokenizer
 {
     private readonly ILexer _lexer;
-    private Syntax.InternalSyntax.SyntaxToken? _lookaheadToken;
+    private InternalSyntax.SyntaxToken? _lookaheadToken;
 
     public Tokenizer(TextReader textReader, List<InternalDiagnostic> diagnostics)
     {
@@ -36,9 +36,9 @@ internal class Tokenizer
         return CreateRedToken(_lookaheadToken);
     }
 
-    private Syntax.InternalSyntax.SyntaxToken ReadTokenCore()
+    private InternalSyntax.SyntaxToken ReadTokenCore()
     {
-        Syntax.InternalSyntax.SyntaxToken token;
+        InternalSyntax.SyntaxToken token;
 
         InternalSyntax.SyntaxTriviaList leadingTrivia;
         InternalSyntax.SyntaxTriviaList trailingTrivia;
@@ -49,7 +49,7 @@ internal class Tokenizer
 
         trailingTrivia = ReadTrivia(isTrailingTrivia: true);
 
-        return new Syntax.InternalSyntax.SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia);
+        return new InternalSyntax.SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia);
     }
 
     private InternalSyntax.SyntaxTriviaList ReadTrivia(bool isTrailingTrivia)
@@ -73,7 +73,7 @@ internal class Tokenizer
 
                 case SyntaxKind.EndOfLineToken:
                     {
-                        Syntax.InternalSyntax.SyntaxToken peeked;
+                        InternalSyntax.SyntaxToken peeked;
                         do
                         {
                             _lexer.ReadToken();
@@ -89,7 +89,7 @@ internal class Tokenizer
                     }
                 case SyntaxKind.CarriageReturnToken:
                     {
-                        Syntax.InternalSyntax.SyntaxToken peeked2;
+                        InternalSyntax.SyntaxToken peeked2;
                         do
                         {
                             _lexer.ReadToken();
