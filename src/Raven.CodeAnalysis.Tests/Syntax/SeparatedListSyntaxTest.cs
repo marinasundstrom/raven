@@ -5,7 +5,7 @@ using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
 {
     [Fact]
-    public void Test1()
+    public void Create_Empty()
     {
         var separatedSyntaxList = SeparatedList<ParameterSyntax>();
 
@@ -13,7 +13,7 @@ public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public void Test2()
+    public void Create_WithOneNode()
     {
         var separatedSyntaxList = SeparatedList<ParameterSyntax>([
             new ParameterSyntax(IdentifierName("a"), null),
@@ -25,7 +25,7 @@ public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public void Test3()
+    public void Create_WithOneNodeAndOneSeparator()
     {
         var separatedSyntaxList = SeparatedList<ParameterSyntax>([
             new ParameterSyntax(IdentifierName("a"), null),
@@ -38,7 +38,7 @@ public class SeparatedListSyntaxTest(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public void Test4()
+    public void Create_WithTwoNodesAndOneSeparator()
     {
         var separatedSyntaxList = SeparatedList<ParameterSyntax>([
             new ParameterSyntax(IdentifierName("a"), null),

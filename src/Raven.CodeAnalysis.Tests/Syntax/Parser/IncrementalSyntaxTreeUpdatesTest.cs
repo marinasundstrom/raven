@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper)
 {
     [Fact]
-    public void IncrementalParsing()
+    public void ApplyTextChangeToSyntaxTree()
     {
         var sourceText = SourceText.From(
             """
@@ -35,7 +35,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
     }
 
     [Fact]
-    public void IncrementalParsing2()
+    public void ApplyChangedTextToSyntaxTree()
     {
         var sourceText = SourceText.From(
             """
@@ -65,7 +65,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
     }
 
     [Fact]
-    public void IncrementalParsing3()
+    public void ApplyChangedTextToSyntaxTree_Advanced()
     {
         var sourceText = SourceText.From(
             """
@@ -105,7 +105,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
     }
 
     [Fact]
-    public void IncrementalParsing4()
+    public void ApplyChangedTextToSyntaxTree3()
     {
         var sourceText = SourceText.From(
             """
@@ -136,12 +136,10 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
         testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
-
-        var nodes = SyntaxNodeCache.Cache;
     }
 
     [Fact]
-    public void IncrementalParsing5()
+    public void ApplyChangedTextToSyntaxTree4()
     {
         var sourceText = SourceText.From(
             """
@@ -172,12 +170,10 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
         testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: false));
-
-        var nodes = SyntaxNodeCache.Cache;
     }
 
     [Fact]
-    public void IncrementalParsing6()
+    public void ApplyChangedTextToSyntaxTree5()
     {
         var sourceText = SourceText.From(
             """
@@ -211,7 +207,5 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
         testOutputHelper.WriteLine(newRoot.ToFullString());
 
         testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(includeTrivia: true, includeLocation: true));
-
-        var nodes = SyntaxNodeCache.Cache;
     }
 }

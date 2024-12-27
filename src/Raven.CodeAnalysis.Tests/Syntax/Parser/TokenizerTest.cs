@@ -14,6 +14,8 @@ public class TokenizerTest
         var result = tokenizer.ReadToken();
 
         result.Kind.ShouldBe(SyntaxKind.IdentifierToken);
+        result.Width.ShouldBe(3);
+        result.FullWidth.ShouldBe(3);
     }
 
     [Fact]
@@ -29,6 +31,8 @@ public class TokenizerTest
         var result = tokenizer.ReadToken();
 
         result.Kind.ShouldBe(SyntaxKind.VoidKeyword);
+        result.Width.ShouldBe(4);
+        result.FullWidth.ShouldBe(4);
     }
 
     [Fact]
@@ -44,6 +48,8 @@ public class TokenizerTest
         var result = tokenizer.ReadToken();
 
         result.Kind.ShouldBe(SyntaxKind.NumericLiteralToken);
+        result.Width.ShouldBe(2);
+        result.FullWidth.ShouldBe(2);
     }
 
     [Fact]
@@ -60,6 +66,9 @@ public class TokenizerTest
 
         result.LeadingTrivia.ShouldContain(x => x.Kind == SyntaxKind.WhitespaceTrivia);
         result.TrailingTrivia.ShouldBeEmpty();
+        result.Width.ShouldBe(3);
+        result.FullWidth.ShouldBe(5);
+
     }
 
     [Fact]
@@ -76,6 +85,8 @@ public class TokenizerTest
 
         result.LeadingTrivia.ShouldBeEmpty();
         result.TrailingTrivia.ShouldContain(x => x.Kind == SyntaxKind.WhitespaceTrivia);
+        result.Width.ShouldBe(3);
+        result.FullWidth.ShouldBe(5);
     }
 
     [Fact]
