@@ -3,10 +3,29 @@ namespace Raven.CodeAnalysis;
 
 internal class CompilerDiagnostics
 {
+    private static DiagnosticDescriptor? _identifierExpected;
+    private static DiagnosticDescriptor? _semicolonExpected;
+    private static DiagnosticDescriptor? _characterExpected;
+    private static DiagnosticDescriptor? _duplicateModifier;
+    private static DiagnosticDescriptor? _unrecognizedEscapeSequence;
+    private static DiagnosticDescriptor? _newlineInConstant;
+    private static DiagnosticDescriptor? _methodNameExpected;
+    private static DiagnosticDescriptor? _nonInvocableMember;
+    private static DiagnosticDescriptor? _unassignedOutParameter;
+    private static DiagnosticDescriptor? _variableUsedLikeAType;
+    private static DiagnosticDescriptor? _useOfAssignedVariable;
+    private static DiagnosticDescriptor? _memberDoesNotContainDefinition;
+    private static DiagnosticDescriptor? _operatorCannotBeAppliedToOperandOfType;
+    private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
+    private static DiagnosticDescriptor? _callIsAmbiguous;
+    private static DiagnosticDescriptor? _cannotConvertFromTypeToType;
+    private static DiagnosticDescriptor? _noOverloadForMethod;
+    private static DiagnosticDescriptor[]? _allDescriptors;
+
     /// <summary>
     /// Identifier; expected
     /// </summary>
-    public static readonly DiagnosticDescriptor IdentifierExpected = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor IdentifierExpected => _identifierExpected ??= DiagnosticDescriptor.Create(
         id: "RAV1001",
         title: "Identifier expected",
         description: "",
@@ -18,7 +37,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// ';' expected
     /// </summary>
-    public static readonly DiagnosticDescriptor SemicolonExpected = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor SemicolonExpected => _semicolonExpected ??= DiagnosticDescriptor.Create(
         id: "RAV1002",
         title: "Semicolon expected",
         description: "",
@@ -30,7 +49,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// '{0}' expected
     /// </summary>
-    public static readonly DiagnosticDescriptor CharacterExpected = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor CharacterExpected => _characterExpected ??= DiagnosticDescriptor.Create(
         id: "RAV1003",
         title: "Character expected",
         description: "",
@@ -42,7 +61,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Duplicate '{0}' modifier
     /// </summary>
-    public static readonly DiagnosticDescriptor DuplicateModifier = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor DuplicateModifier => _duplicateModifier ??= DiagnosticDescriptor.Create(
         id: "RAV1004",
         title: "Duplicate modifier",
         description: "",
@@ -54,7 +73,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Unrecognized escape sequence
     /// </summary>
-    public static readonly DiagnosticDescriptor UnrecognizedEscapeSequence = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor UnrecognizedEscapeSequence => _unrecognizedEscapeSequence ??= DiagnosticDescriptor.Create(
         id: "RAV1009",
         title: "Unrecognized escape sequence",
         description: "",
@@ -66,7 +85,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Newline in constant
     /// </summary>
-    public static readonly DiagnosticDescriptor NewlineInConstant = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor NewlineInConstant => _newlineInConstant ??= DiagnosticDescriptor.Create(
         id: "RAV1010",
         title: "Newline in constant",
         description: "",
@@ -78,7 +97,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Method name expected
     /// </summary>
-    public static readonly DiagnosticDescriptor MethodNameExpected = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor MethodNameExpected => _methodNameExpected ??= DiagnosticDescriptor.Create(
         id: "RAV0149",
         title: "Method name expected",
         description: "",
@@ -90,7 +109,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Non-invocable member '{0}' cannot be used like a method
     /// </summary>
-    public static readonly DiagnosticDescriptor NonInvocableMember = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor NonInvocableMember => _nonInvocableMember ??= DiagnosticDescriptor.Create(
         id: "RAV1955",
         title: "Non-invocable member",
         description: "",
@@ -102,7 +121,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Use of unassigned out parameter '{0}'
     /// </summary>
-    public static readonly DiagnosticDescriptor UnassignedOutParameter = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor UnassignedOutParameter => _unassignedOutParameter ??= DiagnosticDescriptor.Create(
         id: "RAV0269",
         title: "Unassigned out parameter",
         description: "",
@@ -114,7 +133,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// '{0}' is a variable but is used like a type
     /// </summary>
-    public static readonly DiagnosticDescriptor VariableUsedLikeAType = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor VariableUsedLikeAType => _variableUsedLikeAType ??= DiagnosticDescriptor.Create(
         id: "RAV0118",
         title: "Variable used like a type",
         description: "",
@@ -126,7 +145,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Use of unassigned local variable '{0}'
     /// </summary>
-    public static readonly DiagnosticDescriptor UseOfUnassignedVariable = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor UseOfUnassignedVariable => _useOfAssignedVariable ??= DiagnosticDescriptor.Create(
         id: "RAV0165",
         title: "Use of unassigned local variable",
         description: "",
@@ -138,7 +157,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// '{0}' does not contain a definition for '{1}'
     /// </summary>
-    public static readonly DiagnosticDescriptor MemberDoesNotContainDefinition = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor MemberDoesNotContainDefinition => _memberDoesNotContainDefinition ??= DiagnosticDescriptor.Create(
         id: "RAV0117",
         title: "Member does not contain definition",
         description: "",
@@ -150,7 +169,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Operator '{0}' cannot be applied to operand of type '{1}'
     /// </summary>
-    public static readonly DiagnosticDescriptor OperatorCannotBeAppliedToOperandOfType = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor OperatorCannotBeAppliedToOperandOfType => _operatorCannotBeAppliedToOperandOfType ??= DiagnosticDescriptor.Create(
         id: "RAV0023",
         title: "Operator cannot be applied to operand of specific type",
         description: "",
@@ -162,7 +181,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// The type name '{0}' does not exist in the type '{1}'
     /// </summary>
-    public static readonly DiagnosticDescriptor TypeNameDoesNotExistInType = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor TypeNameDoesNotExistInType => _typeNameDoesNotExistInType ??= DiagnosticDescriptor.Create(
         id: "RAV0426",
         title: "Type name does not exist in type",
         description: "",
@@ -174,7 +193,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// The call is ambiguous between the following methods or properties: '{0}' and '{1}'
     /// </summary>
-    public static readonly DiagnosticDescriptor CallIsAmbiguous = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor CallIsAmbiguous => _callIsAmbiguous ??= DiagnosticDescriptor.Create(
         id: "RAV0121",
         title: "Call is ambiguous",
         description: "",
@@ -186,7 +205,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// Cannot convert from '{0}' to {1}
     /// </summary>
-    public static readonly DiagnosticDescriptor CannotConvertFromTypeToType = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor CannotConvertFromTypeToType => _cannotConvertFromTypeToType ??= DiagnosticDescriptor.Create(
         id: "RAV1503",
         title: "Cannot convert from type to type",
         description: "",
@@ -198,7 +217,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// No overload for method {0} takes ‘{1}’ arguments
     /// </summary>
-    public static readonly DiagnosticDescriptor NoOverloadForMethod = DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor NoOverloadForMethod => _noOverloadForMethod ??= DiagnosticDescriptor.Create(
         id: "RAV1501",
         title: "No overload for method taking argument",
         description: "",
@@ -207,8 +226,8 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
-    public static readonly DiagnosticDescriptor[] AllDescriptors =
-    {
+    public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
+    [
         IdentifierExpected,
         SemicolonExpected,
         CharacterExpected,
@@ -226,7 +245,7 @@ internal class CompilerDiagnostics
         CallIsAmbiguous,
         CannotConvertFromTypeToType,
         NoOverloadForMethod
-    };
+    ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
     {
