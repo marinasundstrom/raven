@@ -138,13 +138,28 @@ public class SemanticModel
             {
                 Bind(expression, CandidateReason.NotATypeOrNamespace, []);
 
-                // TODO: Centralize
-                Diagnostics.Add(
-                    Diagnostic.Create(
-                        CompilerDiagnostics.TypeNameDoesNotExistInType,
-                        memberAccessExpression.Name.Identifier.GetLocation(),
-                        [name, baseSymbols.First().ToDisplayString()]
-                    ));
+                var baseSymbol = baseSymbols.First();
+
+                if (baseSymbol is INamespaceSymbol namespaceSymbol)
+                {
+                    // TODO: Centralize
+                    Diagnostics.Add(
+                        Diagnostic.Create(
+                            CompilerDiagnostics.TypeOrNamespaceNameDoesNotExistInTheNamespace,
+                            memberAccessExpression.Name.Identifier.GetLocation(),
+                            [name, baseSymbols.First().ToDisplayString()]
+                        ));
+                }
+                else if (baseSymbol is ITypeSymbol typeSymbol)
+                {
+                    // TODO: Centralize
+                    Diagnostics.Add(
+                        Diagnostic.Create(
+                            CompilerDiagnostics.MemberDoesNotContainDefinition,
+                            memberAccessExpression.Name.Identifier.GetLocation(),
+                            [name, baseSymbols.First().ToDisplayString()]
+                        ));
+                }
 
                 symbols = resolvedSymbols.ToImmutable();
                 return;

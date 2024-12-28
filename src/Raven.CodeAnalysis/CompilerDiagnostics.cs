@@ -3,6 +3,8 @@ namespace Raven.CodeAnalysis;
 
 internal class CompilerDiagnostics
 {
+    private static DiagnosticDescriptor[]? _allDescriptors;
+
     private static DiagnosticDescriptor? _identifierExpected;
     private static DiagnosticDescriptor? _semicolonExpected;
     private static DiagnosticDescriptor? _characterExpected;
@@ -20,7 +22,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _callIsAmbiguous;
     private static DiagnosticDescriptor? _cannotConvertFromTypeToType;
     private static DiagnosticDescriptor? _noOverloadForMethod;
-    private static DiagnosticDescriptor[]? _allDescriptors;
+    private static DiagnosticDescriptor? _typeOrNamespaceNameDoesNotExistInTheNamespace;
 
     /// <summary>
     /// Identifier; expected
@@ -223,6 +225,18 @@ internal class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "No overload for method {0} takes ‘{1}’ arguments",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
+    /// <summary>
+    /// The type or namespace name '{0}' does not exist in the namespace '{1}'
+    /// </summary>
+    public static DiagnosticDescriptor TypeOrNamespaceNameDoesNotExistInTheNamespace => _typeOrNamespaceNameDoesNotExistInTheNamespace ??= DiagnosticDescriptor.Create(
+        id: "RAV0234",
+        title: "Type or namespace doesn't exist in namespace",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The type or namespace name '{0}' does not exist in the namespace '{1}'",
         category: "compiler",
         DiagnosticSeverity.Error);
 

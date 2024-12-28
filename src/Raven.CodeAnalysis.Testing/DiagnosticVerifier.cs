@@ -25,8 +25,7 @@ public class Test
 public class TestState
 {
     public ImmutableArray<MetadataReference> AdditionalReferences { get; set; } = [];
-    public ImmutableArray<MetadataReference> ReferenceAssemblies { get; set; } = [];
-
+    public ImmutableArray<MetadataReference> ReferenceAssemblies { get; set; } = Raven.CodeAnalysis.Testing.ReferenceAssemblies.Default;
 }
 
 public class DiagnosticVerifier
@@ -38,7 +37,8 @@ public class DiagnosticVerifier
         var syntaxTree = SyntaxTree.ParseText(Test.TestCode);
         var compilation = Compilation.Create("Test")
             .AddSyntaxTrees(syntaxTree)
-            .AddReferences(Test.State.AdditionalReferences.ToArray());
+            .AddReferences([.. Test.State.ReferenceAssemblies, .. Test.State.AdditionalReferences])
+            .AnalyzeCodeTemp(); // Temporary
 
         var actualDiagnostics = compilation.GetDiagnostics().AsEnumerable();
         var expectedDiagnostics = Test.ExpectedDiagnostics;
@@ -192,7 +192,7 @@ public class DiagnosticResult
         return this;
     }
 
-    public DiagnosticResult WithArguments(object[] arguments)
+    public DiagnosticResult WithArguments(params object[] arguments)
     {
         Arguments = arguments;
         return this;
@@ -227,4 +227,19 @@ public enum DiagnosticLocationOptions
     IgnoreLength = 1,
     InterpretAsMarkupKey = 2,
     UnnecessaryCode = 4,
+}
+
+public static class ReferenceAssemblies
+{
+    private static ImmutableArray<MetadataReference>? _default;
+    private static ImmutableArray<MetadataReference>? _net9_0;
+
+    public static ImmutableArray<MetadataReference> Default => _default ??= Net9_0;
+
+    public static ImmutableArray<MetadataReference> Net9_0 => _net9_0 ??= GeReferences().ToImmutableArray();
+
+    private static MetadataReference[] GeReferences()
+    {
+        return ReferenceAssemblyPaths.GetReferenceAssemblyPaths().Select(path => MetadataReference.CreateFromFile(path)).ToArray();
+    }
 }

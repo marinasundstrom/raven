@@ -1,12 +1,12 @@
 using System.Runtime.InteropServices;
 
-namespace Raven;
+namespace Raven.CodeAnalysis;
 
-static class ReferenceAssemblyPaths
+public static class ReferenceAssemblyPaths
 {
-    public static string[] GetReferenceAssemblyPaths()
+    public static string[] GetReferenceAssemblyPaths(string sdkVersion = "9.0.0", string targetFramework = "net9.0")
     {
-        var assemblyDir = GetReferenceAssemblyDir();
+        var assemblyDir = GetReferenceAssemblyDir(sdkVersion, targetFramework);
 
         return Directory.GetFiles(assemblyDir!, "*.dll");
     }
