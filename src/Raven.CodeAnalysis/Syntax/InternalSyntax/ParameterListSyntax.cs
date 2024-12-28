@@ -4,7 +4,7 @@ internal partial class ParameterListSyntax : SyntaxNode
 {
     public ParameterListSyntax(
         SyntaxToken openParenToken,
-        SeparatedSyntaxList parameters,
+        SyntaxList parameters,
         SyntaxToken closeParentToken)
         : base(
               SyntaxKind.ParameterList,

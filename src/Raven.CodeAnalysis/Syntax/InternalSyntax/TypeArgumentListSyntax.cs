@@ -4,7 +4,7 @@ internal partial class TypeArgumentListSyntax : SyntaxNode
 {
     public TypeArgumentListSyntax(
         SyntaxToken lessThanToken,
-        SeparatedSyntaxList arguments,
+        SyntaxList arguments,
         SyntaxToken greaterThanToken)
         : base(
             SyntaxKind.TypeArgumentList,

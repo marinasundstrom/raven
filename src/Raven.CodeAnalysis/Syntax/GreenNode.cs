@@ -22,6 +22,34 @@ public abstract class GreenNode
 
     public abstract GreenNode GetSlot(int index);
 
+    internal IEnumerable<GreenNode> GetChildren()
+    {
+        for (int i = 0; i < SlotCount; i++)
+        {
+            var child = GetSlot(i);
+
+            if (child is null)
+                continue;
+
+            if (child is InternalSyntax.SyntaxList)
+            {
+                for (int i2 = 0; i2 < child.SlotCount; i2++)
+                {
+                    var child2 = child.GetSlot(i2);
+
+                    if (child2 is null)
+                        continue;
+
+                    yield return child2;
+                }
+            }
+            else
+            {
+                yield return child;
+            }
+        }
+    }
+
     internal SyntaxToken? GetFirstTerminal()
     {
         GreenNode? node = this;

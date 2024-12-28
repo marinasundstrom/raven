@@ -13,8 +13,7 @@ internal class SyntaxNode : GreenNode
         _slots = slots ?? Array.Empty<GreenNode>();
     }
 
-    public override bool IsMissing => _isMissing = _slots
-        .Where(s => s is not null and not SyntaxList)
+    public override bool IsMissing => _isMissing = GetChildren()
         .All(s => s.IsMissing);
 
     public override GreenNode GetSlot(int index)

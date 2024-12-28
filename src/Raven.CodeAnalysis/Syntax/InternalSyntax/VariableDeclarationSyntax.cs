@@ -4,7 +4,7 @@ internal partial class VariableDeclarationSyntax : SyntaxNode
 {
     public VariableDeclarationSyntax(
         SyntaxToken letKeyword,
-        SeparatedSyntaxList variableDeclarators)
+        SyntaxList variableDeclarators)
         : base(
               SyntaxKind.VariableDeclaration,
               [

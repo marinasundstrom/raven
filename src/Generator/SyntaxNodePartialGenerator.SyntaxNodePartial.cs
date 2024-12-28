@@ -540,8 +540,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
     private static PropertyDeclarationSyntax GenerateSyntaxListProperty(int index, IPropertySymbol property, INamedTypeSymbol type, TypeSyntax propertyType, SyntaxToken propertyName)
     {
-        var targetGreenNodeType = propertyType.ToString().Contains("Separated") ?
-            "SeparatedSyntaxList" : "SyntaxList";
+        var targetGreenNodeType = "SyntaxList";
 
         List<SyntaxToken> modifiers = [Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword)];
 

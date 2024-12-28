@@ -7,11 +7,11 @@ namespace Raven.CodeAnalysis.Syntax;
 public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     where TNode : SyntaxNode
 {
-    internal readonly InternalSyntax.SeparatedSyntaxList Green;
+    internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;
     private int _position;
 
-    internal SeparatedSyntaxList(InternalSyntax.SeparatedSyntaxList greenList, SyntaxNode parent, int position)
+    internal SeparatedSyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
@@ -21,7 +21,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     public SeparatedSyntaxList(params SyntaxNodeOrToken[] items)
     {
         var p = items.Select(x => x.Green).ToArray();
-        Green = new SeparatedSyntaxList(p);
+        Green = new InternalSyntax.SyntaxList(p);
     }
 
     public int Count => (Green.SlotCount + 1) / 2; // Elements are at even indices
