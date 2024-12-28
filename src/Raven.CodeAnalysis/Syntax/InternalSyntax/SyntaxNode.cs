@@ -3,6 +3,7 @@
 internal class SyntaxNode : GreenNode
 {
     private readonly GreenNode[] _slots;
+    private bool _isMissing;
 
     public SyntaxNode(
         SyntaxKind kind,
@@ -11,6 +12,10 @@ internal class SyntaxNode : GreenNode
     {
         _slots = slots ?? Array.Empty<GreenNode>();
     }
+
+    public override bool IsMissing => _isMissing = _slots
+        .Where(s => s is not null and not SyntaxList)
+        .All(s => s.IsMissing);
 
     public override GreenNode GetSlot(int index)
     {

@@ -3,6 +3,7 @@
 internal class SyntaxToken : GreenNode
 {
     private readonly object _value;
+    private bool _isMissing;
 
     public string Text => GetValueText()!;
 
@@ -31,7 +32,7 @@ internal class SyntaxToken : GreenNode
         TrailingTrivia = trailingTrivia ?? SyntaxTriviaList.Empty;
     }
 
-    public bool IsMissing { get; private set; }
+    public override bool IsMissing => _isMissing;
 
     public override GreenNode GetSlot(int index) => throw new InvalidOperationException("SyntaxToken has no children.");
 
@@ -51,7 +52,7 @@ internal class SyntaxToken : GreenNode
 
     internal static SyntaxToken Missing(SyntaxKind kind)
     {
-        return new SyntaxToken(kind, string.Empty) { IsMissing = true };
+        return new SyntaxToken(kind, string.Empty) { _isMissing = true };
     }
 
     public static explicit operator Syntax.SyntaxToken(InternalSyntax.SyntaxToken token)

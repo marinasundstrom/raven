@@ -14,7 +14,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
     public SyntaxNode Parent => _parent;
 
-    public bool IsMissing => _isMissing = ChildNodesAndTokens().All(child => child.IsNode ? child.Node!.IsMissing : child.Token.IsMissing);
+    public bool IsMissing => _isMissing = Green.IsMissing;
 
     public SyntaxTree? SyntaxTree
     {

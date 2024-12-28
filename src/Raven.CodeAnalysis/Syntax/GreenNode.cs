@@ -1,8 +1,5 @@
-using System.Runtime.CompilerServices;
-
-using Raven.CodeAnalysis.Syntax.InternalSyntax;
-
 namespace Raven.CodeAnalysis.Syntax;
+
 public abstract class GreenNode
 {
     public virtual SyntaxKind Kind { get; }
@@ -20,6 +17,8 @@ public abstract class GreenNode
         Width = width;
         FullWidth = fullWidth;
     }
+
+    public virtual bool IsMissing { get; }
 
     public abstract GreenNode GetSlot(int index);
 
