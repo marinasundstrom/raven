@@ -59,7 +59,7 @@ public class DiagnosticVerifier
             // Check if the diagnostic matches any expected result
             var isExpected = expectedDiagnostics.Any(expected =>
                 expected.Id == diagnostic.Descriptor.Id &&
-                expected.Arguments.SequenceEqual(diagnostic.GetMessageArgs()) &&
+                expected.Arguments.Select(x => x.ToString()).SequenceEqual(diagnostic.GetMessageArgs().Select(x => x.ToString())) &&
                 expected.Location.Span.StartLinePosition == lineSpan.StartLinePosition);
 
             if (isExpected)
@@ -80,7 +80,7 @@ public class DiagnosticVerifier
                 var expectedSpan = expected.Location.Span;
 
                 return actual.Descriptor.Id == expected.Id &&
-                    actual.GetMessageArgs().SequenceEqual(expected.Arguments) &&
+                    actual.GetMessageArgs().Select(x => x.ToString()).SequenceEqual(expected.Arguments.Select(x => x.ToString())) &&
                     actual.Location.GetLineSpan().StartLinePosition == expectedSpan.StartLinePosition;
             });
 

@@ -235,6 +235,21 @@ internal class LanguageParser
 
         var expression = ParseExpressionSyntax();
 
+        if (expression is null)
+        {
+            var t = ReadToken();
+
+            _diagnostics.Add(
+                InternalDiagnostic.Create(
+                    CompilerDiagnostics.InvalidExpressionTerm,
+                    GetStartOfLastToken(),
+                    [t.ValueText]
+                ));
+
+            expression = new ExpressionSyntax.Missing();
+            return ExpressionStatement(expression, MissingToken(SyntaxKind.SemicolonToken));
+        }
+
         if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);

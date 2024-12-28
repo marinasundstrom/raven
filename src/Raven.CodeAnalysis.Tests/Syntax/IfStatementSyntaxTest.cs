@@ -11,7 +11,7 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
             """
             if(x) {
             
-            };
+            }
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -26,12 +26,48 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
             """
             if() {
             
-            };
+            }
             """;
 
         var verifier = CreateVerifier(testCode,
                [
                     new DiagnosticResult("RAV1525").WithLocation(1, 4).WithArguments(')'),
+               ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void IfStatement_MissingBlock()
+    {
+        string testCode =
+            """
+            if(x)
+            
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode,
+                 [
+                      new DiagnosticResult("RAV1525").WithLocation(3, 1).WithArguments('}'),
+               ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void IfStatement_MissingBlock_WithReturnStatement()
+    {
+        string testCode =
+            """
+            if(x)
+                return 2;
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode,
+                 [
+                      new DiagnosticResult("RAV1525").WithLocation(3, 1).WithArguments('}'),
                ]);
 
         verifier.Verify();
@@ -46,7 +82,7 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
             
             } else {
             
-            };
+            }
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -63,7 +99,7 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
             
             } else if (y) {
             
-            };
+            }
             """;
 
         var verifier = CreateVerifier(testCode);
