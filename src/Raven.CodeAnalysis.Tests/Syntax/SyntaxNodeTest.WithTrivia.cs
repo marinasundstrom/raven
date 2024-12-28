@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
 
-public class SyntaxNodeTest2(ITestOutputHelper testOutputHelper)
+public partial class SyntaxNodeTest
 {
     [Fact]
     public void SyntaxNode_WithNoTrivia()

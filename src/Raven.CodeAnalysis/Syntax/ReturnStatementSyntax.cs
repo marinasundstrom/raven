@@ -18,7 +18,7 @@ public partial class ReturnStatementSyntax : StatementSyntax
 
     public ReturnStatementSyntax(SyntaxToken returnKeyword, ExpressionSyntax? expression, SyntaxToken semicolonToken)
       : this(
-            new InternalSyntax.ReturnStatementSyntax(returnKeyword.Green, (InternalSyntax.ExpressionSyntax)expression.Green, semicolonToken.Green))
+            new InternalSyntax.ReturnStatementSyntax(returnKeyword.Green, (InternalSyntax.ExpressionSyntax)expression?.Green, semicolonToken.Green))
     {
 
     }
@@ -32,9 +32,15 @@ public partial class ReturnStatementSyntax : StatementSyntax
 
 public static partial class SyntaxFactory
 {
+    public static ReturnStatementSyntax ReturnStatement()
+     => new ReturnStatementSyntax(null);
+
     public static ReturnStatementSyntax ReturnStatement(ExpressionSyntax expression)
         => new ReturnStatementSyntax(expression);
 
-    public static ReturnStatementSyntax ReturnStatement(SyntaxToken returnKeyword, ExpressionSyntax expression, SyntaxToken semicolonToken)
+    public static ReturnStatementSyntax ReturnStatement(SyntaxToken returnKeyword, ExpressionSyntax? expression, SyntaxToken semicolonToken)
         => new ReturnStatementSyntax(returnKeyword, expression, semicolonToken);
+
+    public static ReturnStatementSyntax ReturnStatement(SyntaxToken returnKeyword, SyntaxToken semicolonToken)
+        => new ReturnStatementSyntax(returnKeyword, null, semicolonToken);
 }
