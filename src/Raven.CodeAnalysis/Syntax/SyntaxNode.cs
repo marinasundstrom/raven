@@ -78,18 +78,39 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return new ChildSyntaxList(this);
     }
 
-    public SyntaxTriviaList LeadingTrivia => GetFirstToken().LeadingTrivia;
+    public SyntaxTriviaList LeadingTrivia
+    {
+        get
+        {
+            var firstToken = GetFirstToken();
+            if (firstToken == default(SyntaxToken))
+            {
+                return SyntaxTriviaList.Empty;
+            }
+            return firstToken.LeadingTrivia;
+        }
+    }
 
-    public SyntaxTriviaList TrailingTrivia => GetLastToken().TrailingTrivia;
+    public SyntaxTriviaList TrailingTrivia
+    {
+        get
+        {
+            var lastToken = GetLastToken();
+            if (lastToken == default(SyntaxToken))
+            {
+                return SyntaxTriviaList.Empty;
+            }
+            return lastToken.TrailingTrivia;
+        }
+    }
 
     public SyntaxToken GetFirstToken(bool includeZeroWidth = false)
     {
-        return (SyntaxToken)Green.GetFirstTerminal()!;
+        return Green.GetFirstTerminal() ?? default;
     }
-
     public SyntaxToken GetLastToken(bool includeZeroWidth = false)
     {
-        return (SyntaxToken)Green.GetLastTerminal()!;
+        return Green.GetLastTerminal() ?? default;
     }
 
     public SyntaxNode(GreenNode greenNode, SyntaxNode parent, int position = 0)

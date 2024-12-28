@@ -23,9 +23,10 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _cannotConvertFromTypeToType;
     private static DiagnosticDescriptor? _noOverloadForMethod;
     private static DiagnosticDescriptor? _typeOrNamespaceNameDoesNotExistInTheNamespace;
+    private static DiagnosticDescriptor? _invalidExpressionTerm;
 
     /// <summary>
-    /// Identifier; expected
+    /// RAV1001: Identifier; expected
     /// </summary>
     public static DiagnosticDescriptor IdentifierExpected => _identifierExpected ??= DiagnosticDescriptor.Create(
         id: "RAV1001",
@@ -37,7 +38,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// ';' expected
+    /// RAV1002: ';' expected
     /// </summary>
     public static DiagnosticDescriptor SemicolonExpected => _semicolonExpected ??= DiagnosticDescriptor.Create(
         id: "RAV1002",
@@ -49,7 +50,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// '{0}' expected
+    /// RAV1003: '{0}' expected
     /// </summary>
     public static DiagnosticDescriptor CharacterExpected => _characterExpected ??= DiagnosticDescriptor.Create(
         id: "RAV1003",
@@ -61,7 +62,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Duplicate '{0}' modifier
+    /// RAV1004: Duplicate '{0}' modifier
     /// </summary>
     public static DiagnosticDescriptor DuplicateModifier => _duplicateModifier ??= DiagnosticDescriptor.Create(
         id: "RAV1004",
@@ -73,7 +74,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Unrecognized escape sequence
+    /// RAV1009: Unrecognized escape sequence
     /// </summary>
     public static DiagnosticDescriptor UnrecognizedEscapeSequence => _unrecognizedEscapeSequence ??= DiagnosticDescriptor.Create(
         id: "RAV1009",
@@ -85,7 +86,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Newline in constant
+    /// RAV1010: Newline in constant
     /// </summary>
     public static DiagnosticDescriptor NewlineInConstant => _newlineInConstant ??= DiagnosticDescriptor.Create(
         id: "RAV1010",
@@ -97,7 +98,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Method name expected
+    /// RAV0149: Method name expected
     /// </summary>
     public static DiagnosticDescriptor MethodNameExpected => _methodNameExpected ??= DiagnosticDescriptor.Create(
         id: "RAV0149",
@@ -109,7 +110,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Non-invocable member '{0}' cannot be used like a method
+    /// RAV1955: Non-invocable member '{0}' cannot be used like a method
     /// </summary>
     public static DiagnosticDescriptor NonInvocableMember => _nonInvocableMember ??= DiagnosticDescriptor.Create(
         id: "RAV1955",
@@ -121,7 +122,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Use of unassigned out parameter '{0}'
+    /// RAV0269: Use of unassigned out parameter '{0}'
     /// </summary>
     public static DiagnosticDescriptor UnassignedOutParameter => _unassignedOutParameter ??= DiagnosticDescriptor.Create(
         id: "RAV0269",
@@ -133,7 +134,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// '{0}' is a variable but is used like a type
+    /// RAV0118: '{0}' is a variable but is used like a type
     /// </summary>
     public static DiagnosticDescriptor VariableUsedLikeAType => _variableUsedLikeAType ??= DiagnosticDescriptor.Create(
         id: "RAV0118",
@@ -145,7 +146,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Use of unassigned local variable '{0}'
+    /// RAV0165: Use of unassigned local variable '{0}'
     /// </summary>
     public static DiagnosticDescriptor UseOfUnassignedVariable => _useOfAssignedVariable ??= DiagnosticDescriptor.Create(
         id: "RAV0165",
@@ -157,7 +158,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// '{0}' does not contain a definition for '{1}'
+    /// RAV0117: '{0}' does not contain a definition for '{1}'
     /// </summary>
     public static DiagnosticDescriptor MemberDoesNotContainDefinition => _memberDoesNotContainDefinition ??= DiagnosticDescriptor.Create(
         id: "RAV0117",
@@ -169,7 +170,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Operator '{0}' cannot be applied to operand of type '{1}'
+    /// RAV0023: Operator '{0}' cannot be applied to operand of type '{1}'
     /// </summary>
     public static DiagnosticDescriptor OperatorCannotBeAppliedToOperandOfType => _operatorCannotBeAppliedToOperandOfType ??= DiagnosticDescriptor.Create(
         id: "RAV0023",
@@ -181,7 +182,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// The type name '{0}' does not exist in the type '{1}'
+    /// RAV0426: The type name '{0}' does not exist in the type '{1}'
     /// </summary>
     public static DiagnosticDescriptor TypeNameDoesNotExistInType => _typeNameDoesNotExistInType ??= DiagnosticDescriptor.Create(
         id: "RAV0426",
@@ -193,7 +194,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// The call is ambiguous between the following methods or properties: '{0}' and '{1}'
+    /// RAV0121: The call is ambiguous between the following methods or properties: '{0}' and '{1}'
     /// </summary>
     public static DiagnosticDescriptor CallIsAmbiguous => _callIsAmbiguous ??= DiagnosticDescriptor.Create(
         id: "RAV0121",
@@ -205,7 +206,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// Cannot convert from '{0}' to {1}
+    /// RAV1503: Cannot convert from '{0}' to {1}
     /// </summary>
     public static DiagnosticDescriptor CannotConvertFromTypeToType => _cannotConvertFromTypeToType ??= DiagnosticDescriptor.Create(
         id: "RAV1503",
@@ -217,7 +218,7 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// No overload for method {0} takes ‘{1}’ arguments
+    /// RAV1501: No overload for method {0} takes ‘{1}’ arguments
     /// </summary>
     public static DiagnosticDescriptor NoOverloadForMethod => _noOverloadForMethod ??= DiagnosticDescriptor.Create(
         id: "RAV1501",
@@ -229,14 +230,26 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
-    /// The type or namespace name '{0}' does not exist in the namespace '{1}'
+    /// RAV0234: The type or namespace name '{0}' does not exist in the namespace '{1}'
     /// </summary>
     public static DiagnosticDescriptor TypeOrNamespaceNameDoesNotExistInTheNamespace => _typeOrNamespaceNameDoesNotExistInTheNamespace ??= DiagnosticDescriptor.Create(
         id: "RAV0234",
-        title: "Type or namespace doesn't exist in namespace",
+        title: "Type or namespace does not exist in namespace",
         description: "",
         helpLinkUri: "",
         messageFormat: "The type or namespace name '{0}' does not exist in the namespace '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
+    /// <summary>
+    /// RAV1525: Invalid expression term '{0}'
+    /// </summary>
+    public static DiagnosticDescriptor InvalidExpressionTerm => _invalidExpressionTerm ??= DiagnosticDescriptor.Create(
+        id: "RAV1525",
+        title: " Invalid expression term",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Invalid expression term '{0}'",
         category: "compiler",
         DiagnosticSeverity.Error);
 
@@ -258,7 +271,9 @@ internal class CompilerDiagnostics
         TypeNameDoesNotExistInType,
         CallIsAmbiguous,
         CannotConvertFromTypeToType,
-        NoOverloadForMethod
+        NoOverloadForMethod,
+        TypeOrNamespaceNameDoesNotExistInTheNamespace,
+        InvalidExpressionTerm
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -282,6 +297,8 @@ internal class CompilerDiagnostics
             "RAV0121" => CallIsAmbiguous,
             "RAV1503" => CannotConvertFromTypeToType,
             "RAV1501" => NoOverloadForMethod,
+            "RAV0234" => TypeOrNamespaceNameDoesNotExistInTheNamespace,
+            "RAV1525" => InvalidExpressionTerm,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

@@ -333,9 +333,27 @@ internal class LanguageParser
 
         ConsumeToken(SyntaxKind.OpenParenToken, out var openParenToken);
 
-        var condition = ParseExpressionSyntax();
+        var condition = ParseExpressionSyntaxOrMissing();
 
-        ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken);
+        if (!ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken))
+        {
+            _diagnostics.Add(
+               InternalDiagnostic.Create(
+                   CompilerDiagnostics.CharacterExpected,
+                   GetEndOfLastToken(),
+                   [')']
+               ));
+        }
+
+        if (condition.IsMissing)
+        {
+            _diagnostics.Add(
+               InternalDiagnostic.Create(
+                   CompilerDiagnostics.InvalidExpressionTerm,
+                   GetStartOfLastToken(),
+                   [')']
+               ));
+        }
 
         var statement = ParseStatementSyntax();
 
@@ -373,6 +391,11 @@ internal class LanguageParser
     private ExpressionSyntax? ParseExpressionSyntax()
     {
         return ParseOrExpression();
+    }
+
+    private ExpressionSyntax ParseExpressionSyntaxOrMissing()
+    {
+        return ParseOrExpression() ?? new ExpressionSyntax.Missing();
     }
 
     private BlockSyntax? ParseBlockSyntax()
@@ -863,6 +886,11 @@ internal class LanguageParser
         CurrentToken = _tokenizer.ReadToken();
         _currentPosition += CurrentToken.FullWidth;
         return CurrentToken;
+    }
+
+    private TextSpan GetStartOfLastToken()
+    {
+        return new TextSpan(_currentPosition - CurrentToken.FullWidth, 0);
     }
 
     private TextSpan GetEndOfLastToken()
