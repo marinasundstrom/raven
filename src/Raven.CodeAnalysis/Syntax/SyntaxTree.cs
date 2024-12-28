@@ -208,7 +208,7 @@ public class SyntaxTree
                 break;
             }
 
-            newCompilationUnit = (CompilationUnitSyntax)newCompilationUnit
+            newCompilationUnit = newCompilationUnit
                 .ReplaceNode(changedNode, newNode);
         }
 

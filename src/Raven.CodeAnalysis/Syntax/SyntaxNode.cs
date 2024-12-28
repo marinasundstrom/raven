@@ -177,7 +177,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return SourceTextWriter.WriteNodeToText(this, true);
     }
 
-    public SyntaxNode ReplaceToken(SyntaxToken oldToken, SyntaxToken newToken)
+    internal SyntaxNode ReplaceTokenCore(SyntaxToken oldToken, SyntaxToken newToken)
     {
         // Step 1: Traverse and locate the node to replace in the green tree
         var greenToReplace = oldToken.Green;
@@ -187,7 +187,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return newGreen.CreateRed(this.Parent, this.Position);
     }
 
-    public SyntaxNode ReplaceNode(SyntaxNode oldNode, SyntaxNode newNode)
+    internal SyntaxNode ReplaceNodeCore(SyntaxNode oldNode, SyntaxNode newNode)
     {
         if (oldNode == null)
             throw new ArgumentNullException(nameof(oldNode));

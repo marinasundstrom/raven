@@ -20,7 +20,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
 
         var newCondition = LiteralExpression(SyntaxKind.StringLiteralExpression, IdentifierToken("test"));
 
-        var newIfStatement = (IfStatementSyntax)ifStatement.ReplaceNode(condition, newCondition);
+        var newIfStatement = ifStatement.ReplaceNode(condition, newCondition);
 
         newIfStatement.ShouldNotBeSameAs(ifStatement);
         newIfStatement.Condition.ShouldBeOfType<LiteralExpressionSyntax>();
@@ -41,7 +41,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var oldReturnStatement = block.Statements[1];
         var newReturnStatement = ReturnStatement(ReturnKeyword.WithTrailingTrivia(Space), LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(100)), SemicolonToken);
 
-        var newBlock = (BlockSyntax)block.ReplaceNode(oldReturnStatement, newReturnStatement);
+        var newBlock = block.ReplaceNode(oldReturnStatement, newReturnStatement);
 
         newBlock.ShouldNotBeSameAs(block);
         newBlock.Statements.Count.ShouldBe(2);
@@ -61,7 +61,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
 
         var newIfKeyword = IdentifierToken("test").WithTrailingTrivia(Space);
 
-        var newIfStatement = (IfStatementSyntax)ifStatement.ReplaceToken(ifStatement.IfKeyword, newIfKeyword);
+        var newIfStatement = ifStatement.ReplaceToken(ifStatement.IfKeyword, newIfKeyword);
 
         newIfStatement.ShouldNotBeSameAs(ifStatement);
         newIfStatement.IfKeyword.Text.ShouldBe("test");
@@ -81,7 +81,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var oldToken = ifStatement.Condition.GetFirstToken();
         var newToken = NumericLiteral(100);
 
-        var newIfStatement = (IfStatementSyntax)ifStatement.ReplaceToken(oldToken, newToken);
+        var newIfStatement = ifStatement.ReplaceToken(oldToken, newToken);
 
         newIfStatement.ShouldNotBeSameAs(ifStatement);
         newIfStatement.Condition.ToFullString().ShouldContain("100");
@@ -134,7 +134,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var newToken = NumericLiteral(100);
 
         // Replace the token in the block
-        var newBlock = (BlockSyntax)block.ReplaceToken(oldToken, newToken);
+        var newBlock = block.ReplaceToken(oldToken, newToken);
 
         // Assertions
         newBlock.ShouldNotBeSameAs(block);

@@ -2,21 +2,24 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static class SyntaxNodeExtensions
 {
-    /*
-    public static TRoot ReplaceToken<TRoot>(this TRoot root, SyntaxToken tokenInList,
-        params IEnumerable<SyntaxToken> newTokens)
+    public static TRoot ReplaceNode<TRoot>(this TRoot node, SyntaxNode oldNode, SyntaxNode newNode)
+          where TRoot : SyntaxNode
+    {
+        return (TRoot)node.ReplaceNodeCore(oldNode, newNode);
+    }
+
+    public static TRoot ReplaceToken<TRoot>(this TRoot node, SyntaxToken oldToken, SyntaxToken newToken)
         where TRoot : SyntaxNode
     {
-        return default!; // (TRoot)root.ReplaceTokenInListCore(tokenInList, newTokens);
+        return (TRoot)node.ReplaceTokenCore(oldToken, newToken);
     }
-    */
 
     public static TSyntax WithLeadingTrivia<TSyntax>(this TSyntax node, params IEnumerable<SyntaxTrivia> trivia)
         where TSyntax : SyntaxNode
     {
         var first = node.GetFirstToken(includeZeroWidth: true);
         var newFirst = first.WithLeadingTrivia(trivia);
-        return (TSyntax)node.ReplaceToken(first, newFirst);
+        return node.ReplaceToken(first, newFirst);
     }
 
     public static TSyntax WithTrailingTrivia<TSyntax>(this TSyntax node, params IEnumerable<SyntaxTrivia> trivia)
@@ -24,7 +27,7 @@ public static class SyntaxNodeExtensions
     {
         var last = node.GetLastToken(includeZeroWidth: true);
         var newLast = last.WithTrailingTrivia(trivia);
-        return (TSyntax)node.ReplaceToken(last, newLast);
+        return node.ReplaceToken(last, newLast);
     }
 
     public static TSyntax NormalizeWhitespace<TSyntax>(this TSyntax node)
