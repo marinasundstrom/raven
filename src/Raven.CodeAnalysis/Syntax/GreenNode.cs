@@ -178,5 +178,48 @@ public abstract class GreenNode
         return WithUpdatedChildren(updatedChildren);
     }
 
+    public GreenNode ReplaceNode(GreenNode oldNode, IEnumerable<GreenNode> newNodes)
+    {
+        return ReplaceNodeWithNodes(oldNode, newNodes);
+    }
+
+    private GreenNode ReplaceNodeWithNodes(GreenNode oldNode, IEnumerable<GreenNode> newNodes)
+    {
+        if (this == oldNode)
+        {
+            // If the current node is the one to replace, return a new parent with the new nodes
+            return CreateParentWithNodes(newNodes);
+        }
+
+        // Traverse child nodes to find the node to replace
+        var updatedChildren = new List<GreenNode>();
+        for (int i = 0; i < SlotCount; i++)
+        {
+            var child = GetSlot(i);
+
+            if (child == oldNode)
+            {
+                // Add the new nodes in place of the old node
+                updatedChildren.AddRange(newNodes);
+            }
+            else if (child != null)
+            {
+                // Recur for other children
+                updatedChildren.Add(child.ReplaceNodeWithNodes(oldNode, newNodes));
+            }
+        }
+
+        // Create a new green node with updated children
+        return WithUpdatedChildren(updatedChildren.ToArray());
+    }
+
+    protected virtual GreenNode CreateParentWithNodes(IEnumerable<GreenNode> newNodes)
+    {
+        // This implementation depends on the specific type of the parent node.
+        // For simplicity, you can return a SyntaxList for now, or customize it based on the context.
+
+        return new InternalSyntax.SyntaxList(newNodes.ToArray());
+    }
+
     protected virtual GreenNode WithUpdatedChildren(GreenNode[] newChildren) => this;
 }

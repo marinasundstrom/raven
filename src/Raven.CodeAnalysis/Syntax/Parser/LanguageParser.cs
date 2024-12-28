@@ -246,7 +246,7 @@ internal class LanguageParser
                 ));
         }
 
-        return ExpressionStatement(expression);
+        return ExpressionStatement(expression, semicolonToken);
     }
 
     private LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()

@@ -14,6 +14,12 @@ public static class SyntaxNodeExtensions
         return (TRoot)node.ReplaceTokenCore(oldToken, newToken);
     }
 
+    public static TRoot ReplaceNode<TRoot>(this TRoot node, SyntaxNode oldNode, IEnumerable<SyntaxNode> newNodes)
+        where TRoot : SyntaxNode
+    {
+        return (TRoot)node.ReplaceNodeWithNodesCore(oldNode, newNodes);
+    }
+
     public static TSyntax WithLeadingTrivia<TSyntax>(this TSyntax node, params IEnumerable<SyntaxTrivia> trivia)
         where TSyntax : SyntaxNode
     {

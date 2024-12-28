@@ -10,7 +10,12 @@ public partial class ExpressionStatementSyntax : StatementSyntax
     }
 
     public ExpressionStatementSyntax(ExpressionSyntax expression)
-        : this(new InternalSyntax.ExpressionStatementSyntax((InternalSyntax.ExpressionSyntax)expression.Green))
+    : this(expression, SyntaxFactory.SemicolonToken)
+    {
+    }
+
+    public ExpressionStatementSyntax(ExpressionSyntax expression, SyntaxToken semicolonToken)
+        : this(new InternalSyntax.ExpressionStatementSyntax((InternalSyntax.ExpressionSyntax)expression.Green, semicolonToken.Green))
     {
     }
 }
@@ -19,4 +24,7 @@ public static partial class SyntaxFactory
 {
     public static ExpressionStatementSyntax ExpressionStatement(ExpressionSyntax expression)
         => new ExpressionStatementSyntax(expression);
+
+    public static ExpressionStatementSyntax ExpressionStatement(ExpressionSyntax expression, SyntaxToken semicolonToken)
+        => new ExpressionStatementSyntax(expression, semicolonToken);
 }

@@ -147,4 +147,33 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         newBlock.Statements[1].ToFullString().ShouldContain("return 100;");
         testOutputHelper.WriteLine(newBlock.ToFullString());
     }
+
+    [Fact]
+    public void ReplaceNodeWithMultipleNodes()
+    {
+        // Original block with one return statement
+        var block = Block(
+            OpenBraceToken,
+            List<StatementSyntax>(
+                ReturnStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)))
+            ),
+            CloseBraceToken);
+
+        // Nodes to replace the single return statement
+        var newStatements = new List<SyntaxNode>
+        {
+            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(100))),
+            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(200)))
+        };
+
+        // Perform the replacement
+        var updatedBlock = block.ReplaceNode(block.Statements[0], newStatements);
+
+        // Assertions
+        updatedBlock.ShouldNotBeSameAs(block);
+        updatedBlock.Statements.Count.ShouldBe(2);
+        updatedBlock.ToFullString().ShouldContain("100;");
+        updatedBlock.ToFullString().ShouldContain("200;");
+        testOutputHelper.WriteLine(updatedBlock.ToFullString());
+    }
 }

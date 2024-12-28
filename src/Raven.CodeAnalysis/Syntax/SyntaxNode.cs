@@ -206,6 +206,25 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return newGreen.CreateRed(this.Parent, this.Position);
     }
 
+    internal SyntaxNode ReplaceNodeWithNodesCore(SyntaxNode oldNode, IEnumerable<SyntaxNode> newNodes)
+    {
+        if (oldNode == null)
+            throw new ArgumentNullException(nameof(oldNode));
+
+        if (newNodes == null)
+            throw new ArgumentNullException(nameof(newNodes));
+
+        // Convert red nodes to green nodes
+        var greenOldNode = oldNode.Green;
+        var greenNewNodes = newNodes.Select(n => n.Green);
+
+        // Perform the replacement in the green tree
+        var newGreen = this.Green.ReplaceNode(greenOldNode, greenNewNodes);
+
+        // Rebuild the red tree
+        return newGreen.CreateRed(this.Parent, this.Position);
+    }
+
     public abstract void Accept(SyntaxVisitor visitor);
 
     public abstract TResult Accept<TResult>(SyntaxVisitor<TResult> visitor);
