@@ -4,6 +4,8 @@ public partial class ExpressionStatementSyntax : StatementSyntax
 {
     public partial ExpressionSyntax Expression { get; }
 
+    public partial SyntaxToken SemicolonToken { get; }
+
     internal ExpressionStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)
     {
