@@ -1,8 +1,9 @@
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class SemanticsTests : DiagnosticTestBase
+public class SemanticsTests(ITestOutputHelper output) : DiagnosticTestBase
 {
     [Fact]
     public void NamespaceSystemDoesContainString_ShouldNot_ProduceDiagnostic()
@@ -59,6 +60,23 @@ public class SemanticsTests : DiagnosticTestBase
                     testCode,
                     [
                          new DiagnosticResult("RAV0117").WithLocation(1, 16).WithArguments("WriteLine2", "Console"),
+                    ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ConsoleDoesNotExistInCurrentContext_Should_ProduceDiagnostics()
+    {
+        string testCode =
+            """
+            Console.WriteLine2("Foo");
+            """;
+
+        var verifier = CreateVerifier(
+                    testCode,
+                    [
+                         new DiagnosticResult("RAV0103").WithLocation(1, 1).WithArguments("Console"),
                     ]);
 
         verifier.Verify();

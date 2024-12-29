@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
 using System.Text;
 
 using Raven.CodeAnalysis.Text;
@@ -245,6 +246,7 @@ internal class LanguageParser
                 return ParseLocalDeclarationStatementSyntax();
         }
 
+        bool isMissing = false;
         var expression = ParseExpressionSyntax();
 
         if (expression is null)
@@ -255,8 +257,13 @@ internal class LanguageParser
                 .WithLeadingTrivia()
                 .WithTrailingTrivia();
 
+            if (LastStatement is null)
+            {
+                isMissing = true;
+                LastStatement = ExpressionStatement(new ExpressionSyntax.Missing(), MissingToken(SyntaxKind.SemicolonToken));
+            }
 
-            var foo = LastStatement?.TrailingTrivia ?? [];
+            var foo = LastStatement?.TrailingTrivia ?? SyntaxTriviaList.Empty;
 
             IEnumerable<SyntaxTrivia> trivia = [.. foo, .. t.LeadingTrivia, Trivia(SkippedTokensTrivia(TokenList(t2))), .. t.TrailingTrivia];
             CompilationUnit = CompilationUnit.ReplaceNode(
@@ -269,7 +276,12 @@ internal class LanguageParser
                     [t.ValueText]
                 ));
 
-            return null;
+            if (isMissing)
+            {
+                return LastStatement;
+            }
+
+            return ExpressionStatement(new ExpressionSyntax.Missing(), MissingToken(SyntaxKind.SemicolonToken));
         }
 
         if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))

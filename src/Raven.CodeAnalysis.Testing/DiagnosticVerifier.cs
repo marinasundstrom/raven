@@ -93,6 +93,7 @@ public class DiagnosticVerifier
         // Populate the result
         var result = new DiagnosticVerifierResult
         {
+            Compilation = compilation,
             MatchedDiagnostics = matchedDiagnostics,
             UnexpectedDiagnostics = unexpectedDiagnostics,
             MissingDiagnostics = missingDiagnostics
@@ -162,9 +163,10 @@ internal class DiagnosticVerificationException : Exception
 
 public class DiagnosticVerifierResult
 {
-    public List<Diagnostic> MatchedDiagnostics { get; set; } = new();
-    public List<Diagnostic> UnexpectedDiagnostics { get; set; } = new();
-    public List<DiagnosticResult> MissingDiagnostics { get; set; } = new();
+    public List<Diagnostic> MatchedDiagnostics { get; internal set; } = new();
+    public List<Diagnostic> UnexpectedDiagnostics { get; internal set; } = new();
+    public List<DiagnosticResult> MissingDiagnostics { get; internal set; } = new();
+    public Compilation Compilation { get; internal set; } = default!;
 }
 
 public class DiagnosticResult

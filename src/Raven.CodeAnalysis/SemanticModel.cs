@@ -138,7 +138,7 @@ public class SemanticModel
             {
                 Bind(expression, CandidateReason.NotATypeOrNamespace, []);
 
-                var baseSymbol = baseSymbols.First();
+                var baseSymbol = baseSymbols.FirstOrDefault();
 
                 if (baseSymbol is INamespaceSymbol namespaceSymbol)
                 {
@@ -237,6 +237,16 @@ public class SemanticModel
             if (symbols.Count() == 1)
             {
                 Bind(name, symbols.First());
+            }
+            else if (symbols.Count() == 0)
+            {
+                // TODO: Centralize
+                Diagnostics.Add(
+                    Diagnostic.Create(
+                        CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
+                        expression.GetLocation(),
+                        [expression.ToString()]
+                    ));
             }
             else
             {

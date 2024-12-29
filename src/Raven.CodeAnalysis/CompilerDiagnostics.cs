@@ -24,6 +24,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _noOverloadForMethod;
     private static DiagnosticDescriptor? _typeOrNamespaceNameDoesNotExistInTheNamespace;
     private static DiagnosticDescriptor? _invalidExpressionTerm;
+    private static DiagnosticDescriptor? _theNameDoesNotExistInTheCurrentContext;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -246,10 +247,22 @@ internal class CompilerDiagnostics
     /// </summary>
     public static DiagnosticDescriptor InvalidExpressionTerm => _invalidExpressionTerm ??= DiagnosticDescriptor.Create(
         id: "RAV1525",
-        title: " Invalid expression term",
+        title: "Invalid expression term",
         description: "",
         helpLinkUri: "",
         messageFormat: "Invalid expression term '{0}'",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
+    /// <summary>
+    /// RAV0103: The name '{0}' does not exist in the current context
+    /// </summary>
+    public static DiagnosticDescriptor TheNameDoesNotExistInTheCurrentContext => _theNameDoesNotExistInTheCurrentContext ??= DiagnosticDescriptor.Create(
+        id: "RAV0103",
+        title: "The name does not exist in the current context",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The name '{0}' does not exist in the current context",
         category: "compiler",
         DiagnosticSeverity.Error);
 
@@ -273,7 +286,8 @@ internal class CompilerDiagnostics
         CannotConvertFromTypeToType,
         NoOverloadForMethod,
         TypeOrNamespaceNameDoesNotExistInTheNamespace,
-        InvalidExpressionTerm
+        InvalidExpressionTerm,
+        TheNameDoesNotExistInTheCurrentContext
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -299,6 +313,7 @@ internal class CompilerDiagnostics
             "RAV1501" => NoOverloadForMethod,
             "RAV0234" => TypeOrNamespaceNameDoesNotExistInTheNamespace,
             "RAV1525" => InvalidExpressionTerm,
+            "RAV0103" => TheNameDoesNotExistInTheCurrentContext,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }
