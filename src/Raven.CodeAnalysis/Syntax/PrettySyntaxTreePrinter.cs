@@ -150,7 +150,8 @@ public static class PrettySyntaxTreePrinter
     {
         var lineSpan = location.GetLineSpan();
         var start = lineSpan.StartLinePosition;
-        return $"({(start.Line + 1)}:{start.Character + 1})";
+        var end = lineSpan.EndLinePosition;
+        return $"({(start.Line + 1)}:{start.Character + 1} - {(end.Line + 1)}:{end.Character + 1})";
     }
 
     private static string Span(TextSpan span)

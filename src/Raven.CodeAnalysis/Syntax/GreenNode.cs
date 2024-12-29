@@ -113,7 +113,29 @@ public abstract class GreenNode
 
     protected static int CalculateWidth(GreenNode[] items)
     {
-        if (items is null)
+        if (items is null || items.Length == 0)
+            return 0;
+
+        if (items.Length == 1)
+        {
+            return items[0]?.Width ?? 0;
+        }
+
+        var items2 = items
+            .Where(item => item is not null);
+
+        var f1 = items2.First();
+        var f2 = items2.Last();
+
+        var value = items2.Sum(item => item.FullWidth);
+
+        return value - f1.LeadingTrivia.Width - f2.TrailingTrivia.Width;
+    }
+
+    protected static int CalculateFullWidth(GreenNode[] items,
+        SyntaxTriviaList? leadingTrivia = null, SyntaxTriviaList? trailingTrivia = null)
+    {
+        if (items is null || items.Length == 0)
             return 0;
 
         if (items.Length == 1)
@@ -126,17 +148,6 @@ public abstract class GreenNode
             .Sum(item => item.FullWidth);
 
         return value;
-    }
-
-    protected static int CalculateFullWidth(GreenNode[] items,
-        SyntaxTriviaList? leadingTrivia = null, SyntaxTriviaList? trailingTrivia = null)
-    {
-        if (items is null)
-            return 0;
-
-        var width = CalculateWidth(items);
-
-        return (leadingTrivia?.Width ?? 0) + width + (trailingTrivia?.Width ?? 0);
     }
 
     public virtual int GetChildStartPosition(int childIndex)

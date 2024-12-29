@@ -18,10 +18,11 @@ internal class SourceLocation : Location
         var text = SourceTree.GetText();
 
         var (line, col) = text.GetLineAndColumn(SourceSpan);
+        var (line2, col2) = text.GetLineAndColumn(new TextSpan(SourceSpan.End, 0));
 
         return new FileLinePositionSpan(
             SourceTree.FilePath,
             new LinePosition(line - 1, col - 1),
-            default);
+            new LinePosition(line2 - 1, col2 - 1));
     }
 }
