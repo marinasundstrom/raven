@@ -39,3 +39,5 @@ using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
 }
 
 CreateAppHost(compilation);
+
+Console.WriteLine(root.ToFullString());

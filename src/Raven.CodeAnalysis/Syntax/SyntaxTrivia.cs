@@ -10,6 +10,7 @@ public struct SyntaxTrivia
     private SyntaxNode? _structure;
 
     public SyntaxKind Kind => Green.Kind;
+
     public string Text => Green.Text;
 
     public SyntaxToken? Token => _token;
@@ -62,7 +63,14 @@ public struct SyntaxTrivia
 
     public bool HasStructure => Green.HasStructuredTrivia;
 
-    public override string ToString() => Text;
+    public override string ToString()
+    {
+        if (HasStructure)
+        {
+            return GetStructure()!.ToString();
+        }
+        return Text;
+    }
 }
 
 public static partial class SyntaxFactory
