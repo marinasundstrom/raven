@@ -30,6 +30,10 @@ static class ConsoleEx
 
             var fileDirectory = Path.GetDirectoryName(location.Path);
 
+#if DEBUG
+            fileDirectory = Path.GetRelativePath(Environment.CurrentDirectory, fileDirectory!);
+#endif
+
             if (!string.IsNullOrEmpty(fileDirectory))
             {
                 fileDirectory += "/";

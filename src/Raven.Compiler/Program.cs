@@ -17,7 +17,7 @@ var sourceText = SourceText.From(file);
 var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
 var root = syntaxTree.GetRoot();
 
-root.PrintSyntaxTree(includeTrivia: true, includeSpans: true, includeLocation: true);
+root.PrintSyntaxTree(includeNames: true, includeTokens: true, includeTrivia: true, includeSpans: false, includeLocation: false);
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
@@ -40,4 +40,4 @@ using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
 
 CreateAppHost(compilation);
 
-Console.WriteLine(root.ToFullString());
+//Console.WriteLine(root.ToFullString());

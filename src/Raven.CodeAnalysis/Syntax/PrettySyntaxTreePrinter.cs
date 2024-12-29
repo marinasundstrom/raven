@@ -6,17 +6,17 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static class PrettySyntaxTreePrinter
 {
-    public static void PrintSyntaxTree(this SyntaxNode node, bool includeTokens = true, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, int maxDepth = int.MaxValue)
+    public static void PrintSyntaxTree(this SyntaxNode node, bool includeTokens = true, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, bool includeNames = false, int maxDepth = int.MaxValue)
     {
         var sb = new StringBuilder();
-        PrintSyntaxTreeCore(node, sb, "", true, true, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth);
+        PrintSyntaxTreeCore(node, sb, "", true, true, includeTokens, includeTrivia, includeSpans, includeLocation, includeNames, maxDepth);
         Console.WriteLine(sb.ToString());
     }
 
-    public static string GetSyntaxTreeRepresentation(this SyntaxNode node, bool includeTokens = true, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, int maxDepth = int.MaxValue)
+    public static string GetSyntaxTreeRepresentation(this SyntaxNode node, bool includeTokens = true, bool includeTrivia = false, bool includeSpans = false, bool includeLocation = false, bool includeNames = false, int maxDepth = int.MaxValue)
     {
         var sb = new StringBuilder();
-        PrintSyntaxTreeCore(node, sb, "", true, false, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth);
+        PrintSyntaxTreeCore(node, sb, "", true, false, includeTokens, includeTrivia, includeSpans, includeLocation, includeNames, maxDepth);
         return sb.ToString();
     }
 
@@ -26,7 +26,7 @@ public static class PrettySyntaxTreePrinter
     private const string MarkerMiddle = "├── ";
     private const string MarkerBottom = "└── ";
 
-    private static void PrintSyntaxTreeCore(SyntaxNode node, StringBuilder sb, string indent, bool isFirst, bool isLast, bool includeTokens, bool includeTrivia, bool includeSpans, bool includeLocation, int maxDepth, int currentDepth = 0)
+    private static void PrintSyntaxTreeCore(SyntaxNode node, StringBuilder sb, string indent, bool isFirst, bool isLast, bool includeTokens, bool includeTrivia, bool includeSpans, bool includeLocation, bool includeNames, int maxDepth, int currentDepth = 0)
     {
         if (currentDepth > maxDepth)
             return;
@@ -49,7 +49,19 @@ public static class PrettySyntaxTreePrinter
             }
         }
 
-        sb.AppendLine($"{indent}{marker}" + Colorize($"{node.Kind}", ConsoleColor.Blue) + $"{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
+        var propertyName = string.Empty;
+
+        if (includeNames)
+        {
+            propertyName = node.Parent?.GetPropertyNameForChild(node);
+
+            if (propertyName is not null)
+            {
+                propertyName = $"{propertyName}: ";
+            }
+        }
+
+        sb.AppendLine($"{indent}{marker}" + Colorize($"{propertyName}{node.Kind}", ConsoleColor.Blue) + $"{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
@@ -65,7 +77,7 @@ public static class PrettySyntaxTreePrinter
             var isChildLast = i == children.Length - 1;
             if (children[i].AsNode(out var childNode))
             {
-                PrintSyntaxTreeCore(childNode, sb, newIndent, false, isChildLast, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth, currentDepth + 1);
+                PrintSyntaxTreeCore(childNode, sb, newIndent, false, isChildLast, includeTokens, includeTrivia, includeSpans, includeLocation, includeNames, maxDepth, currentDepth + 1);
             }
             else if (includeTokens && children[i].AsToken(out var token))
             {
@@ -73,23 +85,35 @@ public static class PrettySyntaxTreePrinter
                 if (includeTrivia)
                 {
                     var triviaList = token.LeadingTrivia;
-                    PrintTrivia(triviaList, true, sb, newIndent, false, isChildLast, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth, currentDepth + 1);
+                    PrintTrivia(triviaList, true, sb, newIndent, false, isChildLast, includeTokens, includeTrivia, includeSpans, includeLocation, includeNames, maxDepth, currentDepth + 1);
+                }
+
+                var propertyName2 = string.Empty;
+
+                if (includeNames)
+                {
+                    propertyName2 = token.Parent?.GetPropertyNameForChild(token);
+
+                    if (propertyName2 is not null)
+                    {
+                        propertyName2 = $"{propertyName2}: ";
+                    }
                 }
 
                 // Print token
-                sb.AppendLine($"{newIndent}{(isChildLast ? MarkerBottom : MarkerMiddle)}" + Colorize($"{token.Kind}", ConsoleColor.Green) + $":{(token.IsMissing ? " (Missing)" : "")} \"{token.Text}\"{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent}{(isChildLast ? MarkerBottom : MarkerMiddle)}" + Colorize($"{propertyName2}{token.Kind}", ConsoleColor.Green) + $":{(token.IsMissing ? " (Missing)" : "")} \"{token.Text}\"{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
 
                 // Include trivia if specified
                 if (includeTrivia)
                 {
                     var triviaList = token.TrailingTrivia;
-                    PrintTrivia(triviaList, false, sb, newIndent, false, isChildLast, includeTokens, includeTrivia, includeSpans, includeLocation, maxDepth, currentDepth + 1);
+                    PrintTrivia(triviaList, false, sb, newIndent, false, isChildLast, includeTokens, includeTrivia, includeSpans, includeLocation, includeNames, maxDepth, currentDepth + 1);
                 }
             }
         }
     }
 
-    private static void PrintTrivia(SyntaxTriviaList triviaList, bool isLeading, StringBuilder sb, string indent, bool isFirst, bool isLast, bool includeTokens, bool includeTrivia, bool includeSpans, bool includeLocation, int maxDepth, int currentDepth = 0)
+    private static void PrintTrivia(SyntaxTriviaList triviaList, bool isLeading, StringBuilder sb, string indent, bool isFirst, bool isLast, bool includeTokens, bool includeTrivia, bool includeSpans, bool includeLocation, bool includeNames, int maxDepth, int currentDepth = 0)
     {
         string marker = string.Empty;
 
@@ -119,15 +143,21 @@ public static class PrettySyntaxTreePrinter
 
             if (trivia.HasStructure)
             {
-                PrintStructuredTrivia(sb, includeSpans, includeLocation, trivia, isFirstChild, isChildLast, newIndent2);
+                PrintStructuredTrivia(sb, includeSpans, includeLocation, includeNames, trivia, isFirstChild, isChildLast, newIndent2);
             }
         }
     }
 
-    private static void PrintStructuredTrivia(StringBuilder sb, bool includeSpans, bool includeLocation, SyntaxTrivia trivia, bool isFirstChild, bool isChildLast, string newIndent2)
+    private static void PrintStructuredTrivia(StringBuilder sb, bool includeSpans, bool includeLocation, bool includeNames, SyntaxTrivia trivia, bool isFirstChild, bool isChildLast, string newIndent2)
     {
+        string name = string.Empty;
+        if (includeNames)
+        {
+            name = "Structure: ";
+        }
+
         var structure = trivia.GetStructure()!;
-        sb.AppendLine($"{newIndent2}{(MarkerBottom)}" + Colorize($"{structure.Kind}", ConsoleColor.Red) + $": \"{structure.ToString()}\"{(includeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(includeLocation ? $" {Location(structure.GetLocation())}" : string.Empty)}");
+        sb.AppendLine($"{newIndent2}{(MarkerBottom)}" + Colorize($"{name}{structure.Kind}", ConsoleColor.Blue) + $": \"{structure.ToString()}\"{(includeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(includeLocation ? $" {Location(structure.GetLocation())}" : string.Empty)}");
 
         int i2 = 0;
         var structureChildren = structure.ChildNodesAndTokens();
@@ -151,7 +181,7 @@ public static class PrettySyntaxTreePrinter
         var lineSpan = location.GetLineSpan();
         var start = lineSpan.StartLinePosition;
         var end = lineSpan.EndLinePosition;
-        return $"({(start.Line + 1)}:{start.Character + 1} - {(end.Line + 1)}:{end.Character + 1})";
+        return $"({(start.Line + 1)},{start.Character + 1}) - ({(end.Line + 1)},{end.Character + 1})";
     }
 
     private static string Span(TextSpan span)

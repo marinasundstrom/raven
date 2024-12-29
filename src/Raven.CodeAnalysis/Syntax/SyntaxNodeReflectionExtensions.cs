@@ -40,4 +40,50 @@ public static class SyntaxNodeReflectionExtensions
 
         return null; // No matching property found
     }
+
+    public static string? GetPropertyNameForChild(this SyntaxNode parent, SyntaxNode childNode)
+    {
+        if (childNode == null)
+            throw new ArgumentNullException(nameof(childNode));
+
+        // Find properties of the current node
+        var properties = parent.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+        foreach (var property in properties)
+        {
+            var propertyValue = property.GetValue(parent);
+
+            // Direct match: property equals childNode
+            // Comparing green nodes since actual green node might differ.
+            if (propertyValue is SyntaxNode node && node == childNode)
+            {
+                return property.Name;
+            }
+        }
+
+        return null; // No matching property found
+    }
+
+    public static string? GetPropertyNameForChild(this SyntaxNode parent, SyntaxToken childNode)
+    {
+        if (childNode == null)
+            throw new ArgumentNullException(nameof(childNode));
+
+        // Find properties of the current node
+        var properties = parent.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+        foreach (var property in properties)
+        {
+            var propertyValue = property.GetValue(parent);
+
+            // Direct match: property equals childNode
+            // Comparing green nodes since actual green node might differ.
+            if (propertyValue is SyntaxToken node && node == childNode)
+            {
+                return property.Name;
+            }
+        }
+
+        return null; // No matching property found
+    }
 }
