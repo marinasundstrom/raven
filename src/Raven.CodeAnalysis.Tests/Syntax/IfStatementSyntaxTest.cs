@@ -38,7 +38,7 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
     }
 
     [Fact]
-    public void IfStatement_MissingBlock()
+    public void IfStatement_MissingBlock_AndSkippedToken()
     {
         string testCode =
             """
