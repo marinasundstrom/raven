@@ -97,6 +97,17 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return SyntaxFactory.List<TElement>(newList);
     }
 
+    public virtual SyntaxTokenList VisitTokenList(SyntaxTokenList list)
+    {
+        List<SyntaxToken> newList = [];
+
+        foreach (var item in list)
+        {
+            newList.Add(item.Accept(this));
+        }
+        return SyntaxFactory.TokenList(newList);
+    }
+
     public virtual SeparatedSyntaxList<TElement>? VisitList<TElement>(SeparatedSyntaxList<TElement>? list0)
         where TElement : SyntaxNode
     {

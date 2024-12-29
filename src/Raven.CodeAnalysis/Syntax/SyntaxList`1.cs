@@ -17,6 +17,16 @@ public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
         _position = position;
     }
 
+    public SyntaxList<TNode> Add(TNode node)
+    {
+        return new SyntaxList<TNode>(Green.Add(node.Green), null);
+    }
+
+    public SyntaxList<TNode> Remove(TNode node)
+    {
+        return new SyntaxList<TNode>(Green.Remove(node.Green), null);
+    }
+
     public int Count => Green.SlotCount;
 
     public TNode this[int index]

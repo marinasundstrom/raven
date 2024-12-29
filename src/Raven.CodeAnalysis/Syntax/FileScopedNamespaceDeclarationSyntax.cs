@@ -22,6 +22,11 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
     {
     }
 
+    public FileScopedNamespaceDeclarationSyntax(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken semicolonToken)
+    : this(new Syntax.InternalSyntax.FileScopedNamespaceDeclarationSyntax(namespaceKeyword.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, semicolonToken.Green, InternalSyntax.SyntaxList.Empty, InternalSyntax.SyntaxList.Empty), (SyntaxNode)null)
+    {
+    }
+
     public FileScopedNamespaceDeclarationSyntax(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken semicolonToken, SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members)
         : this(new Syntax.InternalSyntax.FileScopedNamespaceDeclarationSyntax(namespaceKeyword.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, semicolonToken.Green, imports.Green, members.Green), (SyntaxNode)null)
     {
@@ -30,6 +35,9 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
 
 public static partial class SyntaxFactory
 {
+    public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken semicolonToken)
+    => new FileScopedNamespaceDeclarationSyntax(namespaceKeyword, name, semicolonToken);
+
     public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken semicolonToken, SyntaxList<ImportDirectiveSyntax> importDirectives, SyntaxList<MemberDeclarationSyntax> members)
     => new FileScopedNamespaceDeclarationSyntax(namespaceKeyword, name, semicolonToken, importDirectives, members);
 

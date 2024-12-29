@@ -17,8 +17,8 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     public int Width => Green.Width;
     public int FullWidth => Green.FullWidth;
 
-    public SyntaxTriviaList LeadingTrivia => new SyntaxTriviaList(this, Green.LeadingTrivia);
-    public SyntaxTriviaList TrailingTrivia => new SyntaxTriviaList(this, Green.TrailingTrivia);
+    public SyntaxTriviaList LeadingTrivia => new SyntaxTriviaList(this, Green.LeadingTrivia, StartPosition);
+    public SyntaxTriviaList TrailingTrivia => new SyntaxTriviaList(this, Green.TrailingTrivia, StartPosition + Width);
 
     internal SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode parent, int position = 0)
     {
@@ -107,7 +107,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         {
             return default(Location)!;
         }
-        return SyntaxTree!.GetLocation(this.Span);
+        return SyntaxTree!.GetLocation(Span);
     }
 
     public static bool operator ==(SyntaxToken left, SyntaxToken? right) => Equals(left, right);
@@ -138,5 +138,10 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     public IEnumerable<Diagnostic> GetDiagnostics()
     {
         return SyntaxTree?.GetDiagnostics(this) ?? Enumerable.Empty<Diagnostic>();
+    }
+
+    internal SyntaxToken Accept(SyntaxRewriter syntaxRewriter)
+    {
+        return syntaxRewriter.VisitToken(this);
     }
 }

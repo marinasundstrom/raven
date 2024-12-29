@@ -17,6 +17,8 @@ var sourceText = SourceText.From(file);
 var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
 var root = syntaxTree.GetRoot();
 
+root.PrintSyntaxTree(includeTrivia: true, includeSpans: true, includeLocation: true);
+
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
 var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();

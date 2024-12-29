@@ -23,4 +23,18 @@ internal class SyntaxList : GreenNode
     {
         return new SyntaxList(newChildren);
     }
+
+    public SyntaxList Add(GreenNode green)
+    {
+        var list = _items.ToList();
+        list.Add(green);
+        return new SyntaxList(list.ToArray());
+    }
+
+    public SyntaxList Remove(GreenNode green)
+    {
+        var list = _items.ToList();
+        list.Remove(green);
+        return new SyntaxList(list.ToArray());
+    }
 }

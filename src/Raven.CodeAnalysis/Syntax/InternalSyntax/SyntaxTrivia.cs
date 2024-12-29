@@ -2,6 +2,8 @@
 
 internal class SyntaxTrivia : GreenNode
 {
+    private SyntaxNode _structuredTrivia;
+
     public string Text { get; }
 
     public SyntaxTrivia(
@@ -11,6 +13,18 @@ internal class SyntaxTrivia : GreenNode
     {
         Text = text;
     }
+
+    public SyntaxTrivia(
+        SyntaxNode node)
+        : base(node.Kind, 0, node.Width, node.FullWidth)
+    {
+        _structuredTrivia = node;
+        Text = string.Empty;
+    }
+
+    public bool HasStructuredTrivia => _structuredTrivia is not null;
+
+    public SyntaxNode? GetStructuredTrivia() => _structuredTrivia;
 
     public override GreenNode GetSlot(int index) => throw new InvalidOperationException("SyntaxTrivia has no children.");
 

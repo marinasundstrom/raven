@@ -55,3 +55,38 @@ public class SyntaxTriviaTest
         newTriviaList.Width.ShouldBe(1);
     }
 }
+
+
+public class StructuredSyntaxTriviaTest
+{
+    [Fact]
+    public void StructuredTrivia()
+    {
+        var x = IdentifierName(TrueKeyword)
+            .WithTrailingTrivia(
+                Trivia(
+                    SkippedTokensTrivia(
+                        TokenList(SemicolonToken))));
+
+        var z = x.TrailingTrivia.First();
+        var y = z.GetStructure();
+    }
+
+    [Fact]
+    public void StructuredTrivia2()
+    {
+        var x = SemicolonToken
+            .WithTrailingTrivia(
+                Trivia(
+                    SkippedTokensTrivia(
+                        TokenList(IdentifierToken("Foo")))));
+
+        var z = x.TrailingTrivia.First();
+        var y = z.GetStructure();
+
+        var returnStatement = ReturnStatement(ReturnKeyword, x);
+
+        z = returnStatement.SemicolonToken.TrailingTrivia.First();
+        var o = z.GetStructure();
+    }
+}

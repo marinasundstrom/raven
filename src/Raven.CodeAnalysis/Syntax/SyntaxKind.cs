@@ -10,7 +10,7 @@ public enum SyntaxKind
     GenericName,
     QualifiedName,
     AliasQualifiedName,
-    
+
     TypeArgumentList,
     TypeArgument,
 
@@ -126,8 +126,9 @@ public enum SyntaxKind
     CarriageReturnLineFeedTrivia,
     TabTrivia,
     CommentTrivia,
-
+    SkippedTokensTrivia,
     EndOfLineTrivia,
+
     Whitespace,
     TabToken,
 

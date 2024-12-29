@@ -1,4 +1,5 @@
 ﻿
+
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal static class SyntaxFactory
@@ -59,8 +60,12 @@ internal static class SyntaxFactory
     public static readonly SyntaxTrivia Space = new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, " ");
     public static readonly SyntaxTrivia Tab = new SyntaxTrivia(SyntaxKind.TabTrivia, "\t");
     public static SyntaxTrivia Comment(string text) => new SyntaxTrivia(SyntaxKind.CommentTrivia, text);
-
+    public static SkippedTokensTrivia SkippedTokensTrivia(SyntaxTokenList tokens) => new SkippedTokensTrivia(tokens.Green);
 
     //public static readonly SyntaxToken EndOfLine = new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");
     public static readonly SyntaxToken EndOfFile = new SyntaxToken(SyntaxKind.EndOfFileToken, string.Empty);
+
+    public static SyntaxList TokenList(IEnumerable<SyntaxToken> tokens) => new SyntaxList(tokens.ToArray());
+
+    public static SyntaxTrivia StructuredTrivia(SyntaxNode node) => new SyntaxTrivia(node);
 }

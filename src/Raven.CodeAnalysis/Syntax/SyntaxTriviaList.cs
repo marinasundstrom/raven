@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Syntax;
 public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
 {
     public static SyntaxTriviaList Empty = new SyntaxTriviaList([]);
-
+    private int _position;
     internal readonly InternalSyntax.SyntaxTriviaList Green;
     private readonly SyntaxToken _parent;
 
@@ -15,10 +15,11 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
         _parent = default;
     }
 
-    internal SyntaxTriviaList(SyntaxToken parent, InternalSyntax.SyntaxTriviaList greenList)
+    internal SyntaxTriviaList(SyntaxToken parent, InternalSyntax.SyntaxTriviaList greenList, int position = 0)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
+        _position = position;
     }
 
     public int Width => Green.Width;
@@ -30,7 +31,7 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
         get
         {
             var triviaGreenNode = Green.GetSlot(index) as InternalSyntax.SyntaxTrivia;
-            return new SyntaxTrivia(triviaGreenNode!, _parent);
+            return new SyntaxTrivia(triviaGreenNode!, _parent, _position + Green.GetChildStartPosition(index));
         }
     }
 

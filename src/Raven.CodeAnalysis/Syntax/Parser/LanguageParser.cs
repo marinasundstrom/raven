@@ -19,6 +19,8 @@ internal class LanguageParser
     public Encoding Encoding { get; }
 
     private SyntaxToken CurrentToken { get; set; }
+    private CompilationUnitSyntax CompilationUnit { get; set; }
+    private StatementSyntax LastStatement { get; set; }
 
     public LanguageParser(string? filePath, ParseOptions options)
     {
@@ -61,19 +63,16 @@ internal class LanguageParser
 
     private CompilationUnitSyntax ParseCompilationUnit()
     {
-        List<ImportDirectiveSyntax> importDirectives = [];
-        List<MemberDeclarationSyntax> memberDeclarations = [];
+        CompilationUnit = CompilationUnit();
 
         SyntaxToken nextToken;
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
-            ParseNamespaceMemberDeclarations(importDirectives, memberDeclarations, nextToken);
+            ParseNamespaceMemberDeclarations(nextToken);
         }
 
-        return CompilationUnit()
-            .WithImports(List(importDirectives.ToArray()))
-            .WithMembers(List(memberDeclarations.ToArray()))
+        return CompilationUnit
             .WithEndOfFileToken(nextToken);
     }
 
@@ -90,7 +89,7 @@ internal class LanguageParser
         {
             while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) && !nextToken.IsKind(SyntaxKind.CloseBraceToken))
             {
-                ParseNamespaceMemberDeclarations(importDirectives, memberDeclarations, nextToken);
+                ParseNamespaceMemberDeclarations(nextToken);
             }
 
             if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
@@ -108,10 +107,10 @@ internal class LanguageParser
             return NamespaceDeclaration(namespaceKeyword, name, openBraceToken, List(importDirectives), List(memberDeclarations), closeBraceToken, semicolonToken);
         }
 
-        return ParseFileScopedNamespaceDeclarationCore(importDirectives, memberDeclarations, namespaceKeyword, name);
+        return ParseFileScopedNamespaceDeclarationCore(namespaceKeyword, name);
     }
 
-    private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations, SyntaxToken namespaceKeyword, NameSyntax name)
+    private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(SyntaxToken namespaceKeyword, NameSyntax name)
     {
         if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
@@ -122,33 +121,46 @@ internal class LanguageParser
                 ));
         }
 
+        var fileScopedNamespaceDeclaration = FileScopedNamespaceDeclaration(namespaceKeyword, name, semicolonToken);
+
         while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken))
         {
-            ParseNamespaceMemberDeclarations(importDirectives, memberDeclarations, nextToken);
+            ParseNamespaceMemberDeclarations(nextToken);
         }
 
-        return FileScopedNamespaceDeclaration(namespaceKeyword, name, semicolonToken, List(importDirectives), List(memberDeclarations));
+        return fileScopedNamespaceDeclaration;
     }
 
-    private void ParseNamespaceMemberDeclarations(List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations, SyntaxToken nextToken)
+    private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken)
     {
         if (nextToken.IsKind(SyntaxKind.ImportKeyword))
         {
             var importDirective = ParseImportDirective();
-            importDirectives.Add(importDirective);
+
+            CompilationUnit = CompilationUnit.WithImports(
+                CompilationUnit.Imports.Add(importDirective));
         }
         else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
         {
             var namespaceDeclaration = ParseNamespaceDeclaration();
-            memberDeclarations.Add(namespaceDeclaration);
+
+            CompilationUnit = CompilationUnit.WithMembers(
+                 CompilationUnit.Members.Add(namespaceDeclaration));
         }
         else
         {
             // Should warn (?)
 
             var statement = ParseStatementSyntax();
+
+            if (statement is null)
+                return;
+
+            LastStatement = statement;
             var globalStatement = GlobalStatement(statement);
-            memberDeclarations.Add(globalStatement);
+
+            CompilationUnit = CompilationUnit.WithMembers(
+                CompilationUnit.Members.Add(globalStatement));
         }
     }
 
@@ -239,6 +251,17 @@ internal class LanguageParser
         {
             var t = ReadToken();
 
+            var t2 = t
+                .WithLeadingTrivia()
+                .WithTrailingTrivia();
+
+
+            var foo = LastStatement?.TrailingTrivia ?? [];
+
+            IEnumerable<SyntaxTrivia> trivia = [.. foo, .. t.LeadingTrivia, Trivia(SkippedTokensTrivia(TokenList(t2))), .. t.TrailingTrivia];
+            CompilationUnit = CompilationUnit.ReplaceNode(
+                LastStatement, LastStatement.WithTrailingTrivia(trivia));
+
             _diagnostics.Add(
                 InternalDiagnostic.Create(
                     CompilerDiagnostics.InvalidExpressionTerm,
@@ -246,8 +269,7 @@ internal class LanguageParser
                     [t.ValueText]
                 ));
 
-            expression = new ExpressionSyntax.Missing();
-            return ExpressionStatement(expression, MissingToken(SyntaxKind.SemicolonToken));
+            return null;
         }
 
         if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))

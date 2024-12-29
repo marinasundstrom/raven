@@ -13,3 +13,14 @@ internal partial class ParameterSyntax : SyntaxNode
     {
     }
 }
+
+internal partial class SkippedTokensTrivia : SyntaxNode
+{
+    public SkippedTokensTrivia(SyntaxList tokens)
+    : base(SyntaxKind.SkippedTokensTrivia, [
+        tokens,
+    ])
+    {
+
+    }
+}

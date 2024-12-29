@@ -406,7 +406,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                 {
                     return GenerateSyntaxTokenProperty(index++, property.ContainingType, property, propertyType, propertyName);
                 }
-                else if (IsSyntaxList(property.Type) || IsSeparatedSyntaxList(property.Type))
+                else if (IsSyntaxList(property.Type) || IsSeparatedSyntaxList(property.Type) || IsSyntaxTokenList(property.Type))
                 {
                     return GenerateSyntaxListProperty(index++, property, property.ContainingType, propertyType, propertyName);
                 }
@@ -435,6 +435,11 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
     private static bool IsSyntaxList(ITypeSymbol typeSymbol)
     {
         return typeSymbol.Name == "SyntaxList"; // && typeSymbol.ContainingNamespace.ToDisplayString() == "Microsoft.CodeAnalysis";
+    }
+
+    private static bool IsSyntaxTokenList(ITypeSymbol typeSymbol)
+    {
+        return typeSymbol.Name == "SyntaxTokenList"; // && typeSymbol.ContainingNamespace.ToDisplayString() == "Microsoft.CodeAnalysis";
     }
 
     private static bool IsSeparatedSyntaxList(ITypeSymbol typeSymbol)
