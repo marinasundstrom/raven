@@ -9,9 +9,12 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
     private readonly SyntaxTrivia[] _trivias;
 
     public SyntaxTriviaList(SyntaxTrivia[] trivias)
-        : base(SyntaxKind.List, trivias?.Length ?? 0, CalculateWidth(trivias), CalculateFullWidth(trivias))
+        : base(SyntaxKind.List, trivias?.Length ?? 0)
     {
         _trivias = trivias ?? Array.Empty<SyntaxTrivia>();
+
+        Width = CalculateFullWidth(trivias);
+        FullWidth = CalculateFullWidth(trivias);
     }
 
     public override GreenNode GetSlot(int index)

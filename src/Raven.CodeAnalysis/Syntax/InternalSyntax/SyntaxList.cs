@@ -7,9 +7,12 @@ internal class SyntaxList : GreenNode
     private readonly GreenNode[] _items;
 
     public SyntaxList(GreenNode[] items)
-        : base(SyntaxKind.List, items?.Length ?? 0, CalculateFullWidth(items), CalculateFullWidth(items))
+        : base(SyntaxKind.List, items?.Length ?? 0)
     {
         _items = items ?? Array.Empty<GreenNode>();
+
+        Width = this.CalculateWidth();
+        FullWidth = this.CalculateFullWidth();
     }
 
     private static int CalculateFullWidth(GreenNode[] items) =>

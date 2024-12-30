@@ -8,9 +8,12 @@ internal class SyntaxNode : GreenNode
     public SyntaxNode(
         SyntaxKind kind,
         GreenNode[] slots)
-        : base(kind, slots?.Length ?? 0, CalculateWidth(slots), CalculateFullWidth(slots))
+        : base(kind, slots?.Length ?? 0)
     {
         _slots = slots ?? Array.Empty<GreenNode>();
+
+        Width = this.CalculateWidth();
+        FullWidth = this.CalculateFullWidth();
     }
 
     public override bool IsMissing => _isMissing = GetChildren()

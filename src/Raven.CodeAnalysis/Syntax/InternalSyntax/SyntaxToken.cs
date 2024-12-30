@@ -23,13 +23,14 @@ internal class SyntaxToken : GreenNode
         int width,
         SyntaxTriviaList leadingTrivia = null,
         SyntaxTriviaList trailingTrivia = null)
-        : base(kind, 0,
-        width,
-        (leadingTrivia?.FullWidth ?? 0) + width + (trailingTrivia?.FullWidth ?? 0))
+        : base(kind, 0)
     {
         _value = value;
         LeadingTrivia = leadingTrivia ?? SyntaxTriviaList.Empty;
         TrailingTrivia = trailingTrivia ?? SyntaxTriviaList.Empty;
+
+        Width = width;
+        FullWidth = (leadingTrivia?.FullWidth ?? 0) + width + (trailingTrivia?.FullWidth ?? 0);
     }
 
     public override bool IsMissing => _isMissing;

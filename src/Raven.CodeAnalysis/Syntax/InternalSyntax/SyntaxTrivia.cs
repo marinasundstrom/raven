@@ -9,17 +9,23 @@ internal class SyntaxTrivia : GreenNode
     public SyntaxTrivia(
         SyntaxKind kind,
         string text)
-        : base(kind, 0, text.Length, text.Length)
+        : base(kind, 0)
     {
         Text = text;
+
+        Width = text.Length;
+        FullWidth = text.Length;
     }
 
     public SyntaxTrivia(
         SyntaxNode node)
-        : base(node.Kind, 0, node.Width, node.FullWidth)
+        : base(node.Kind, 0)
     {
         _structuredTrivia = node;
         Text = string.Empty;
+
+        Width = node.Width;
+        FullWidth = node.FullWidth;
     }
 
     public bool HasStructuredTrivia => _structuredTrivia is not null;

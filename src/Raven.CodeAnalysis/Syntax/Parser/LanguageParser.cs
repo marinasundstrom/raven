@@ -99,7 +99,7 @@ internal class LanguageParser
                     InternalDiagnostic.Create(
                         CompilerDiagnostics.CharacterExpected,
                         GetEndOfLastToken(),
-                        ["}"]
+                        ['}']
                     ));
             }
 
@@ -265,6 +265,9 @@ internal class LanguageParser
 
             var foo = LastStatement?.TrailingTrivia ?? SyntaxTriviaList.Empty;
 
+            var x = t.LeadingTrivia.Width;
+            var span = GetStartOfLastToken();
+
             IEnumerable<SyntaxTrivia> trivia = [.. foo, .. t.LeadingTrivia, Trivia(SkippedTokensTrivia(TokenList(t2))), .. t.TrailingTrivia];
             CompilationUnit = CompilationUnit.ReplaceNode(
                 LastStatement, LastStatement.WithTrailingTrivia(trivia));
@@ -272,7 +275,7 @@ internal class LanguageParser
             _diagnostics.Add(
                 InternalDiagnostic.Create(
                     CompilerDiagnostics.InvalidExpressionTerm,
-                    GetStartOfLastToken(),
+                    new TextSpan(span.Start + x, span.Length),
                     [t.ValueText]
                 ));
 
@@ -386,6 +389,7 @@ internal class LanguageParser
 
         if (!ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken))
         {
+
             _diagnostics.Add(
                InternalDiagnostic.Create(
                    CompilerDiagnostics.CharacterExpected,
@@ -393,6 +397,8 @@ internal class LanguageParser
                    [')']
                ));
         }
+
+        var afterCloseParen = GetEndOfLastToken();
 
         if (condition.IsMissing)
         {
@@ -405,6 +411,15 @@ internal class LanguageParser
         }
 
         var statement = ParseStatementSyntax();
+
+        if (statement!.IsMissing)
+        {
+            _diagnostics.Add(
+                InternalDiagnostic.Create(
+                    CompilerDiagnostics.SemicolonExpected,
+                    afterCloseParen
+                ));
+        }
 
         ElseClauseSyntax? elseClause = null;
 

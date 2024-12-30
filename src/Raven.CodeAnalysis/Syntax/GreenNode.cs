@@ -3,19 +3,17 @@ namespace Raven.CodeAnalysis.Syntax;
 public abstract class GreenNode
 {
     public virtual SyntaxKind Kind { get; }
-    public int Width { get; }
-    public int FullWidth { get; }
+    public int Width { get; protected set; }
+    public int FullWidth { get; protected set; }
     public int SlotCount { get; }
 
     internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
     internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
 
-    protected GreenNode(SyntaxKind kind, int slotCount, int width, int fullWidth)
+    protected GreenNode(SyntaxKind kind, int slotCount)
     {
         Kind = kind;
         SlotCount = slotCount;
-        Width = width;
-        FullWidth = fullWidth;
     }
 
     public virtual bool IsMissing { get; }
@@ -110,45 +108,6 @@ public abstract class GreenNode
     public virtual object? GetValue() => (int)Kind;
 
     public virtual string? GetValueText() => SyntaxFacts.GetSyntaxTokenText(Kind);
-
-    protected static int CalculateWidth(GreenNode[] items)
-    {
-        if (items is null || items.Length == 0)
-            return 0;
-
-        if (items.Length == 1)
-        {
-            return items[0]?.Width ?? 0;
-        }
-
-        var items2 = items
-            .Where(item => item is not null);
-
-        var f1 = items2.First();
-        var f2 = items2.Last();
-
-        var value = items2.Sum(item => item.FullWidth);
-
-        return value - f1.LeadingTrivia.Width - f2.TrailingTrivia.Width;
-    }
-
-    protected static int CalculateFullWidth(GreenNode[] items,
-        SyntaxTriviaList? leadingTrivia = null, SyntaxTriviaList? trailingTrivia = null)
-    {
-        if (items is null || items.Length == 0)
-            return 0;
-
-        if (items.Length == 1)
-        {
-            return items[0]?.FullWidth ?? 0;
-        }
-
-        var value = items
-            .Where(item => item is not null)
-            .Sum(item => item.FullWidth);
-
-        return value;
-    }
 
     public virtual int GetChildStartPosition(int childIndex)
     {
