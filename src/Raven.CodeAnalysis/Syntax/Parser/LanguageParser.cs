@@ -251,40 +251,37 @@ internal class LanguageParser
 
         if (expression is null)
         {
-            var t = ReadToken();
+            var unexpectedToken = ReadToken();
 
-            var t2 = t
+            var unexpectedTokenNoTrivia = unexpectedToken
                 .WithLeadingTrivia()
                 .WithTrailingTrivia();
 
-            if (LastStatement is null)
-            {
-                isMissing = true;
-                LastStatement = ExpressionStatement(new ExpressionSyntax.Missing(), MissingToken(SyntaxKind.SemicolonToken));
-            }
+            var span = GetStartOfLastToken();
+            var unexpectedTokenLeadingTriviaWidth = unexpectedToken.LeadingTrivia.Width;
 
             var foo = LastStatement?.TrailingTrivia ?? SyntaxTriviaList.Empty;
+            IEnumerable<SyntaxTrivia> trivia = [.. foo, .. unexpectedToken.LeadingTrivia, Trivia(SkippedTokensTrivia(TokenList(unexpectedTokenNoTrivia))), .. unexpectedToken.TrailingTrivia];
 
-            var x = t.LeadingTrivia.Width;
-            var span = GetStartOfLastToken();
-
-            IEnumerable<SyntaxTrivia> trivia = [.. foo, .. t.LeadingTrivia, Trivia(SkippedTokensTrivia(TokenList(t2))), .. t.TrailingTrivia];
-            CompilationUnit = CompilationUnit.ReplaceNode(
-                LastStatement, LastStatement.WithTrailingTrivia(trivia));
+            if (LastStatement is not null)
+            {
+                CompilationUnit = CompilationUnit.ReplaceNode(
+                    LastStatement, LastStatement.WithTrailingTrivia(trivia));
+            }
 
             _diagnostics.Add(
                 InternalDiagnostic.Create(
                     CompilerDiagnostics.InvalidExpressionTerm,
-                    new TextSpan(span.Start + x, span.Length),
-                    [t.ValueText]
+                    new TextSpan(span.Start + unexpectedTokenLeadingTriviaWidth, span.Length),
+                    [unexpectedToken.ValueText]
                 ));
 
-            if (isMissing)
+            if (LastStatement is null)
             {
-                return LastStatement;
+                return ExpressionStatement(new ExpressionSyntax.Missing(), MissingToken(SyntaxKind.SemicolonToken).WithTrailingTrivia(trivia));
             }
 
-            return ExpressionStatement(new ExpressionSyntax.Missing(), MissingToken(SyntaxKind.SemicolonToken));
+            return null;
         }
 
         if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
