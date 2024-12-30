@@ -260,8 +260,8 @@ internal class LanguageParser
             var span = GetStartOfLastToken();
             var unexpectedTokenLeadingTriviaWidth = unexpectedToken.LeadingTrivia.Width;
 
-            var foo = LastStatement?.TrailingTrivia ?? SyntaxTriviaList.Empty;
-            IEnumerable<SyntaxTrivia> trivia = [.. foo, .. unexpectedToken.LeadingTrivia, Trivia(SkippedTokensTrivia(TokenList(unexpectedTokenNoTrivia))), .. unexpectedToken.TrailingTrivia];
+            var trailingTrivia = LastStatement?.TrailingTrivia ?? SyntaxTriviaList.Empty;
+            IEnumerable<SyntaxTrivia> trivia = [.. trailingTrivia, .. unexpectedToken.LeadingTrivia, Trivia(SkippedTokensTrivia(TokenList(unexpectedTokenNoTrivia))), .. unexpectedToken.TrailingTrivia];
 
             if (LastStatement is not null)
             {
