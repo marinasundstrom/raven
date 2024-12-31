@@ -66,20 +66,30 @@ public class SemanticModel
 
                 SyntaxReference[] references = [new SyntaxReference(SyntaxTree, declarator.Span)];
 
+                ITypeSymbol propertyType = null;
+
                 var typeExpr = declarator?.TypeAnnotation?.Type;
 
-                ITypeSymbol returnType = ResolveType(typeExpr);
-
-                Bind(typeExpr!, returnType);
-
-                var symbol = new SourceLocalSymbol(
-                    declarator.Name.Identifier.Text.ToString(), returnType, declaringSymbol!, declaringSymbol.ContainingType, declaringSymbol.ContainingNamespace,
-                    locations, references);
+                ImmutableArray<ISymbol> expSymbols = [];
 
                 if (declarator?.Initializer?.Value is not null)
                 {
-                    AnalyzeExpression(declaringSymbol, declaringSymbol, declarator.Initializer.Value, out var x);
+                    AnalyzeExpression(declaringSymbol, declaringSymbol, declarator.Initializer.Value, out expSymbols);
                 }
+
+                if (typeExpr is not null)
+                {
+                    propertyType = ResolveType(typeExpr);
+                    Bind(typeExpr!, propertyType);
+                }
+                else
+                {
+                    propertyType = expSymbols.First() as ITypeSymbol;
+                }
+
+                var symbol = new SourceLocalSymbol(
+                    declarator.Name.Identifier.Text.ToString(), propertyType, declaringSymbol!, declaringSymbol.ContainingType, declaringSymbol.ContainingNamespace,
+                    locations, references);
 
                 Bind(declarator, symbol);
                 _localSymbols.Add(symbol);
@@ -124,23 +134,6 @@ public class SemanticModel
 
     private void AnalyzeExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, out ImmutableArray<ISymbol> symbols)
     {
-        /*if (expression is SimpleNameSyntax simpleNameSyntax)
-        {
-            ILocalSymbol localSymbol = _localSymbols.FirstOrDefault(x => x.Name == simpleNameSyntax.ToString()) as ILocalSymbol;
-
-            if (localSymbol is null)
-            {
-                symbols = [];
-
-                return;
-            }
-
-            Bind(simpleNameSyntax!, localSymbol);
-
-            symbols = [localSymbol];
-
-        }
-        else */
         if (expression is MemberAccessExpressionSyntax memberAccessExpression)
         {
             AnalyzeExpression(declaringSymbol, containingSymbol, memberAccessExpression.Expression, out var baseSymbols);

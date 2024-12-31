@@ -1,7 +1,7 @@
 
 System.Console.WriteLine("Input: ");
 
-let x : System.Boolean =  System.Boolean.Parse(System.Console.ReadLine());
+let x = System.Boolean.Parse(System.Console.ReadLine());
 
 if (x) {
     System.Console.WriteLine("Hello" + ", World!");
