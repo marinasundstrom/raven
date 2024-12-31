@@ -1,7 +1,7 @@
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class NamespaceResolutionTest : DiagnosticTestBase
 {

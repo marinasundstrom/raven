@@ -1,6 +1,6 @@
 using Raven.CodeAnalysis.Testing;
 
-namespace Raven.CodeAnalysis.Tests;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class ImportResolutionTest : DiagnosticTestBase
 {
