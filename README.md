@@ -37,15 +37,17 @@ Here’s a sample of the Raven syntax, taken from [this file](src/Raven.Compiler
 
 ```raven
 import System;
-import System.Net;
 
-let x : int = 2
+Console.WriteLine("Input: ");
 
-if (x > 2) {
-    return (6 + 2) * 2;;
-} else
-    return foo.bar(2)
-        .GetId(1, z + 2, "Foo")
+let str = Console.ReadLine();
+let value = bool.Parse(str);
+
+if (value) {
+    Console.WriteLine("Hello" + ", World!");
+} else {
+    Console.WriteLine("boo");
+}
 ```
 
 ---
