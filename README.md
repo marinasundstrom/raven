@@ -45,9 +45,8 @@ let value = bool.Parse(str);
 
 if (value) {
     Console.WriteLine("Hello" + ", World!");
-} else {
+} else
     Console.WriteLine("boo");
-}
 ```
 
 ---
