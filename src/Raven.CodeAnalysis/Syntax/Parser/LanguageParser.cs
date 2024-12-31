@@ -762,6 +762,10 @@ internal class LanguageParser
         switch (token.Kind)
         {
             case SyntaxKind.IdentifierToken:
+            case SyntaxKind.StringKeyword:
+            case SyntaxKind.BoolKeyword:
+            case SyntaxKind.CharKeyword:
+            case SyntaxKind.IntKeyword:
                 return ParseIdentifierNameSyntax();
 
             case SyntaxKind.TrueKeyword:
@@ -828,12 +832,7 @@ internal class LanguageParser
     private ExpressionSyntax ParseIdentifierNameSyntax()
     {
         var token = ReadToken();
-        if (token.IsKind(SyntaxKind.IdentifierToken))
-        {
-            return IdentifierName(token);
-        }
-
-        throw new Exception();
+        return IdentifierName(token);
     }
 
     public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)

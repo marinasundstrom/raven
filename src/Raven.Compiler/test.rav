@@ -1,10 +1,12 @@
+import System;
 
-System.Console.WriteLine("Input: ");
+Console.WriteLine("Input: ");
 
-let x = System.Boolean.Parse(System.Console.ReadLine());
+let str = Console.ReadLine();
+let value = bool.Parse(str);
 
-if (x) {
-    System.Console.WriteLine("Hello" + ", World!");
+if (value) {
+    Console.WriteLine("Hello" + ", World!");
 } else {
-    System.Console.WriteLine("boo");
+    Console.WriteLine("boo");
 }

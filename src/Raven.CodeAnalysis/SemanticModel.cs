@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
@@ -13,6 +14,8 @@ public class SemanticModel
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly List<ISymbol> _localSymbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _bindings = new();
+    private readonly Dictionary<TypeSyntax, INamespaceSymbol> _imports = new();
+    private readonly Dictionary<string, ITypeSymbol> _keywordTypeSymbols = new();
 
     public SemanticModel(Compilation compilation, List<ISymbol> symbols, SyntaxTree syntaxTree)
     {
@@ -20,6 +23,14 @@ public class SemanticModel
         _diagnostics = new DiagnosticBag();
         Compilation = compilation;
         SyntaxTree = syntaxTree;
+
+        _keywordTypeSymbols = new Dictionary<string, ITypeSymbol>
+        {
+            { "int", Compilation.GetSpecialType(SpecialType.System_Int32) },
+            { "bool", Compilation.GetSpecialType(SpecialType.System_Boolean) },
+            { "char", Compilation.GetSpecialType(SpecialType.System_Char) },
+            { "string", Compilation.GetSpecialType(SpecialType.System_String) }
+        };
 
         CreateModel();
     }
@@ -37,6 +48,12 @@ public class SemanticModel
             }
             else if (syntax is CompilationUnitSyntax compilationUnit)
             {
+                foreach (var import in compilationUnit.Imports)
+                {
+                    var namespaceSymbol = Compilation.GetNamespaceSymbol(import.Namespace.ToString());
+                    _imports.Add(import.Namespace, namespaceSymbol);
+                }
+
                 foreach (var member in compilationUnit.Members)
                 {
                     if (member is GlobalStatementSyntax globalStatement)
@@ -84,7 +101,7 @@ public class SemanticModel
                 }
                 else
                 {
-                    propertyType = expSymbols.First() as ITypeSymbol;
+                    propertyType = expSymbols.FirstOrDefault() as ITypeSymbol;
                 }
 
                 var symbol = new SourceLocalSymbol(
@@ -220,7 +237,7 @@ public class SemanticModel
             {
                 AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
 
-                var typeSymbol = argSymbols.OfType<ITypeSymbol>().FirstOrDefault();
+                var typeSymbol = argSymbols.First().UnwrapType();
                 argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
             }
 
@@ -248,11 +265,23 @@ public class SemanticModel
         else if (expression is IdentifierNameSyntax name)
         {
             var identifier = name.Identifier.ValueText;
-            symbols =
-            [
-                .. _localSymbols.Where(x => x.Name == identifier),
-                .. _symbols.Where(x => x.Name == identifier && (x.ContainingSymbol == containingSymbol || x.ContainingSymbol == declaringSymbol || x.ContainingSymbol == Compilation.GlobalNamespace)),
-            ];
+
+            if (_keywordTypeSymbols.TryGetValue(identifier, out var v))
+            {
+                symbols = [v];
+            }
+            else
+            {
+                symbols =
+                [
+                    .. _localSymbols.Where(x => x.Name == identifier),
+                    .. _imports.Select(x => (x.Key.ToString(), x.Value)).SelectMany(x => x.Value.GetMembers(identifier)),
+                    .. _symbols.Where(x => x.Name == identifier && (x.ContainingSymbol == containingSymbol || x.ContainingSymbol == declaringSymbol || x.ContainingSymbol == Compilation.GlobalNamespace)),
+                ];
+            }
+
+            // Fix
+            symbols = symbols.DistinctBy(x => x.Name).ToImmutableArray();
 
             if (symbols.Count() == 1)
             {

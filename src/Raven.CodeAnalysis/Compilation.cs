@@ -200,31 +200,6 @@ public class Compilation
         }
     }
 
-    private INamespaceSymbol? GetNamespaceSymbol(string? ns)
-    {
-        if (ns is null)
-            return GlobalNamespace;
-
-        // Split the namespace into parts
-        var namespaceParts = ns.Split('.');
-
-        // Start with the global namespace
-        var currentNamespace = GlobalNamespace;
-
-        // Traverse the namespace hierarchy
-        foreach (var part in namespaceParts)
-        {
-            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as NamespaceSymbol;
-
-            if (currentNamespace == null)
-            {
-                return null; // Namespace not found
-            }
-        }
-
-        return currentNamespace;
-    }
-
     private INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
     {
         if (ns is null)
@@ -419,6 +394,22 @@ public class Compilation
         {
             return GetTypeByMetadataName("System.Void");
         }
+        else if (specialType == SpecialType.System_Boolean)
+        {
+            return GetTypeByMetadataName("System.Boolean");
+        }
+        else if (specialType == SpecialType.System_Int32)
+        {
+            return GetTypeByMetadataName("System.Int32");
+        }
+        else if (specialType == SpecialType.System_String)
+        {
+            return GetTypeByMetadataName("System.String");
+        }
+        else if (specialType == SpecialType.System_Char)
+        {
+            return GetTypeByMetadataName("System.Char");
+        }
 
         return null;
     }
@@ -566,4 +557,32 @@ public enum OutputKind
     ConsoleApplication = 0,
     WindowsApplication = 1,
     DynamicallyLinkedLibrary = 2
+}
+
+public static class CompilationExtensions
+{
+    public static INamespaceSymbol? GetNamespaceSymbol(this Compilation compilation, string? ns)
+    {
+        if (ns is null)
+            return compilation.GlobalNamespace;
+
+        // Split the namespace into parts
+        var namespaceParts = ns.Split('.');
+
+        // Start with the global namespace
+        var currentNamespace = compilation.GlobalNamespace;
+
+        // Traverse the namespace hierarchy
+        foreach (var part in namespaceParts)
+        {
+            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as NamespaceSymbol;
+
+            if (currentNamespace == null)
+            {
+                return null; // Namespace not found
+            }
+        }
+
+        return currentNamespace;
+    }
 }

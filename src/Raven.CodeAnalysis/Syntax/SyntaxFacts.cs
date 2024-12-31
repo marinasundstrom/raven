@@ -110,7 +110,7 @@ public static class SyntaxFacts
 
         return false;
     }
-    
+
     public static bool TryResolveOperatorPrecedence(SyntaxKind kind, out int precedence)
     {
         switch (kind)
@@ -154,5 +154,10 @@ public static class SyntaxFacts
         }
 
         return true;
+    }
+
+    public static bool IsKeywordKind(SyntaxKind kind)
+    {
+        return kind is > (SyntaxKind)56 and < (SyntaxKind)71;
     }
 }
