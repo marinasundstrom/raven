@@ -122,9 +122,23 @@ internal class CodeGenerator
 
         _methodBuilders[type] = methodBuilder;
 
+        var syntax = syntaxReference.GetSyntax();
+
         ILGenerator il = methodBuilder.GetILGenerator();
 
-        var syntax = syntaxReference.GetSyntax();
+        var semanticModel = this._compilation.GetSemanticModel(syntax.SyntaxTree);
+
+        foreach (var localDeclStmt in syntax.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
+        {
+            foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
+            {
+                var symbol = semanticModel.GetDeclaredSymbol(localDeclarator) as ILocalSymbol;
+                var clrType = symbol.Type.GetClrType(_compilation);
+                var builder = il.DeclareLocal(clrType);
+                builder.SetLocalSymInfo(symbol.Name);
+                _localBuilders[symbol] = builder;
+            }
+        }
 
         if (syntax is CompilationUnitSyntax compilationUnit)
         {
@@ -184,14 +198,48 @@ internal class CodeGenerator
 
             if (ifStatementSyntax.ElseClause is ElseClauseSyntax elseClause)
             {
+                // Define a label for the end of the 'if' statement
+                var endIfLabel = iLGenerator.DefineLabel();
+
+                // Branch to end of 'if' after the 'if' block
+                iLGenerator.Emit(OpCodes.Br_S, endIfLabel);
+
+                // Mark the 'else' label
                 iLGenerator.MarkLabel(elseLabel);
 
+                // Generate the 'else' block
                 GenerateStatement(typeBuilder, methodBuilder, iLGenerator, elseClause.Statement);
+
+                // Mark the end of the 'if' statement
+                iLGenerator.MarkLabel(endIfLabel);
+            }
+            else
+            {
+                // If no 'else' block, mark the 'else' label
+                iLGenerator.MarkLabel(elseLabel);
             }
         }
         else if (statement is ExpressionStatementSyntax expressionStatement)
         {
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement.Expression);
+        }
+        else if (statement is LocalDeclarationStatementSyntax localDeclarationStatement)
+        {
+            foreach (var declarator in localDeclarationStatement.Declaration.Declarators)
+            {
+                if (declarator.Initializer is not null)
+                {
+                    var localSymbol = _compilation
+                        .GetSemanticModel(localDeclarationStatement.SyntaxTree)
+                        .GetSymbolInfo(declarator).Symbol as ILocalSymbol;
+
+                    GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, declarator.Initializer.Value);
+
+                    var localBuilder = _localBuilders[localSymbol];
+
+                    iLGenerator.Emit(OpCodes.Stloc, localBuilder);
+                }
+            }
         }
     }
 
@@ -202,13 +250,12 @@ internal class CodeGenerator
             switch (binaryExpression.Kind)
             {
                 case SyntaxKind.EqualsExpression:
-                    iLGenerator.Emit(OpCodes.Ceq);
-                    iLGenerator.Emit(OpCodes.Neg);
-                    iLGenerator.Emit(OpCodes.Beq_S, end);
+                    iLGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
                 case SyntaxKind.NotEqualsExpression:
-                    iLGenerator.Emit(OpCodes.Beq_S, end);
+                    iLGenerator.Emit(OpCodes.Neg);
+                    iLGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
                 case SyntaxKind.GreaterThanExpression:
@@ -219,6 +266,22 @@ internal class CodeGenerator
                     iLGenerator.Emit(OpCodes.Bge_S, end);
                     break;
             }
+        }
+        else if (expression is LiteralExpressionSyntax literalExpression)
+        {
+            if (literalExpression.Kind == SyntaxKind.TrueLiteralExpression)
+            {
+                iLGenerator.Emit(OpCodes.Brfalse_S, end);
+            }
+            else if (literalExpression.Kind == SyntaxKind.FalseLiteralExpression)
+            {
+                iLGenerator.Emit(OpCodes.Neg);
+                iLGenerator.Emit(OpCodes.Brfalse_S, end);
+            }
+        }
+        else if (expression is IdentifierNameSyntax identifierName)
+        {
+            iLGenerator.Emit(OpCodes.Brfalse_S, end);
         }
     }
 
@@ -295,7 +358,13 @@ internal class CodeGenerator
             // Resolve target identifier or access
             // If local, property, or field, then load
 
-            iLGenerator.Emit(OpCodes.Ldc_I4, 100);
+            var localSymbol = _compilation
+                .GetSemanticModel(expression.SyntaxTree)
+                .GetSymbolInfo(expression).Symbol as ILocalSymbol;
+
+            var localBuilder = _localBuilders[localSymbol];
+
+            iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
         }
         else if (expression is LiteralExpressionSyntax literalExpression)
         {
@@ -303,6 +372,16 @@ internal class CodeGenerator
             {
                 var v = literalExpression.Token.ValueText;
                 iLGenerator.Emit(OpCodes.Ldstr, v.Substring(1, v.Length - 2));
+            }
+            else if (literalExpression.Kind == SyntaxKind.TrueLiteralExpression)
+            {
+                var v = literalExpression.Token.ValueText;
+                iLGenerator.Emit(OpCodes.Ldc_I4_1);
+            }
+            else if (literalExpression.Kind == SyntaxKind.FalseLiteralExpression)
+            {
+                var v = literalExpression.Token.ValueText;
+                iLGenerator.Emit(OpCodes.Ldc_I4_0);
             }
             else
             {

@@ -66,7 +66,11 @@ public class SemanticModel
 
                 SyntaxReference[] references = [new SyntaxReference(SyntaxTree, declarator.Span)];
 
-                ITypeSymbol returnType = null!;
+                var typeExpr = declarator?.TypeAnnotation?.Type;
+
+                ITypeSymbol returnType = ResolveType(typeExpr);
+
+                Bind(typeExpr!, returnType);
 
                 var symbol = new SourceLocalSymbol(
                     declarator.Name.Identifier.Text.ToString(), returnType, declaringSymbol!, declaringSymbol.ContainingType, declaringSymbol.ContainingNamespace,
@@ -112,8 +116,31 @@ public class SemanticModel
         }
     }
 
+    private ITypeSymbol? ResolveType(TypeSyntax? typeExpr)
+    {
+        var typeName = typeExpr.ToString();
+        return Compilation.GetTypeByMetadataName(typeName);
+    }
+
     private void AnalyzeExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, out ImmutableArray<ISymbol> symbols)
     {
+        /*if (expression is SimpleNameSyntax simpleNameSyntax)
+        {
+            ILocalSymbol localSymbol = _localSymbols.FirstOrDefault(x => x.Name == simpleNameSyntax.ToString()) as ILocalSymbol;
+
+            if (localSymbol is null)
+            {
+                symbols = [];
+
+                return;
+            }
+
+            Bind(simpleNameSyntax!, localSymbol);
+
+            symbols = [localSymbol];
+
+        }
+        else */
         if (expression is MemberAccessExpressionSyntax memberAccessExpression)
         {
             AnalyzeExpression(declaringSymbol, containingSymbol, memberAccessExpression.Expression, out var baseSymbols);
@@ -261,6 +288,18 @@ public class SemanticModel
                 symbols = [symbol];
                 Bind(literalExpression, symbol);
             }
+            else if (literalExpression.Kind == SyntaxKind.TrueLiteralExpression)
+            {
+                var symbol = Compilation.GetTypeByMetadataName("System.Boolean")!;
+                symbols = [symbol];
+                Bind(literalExpression, symbol);
+            }
+            else if (literalExpression.Kind == SyntaxKind.FalseLiteralExpression)
+            {
+                var symbol = Compilation.GetTypeByMetadataName("System.Boolean")!;
+                symbols = [symbol];
+                Bind(literalExpression, symbol);
+            }
             else
             {
                 symbols = [];
@@ -273,8 +312,8 @@ public class SemanticModel
 
             if (lhsSymbols.Count() == 1 && rhsSymbols.Count() == 1)
             {
-                var lhsSymbol = lhsSymbols.First() as ITypeSymbol;
-                var rhsSymbol = rhsSymbols.First() as ITypeSymbol;
+                var lhsSymbol = lhsSymbols.First().UnwrapType();
+                var rhsSymbol = rhsSymbols.First().UnwrapType();
 
                 if (lhsSymbol.SpecialType == SpecialType.System_String && rhsSymbol.SpecialType == SpecialType.System_String)
                 {
@@ -290,6 +329,11 @@ public class SemanticModel
 
                     symbols = [symbol.ReturnType];
                     Bind(binaryExpression, symbol);
+                }
+                else if (lhsSymbol == rhsSymbol)
+                {
+                    symbols = [lhsSymbol];
+                    Bind(binaryExpression, lhsSymbol);
                 }
                 else
                 {
@@ -372,7 +416,7 @@ public class SemanticModel
     public ImmutableArray<ISymbol> LookupSymbols(int position,
         INamespaceOrTypeSymbol container, string name, bool includeReducedExtensionMethods)
     {
-        return default!;
+        throw new NotImplementedException();
     }
 
     private void Bind(SyntaxNode node, ISymbol symbol)
@@ -428,24 +472,24 @@ public class SemanticModel
         return new TypeInfo(null, null);
     }
 
-    private ITypeSymbol InferLiteralType(LiteralExpressionSyntax literal)
+    private ITypeSymbol? InferLiteralType(LiteralExpressionSyntax literal)
     {
         // Example inference logic for literals
         return literal.Token.Value switch
         {
-            int => GetTypeSymbol("int"),
-            string => GetTypeSymbol("string"),
-            double => GetTypeSymbol("double"),
-            bool => GetTypeSymbol("bool"),
+            int => GetTypeSymbol("System.Int32"),
+            string => GetTypeSymbol("System.String"),
+            double => GetTypeSymbol("System.Double"),
+            bool => GetTypeSymbol("System.Boolean"),
             _ => null
         };
     }
 
-    private ITypeSymbol GetTypeSymbol(string typeName)
+    private ITypeSymbol? GetTypeSymbol(string typeName)
     {
-        // Resolve a type symbol from its name (example logic)
-        // Implementation depends on your symbol table or compilation context
-        return null; // Replace with actual logic to resolve type symbols
+        return _symbols
+            .OfType<ITypeSymbol>()
+            .FirstOrDefault(x => x.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == typeName);
     }
 }
 
@@ -491,4 +535,16 @@ public enum NullableFlowState
     None,
     NotNull,
     MaybeNull
+}
+
+public static class SymbolExtensions
+{
+    public static ITypeSymbol? UnwrapType(this ISymbol symbol)
+    {
+        if (symbol is IPropertySymbol propertySymbol) return propertySymbol.Type;
+
+        if (symbol is ILocalSymbol localSymbol) return localSymbol.Type;
+
+        return symbol as ITypeSymbol;
+    }
 }

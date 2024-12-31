@@ -75,7 +75,7 @@ internal class Lexer : ILexer
                         _stringBuilder.Append(ch);
                     }
 
-                    return new InternalSyntax.SyntaxToken(SyntaxKind.NumericLiteralToken, _stringBuilder.ToString());
+                    return new InternalSyntax.SyntaxToken(SyntaxKind.NumericLiteralToken, int.Parse(_stringBuilder.ToString()), _stringBuilder.Length);
                 }
             }
             else

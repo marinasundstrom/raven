@@ -31,13 +31,13 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
         {
             var type = _typeInfo.AsType();
 
-            if (type == typeof(object))
+            if (type.FullName == "System.Object")
                 return SpecialType.System_Object;
             if (type.FullName == "System.String")
                 return SpecialType.System_String;
-            if (type == typeof(bool))
+            if (type.FullName == "System.Boolean")
                 return SpecialType.System_Boolean;
-            if (type == typeof(char))
+            if (type.FullName == "System.Char")
                 return SpecialType.System_Char;
             if (type == typeof(sbyte))
                 return SpecialType.System_SByte;
@@ -47,7 +47,7 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
                 return SpecialType.System_Int16;
             if (type == typeof(ushort))
                 return SpecialType.System_UInt16;
-            if (type == typeof(int))
+            if (type.FullName == "System.Int32")
                 return SpecialType.System_Int32;
             if (type == typeof(uint))
                 return SpecialType.System_UInt32;
