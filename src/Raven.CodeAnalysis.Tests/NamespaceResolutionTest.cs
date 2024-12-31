@@ -3,7 +3,7 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class SemanticsTests(ITestOutputHelper output) : DiagnosticTestBase
+public class NamespaceResolutionTest : DiagnosticTestBase
 {
     [Fact]
     public void NamespaceSystemDoesContainString_ShouldNot_ProduceDiagnostic()
