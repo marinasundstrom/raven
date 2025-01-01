@@ -2,6 +2,26 @@
 
 public static class SyntaxFacts
 {
+    private static IDictionary<string, SyntaxKind> _keywordStrings = new Dictionary<string, SyntaxKind> {
+        { "void", SyntaxKind.VoidKeyword },
+        { "int", SyntaxKind.IntKeyword },
+        { "string", SyntaxKind.StringKeyword },
+        { "bool", SyntaxKind.BoolKeyword },
+        { "char", SyntaxKind.CharKeyword },
+        { "import", SyntaxKind.ImportKeyword },
+        { "namespace", SyntaxKind.NamespaceKeyword },
+        { "let", SyntaxKind.LetKeyword },
+        { "if", SyntaxKind.IfKeyword },
+        { "else", SyntaxKind.ElseKeyword },
+        { "return", SyntaxKind.ReturnKeyword },
+        { "true", SyntaxKind.TrueKeyword },
+        { "false", SyntaxKind.FalseKeyword },
+        //{ "is", SyntaxKind.IsKeyword },
+        { "not", SyntaxKind.NotKeyword },
+        //{ "and", SyntaxKind.AndKeyword },
+        //{ "or", SyntaxKind.OrKeyword },
+    };
+
     public static string? GetSyntaxTokenText(this SyntaxKind kind)
     {
         return kind switch
@@ -36,8 +56,9 @@ public static class SyntaxFacts
             SyntaxKind.SinglequoteToken => "'",
             SyntaxKind.BackquoteToken => "`", */
             SyntaxKind.IfKeyword => "if",
-            SyntaxKind.ElseKeyword => "else",
             //SyntaxKind.VarKeyword => "var",
+            SyntaxKind.ElseKeyword => "else ",
+            //SyntaxKind.Var" => "var",
             SyntaxKind.LetKeyword => "let",
             _ => null
         };
@@ -103,7 +124,7 @@ public static class SyntaxFacts
 
     public static bool ParseReservedWord(string text, out SyntaxKind syntaxKind)
     {
-        if (Enum.TryParse<SyntaxKind>($"{text}Keyword", true, out syntaxKind))
+        if (_keywordStrings.TryGetValue(text, out syntaxKind))
         {
             return true;
         }

@@ -25,6 +25,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _typeOrNamespaceNameDoesNotExistInTheNamespace;
     private static DiagnosticDescriptor? _invalidExpressionTerm;
     private static DiagnosticDescriptor? _theNameDoesNotExistInTheCurrentContext;
+    private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -214,7 +215,7 @@ internal class CompilerDiagnostics
         title: "Cannot convert from type to type",
         description: "",
         helpLinkUri: "",
-        messageFormat: "Cannot convert from '{0}' to {1}",
+        messageFormat: "Cannot convert from '{0}' to '{1}'",
         category: "compiler",
         DiagnosticSeverity.Error);
 
@@ -226,7 +227,7 @@ internal class CompilerDiagnostics
         title: "No overload for method taking argument",
         description: "",
         helpLinkUri: "",
-        messageFormat: "No overload for method {0} takes ‘{1}’ arguments",
+        messageFormat: "No overload for method '{0}' takes {1} arguments",
         category: "compiler",
         DiagnosticSeverity.Error);
 
@@ -266,6 +267,18 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
+    /// <summary>
+    /// RAV0815: Cannot assign void to an implicitly-typed variable
+    /// </summary>
+    public static DiagnosticDescriptor CannotAssignVoidToAnImplicitlyTypedVariable => _cannotAssignVoidToAnImplicitlyTypedVariable ??= DiagnosticDescriptor.Create(
+        id: "RAV0815",
+        title: "Cannot assign void to an implicitly-typed variable",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Cannot assign void to an implicitly-typed variable",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -287,7 +300,8 @@ internal class CompilerDiagnostics
         NoOverloadForMethod,
         TypeOrNamespaceNameDoesNotExistInTheNamespace,
         InvalidExpressionTerm,
-        TheNameDoesNotExistInTheCurrentContext
+        TheNameDoesNotExistInTheCurrentContext,
+        CannotAssignVoidToAnImplicitlyTypedVariable
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -314,6 +328,7 @@ internal class CompilerDiagnostics
             "RAV0234" => TypeOrNamespaceNameDoesNotExistInTheNamespace,
             "RAV1525" => InvalidExpressionTerm,
             "RAV0103" => TheNameDoesNotExistInTheCurrentContext,
+            "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

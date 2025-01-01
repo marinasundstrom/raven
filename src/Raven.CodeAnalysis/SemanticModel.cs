@@ -92,6 +92,10 @@ public class SemanticModel
                 if (declarator?.Initializer?.Value is not null)
                 {
                     AnalyzeExpression(declaringSymbol, declaringSymbol, declarator.Initializer.Value, out expSymbols);
+
+                    if (!expSymbols.Any())
+                        return;
+
                 }
 
                 if (typeExpr is not null)
@@ -102,6 +106,28 @@ public class SemanticModel
                 else
                 {
                     propertyType = expSymbols.FirstOrDefault() as ITypeSymbol;
+                }
+
+                if (declarator?.Initializer?.Value is not null)
+                {
+                    if (declarator.TypeAnnotation is null)
+                    {
+                        var typeSymbol = expSymbols.First().UnwrapType();
+
+                        if (typeSymbol.SpecialType == SpecialType.System_Void)
+                        {
+                            // TODO: Centralize
+                            Diagnostics.Add(
+                                Diagnostic.Create(
+                                    CompilerDiagnostics.CannotAssignVoidToAnImplicitlyTypedVariable,
+                                    declarator.Initializer.Value.GetLocation()
+                                ));
+                        }
+                        else
+                        {
+                            var z = Compilation.ClassifyConversion(typeSymbol, propertyType);
+                        }
+                    }
                 }
 
                 var symbol = new SourceLocalSymbol(
@@ -231,14 +257,35 @@ public class SemanticModel
                 return;
             }
 
+            var count = invocationExpression.ArgumentList.Arguments.Count;
+
+            var method = candidateMethods.First(x => x.Parameters.Length == count) as IMethodSymbol;
+
             // Collect argument types
             var argumentTypes = new List<ITypeSymbol>();
+            int i = 0;
             foreach (var argument in invocationExpression.ArgumentList.Arguments)
             {
                 AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
 
                 var typeSymbol = argSymbols.First().UnwrapType();
+
+                if (typeSymbol.SpecialType == SpecialType.System_Void)
+                {
+                    var param = method.Parameters.ElementAt(i);
+
+                    // TODO: Centralize
+                    Diagnostics.Add(
+                        Diagnostic.Create(
+                            CompilerDiagnostics.CannotConvertFromTypeToType,
+                            argument.Expression.GetLocation(),
+                            [typeSymbol.Name, param.Type.Name]
+                        ));
+                }
+
                 argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
+
+                i++;
             }
 
             // Perform overload resolution
@@ -250,7 +297,8 @@ public class SemanticModel
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.NoOverloadForMethod,
-                        invocationExpression.Expression.GetLocation()
+                        invocationExpression.Expression.GetLocation(),
+                        [method.Name, count]
                     ));
 
                 symbols = ImmutableArray<ISymbol>.Empty;
@@ -262,23 +310,21 @@ public class SemanticModel
                 Bind(expression, bestMethod);
             }
         }
+        else if (expression is PredefinedTypeSyntax predefinedTypeSyntax)
+        {
+            var typeSymbol = _keywordTypeSymbols[predefinedTypeSyntax.Keyword.ValueText];
+            symbols = [typeSymbol];
+        }
         else if (expression is IdentifierNameSyntax name)
         {
             var identifier = name.Identifier.ValueText;
 
-            if (_keywordTypeSymbols.TryGetValue(identifier, out var v))
-            {
-                symbols = [v];
-            }
-            else
-            {
-                symbols =
-                [
-                    .. _localSymbols.Where(x => x.Name == identifier),
-                    .. _imports.Select(x => (x.Key.ToString(), x.Value)).SelectMany(x => x.Value.GetMembers(identifier)),
-                    .. _symbols.Where(x => x.Name == identifier && (x.ContainingSymbol == containingSymbol || x.ContainingSymbol == declaringSymbol || x.ContainingSymbol == Compilation.GlobalNamespace)),
-                ];
-            }
+            symbols =
+            [
+                .. _localSymbols.Where(x => x.Name == identifier),
+                .. _imports.Select(x => (x.Key.ToString(), x.Value)).SelectMany(x => x.Value.GetMembers(identifier)),
+                .. _symbols.Where(x => x.Name == identifier && (x.ContainingSymbol == containingSymbol || x.ContainingSymbol == declaringSymbol || x.ContainingSymbol == Compilation.GlobalNamespace)),
+            ];
 
             // Fix
             symbols = symbols.DistinctBy(x => x.Name).ToImmutableArray();

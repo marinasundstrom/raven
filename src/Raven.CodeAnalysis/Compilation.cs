@@ -513,6 +513,9 @@ public struct Conversion
     public bool IsBoxing { get; }
     public bool IsUnboxing { get; }
 
+    public bool IsUserDefined { get; }
+    public IMethodSymbol? MethodSymbol { get; }
+
     public Conversion(bool isImplicit, bool isIdentity = false, bool isReference = false, bool isBoxing = false, bool isUnboxing = false)
     {
         IsImplicit = isImplicit;

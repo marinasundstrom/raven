@@ -61,7 +61,7 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
                 return SpecialType.System_Double;
             if (type == typeof(decimal))
                 return SpecialType.System_Decimal;
-            if (type == typeof(void))
+            if (type.FullName == "System.Void")
                 return SpecialType.System_Void;
             if (type == typeof(DateTime))
                 return SpecialType.System_DateTime;

@@ -1,4 +1,3 @@
-
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal abstract class TypeSyntax : ExpressionSyntax

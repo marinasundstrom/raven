@@ -20,7 +20,7 @@ internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
 
-    public SpecialType SpecialType => throw new NotImplementedException();
+    public SpecialType SpecialType => SpecialType.None;
 
     public bool IsValueType => throw new NotImplementedException();
 

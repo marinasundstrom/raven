@@ -761,11 +761,13 @@ internal class LanguageParser
 
         switch (token.Kind)
         {
-            case SyntaxKind.IdentifierToken:
             case SyntaxKind.StringKeyword:
             case SyntaxKind.BoolKeyword:
             case SyntaxKind.CharKeyword:
             case SyntaxKind.IntKeyword:
+                return ParsePredefinedTypeSyntax();
+
+            case SyntaxKind.IdentifierToken:
                 return ParseIdentifierNameSyntax();
 
             case SyntaxKind.TrueKeyword:
@@ -798,6 +800,12 @@ internal class LanguageParser
         }
 
         return expr;
+    }
+
+    private ExpressionSyntax ParsePredefinedTypeSyntax()
+    {
+        var token = ReadToken();
+        return PredefinedType(token);
     }
 
     private ExpressionSyntax ParseParenthesisExpression()

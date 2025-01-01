@@ -75,6 +75,8 @@ public enum SyntaxKind
     CharacterLiteralToken,
     StringLiteralToken,
 
+    PredefinedType,
+
     VoidKeyword,
     IntKeyword,
     StringKeyword,
@@ -89,7 +91,6 @@ public enum SyntaxKind
     TrueKeyword,
     FalseKeyword,
     NotKeyword,
-
 
     OrToken,
     AndToken,
@@ -135,5 +136,5 @@ public enum SyntaxKind
     EndOfLineToken,
     CarriageReturnToken,
     EndOfFileToken,
-    EmptyStatement,
+    EmptyStatement
 }
