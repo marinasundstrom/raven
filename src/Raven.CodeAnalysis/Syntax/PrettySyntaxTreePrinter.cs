@@ -61,7 +61,7 @@ public static class PrettySyntaxTreePrinter
             }
         }
 
-        sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}{node.Kind}", ConsoleColor.Blue, colorize) + $"{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
+        sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}{node.Kind}", ConsoleColor.Blue, colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
@@ -101,7 +101,7 @@ public static class PrettySyntaxTreePrinter
                 }
 
                 // Print token
-                sb.AppendLine($"{newIndent}{(isChildLast ? MarkerBottom : MarkerMiddle)}" + MaybeColorize($"{propertyName2}{token.Kind}", ConsoleColor.Green, colorize) + $":{(token.IsMissing ? " (Missing)" : "")} \"{token.Text}\"{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent}{(isChildLast ? MarkerBottom : MarkerMiddle)}" + MaybeColorize($"{propertyName2}", ConsoleColor.Green, colorize) + $"{token.Text} " + MaybeColorize($"{token.Kind}", ConsoleColor.Green, colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
 
                 // Include trivia if specified
                 if (includeTrivia)
@@ -137,7 +137,7 @@ public static class PrettySyntaxTreePrinter
 
             var firstMarker = isLeading ? MarkerTop : MarkerBottom;
 
-            sb.AppendLine($"{newIndent}{(isChildLast ? firstMarker : MarkerMiddle)}" + MaybeColorize($"{trivia.Kind}", ConsoleColor.Red, colorize) + $": \"{TriviaToString(trivia)}\"{(includeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(includeLocation ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
+            sb.AppendLine($"{newIndent}{(isChildLast ? firstMarker : MarkerMiddle)}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", ConsoleColor.Red, colorize) + $"{(includeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(includeLocation ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
 
             var newIndent2 = isFirstChild ? string.Empty : newIndent + (isChildLast ? IndentationStr : MarkerStraight);
 
@@ -157,7 +157,7 @@ public static class PrettySyntaxTreePrinter
         }
 
         var structure = trivia.GetStructure()!;
-        sb.AppendLine($"{newIndent2}{(MarkerBottom)}" + MaybeColorize($"{name}{structure.Kind}", ConsoleColor.Blue, colorize) + $": \"{structure.ToString()}\"{(includeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(includeLocation ? $" {Location(structure.GetLocation())}" : string.Empty)}");
+        sb.AppendLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", ConsoleColor.Blue, colorize) + $"{(includeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(includeLocation ? $" {Location(structure.GetLocation())}" : string.Empty)}");
 
         int i2 = 0;
         var structureChildren = structure.ChildNodesAndTokens();
@@ -170,7 +170,7 @@ public static class PrettySyntaxTreePrinter
 
             if (triviaChild.AsToken(out var token))
             {
-                sb.AppendLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + MaybeColorize($"{token.Kind}", ConsoleColor.Green, colorize) + $": \"{token.ToString()}\"{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.ValueText} " + MaybeColorize($"{token.Kind}", ConsoleColor.Green, colorize) + $"{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
             }
             i2++;
         }
@@ -191,9 +191,13 @@ public static class PrettySyntaxTreePrinter
 
     private static string TriviaToString(SyntaxTrivia trivia)
     {
+        if (trivia.HasStructure)
+            return string.Empty;
+
         return trivia.ToString().Replace("\r", @"\r")
             .Replace("\n", @"\n")
-            .Replace("\t", @"\t");
+            .Replace("\t", @"\t")
+            .Replace(" ", "␣") + " ";
     }
 
 
