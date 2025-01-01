@@ -1,4 +1,6 @@
-﻿namespace Raven.CodeAnalysis.Syntax.Parser;
+﻿using Raven.CodeAnalysis.Syntax.InternalSyntax;
+
+namespace Raven.CodeAnalysis.Syntax.Parser;
 
 internal class Tokenizer : ITokenizer
 {

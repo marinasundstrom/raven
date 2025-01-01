@@ -2,6 +2,7 @@
 using System.Linq.Expressions;
 using System.Text;
 
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
@@ -14,7 +15,7 @@ internal class LanguageParser
 
     private string _filePath = string.Empty;
     private Tokenizer _tokenizer;
-    private int _currentPosition = 0;
+    private int _offset = 0;
 
     public ParseOptions Options { get; }
     public Encoding Encoding { get; }
@@ -190,6 +191,17 @@ internal class LanguageParser
             left = QualifiedName(left, dotToken, ParseSimpleName());
         }
         return left;
+    }
+
+    internal StatementSyntax? ParseStatement(SourceText sourceText, int offset = 0, bool consumeFullText = true)
+    {
+        using var textReader = sourceText.GetTextReader();
+
+        _tokenizer = new Tokenizer(textReader, _diagnostics);
+
+        SetOffset(offset);
+
+        return ParseStatementSyntax();
     }
 
     private StatementSyntax? ParseStatementSyntax()
@@ -582,7 +594,7 @@ internal class LanguageParser
     /// Parse a comparison expression.
     /// </summary>
     /// <returns>An expression.</returns>
-    internal ExpressionSyntax ParseComparisonExpression()
+    private ExpressionSyntax ParseComparisonExpression()
     {
         ExpressionSyntax expr = ParseExpressionCore(0);
         while (true)
@@ -860,7 +872,7 @@ internal class LanguageParser
 
         _tokenizer = new Tokenizer(textReader, _diagnostics);
 
-        SetCurrentPosition(position);
+        SetOffset(position);
 
         return ParseRequestedType(requestedSyntaxType);
     }
@@ -963,22 +975,22 @@ internal class LanguageParser
     private SyntaxToken ReadTokenCore()
     {
         CurrentToken = _tokenizer.ReadToken();
-        _currentPosition += CurrentToken.FullWidth;
+        _offset += CurrentToken.FullWidth;
         return CurrentToken;
     }
 
     private TextSpan GetStartOfLastToken()
     {
-        return new TextSpan(_currentPosition - CurrentToken.FullWidth, 0);
+        return new TextSpan(_offset - CurrentToken.FullWidth, 0);
     }
 
     private TextSpan GetEndOfLastToken()
     {
-        return new TextSpan(_currentPosition - CurrentToken.TrailingTrivia.Count, 0);
+        return new TextSpan(_offset - CurrentToken.TrailingTrivia.Count, 0);
     }
 
-    private void SetCurrentPosition(int position)
+    private void SetOffset(int offset)
     {
-        _currentPosition = position;
+        _offset = offset;
     }
 }

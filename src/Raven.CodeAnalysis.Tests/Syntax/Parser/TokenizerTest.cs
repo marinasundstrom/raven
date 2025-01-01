@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
+
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public class TokenizerTest
 {

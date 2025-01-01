@@ -1,4 +1,4 @@
-namespace Raven.CodeAnalysis.Syntax.Parser;
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal class InternalDiagnostic
 {
