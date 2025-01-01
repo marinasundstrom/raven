@@ -126,7 +126,7 @@ public static class PrettySyntaxTreePrinter
             marker = MarkerBottom;
         }
 
-        var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
+        var newIndent = isFirst ? string.Empty : indent + (isLast ? (isLeading ? MarkerStraight : IndentationStr) : MarkerStraight);
 
         var listCount = triviaList.Count;
         for (int i = 0; i < listCount; i++)
@@ -139,7 +139,7 @@ public static class PrettySyntaxTreePrinter
 
             sb.AppendLine($"{newIndent}{(isChildLast ? firstMarker : MarkerMiddle)}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", ConsoleColor.Red, colorize) + $"{(includeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(includeLocation ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
 
-            var newIndent2 = isFirstChild ? string.Empty : newIndent + (isChildLast ? IndentationStr : MarkerStraight);
+            var newIndent2 = newIndent + (isChildLast ? IndentationStr : MarkerStraight);
 
             if (trivia.HasStructure)
             {
@@ -166,7 +166,7 @@ public static class PrettySyntaxTreePrinter
         {
             var isChildLast2 = i2 == structureCount - 1;
 
-            var newIndent4 = isFirstChild ? string.Empty : newIndent2 + (isChildLast2 ? IndentationStr : MarkerStraight);
+            var newIndent4 = newIndent2 + (isChildLast2 ? IndentationStr : MarkerStraight);
 
             if (triviaChild.AsToken(out var token))
             {
@@ -198,6 +198,8 @@ public static class PrettySyntaxTreePrinter
             .Replace("\n", @"\n")
             .Replace("\t", @"\t")
             .Replace(" ", "␣") + " ";
+
+        // ␠
     }
 
 

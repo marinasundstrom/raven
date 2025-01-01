@@ -157,7 +157,6 @@ internal class LanguageParser
             if (statement is null)
                 return;
 
-            LastStatement = statement;
             var globalStatement = GlobalStatement(statement);
 
             CompilationUnit = CompilationUnit.WithMembers(
@@ -197,23 +196,35 @@ internal class LanguageParser
     {
         var token = PeekToken();
 
+        StatementSyntax? statement;
+
         switch (token.Kind)
         {
             case SyntaxKind.OpenBraceToken:
-                return ParseBlockSyntax();
+                statement = ParseBlockSyntax();
+                break;
 
             case SyntaxKind.IfKeyword:
-                return ParseIfStatementSyntax();
+                statement = ParseIfStatementSyntax();
+                break;
 
             case SyntaxKind.ReturnKeyword:
-                return ParseReturnStatementSyntax();
+                statement = ParseReturnStatementSyntax();
+                break;
 
             case SyntaxKind.SemicolonToken:
                 ReadToken();
-                return EmptyStatement(token);
+                statement = EmptyStatement(token);
+                break;
+
+            default:
+                statement = ParseDeclarationOrExpressionStatementSyntax();
+                break;
+
         }
 
-        return ParseDeclarationOrExpressionStatementSyntax();
+        LastStatement = statement!;
+        return statement;
     }
 
     private StatementSyntax? ParseReturnStatementSyntax()
