@@ -7,8 +7,9 @@ internal class SyntaxNode : GreenNode
 
     public SyntaxNode(
         SyntaxKind kind,
-        GreenNode[] slots)
-        : base(kind, slots?.Length ?? 0)
+        GreenNode[] slots,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        : base(kind, slots?.Length ?? 0, diagnostics)
     {
         _slots = slots ?? Array.Empty<GreenNode>();
 
@@ -45,6 +46,30 @@ internal class SyntaxNode : GreenNode
 
     protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
     {
-        return new SyntaxNode(Kind, newChildren);
+        return new SyntaxNode(Kind, newChildren, _diagnostics);
+    }
+
+    internal override GreenNode WithDiagnostics(params Diagnostic[] diagnostics)
+    {
+        return new SyntaxNode(Kind, _slots, _diagnostics);
+    }
+
+    internal override IEnumerable<Diagnostic> GetDiagnostics()
+    {
+        if (_diagnostics is not null)
+        {
+            foreach (var diagnostic in _diagnostics)
+            {
+                yield return diagnostic;
+            }
+        }
+
+        foreach (var child in GetChildren())
+        {
+            foreach (var diagnostic in child.GetDiagnostics())
+            {
+                yield return diagnostic;
+            }
+        }
     }
 }

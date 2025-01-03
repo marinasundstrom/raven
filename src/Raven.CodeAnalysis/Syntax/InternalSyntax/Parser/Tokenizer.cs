@@ -1,41 +1,38 @@
-﻿using Raven.CodeAnalysis.Syntax.InternalSyntax;
-
-namespace Raven.CodeAnalysis.Syntax.Parser;
+﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal class Tokenizer : ITokenizer
 {
     private readonly ILexer _lexer;
     private InternalSyntax.SyntaxToken? _lookaheadToken;
 
-    public Tokenizer(TextReader textReader, List<InternalDiagnostic> diagnostics)
+    public int Position { get; private set; }
+
+    public Tokenizer(TextReader textReader, List<Diagnostic> diagnostics)
     {
         _lexer = new Lexer(textReader, diagnostics);
     }
 
-    public SyntaxToken ReadToken()
+    public InternalSyntax.SyntaxToken ReadToken()
     {
         if (_lookaheadToken != null)
         {
             var token = _lookaheadToken;
             _lookaheadToken = null;
-            return CreateRedToken(token);
+            Position += token.FullWidth;
+            return token;
         }
         var readToken = ReadTokenCore();
-        return CreateRedToken(readToken);
+        Position += readToken.FullWidth;
+        return readToken;
     }
 
-    private static SyntaxToken CreateRedToken(Syntax.InternalSyntax.SyntaxToken readToken)
-    {
-        return new SyntaxToken(readToken, null!, 0);
-    }
-
-    public SyntaxToken PeekToken()
+    public InternalSyntax.SyntaxToken PeekToken()
     {
         if (_lookaheadToken == null)
         {
             _lookaheadToken = ReadTokenCore();
         }
-        return CreateRedToken(_lookaheadToken);
+        return _lookaheadToken; //CreateRedToken(_lookaheadToken);
     }
 
     private InternalSyntax.SyntaxToken ReadTokenCore()

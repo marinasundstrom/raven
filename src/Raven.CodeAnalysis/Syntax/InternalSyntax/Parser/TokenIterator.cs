@@ -1,6 +1,6 @@
 using System.Collections;
 
-namespace Raven.CodeAnalysis.Syntax.Parser;
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal class TokenIterator(Tokenizer tokenizer) : IEnumerable<SyntaxToken>
 {

@@ -269,11 +269,11 @@ public class Compilation
     {
         List<Diagnostic> diagnostics = new List<Diagnostic>();
 
-        foreach (var item in SyntaxTrees)
+        foreach (var syntaxTree in SyntaxTrees)
         {
-            diagnostics.AddRange(item.GetDiagnostics(cancellationToken));
+            diagnostics.AddRange(syntaxTree.GetDiagnostics(cancellationToken));
 
-            var model = GetSemanticModel(item);
+            var model = GetSemanticModel(syntaxTree);
             diagnostics.AddRange(model.GetDiagnostics(cancellationToken));
         }
 

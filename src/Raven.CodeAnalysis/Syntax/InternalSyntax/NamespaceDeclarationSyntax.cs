@@ -9,7 +9,8 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
         SyntaxList imports,
         SyntaxList members,
         SyntaxToken closeBraceToken,
-        SyntaxToken semicolonToken)
+        SyntaxToken semicolonToken,
+        IEnumerable<Diagnostic>? diagnostics = null)
         : base(
               SyntaxKind.NamespaceDeclaration,
               [
@@ -20,7 +21,22 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
                     members,
                     closeBraceToken,
                     semicolonToken
-              ])
+              ],
+              diagnostics)
     {
     }
+}
+
+internal static partial class SyntaxFactory
+{
+    public static NamespaceDeclarationSyntax NamespaceDeclaration(
+        SyntaxToken namespaceKeyword,
+        NameSyntax name,
+        SyntaxToken openBraceToken,
+        SyntaxList imports,
+        SyntaxList members,
+        SyntaxToken closeBraceToken,
+        SyntaxToken semicolonToken,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        => new(namespaceKeyword, name, openBraceToken, imports, members, closeBraceToken, semicolonToken, diagnostics);
 }

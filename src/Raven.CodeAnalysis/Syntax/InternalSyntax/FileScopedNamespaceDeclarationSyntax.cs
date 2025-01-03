@@ -7,7 +7,8 @@ internal partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDecla
         NameSyntax name,
         SyntaxToken semicolonToken,
         SyntaxList imports,
-        SyntaxList members)
+        SyntaxList members,
+        IEnumerable<Diagnostic>? diagnostics = null)
         : base(
               SyntaxKind.FileScopedNamespaceDeclaration,
               [
@@ -16,7 +17,20 @@ internal partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDecla
                     semicolonToken,
                     imports,
                     members
-              ])
+              ],
+              diagnostics)
     {
     }
+}
+
+internal static partial class SyntaxFactory
+{
+    public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(
+        SyntaxToken namespaceKeyword,
+        NameSyntax name,
+        SyntaxToken semicolonToken,
+        SyntaxList imports,
+        SyntaxList members,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        => new(namespaceKeyword, name, semicolonToken, imports, members, diagnostics);
 }

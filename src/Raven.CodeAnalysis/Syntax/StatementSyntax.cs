@@ -1,4 +1,3 @@
-using Raven.CodeAnalysis.Syntax.Parser;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
@@ -15,8 +14,8 @@ public static partial class SyntaxFactory
 {
     public static StatementSyntax ParseStatement(string text, int offset = 0, ParseOptions? options = default, bool consumeFullText = true)
     {
-        var parser = new LanguageParser(null, options);
+        var parser = new InternalSyntax.Parser.LanguageParser(null, options);
 
-        return parser.ParseStatement(SourceText.From(text), offset, consumeFullText);
+        return (StatementSyntax)parser.ParseStatement(SourceText.From(text), offset, consumeFullText)!.CreateRed(null, 0)!;
     }
 }

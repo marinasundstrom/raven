@@ -2,13 +2,19 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal abstract class ExpressionSyntax : SyntaxNode
 {
-    public ExpressionSyntax(SyntaxKind kind, GreenNode[] slots) : base(kind, slots)
+    public ExpressionSyntax(
+        SyntaxKind kind,
+        GreenNode[] slots,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        : base(kind, slots, diagnostics)
     {
     }
 
     internal class Missing : ExpressionSyntax
     {
-        public Missing(GreenNode[] slots) : base(SyntaxKind.None, slots)
+        public Missing(
+            IEnumerable<Diagnostic>? diagnostics = null)
+            : base(SyntaxKind.None, [], diagnostics)
         {
             LeadingTrivia = SyntaxTriviaList.Empty;
             TrailingTrivia = SyntaxTriviaList.Empty;
@@ -21,4 +27,11 @@ internal abstract class ExpressionSyntax : SyntaxNode
             return new Syntax.ExpressionSyntax.Missing(this, parent, position);
         }
     }
+}
+
+internal static partial class SyntaxFactory
+{
+    public static ExpressionSyntax.Missing MissingExpression(
+        IEnumerable<Diagnostic>? diagnostics = null)
+        => new(diagnostics);
 }

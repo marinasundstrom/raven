@@ -10,6 +10,13 @@ public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
     private readonly SyntaxNode _parent;
     private readonly int _position;
 
+    public SyntaxList()
+    {
+        Green = new InternalSyntax.SyntaxList([], null);
+        _parent = null;
+        _position = 0;
+    }
+
     internal SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position = 0)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));

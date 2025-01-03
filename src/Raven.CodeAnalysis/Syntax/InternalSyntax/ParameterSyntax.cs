@@ -4,23 +4,23 @@ internal partial class ParameterSyntax : SyntaxNode
 {
     public ParameterSyntax(
         IdentifierNameSyntax name,
-        TypeAnnotationSyntax? typeAnnotation
+        TypeAnnotationSyntax? typeAnnotation,
+        IEnumerable<Diagnostic>? diagnostics = null
     )
         : base(SyntaxKind.Parameter, [
             name,
             typeAnnotation
-        ])
+        ],
+        diagnostics)
     {
     }
 }
 
-internal partial class SkippedTokensTrivia : SyntaxNode
+internal static partial class SyntaxFactory
 {
-    public SkippedTokensTrivia(SyntaxList tokens)
-    : base(SyntaxKind.SkippedTokensTrivia, [
-        tokens,
-    ])
-    {
-
-    }
+    public static ParameterSyntax Parameter(
+        IdentifierNameSyntax name,
+        TypeAnnotationSyntax? typeAnnotation,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        => new(name, typeAnnotation, diagnostics);
 }

@@ -12,8 +12,9 @@ internal class SyntaxToken : GreenNode
         SyntaxKind kind,
         string text,
         SyntaxTriviaList leadingTrivia = null,
-        SyntaxTriviaList trailingTrivia = null)
-    : this(kind, text, text.Length, leadingTrivia, trailingTrivia)
+        SyntaxTriviaList trailingTrivia = null,
+        IEnumerable<Diagnostic>? diagnostics = null)
+    : this(kind, text, text.Length, leadingTrivia, trailingTrivia, diagnostics)
     {
 
     }
@@ -22,9 +23,10 @@ internal class SyntaxToken : GreenNode
         SyntaxKind kind,
         object value,
         int width,
-        SyntaxTriviaList leadingTrivia = null,
-        SyntaxTriviaList trailingTrivia = null)
-        : base(kind, 0)
+        SyntaxTriviaList? leadingTrivia = null,
+        SyntaxTriviaList? trailingTrivia = null,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        : base(kind, 0, diagnostics)
     {
         _value = value;
         LeadingTrivia = leadingTrivia ?? SyntaxTriviaList.Empty;
@@ -42,12 +44,12 @@ internal class SyntaxToken : GreenNode
 
     public override string? GetValueText() => _valueText ??= _value.ToString();
 
-    public SyntaxToken WithLeadingTrivia(IEnumerable<SyntaxTrivia> trivias)
+    public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
         return new SyntaxToken(Kind, Text, SyntaxTriviaList.Create(trivias.ToArray()), TrailingTrivia); ;
     }
 
-    public SyntaxToken WithTrailingTrivia(IEnumerable<SyntaxTrivia> trivias)
+    public SyntaxToken WithTrailingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
         return new SyntaxToken(Kind, Text, LeadingTrivia, SyntaxTriviaList.Create(trivias.ToArray())); ;
     }
@@ -60,5 +62,36 @@ internal class SyntaxToken : GreenNode
     public static explicit operator Syntax.SyntaxToken(InternalSyntax.SyntaxToken token)
     {
         return new Syntax.SyntaxToken(token, null!);
+    }
+
+    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    {
+        return this;
+    }
+
+    internal override IEnumerable<Diagnostic> GetDiagnostics()
+    {
+        foreach (var diagnostic in LeadingTrivia.GetDiagnostics())
+        {
+            yield return diagnostic;
+        }
+
+        if (_diagnostics is not null)
+        {
+            foreach (var diagnostic in _diagnostics)
+            {
+                yield return diagnostic;
+            }
+        }
+
+        foreach (var diagnostic in TrailingTrivia.GetDiagnostics())
+        {
+            yield return diagnostic;
+        }
+    }
+
+    internal override GreenNode WithDiagnostics(params Diagnostic[] diagnostics)
+    {
+        return new SyntaxToken(Kind, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics);
     }
 }

@@ -6,8 +6,9 @@ internal class SyntaxList : GreenNode
 
     private readonly GreenNode[] _items;
 
-    public SyntaxList(GreenNode[] items)
-        : base(SyntaxKind.List, items?.Length ?? 0)
+    public SyntaxList(GreenNode[] items,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        : base(SyntaxKind.List, items?.Length ?? 0, diagnostics)
     {
         _items = items ?? Array.Empty<GreenNode>();
 
@@ -27,6 +28,11 @@ internal class SyntaxList : GreenNode
         return new SyntaxList(newChildren);
     }
 
+    internal override GreenNode WithDiagnostics(params Diagnostic[] diagnostics)
+    {
+        return new SyntaxList(_items, _diagnostics);
+    }
+
     public SyntaxList Add(GreenNode green)
     {
         var list = _items.ToList();
@@ -40,4 +46,23 @@ internal class SyntaxList : GreenNode
         list.Remove(green);
         return new SyntaxList(list.ToArray());
     }
+
+    internal override IEnumerable<Diagnostic> GetDiagnostics()
+    {
+        foreach (var child in GetChildren())
+        {
+            foreach (var diagnostic in child.GetDiagnostics())
+            {
+                yield return diagnostic;
+            }
+        }
+    }
+}
+
+internal static partial class SyntaxFactory
+{
+    public static SyntaxList List(
+        IEnumerable<GreenNode> items,
+        IEnumerable<Diagnostic>? diagnostics = null)
+      => new(items.ToArray(), diagnostics);
 }

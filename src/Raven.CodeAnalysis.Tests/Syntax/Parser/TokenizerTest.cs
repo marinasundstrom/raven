@@ -1,4 +1,4 @@
-using Raven.CodeAnalysis.Syntax.InternalSyntax;
+using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public class TokenizerTest
@@ -142,6 +142,6 @@ public class TokenizerTest
     private static Tokenizer GetTokenizer(string str)
     {
         StringReader stringReader = new StringReader(str);
-        return new Tokenizer(stringReader, new List<InternalDiagnostic>());
+        return new Tokenizer(stringReader, new List<InternalSyntax.Diagnostic>());
     }
 }

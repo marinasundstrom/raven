@@ -11,6 +11,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     private readonly SyntaxTree _syntaxTree;
     private readonly SyntaxNode _parent;
     private bool _isMissing = false;
+    private List<Diagnostic>? _diagnostics;
 
     public SyntaxNode Parent => _parent;
 
@@ -106,11 +107,11 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
     public SyntaxToken GetFirstToken(bool includeZeroWidth = false)
     {
-        return Green.GetFirstTerminal() ?? default;
+        return (SyntaxToken)(Green.GetFirstTerminal() ?? default);
     }
     public SyntaxToken GetLastToken(bool includeZeroWidth = false)
     {
-        return Green.GetLastTerminal() ?? default;
+        return (SyntaxToken)(Green.GetLastTerminal() ?? default);
     }
 
     public SyntaxNode(GreenNode greenNode, SyntaxNode parent, int position = 0)
@@ -355,6 +356,24 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
     public IEnumerable<Diagnostic> GetDiagnostics()
     {
-        return SyntaxTree?.GetDiagnostics(this) ?? Enumerable.Empty<Diagnostic>();
+        if (_diagnostics is not null)
+            return _diagnostics;
+
+        foreach (var diagnostic in Green.GetDiagnosticsNonRecursive())
+        {
+            var location = SyntaxTree.GetLocation(diagnostic.Span);
+            var d = Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args);
+            (_diagnostics ??= new List<Diagnostic>()).Add(d);
+        }
+
+        foreach (var child in ChildNodes())
+        {
+            foreach (var diagnostic in child.GetDiagnostics())
+            {
+                (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+            }
+        }
+
+        return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
 }

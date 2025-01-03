@@ -1,7 +1,14 @@
+using System.Diagnostics;
+
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
+
 namespace Raven.CodeAnalysis.Syntax;
 
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public abstract class GreenNode
 {
+    internal IEnumerable<InternalSyntax.Diagnostic>? _diagnostics;
+
     public virtual SyntaxKind Kind { get; }
     public int Width { get; protected set; }
     public int FullWidth { get; protected set; }
@@ -10,10 +17,11 @@ public abstract class GreenNode
     internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
     internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
 
-    protected GreenNode(SyntaxKind kind, int slotCount)
+    internal GreenNode(SyntaxKind kind, int slotCount, IEnumerable<InternalSyntax.Diagnostic>? diagnostics = null)
     {
         Kind = kind;
         SlotCount = slotCount;
+        _diagnostics = diagnostics;
     }
 
     public virtual bool IsMissing { get; }
@@ -48,7 +56,7 @@ public abstract class GreenNode
         }
     }
 
-    internal SyntaxToken? GetFirstTerminal()
+    internal InternalSyntax.SyntaxToken? GetFirstTerminal()
     {
         GreenNode? node = this;
 
@@ -59,7 +67,7 @@ public abstract class GreenNode
             {
                 if (child is InternalSyntax.SyntaxToken t)
                 {
-                    return (SyntaxToken?)t;
+                    return t;
                 }
                 else
                 {
@@ -75,7 +83,7 @@ public abstract class GreenNode
         return null;
     }
 
-    internal SyntaxToken? GetLastTerminal()
+    internal InternalSyntax.SyntaxToken? GetLastTerminal()
     {
         GreenNode? node = this;
 
@@ -97,10 +105,10 @@ public abstract class GreenNode
         }
         while (node != null && node is not InternalSyntax.SyntaxToken);
 
-        return (SyntaxToken?)(node as InternalSyntax.SyntaxToken);
+        return (InternalSyntax.SyntaxToken?)node;
     }
 
-    public virtual Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
+    public virtual SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
     {
         return null!;
     }
@@ -188,8 +196,19 @@ public abstract class GreenNode
         // This implementation depends on the specific type of the parent node.
         // For simplicity, you can return a SyntaxList for now, or customize it based on the context.
 
-        return new InternalSyntax.SyntaxList(newNodes.ToArray());
+        return new SyntaxList(newNodes.ToArray());
     }
 
-    protected virtual GreenNode WithUpdatedChildren(GreenNode[] newChildren) => this;
+    protected abstract GreenNode WithUpdatedChildren(GreenNode[] newChildren);
+
+    internal abstract IEnumerable<InternalSyntax.Diagnostic> GetDiagnostics();
+
+    internal abstract GreenNode WithDiagnostics(params InternalSyntax.Diagnostic[] diagnostics);
+
+    internal IEnumerable<InternalSyntax.Diagnostic> GetDiagnosticsNonRecursive()
+    {
+        return _diagnostics ?? Enumerable.Empty<InternalSyntax.Diagnostic>();
+    }
+
+    private string GetDebuggerDisplay() => $"{Kind} {GetValueText()}";
 }

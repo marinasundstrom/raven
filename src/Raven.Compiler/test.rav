@@ -1,6 +1,6 @@
 import System;
 
-Console.WriteLine("Input: ");
+Console.WriteLine("Input: ")
 
 let str = Console.ReadLine();
 let value = bool.Parse(str);

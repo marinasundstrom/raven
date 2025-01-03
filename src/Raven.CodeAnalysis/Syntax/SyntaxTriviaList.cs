@@ -9,7 +9,14 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
     internal readonly InternalSyntax.SyntaxTriviaList Green;
     private readonly SyntaxToken _parent;
 
-    public SyntaxTriviaList(params IEnumerable<SyntaxTrivia> trivias)
+    public SyntaxTriviaList()
+    {
+        Green = new InternalSyntax.SyntaxTriviaList([], null);
+        _parent = default!;
+        _position = 0;
+    }
+
+    internal SyntaxTriviaList(params IEnumerable<SyntaxTrivia> trivias)
     {
         Green = new InternalSyntax.SyntaxTriviaList(trivias.Select(x => x.Green).ToArray());
         _parent = default;

@@ -30,6 +30,9 @@ public partial class BlockSyntax : StatementSyntax
 
 public static partial class SyntaxFactory
 {
+    public static BlockSyntax Block()
+    => new BlockSyntax(SyntaxList<StatementSyntax>.Empty);
+
     public static BlockSyntax Block(SyntaxList<StatementSyntax> statements)
         => new BlockSyntax(statements);
 

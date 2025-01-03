@@ -1,12 +1,10 @@
 ﻿using System.Text;
 
-using Raven.CodeAnalysis.Syntax.InternalSyntax;
-
-namespace Raven.CodeAnalysis.Syntax.Parser;
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal class Lexer : ILexer
 {
-    private readonly List<InternalDiagnostic> _diagnostics;
+    private readonly List<Diagnostic> _diagnostics;
 
     private readonly TextReader _textReader;
     private StringBuilder? _stringBuilder;
@@ -14,7 +12,7 @@ internal class Lexer : ILexer
     private int _currentPosition = 0;
     private int _tokenStartPosition = 0;
 
-    public Lexer(TextReader textReader, List<InternalDiagnostic> diagnostics)
+    public Lexer(TextReader textReader, List<Diagnostic> diagnostics)
     {
         this._textReader = textReader;
         _diagnostics = diagnostics;
@@ -42,6 +40,8 @@ internal class Lexer : ILexer
 
     private InternalSyntax.SyntaxToken ReadTokenCore()
     {
+        List<Diagnostic> diagnostics = new List<Diagnostic>();
+
         _tokenStartPosition = _currentPosition;
 
         while (ReadChar(out var ch))
@@ -67,7 +67,7 @@ internal class Lexer : ILexer
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
 
-                    return new InternalSyntax.SyntaxToken(syntaxKind, _stringBuilder.ToString());
+                    return new InternalSyntax.SyntaxToken(syntaxKind, _stringBuilder.ToString(), diagnostics: diagnostics);
                 }
                 else if (char.IsDigit(ch))
                 {
@@ -77,7 +77,7 @@ internal class Lexer : ILexer
                         _stringBuilder.Append(ch);
                     }
 
-                    return new InternalSyntax.SyntaxToken(SyntaxKind.NumericLiteralToken, int.Parse(_stringBuilder.ToString()), _stringBuilder.Length);
+                    return new InternalSyntax.SyntaxToken(SyntaxKind.NumericLiteralToken, int.Parse(_stringBuilder.ToString()), _stringBuilder.Length, diagnostics: diagnostics);
                 }
             }
             else
@@ -205,8 +205,8 @@ internal class Lexer : ILexer
 
                             if (IsEndOfLine)
                             {
-                                _diagnostics.Add(
-                                    InternalDiagnostic.Create(
+                                diagnostics.Add(
+                                    Diagnostic.Create(
                                         CompilerDiagnostics.NewlineInConstant,
                                         GetTokenStartPositionSpan()
                                     ));
@@ -222,7 +222,7 @@ internal class Lexer : ILexer
                             }
                         }
 
-                        return new InternalSyntax.SyntaxToken(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString());
+                        return new InternalSyntax.SyntaxToken(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
 
 
                     case '\"':
@@ -237,8 +237,8 @@ internal class Lexer : ILexer
 
                             if (IsEndOfLine)
                             {
-                                _diagnostics.Add(
-                                    InternalDiagnostic.Create(
+                                diagnostics.Add(
+                                    Diagnostic.Create(
                                         CompilerDiagnostics.NewlineInConstant,
                                         GetTokenStartPositionSpan()
                                     ));
@@ -254,7 +254,7 @@ internal class Lexer : ILexer
                             }
                         }
 
-                        return new InternalSyntax.SyntaxToken(SyntaxKind.StringLiteralToken, _stringBuilder.ToString());
+                        return new InternalSyntax.SyntaxToken(SyntaxKind.StringLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
 
 
                     case '\t':

@@ -2,14 +2,15 @@
 
 internal class SyntaxTrivia : GreenNode
 {
-    private SyntaxNode _structuredTrivia;
+    private readonly SyntaxNode? _structuredTrivia;
 
     public string Text { get; }
 
     public SyntaxTrivia(
         SyntaxKind kind,
-        string text)
-        : base(kind, 0)
+        string text,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        : base(kind, 0, diagnostics)
     {
         Text = text;
 
@@ -18,8 +19,9 @@ internal class SyntaxTrivia : GreenNode
     }
 
     public SyntaxTrivia(
-        SyntaxNode node)
-        : base(node.Kind, 0)
+        SyntaxNode node,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        : base(node.Kind, 0, diagnostics)
     {
         _structuredTrivia = node;
         Text = string.Empty;
@@ -38,4 +40,39 @@ internal class SyntaxTrivia : GreenNode
     {
         return new Syntax.SyntaxTrivia(trivia, default!);
     }
+
+    internal override IEnumerable<Diagnostic> GetDiagnostics()
+    {
+        if (_diagnostics is not null)
+        {
+            foreach (var diagnostic in _diagnostics)
+            {
+                yield return diagnostic;
+            }
+        }
+    }
+
+    internal override GreenNode WithDiagnostics(params Diagnostic[] diagnostics)
+    {
+        return new SyntaxTrivia(Kind, Text, _diagnostics);
+    }
+
+    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    {
+        return this;
+    }
+}
+
+internal static partial class SyntaxFactory
+{
+    public static SyntaxTrivia Trivia(
+        SyntaxKind kind,
+        string text,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        => new(kind, text, diagnostics);
+
+    public static SyntaxTrivia Trivia(
+        SyntaxNode structure,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        => new(structure, diagnostics);
 }

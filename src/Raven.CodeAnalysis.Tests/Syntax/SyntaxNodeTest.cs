@@ -14,7 +14,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
             OpenParenToken,
             LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
             CloseParenToken,
-            Block([]));
+            Block());
 
         var condition = ifStatement.Condition;
 
@@ -57,7 +57,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
             OpenParenToken,
             LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
             CloseParenToken,
-            Block([]));
+            Block());
 
         var newIfKeyword = IdentifierToken("test").WithTrailingTrivia(Space);
 
@@ -76,7 +76,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
             OpenParenToken,
             LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
             CloseParenToken,
-            Block([]));
+            Block());
 
         var oldToken = ifStatement.Condition.GetFirstToken();
         var newToken = NumericLiteral(100);

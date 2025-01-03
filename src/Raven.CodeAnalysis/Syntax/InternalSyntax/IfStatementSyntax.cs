@@ -1,4 +1,5 @@
-﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+﻿
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal partial class IfStatementSyntax : StatementSyntax
 {
@@ -9,7 +10,8 @@ internal partial class IfStatementSyntax : StatementSyntax
         SyntaxToken closeParenToken,
         StatementSyntax statement,
         ElseClauseSyntax elseClause,
-        SyntaxToken semicolonToken)
+        SyntaxToken semicolonToken,
+        IEnumerable<Diagnostic>? diagnostics = null)
         : base(
               SyntaxKind.IfStatement,
               [
@@ -20,7 +22,8 @@ internal partial class IfStatementSyntax : StatementSyntax
                 statement,
                 elseClause,
                 semicolonToken
-              ])
+              ],
+              diagnostics)
     {
     }
 
@@ -30,7 +33,8 @@ internal partial class IfStatementSyntax : StatementSyntax
         SyntaxNode condition,
         SyntaxToken closeParenToken,
         StatementSyntax statement,
-        ElseClauseSyntax elseClause)
+        ElseClauseSyntax elseClause,
+        IEnumerable<Diagnostic>? diagnostics = null)
     : base(
           SyntaxKind.IfStatement,
           [
@@ -40,7 +44,21 @@ internal partial class IfStatementSyntax : StatementSyntax
                 closeParenToken,
                 statement,
                 elseClause
-          ])
+          ],
+          diagnostics)
     {
     }
+}
+
+internal static partial class SyntaxFactory
+{
+    public static IfStatementSyntax IfStatement(
+        SyntaxToken ifKeyword,
+        SyntaxToken openParenToken,
+        SyntaxNode condition,
+        SyntaxToken closeParenToken,
+        StatementSyntax statement,
+        ElseClauseSyntax elseClause,
+        IEnumerable<Diagnostic>? diagnostics = null)
+        => new(ifKeyword, openParenToken, condition, closeParenToken, statement, elseClause, diagnostics);
 }

@@ -51,6 +51,9 @@ public static class SyntaxNodeReflectionExtensions
 
         foreach (var property in properties)
         {
+            if (property.Name == "ContainsDiagnostics")
+                continue;
+
             var propertyValue = property.GetValue(parent);
 
             // Direct match: property equals childNode

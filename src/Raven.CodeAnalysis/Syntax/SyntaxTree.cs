@@ -1,8 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using System.Text;
 
-using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
@@ -12,7 +10,6 @@ public class SyntaxTree
     private CompilationUnitSyntax _compilationUnit;
     private SourceText _sourceText;
     private readonly ParseOptions _options;
-    private DiagnosticBag? _diagnosticBag = new DiagnosticBag();
 
     internal SyntaxTree(SourceText sourceText, string filePath, ParseOptions? options)
     {
@@ -38,14 +35,23 @@ public class SyntaxTree
 
     public static SyntaxTree ParseText(SourceText sourceText, ParseOptions? options = null, string? path = null)
     {
-        var parser = new Parser.LanguageParser(path ?? "file", options ?? new ParseOptions());
+        var parser = new InternalSyntax.Parser.LanguageParser(path ?? "file", options ?? new ParseOptions());
 
-        return parser.Parse(sourceText);
+        var compilationUnit = (CompilationUnitSyntax)parser.Parse(sourceText).CreateRed(null, 0);
+
+        var sourceTree = new SyntaxTree(sourceText, path, options);
+
+        compilationUnit = compilationUnit
+            .WithSyntaxTree(sourceTree);
+
+        sourceTree.AttachSyntaxRoot(compilationUnit);
+
+        return sourceTree;
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
-        return _diagnosticBag.ToImmutableArray();
+        return GetRoot(cancellationToken).GetDiagnostics();
     }
 
     public IEnumerable<Diagnostic> GetDiagnostics(SyntaxNodeOrToken syntaxNodeOrToken)
@@ -197,9 +203,7 @@ public class SyntaxTree
             if (changedNode is null)
                 continue;
 
-            var diagnosticBag = new DiagnosticBag();
-
-            SyntaxNode? newNode = ParseNodeFromText(change.Span, newText, changedNode, diagnosticBag);
+            SyntaxNode? newNode = ParseNodeFromText(change.Span, newText, changedNode);
 
             if (newNode is null)
             {
@@ -221,7 +225,7 @@ public class SyntaxTree
         return SyntaxTree.Create(newCompilationUnit, _options, Encoding, FilePath);
     }
 
-    private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace, DiagnosticBag diagnosticBag)
+    private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace)
     {
         Type requestedSyntaxType;
 
@@ -247,14 +251,9 @@ public class SyntaxTree
 
         var position = nodeToReplace.FullSpan.Start;
 
-        var parser = new Parser.LanguageParser(string.Empty, _options);
+        var parser = new InternalSyntax.Parser.LanguageParser(string.Empty, _options);
 
-        return parser.ParseSyntax(requestedSyntaxType, newText, position);
-    }
-
-    internal void AddDiagnostics(DiagnosticBag diagnostics)
-    {
-        _diagnosticBag = diagnostics;
+        return parser.ParseSyntax(requestedSyntaxType, newText, position)!.CreateRed(null, 0);
     }
 }
 

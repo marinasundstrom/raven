@@ -4,13 +4,23 @@ internal partial class TypeAnnotationSyntax : StatementSyntax
 {
     public TypeAnnotationSyntax(
         SyntaxToken colonToken,
-        TypeSyntax type)
+        TypeSyntax type,
+        IEnumerable<Diagnostic>? diagnostics = null)
         : base(
               SyntaxKind.TypeAnnotation,
               [
                       colonToken,
                       type
-              ])
+              ], diagnostics)
     {
     }
+}
+
+internal static partial class SyntaxFactory
+{
+    public static TypeAnnotationSyntax TypeAnnotation(
+        SyntaxToken colonToken,
+        TypeSyntax type,
+        IEnumerable<Diagnostic>? diagnostics = null)
+      => new(colonToken, type, diagnostics);
 }

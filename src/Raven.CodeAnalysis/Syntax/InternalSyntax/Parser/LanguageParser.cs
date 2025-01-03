@@ -1,28 +1,25 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
 using System.Text;
 
-using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Text;
 
-using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
+using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
-namespace Raven.CodeAnalysis.Syntax.Parser;
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal class LanguageParser
 {
-    private List<InternalDiagnostic> _diagnostics = new();
-
-    private string _filePath = string.Empty;
+    private readonly string _filePath;
     private Tokenizer _tokenizer;
-    private int _offset = 0;
+
+    private int Position { get; set; }
 
     public ParseOptions Options { get; }
     public Encoding Encoding { get; }
 
     private SyntaxToken CurrentToken { get; set; }
-    private CompilationUnitSyntax CompilationUnit { get; set; }
-    private StatementSyntax LastStatement { get; set; }
+    private BlockContext Block { get; set; } = new BlockContext();
+    private StatementSyntax? LastStatement => Block.LastStatement;
 
     public LanguageParser(string? filePath, ParseOptions options)
     {
@@ -30,52 +27,30 @@ internal class LanguageParser
         Options = options ?? new ParseOptions();
     }
 
-    public SyntaxTree Parse(SourceText sourceText)
+    public SyntaxNode Parse(SourceText sourceText)
     {
         using var textReader = sourceText.GetTextReader();
 
-        _tokenizer = new Tokenizer(textReader, _diagnostics);
+        var diagnostics = new List<Diagnostic>();
 
-        var compilationUnit = ParseCompilationUnit();
+        _tokenizer = new Tokenizer(textReader, diagnostics);
 
-        var sourceTree = new SyntaxTree(sourceText, _filePath, Options);
-
-        compilationUnit = compilationUnit
-            .WithSyntaxTree(sourceTree);
-
-        sourceTree.AttachSyntaxRoot(compilationUnit);
-
-        sourceTree.AddDiagnostics(CollectDiagnostics(compilationUnit.SyntaxTree));
-
-        return sourceTree;
-    }
-
-    private DiagnosticBag CollectDiagnostics(SyntaxTree sourceTree)
-    {
-        List<Diagnostic> diagnostics = new();
-
-        foreach (var diagnostic in _diagnostics)
-        {
-            var location = sourceTree.GetLocation(diagnostic.Span);
-            diagnostics.Add(Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args));
-        }
-
-        return new DiagnosticBag(diagnostics);
+        return ParseCompilationUnit();
     }
 
     private CompilationUnitSyntax ParseCompilationUnit()
     {
-        CompilationUnit = CompilationUnit();
+        List<ImportDirectiveSyntax> importDirectives = [];
+        List<MemberDeclarationSyntax> memberDeclarations = [];
 
         SyntaxToken nextToken;
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
-            ParseNamespaceMemberDeclarations(nextToken);
+            ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
         }
 
-        return CompilationUnit
-            .WithEndOfFileToken(nextToken);
+        return new CompilationUnitSyntax(List(importDirectives), List(memberDeclarations), nextToken);
     }
 
     private MemberDeclarationSyntax ParseNamespaceDeclaration()
@@ -83,21 +58,23 @@ internal class LanguageParser
         List<ImportDirectiveSyntax> importDirectives = [];
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
+        List<Diagnostic>? diagnostics = null;
+
         var namespaceKeyword = ReadToken();
 
         var name = ParseName();
 
         if (ConsumeToken(SyntaxKind.OpenBraceToken, out var openBraceToken))
         {
-            while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) && !nextToken.IsKind(SyntaxKind.CloseBraceToken))
+            while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) && nextToken.Kind != SyntaxKind.CloseBraceToken)
             {
-                ParseNamespaceMemberDeclarations(nextToken);
+                ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
             }
 
             if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
             {
-                _diagnostics.Add(
-                    InternalDiagnostic.Create(
+                Diagnostics(ref diagnostics).Add(
+                    Diagnostic.Create(
                         CompilerDiagnostics.CharacterExpected,
                         GetEndOfLastToken(),
                         ['}']
@@ -106,48 +83,55 @@ internal class LanguageParser
 
             ConsumeTokenOrNull(SyntaxKind.SemicolonToken, out var semicolonToken);
 
-            return NamespaceDeclaration(namespaceKeyword, name, openBraceToken, List(importDirectives), List(memberDeclarations), closeBraceToken, semicolonToken);
+            return NamespaceDeclaration(
+                namespaceKeyword, name, openBraceToken,
+                new SyntaxList(importDirectives.ToArray()), new SyntaxList(memberDeclarations.ToArray()),
+                closeBraceToken, semicolonToken, diagnostics);
         }
 
-        return ParseFileScopedNamespaceDeclarationCore(namespaceKeyword, name);
+        return ParseFileScopedNamespaceDeclarationCore(namespaceKeyword, name, importDirectives, memberDeclarations);
     }
 
-    private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(SyntaxToken namespaceKeyword, NameSyntax name)
+    IList<Diagnostic> Diagnostics(ref List<Diagnostic>? diagnostics) => diagnostics ??= new List<Diagnostic>();
+
+    private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(SyntaxToken namespaceKeyword, NameSyntax name, List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations)
     {
+        Diagnostic[]? diagnostics = null;
+
         if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
-            _diagnostics.Add(
-                InternalDiagnostic.Create(
+            diagnostics = [
+                Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
-                ));
+                ) ];
         }
 
-        var fileScopedNamespaceDeclaration = FileScopedNamespaceDeclaration(namespaceKeyword, name, semicolonToken);
+        var fileScopedNamespaceDeclaration = FileScopedNamespaceDeclaration(
+            namespaceKeyword, name, semicolonToken,
+            SyntaxList.Empty, SyntaxList.Empty, diagnostics);
 
         while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken))
         {
-            ParseNamespaceMemberDeclarations(nextToken);
+            ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
         }
 
         return fileScopedNamespaceDeclaration;
     }
 
-    private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken)
+    private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken, List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations)
     {
-        if (nextToken.IsKind(SyntaxKind.ImportKeyword))
+        if (nextToken.Kind == SyntaxKind.ImportKeyword)
         {
             var importDirective = ParseImportDirective();
 
-            CompilationUnit = CompilationUnit.WithImports(
-                CompilationUnit.Imports.Add(importDirective));
+            importDirectives.Add(importDirective);
         }
-        else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
+        else if (nextToken.Kind == SyntaxKind.NamespaceKeyword)
         {
             var namespaceDeclaration = ParseNamespaceDeclaration();
 
-            CompilationUnit = CompilationUnit.WithMembers(
-                 CompilationUnit.Members.Add(namespaceDeclaration));
+            memberDeclarations.Add(namespaceDeclaration);
         }
         else
         {
@@ -160,8 +144,7 @@ internal class LanguageParser
 
             var globalStatement = GlobalStatement(statement);
 
-            CompilationUnit = CompilationUnit.WithMembers(
-                CompilationUnit.Members.Add(globalStatement));
+            memberDeclarations.Add(globalStatement);
         }
     }
 
@@ -173,11 +156,11 @@ internal class LanguageParser
 
         if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
-            _diagnostics.Add(
-                InternalDiagnostic.Create(
+            return ImportDirective(importKeyword, namespaceName, semicolonToken,
+                [Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
-                ));
+                )]);
         }
 
         return ImportDirective(importKeyword, namespaceName, semicolonToken);
@@ -197,9 +180,11 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader();
 
-        _tokenizer = new Tokenizer(textReader, _diagnostics);
+        List<Diagnostic>? diagnostics = new();
 
-        SetOffset(offset);
+        _tokenizer = new Tokenizer(textReader, diagnostics);
+
+        SetPosition(offset);
 
         return ParseStatementSyntax();
     }
@@ -234,8 +219,10 @@ internal class LanguageParser
                 break;
 
         }
-
-        LastStatement = statement!;
+        //if (statement is not null)
+        //{
+        Block.Statements.Add(statement);
+        //}
         return statement;
     }
 
@@ -249,11 +236,12 @@ internal class LanguageParser
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            _diagnostics.Add(
-                InternalDiagnostic.Create(
+            return ReturnStatement(returnKeyword, expression, semicolonToken,
+                [Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
-                ));
+                )]);
+
         }
 
         return ReturnStatement(returnKeyword, expression, semicolonToken);
@@ -261,6 +249,8 @@ internal class LanguageParser
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()
     {
+        List<Diagnostic>? diagnostics = null;
+
         var token = PeekToken();
 
         switch (token.Kind)
@@ -269,7 +259,6 @@ internal class LanguageParser
                 return ParseLocalDeclarationStatementSyntax();
         }
 
-        bool isMissing = false;
         var expression = ParseExpressionSyntax();
 
         if (expression is null)
@@ -288,20 +277,25 @@ internal class LanguageParser
 
             if (LastStatement is not null)
             {
-                CompilationUnit = CompilationUnit.ReplaceNode(
-                    LastStatement, LastStatement.WithTrailingTrivia(trivia));
+                var lastTerminal = LastStatement.GetLastTerminal();
+
+                var oldLast = LastStatement;
+                var lastStatement = (StatementSyntax)LastStatement.ReplaceNode(
+                    lastTerminal, lastTerminal.WithTrailingTrivia(trivia));
+
+                Block.ReplaceStatement(oldLast, lastStatement);
             }
 
-            _diagnostics.Add(
-                InternalDiagnostic.Create(
+            Diagnostics(ref diagnostics).Add(
+                Diagnostic.Create(
                     CompilerDiagnostics.InvalidExpressionTerm,
                     new TextSpan(span.Start + unexpectedTokenLeadingTriviaWidth, span.Length),
-                    [unexpectedToken.ValueText]
+                    [unexpectedToken.GetValueText()]
                 ));
 
             if (LastStatement is null)
             {
-                return ExpressionStatement(new ExpressionSyntax.Missing(), MissingToken(SyntaxKind.SemicolonToken).WithTrailingTrivia(trivia));
+                return ExpressionStatement(new ExpressionSyntax.Missing(), MissingToken(SyntaxKind.SemicolonToken).WithTrailingTrivia(trivia), diagnostics);
             }
 
             return null;
@@ -311,32 +305,34 @@ internal class LanguageParser
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            _diagnostics.Add(
-                InternalDiagnostic.Create(
+            Diagnostics(ref diagnostics).Add(
+                Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 ));
         }
 
-        return ExpressionStatement(expression, semicolonToken);
+        return ExpressionStatement(expression, semicolonToken, diagnostics);
     }
 
     private LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()
     {
+        List<Diagnostic>? diagnostics = null;
+
         var declaration = ParseVariableDeclarationSyntax();
 
         if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            _diagnostics.Add(
-                InternalDiagnostic.Create(
+            Diagnostics(ref diagnostics).Add(
+                Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 ));
         }
 
-        return LocalDeclarationStatement(declaration, semicolonToken);
+        return LocalDeclarationStatement(declaration, semicolonToken, diagnostics);
     }
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
@@ -354,10 +350,10 @@ internal class LanguageParser
             initializer = ParseEqualsValueSyntax();
         }
 
-        var declarators = SeparatedList<VariableDeclaratorSyntax>(
-            VariableDeclarator(name, typeAnnotation, initializer));
+        var declarators = new SyntaxList(
+            [VariableDeclarator(name, typeAnnotation, initializer)]);
 
-        return VariableDeclaration(letKeyword, declarators);
+        return new VariableDeclarationSyntax(letKeyword, declarators);
     }
 
     private TypeAnnotationSyntax? ParseTypeAnnotationSyntax()
@@ -390,17 +386,19 @@ internal class LanguageParser
             */
         }
 
-        return new EqualsValueClauseSyntax(equalsToken, expr);
+        return EqualsValueClause(equalsToken, expr);
     }
 
     private IdentifierNameSyntax ParseSimpleName()
     {
         var token = ReadToken();
-        return new IdentifierNameSyntax(token);
+        return IdentifierName(token);
     }
 
     private IfStatementSyntax? ParseIfStatementSyntax()
     {
+        List<Diagnostic>? diagnostics = null;
+
         var ifKeyword = ReadToken();
 
         ConsumeToken(SyntaxKind.OpenParenToken, out var openParenToken);
@@ -409,9 +407,8 @@ internal class LanguageParser
 
         if (!ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken))
         {
-
-            _diagnostics.Add(
-               InternalDiagnostic.Create(
+            Diagnostics(ref diagnostics).Add(
+               Diagnostic.Create(
                    CompilerDiagnostics.CharacterExpected,
                    GetEndOfLastToken(),
                    [')']
@@ -422,8 +419,8 @@ internal class LanguageParser
 
         if (condition.IsMissing)
         {
-            _diagnostics.Add(
-               InternalDiagnostic.Create(
+            Diagnostics(ref diagnostics).Add(
+               Diagnostic.Create(
                    CompilerDiagnostics.InvalidExpressionTerm,
                    GetStartOfLastToken(),
                    [')']
@@ -434,8 +431,8 @@ internal class LanguageParser
 
         if (statement!.IsMissing)
         {
-            _diagnostics.Add(
-                InternalDiagnostic.Create(
+            Diagnostics(ref diagnostics).Add(
+                Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     afterCloseParen
                 ));
@@ -445,31 +442,24 @@ internal class LanguageParser
 
         var elseToken = PeekToken();
 
-        if (elseToken.IsKind(SyntaxKind.ElseKeyword))
+        if (elseToken.Kind == SyntaxKind.ElseKeyword)
         {
             elseClause = ParseElseClauseSyntax();
         }
 
-        var ifStatement = IfStatement(ifKeyword, openParenToken, condition!, closeParenToken, statement!);
-
         if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
-            ifStatement = ifStatement.WithSemicolonToken(semicolonToken);
+
         }
 
-        if (elseClause is not null)
-        {
-            return ifStatement.WithElseClause(elseClause);
-        }
-
-        return ifStatement;
+        return IfStatement(ifKeyword, openParenToken, condition!, closeParenToken, statement!, elseClause, diagnostics);
     }
 
     private ElseClauseSyntax? ParseElseClauseSyntax()
     {
         var elseKeyword = ReadToken();
 
-        return new ElseClauseSyntax(elseKeyword, ParseStatementSyntax());
+        return ElseClause(elseKeyword, ParseStatementSyntax());
     }
 
     private ExpressionSyntax? ParseExpressionSyntax()
@@ -494,16 +484,19 @@ internal class LanguageParser
         return null;
     }
 
-    private SyntaxList<StatementSyntax> ParseStatementsList(SyntaxKind untilToken, out SyntaxToken token)
+    private SyntaxList ParseStatementsList(SyntaxKind untilToken, out SyntaxToken token)
     {
-        List<StatementSyntax> statements = [];
+        Block = new BlockContext(Block);
 
         while (!ConsumeToken(untilToken, out token))
         {
             var statement = ParseStatementSyntax();
-            statements.Add(statement);
         }
-        return List(statements.ToArray());
+
+        var block = Block;
+        Block = Block.Parent!;
+
+        return new SyntaxList(block.Statements.ToArray());
     }
 
     private ExpressionSyntax ParseOrExpression()
@@ -581,7 +574,7 @@ internal class LanguageParser
     {
         if (ConsumeToken(SyntaxKind.NotKeyword, out var token))
         {
-            ExpressionSyntax ret = new UnaryExpressionSyntax(token, ParseNotExpression());
+            ExpressionSyntax ret = UnaryExpression(token, ParseNotExpression());
             return ret;
         }
         else
@@ -742,13 +735,13 @@ internal class LanguageParser
     {
         var openParenToken = ReadToken();
 
-        List<SyntaxNodeOrToken> argumentList = new List<SyntaxNodeOrToken>();
+        List<GreenNode> argumentList = new List<GreenNode>();
 
         while (true)
         {
             var t = PeekToken();
 
-            if (t.IsKind(SyntaxKind.CloseParenToken))
+            if (t.Kind == SyntaxKind.CloseParenToken)
                 break;
 
             var expression = ParseExpressionSyntax();
@@ -758,7 +751,7 @@ internal class LanguageParser
             argumentList.Add(Argument(expression));
 
             var commaToken = PeekToken();
-            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            if (commaToken.Kind == SyntaxKind.CommaToken)
             {
                 ReadToken();
                 argumentList.Add(commaToken);
@@ -767,7 +760,7 @@ internal class LanguageParser
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return ArgumentList(openParenToken, SeparatedList<ArgumentSyntax>(argumentList.ToArray()), closeParenToken);
+        return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken);
     }
 
     /// <summary>
@@ -833,26 +826,28 @@ internal class LanguageParser
 
     private ExpressionSyntax ParseParenthesisExpression()
     {
+        List<Diagnostic>? diagnostics = null;
+
         var openParenToken = ReadToken();
 
         var expr = ParseExpressionSyntax();
 
         if (!ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken))
         {
-            _diagnostics.Add(
-                InternalDiagnostic.Create(
+            Diagnostics(ref diagnostics).Add(
+                Diagnostic.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 )); ;
         }
 
-        return ParenthesizedExpression(openParenToken, expr, closeParenToken);
+        return ParenthesizedExpression(openParenToken, expr, closeParenToken, diagnostics);
     }
 
     private ExpressionSyntax ParseNumericLiteralExpressionSyntax()
     {
         var token = ReadToken();
-        if (token.IsKind(SyntaxKind.NumericLiteralToken))
+        if (token.Kind == SyntaxKind.NumericLiteralToken)
         {
             return LiteralExpression(SyntaxKind.NumericLiteralExpression, token);
         }
@@ -870,40 +865,42 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader(position);
 
-        _tokenizer = new Tokenizer(textReader, _diagnostics);
+        List<Diagnostic> diagnostics = new();
 
-        SetOffset(position);
+        _tokenizer = new Tokenizer(textReader, diagnostics);
+
+        SetPosition(position);
 
         return ParseRequestedType(requestedSyntaxType);
     }
 
     private SyntaxNode? ParseRequestedType(Type requestedSyntaxType)
     {
-        if (requestedSyntaxType == typeof(StatementSyntax))
+        if (requestedSyntaxType == typeof(Syntax.StatementSyntax))
         {
             return ParseStatementSyntax();
         }
-        else if (requestedSyntaxType == typeof(IfStatementSyntax))
+        else if (requestedSyntaxType == typeof(Syntax.IfStatementSyntax))
         {
             return ParseIfStatementSyntax();
         }
-        else if (requestedSyntaxType == typeof(ExpressionSyntax))
+        else if (requestedSyntaxType == typeof(Syntax.ExpressionSyntax))
         {
             return ParseExpressionSyntax();
         }
-        else if (requestedSyntaxType == typeof(BlockSyntax))
+        else if (requestedSyntaxType == typeof(Syntax.BlockSyntax))
         {
             return ParseBlockSyntax();
         }
-        else if (requestedSyntaxType == typeof(ReturnStatementSyntax))
+        else if (requestedSyntaxType == typeof(Syntax.ReturnStatementSyntax))
         {
             return ParseReturnStatementSyntax();
         }
-        else if (requestedSyntaxType == typeof(NameSyntax))
+        else if (requestedSyntaxType == typeof(Syntax.NameSyntax))
         {
             return ParseName();
         }
-        else if (requestedSyntaxType == typeof(IdentifierNameSyntax))
+        else if (requestedSyntaxType == typeof(Syntax.IdentifierNameSyntax))
         {
             return ParseIdentifierNameSyntax();
         }
@@ -975,22 +972,54 @@ internal class LanguageParser
     private SyntaxToken ReadTokenCore()
     {
         CurrentToken = _tokenizer.ReadToken();
-        _offset += CurrentToken.FullWidth;
+        Position += CurrentToken.FullWidth;
         return CurrentToken;
     }
 
     private TextSpan GetStartOfLastToken()
     {
-        return new TextSpan(_offset - CurrentToken.FullWidth, 0);
+        return new TextSpan(Position - CurrentToken.FullWidth, 0);
     }
 
     private TextSpan GetEndOfLastToken()
     {
-        return new TextSpan(_offset - CurrentToken.TrailingTrivia.Count, 0);
+        return new TextSpan(Position - CurrentToken.TrailingTrivia.Count(), 0);
     }
 
-    private void SetOffset(int offset)
+    private void SetPosition(int offset)
     {
-        _offset = offset;
+        Position = offset;
+    }
+
+    private class BlockContext(BlockContext? parent = null)
+    {
+        public BlockContext? Parent { get; } = parent;
+        public List<StatementSyntax> Statements { get; } = [];
+
+        public StatementSyntax? LastStatement
+        {
+            get
+            {
+                if (Statements.Any())
+                {
+                    return Statements.Last();
+                }
+
+                return Parent?.LastStatement;
+            }
+        }
+
+        public void ReplaceStatement(StatementSyntax oldStatement, StatementSyntax newStatement)
+        {
+            var index = Statements.IndexOf(oldStatement);
+            if (index > -1)
+            {
+                Statements[index] = newStatement;
+
+                return;
+            }
+
+            Parent?.ReplaceStatement(oldStatement, newStatement);
+        }
     }
 }
