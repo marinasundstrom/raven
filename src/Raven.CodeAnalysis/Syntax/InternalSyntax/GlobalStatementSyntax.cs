@@ -4,7 +4,7 @@ internal partial class GlobalStatementSyntax : MemberDeclarationSyntax
 {
     public GlobalStatementSyntax(
         StatementSyntax statement,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.GlobalStatement,
               [
                     statement
@@ -18,6 +18,6 @@ internal static partial class SyntaxFactory
 {
     public static GlobalStatementSyntax GlobalStatement(
         StatementSyntax statement,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(statement, diagnostics);
 }

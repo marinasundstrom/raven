@@ -56,7 +56,7 @@ internal class LanguageParser
         List<ImportDirectiveSyntax> importDirectives = [];
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
-        List<Diagnostic>? diagnostics = null;
+        List<DiagnosticInfo>? diagnostics = null;
 
         var namespaceKeyword = ReadToken();
 
@@ -72,7 +72,7 @@ internal class LanguageParser
             if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
             {
                 Diagnostics(ref diagnostics).Add(
-                    Diagnostic.Create(
+                    DiagnosticInfo.Create(
                         CompilerDiagnostics.CharacterExpected,
                         GetEndOfLastToken(),
                         ['}']
@@ -90,16 +90,16 @@ internal class LanguageParser
         return ParseFileScopedNamespaceDeclarationCore(namespaceKeyword, name, importDirectives, memberDeclarations);
     }
 
-    IList<Diagnostic> Diagnostics(ref List<Diagnostic>? diagnostics) => diagnostics ??= new List<Diagnostic>();
+    IList<DiagnosticInfo> Diagnostics(ref List<DiagnosticInfo>? diagnostics) => diagnostics ??= new List<DiagnosticInfo>();
 
     private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(SyntaxToken namespaceKeyword, NameSyntax name, List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations)
     {
-        Diagnostic[]? diagnostics = null;
+        DiagnosticInfo[]? diagnostics = null;
 
         if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
             diagnostics = [
-                Diagnostic.Create(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 ) ];
@@ -155,7 +155,7 @@ internal class LanguageParser
         if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
             return ImportDirective(importKeyword, namespaceName, semicolonToken,
-                [Diagnostic.Create(
+                [DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 )]);
@@ -233,7 +233,7 @@ internal class LanguageParser
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
             return ReturnStatement(returnKeyword, expression, semicolonToken,
-                [Diagnostic.Create(
+                [DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 )]);
@@ -245,7 +245,7 @@ internal class LanguageParser
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()
     {
-        List<Diagnostic>? diagnostics = null;
+        List<DiagnosticInfo>? diagnostics = null;
 
         var token = PeekToken();
 
@@ -283,7 +283,7 @@ internal class LanguageParser
             }
 
             Diagnostics(ref diagnostics).Add(
-                Diagnostic.Create(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.InvalidExpressionTerm,
                     new TextSpan(span.Start + unexpectedTokenLeadingTriviaWidth, span.Length),
                     [unexpectedToken.GetValueText()]
@@ -302,7 +302,7 @@ internal class LanguageParser
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
             Diagnostics(ref diagnostics).Add(
-                Diagnostic.Create(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 ));
@@ -313,7 +313,7 @@ internal class LanguageParser
 
     private LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()
     {
-        List<Diagnostic>? diagnostics = null;
+        List<DiagnosticInfo>? diagnostics = null;
 
         var declaration = ParseVariableDeclarationSyntax();
 
@@ -322,7 +322,7 @@ internal class LanguageParser
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
             Diagnostics(ref diagnostics).Add(
-                Diagnostic.Create(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 ));
@@ -393,7 +393,7 @@ internal class LanguageParser
 
     private IfStatementSyntax? ParseIfStatementSyntax()
     {
-        List<Diagnostic>? diagnostics = null;
+        List<DiagnosticInfo>? diagnostics = null;
 
         var ifKeyword = ReadToken();
 
@@ -404,7 +404,7 @@ internal class LanguageParser
         if (!ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken))
         {
             Diagnostics(ref diagnostics).Add(
-               Diagnostic.Create(
+               DiagnosticInfo.Create(
                    CompilerDiagnostics.CharacterExpected,
                    GetEndOfLastToken(),
                    [')']
@@ -416,7 +416,7 @@ internal class LanguageParser
         if (condition.IsMissing)
         {
             Diagnostics(ref diagnostics).Add(
-               Diagnostic.Create(
+               DiagnosticInfo.Create(
                    CompilerDiagnostics.InvalidExpressionTerm,
                    GetStartOfLastToken(),
                    [')']
@@ -428,7 +428,7 @@ internal class LanguageParser
         if (statement!.IsMissing)
         {
             Diagnostics(ref diagnostics).Add(
-                Diagnostic.Create(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     afterCloseParen
                 ));
@@ -822,7 +822,7 @@ internal class LanguageParser
 
     private ExpressionSyntax ParseParenthesisExpression()
     {
-        List<Diagnostic>? diagnostics = null;
+        List<DiagnosticInfo>? diagnostics = null;
 
         var openParenToken = ReadToken();
 
@@ -831,7 +831,7 @@ internal class LanguageParser
         if (!ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken))
         {
             Diagnostics(ref diagnostics).Add(
-                Diagnostic.Create(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
                     GetEndOfLastToken()
                 )); ;

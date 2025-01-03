@@ -5,7 +5,7 @@ internal abstract class BaseNamespaceDeclarationSyntax : MemberDeclarationSyntax
     protected BaseNamespaceDeclarationSyntax(
         SyntaxKind kind,
         GreenNode[] slots,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(kind, slots, diagnostics)
     {
     }

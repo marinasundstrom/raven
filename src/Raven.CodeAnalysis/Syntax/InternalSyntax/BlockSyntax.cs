@@ -6,7 +6,7 @@ internal partial class BlockSyntax : StatementSyntax
         SyntaxToken openBraceToken,
         SyntaxList statements,
         SyntaxToken closeBraceToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.Block,
               [
@@ -30,6 +30,6 @@ internal static partial class SyntaxFactory
         SyntaxToken openBraceToken,
         SyntaxList statements,
         SyntaxToken closeBraceToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(openBraceToken, statements, closeBraceToken, diagnostics);
 }

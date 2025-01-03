@@ -4,7 +4,7 @@ internal partial class TypeArgumentSyntax : SyntaxNode
 {
     public TypeArgumentSyntax(
         TypeSyntax type,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
         SyntaxKind.TypeArgument,
         [
@@ -19,6 +19,6 @@ internal static partial class SyntaxFactory
 {
     public static TypeArgumentSyntax TypeArgument(
         TypeSyntax type,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
       => new(type, diagnostics);
 }

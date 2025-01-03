@@ -37,7 +37,7 @@ internal class Lexer : ILexer
 
     private SyntaxToken ReadTokenCore()
     {
-        List<Diagnostic> diagnostics = new List<Diagnostic>();
+        List<DiagnosticInfo> diagnostics = new List<DiagnosticInfo>();
 
         _tokenStartPosition = _currentPosition;
 
@@ -203,7 +203,7 @@ internal class Lexer : ILexer
                             if (IsEndOfLine)
                             {
                                 diagnostics.Add(
-                                    Diagnostic.Create(
+                                    DiagnosticInfo.Create(
                                         CompilerDiagnostics.NewlineInConstant,
                                         GetTokenStartPositionSpan()
                                     ));
@@ -235,7 +235,7 @@ internal class Lexer : ILexer
                             if (IsEndOfLine)
                             {
                                 diagnostics.Add(
-                                    Diagnostic.Create(
+                                    DiagnosticInfo.Create(
                                         CompilerDiagnostics.NewlineInConstant,
                                         GetTokenStartPositionSpan()
                                     ));

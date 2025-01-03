@@ -5,7 +5,7 @@ internal partial class UnaryExpressionSyntax : ExpressionSyntax
     public UnaryExpressionSyntax(
         SyntaxToken operatorToken,
         ExpressionSyntax expression,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.UnaryExpression,
               [
@@ -23,6 +23,6 @@ internal static partial class SyntaxFactory
     public static UnaryExpressionSyntax UnaryExpression(
         SyntaxToken operatorToken,
         ExpressionSyntax expression,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
       => new(operatorToken, expression, diagnostics);
 }

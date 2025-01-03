@@ -7,7 +7,7 @@ internal partial class ImportDirectiveSyntax : SyntaxNode
         SyntaxToken importKeyword,
         NameSyntax @namespace,
         SyntaxToken semicolonToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
             SyntaxKind.ImportDirective,
             [
@@ -26,6 +26,6 @@ internal static partial class SyntaxFactory
         SyntaxToken importKeyword,
         NameSyntax @namespace,
         SyntaxToken semicolonToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(importKeyword, @namespace, semicolonToken, diagnostics);
 }

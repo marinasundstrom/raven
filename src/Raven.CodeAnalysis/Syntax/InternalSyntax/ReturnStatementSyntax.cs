@@ -6,7 +6,7 @@ internal partial class ReturnStatementSyntax : StatementSyntax
         SyntaxToken returnKeyword,
         ExpressionSyntax expression,
         SyntaxToken semicolonToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.ReturnStatement,
               [
@@ -25,6 +25,6 @@ internal static partial class SyntaxFactory
         SyntaxToken returnKeyword,
         ExpressionSyntax expression,
         SyntaxToken semicolonToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
       => new(returnKeyword, expression, semicolonToken, diagnostics);
 }

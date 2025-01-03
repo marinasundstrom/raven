@@ -6,7 +6,7 @@ internal partial class ParenthesizedExpressionSyntax : ExpressionSyntax
         SyntaxToken openParenToken,
         ExpressionSyntax expression,
         SyntaxToken closeParenToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.ParenthesizedExpression,
               [
@@ -26,6 +26,6 @@ internal static partial class SyntaxFactory
         SyntaxToken openParenToken,
         ExpressionSyntax expression,
         SyntaxToken closeParenToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(openParenToken, expression, closeParenToken, diagnostics);
 }

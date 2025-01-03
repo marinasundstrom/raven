@@ -7,7 +7,7 @@ internal partial class BinaryExpressionSyntax : ExpressionSyntax
         ExpressionSyntax leftHandSide,
         SyntaxToken operatorToken,
         ExpressionSyntax rightHandSide,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               kind,
               [
@@ -28,6 +28,6 @@ internal static partial class SyntaxFactory
         ExpressionSyntax leftHandSide,
         SyntaxToken operatorToken,
         ExpressionSyntax rightHandSide,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(kind, leftHandSide, operatorToken, rightHandSide, diagnostics);
 }

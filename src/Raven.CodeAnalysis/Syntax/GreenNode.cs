@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Syntax;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public abstract class GreenNode
 {
-    internal IEnumerable<InternalSyntax.Diagnostic>? _diagnostics;
+    internal IEnumerable<DiagnosticInfo>? _diagnostics;
 
     public virtual SyntaxKind Kind { get; }
     public int Width { get; protected set; }
@@ -17,7 +17,7 @@ public abstract class GreenNode
     internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
     internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
 
-    internal GreenNode(SyntaxKind kind, int slotCount, IEnumerable<InternalSyntax.Diagnostic>? diagnostics = null)
+    internal GreenNode(SyntaxKind kind, int slotCount, IEnumerable<DiagnosticInfo>? diagnostics = null)
     {
         Kind = kind;
         SlotCount = slotCount;
@@ -244,14 +244,14 @@ public abstract class GreenNode
 
     protected abstract GreenNode WithUpdatedChildren(GreenNode[] newChildren);
 
-    internal abstract IEnumerable<InternalSyntax.Diagnostic> GetDiagnostics();
-
-    internal abstract GreenNode WithDiagnostics(params InternalSyntax.Diagnostic[] diagnostics);
-
-    internal IEnumerable<InternalSyntax.Diagnostic> GetDiagnosticsNonRecursive()
+    internal IEnumerable<DiagnosticInfo> GetDiagnostics()
     {
-        return _diagnostics ?? Enumerable.Empty<InternalSyntax.Diagnostic>();
+        return _diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
     }
+
+    internal abstract IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive();
+
+    internal abstract GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics);
 
     private string GetDebuggerDisplay() => $"{Kind} {GetValueText()}";
 }

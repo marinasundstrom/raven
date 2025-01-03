@@ -6,7 +6,7 @@ internal partial class InvocationExpressionSyntax : ExpressionSyntax
     public InvocationExpressionSyntax(
         ExpressionSyntax expression,
         ArgumentListSyntax argumentList,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
             SyntaxKind.InvocationExpression,
               [
@@ -23,6 +23,6 @@ internal static partial class SyntaxFactory
     public static InvocationExpressionSyntax InvocationExpression(
         ExpressionSyntax expression,
         ArgumentListSyntax argumentList,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(expression, argumentList, diagnostics);
 }

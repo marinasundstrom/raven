@@ -5,7 +5,7 @@ internal abstract class ExpressionSyntax : SyntaxNode
     public ExpressionSyntax(
         SyntaxKind kind,
         GreenNode[] slots,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(kind, slots, diagnostics)
     {
     }
@@ -13,7 +13,7 @@ internal abstract class ExpressionSyntax : SyntaxNode
     internal class Missing : ExpressionSyntax
     {
         public Missing(
-            IEnumerable<Diagnostic>? diagnostics = null)
+            IEnumerable<DiagnosticInfo>? diagnostics = null)
             : base(SyntaxKind.None, [], diagnostics)
         {
             LeadingTrivia = SyntaxTriviaList.Empty;
@@ -32,6 +32,6 @@ internal abstract class ExpressionSyntax : SyntaxNode
 internal static partial class SyntaxFactory
 {
     public static ExpressionSyntax.Missing MissingExpression(
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(diagnostics);
 }

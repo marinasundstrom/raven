@@ -359,7 +359,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         if (_diagnostics is not null)
             return _diagnostics;
 
-        foreach (var diagnostic in Green.GetDiagnosticsNonRecursive())
+        foreach (var diagnostic in Green.GetDiagnostics())
         {
             var location = SyntaxTree.GetLocation(diagnostic.Span);
             var d = Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args);

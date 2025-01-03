@@ -6,7 +6,7 @@ internal partial class ArgumentListSyntax : SyntaxNode
         SyntaxToken openParenToken,
         SyntaxList arguments,
         SyntaxToken closeParentToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.ArgumentList,
               [
@@ -25,6 +25,6 @@ internal static partial class SyntaxFactory
             SyntaxToken openParenToken,
             SyntaxList arguments,
             SyntaxToken closeParentToken,
-            IEnumerable<Diagnostic>? diagnostics = null)
+            IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(openParenToken, arguments, closeParentToken, diagnostics);
 }

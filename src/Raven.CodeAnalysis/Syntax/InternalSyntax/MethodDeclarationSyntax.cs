@@ -7,7 +7,7 @@ internal partial class MethodDeclarationSyntax : MemberDeclarationSyntax
         TypeSyntax returnType,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.MethodDeclaration,
               [
                       returnType,
@@ -24,7 +24,7 @@ internal partial class MethodDeclarationSyntax : MemberDeclarationSyntax
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
         BlockSyntax body,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
     : base(SyntaxKind.MethodDeclaration,
           [
                 returnType,
@@ -44,6 +44,6 @@ internal static partial class SyntaxFactory
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
         BlockSyntax body,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(returnType, name, parameters, body, diagnostics);
 }

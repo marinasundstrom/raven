@@ -10,7 +10,7 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
         SyntaxList members,
         SyntaxToken closeBraceToken,
         SyntaxToken semicolonToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.NamespaceDeclaration,
               [
@@ -37,6 +37,6 @@ internal static partial class SyntaxFactory
         SyntaxList members,
         SyntaxToken closeBraceToken,
         SyntaxToken semicolonToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(namespaceKeyword, name, openBraceToken, imports, members, closeBraceToken, semicolonToken, diagnostics);
 }

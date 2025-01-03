@@ -9,7 +9,7 @@ internal class SyntaxTrivia : GreenNode
     public SyntaxTrivia(
         SyntaxKind kind,
         string text,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(kind, 0, diagnostics)
     {
         Text = text;
@@ -20,7 +20,7 @@ internal class SyntaxTrivia : GreenNode
 
     public SyntaxTrivia(
         SyntaxNode node,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(node.Kind, 0, diagnostics)
     {
         _structuredTrivia = node;
@@ -41,7 +41,7 @@ internal class SyntaxTrivia : GreenNode
         return new Syntax.SyntaxTrivia(trivia, default!);
     }
 
-    internal override IEnumerable<Diagnostic> GetDiagnostics()
+    internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()
     {
         if (_diagnostics is not null)
         {
@@ -52,7 +52,7 @@ internal class SyntaxTrivia : GreenNode
         }
     }
 
-    internal override GreenNode WithDiagnostics(params Diagnostic[] diagnostics)
+    internal override GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return new SyntaxTrivia(Kind, Text, _diagnostics);
     }
@@ -68,11 +68,11 @@ internal static partial class SyntaxFactory
     public static SyntaxTrivia Trivia(
         SyntaxKind kind,
         string text,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(kind, text, diagnostics);
 
     public static SyntaxTrivia Trivia(
         SyntaxNode structure,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(structure, diagnostics);
 }

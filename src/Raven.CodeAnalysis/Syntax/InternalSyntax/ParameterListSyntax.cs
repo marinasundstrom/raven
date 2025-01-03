@@ -6,7 +6,7 @@ internal partial class ParameterListSyntax : SyntaxNode
         SyntaxToken openParenToken,
         SyntaxList parameters,
         SyntaxToken closeParenToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.ParameterList,
               [
@@ -25,6 +25,6 @@ internal static partial class SyntaxFactory
         SyntaxToken openParenToken,
         SyntaxList parameters,
         SyntaxToken closeParenToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(openParenToken, parameters, closeParenToken, diagnostics);
 }

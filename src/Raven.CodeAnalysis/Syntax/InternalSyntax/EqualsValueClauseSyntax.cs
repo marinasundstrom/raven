@@ -5,7 +5,7 @@ internal partial class EqualsValueClauseSyntax : StatementSyntax
     public EqualsValueClauseSyntax(
         SyntaxToken equalsToken,
         ExpressionSyntax value,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.EqualsValueClause,
               [
@@ -22,6 +22,6 @@ internal static partial class SyntaxFactory
     public static EqualsValueClauseSyntax EqualsValueClause(
         SyntaxToken equalsToken,
         ExpressionSyntax value,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(equalsToken, value, diagnostics);
 }

@@ -11,7 +11,7 @@ internal partial class IfStatementSyntax : StatementSyntax
         StatementSyntax statement,
         ElseClauseSyntax elseClause,
         SyntaxToken semicolonToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.IfStatement,
               [
@@ -34,7 +34,7 @@ internal partial class IfStatementSyntax : StatementSyntax
         SyntaxToken closeParenToken,
         StatementSyntax statement,
         ElseClauseSyntax elseClause,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
     : base(
           SyntaxKind.IfStatement,
           [
@@ -59,6 +59,6 @@ internal static partial class SyntaxFactory
         SyntaxToken closeParenToken,
         StatementSyntax statement,
         ElseClauseSyntax elseClause,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(ifKeyword, openParenToken, condition, closeParenToken, statement, elseClause, diagnostics);
 }

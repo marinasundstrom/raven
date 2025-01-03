@@ -13,7 +13,7 @@ internal class SyntaxToken : GreenNode
         string text,
         SyntaxTriviaList leadingTrivia = null,
         SyntaxTriviaList trailingTrivia = null,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
     : this(kind, text, text.Length, leadingTrivia, trailingTrivia, diagnostics)
     {
 
@@ -25,7 +25,7 @@ internal class SyntaxToken : GreenNode
         int width,
         SyntaxTriviaList? leadingTrivia = null,
         SyntaxTriviaList? trailingTrivia = null,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(kind, 0, diagnostics)
     {
         _value = value;
@@ -69,9 +69,9 @@ internal class SyntaxToken : GreenNode
         return this;
     }
 
-    internal override IEnumerable<Diagnostic> GetDiagnostics()
+    internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()
     {
-        foreach (var diagnostic in LeadingTrivia.GetDiagnostics())
+        foreach (var diagnostic in LeadingTrivia.GetDiagnosticsRecursive())
         {
             yield return diagnostic;
         }
@@ -84,13 +84,13 @@ internal class SyntaxToken : GreenNode
             }
         }
 
-        foreach (var diagnostic in TrailingTrivia.GetDiagnostics())
+        foreach (var diagnostic in TrailingTrivia.GetDiagnosticsRecursive())
         {
             yield return diagnostic;
         }
     }
 
-    internal override GreenNode WithDiagnostics(params Diagnostic[] diagnostics)
+    internal override GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return new SyntaxToken(Kind, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics);
     }

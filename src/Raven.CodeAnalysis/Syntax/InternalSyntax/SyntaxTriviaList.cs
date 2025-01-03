@@ -9,7 +9,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
     private readonly SyntaxTrivia[] _trivias;
 
     public SyntaxTriviaList(SyntaxTrivia[] trivias,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.List, trivias?.Length ?? 0, diagnostics)
     {
         _trivias = trivias ?? Array.Empty<SyntaxTrivia>();
@@ -75,16 +75,16 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         return new SyntaxList(newChildren);
     }
 
-    internal override GreenNode WithDiagnostics(params Diagnostic[] diagnostics)
+    internal override GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return new SyntaxList(_trivias, _diagnostics);
     }
 
-    internal override IEnumerable<Diagnostic> GetDiagnostics()
+    internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()
     {
         foreach (var child in GetChildren())
         {
-            foreach (var diagnostic in child.GetDiagnostics())
+            foreach (var diagnostic in child.GetDiagnosticsRecursive())
             {
                 yield return diagnostic;
             }
@@ -96,6 +96,6 @@ internal static partial class SyntaxFactory
 {
     public static SyntaxTriviaList TriviaList(
         SyntaxTrivia[] trivias,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
       => new(trivias, diagnostics);
 }

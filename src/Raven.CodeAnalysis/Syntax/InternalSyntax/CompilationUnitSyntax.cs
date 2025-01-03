@@ -6,7 +6,7 @@ internal partial class CompilationUnitSyntax : SyntaxNode
         SyntaxList imports,
         SyntaxList members,
         SyntaxToken endOfFileToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.CompilationUnit,
               [
@@ -25,6 +25,6 @@ internal static partial class SyntaxFactory
         SyntaxList imports,
         SyntaxList members,
         SyntaxToken endOfFileToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(imports, members, endOfFileToken, diagnostics);
 }

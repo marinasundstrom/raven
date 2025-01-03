@@ -7,7 +7,7 @@ internal partial class MemberAccessExpressionSyntax : ExpressionSyntax
         ExpressionSyntax expression,
         SyntaxToken operatorToken,
         SimpleNameSyntax name,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               kind,
               [
@@ -27,6 +27,6 @@ internal static partial class SyntaxFactory
         ExpressionSyntax expression,
         SyntaxToken operatorToken,
         SimpleNameSyntax name,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(kind, expression, operatorToken, name, diagnostics);
 }

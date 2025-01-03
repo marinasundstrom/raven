@@ -6,7 +6,7 @@ internal partial class TypeArgumentListSyntax : SyntaxNode
         SyntaxToken lessThanToken,
         SyntaxList arguments,
         SyntaxToken greaterThanToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
             SyntaxKind.TypeArgumentList,
             [
@@ -25,6 +25,6 @@ internal static partial class SyntaxFactory
         SyntaxToken lessThanToken,
         SyntaxList arguments,
         SyntaxToken greaterThanToken,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
       => new(lessThanToken, arguments, greaterThanToken, diagnostics);
 }

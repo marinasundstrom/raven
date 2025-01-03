@@ -4,7 +4,7 @@ internal partial class ArgumentSyntax : SyntaxNode
 {
     public ArgumentSyntax(
         ExpressionSyntax expression,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.Argument, [
             expression
         ],
@@ -17,6 +17,6 @@ internal static partial class SyntaxFactory
 {
     public static ArgumentSyntax Argument(
         ExpressionSyntax expression,
-        IEnumerable<Diagnostic>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(expression, diagnostics);
 }
