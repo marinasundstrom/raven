@@ -31,9 +31,7 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader();
 
-        var diagnostics = new List<Diagnostic>();
-
-        _tokenizer = new Tokenizer(textReader, diagnostics);
+        _tokenizer = new Tokenizer(textReader);
 
         return ParseCompilationUnit();
     }
@@ -180,9 +178,7 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader();
 
-        List<Diagnostic>? diagnostics = new();
-
-        _tokenizer = new Tokenizer(textReader, diagnostics);
+        _tokenizer = new Tokenizer(textReader);
 
         SetPosition(offset);
 
@@ -277,7 +273,7 @@ internal class LanguageParser
 
             if (LastStatement is not null)
             {
-                var lastTerminal = LastStatement.GetLastTerminal();
+                var lastTerminal = LastStatement.GetLastToken();
 
                 var oldLast = LastStatement;
                 var lastStatement = (StatementSyntax)LastStatement.ReplaceNode(
@@ -865,9 +861,7 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader(position);
 
-        List<Diagnostic> diagnostics = new();
-
-        _tokenizer = new Tokenizer(textReader, diagnostics);
+        _tokenizer = new Tokenizer(textReader);
 
         SetPosition(position);
 
@@ -962,7 +956,7 @@ internal class LanguageParser
         return true;
     }
 
-    private SyntaxToken PeekToken() => _tokenizer.PeekToken();
+    private SyntaxToken PeekToken(int index = 0) => _tokenizer.PeekToken(index);
 
     private SyntaxToken ReadToken()
     {

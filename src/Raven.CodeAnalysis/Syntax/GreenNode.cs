@@ -56,7 +56,7 @@ public abstract class GreenNode
         }
     }
 
-    internal InternalSyntax.SyntaxToken? GetFirstTerminal()
+    internal InternalSyntax.SyntaxToken? GetFirstToken()
     {
         GreenNode? node = this;
 
@@ -71,7 +71,7 @@ public abstract class GreenNode
                 }
                 else
                 {
-                    var c = child.GetFirstTerminal();
+                    var c = child.GetFirstToken();
                     if (c is not null)
                     {
                         return c;
@@ -83,7 +83,7 @@ public abstract class GreenNode
         return null;
     }
 
-    internal InternalSyntax.SyntaxToken? GetLastTerminal()
+    internal InternalSyntax.SyntaxToken? GetLastToken()
     {
         GreenNode? node = this;
 
@@ -189,6 +189,49 @@ public abstract class GreenNode
 
         // Create a new green node with updated children
         return WithUpdatedChildren(updatedChildren.ToArray());
+    }
+
+    public GreenNode ReplaceNodes(Func<GreenNode, bool> condition, Func<GreenNode, GreenNode> replacement)
+    {
+        // If the current node matches the condition, replace it using the replacement function
+        if (condition(this))
+        {
+            return replacement(this);
+        }
+
+        // Otherwise, traverse and replace children recursively
+        var updatedChildren = new GreenNode[this.SlotCount];
+        bool anyChildReplaced = false;
+
+        for (int i = 0; i < this.SlotCount; i++)
+        {
+            var child = this.GetSlot(i);
+
+            if (child != null)
+            {
+                var updatedChild = child.ReplaceNodes(condition, replacement);
+
+                if (!ReferenceEquals(updatedChild, child))
+                {
+                    anyChildReplaced = true;
+                }
+
+                updatedChildren[i] = updatedChild;
+            }
+            else
+            {
+                updatedChildren[i] = child;
+            }
+        }
+
+        // If no children were replaced, return the current node to avoid creating unnecessary copies
+        if (!anyChildReplaced)
+        {
+            return this;
+        }
+
+        // Otherwise, return a new node with the updated children
+        return WithUpdatedChildren(updatedChildren);
     }
 
     protected virtual GreenNode CreateParentWithNodes(IEnumerable<GreenNode> newNodes)

@@ -3,44 +3,54 @@
 internal class Tokenizer : ITokenizer
 {
     private readonly ILexer _lexer;
-    private InternalSyntax.SyntaxToken? _lookaheadToken;
+    private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
 
     public int Position { get; private set; }
 
-    public Tokenizer(TextReader textReader, List<Diagnostic> diagnostics)
+    public Tokenizer(TextReader textReader)
     {
-        _lexer = new Lexer(textReader, diagnostics);
+        _lexer = new Lexer(textReader);
     }
 
-    public InternalSyntax.SyntaxToken ReadToken()
+    public SyntaxToken ReadToken()
     {
-        if (_lookaheadToken != null)
+        SyntaxToken token;
+
+        if (_lookaheadTokens.Count > 0)
         {
-            var token = _lookaheadToken;
-            _lookaheadToken = null;
-            Position += token.FullWidth;
-            return token;
+            // Remove the token from the lookahead list
+            token = _lookaheadTokens[0]; // Using index from end for clarity
+            _lookaheadTokens.RemoveAt(0);
         }
-        var readToken = ReadTokenCore();
-        Position += readToken.FullWidth;
-        return readToken;
-    }
-
-    public InternalSyntax.SyntaxToken PeekToken()
-    {
-        if (_lookaheadToken == null)
+        else
         {
-            _lookaheadToken = ReadTokenCore();
+            // Fallback to reading a new token
+            token = ReadTokenCore();
         }
-        return _lookaheadToken; //CreateRedToken(_lookaheadToken);
+
+        // Update the position
+        Position += token.FullWidth;
+
+        return token;
     }
 
-    private InternalSyntax.SyntaxToken ReadTokenCore()
+    public SyntaxToken PeekToken(int index = 0)
     {
-        InternalSyntax.SyntaxToken token;
+        // Ensure the lookahead tokens list is populated up to the requested index
+        while (_lookaheadTokens.Count <= index)
+        {
+            _lookaheadTokens.Add(ReadTokenCore());
+        }
 
-        InternalSyntax.SyntaxTriviaList leadingTrivia;
-        InternalSyntax.SyntaxTriviaList trailingTrivia;
+        return _lookaheadTokens[index];
+    }
+
+    private SyntaxToken ReadTokenCore()
+    {
+        SyntaxToken token;
+
+        SyntaxTriviaList leadingTrivia;
+        SyntaxTriviaList trailingTrivia;
 
         leadingTrivia = ReadTrivia(isTrailingTrivia: false);
 
@@ -48,12 +58,12 @@ internal class Tokenizer : ITokenizer
 
         trailingTrivia = ReadTrivia(isTrailingTrivia: true);
 
-        return new InternalSyntax.SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia);
+        return new SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia, token._diagnostics);
     }
 
-    private InternalSyntax.SyntaxTriviaList ReadTrivia(bool isTrailingTrivia)
+    private SyntaxTriviaList ReadTrivia(bool isTrailingTrivia)
     {
-        List<InternalSyntax.SyntaxTrivia> trivia = [];
+        List<SyntaxTrivia> trivia = [];
 
         while (true)
         {
@@ -63,20 +73,21 @@ internal class Tokenizer : ITokenizer
             {
                 case SyntaxKind.TabToken:
                     _lexer.ReadToken();
-                    trivia.Add(new InternalSyntax.SyntaxTrivia(SyntaxKind.TabTrivia, token.Text));
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.TabTrivia, token.Text));
                     continue;
+
                 case SyntaxKind.Whitespace:
                     _lexer.ReadToken();
-                    trivia.Add(new InternalSyntax.SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text));
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, token.Text));
                     continue;
 
                 case SyntaxKind.EndOfLineToken:
                     {
-                        InternalSyntax.SyntaxToken peeked;
+                        SyntaxToken peeked;
                         do
                         {
                             _lexer.ReadToken();
-                            trivia.Add(new InternalSyntax.SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
+                            trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
                             peeked = _lexer.PeekToken();
                         } while (peeked.Kind == SyntaxKind.EndOfLineToken);
 
@@ -88,7 +99,7 @@ internal class Tokenizer : ITokenizer
                     }
                 case SyntaxKind.CarriageReturnToken:
                     {
-                        InternalSyntax.SyntaxToken peeked2;
+                        SyntaxToken peeked2;
                         do
                         {
                             _lexer.ReadToken();
@@ -97,11 +108,11 @@ internal class Tokenizer : ITokenizer
                             {
                                 _lexer.ReadToken();
                                 trivia.Add(
-                                    new InternalSyntax.SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, token.Text + next.Text));
+                                    new SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, token.Text + next.Text));
                             }
                             else
                             {
-                                trivia.Add(new InternalSyntax.SyntaxTrivia(SyntaxKind.CarriageReturnTrivia, token.Text));
+                                trivia.Add(new SyntaxTrivia(SyntaxKind.CarriageReturnTrivia, token.Text));
                             }
 
                             peeked2 = _lexer.PeekToken();
@@ -118,6 +129,6 @@ internal class Tokenizer : ITokenizer
             break;
         }
 
-        return new InternalSyntax.SyntaxTriviaList(trivia.ToArray());
+        return new SyntaxTriviaList(trivia.ToArray());
     }
 }

@@ -31,8 +31,6 @@ var compilation = Compilation.Create(assemblyName, new CompilationOptions(Output
     ])
     .AnalyzeCodeTemp(); // Temporary
 
-//Console.WriteLine(root.WriteNodeToText(compilation));
-
 // INFO: The sample will compile, but not all constructs are supported yet.
 using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
 {
@@ -42,4 +40,5 @@ using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
 
 CreateAppHost(compilation);
 
-Console.WriteLine(root.ToFullString());
+Console.WriteLine();
+Console.WriteLine(root.WriteNodeToText(compilation));

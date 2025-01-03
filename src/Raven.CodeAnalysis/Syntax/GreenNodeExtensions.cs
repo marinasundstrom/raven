@@ -19,8 +19,8 @@ static class GreenNodeExtensions
 
         var value = items2.Sum(item => item.FullWidth);
 
-        var f1 = node.GetFirstTerminal();
-        var f2 = node.GetLastTerminal();
+        var f1 = node.GetFirstToken();
+        var f2 = node.GetLastToken();
 
         return value - f1.LeadingTrivia.Width - f2.TrailingTrivia.Width;
     }

@@ -43,8 +43,8 @@ Here are the most common methods used when reading the token stream.
 
 ### Methods
 
-- **`SyntaxToken PeekToken()`**  
-  Returns the next token without advancing the current position.  
+- **`SyntaxToken PeekToken(int index = 0)`**  
+  Returns the next token without advancing the current position. Optional: index.
 
 - **`SyntaxToken ReadToken()`**  
   Retrieves the next token and advances the position.  

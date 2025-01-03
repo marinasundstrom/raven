@@ -107,11 +107,11 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
     public SyntaxToken GetFirstToken(bool includeZeroWidth = false)
     {
-        return (SyntaxToken)(Green.GetFirstTerminal() ?? default);
+        return (SyntaxToken)(Green.GetFirstToken() ?? default);
     }
     public SyntaxToken GetLastToken(bool includeZeroWidth = false)
     {
-        return (SyntaxToken)(Green.GetLastTerminal() ?? default);
+        return (SyntaxToken)(Green.GetLastToken() ?? default);
     }
 
     public SyntaxNode(GreenNode greenNode, SyntaxNode parent, int position = 0)
