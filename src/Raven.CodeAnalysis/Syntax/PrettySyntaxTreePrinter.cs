@@ -2,6 +2,8 @@ using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Text;
 
+using Raven.CodeAnalysis.Text;
+
 namespace Raven.CodeAnalysis.Syntax;
 
 public static class PrettySyntaxTreePrinter
@@ -61,7 +63,7 @@ public static class PrettySyntaxTreePrinter
             }
         }
 
-        sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}{node.Kind}", ConsoleColor.Blue, colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
+        sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}{node.Kind}", AnsiColor.BrightBlue, colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
@@ -101,7 +103,7 @@ public static class PrettySyntaxTreePrinter
                 }
 
                 // Print token
-                sb.AppendLine($"{newIndent}{(isChildLast ? MarkerBottom : MarkerMiddle)}" + MaybeColorize($"{propertyName2}", ConsoleColor.Green, colorize) + $"{token.Text} " + MaybeColorize($"{token.Kind}", ConsoleColor.Green, colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent}{(isChildLast ? MarkerBottom : MarkerMiddle)}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, colorize) + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
 
                 // Include trivia if specified
                 if (includeTrivia)
@@ -137,7 +139,7 @@ public static class PrettySyntaxTreePrinter
 
             var firstMarker = isLeading ? MarkerTop : MarkerBottom;
 
-            sb.AppendLine($"{newIndent}{(isChildLast ? firstMarker : MarkerMiddle)}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", ConsoleColor.Red, colorize) + $"{(includeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(includeLocation ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
+            sb.AppendLine($"{newIndent}{(isChildLast ? firstMarker : MarkerMiddle)}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, colorize) + $"{(includeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(includeLocation ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
 
             var newIndent2 = newIndent + (isChildLast ? IndentationStr : MarkerStraight);
 
@@ -157,7 +159,7 @@ public static class PrettySyntaxTreePrinter
         }
 
         var structure = trivia.GetStructure()!;
-        sb.AppendLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", ConsoleColor.Blue, colorize) + $"{(includeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(includeLocation ? $" {Location(structure.GetLocation())}" : string.Empty)}");
+        sb.AppendLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", AnsiColor.BrightBlue, colorize) + $"{(includeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(includeLocation ? $" {Location(structure.GetLocation())}" : string.Empty)}");
 
         int i2 = 0;
         var structureChildren = structure.ChildNodesAndTokens();
@@ -170,7 +172,7 @@ public static class PrettySyntaxTreePrinter
 
             if (triviaChild.AsToken(out var token))
             {
-                sb.AppendLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.ValueText} " + MaybeColorize($"{token.Kind}", ConsoleColor.Green, colorize) + $"{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.ValueText} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, colorize) + $"{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
             }
             i2++;
         }
@@ -203,26 +205,13 @@ public static class PrettySyntaxTreePrinter
     }
 
 
-    private static string MaybeColorize(string text, ConsoleColor color, bool colorize)
+    private static string MaybeColorize(string text, AnsiColor color, bool colorize)
     {
         return colorize ? Colorize(text, color) : text;
     }
 
-    private static string Colorize(string text, ConsoleColor color)
+    private static string Colorize(string text, AnsiColor color)
     {
-        return $"\u001b[{GetColorCode(color)}m{text}\u001b[0m";
-    }
-
-    private static int GetColorCode(ConsoleColor color)
-    {
-        return color switch
-        {
-            ConsoleColor.Blue => 34,
-            ConsoleColor.Green => 32,
-            ConsoleColor.Yellow => 33,
-            ConsoleColor.Red => 31,
-            ConsoleColor.Cyan => 36,
-            _ => 37
-        };
+        return $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
     }
 }

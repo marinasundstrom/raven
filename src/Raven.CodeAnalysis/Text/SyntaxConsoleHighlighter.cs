@@ -35,11 +35,11 @@ public static class SyntaxConsoleHighlighter
 
                 if (SyntaxFacts.IsKeywordKind(token.Kind))
                 {
-                    t = Colorize(t, ConsoleColor.Blue);
+                    t = Colorize(t, AnsiColor.BrightBlue);
                 }
                 else if (token.Kind == SyntaxKind.StringLiteralToken)
                 {
-                    t = Colorize(t, ConsoleColor.Yellow);
+                    t = Colorize(t, AnsiColor.BrightYellow);
                 }
 
                 builder.Append(t);
@@ -64,21 +64,8 @@ public static class SyntaxConsoleHighlighter
         }
     }
 
-    private static string Colorize(string text, ConsoleColor color)
+    private static string Colorize(string text, AnsiColor color)
     {
-        return $"\u001b[{GetColorCode(color)}m{text}\u001b[0m";
-    }
-
-    private static int GetColorCode(ConsoleColor color)
-    {
-        return color switch
-        {
-            ConsoleColor.Blue => 34,
-            ConsoleColor.Green => 32,
-            ConsoleColor.Yellow => 33,
-            ConsoleColor.Red => 31,
-            ConsoleColor.Cyan => 36,
-            _ => 37
-        };
+        return $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
     }
 }
