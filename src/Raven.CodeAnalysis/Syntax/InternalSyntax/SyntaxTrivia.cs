@@ -52,7 +52,7 @@ internal class SyntaxTrivia : GreenNode
         }
     }
 
-    internal override GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics)
+    internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return new SyntaxTrivia(Kind, Text, _diagnostics);
     }
@@ -60,6 +60,16 @@ internal class SyntaxTrivia : GreenNode
     protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
     {
         return this;
+    }
+
+    internal override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitTrivia(this);
+    }
+
+    internal override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitTrivia(this);
     }
 }
 

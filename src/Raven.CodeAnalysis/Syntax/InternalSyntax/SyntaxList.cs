@@ -28,7 +28,7 @@ internal class SyntaxList : GreenNode
         return new SyntaxList(newChildren);
     }
 
-    internal override GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics)
+    internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return new SyntaxList(_items, _diagnostics);
     }
@@ -56,6 +56,16 @@ internal class SyntaxList : GreenNode
                 yield return diagnostic;
             }
         }
+    }
+
+    internal override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitSyntaxList(this);
+    }
+
+    internal override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitSyntaxList(this);
     }
 }
 

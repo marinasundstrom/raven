@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-internal class SyntaxNode : GreenNode
+internal abstract class SyntaxNode : GreenNode
 {
     private readonly GreenNode[] _slots;
     private bool _isMissing;
@@ -46,12 +46,12 @@ internal class SyntaxNode : GreenNode
 
     protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
     {
-        return new SyntaxNode(Kind, newChildren, _diagnostics);
+        return null; // new SyntaxNode(Kind, newChildren, _diagnostics);
     }
 
-    internal override GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics)
+    internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
-        return new SyntaxNode(Kind, _slots, _diagnostics);
+        return null; // new SyntaxNode(Kind, _slots, _diagnostics);
     }
 
     internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()

@@ -54,82 +54,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateAcceptMethods(INamedTypeSymbol classSymbol)
     {
-        var typeName = ParseTypeName(classSymbol.Name);
-
-        var methodName = $"Visit{classSymbol.Name.Replace("Syntax", string.Empty)}";
-
-        IEnumerable<MethodDeclarationSyntax> methods = [
-            MethodDeclaration(
-                PredefinedType(
-                    Token(SyntaxKind.VoidKeyword)),
-                Identifier("Accept"))
-            .WithModifiers(
-                TokenList(
-                    [
-                        Token(SyntaxKind.PublicKeyword),
-                        Token(SyntaxKind.OverrideKeyword)]))
-            .WithParameterList(
-                ParameterList(
-                    SingletonSeparatedList(
-                        Parameter(
-                            Identifier("visitor"))
-                        .WithType(
-                            IdentifierName("SyntaxVisitor")))))
-            .WithBody(
-                Block(
-                    SingletonList<StatementSyntax>(
-                        ExpressionStatement(
-                            InvocationExpression(
-                                MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName("visitor"),
-                                    IdentifierName(methodName)))
-                            .WithArgumentList(
-                                ArgumentList(
-                                    SingletonSeparatedList(
-                                        Argument(
-                                            ThisExpression())))))))),
-            MethodDeclaration(
-                IdentifierName("TNode"),
-                Identifier("Accept"))
-            .WithModifiers(
-                TokenList(
-                    [
-                        Token(SyntaxKind.PublicKeyword),
-                        Token(SyntaxKind.OverrideKeyword)]))
-            .WithTypeParameterList(
-                TypeParameterList(
-                    SingletonSeparatedList(
-                        TypeParameter(
-                            Identifier("TNode")))))
-            .WithParameterList(
-                ParameterList(
-                    SingletonSeparatedList(
-                        Parameter(
-                            Identifier("visitor"))
-                        .WithType(
-                            GenericName(
-                                Identifier("SyntaxVisitor"))
-                            .WithTypeArgumentList(
-                                TypeArgumentList(
-                                    SingletonSeparatedList<TypeSyntax>(
-                                        IdentifierName("TNode"))))))))
-            .WithBody(
-                Block(
-                    SingletonList<StatementSyntax>(
-                        ReturnStatement(
-                            InvocationExpression(
-                                MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName("visitor"),
-                                    IdentifierName(methodName)))
-                            .WithArgumentList(
-                                ArgumentList(
-                                    SingletonSeparatedList(
-                                        Argument(
-                                            ThisExpression()))))))))];
-
-        return methods;
+        return AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name);
     }
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateWithMethods(INamedTypeSymbol classSymbol)
@@ -199,60 +124,10 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
     {
         var parameters = classSymbol.GetMembers()
             .OfType<IPropertySymbol>()
-            .Where(property => property.IsPartial());
+            .Where(property => property.IsPartial())
+            .Select(x => new PropOrParamType(x.Name, x.Type.ToDisplayString()));
 
-        var paramDef = parameters.Select(property =>
-        {
-            var propertyType = ParseTypeName(property.Type.ToDisplayString());
-            var propertyName = Identifier(property.Name);
-
-            return Parameter(Identifier(FixName(property)))
-                            .WithType(propertyType);
-        }).ToList();
-
-        var typeName = ParseTypeName(classSymbol.Name);
-
-        ExpressionSyntax condition = null!;
-
-        foreach (var p in parameters)
-        {
-            var expr1 = BinaryExpression(SyntaxKind.NotEqualsExpression,
-                IdentifierName(p.Name), IdentifierName(FixName(p)));
-
-            if (condition is null)
-            {
-                condition = expr1;
-            }
-            else
-            {
-                condition = BinaryExpression(SyntaxKind.LogicalOrExpression,
-                    condition, expr1);
-            }
-        }
-
-        var expr = ObjectCreationExpression(
-                    typeName)
-                .WithArgumentList(
-                    ArgumentList(
-                        SeparatedList<ArgumentSyntax>(
-                            paramDef.Select(p =>
-                            {
-                                return Argument(IdentifierName(p.Identifier));
-                            }))));
-
-        var updateMethodDeclaration = MethodDeclaration(typeName, "Update")
-                .WithModifiers([Token(SyntaxKind.PublicKeyword)])
-                .WithParameterList(
-                    ParameterList(
-                        SeparatedList(
-                            paramDef
-                ))).WithBody(
-                    Block(
-                        IfStatement(condition,
-                            Block(ReturnStatement(expr))),
-                        ReturnStatement(ThisExpression())));
-
-        return [updateMethodDeclaration];
+        return [UpdateMethodGenerator.GenerateUpdateMethod(classSymbol.Name, parameters)];
     }
 
     private static MemberDeclarationSyntax? GenerateGetNodeSlot(INamedTypeSymbol classSymbol)

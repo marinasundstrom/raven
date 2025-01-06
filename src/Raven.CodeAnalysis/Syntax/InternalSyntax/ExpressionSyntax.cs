@@ -26,6 +26,16 @@ internal abstract class ExpressionSyntax : SyntaxNode
         {
             return new Syntax.ExpressionSyntax.Missing(this, parent, position);
         }
+
+        internal override void Accept(SyntaxVisitor visitor)
+        {
+            visitor.Visit(this);
+        }
+
+        internal override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+        {
+            return visitor.Visit(this);
+        }
     }
 }
 

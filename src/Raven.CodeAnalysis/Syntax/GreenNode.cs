@@ -251,7 +251,11 @@ public abstract class GreenNode
 
     internal abstract IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive();
 
-    internal abstract GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics);
+    internal abstract GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics);
 
     private string GetDebuggerDisplay() => $"{Kind} {GetValueText()}";
+
+    internal abstract void Accept(InternalSyntax.SyntaxVisitor visitor);
+
+    internal abstract TResult Accept<TResult>(InternalSyntax.SyntaxVisitor<TResult> visitor);
 }

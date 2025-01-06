@@ -90,8 +90,18 @@ internal class SyntaxToken : GreenNode
         }
     }
 
-    internal override GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics)
+    internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return new SyntaxToken(Kind, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics);
+    }
+
+    internal override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitToken(this);
+    }
+
+    internal override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitToken(this);
     }
 }

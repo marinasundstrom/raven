@@ -82,9 +82,9 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                     Identifier("WithUpdatedChildren"))
                 .WithModifiers(
                     TokenList(
-                        new[]{
+                        [
                             Token(SyntaxKind.ProtectedKeyword),
-                            Token(SyntaxKind.OverrideKeyword)}))
+                            Token(SyntaxKind.OverrideKeyword)]))
                 .WithParameterList(
                     ParameterList(
                         SingletonSeparatedList<ParameterSyntax>(
@@ -121,9 +121,9 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                                     Identifier("CreateRed"))
                                 .WithModifiers(
                                     TokenList(
-                                        new[]{
+                                        [
                                     Token(SyntaxKind.PublicKeyword),
-                                    Token(SyntaxKind.OverrideKeyword)}))
+                                    Token(SyntaxKind.OverrideKeyword)]))
                                 .WithParameterList(
                                     ParameterList(
                                         SeparatedList<ParameterSyntax>(
@@ -164,10 +164,30 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
 
         List<MemberDeclarationSyntax> members = [constructor];
 
+        var acceptMethods = AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name, true);
+
+        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(context, namespaceName, classSymbol.Name, true);
+
+        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(context, namespaceName, classSymbol.Name, true);
+
+        //var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
+
+        /*
+                var parameters = classSymbol.Constructors.First().Parameters
+                    .Select(x => new PropOrParamType(x.Name, x.Type.ToDisplayString()))
+                    .ToList();
+
+                parameters.RemoveAt(parameters.Count - 1);
+
+                var updateMethod = UpdateMethodGenerator.GenerateUpdateMethod(classSymbol.Name, parameters);
+        */
+
         if (!classSymbol.IsAbstract)
         {
             members.Add(createRed);
             members.Add(withUpdatedChildren);
+            //members.Add(updateMethod);
+            members.AddRange(acceptMethods);
         }
 
         var ns =
@@ -180,7 +200,7 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                             IdentifierName("Syntax")),
                         IdentifierName("InternalSyntax")))
                 .WithMembers(
-                    SingletonList<MemberDeclarationSyntax>(
+                    List<MemberDeclarationSyntax>([
                         ClassDeclaration(className)
                         .WithModifiers(
                             TokenList(
@@ -193,7 +213,9 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                                     SimpleBaseType(
                                         IdentifierName("StatementSyntax"))))) */
                         .WithMembers(
-                            List<MemberDeclarationSyntax>(members))));
+                            List<MemberDeclarationSyntax>(members)),
+                            visitorPartialClass,
+                            visitorGenericPartialClass]));
 
 
         // Convert to source text and add to the compilation

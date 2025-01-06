@@ -37,6 +37,10 @@ public static class SyntaxConsoleHighlighter
                 {
                     t = Colorize(t, ConsoleColor.Blue);
                 }
+                else if (token.Kind == SyntaxKind.StringLiteralToken)
+                {
+                    t = Colorize(t, ConsoleColor.Yellow);
+                }
 
                 builder.Append(t);
             }

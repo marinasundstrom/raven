@@ -75,7 +75,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         return new SyntaxList(newChildren);
     }
 
-    internal override GreenNode WithDiagnostics(params DiagnosticInfo[] diagnostics)
+    internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return new SyntaxList(_trivias, _diagnostics);
     }
@@ -89,6 +89,16 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
                 yield return diagnostic;
             }
         }
+    }
+
+    internal override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitTriviaList(this);
+    }
+
+    internal override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitTriviaList(this);
     }
 }
 

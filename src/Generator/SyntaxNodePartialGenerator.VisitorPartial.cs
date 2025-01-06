@@ -13,47 +13,6 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
         var className = classSymbol.Name;
 
-        List<MethodDeclarationSyntax> methods = [];
-
-        var methodName = $"Visit{classSymbol.Name.Replace("Syntax", string.Empty)}";
-
-        methods.Add(MethodDeclaration(
-        PredefinedType(
-            Token(SyntaxKind.VoidKeyword)),
-            Identifier(methodName))
-            .WithModifiers(
-                TokenList(
-                    [
-                            Token(SyntaxKind.PublicKeyword),
-                                Token(SyntaxKind.VirtualKeyword)]))
-                            .WithParameterList(
-                                ParameterList(
-                                    SingletonSeparatedList<ParameterSyntax>(
-                                        Parameter(
-                                            Identifier("node"))
-                                        .WithType(
-                                            IdentifierName(className)))))
-                            .WithBody(
-                                Block(
-                                    SingletonList<StatementSyntax>(
-                                        ExpressionStatement(
-                                            InvocationExpression(
-                                                IdentifierName("DefaultVisit"))
-                                            .WithArgumentList(
-                                                ArgumentList(
-                                                    SingletonSeparatedList<ArgumentSyntax>(
-                                                        Argument(
-                                                            IdentifierName("node"))))))))));
-
-
-        // Generate the partial class
-        var generatedClass = ClassDeclaration("SyntaxVisitor")
-            .WithModifiers(TokenList(
-                Token(SyntaxKind.PublicKeyword),
-                Token(SyntaxKind.AbstractKeyword),
-                Token(SyntaxKind.PartialKeyword)))
-            .AddMembers(methods.ToArray());
-
-        return generatedClass;
+        return VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(context, namespaceName, className);
     }
 }
