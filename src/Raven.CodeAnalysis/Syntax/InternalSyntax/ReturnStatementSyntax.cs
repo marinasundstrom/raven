@@ -10,9 +10,9 @@ internal partial class ReturnStatementSyntax : StatementSyntax
         : base(
               SyntaxKind.ReturnStatement,
               [
-                      returnKeyword,
-                      expression,
-                      semicolonToken
+                      returnKeyword ?? throw new ArgumentNullException(nameof(returnKeyword)),
+                      expression ?? throw new ArgumentNullException(nameof(expression)),
+                      semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
               ],
               diagnostics)
     {

@@ -10,9 +10,9 @@ internal partial class ParenthesizedExpressionSyntax : ExpressionSyntax
         : base(
               SyntaxKind.ParenthesizedExpression,
               [
-                      openParenToken,
-                      expression,
-                      closeParenToken
+                      openParenToken ?? throw new ArgumentNullException(nameof(openParenToken)),
+                      expression ?? throw new ArgumentNullException(nameof(expression)),
+                      closeParenToken ?? throw new ArgumentNullException(nameof(closeParenToken))
               ],
               diagnostics)
     {

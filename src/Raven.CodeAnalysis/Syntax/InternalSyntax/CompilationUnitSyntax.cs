@@ -10,9 +10,9 @@ internal partial class CompilationUnitSyntax : SyntaxNode
         : base(
               SyntaxKind.CompilationUnit,
               [
-                      imports,
-                      members,
-                      endOfFileToken
+                      imports ?? throw new ArgumentNullException(nameof(imports)),
+                      members ?? throw new ArgumentNullException(nameof(members)),
+                      endOfFileToken ?? throw new ArgumentNullException(nameof(endOfFileToken))
               ],
               diagnostics)
     {

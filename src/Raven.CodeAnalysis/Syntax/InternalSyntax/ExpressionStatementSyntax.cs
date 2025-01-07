@@ -8,8 +8,8 @@ internal partial class ExpressionStatementSyntax : StatementSyntax
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.ExpressionStatement,
               [
-                    expression,
-                    semicolonToken,
+                    expression ?? throw new ArgumentNullException(nameof(expression)),
+                    semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
               ],
               diagnostics)
     {

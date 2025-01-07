@@ -10,9 +10,9 @@ internal partial class ParameterListSyntax : SyntaxNode
         : base(
               SyntaxKind.ParameterList,
               [
-                      openParenToken,
-                      parameters,
-                      closeParenToken
+                      openParenToken ?? throw new ArgumentNullException(nameof(openParenToken)),
+                      parameters ?? throw new ArgumentNullException(nameof(parameters)),
+                      closeParenToken ?? throw new ArgumentNullException(nameof(closeParenToken))
               ],
               diagnostics)
     {

@@ -9,8 +9,8 @@ internal partial class EqualsValueClauseSyntax : StatementSyntax
         : base(
               SyntaxKind.EqualsValueClause,
               [
-                      equalsToken,
-                      value
+                      equalsToken ?? throw new ArgumentNullException(nameof(equalsToken)),
+                      value ?? throw new ArgumentNullException(nameof(value))
               ],
               diagnostics)
     {

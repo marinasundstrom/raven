@@ -9,8 +9,8 @@ internal partial class VariableDeclarationSyntax : SyntaxNode
         : base(
               SyntaxKind.VariableDeclaration,
               [
-                      letKeyword,
-                      variableDeclarators
+                      letKeyword ?? throw new ArgumentNullException(nameof(letKeyword)),
+                      variableDeclarators ?? throw new ArgumentNullException(nameof(variableDeclarators))
               ],
               diagnostics)
     {

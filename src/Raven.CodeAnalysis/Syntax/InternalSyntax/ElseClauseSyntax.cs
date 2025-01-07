@@ -9,8 +9,8 @@ internal partial class ElseClauseSyntax : SyntaxNode
         : base(
               SyntaxKind.ElseClause,
               [
-                      elseKeyword,
-                      statement
+                      elseKeyword ?? throw new ArgumentNullException(nameof(elseKeyword)),
+                      statement ?? throw new ArgumentNullException(nameof(statement))
               ],
               diagnostics)
     {

@@ -50,8 +50,8 @@ public class SemanticModel
             {
                 foreach (var import in compilationUnit.Imports)
                 {
-                    var namespaceSymbol = Compilation.GetNamespaceSymbol(import.Namespace.ToString());
-                    _imports.Add(import.Namespace, namespaceSymbol);
+                    var namespaceSymbol = Compilation.GetNamespaceSymbol(import.NamespaceOrType.ToString());
+                    _imports.Add(import.NamespaceOrType, namespaceSymbol);
                 }
 
                 foreach (var member in compilationUnit.Members)

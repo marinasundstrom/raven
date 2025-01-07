@@ -6,7 +6,7 @@ internal partial class LiteralExpressionSyntax : ExpressionSyntax
         SyntaxKind kind,
         SyntaxToken token,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(kind, [token], diagnostics)
+        : base(kind, [token ?? throw new ArgumentNullException(nameof(token))], diagnostics)
     {
     }
 }

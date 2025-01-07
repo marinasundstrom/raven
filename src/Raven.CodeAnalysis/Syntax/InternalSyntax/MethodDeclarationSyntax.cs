@@ -10,9 +10,9 @@ internal partial class MethodDeclarationSyntax : MemberDeclarationSyntax
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.MethodDeclaration,
               [
-                      returnType,
-                      name,
-                      parameters,
+                      returnType ?? throw new ArgumentNullException(nameof(returnType)),
+                      name ?? throw new ArgumentNullException(nameof(name)),
+                      parameters ?? throw new ArgumentNullException(nameof(parameters)),
                       null
               ],
               diagnostics)

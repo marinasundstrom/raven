@@ -10,9 +10,9 @@ internal partial class TypeArgumentListSyntax : SyntaxNode
         : base(
             SyntaxKind.TypeArgumentList,
             [
-                lessThanToken,
-                arguments,
-                greaterThanToken
+                lessThanToken ?? throw new ArgumentNullException(nameof(lessThanToken)),
+                arguments ?? throw new ArgumentNullException(nameof(arguments)),
+                greaterThanToken ?? throw new ArgumentNullException(nameof(greaterThanToken))
             ],
             diagnostics)
     {

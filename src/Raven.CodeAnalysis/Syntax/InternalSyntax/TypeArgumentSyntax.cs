@@ -8,7 +8,7 @@ internal partial class TypeArgumentSyntax : SyntaxNode
         : base(
         SyntaxKind.TypeArgument,
         [
-            type,
+            type ?? throw new ArgumentNullException(nameof(type)),
         ],
         diagnostics)
     {

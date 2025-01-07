@@ -11,9 +11,9 @@ internal partial class MemberAccessExpressionSyntax : ExpressionSyntax
         : base(
               kind,
               [
-                      expression,
-                      operatorToken,
-                      name
+                      expression ?? throw new ArgumentNullException(nameof(expression)),
+                      operatorToken ?? throw new ArgumentNullException(nameof(operatorToken)),
+                      name ?? throw new ArgumentNullException(nameof(name))
               ],
               diagnostics)
     {

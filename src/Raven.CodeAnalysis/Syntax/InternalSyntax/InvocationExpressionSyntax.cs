@@ -10,8 +10,8 @@ internal partial class InvocationExpressionSyntax : ExpressionSyntax
         : base(
             SyntaxKind.InvocationExpression,
               [
-                      expression,
-                      argumentList,
+                      expression ?? throw new ArgumentNullException(nameof(expression)),
+                      argumentList ?? throw new ArgumentNullException(nameof(argumentList)),
               ],
               diagnostics)
     {

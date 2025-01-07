@@ -1,4 +1,3 @@
-using System.Diagnostics.SymbolStore;
 using System.Text;
 
 using Raven.CodeAnalysis.Syntax;
@@ -46,21 +45,83 @@ public static class SyntaxConsoleHighlighter
             }
             else if (child.AsNode(out var childNode))
             {
-                WriteNodeToText(childNode, builder);
+                if (childNode is NameSyntax name)
+                {
+                    WriteNameSyntax(name, builder);
+                }
+                else if (childNode is IdentifierNameSyntax iname)
+                {
+                    var symbol = SemanticModel.GetSymbolInfo(iname).Symbol;
 
-                /*
-                var symbol = SemanticModel.GetSymbolInfo(childNode);
+                    if (symbol is IMethodSymbol)
+                    {
+                        string? t = iname.ToFullString();
+                        t = Colorize(t, AnsiColor.BrightRed);
+                        builder.Append(t);
+                    }
+                    else if (symbol is INamespaceSymbol or ITypeSymbol)
+                    {
+                        string? t = iname.ToFullString();
+                        t = Colorize(t, AnsiColor.BrightCyan);
+                        builder.Append(t);
+                    }
+                    else
+                    {
+                        string? t = iname.ToFullString();
+                        t = Colorize(t, AnsiColor.BrightBlack);
+                        builder.Append(t);
+                    }
+                }
+                else if (childNode is MemberAccessExpressionSyntax maccess)
+                {
+                    WriteNodeToText(maccess.Expression, builder);
 
-                if(symbol is ISymbolMethod) 
+                    string? t = maccess.OperatorToken.ToFullString();
+                    t = Colorize(t, AnsiColor.BrightBlack);
+                    builder.Append(t);
+
+                    t = maccess.Name.ToFullString();
+                    t = Colorize(t, AnsiColor.BrightRed);
+                    builder.Append(t);
+                }
+                else
                 {
                     WriteNodeToText(childNode, builder);
                 }
-                else 
-                {
-                    WriteNodeToText(childNode, builder);
-                }
-                */
             }
+        }
+    }
+
+    private static void WriteNameSyntax(NameSyntax name, StringBuilder builder)
+    {
+        if (name is IdentifierNameSyntax iname)
+        {
+            var symbol = SemanticModel.GetSymbolInfo(iname).Symbol;
+
+            if (symbol is IMethodSymbol)
+            {
+                string? t = iname.ToFullString();
+                t = Colorize(t, AnsiColor.BrightRed);
+                builder.Append(t);
+            }
+            else if (symbol is INamespaceSymbol or ITypeSymbol)
+            {
+                string? t = iname.ToFullString();
+                t = Colorize(t, AnsiColor.BrightCyan);
+                builder.Append(t);
+            }
+            else
+            {
+                string? t = iname.ToFullString();
+                t = Colorize(t, AnsiColor.White);
+                builder.Append(t);
+            }
+        }
+        else if (name is QualifiedNameSyntax qname)
+        {
+            WriteNameSyntax(qname.Left, builder);
+
+            WriteNameSyntax(qname.Right, builder);
         }
     }
 

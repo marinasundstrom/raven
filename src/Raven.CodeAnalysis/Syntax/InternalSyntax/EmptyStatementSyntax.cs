@@ -8,7 +8,7 @@ internal partial class EmptyStatementSyntax : StatementSyntax
         : base(
               SyntaxKind.EmptyStatement,
               [
-                      semicolonToken
+                      semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
               ],
               diagnostics)
     {

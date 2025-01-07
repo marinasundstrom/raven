@@ -107,5 +107,5 @@ internal static partial class SyntaxFactory
     public static SyntaxTriviaList TriviaList(
         SyntaxTrivia[] trivias,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-      => new(trivias, diagnostics);
+      => new(trivias ?? throw new ArgumentNullException(nameof(trivias)), diagnostics);
 }

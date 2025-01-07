@@ -9,8 +9,8 @@ internal partial class UnaryExpressionSyntax : ExpressionSyntax
         : base(
               SyntaxKind.UnaryExpression,
               [
-                      operatorToken,
-                      expression
+                      operatorToken ?? throw new ArgumentNullException(nameof(operatorToken)),
+                      expression ?? throw new ArgumentNullException(nameof(expression))
               ],
               diagnostics)
     {

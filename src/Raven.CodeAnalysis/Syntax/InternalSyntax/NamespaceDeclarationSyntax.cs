@@ -14,13 +14,13 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
         : base(
               SyntaxKind.NamespaceDeclaration,
               [
-                    namespaceKeyword,
-                    name,
-                    openBraceToken,
-                    imports,
-                    members,
-                    closeBraceToken,
-                    semicolonToken
+                    namespaceKeyword ?? throw new ArgumentNullException(nameof(namespaceKeyword)),
+                    name ?? throw new ArgumentNullException(nameof(name)),
+                    openBraceToken ?? throw new ArgumentNullException(nameof(openBraceToken)),
+                    imports ?? throw new ArgumentNullException(nameof(imports)),
+                    members ?? throw new ArgumentNullException(nameof(members)),
+                    closeBraceToken ?? throw new ArgumentNullException(nameof(closeBraceToken)),
+                    semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
               ],
               diagnostics)
     {

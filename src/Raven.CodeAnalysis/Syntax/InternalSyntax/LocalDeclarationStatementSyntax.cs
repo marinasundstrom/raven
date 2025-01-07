@@ -9,8 +9,8 @@ internal partial class LocalDeclarationStatementSyntax : StatementSyntax
         : base(
               SyntaxKind.LocalDeclaration,
               [
-                    declaration,
-                    semicolonToken
+                    declaration ?? throw new ArgumentNullException(nameof(declaration)),
+                    semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
               ],
               diagnostics)
     {

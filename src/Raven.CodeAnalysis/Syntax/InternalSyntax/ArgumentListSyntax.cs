@@ -5,14 +5,14 @@ internal partial class ArgumentListSyntax : SyntaxNode
     public ArgumentListSyntax(
         SyntaxToken openParenToken,
         SyntaxList arguments,
-        SyntaxToken closeParentToken,
+        SyntaxToken closeParenToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.ArgumentList,
               [
-                      openParenToken,
-                      arguments,
-                      closeParentToken
+                      openParenToken ?? throw new ArgumentNullException(nameof(openParenToken)),
+                      arguments ?? throw new ArgumentNullException(nameof(arguments)),
+                      closeParenToken ?? throw new ArgumentNullException(nameof(closeParenToken))
               ],
               diagnostics)
     {

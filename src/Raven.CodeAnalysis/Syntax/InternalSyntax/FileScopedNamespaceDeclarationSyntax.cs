@@ -12,11 +12,11 @@ internal partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDecla
         : base(
               SyntaxKind.FileScopedNamespaceDeclaration,
               [
-                    namespaceKeyword,
-                    name,
-                    semicolonToken,
-                    imports,
-                    members
+                    namespaceKeyword ?? throw new ArgumentNullException(nameof(namespaceKeyword)),
+                    name ?? throw new ArgumentNullException(nameof(name)),
+                    semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken)),
+                    imports ?? throw new ArgumentNullException(nameof(imports)),
+                    members ?? throw new ArgumentNullException(nameof(members))
               ],
               diagnostics)
     {

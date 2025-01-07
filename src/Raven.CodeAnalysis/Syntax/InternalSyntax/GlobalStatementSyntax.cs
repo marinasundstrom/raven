@@ -7,7 +7,7 @@ internal partial class GlobalStatementSyntax : MemberDeclarationSyntax
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.GlobalStatement,
               [
-                    statement
+                    statement  ?? throw new ArgumentNullException(nameof(statement))
               ],
               diagnostics)
     {

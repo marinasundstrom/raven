@@ -10,7 +10,7 @@ internal class SyntaxList : GreenNode
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.List, items?.Length ?? 0, diagnostics)
     {
-        _items = items ?? Array.Empty<GreenNode>();
+        _items = items ?? throw new ArgumentNullException(nameof(items));
 
         Width = this.CalculateWidth();
         FullWidth = this.CalculateFullWidth();

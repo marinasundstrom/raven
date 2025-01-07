@@ -164,7 +164,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     {
         var importKeyword = node.ImportKeyword.WithTrailingTrivia(SyntaxFactory.Space);
 
-        var ns = (IdentifierNameSyntax)VisitName(node.Namespace)!;
+        var ns = (IdentifierNameSyntax)VisitType(node.NamespaceOrType)!;
 
         var semicolonToken = node.SemicolonToken
             .WithTrailingTrivia(

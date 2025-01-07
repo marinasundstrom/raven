@@ -6,7 +6,7 @@ internal partial class ArgumentSyntax : SyntaxNode
         ExpressionSyntax expression,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.Argument, [
-            expression
+            expression ?? throw new ArgumentNullException(nameof(expression))
         ],
         diagnostics)
     {

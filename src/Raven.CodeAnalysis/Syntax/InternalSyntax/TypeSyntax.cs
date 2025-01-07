@@ -30,7 +30,11 @@ internal partial class IdentifierNameSyntax : SimpleNameSyntax
 {
     public IdentifierNameSyntax(SyntaxToken nameToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(SyntaxKind.IdentifierName, [nameToken], diagnostics)
+        : base(SyntaxKind.IdentifierName,
+        [
+            nameToken ?? throw new ArgumentNullException(nameof(nameToken))
+        ],
+        diagnostics)
     {
     }
 }
@@ -39,7 +43,12 @@ internal partial class GenericNameSyntax : SimpleNameSyntax
 {
     public GenericNameSyntax(SyntaxToken nameToken, TypeArgumentListSyntax typeArgumentList,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(SyntaxKind.GenericName, [nameToken, typeArgumentList], diagnostics)
+        : base(SyntaxKind.GenericName,
+        [
+            nameToken ?? throw new ArgumentNullException(nameof(nameToken)),
+            typeArgumentList  ?? throw new ArgumentNullException(nameof(typeArgumentList))
+        ],
+     diagnostics)
     {
     }
 }
@@ -48,7 +57,13 @@ internal partial class QualifiedNameSyntax : NameSyntax
 {
     public QualifiedNameSyntax(NameSyntax left, SyntaxToken dotToken, SimpleNameSyntax name,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(SyntaxKind.QualifiedName, [left, dotToken, name], diagnostics)
+        : base(SyntaxKind.QualifiedName,
+        [
+            left ?? throw new ArgumentNullException(nameof(left)),
+            dotToken ?? throw new ArgumentNullException(nameof(dotToken)),
+            name ?? throw new ArgumentNullException(nameof(name))
+        ],
+        diagnostics)
     {
     }
 }
@@ -57,7 +72,13 @@ internal partial class AliasQualifiedNameSyntax : NameSyntax
 {
     public AliasQualifiedNameSyntax(IdentifierNameSyntax alias, SyntaxToken colonColonToken, SimpleNameSyntax name,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(SyntaxKind.AliasQualifiedName, [alias, colonColonToken, name], diagnostics)
+        : base(SyntaxKind.AliasQualifiedName,
+        [
+            alias ?? throw new ArgumentNullException(nameof(alias)),
+            colonColonToken  ?? throw new ArgumentNullException(nameof(colonColonToken)),
+            name  ?? throw new ArgumentNullException(nameof(name))
+        ],
+        diagnostics)
     {
     }
 }

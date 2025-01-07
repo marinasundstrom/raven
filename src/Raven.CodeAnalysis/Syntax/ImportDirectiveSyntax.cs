@@ -4,7 +4,7 @@ public partial class ImportDirectiveSyntax : SyntaxNode
 {
     public partial SyntaxToken ImportKeyword { get; }
 
-    public partial NameSyntax Namespace { get; }
+    public partial TypeSyntax NamespaceOrType { get; }
 
     public partial SyntaxToken SemicolonToken { get; }
 
@@ -13,8 +13,8 @@ public partial class ImportDirectiveSyntax : SyntaxNode
     {
     }
 
-    public ImportDirectiveSyntax(SyntaxToken importKeyword, NameSyntax @namespace, SyntaxToken semicolonToken)
-        : base(new InternalSyntax.ImportDirectiveSyntax(importKeyword.Green, (InternalSyntax.NameSyntax)@namespace.Green, semicolonToken.Green), (SyntaxNode)null)
+    public ImportDirectiveSyntax(SyntaxToken importKeyword, TypeSyntax namespaceOrType, SyntaxToken semicolonToken)
+        : base(new InternalSyntax.ImportDirectiveSyntax(importKeyword.Green, (InternalSyntax.NameSyntax)namespaceOrType.Green, semicolonToken.Green), (SyntaxNode)null)
     {
 
     }
@@ -25,6 +25,6 @@ public static partial class SyntaxFactory
     public static ImportDirectiveSyntax ImportDirective(NameSyntax @namespace)
         => new ImportDirectiveSyntax(ImportKeyword, @namespace, SemicolonToken);
 
-    public static ImportDirectiveSyntax ImportDirective(SyntaxToken importKeyword, NameSyntax @namespace, SyntaxToken semicolonToken)
-        => new ImportDirectiveSyntax(importKeyword, @namespace, semicolonToken);
+    public static ImportDirectiveSyntax ImportDirective(SyntaxToken importKeyword, TypeSyntax namespaceOrType, SyntaxToken semicolonToken)
+        => new ImportDirectiveSyntax(importKeyword, namespaceOrType, semicolonToken);
 }

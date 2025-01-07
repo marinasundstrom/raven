@@ -15,13 +15,13 @@ internal partial class IfStatementSyntax : StatementSyntax
         : base(
               SyntaxKind.IfStatement,
               [
-                ifKeyword,
-                openParenToken,
-                condition,
-                closeParenToken,
-                statement,
-                elseClause,
-                semicolonToken
+                ifKeyword ?? throw new ArgumentNullException(nameof(ifKeyword)),
+                openParenToken ?? throw new ArgumentNullException(nameof(openParenToken)),
+                condition ?? throw new ArgumentNullException(nameof(condition)),
+                closeParenToken ?? throw new ArgumentNullException(nameof(closeParenToken)),
+                statement ?? throw new ArgumentNullException(nameof(statement)),
+                elseClause ?? throw new ArgumentNullException(nameof(elseClause)),
+                semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
               ],
               diagnostics)
     {

@@ -11,9 +11,9 @@ internal partial class BinaryExpressionSyntax : ExpressionSyntax
         : base(
               kind,
               [
-                      leftHandSide,
-                      operatorToken,
-                      rightHandSide
+                      leftHandSide ?? throw new ArgumentNullException(nameof(leftHandSide)),
+                      operatorToken ?? throw new ArgumentNullException(nameof(operatorToken)),
+                      rightHandSide ?? throw new ArgumentNullException(nameof(rightHandSide))
               ],
               diagnostics)
     {

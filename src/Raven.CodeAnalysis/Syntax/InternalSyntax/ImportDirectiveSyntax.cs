@@ -5,15 +5,15 @@ internal partial class ImportDirectiveSyntax : SyntaxNode
 {
     public ImportDirectiveSyntax(
         SyntaxToken importKeyword,
-        NameSyntax @namespace,
+        TypeSyntax namespaceOrType,
         SyntaxToken semicolonToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
             SyntaxKind.ImportDirective,
             [
-                importKeyword,
-                @namespace,
-                semicolonToken
+                importKeyword ?? throw new ArgumentNullException(nameof(importKeyword)),
+                namespaceOrType ?? throw new ArgumentNullException(nameof(namespaceOrType)),
+                semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
             ],
             diagnostics)
     {

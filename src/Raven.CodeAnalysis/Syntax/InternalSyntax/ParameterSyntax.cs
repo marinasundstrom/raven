@@ -8,8 +8,8 @@ internal partial class ParameterSyntax : SyntaxNode
         IEnumerable<DiagnosticInfo>? diagnostics = null
     )
         : base(SyntaxKind.Parameter, [
-            name,
-            typeAnnotation
+            name ?? throw new ArgumentNullException(nameof(name)),
+            typeAnnotation ?? throw new ArgumentNullException(nameof(typeAnnotation))
         ],
         diagnostics)
     {

@@ -9,8 +9,8 @@ internal partial class TypeAnnotationSyntax : StatementSyntax
         : base(
               SyntaxKind.TypeAnnotation,
               [
-                      colonToken,
-                      type
+                      colonToken ?? throw new ArgumentNullException(nameof(colonToken)),
+                      type ?? throw new ArgumentNullException(nameof(type))
               ], diagnostics)
     {
     }

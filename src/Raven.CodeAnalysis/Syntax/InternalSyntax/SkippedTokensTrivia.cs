@@ -5,7 +5,7 @@ internal partial class SkippedTokensTrivia : SyntaxNode
     public SkippedTokensTrivia(SyntaxList tokens,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
     : base(
-        SyntaxKind.SkippedTokensTrivia, [tokens], diagnostics)
+        SyntaxKind.SkippedTokensTrivia, [tokens ?? throw new ArgumentNullException(nameof(tokens))], diagnostics)
     {
 
     }
