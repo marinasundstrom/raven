@@ -53,7 +53,7 @@ public enum Accessibility
 
 public class SyntaxReference
 {
-    private SyntaxNode? _node;
+    private readonly SyntaxNode? _node;
 
     // WORKAROUND: SyntaxReference should not store node
     public SyntaxReference(SyntaxTree syntaxTree, SyntaxNode node)

@@ -17,11 +17,11 @@ internal class CodeGenerator
     private ModuleBuilder moduleBuilder;
     private MethodBuilder entryPoint;
 
-    private IDictionary<ISymbol, TypeBuilder> _typeBuilders = new Dictionary<ISymbol, TypeBuilder>();
-    private IDictionary<ISymbol, MethodBuilder> _methodBuilders = new Dictionary<ISymbol, MethodBuilder>();
-    private IDictionary<ISymbol, LocalBuilder> _localBuilders = new Dictionary<ISymbol, LocalBuilder>();
+    private readonly IDictionary<ISymbol, TypeBuilder> _typeBuilders = new Dictionary<ISymbol, TypeBuilder>();
+    private readonly IDictionary<ISymbol, MethodBuilder> _methodBuilders = new Dictionary<ISymbol, MethodBuilder>();
+    private readonly IDictionary<ISymbol, LocalBuilder> _localBuilders = new Dictionary<ISymbol, LocalBuilder>();
 
-    private Label end;
+    private readonly Label end;
     private readonly Compilation _compilation;
 
     public CodeGenerator(Compilation compilation)

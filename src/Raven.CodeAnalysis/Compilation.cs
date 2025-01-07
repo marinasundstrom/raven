@@ -9,9 +9,9 @@ namespace Raven.CodeAnalysis;
 
 public class Compilation
 {
-    private SyntaxTree[] _syntaxTrees;
-    private MetadataReference[] _references;
-    private List<ISymbol> _symbols = new List<ISymbol>();
+    private readonly SyntaxTree[] _syntaxTrees;
+    private readonly MetadataReference[] _references;
+    private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
@@ -414,7 +414,7 @@ public class Compilation
         return null;
     }
 
-    Dictionary<System.Reflection.TypeInfo, ITypeSymbol> typeSymbolMappings = new();
+    readonly Dictionary<System.Reflection.TypeInfo, ITypeSymbol> typeSymbolMappings = new();
 
     public ITypeSymbol GetType(Type type)
     {

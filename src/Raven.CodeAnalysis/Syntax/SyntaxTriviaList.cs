@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Syntax;
 public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
 {
     public static SyntaxTriviaList Empty = new SyntaxTriviaList([]);
-    private int _position;
+    private readonly int _position;
     internal readonly InternalSyntax.SyntaxTriviaList Green;
     private readonly SyntaxToken _parent;
 

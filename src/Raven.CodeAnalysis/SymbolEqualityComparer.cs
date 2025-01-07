@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis;
 public class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 {
     public static SymbolEqualityComparer Default { get; } = new SymbolEqualityComparer();
-    
+
     public bool Equals(ISymbol? x, ISymbol? y)
     {
         if (x == null || y == null) return x == y;
@@ -23,7 +23,7 @@ public class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         {
             if (!methodX.Parameters.SequenceEqual((IEnumerable<ISymbol>)methodY.Parameters, SymbolEqualityComparer.Default))
                 return false;
-            
+
             for (int i = 0; i < methodX.Parameters.Length; i++)
             {
                 var paramX = methodX.Parameters[i];

@@ -17,7 +17,7 @@ public abstract class LocalizableString
 
 public class LocalizableStringImpl : LocalizableString
 {
-    private string _value;
+    private readonly string _value;
 
     public LocalizableStringImpl(string value)
     {

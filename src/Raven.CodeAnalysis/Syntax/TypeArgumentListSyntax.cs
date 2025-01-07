@@ -1,11 +1,11 @@
 namespace Raven.CodeAnalysis.Syntax;
 
-public partial class TypeArgumentListSyntax: SyntaxNode
+public partial class TypeArgumentListSyntax : SyntaxNode
 {
-    public partial SyntaxToken GreaterThanToken { get; }    
+    public partial SyntaxToken GreaterThanToken { get; }
     public partial SeparatedSyntaxList<TypeArgumentSyntax> Arguments { get; }
     public partial SyntaxToken LessThanToken { get; }
-    
+
     public int Count => Arguments.Count;
 
     internal TypeArgumentListSyntax(

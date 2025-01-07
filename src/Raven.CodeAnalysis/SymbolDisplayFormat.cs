@@ -9,14 +9,14 @@ public class SymbolDisplayFormat
         MemberOptions = SymbolDisplayMemberOptions.IncludeContainingType,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.EscapeIdentifiers
     };
-    
+
     public static SymbolDisplayFormat CSharpShortErrorMessageFormat { get; } = new SymbolDisplayFormat
     {
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
         GenericsOptions = SymbolDisplayGenericsOptions.None,
         MemberOptions = SymbolDisplayMemberOptions.None
     };
-    
+
     public static SymbolDisplayFormat FullyQualifiedFormat { get; } = new SymbolDisplayFormat
     {
         DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
@@ -30,7 +30,7 @@ public class SymbolDisplayFormat
         PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
     };
-    
+
     /*
      * new SymbolDisplayFormat
        {
@@ -39,34 +39,34 @@ public class SymbolDisplayFormat
            GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Included
        };
      */
-    
+
     public static SymbolDisplayFormat MinimallyQualifiedFormat { get; } = new SymbolDisplayFormat
     {
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
         GenericsOptions = SymbolDisplayGenericsOptions.None,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes
     };
-    
+
     public SymbolDisplayDelegateStyle DelegateStyle { get; private set; }
-    
+
     public SymbolDisplayExtensionMethodStyle ExtensionMethodStyle { get; private set; }
-    
+
     public SymbolDisplayGenericsOptions GenericsOptions { get; private set; }
-    
+
     public SymbolDisplayGlobalNamespaceStyle GlobalNamespaceStyle { get; private set; }
 
     public SymbolDisplayKindOptions KindOptions { get; private set; }
-    
+
     public SymbolDisplayLocalOptions LocalOptions { get; private set; }
-    
+
     public SymbolDisplayMemberOptions MemberOptions { get; private set; }
-    
+
     public SymbolDisplayMiscellaneousOptions MiscellaneousOptions { get; private set; }
-    
+
     public SymbolDisplayParameterOptions ParameterOptions { get; private set; }
-    
+
     public SymbolDisplayPropertyStyle PropertyStyle { get; private set; }
-    
+
     public SymbolDisplayTypeQualificationStyle TypeQualificationStyle { get; private set; }
 }
 

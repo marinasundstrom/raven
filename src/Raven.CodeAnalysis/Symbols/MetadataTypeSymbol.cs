@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbol
 {
     private readonly System.Reflection.TypeInfo _typeInfo;
-    private List<ISymbol> _members = new List<ISymbol>();
+    private readonly List<ISymbol> _members = new List<ISymbol>();
 
     public MetadataTypeSymbol(Compilation compilation, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(compilation, containingSymbol, containingType, containingNamespace, locations)

@@ -9,7 +9,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 {
     internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;
-    private int _position;
+    private readonly int _position;
 
     public SeparatedSyntaxList()
     {

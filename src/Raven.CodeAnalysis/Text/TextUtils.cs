@@ -14,7 +14,7 @@ public static class TextUtils
         }
         return lineStarts;
     }
-    
+
     public static (int line, int column) GetLineAndColumn(List<int> lineStarts, int position)
     {
         int line = lineStarts.BinarySearch(position);

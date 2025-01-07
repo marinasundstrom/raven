@@ -8,7 +8,7 @@ public class ParseOptions
     {
 
     }
-    
+
     public ParseOptions(bool documentationMode, ImmutableArray<Diagnostic> errors, IReadOnlyDictionary<string, string> features, SourceCodeKind kind, IEnumerable<string> preprocessorSymbolNames)
     {
         DocumentationMode = documentationMode;
@@ -19,13 +19,13 @@ public class ParseOptions
     }
 
     public bool DocumentationMode { get; set; }
-    
+
     public ImmutableArray<Diagnostic> Errors { get; }
-    
+
     public IReadOnlyDictionary<string, string> Features { get; set; }
-    
+
     public SourceCodeKind Kind { get; set; }
-    
+
     public IEnumerable<string> PreprocessorSymbolNames { get; set; }
 }
 
