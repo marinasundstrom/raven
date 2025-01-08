@@ -107,6 +107,18 @@ internal abstract class Symbol : ISymbol
 
         var result = new StringBuilder();
 
+        if (this is ILocalSymbol localSymbol)
+        {
+            if (format.LocalOptions == SymbolDisplayLocalOptions.IncludeType)
+            {
+                var localType = localSymbol.Type.ToDisplayString(format);
+                result.Append($"{localType} ");
+            }
+
+            result.Append(localSymbol.Name);
+            return result.ToString();
+        }
+
         // Example: Include namespace and type qualification
         if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
         {
@@ -259,7 +271,7 @@ internal abstract class Symbol : ISymbol
         return string.Join(".", types);
     }
 
-    private string GetDebuggerDisplay() => ToDisplayString();
+    private string GetDebuggerDisplay() => ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
     public override string ToString()
     {

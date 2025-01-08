@@ -1,3 +1,4 @@
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;

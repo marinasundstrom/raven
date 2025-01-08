@@ -100,8 +100,7 @@ public class SemanticModel
 
                 if (typeExpr is not null)
                 {
-                    propertyType = ResolveType(typeExpr);
-                    Bind(typeExpr!, propertyType);
+                    propertyType = (ResolveType(typeExpr) as ITypeSymbol)!;
                 }
                 else
                 {
@@ -169,10 +168,60 @@ public class SemanticModel
         }
     }
 
-    private ITypeSymbol? ResolveType(TypeSyntax? typeExpr)
+    private ISymbol? ResolveType(TypeSyntax typeExpr)
     {
-        var typeName = typeExpr.ToString();
-        return Compilation.GetTypeByMetadataName(typeName);
+        ISymbol? innerSymbol = null;
+
+        if (typeExpr is QualifiedNameSyntax qualifiedName)
+        {
+            // Resolve the left part of the qualified name
+            innerSymbol = ResolveType(qualifiedName.Left);
+
+            if (innerSymbol is INamespaceOrTypeSymbol containerSymbol)
+            {
+                var rightName = qualifiedName.Right.Identifier.ValueText;
+
+                // Check if the right name exists in the inner symbol's members
+                var memberSymbol = containerSymbol.GetMembers(rightName).FirstOrDefault();
+                if (memberSymbol != null)
+                {
+                    Bind(qualifiedName, memberSymbol);
+                    return memberSymbol;
+                }
+            }
+
+            return null; // Unable to resolve
+        }
+
+        if (typeExpr is IdentifierNameSyntax identifierName)
+        {
+            // Check global namespace and imports for the symbol
+            var name = identifierName.Identifier.ValueText;
+
+            // Look in the global namespace
+            var globalSymbol = Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
+            if (globalSymbol != null)
+            {
+                Bind(typeExpr, globalSymbol);
+                return globalSymbol;
+            }
+
+            // Look in imports (_imports is assumed to be a collection of namespaces)
+            foreach (var (syntax, import) in _imports)
+            {
+                var importedSymbol = import.GetMembers(name).FirstOrDefault();
+                if (importedSymbol != null)
+                {
+                    Bind(typeExpr, importedSymbol);
+                    return importedSymbol;
+                }
+            }
+
+            return null; // Symbol not found
+        }
+
+        // Handle other TypeSyntax cases as needed
+        return null;
     }
 
     private void AnalyzeExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, out ImmutableArray<ISymbol> symbols)

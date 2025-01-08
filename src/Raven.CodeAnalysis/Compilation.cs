@@ -236,8 +236,6 @@ public class Compilation
 
             SyntaxReference[] references = [new SyntaxReference(syntaxTree, namespaceDeclarationSyntax.Span)];
 
-            ITypeSymbol typeSymbol = null!;
-
             var symbol = new NamespaceSymbol(
                 namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, null!, (INamespaceSymbol?)declaringSymbol,
                 locations, references);
