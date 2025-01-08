@@ -143,6 +143,6 @@ public class TokenizerTest
     private static Tokenizer GetTokenizer(string str)
     {
         StringReader stringReader = new StringReader(str);
-        return new Tokenizer(stringReader, new List<DiagnosticInfo>());
+        return new Tokenizer(stringReader);
     }
 }

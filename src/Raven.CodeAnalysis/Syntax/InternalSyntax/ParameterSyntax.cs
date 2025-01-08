@@ -9,7 +9,7 @@ internal partial class ParameterSyntax : SyntaxNode
     )
         : base(SyntaxKind.Parameter, [
             name ?? throw new ArgumentNullException(nameof(name)),
-            typeAnnotation ?? throw new ArgumentNullException(nameof(typeAnnotation))
+            typeAnnotation
         ],
         diagnostics)
     {

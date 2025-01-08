@@ -4,14 +4,14 @@ internal partial class ReturnStatementSyntax : StatementSyntax
 {
     public ReturnStatementSyntax(
         SyntaxToken returnKeyword,
-        ExpressionSyntax expression,
+        ExpressionSyntax? expression,
         SyntaxToken semicolonToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.ReturnStatement,
               [
                       returnKeyword ?? throw new ArgumentNullException(nameof(returnKeyword)),
-                      expression ?? throw new ArgumentNullException(nameof(expression)),
+                      expression,
                       semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
               ],
               diagnostics)
