@@ -107,6 +107,21 @@ public class SemanticModel
                     else
                     {
                         propertyType = (ResolveType(typeExpr) as ITypeSymbol)!;
+
+                        if (propertyType is null)
+                        {
+                            propertyType = new ErrorTypeSymbol(typeExpr.ToString(), declaringSymbol, [typeExpr.GetLocation()], [new SyntaxReference(SyntaxTree, typeExpr.Span)]); // Unable to resolve
+
+                            Bind(typeExpr, propertyType);
+
+                            // TODO: Centralize
+                            Diagnostics.Add(
+                                Diagnostic.Create(
+                                    CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
+                                    typeExpr.GetLocation(),
+                                    [typeExpr.ToString()]
+                                ));
+                        }
                     }
                 }
                 else
@@ -325,6 +340,12 @@ public class SemanticModel
                 AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
 
                 var typeSymbol = argSymbols.First().UnwrapType();
+
+                if (typeSymbol is IErrorTypeSymbol)
+                {
+                    symbols = [];
+                    return;
+                }
 
                 if (typeSymbol.SpecialType == SpecialType.System_Void)
                 {
@@ -615,6 +636,38 @@ public class SemanticModel
             .OfType<ITypeSymbol>()
             .FirstOrDefault(x => x.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == typeName);
     }
+}
+
+internal class ErrorTypeSymbol : Symbol, IErrorTypeSymbol
+{
+    public ErrorTypeSymbol(string name, ISymbol containingSymbol, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+        : base(SymbolKind.ErrorType, name, containingSymbol, null, null, locations, declaringSyntaxReferences)
+    {
+    }
+
+    public ImmutableArray<IMethodSymbol> Constructors => [];
+
+    public IMethodSymbol? StaticConstructor => null;
+
+    public ImmutableArray<ITypeSymbol> TypeArguments => [];
+
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
+
+    public SpecialType SpecialType => SpecialType.None;
+
+    public bool IsValueType => false;
+
+    public bool IsNamespace => false;
+
+    public bool IsType => false;
+
+    public ImmutableArray<ISymbol> GetMembers() => [];
+
+    public ImmutableArray<ISymbol> GetMembers(string name) => [];
+}
+
+internal interface IErrorTypeSymbol : INamedTypeSymbol
+{
 }
 
 public class TypeInfo

@@ -12,7 +12,8 @@ public enum SymbolKind
     Parameter,
     Local,
     Property,
-    Field
+    Field,
+    ErrorType
 }
 
 public interface ISymbol : IEquatable<ISymbol?>
