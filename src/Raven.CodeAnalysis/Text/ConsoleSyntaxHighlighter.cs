@@ -35,9 +35,9 @@ public class ColorScheme
     };
 }
 
-public static class SyntaxConsoleHighlighter
+public static class ConsoleSyntaxHighlighter
 {
-    public static ColorScheme ColorScheme { get; } = ColorScheme.Dark;
+    public static ColorScheme ColorScheme { get; set; } = ColorScheme.Dark;
 
     public static Compilation Compilation { get; private set; }
     public static SemanticModel SemanticModel { get; private set; }
