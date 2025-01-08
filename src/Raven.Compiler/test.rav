@@ -3,9 +3,11 @@ import System;
 Console.WriteLine("Input: ");
 
 let str = Console.ReadLine();
-let value : Boolean = bool.Parse(str);
+let value : bool = bool.Parse(str);
+
+let x : String = "Test";
 
 if (value) {
     Console.WriteLine("Hello" + ", World!");
 } else
-    Console.WriteLine("boo");
+    Console.WriteLine(x);

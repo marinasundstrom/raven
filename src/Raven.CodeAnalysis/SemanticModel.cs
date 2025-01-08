@@ -100,7 +100,14 @@ public class SemanticModel
 
                 if (typeExpr is not null)
                 {
-                    propertyType = (ResolveType(typeExpr) as ITypeSymbol)!;
+                    if (typeExpr is PredefinedTypeSyntax pdt)
+                    {
+                        propertyType = _keywordTypeSymbols[pdt.Keyword.ToString()];
+                    }
+                    else
+                    {
+                        propertyType = (ResolveType(typeExpr) as ITypeSymbol)!;
+                    }
                 }
                 else
                 {

@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax;
 
-public partial class PredefinedTypeSyntax : ExpressionSyntax
+public partial class PredefinedTypeSyntax : TypeSyntax
 {
     public partial SyntaxToken Keyword { get; }
 

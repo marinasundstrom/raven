@@ -167,11 +167,47 @@ internal class LanguageParser
     private NameSyntax ParseName()
     {
         NameSyntax left = ParseSimpleName();
+
         while (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
         {
             left = QualifiedName(left, dotToken, ParseSimpleName());
         }
+
         return left;
+    }
+
+    private TypeSyntax ParseTypeName()
+    {
+        var peek = PeekToken();
+        if (IsPredefinedTypeKeyword(peek))
+        {
+            ReadToken();
+
+            return PredefinedType(peek);
+        }
+
+        NameSyntax left = ParseSimpleName();
+
+        while (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
+        {
+            left = QualifiedName(left, dotToken, ParseSimpleName());
+        }
+
+        return left;
+    }
+
+    private bool IsPredefinedTypeKeyword(SyntaxToken token)
+    {
+        switch (token.Kind)
+        {
+            case SyntaxKind.StringKeyword:
+            case SyntaxKind.BoolKeyword:
+            case SyntaxKind.CharKeyword:
+            case SyntaxKind.IntKeyword:
+                return true;
+        }
+
+        return false;
     }
 
     internal StatementSyntax? ParseStatement(SourceText sourceText, int offset = 0, bool consumeFullText = true)
@@ -356,7 +392,7 @@ internal class LanguageParser
     {
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {
-            TypeSyntax type = ParseName();
+            TypeSyntax type = ParseTypeName();
 
             return TypeAnnotation(colonToken, type);
         }
