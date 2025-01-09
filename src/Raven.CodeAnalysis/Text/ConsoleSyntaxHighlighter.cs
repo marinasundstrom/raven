@@ -85,11 +85,7 @@ public static class ConsoleSyntaxHighlighter
 
     private static void WriteNode(SyntaxNode node, StringBuilder builder)
     {
-        if (node is NameSyntax name)
-        {
-            WriteNameSyntax(name, builder);
-        }
-        else if (node is PredefinedTypeSyntax ptype)
+        if (node is PredefinedTypeSyntax ptype)
         {
             string? t = ptype.ToFullString();
             t = Colorize(t, ColorScheme.Keyword);
@@ -177,6 +173,10 @@ public static class ConsoleSyntaxHighlighter
         else if (name is QualifiedNameSyntax qname)
         {
             WriteNameSyntax(qname.Left, builder);
+
+            string? t = qname.DotToken.ToFullString();
+            t = Colorize(t, ColorScheme.Default);
+            builder.Append(t);
 
             WriteNameSyntax(qname.Right, builder);
         }
