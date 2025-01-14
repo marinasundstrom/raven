@@ -38,7 +38,7 @@ using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
     result.Print();
 }
 
-CreateAppHost(compilation);
+//CreateAppHost(compilation);
 
 ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
 

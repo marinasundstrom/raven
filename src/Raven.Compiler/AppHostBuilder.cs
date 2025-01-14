@@ -14,10 +14,12 @@ static class AppHostBuilder
             string? hostPath = null;
             string? hostBuilder = null;
 
+            // TODO: Construct the appropriate path from target SDK.
+
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 hostPath = @"/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-arm64/9.0.0/runtimes/osx-arm64/native/apphost";
-                hostBuilder = @"/usr/local/share/dotnet/sdk/9.0.100/Microsoft.NET.HostModel.dll";
+                hostBuilder = @"/usr/local/share/dotnet/sdk/9.0.101/Microsoft.NET.HostModel.dll";
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
