@@ -1,4 +1,4 @@
-# Identation
+# Proposal: Identation
 
 This is an important decision to make:
 
