@@ -1,4 +1,4 @@
-# Proposal: Identation
+# Proposal: Indentation
 
 This is an important decision to make:
 
