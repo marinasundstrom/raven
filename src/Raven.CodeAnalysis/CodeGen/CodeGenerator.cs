@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
@@ -222,6 +223,22 @@ internal class CodeGenerator
         else if (statement is ExpressionStatementSyntax expressionStatement)
         {
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement.Expression);
+
+            var symbol = _compilation
+                            .GetSemanticModel(expressionStatement.SyntaxTree)
+                            .GetSymbolInfo(expressionStatement.Expression).Symbol;
+
+            if (expressionStatement.Expression is InvocationExpressionSyntax invocationExpression)
+            {
+                symbol = ((IMethodSymbol)symbol).ReturnType;
+            }
+
+            if (symbol?.UnwrapType()?.SpecialType != SpecialType.System_Void)
+            {
+                // The value is not used, pop it from the stack.
+
+                iLGenerator.Emit(OpCodes.Pop);
+            }
         }
         else if (statement is LocalDeclarationStatementSyntax localDeclarationStatement)
         {
@@ -346,9 +363,46 @@ internal class CodeGenerator
                 .GetSemanticModel(invocationExpression.SyntaxTree)
                 .GetSymbolInfo(invocationExpression).Symbol as MetadataMethodSymbol;
 
-            if (!target.GetMethodInfo().IsStatic /* target.IsStatic */)
+            if (!target?.IsStatic ?? false)
             {
-                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, invocationExpression.Expression);
+                // Instance member invocation
+
+                var expr = invocationExpression.Expression;
+                if (invocationExpression.Expression is MemberAccessExpressionSyntax e)
+                {
+                    // Get the target Expression. Ignores the Name, which is the method.
+                    expr = e.Expression;
+                }
+
+                var localSymbol = _compilation
+                    .GetSemanticModel(expr.SyntaxTree)
+                    .GetSymbolInfo(expr).Symbol as ILocalSymbol;
+
+                if (localSymbol is not null)
+                {
+                    // A local
+
+                    var localBuilder = _localBuilders[localSymbol];
+
+                    if (localSymbol.Type.IsValueType)
+                    {
+                        // Loading the address of the value to the instance.
+
+                        iLGenerator.Emit(OpCodes.Ldloca, localBuilder);
+                    }
+                    else
+                    {
+                        // Since it's a reference type, the address is stored in the local.
+
+                        iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                    }
+                }
+                else
+                {
+                    // It's an expression.
+
+                    GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expr);
+                }
             }
 
             iLGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
@@ -368,7 +422,12 @@ internal class CodeGenerator
         }
         else if (expression is LiteralExpressionSyntax literalExpression)
         {
-            if (literalExpression.Kind == SyntaxKind.StringLiteralExpression)
+            if (literalExpression.Kind == SyntaxKind.NumericLiteralExpression)
+            {
+                var v = literalExpression.Token.ValueText;
+                iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(v));
+            }
+            else if (literalExpression.Kind == SyntaxKind.StringLiteralExpression)
             {
                 var v = literalExpression.Token.ValueText;
                 iLGenerator.Emit(OpCodes.Ldstr, v.Substring(1, v.Length - 2));

@@ -202,6 +202,11 @@ public partial class SemanticModel
                 {
                     resolvedSymbols.AddRange(typeSymbol.GetMembers(name));
                 }
+                else if (baseSymbol is ILocalSymbol localSymbol)
+                {
+                    var localType = localSymbol.Type;
+                    resolvedSymbols.AddRange(localType.GetMembers(name));
+                }
             }
 
             if (!resolvedSymbols.Any())
@@ -363,7 +368,13 @@ public partial class SemanticModel
         }
         else if (expression is LiteralExpressionSyntax literalExpression)
         {
-            if (literalExpression.Kind == SyntaxKind.StringLiteralExpression)
+            if (literalExpression.Kind == SyntaxKind.NumericLiteralExpression)
+            {
+                var symbol = Compilation.GetTypeByMetadataName("System.Int32")!;
+                symbols = [symbol];
+                Bind(literalExpression, symbol);
+            }
+            else if (literalExpression.Kind == SyntaxKind.StringLiteralExpression)
             {
                 var symbol = Compilation.GetTypeByMetadataName("System.String")!;
                 symbols = [symbol];

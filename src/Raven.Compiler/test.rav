@@ -6,8 +6,9 @@ let str = Console.ReadLine();
 let value : bool = bool.Parse(str);
 
 let x : String = "Test";
+let y = 42;
 
 if (value) {
     Console.WriteLine("Hello" + ", World!");
 } else
-    Console.WriteLine(x);
+    Console.WriteLine(y.ToString() + " X");

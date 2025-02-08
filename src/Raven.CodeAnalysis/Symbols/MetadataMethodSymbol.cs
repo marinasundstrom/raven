@@ -51,5 +51,7 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
         }
     }
 
+    public bool IsStatic => _methodInfo.IsStatic;
+
     public MethodInfo GetMethodInfo() => _methodInfo;
 }
