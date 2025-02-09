@@ -11,118 +11,137 @@ public partial class SemanticModel
 {
     private void AnalyzeStatement(ISymbol declaringSymbol, StatementSyntax statement)
     {
-        if (statement is LocalDeclarationStatementSyntax localDeclarationStatement)
+        switch (statement)
         {
-            foreach (var declarator in localDeclarationStatement.Declaration.Declarators)
+            case LocalDeclarationStatementSyntax localDeclarationStatement:
+                AnalyzeDeclarationStatement(declaringSymbol, localDeclarationStatement);
+                break;
+
+            case BlockSyntax block:
+                AnalyzeBlock(declaringSymbol, block);
+                break;
+
+            case IfStatementSyntax ifStatement:
+                AnalyzeIfStatement(declaringSymbol, ifStatement);
+                break;
+
+            case ReturnStatementSyntax returnStatement:
+                AnalyzeReturnStatement(declaringSymbol, returnStatement);
+                break;
+
+            case ExpressionStatementSyntax expressionStatement:
+                AnalyzeExpression(declaringSymbol, declaringSymbol, expressionStatement.Expression, out var s);
+                break;
+        }
+    }
+
+    private void AnalyzeDeclarationStatement(ISymbol declaringSymbol, LocalDeclarationStatementSyntax localDeclarationStatement)
+    {
+        foreach (var declarator in localDeclarationStatement.Declaration.Declarators)
+        {
+            Location[] locations = [SyntaxTree.GetLocation(declarator.Span)];
+
+            SyntaxReference[] references = [new SyntaxReference(SyntaxTree, declarator.Span)];
+            var typeExpr = declarator?.TypeAnnotation?.Type;
+
+            ImmutableArray<ISymbol> expSymbols = [];
+
+            if (declarator?.Initializer?.Value is not null)
             {
-                Location[] locations = [SyntaxTree.GetLocation(declarator.Span)];
+                AnalyzeExpression(declaringSymbol, declaringSymbol, declarator.Initializer.Value, out expSymbols);
 
-                SyntaxReference[] references = [new SyntaxReference(SyntaxTree, declarator.Span)];
+                if (!expSymbols.Any())
+                    return;
+            }
 
-                ITypeSymbol propertyType = null;
-
-                var typeExpr = declarator?.TypeAnnotation?.Type;
-
-                ImmutableArray<ISymbol> expSymbols = [];
-
-                if (declarator?.Initializer?.Value is not null)
+            ITypeSymbol? propertyType;
+            if (typeExpr is not null)
+            {
+                if (typeExpr is PredefinedTypeSyntax pdt)
                 {
-                    AnalyzeExpression(declaringSymbol, declaringSymbol, declarator.Initializer.Value, out expSymbols);
-
-                    if (!expSymbols.Any())
-                        return;
-
-                }
-
-                if (typeExpr is not null)
-                {
-                    if (typeExpr is PredefinedTypeSyntax pdt)
-                    {
-                        propertyType = _keywordTypeSymbols[pdt.Keyword.ToString()];
-                    }
-                    else
-                    {
-                        propertyType = (ResolveType(typeExpr) as ITypeSymbol)!;
-
-                        if (propertyType is null)
-                        {
-                            propertyType = new ErrorTypeSymbol(typeExpr.ToString(), declaringSymbol, [typeExpr.GetLocation()], [new SyntaxReference(SyntaxTree, typeExpr.Span)]); // Unable to resolve
-
-                            Bind(typeExpr, propertyType);
-
-                            // TODO: Centralize
-                            Diagnostics.Add(
-                                Diagnostic.Create(
-                                    CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
-                                    typeExpr.GetLocation(),
-                                    [typeExpr.ToString()]
-                                ));
-                        }
-                    }
+                    propertyType = _keywordTypeSymbols[pdt.Keyword.ToString()];
                 }
                 else
                 {
-                    propertyType = expSymbols.FirstOrDefault() as ITypeSymbol;
-                }
+                    propertyType = (ResolveType(typeExpr) as ITypeSymbol)!;
 
-                if (declarator?.Initializer?.Value is not null)
-                {
-                    if (declarator.TypeAnnotation is null)
+                    if (propertyType is null)
                     {
-                        var typeSymbol = expSymbols.First().UnwrapType();
+                        propertyType = new ErrorTypeSymbol(typeExpr.ToString(), declaringSymbol, [typeExpr.GetLocation()], [new SyntaxReference(SyntaxTree, typeExpr.Span)]); // Unable to resolve
 
-                        if (typeSymbol.SpecialType == SpecialType.System_Void)
-                        {
-                            // TODO: Centralize
-                            Diagnostics.Add(
-                                Diagnostic.Create(
-                                    CompilerDiagnostics.CannotAssignVoidToAnImplicitlyTypedVariable,
-                                    declarator.Initializer.Value.GetLocation()
-                                ));
-                        }
-                        else
-                        {
-                            var z = Compilation.ClassifyConversion(typeSymbol, propertyType);
-                        }
+                        Bind(typeExpr, propertyType);
+
+                        // TODO: Centralize
+                        Diagnostics.Add(
+                            Diagnostic.Create(
+                                CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
+                                typeExpr.GetLocation(),
+                                [typeExpr.ToString()]
+                            ));
                     }
                 }
-
-                var symbol = new SourceLocalSymbol(
-                    declarator.Name.Identifier.Text.ToString(), propertyType, declaringSymbol!, declaringSymbol.ContainingType, declaringSymbol.ContainingNamespace,
-                    locations, references);
-
-                Bind(declarator, symbol);
-                _localSymbols.Add(symbol);
             }
-        }
-        else if (statement is BlockSyntax block)
-        {
-            foreach (var s in block.Statements)
+            else
             {
-                AnalyzeStatement(declaringSymbol, s);
+                propertyType = expSymbols.FirstOrDefault() as ITypeSymbol;
             }
-        }
-        else if (statement is IfStatementSyntax ifStatement)
-        {
-            AnalyzeExpression(declaringSymbol, declaringSymbol, ifStatement.Condition, out var s);
 
-            AnalyzeStatement(declaringSymbol, ifStatement.Statement);
+            if (declarator?.Initializer?.Value is not null)
+            {
+                if (declarator.TypeAnnotation is null)
+                {
+                    var typeSymbol = expSymbols.First().UnwrapType();
 
-            if (ifStatement.ElseClause is not null)
-            {
-                AnalyzeStatement(declaringSymbol, ifStatement.ElseClause.Statement);
+                    if (typeSymbol.SpecialType == SpecialType.System_Void)
+                    {
+                        // TODO: Centralize
+                        Diagnostics.Add(
+                            Diagnostic.Create(
+                                CompilerDiagnostics.CannotAssignVoidToAnImplicitlyTypedVariable,
+                                declarator.Initializer.Value.GetLocation()
+                            ));
+                    }
+                    else
+                    {
+                        var z = Compilation.ClassifyConversion(typeSymbol, propertyType);
+                    }
+                }
             }
+
+            var symbol = new SourceLocalSymbol(
+                declarator.Name.Identifier.Text.ToString(), propertyType, declaringSymbol!, declaringSymbol.ContainingType, declaringSymbol.ContainingNamespace,
+                locations, references);
+
+            Bind(declarator, symbol);
+            _localSymbols.Add(symbol);
         }
-        else if (statement is ReturnStatementSyntax returnStatement)
+    }
+
+    private void AnalyzeBlock(ISymbol declaringSymbol, BlockSyntax block)
+    {
+        foreach (var s in block.Statements)
         {
-            if (returnStatement.Expression is not null)
-            {
-                AnalyzeExpression(declaringSymbol, declaringSymbol, returnStatement.Expression, out var s);
-            }
+            AnalyzeStatement(declaringSymbol, s);
         }
-        else if (statement is ExpressionStatementSyntax expressionStatement)
+    }
+
+    private void AnalyzeIfStatement(ISymbol declaringSymbol, IfStatementSyntax ifStatement)
+    {
+        AnalyzeExpression(declaringSymbol, declaringSymbol, ifStatement.Condition, out var s);
+
+        AnalyzeStatement(declaringSymbol, ifStatement.Statement);
+
+        if (ifStatement.ElseClause is not null)
         {
-            AnalyzeExpression(declaringSymbol, declaringSymbol, expressionStatement.Expression, out var s);
+            AnalyzeStatement(declaringSymbol, ifStatement.ElseClause.Statement);
+        }
+    }
+
+    private void AnalyzeReturnStatement(ISymbol declaringSymbol, ReturnStatementSyntax returnStatement)
+    {
+        if (returnStatement.Expression is not null)
+        {
+            AnalyzeExpression(declaringSymbol, declaringSymbol, returnStatement.Expression, out var s);
         }
     }
 
@@ -184,254 +203,304 @@ public partial class SemanticModel
 
     private void AnalyzeExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, out ImmutableArray<ISymbol> symbols)
     {
-        if (expression is MemberAccessExpressionSyntax memberAccessExpression)
+        switch (expression)
         {
-            AnalyzeExpression(declaringSymbol, containingSymbol, memberAccessExpression.Expression, out var baseSymbols);
+            case MemberAccessExpressionSyntax memberAccessExpression:
+                symbols = AnalyzeMemberAccessExpression(declaringSymbol, containingSymbol, expression, memberAccessExpression);
+                break;
 
-            var name = memberAccessExpression.Name.Identifier.Text;
+            case InvocationExpressionSyntax invocationExpression:
+                symbols = AnalyzeInvocationExpression(declaringSymbol, containingSymbol, expression, invocationExpression);
+                break;
 
-            var resolvedSymbols = ImmutableArray.CreateBuilder<ISymbol>();
+            case PredefinedTypeSyntax predefinedTypeSyntax:
+                symbols = AnalyzePredefinedType(predefinedTypeSyntax);
+                break;
 
-            foreach (var baseSymbol in baseSymbols)
+            case IdentifierNameSyntax name:
+                symbols = AnalyzeIdentifierName(declaringSymbol, containingSymbol, expression, name);
+                break;
+
+            case LiteralExpressionSyntax literalExpression:
+                symbols = AnalyzeLiteralExpression(literalExpression);
+                break;
+
+            case BinaryExpressionSyntax binaryExpression:
+                symbols = AnalyzeBinaryExpression(declaringSymbol, containingSymbol, binaryExpression);
+                break;
+
+            default:
+                symbols = ImmutableArray<ISymbol>.Empty;
+                break;
+        }
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeMemberAccessExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, MemberAccessExpressionSyntax memberAccessExpression)
+    {
+        AnalyzeExpression(declaringSymbol, containingSymbol, memberAccessExpression.Expression, out var baseSymbols);
+
+        var name = memberAccessExpression.Name.Identifier.Text;
+
+        var resolvedSymbols = ImmutableArray.CreateBuilder<ISymbol>();
+
+        foreach (var baseSymbol in baseSymbols)
+        {
+            switch (baseSymbol)
             {
-                if (baseSymbol is INamespaceSymbol namespaceSymbol)
-                {
+                case INamespaceSymbol namespaceSymbol:
                     resolvedSymbols.AddRange(namespaceSymbol.GetMembers(name));
-                }
-                else if (baseSymbol is ITypeSymbol typeSymbol)
-                {
+                    break;
+
+                case ITypeSymbol typeSymbol:
                     resolvedSymbols.AddRange(typeSymbol.GetMembers(name));
-                }
-                else if (baseSymbol is ILocalSymbol localSymbol)
-                {
-                    var localType = localSymbol.Type;
-                    resolvedSymbols.AddRange(localType.GetMembers(name));
-                }
+                    break;
+
+                case ILocalSymbol localSymbol:
+                    {
+                        var localType = localSymbol.Type;
+                        resolvedSymbols.AddRange(localType.GetMembers(name));
+                        break;
+                    }
             }
-
-            if (!resolvedSymbols.Any())
-            {
-                Bind(expression, CandidateReason.NotATypeOrNamespace, []);
-
-                var baseSymbol = baseSymbols.FirstOrDefault();
-
-                if (baseSymbol is INamespaceSymbol namespaceSymbol)
-                {
-                    // TODO: Centralize
-                    Diagnostics.Add(
-                        Diagnostic.Create(
-                            CompilerDiagnostics.TypeOrNamespaceNameDoesNotExistInTheNamespace,
-                            memberAccessExpression.Name.Identifier.GetLocation(),
-                            [name, baseSymbols.First().ToDisplayString()]
-                        ));
-                }
-                else if (baseSymbol is ITypeSymbol typeSymbol)
-                {
-                    // TODO: Centralize
-                    Diagnostics.Add(
-                        Diagnostic.Create(
-                            CompilerDiagnostics.MemberDoesNotContainDefinition,
-                            memberAccessExpression.Name.Identifier.GetLocation(),
-                            [name, baseSymbols.First().ToDisplayString()]
-                        ));
-                }
-
-                symbols = resolvedSymbols.ToImmutable();
-                return;
-            }
-
-            symbols = resolvedSymbols.ToImmutable();
-            Bind(expression, symbols.First());
         }
-        else if (expression is InvocationExpressionSyntax invocationExpression)
+
+        if (!resolvedSymbols.Any())
         {
-            // Analyze the base expression to get potential methods or delegates
-            AnalyzeExpression(declaringSymbol, containingSymbol, invocationExpression.Expression, out var baseSymbols);
+            Bind(expression, CandidateReason.NotATypeOrNamespace, []);
 
-            if (!baseSymbols.Any())
-            {
-                symbols = ImmutableArray<ISymbol>.Empty;
-                return;
-            }
+            var baseSymbol = baseSymbols.FirstOrDefault();
 
-            // Ensure we are invoking a method or delegate
-            var candidateMethods = baseSymbols.OfType<IMethodSymbol>().ToList();
-            if (!candidateMethods.Any())
+            if (baseSymbol is INamespaceSymbol namespaceSymbol)
             {
                 // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
-                        CompilerDiagnostics.MethodNameExpected,
-                        invocationExpression.Expression.GetLocation()
+                        CompilerDiagnostics.TypeOrNamespaceNameDoesNotExistInTheNamespace,
+                        memberAccessExpression.Name.Identifier.GetLocation(),
+                        [name, baseSymbols.First().ToDisplayString()]
                     ));
-
-                symbols = ImmutableArray<ISymbol>.Empty;
-                return;
             }
-
-            var count = invocationExpression.ArgumentList.Arguments.Count;
-
-            var method = candidateMethods.First(x => x.Parameters.Length == count) as IMethodSymbol;
-
-            // Collect argument types
-            var argumentTypes = new List<ITypeSymbol>();
-            int i = 0;
-            foreach (var argument in invocationExpression.ArgumentList.Arguments)
-            {
-                AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
-
-                var typeSymbol = argSymbols.First().UnwrapType();
-
-                if (typeSymbol is IErrorTypeSymbol)
-                {
-                    symbols = [];
-                    return;
-                }
-
-                if (typeSymbol.SpecialType == SpecialType.System_Void)
-                {
-                    var param = method.Parameters.ElementAt(i);
-
-                    // TODO: Centralize
-                    Diagnostics.Add(
-                        Diagnostic.Create(
-                            CompilerDiagnostics.CannotConvertFromTypeToType,
-                            argument.Expression.GetLocation(),
-                            [typeSymbol.Name, param.Type.Name]
-                        ));
-                }
-
-                argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
-
-                i++;
-            }
-
-            // Perform overload resolution
-            var bestMethod = ResolveMethodOverload(candidateMethods, argumentTypes);
-
-            if (bestMethod is null)
+            else if (baseSymbol is ITypeSymbol typeSymbol)
             {
                 // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
-                        CompilerDiagnostics.NoOverloadForMethod,
-                        invocationExpression.Expression.GetLocation(),
-                        [method.Name, count]
+                        CompilerDiagnostics.MemberDoesNotContainDefinition,
+                        memberAccessExpression.Name.Identifier.GetLocation(),
+                        [name, baseSymbols.First().ToDisplayString()]
                     ));
-
-                symbols = ImmutableArray<ISymbol>.Empty;
-                Bind(expression, CandidateReason.OverloadResolutionFailure, symbols);
             }
-            else
+
+            return resolvedSymbols.ToImmutable();
+        }
+
+        Bind(expression, resolvedSymbols.First());
+        return resolvedSymbols.ToImmutable();
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeInvocationExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, InvocationExpressionSyntax invocationExpression)
+    {
+        // Analyze the base expression to get potential methods or delegates
+        AnalyzeExpression(declaringSymbol, containingSymbol, invocationExpression.Expression, out var baseSymbols);
+
+        if (!baseSymbols.Any())
+        {
+            return [];
+        }
+
+        // Ensure we are invoking a method or delegate
+        var candidateMethods = baseSymbols.OfType<IMethodSymbol>().ToList();
+        if (!candidateMethods.Any())
+        {
+            // TODO: Centralize
+            Diagnostics.Add(
+                Diagnostic.Create(
+                    CompilerDiagnostics.MethodNameExpected,
+                    invocationExpression.Expression.GetLocation()
+                ));
+
+            return [];
+        }
+
+        var count = invocationExpression.ArgumentList.Arguments.Count;
+
+        var method = candidateMethods.First(x => x.Parameters.Length == count) as IMethodSymbol;
+
+        // Collect argument types
+        var argumentTypes = new List<ITypeSymbol>();
+        int i = 0;
+        foreach (var argument in invocationExpression.ArgumentList.Arguments)
+        {
+            AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
+
+            var typeSymbol = argSymbols.First().UnwrapType();
+
+            if (typeSymbol is IErrorTypeSymbol)
             {
-                symbols = [bestMethod.ReturnType];
-                Bind(expression, bestMethod);
+                return [];
             }
-        }
-        else if (expression is PredefinedTypeSyntax predefinedTypeSyntax)
-        {
-            var typeSymbol = _keywordTypeSymbols[predefinedTypeSyntax.Keyword.ValueText];
-            symbols = [typeSymbol];
-        }
-        else if (expression is IdentifierNameSyntax name)
-        {
-            var identifier = name.Identifier.ValueText;
 
-            symbols =
-            [
-                .. _localSymbols.Where(x => x.Name == identifier),
+            if (typeSymbol.SpecialType == SpecialType.System_Void)
+            {
+                var param = method.Parameters.ElementAt(i);
+
+                // TODO: Centralize
+                Diagnostics.Add(
+                    Diagnostic.Create(
+                        CompilerDiagnostics.CannotConvertFromTypeToType,
+                        argument.Expression.GetLocation(),
+                        [typeSymbol.Name, param.Type.Name]
+                    ));
+            }
+
+            argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
+
+            i++;
+        }
+
+        // Perform overload resolution
+        var bestMethod = ResolveMethodOverload(candidateMethods, argumentTypes);
+
+        if (bestMethod is null)
+        {
+            // TODO: Centralize
+            Diagnostics.Add(
+                Diagnostic.Create(
+                    CompilerDiagnostics.NoOverloadForMethod,
+                    invocationExpression.Expression.GetLocation(),
+                    [method.Name, count]
+                ));
+
+            Bind(expression, CandidateReason.OverloadResolutionFailure, []);
+            return [];
+        }
+        else
+        {
+            Bind(expression, bestMethod);
+            return [bestMethod.ReturnType];
+        }
+    }
+
+    private ImmutableArray<ISymbol> AnalyzePredefinedType(PredefinedTypeSyntax predefinedTypeSyntax)
+    {
+        ImmutableArray<ISymbol> symbols;
+        var typeSymbol = _keywordTypeSymbols[predefinedTypeSyntax.Keyword.ValueText];
+        symbols = [typeSymbol];
+        return symbols;
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeIdentifierName(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, IdentifierNameSyntax name)
+    {
+        ImmutableArray<ISymbol> symbols;
+        var identifier = name.Identifier.ValueText;
+
+        symbols =
+        [
+            .. _localSymbols.Where(x => x.Name == identifier),
                 .. _imports.Select(x => (x.Key.ToString(), x.Value)).SelectMany(x => x.Value.GetMembers(identifier)),
                 .. _symbols.Where(x => x.Name == identifier && (x.ContainingSymbol == containingSymbol || x.ContainingSymbol == declaringSymbol || x.ContainingSymbol == Compilation.GlobalNamespace)),
             ];
 
-            // Fix
-            symbols = symbols.DistinctBy(x => x.Name).ToImmutableArray();
+        // Fix
+        symbols = symbols.DistinctBy(x => x.Name).ToImmutableArray();
 
-            if (symbols.Count() == 1)
-            {
-                Bind(name, symbols.First());
-            }
-            else if (symbols.Count() == 0)
-            {
-                // TODO: Centralize
-                Diagnostics.Add(
-                    Diagnostic.Create(
-                        CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
-                        expression.GetLocation(),
-                        [expression.ToString()]
-                    ));
-            }
-            else
-            {
-                Bind(name, CandidateReason.Ambiguous, symbols);
-            }
-        }
-        else if (expression is LiteralExpressionSyntax literalExpression)
+        if (symbols.Count() == 1)
         {
-            if (literalExpression.Kind == SyntaxKind.NumericLiteralExpression)
-            {
-                var symbol = Compilation.GetTypeByMetadataName("System.Int32")!;
-                symbols = [symbol];
-                Bind(literalExpression, symbol);
-            }
-            else if (literalExpression.Kind == SyntaxKind.StringLiteralExpression)
-            {
-                var symbol = Compilation.GetTypeByMetadataName("System.String")!;
-                symbols = [symbol];
-                Bind(literalExpression, symbol);
-            }
-            else if (literalExpression.Kind == SyntaxKind.TrueLiteralExpression)
-            {
-                var symbol = Compilation.GetTypeByMetadataName("System.Boolean")!;
-                symbols = [symbol];
-                Bind(literalExpression, symbol);
-            }
-            else if (literalExpression.Kind == SyntaxKind.FalseLiteralExpression)
-            {
-                var symbol = Compilation.GetTypeByMetadataName("System.Boolean")!;
-                symbols = [symbol];
-                Bind(literalExpression, symbol);
-            }
-            else
-            {
+            Bind(name, symbols.First());
+        }
+        else if (symbols.Count() == 0)
+        {
+            // TODO: Centralize
+            Diagnostics.Add(
+                Diagnostic.Create(
+                    CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
+                    expression.GetLocation(),
+                    [expression.ToString()]
+                ));
+        }
+        else
+        {
+            Bind(name, CandidateReason.Ambiguous, symbols);
+        }
+
+        return symbols;
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeLiteralExpression(LiteralExpressionSyntax literalExpression)
+    {
+        ImmutableArray<ISymbol> symbols;
+        switch (literalExpression.Kind)
+        {
+            case SyntaxKind.NumericLiteralExpression:
+                {
+                    var symbol = Compilation.GetTypeByMetadataName("System.Int32")!;
+                    symbols = [symbol];
+                    Bind(literalExpression, symbol);
+                    break;
+                }
+
+            case SyntaxKind.StringLiteralExpression:
+                {
+                    var symbol = Compilation.GetTypeByMetadataName("System.String")!;
+                    symbols = [symbol];
+                    Bind(literalExpression, symbol);
+                    break;
+                }
+
+            case SyntaxKind.TrueLiteralExpression:
+                {
+                    var symbol = Compilation.GetTypeByMetadataName("System.Boolean")!;
+                    symbols = [symbol];
+                    Bind(literalExpression, symbol);
+                    break;
+                }
+
+            case SyntaxKind.FalseLiteralExpression:
+                {
+                    var symbol = Compilation.GetTypeByMetadataName("System.Boolean")!;
+                    symbols = [symbol];
+                    Bind(literalExpression, symbol);
+                    break;
+                }
+
+            default:
                 symbols = [];
-            }
+                break;
         }
-        else if (expression is BinaryExpressionSyntax binaryExpression)
+
+        return symbols;
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeBinaryExpression(ISymbol declaringSymbol, ISymbol containingSymbol, BinaryExpressionSyntax binaryExpression)
+    {
+        ImmutableArray<ISymbol> symbols;
+        AnalyzeExpression(declaringSymbol, containingSymbol, binaryExpression.LeftHandSide, out var lhsSymbols);
+        AnalyzeExpression(declaringSymbol, containingSymbol, binaryExpression.RightHandSide, out var rhsSymbols);
+
+        if (lhsSymbols.Count() == 1 && rhsSymbols.Count() == 1)
         {
-            AnalyzeExpression(declaringSymbol, containingSymbol, binaryExpression.LeftHandSide, out var lhsSymbols);
-            AnalyzeExpression(declaringSymbol, containingSymbol, binaryExpression.RightHandSide, out var rhsSymbols);
+            var lhsSymbol = lhsSymbols.First().UnwrapType();
+            var rhsSymbol = rhsSymbols.First().UnwrapType();
 
-            if (lhsSymbols.Count() == 1 && rhsSymbols.Count() == 1)
+            if (lhsSymbol.SpecialType == SpecialType.System_String && rhsSymbol.SpecialType == SpecialType.System_String)
             {
-                var lhsSymbol = lhsSymbols.First().UnwrapType();
-                var rhsSymbol = rhsSymbols.First().UnwrapType();
+                var symbol = Compilation
+                    .GetTypeByMetadataName("System.String")
+                    .GetMembers()
+                    .OfType<IMethodSymbol>()
+                    .Where(x => x.Name == "Concat"
+                        && x.Parameters.Count() == 2
+                        && x.Parameters[0].Type.SpecialType == SpecialType.System_String
+                        && x.Parameters[1].Type.SpecialType == SpecialType.System_String)
+                        .First();
 
-                if (lhsSymbol.SpecialType == SpecialType.System_String && rhsSymbol.SpecialType == SpecialType.System_String)
-                {
-                    var symbol = Compilation
-                        .GetTypeByMetadataName("System.String")
-                        .GetMembers()
-                        .OfType<IMethodSymbol>()
-                        .Where(x => x.Name == "Concat"
-                            && x.Parameters.Count() == 2
-                            && x.Parameters[0].Type.SpecialType == SpecialType.System_String
-                            && x.Parameters[1].Type.SpecialType == SpecialType.System_String)
-                            .First();
-
-                    symbols = [symbol.ReturnType];
-                    Bind(binaryExpression, symbol);
-                }
-                else if (lhsSymbol == rhsSymbol)
-                {
-                    symbols = [lhsSymbol];
-                    Bind(binaryExpression, lhsSymbol);
-                }
-                else
-                {
-                    symbols = [];
-                    Bind(binaryExpression, CandidateReason.None, []);
-                }
+                symbols = [symbol.ReturnType];
+                Bind(binaryExpression, symbol);
+            }
+            else if (lhsSymbol == rhsSymbol)
+            {
+                symbols = [lhsSymbol];
+                Bind(binaryExpression, lhsSymbol);
             }
             else
             {
@@ -441,8 +510,11 @@ public partial class SemanticModel
         }
         else
         {
-            symbols = ImmutableArray<ISymbol>.Empty;
+            symbols = [];
+            Bind(binaryExpression, CandidateReason.None, []);
         }
+
+        return symbols;
     }
 
     private IMethodSymbol? ResolveMethodOverload(List<IMethodSymbol> candidateMethods, List<ITypeSymbol> argumentTypes)

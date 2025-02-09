@@ -171,92 +171,79 @@ internal class CodeGenerator
 
     private void GenerateStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement)
     {
-        if (statement is ReturnStatementSyntax returnStatement)
+        switch (statement)
         {
-            if (returnStatement.Expression is ExpressionSyntax expression)
-            {
-                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expression);
-            }
+            case ReturnStatementSyntax returnStatement:
+                GenerateReturnStatement(typeBuilder, methodBuilder, iLGenerator, statement, returnStatement);
+                break;
 
-            iLGenerator.Emit(OpCodes.Ret);
+            case BlockSyntax block:
+                GenerateBlock(typeBuilder, methodBuilder, iLGenerator, block);
+                break;
+
+            case IfStatementSyntax ifStatementSyntax:
+                GenerateIfStatement(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax);
+                break;
+
+            case ExpressionStatementSyntax expressionStatement:
+                GenerateExpressionStatement(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement);
+                break;
+
+            case LocalDeclarationStatementSyntax localDeclarationStatement:
+                GenerateDeclarationStatement(typeBuilder, methodBuilder, iLGenerator, statement, localDeclarationStatement);
+                break;
         }
-        else if (statement is BlockSyntax block)
+    }
+
+    private void GenerateReturnStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ReturnStatementSyntax returnStatement)
+    {
+        if (returnStatement.Expression is ExpressionSyntax expression)
         {
-            foreach (var s in block.Statements)
-            {
-                GenerateStatement(typeBuilder, methodBuilder, iLGenerator, s);
-            }
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expression);
         }
-        else if (statement is IfStatementSyntax ifStatementSyntax)
+
+        iLGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void GenerateBlock(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, BlockSyntax block)
+    {
+        foreach (var s in block.Statements)
         {
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax.Condition);
-
-            var elseLabel = iLGenerator.DefineLabel();
-
-            GenerateBranchOpForCondition(ifStatementSyntax.Condition, iLGenerator, elseLabel);
-
-            GenerateStatement(typeBuilder, methodBuilder, iLGenerator, ifStatementSyntax.Statement);
-
-            if (ifStatementSyntax.ElseClause is ElseClauseSyntax elseClause)
-            {
-                // Define a label for the end of the 'if' statement
-                var endIfLabel = iLGenerator.DefineLabel();
-
-                // Branch to end of 'if' after the 'if' block
-                iLGenerator.Emit(OpCodes.Br_S, endIfLabel);
-
-                // Mark the 'else' label
-                iLGenerator.MarkLabel(elseLabel);
-
-                // Generate the 'else' block
-                GenerateStatement(typeBuilder, methodBuilder, iLGenerator, elseClause.Statement);
-
-                // Mark the end of the 'if' statement
-                iLGenerator.MarkLabel(endIfLabel);
-            }
-            else
-            {
-                // If no 'else' block, mark the 'else' label
-                iLGenerator.MarkLabel(elseLabel);
-            }
+            GenerateStatement(typeBuilder, methodBuilder, iLGenerator, s);
         }
-        else if (statement is ExpressionStatementSyntax expressionStatement)
+    }
+
+    private void GenerateIfStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, IfStatementSyntax ifStatementSyntax)
+    {
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax.Condition);
+
+        var elseLabel = iLGenerator.DefineLabel();
+
+        GenerateBranchOpForCondition(ifStatementSyntax.Condition, iLGenerator, elseLabel);
+
+        GenerateStatement(typeBuilder, methodBuilder, iLGenerator, ifStatementSyntax.Statement);
+
+        if (ifStatementSyntax.ElseClause is ElseClauseSyntax elseClause)
         {
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement.Expression);
+            // Define a label for the end of the 'if' statement
+            var endIfLabel = iLGenerator.DefineLabel();
 
-            var symbol = _compilation
-                            .GetSemanticModel(expressionStatement.SyntaxTree)
-                            .GetSymbolInfo(expressionStatement.Expression).Symbol;
+            // Branch to end of 'if' after the 'if' block
+            iLGenerator.Emit(OpCodes.Br_S, endIfLabel);
 
-            if (expressionStatement.Expression is InvocationExpressionSyntax invocationExpression)
-            {
-                symbol = ((IMethodSymbol)symbol).ReturnType;
-            }
+            // Mark the 'else' label
+            iLGenerator.MarkLabel(elseLabel);
 
-            if (symbol?.UnwrapType()?.SpecialType != SpecialType.System_Void)
-            {
-                // The value is not used, pop it from the stack.
+            // Generate the 'else' block
+            GenerateStatement(typeBuilder, methodBuilder, iLGenerator, elseClause.Statement);
 
-                iLGenerator.Emit(OpCodes.Pop);
-            }
+            // Mark the end of the 'if' statement
+            iLGenerator.MarkLabel(endIfLabel);
         }
-        else if (statement is LocalDeclarationStatementSyntax localDeclarationStatement)
+        else
         {
-            foreach (var declarator in localDeclarationStatement.Declaration.Declarators)
-            {
-                if (declarator.Initializer is not null)
-                {
-                    var localSymbol = _compilation
-                        .GetSemanticModel(localDeclarationStatement.SyntaxTree)
-                        .GetSymbolInfo(declarator).Symbol as ILocalSymbol;
-
-                    GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, declarator.Initializer.Value);
-
-                    var localBuilder = _localBuilders[localSymbol];
-
-                    iLGenerator.Emit(OpCodes.Stloc, localBuilder);
-                }
-            }
+            // If no 'else' block, mark the 'else' label
+            iLGenerator.MarkLabel(elseLabel);
         }
     }
 
@@ -302,154 +289,236 @@ internal class CodeGenerator
         }
     }
 
-    private void GenerateExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ExpressionSyntax expression)
+    private void GenerateExpressionStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ExpressionStatementSyntax expressionStatement)
     {
-        if (expression is BinaryExpressionSyntax binaryExpression)
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement.Expression);
+
+        var symbol = _compilation
+                        .GetSemanticModel(expressionStatement.SyntaxTree)
+                        .GetSymbolInfo(expressionStatement.Expression).Symbol;
+
+        if (expressionStatement.Expression is InvocationExpressionSyntax invocationExpression)
         {
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression.LeftHandSide);
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression.RightHandSide);
-
-            var semanticModel = _compilation.GetSemanticModel(expression.SyntaxTree!);
-
-            var methodSymbol = semanticModel.GetSymbolInfo(binaryExpression).Symbol as IMethodSymbol;
-
-            if (methodSymbol is not null)
-            {
-                var concatMethod = methodSymbol as MetadataMethodSymbol;
-
-                iLGenerator.Emit(OpCodes.Call, concatMethod.GetMethodInfo());
-                return;
-            }
-
-            switch (binaryExpression.Kind)
-            {
-                case SyntaxKind.AddExpression:
-                    iLGenerator.Emit(OpCodes.Add);
-                    break;
-
-                case SyntaxKind.SubtractExpression:
-                    iLGenerator.Emit(OpCodes.Sub);
-                    break;
-
-                case SyntaxKind.MultiplyExpression:
-                    iLGenerator.Emit(OpCodes.Mul);
-                    break;
-
-                case SyntaxKind.DivideExpression:
-                    iLGenerator.Emit(OpCodes.Div);
-                    break;
-
-                case SyntaxKind.ModuloExpression:
-                    iLGenerator.Emit(OpCodes.Rem);
-                    break;
-            }
+            symbol = ((IMethodSymbol)symbol).ReturnType;
         }
-        else if (expression is MemberAccessExpressionSyntax memberAccessExpression)
+
+        if (symbol?.UnwrapType()?.SpecialType != SpecialType.System_Void)
         {
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression.Expression);
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression.Name);
+            // The value is not used, pop it from the stack.
+
+            iLGenerator.Emit(OpCodes.Pop);
         }
-        else if (expression is InvocationExpressionSyntax invocationExpression)
+    }
+
+    private void GenerateDeclarationStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, LocalDeclarationStatementSyntax localDeclarationStatement)
+    {
+        foreach (var declarator in localDeclarationStatement.Declaration.Declarators)
         {
-            // Resolve target identifier or access
-            // If method or delegate, then invoke
-
-            foreach (var argument in invocationExpression.ArgumentList.Arguments)
-            {
-                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
-            }
-
-            var target = _compilation
-                .GetSemanticModel(invocationExpression.SyntaxTree)
-                .GetSymbolInfo(invocationExpression).Symbol as MetadataMethodSymbol;
-
-            if (!target?.IsStatic ?? false)
-            {
-                // Instance member invocation
-
-                var expr = invocationExpression.Expression;
-                if (invocationExpression.Expression is MemberAccessExpressionSyntax e)
-                {
-                    // Get the target Expression. Ignores the Name, which is the method.
-                    expr = e.Expression;
-                }
-
-                var localSymbol = _compilation
-                    .GetSemanticModel(expr.SyntaxTree)
-                    .GetSymbolInfo(expr).Symbol as ILocalSymbol;
-
-                if (localSymbol is not null)
-                {
-                    // A local
-
-                    var localBuilder = _localBuilders[localSymbol];
-
-                    if (localSymbol.Type.IsValueType)
-                    {
-                        // Loading the address of the value to the instance.
-
-                        iLGenerator.Emit(OpCodes.Ldloca, localBuilder);
-                    }
-                    else
-                    {
-                        // Since it's a reference type, the address is stored in the local.
-
-                        iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
-                    }
-                }
-                else
-                {
-                    // It's an expression.
-
-                    GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expr);
-                }
-            }
-
-            iLGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
+            GenerateDeclarator(typeBuilder, methodBuilder, iLGenerator, statement, localDeclarationStatement, declarator);
         }
-        else if (expression is IdentifierNameSyntax identifierName)
-        {
-            // Resolve target identifier or access
-            // If local, property, or field, then load
+    }
 
+    private void GenerateDeclarator(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, LocalDeclarationStatementSyntax localDeclarationStatement, VariableDeclaratorSyntax declarator)
+    {
+        if (declarator.Initializer is not null)
+        {
             var localSymbol = _compilation
-                .GetSemanticModel(expression.SyntaxTree)
-                .GetSymbolInfo(expression).Symbol as ILocalSymbol;
+                .GetSemanticModel(localDeclarationStatement.SyntaxTree)
+                .GetSymbolInfo(declarator).Symbol as ILocalSymbol;
+
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, declarator.Initializer.Value);
 
             var localBuilder = _localBuilders[localSymbol];
 
-            iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
+            iLGenerator.Emit(OpCodes.Stloc, localBuilder);
         }
-        else if (expression is LiteralExpressionSyntax literalExpression)
+    }
+
+    private void GenerateExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ExpressionSyntax expression)
+    {
+        switch (expression)
         {
-            if (literalExpression.Kind == SyntaxKind.NumericLiteralExpression)
+            case BinaryExpressionSyntax binaryExpression:
+                GenerateBinaryExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression);
+                break;
+
+            case MemberAccessExpressionSyntax memberAccessExpression:
+                GenerateMemberAccessExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression);
+                break;
+
+            case InvocationExpressionSyntax invocationExpression:
+                GenerateInvocationExpression(typeBuilder, methodBuilder, iLGenerator, statement, invocationExpression);
+                break;
+
+            case IdentifierNameSyntax identifierName:
+                GenerateNameExpression(iLGenerator, identifierName);
+                break;
+
+            case LiteralExpressionSyntax literalExpression:
+                GenerateLiteralExpression(iLGenerator, literalExpression);
+                break;
+
+            case ParenthesizedExpressionSyntax parenthesized:
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, parenthesized.Expression);
+                break;
+        }
+    }
+
+    private void GenerateBinaryExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, BinaryExpressionSyntax binaryExpression)
+    {
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression.LeftHandSide);
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, binaryExpression.RightHandSide);
+
+        var semanticModel = _compilation.GetSemanticModel(binaryExpression.SyntaxTree!);
+
+        var methodSymbol = semanticModel.GetSymbolInfo(binaryExpression).Symbol as IMethodSymbol;
+
+        if (methodSymbol is not null)
+        {
+            var concatMethod = methodSymbol as MetadataMethodSymbol;
+
+            iLGenerator.Emit(OpCodes.Call, concatMethod.GetMethodInfo());
+            return;
+        }
+
+        switch (binaryExpression.Kind)
+        {
+            case SyntaxKind.AddExpression:
+                iLGenerator.Emit(OpCodes.Add);
+                break;
+
+            case SyntaxKind.SubtractExpression:
+                iLGenerator.Emit(OpCodes.Sub);
+                break;
+
+            case SyntaxKind.MultiplyExpression:
+                iLGenerator.Emit(OpCodes.Mul);
+                break;
+
+            case SyntaxKind.DivideExpression:
+                iLGenerator.Emit(OpCodes.Div);
+                break;
+
+            case SyntaxKind.ModuloExpression:
+                iLGenerator.Emit(OpCodes.Rem);
+                break;
+        }
+    }
+
+    private void GenerateMemberAccessExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, MemberAccessExpressionSyntax memberAccessExpression)
+    {
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression.Expression);
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression.Name);
+    }
+
+    private void GenerateInvocationExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, InvocationExpressionSyntax invocationExpression)
+    {
+        // Resolve target identifier or access
+        // If method or delegate, then invoke
+
+        foreach (var argument in invocationExpression.ArgumentList.Arguments)
+        {
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
+        }
+
+        var target = _compilation
+            .GetSemanticModel(invocationExpression.SyntaxTree)
+            .GetSymbolInfo(invocationExpression).Symbol as MetadataMethodSymbol;
+
+        if (!target?.IsStatic ?? false)
+        {
+            // Instance member invocation
+
+            var expr = invocationExpression.Expression;
+            if (invocationExpression.Expression is MemberAccessExpressionSyntax e)
             {
-                var v = literalExpression.Token.ValueText;
-                iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(v));
+                // Get the target Expression. Ignores the Name, which is the method.
+                expr = e.Expression;
             }
-            else if (literalExpression.Kind == SyntaxKind.StringLiteralExpression)
+
+            var localSymbol = _compilation
+                .GetSemanticModel(expr.SyntaxTree)
+                .GetSymbolInfo(expr).Symbol as ILocalSymbol;
+
+            if (localSymbol is not null)
             {
-                var v = literalExpression.Token.ValueText;
-                iLGenerator.Emit(OpCodes.Ldstr, v.Substring(1, v.Length - 2));
-            }
-            else if (literalExpression.Kind == SyntaxKind.TrueLiteralExpression)
-            {
-                var v = literalExpression.Token.ValueText;
-                iLGenerator.Emit(OpCodes.Ldc_I4_1);
-            }
-            else if (literalExpression.Kind == SyntaxKind.FalseLiteralExpression)
-            {
-                var v = literalExpression.Token.ValueText;
-                iLGenerator.Emit(OpCodes.Ldc_I4_0);
+                // A local
+
+                var localBuilder = _localBuilders[localSymbol];
+
+                if (localSymbol.Type.IsValueType)
+                {
+                    // Loading the address of the value to the instance.
+
+                    iLGenerator.Emit(OpCodes.Ldloca, localBuilder);
+                }
+                else
+                {
+                    // Since it's a reference type, the address is stored in the local.
+
+                    iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                }
             }
             else
             {
-                iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(literalExpression.Token.ValueText));
+                // It's an expression.
+
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expr);
             }
         }
-        else if (expression is ParenthesizedExpressionSyntax parenthesized)
+
+        iLGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
+    }
+
+    private void GenerateNameExpression(ILGenerator iLGenerator, IdentifierNameSyntax identifierName)
+    {
+        // Resolve target identifier or access
+        // If local, property, or field, then load
+
+        var localSymbol = _compilation
+            .GetSemanticModel(identifierName.SyntaxTree)
+            .GetSymbolInfo(identifierName).Symbol as ILocalSymbol;
+
+        var localBuilder = _localBuilders[localSymbol];
+
+        iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
+    }
+
+    private static void GenerateLiteralExpression(ILGenerator iLGenerator, LiteralExpressionSyntax literalExpression)
+    {
+        switch (literalExpression.Kind)
         {
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, parenthesized.Expression);
+            case SyntaxKind.NumericLiteralExpression:
+                {
+                    var v = literalExpression.Token.ValueText;
+                    iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(v));
+                    break;
+                }
+
+            case SyntaxKind.StringLiteralExpression:
+                {
+                    var v = literalExpression.Token.ValueText;
+                    iLGenerator.Emit(OpCodes.Ldstr, v.Substring(1, v.Length - 2));
+                    break;
+                }
+
+            case SyntaxKind.TrueLiteralExpression:
+                {
+                    var v = literalExpression.Token.ValueText;
+                    iLGenerator.Emit(OpCodes.Ldc_I4_1);
+                    break;
+                }
+
+            case SyntaxKind.FalseLiteralExpression:
+                {
+                    var v = literalExpression.Token.ValueText;
+                    iLGenerator.Emit(OpCodes.Ldc_I4_0);
+                    break;
+                }
+
+            default:
+                iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(literalExpression.Token.ValueText));
+                break;
         }
     }
 
