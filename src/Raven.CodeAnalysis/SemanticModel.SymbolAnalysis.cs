@@ -287,7 +287,7 @@ public partial class SemanticModel
                     Diagnostic.Create(
                         CompilerDiagnostics.MemberDoesNotContainDefinition,
                         memberAccessExpression.Name.Identifier.GetLocation(),
-                        [name, baseSymbols.First().ToDisplayString()]
+                        [baseSymbols.First().ToDisplayString(), name]
                     ));
             }
 
