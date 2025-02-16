@@ -59,7 +59,7 @@ internal static partial class SyntaxFactory
     public static readonly SyntaxTrivia CarriageReturnLineFeed = new SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, "\r\n");
     public static readonly SyntaxTrivia Space = new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, " ");
     public static readonly SyntaxTrivia Tab = new SyntaxTrivia(SyntaxKind.TabTrivia, "\t");
-    public static SyntaxTrivia Comment(string text) => new SyntaxTrivia(SyntaxKind.CommentTrivia, text);
+    public static SyntaxTrivia SingleLineComment(string text) => new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, text);
     public static SkippedTokensTrivia SkippedTokensTrivia(SyntaxTokenList tokens) => new SkippedTokensTrivia(tokens.Green, []);
 
     //public static readonly SyntaxToken EndOfLine = new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");

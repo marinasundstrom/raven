@@ -8,6 +8,8 @@ let value : bool = bool.Parse(str);
 let x : String = "Test";
 let y = 42;
 
+//
+// This is a comment
 if (value) {
     Console.WriteLine("Hello" + ", World!");
 } else

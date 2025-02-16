@@ -6,7 +6,7 @@ internal class Lexer : ILexer
 {
     private readonly TextReader _textReader;
     private StringBuilder? _stringBuilder;
-    private SyntaxToken? _lookaheadToken;
+    private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
     private int _currentPosition = 0;
     private int _tokenStartPosition = 0;
 
@@ -17,22 +17,31 @@ internal class Lexer : ILexer
 
     public SyntaxToken ReadToken()
     {
-        if (_lookaheadToken != null)
+        SyntaxToken token;
+
+        if (_lookaheadTokens.Count > 0)
         {
-            var token = _lookaheadToken;
-            _lookaheadToken = null;
-            return token;
+            // Remove the token from the lookahead list
+            token = _lookaheadTokens[0]; // Using index from end for clarity
+            _lookaheadTokens.RemoveAt(0);
         }
-        return ReadTokenCore();
+        else
+        {
+            // Fallback to reading a new token
+            token = ReadTokenCore();
+        }
+
+        return token;
     }
 
-    public SyntaxToken PeekToken()
+    public SyntaxToken PeekToken(int index = 0)
     {
-        if (_lookaheadToken == null)
+        // Ensure the lookahead tokens list is populated up to the requested index
+        while (_lookaheadTokens.Count <= index)
         {
-            _lookaheadToken = ReadTokenCore();
+            _lookaheadTokens.Add(ReadTokenCore());
         }
-        return _lookaheadToken;
+        return _lookaheadTokens[index];
     }
 
     private SyntaxToken ReadTokenCore()

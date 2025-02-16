@@ -1,11 +1,16 @@
-﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
+﻿using System.Text;
+
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal class Tokenizer : ITokenizer
 {
     private readonly ILexer _lexer;
     private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
+    private SyntaxToken _currentToken;
 
     public int Position { get; private set; }
+
+    public bool IsEndOfFile => _currentToken.Kind == SyntaxKind.EndOfFileToken;
 
     public Tokenizer(TextReader textReader)
     {
@@ -14,24 +19,22 @@ internal class Tokenizer : ITokenizer
 
     public SyntaxToken ReadToken()
     {
-        SyntaxToken token;
-
         if (_lookaheadTokens.Count > 0)
         {
             // Remove the token from the lookahead list
-            token = _lookaheadTokens[0]; // Using index from end for clarity
+            _currentToken = _lookaheadTokens[0]; // Using index from end for clarity
             _lookaheadTokens.RemoveAt(0);
         }
         else
         {
             // Fallback to reading a new token
-            token = ReadTokenCore();
+            _currentToken = ReadTokenCore();
         }
 
         // Update the position
-        Position += token.FullWidth;
+        Position += _currentToken.FullWidth;
 
-        return token;
+        return _currentToken;
     }
 
     public SyntaxToken PeekToken(int index = 0)
@@ -67,7 +70,39 @@ internal class Tokenizer : ITokenizer
 
         while (true)
         {
-            var token = _lexer.PeekToken();
+            var token = _lexer.PeekToken(0);
+
+            if (token.Kind == SyntaxKind.SlashToken)
+            {
+                var token2 = _lexer.PeekToken(1);
+
+                if (token2.Kind == SyntaxKind.SlashToken)
+                {
+                    StringBuilder sb = new StringBuilder();
+
+                    sb.Append(token.GetValueText());
+                    sb.Append(token2.GetValueText());
+
+                    _lexer.ReadToken();
+                    _lexer.ReadToken();
+
+                    SyntaxToken peeked = _lexer.PeekToken();
+                    while (peeked.Kind != SyntaxKind.EndOfLineToken && !IsEndOfFile)
+                    {
+                        _lexer.ReadToken();
+                        sb.Append(peeked.GetValueText());
+                        peeked = _lexer.PeekToken();
+                    }
+
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, sb.ToString()));
+
+                    if (isTrailingTrivia)
+                    {
+                        break;
+                    }
+                    continue;
+                }
+            }
 
             switch (token.Kind)
             {

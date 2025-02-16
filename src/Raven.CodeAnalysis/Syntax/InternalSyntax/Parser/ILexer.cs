@@ -4,7 +4,7 @@ internal interface ILexer
 {
     bool IsEndOfLine { get; }
 
-    InternalSyntax.SyntaxToken ReadToken();
+    SyntaxToken ReadToken();
 
-    InternalSyntax.SyntaxToken PeekToken();
+    SyntaxToken PeekToken(int index = 0);
 }
