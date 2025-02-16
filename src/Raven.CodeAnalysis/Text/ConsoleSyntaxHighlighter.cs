@@ -63,15 +63,19 @@ public static class ConsoleSyntaxHighlighter
         {
             if (child.AsToken(out var token))
             {
-                string? t = token.ToFullString();
+                string? t = token.ToFullColorizedString();
 
                 if (SyntaxFacts.IsKeywordKind(token.Kind))
                 {
-                    t = Colorize(t, ColorScheme.Keyword);
+                    t = token.ToFullColorizedString(ColorScheme.Keyword);
                 }
                 else if (token.Kind == SyntaxKind.StringLiteralToken)
                 {
-                    t = Colorize(t, ColorScheme.StringLiteral);
+                    t = token.ToFullColorizedString(ColorScheme.StringLiteral);
+                }
+                else
+                {
+                    t = token.ToFullColorizedString();
                 }
 
                 builder.Append(t);
@@ -87,8 +91,7 @@ public static class ConsoleSyntaxHighlighter
     {
         if (node is PredefinedTypeSyntax ptype)
         {
-            string? t = ptype.ToFullString();
-            t = Colorize(t, ColorScheme.Keyword);
+            string? t = ptype.ToFullColorizedString(ColorScheme.Keyword);
             builder.Append(t);
         }
         else if (node is NameSyntax iname)
@@ -97,20 +100,17 @@ public static class ConsoleSyntaxHighlighter
 
             if (symbol is IMethodSymbol)
             {
-                string? t = iname.ToFullString();
-                t = Colorize(t, ColorScheme.Method);
+                string? t = iname.ToFullColorizedString(ColorScheme.Method);
                 builder.Append(t);
             }
             else if (symbol is INamespaceSymbol or ITypeSymbol)
             {
-                string? t = iname.ToFullString();
-                t = Colorize(t, ColorScheme.Namespace);
+                string? t = iname.ToFullColorizedString(ColorScheme.Namespace);
                 builder.Append(t);
             }
             else
             {
-                string? t = iname.ToFullString();
-                t = Colorize(t, ColorScheme.Default);
+                string? t = iname.ToFullColorizedString(ColorScheme.Default);
                 builder.Append(t);
             }
         }
@@ -118,16 +118,14 @@ public static class ConsoleSyntaxHighlighter
         {
             WriteNode(maccess.Expression, builder);
 
-            string? t = maccess.OperatorToken.ToFullString();
-            t = Colorize(t, ColorScheme.Default);
+            string? t = maccess.OperatorToken.ToFullColorizedString(ColorScheme.Default);
             builder.Append(t);
 
             var symbol = SemanticModel.GetSymbolInfo(maccess).Symbol;
 
             var color = symbol is IMethodSymbol ? ColorScheme.Method : ColorScheme.Default;
 
-            t = maccess.Name.ToFullString();
-            t = Colorize(t, color);
+            t = maccess.Name.ToFullColorizedString(color);
             builder.Append(t);
         }
         else if (node is InvocationExpressionSyntax invocationExpression)
@@ -153,20 +151,17 @@ public static class ConsoleSyntaxHighlighter
 
             if (symbol is IMethodSymbol)
             {
-                string? t = iname.ToFullString();
-                t = Colorize(t, AnsiColor.BrightRed);
+                string? t = iname.ToFullColorizedString(ColorScheme.Method);
                 builder.Append(t);
             }
             else if (symbol is INamespaceSymbol or ITypeSymbol)
             {
-                string? t = iname.ToFullString();
-                t = Colorize(t, AnsiColor.BrightCyan);
+                string? t = iname.ToFullColorizedString(ColorScheme.Namespace);
                 builder.Append(t);
             }
             else
             {
-                string? t = iname.ToFullString();
-                t = Colorize(t, AnsiColor.White);
+                string? t = iname.ToFullColorizedString(AnsiColor.White);
                 builder.Append(t);
             }
         }
@@ -174,7 +169,7 @@ public static class ConsoleSyntaxHighlighter
         {
             WriteNameSyntax(qname.Left, builder);
 
-            string? t = qname.DotToken.ToFullString();
+            string? t = qname.DotToken.ToFullColorizedString();
             t = Colorize(t, ColorScheme.Default);
             builder.Append(t);
 
@@ -185,5 +180,51 @@ public static class ConsoleSyntaxHighlighter
     private static string Colorize(string text, AnsiColor color)
     {
         return $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
+    }
+}
+
+public static class Ext
+{
+    private static string Colorize(string text, AnsiColor color)
+    {
+        return $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
+    }
+
+    public static string ToFullColorizedString(this PredefinedTypeSyntax predefinedType, AnsiColor color = AnsiColor.Reset)
+    {
+        // Foo bar
+        return Colorize(predefinedType.ToFullString(), color);
+    }
+
+    public static string ToFullColorizedString(this NameSyntax name, AnsiColor color)
+    {
+        // Foo bar
+        return Colorize(name.ToFullString(), color);
+    }
+
+    public static string ToFullColorizedString(this SyntaxToken syntaxToken, AnsiColor color = AnsiColor.Reset)
+    {
+        StringBuilder sb = new();
+        var trivia = syntaxToken.LeadingTrivia;
+        LeadingTrivia(syntaxToken, sb, trivia);
+        sb.Append(Colorize(syntaxToken.Text, color));
+        trivia = syntaxToken.TrailingTrivia;
+        LeadingTrivia(syntaxToken, sb, trivia);
+        return sb.ToString();
+    }
+
+    private static void LeadingTrivia(SyntaxToken syntaxToken, StringBuilder sb, SyntaxTriviaList trivia)
+    {
+        foreach (var syntaxTrivia in trivia)
+        {
+            if (syntaxTrivia.Kind == SyntaxKind.SingleLineCommentTrivia)
+            {
+                sb.Append(Colorize(syntaxTrivia.Text, AnsiColor.Green));
+            }
+            else
+            {
+                sb.Append(syntaxTrivia.Text);
+            }
+        }
     }
 }
