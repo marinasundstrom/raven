@@ -2,7 +2,7 @@
 
 internal interface ILexer
 {
-    bool IsEndOfLine { get; }
+    bool IsEndOfFile { get; }
 
     SyntaxToken ReadToken();
 

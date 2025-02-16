@@ -95,11 +95,6 @@ internal class Tokenizer : ITokenizer
                     }
 
                     trivia.Add(new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, sb.ToString()));
-
-                    if (isTrailingTrivia)
-                    {
-                        break;
-                    }
                     continue;
                 }
             }

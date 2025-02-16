@@ -209,7 +209,7 @@ internal class Lexer : ILexer
                             _stringBuilder.Append(ch9);
                             ReadChar();
 
-                            if (IsEndOfLine)
+                            if (IsEndOfFile)
                             {
                                 diagnostics.Add(
                                     DiagnosticInfo.Create(
@@ -241,7 +241,7 @@ internal class Lexer : ILexer
                             _stringBuilder.Append(ch8);
                             ReadChar();
 
-                            if (IsEndOfLine)
+                            if (IsEndOfFile)
                             {
                                 diagnostics.Add(
                                     DiagnosticInfo.Create(
@@ -340,5 +340,5 @@ internal class Lexer : ILexer
         return false;
     }
 
-    public bool IsEndOfLine => _textReader.Peek() == -1;
+    public bool IsEndOfFile => _textReader.Peek() == -1;
 }
