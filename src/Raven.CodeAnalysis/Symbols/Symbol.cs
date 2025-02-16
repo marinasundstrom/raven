@@ -109,13 +109,25 @@ internal abstract class Symbol : ISymbol
 
         if (this is ILocalSymbol localSymbol)
         {
-            if (format.LocalOptions == SymbolDisplayLocalOptions.IncludeType)
+            if (format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType))
             {
                 var localType = localSymbol.Type.ToDisplayString(format);
                 result.Append($"{localType} ");
             }
 
             result.Append(localSymbol.Name);
+            return result.ToString();
+        }
+
+        if (this is IParameterSymbol parameterSymbol)
+        {
+            if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))
+            {
+                var localType = parameterSymbol.Type.ToDisplayString(format);
+                result.Append($"{localType} ");
+            }
+
+            result.Append(parameterSymbol.Name);
             return result.ToString();
         }
 
@@ -142,7 +154,7 @@ internal abstract class Symbol : ISymbol
         if (this is INamedTypeSymbol typeSymbol)
         {
             // Handle generics
-            if ((format.GenericsOptions & SymbolDisplayGenericsOptions.IncludeTypeParameters) != 0 &&
+            if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
                 typeSymbol.TypeParameters != null)
             {
                 result.Append("<");
@@ -164,7 +176,7 @@ internal abstract class Symbol : ISymbol
         }
 
         // Example for accessibility modifiers
-        if ((format.MemberOptions & SymbolDisplayMemberOptions.IncludeAccessibility) != 0)
+        if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility))
         {
             if (this.DeclaredAccessibility is not Accessibility.NotApplicable)
             {
@@ -174,7 +186,7 @@ internal abstract class Symbol : ISymbol
         }
 
         // Handle miscellaneous options
-        if ((format.MiscellaneousOptions & SymbolDisplayMiscellaneousOptions.EscapeIdentifiers) != 0)
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
         {
             return EscapeIdentifier(result.ToString());
         }
@@ -187,19 +199,19 @@ internal abstract class Symbol : ISymbol
     {
         var sb = new StringBuilder();
 
-        if ((format.ParameterOptions & SymbolDisplayParameterOptions.IncludeModifiers) != 0)
+        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeModifiers))
         {
             //if (parameter.IsRef) sb.Append("ref ");
             //if (parameter.IsOut) sb.Append("out ");
         }
 
-        if ((format.ParameterOptions & SymbolDisplayParameterOptions.IncludeType) != 0)
+        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))
         {
             sb.Append(parameter.Type); // Assume `Type` is a property of the parameter
             sb.Append(" ");
         }
 
-        if ((format.ParameterOptions & SymbolDisplayParameterOptions.IncludeName) != 0)
+        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName))
         {
             sb.Append(parameter.Name); // Assume `Name` is a property of the parameter
         }
