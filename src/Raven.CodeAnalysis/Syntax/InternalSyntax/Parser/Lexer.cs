@@ -6,7 +6,7 @@ internal class Lexer : ILexer
 {
     private readonly TextReader _textReader;
     private readonly StringBuilder _stringBuilder = new StringBuilder();
-    private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
+    private readonly List<Token> _lookaheadTokens = new List<Token>();
     private int _currentPosition = 0;
     private int _tokenStartPosition = 0;
 
@@ -15,9 +15,9 @@ internal class Lexer : ILexer
         _textReader = textReader;
     }
 
-    public SyntaxToken ReadToken()
+    public Token ReadToken()
     {
-        SyntaxToken token;
+        Token token;
 
         if (_lookaheadTokens.Count > 0)
         {
@@ -42,9 +42,9 @@ internal class Lexer : ILexer
         }
     }
 
-    public IEnumerable<SyntaxToken> ReadTokens(int count)
+    public IEnumerable<Token> ReadTokens(int count)
     {
-        var tokens = new SyntaxToken[count];
+        var tokens = new Token[count];
         for (int i = 0; i < count; i++)
         {
             tokens[i] = ReadToken();
@@ -52,7 +52,7 @@ internal class Lexer : ILexer
         return tokens;
     }
 
-    public SyntaxToken PeekToken(int index = 0)
+    public Token PeekToken(int index = 0)
     {
         // Ensure the lookahead tokens list is populated up to the requested index
         while (_lookaheadTokens.Count <= index)
@@ -62,7 +62,7 @@ internal class Lexer : ILexer
         return _lookaheadTokens[index];
     }
 
-    private SyntaxToken ReadTokenCore()
+    private Token ReadTokenCore()
     {
         List<DiagnosticInfo> diagnostics = new List<DiagnosticInfo>();
 
@@ -92,7 +92,7 @@ internal class Lexer : ILexer
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
 
-                    return new SyntaxToken(syntaxKind, _stringBuilder.ToString(), diagnostics: diagnostics);
+                    return new Token(syntaxKind, _stringBuilder.ToString(), diagnostics: diagnostics);
                 }
                 else if (char.IsDigit(ch))
                 {
@@ -102,7 +102,7 @@ internal class Lexer : ILexer
                         _stringBuilder.Append(ch);
                     }
 
-                    return new SyntaxToken(SyntaxKind.NumericLiteralToken, int.Parse(_stringBuilder.ToString()), _stringBuilder.Length, diagnostics: diagnostics);
+                    return new Token(SyntaxKind.NumericLiteralToken, int.Parse(_stringBuilder.ToString()), _stringBuilder.Length, diagnostics: diagnostics);
                 }
             }
             else
@@ -112,10 +112,10 @@ internal class Lexer : ILexer
                 switch (ch)
                 {
                     case '+':
-                        return new SyntaxToken(SyntaxKind.PlusToken, chStr);
+                        return new Token(SyntaxKind.PlusToken, chStr);
 
                     case '-':
-                        return new SyntaxToken(SyntaxKind.MinusToken, chStr);
+                        return new Token(SyntaxKind.MinusToken, chStr);
 
                     case '/':
                         /*
@@ -125,86 +125,86 @@ internal class Lexer : ILexer
                             return new InternalSyntax.SyntaxTr(SyntaxKind.LessThanEqualsToken, "<=");
                         }
                         */
-                        return new SyntaxToken(SyntaxKind.SlashToken, chStr);
+                        return new Token(SyntaxKind.SlashToken, chStr);
 
                     case '*':
-                        return new SyntaxToken(SyntaxKind.StarToken, chStr);
+                        return new Token(SyntaxKind.StarToken, chStr);
 
                     case '%':
-                        return new SyntaxToken(SyntaxKind.PercentToken, chStr);
+                        return new Token(SyntaxKind.PercentToken, chStr);
 
                     case '.':
-                        return new SyntaxToken(SyntaxKind.DotToken, chStr);
+                        return new Token(SyntaxKind.DotToken, chStr);
 
                     case ',':
-                        return new SyntaxToken(SyntaxKind.CommaToken, chStr);
+                        return new Token(SyntaxKind.CommaToken, chStr);
 
                     case ':':
-                        return new SyntaxToken(SyntaxKind.ColonToken, chStr);
+                        return new Token(SyntaxKind.ColonToken, chStr);
 
                     case ';':
-                        return new SyntaxToken(SyntaxKind.SemicolonToken, chStr);
+                        return new Token(SyntaxKind.SemicolonToken, chStr);
 
                     /*
                     
                    case '"':
-                       return new SyntaxToken(SyntaxKind.DoublequoteToken, chStr);
+                       return new Token(SyntaxKind.DoublequoteToken, chStr);
 
                    case '\'':
-                       return new SyntaxToken(SyntaxKind.SinglequoteToken, chStr);
+                       return new Token(SyntaxKind.SinglequoteToken, chStr);
 
                    case '`':
-                       return new SyntaxToken(SyntaxKind.BackquoteToken, chStr);
+                       return new Token(SyntaxKind.BackquoteToken, chStr);
 
                    */
 
                     case '(':
-                        return new SyntaxToken(SyntaxKind.OpenParenToken, chStr);
+                        return new Token(SyntaxKind.OpenParenToken, chStr);
 
                     case ')':
-                        return new SyntaxToken(SyntaxKind.CloseParenToken, chStr);
+                        return new Token(SyntaxKind.CloseParenToken, chStr);
 
                     case '{':
-                        return new SyntaxToken(SyntaxKind.OpenBraceToken, chStr);
+                        return new Token(SyntaxKind.OpenBraceToken, chStr);
 
                     case '}':
-                        return new SyntaxToken(SyntaxKind.CloseBraceToken, chStr);
+                        return new Token(SyntaxKind.CloseBraceToken, chStr);
 
                     /*
 
                 case '[':
-                    return new SyntaxToken(SyntaxKind.OpenSquareToken, chStr);
+                    return new Token(SyntaxKind.OpenSquareToken, chStr);
 
                 case ']':
-                    return new SyntaxToken(SyntaxKind.CloseSquareToken, chStr);
+                    return new Token(SyntaxKind.CloseSquareToken, chStr);
                     */
 
                     case '=':
-                        return new SyntaxToken(SyntaxKind.EqualsToken, chStr);
+                        return new Token(SyntaxKind.EqualsToken, chStr);
 
                     case '!':
                         if (PeekChar(out var ch6) && ch6 == '=')
                         {
                             ReadChar();
-                            return new SyntaxToken(SyntaxKind.NotEqualsToken, "!=");
+                            return new Token(SyntaxKind.NotEqualsToken, "!=");
                         }
-                        return new SyntaxToken(SyntaxKind.ExclamationToken, chStr);
+                        return new Token(SyntaxKind.ExclamationToken, chStr);
 
                     case '<':
                         if (PeekChar(out var ch2) && ch2 == '=')
                         {
                             ReadChar();
-                            return new SyntaxToken(SyntaxKind.LessThanEqualsToken, "<=");
+                            return new Token(SyntaxKind.LessThanEqualsToken, "<=");
                         }
-                        return new SyntaxToken(SyntaxKind.LessThanToken, chStr);
+                        return new Token(SyntaxKind.LessThanToken, chStr);
 
                     case '>':
                         if (PeekChar(out var ch3) && ch3 == '=')
                         {
                             ReadChar();
-                            return new SyntaxToken(SyntaxKind.GreaterOrEqualsToken, ">=");
+                            return new Token(SyntaxKind.GreaterOrEqualsToken, ">=");
                         }
-                        return new SyntaxToken(SyntaxKind.GreaterThanToken, chStr);
+                        return new Token(SyntaxKind.GreaterThanToken, chStr);
 
 
                     case ' ':
@@ -215,7 +215,7 @@ internal class Lexer : ILexer
                             length++;
                         }
 
-                        return new SyntaxToken(SyntaxKind.Whitespace, string.Intern(new string(' ', length)));
+                        return new Token(SyntaxKind.Whitespace, string.Intern(new string(' ', length)));
 
 
                     case '\'':
@@ -245,7 +245,7 @@ internal class Lexer : ILexer
                             }
                         }
 
-                        return new SyntaxToken(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
+                        return new Token(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
 
 
                     case '\"':
@@ -275,24 +275,24 @@ internal class Lexer : ILexer
                             }
                         }
 
-                        return new SyntaxToken(SyntaxKind.StringLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
+                        return new Token(SyntaxKind.StringLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
 
 
                     case '\t':
-                        return new SyntaxToken(SyntaxKind.TabToken, "\t");
+                        return new Token(SyntaxKind.TabToken, "\t");
 
                     case '\n':
-                        return new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");
+                        return new Token(SyntaxKind.EndOfLineToken, "\n");
 
                     case '\r':
-                        return new SyntaxToken(SyntaxKind.CarriageReturnToken, "\r");
+                        return new Token(SyntaxKind.CarriageReturnToken, "\r");
                 }
             }
 
-            return new SyntaxToken(SyntaxKind.None, ch.ToString());
+            return new Token(SyntaxKind.None, ch.ToString());
         }
 
-        return new SyntaxToken(SyntaxKind.EndOfFileToken, string.Empty);
+        return new Token(SyntaxKind.EndOfFileToken, string.Empty);
     }
 
     private TextSpan GetTokenStartPositionSpan()

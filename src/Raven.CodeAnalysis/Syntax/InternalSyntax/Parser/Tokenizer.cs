@@ -51,7 +51,7 @@ internal class Tokenizer : ITokenizer
 
     private SyntaxToken ReadTokenCore()
     {
-        SyntaxToken token;
+        Token token;
 
         SyntaxTriviaList leadingTrivia;
         SyntaxTriviaList trailingTrivia;
@@ -62,7 +62,7 @@ internal class Tokenizer : ITokenizer
 
         trailingTrivia = ReadTrivia(isTrailingTrivia: true);
 
-        return new SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia, token._diagnostics);
+        return new SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia, token.GetDiagnostics());
     }
 
     private SyntaxTriviaList ReadTrivia(bool isTrailingTrivia)
@@ -86,7 +86,7 @@ internal class Tokenizer : ITokenizer
 
                     _lexer.ReadTokens(2);
 
-                    SyntaxToken peeked = _lexer.PeekToken();
+                    Token peeked = _lexer.PeekToken();
                     while (peeked.Kind != SyntaxKind.EndOfLineToken && !IsEndOfFile)
                     {
                         _lexer.ReadToken();
@@ -104,8 +104,8 @@ internal class Tokenizer : ITokenizer
 
                     _lexer.ReadAndDiscardTokens(2);
 
-                    SyntaxToken peeked = _lexer.PeekToken(0);
-                    SyntaxToken peeked2 = _lexer.PeekToken(1);
+                    Token peeked = _lexer.PeekToken(0);
+                    Token peeked2 = _lexer.PeekToken(1);
                     while (peeked.Kind != SyntaxKind.StarToken && peeked2.Kind != SyntaxKind.SlashToken && !IsEndOfFile)
                     {
                         _lexer.ReadToken();
@@ -143,7 +143,7 @@ internal class Tokenizer : ITokenizer
 
                 case SyntaxKind.EndOfLineToken:
                     {
-                        SyntaxToken peeked;
+                        Token peeked;
                         do
                         {
                             _lexer.ReadToken();
@@ -159,7 +159,7 @@ internal class Tokenizer : ITokenizer
                     }
                 case SyntaxKind.CarriageReturnToken:
                     {
-                        SyntaxToken peeked2;
+                        Token peeked2;
                         do
                         {
                             _lexer.ReadToken();
