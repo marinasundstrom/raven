@@ -11,8 +11,6 @@ internal class Tokenizer : ITokenizer
 
     public int Position { get; private set; }
 
-    public bool IsEndOfFile => _currentToken.Kind == SyntaxKind.EndOfFileToken;
-
     public Tokenizer(TextReader textReader)
     {
         _lexer = new Lexer(textReader);
@@ -75,6 +73,11 @@ internal class Tokenizer : ITokenizer
 
             var token = _lexer.PeekToken(0);
 
+            if (token.Kind == SyntaxKind.EndOfFileToken)
+            {
+                break;
+            }
+
             if (token.Kind == SyntaxKind.SlashToken)
             {
                 var token2 = _lexer.PeekToken(1);
@@ -87,7 +90,7 @@ internal class Tokenizer : ITokenizer
                     _lexer.ReadTokens(2);
 
                     Token peeked = _lexer.PeekToken();
-                    while (peeked.Kind != SyntaxKind.EndOfLineToken && !IsEndOfFile)
+                    while (peeked.Kind != SyntaxKind.EndOfLineToken && peeked.Kind != SyntaxKind.EndOfFileToken)
                     {
                         _lexer.ReadToken();
                         _stringBuilder.Append(peeked.GetValueText());
@@ -106,7 +109,7 @@ internal class Tokenizer : ITokenizer
 
                     Token peeked = _lexer.PeekToken(0);
                     Token peeked2 = _lexer.PeekToken(1);
-                    while (peeked.Kind != SyntaxKind.StarToken && peeked2.Kind != SyntaxKind.SlashToken && !IsEndOfFile)
+                    while (peeked.Kind != SyntaxKind.StarToken && peeked2.Kind != SyntaxKind.SlashToken && peeked.Kind != SyntaxKind.EndOfFileToken)
                     {
                         _lexer.ReadToken();
 

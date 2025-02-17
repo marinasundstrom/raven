@@ -29,8 +29,8 @@ public partial class CompilationUnitSyntax : SyntaxNode
     {
     }
 
-    public CompilationUnitSyntax(SyntaxTree syntaxTree, SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members)
-    : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports.Green, members.Green, SyntaxFactory.EndOfFile.Green), syntaxTree)
+    public CompilationUnitSyntax(SyntaxTree syntaxTree, SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken endOfFileToken)
+    : this(new Syntax.InternalSyntax.CompilationUnitSyntax(imports.Green, members.Green, endOfFileToken.Green), syntaxTree)
     {
     }
 
@@ -41,7 +41,7 @@ public partial class CompilationUnitSyntax : SyntaxNode
 
     internal CompilationUnitSyntax WithSyntaxTree(SyntaxTree syntaxTree)
     {
-        return new CompilationUnitSyntax(syntaxTree, Imports, Members);
+        return new CompilationUnitSyntax(syntaxTree, Imports, Members, EndOfFileToken);
     }
 }
 

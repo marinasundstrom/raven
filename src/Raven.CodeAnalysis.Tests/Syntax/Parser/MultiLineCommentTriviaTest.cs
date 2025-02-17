@@ -25,7 +25,7 @@ public class MultiLineCommentTriviaTest
         trivia.ShouldNotBeNull();
     }
 
-    [Fact(Skip = "Because of issue #88")]
+    [Fact]
     public void MultiLineCommentTrivia_IsLeadingTriviaOfEndOFileToken()
     {
         var code = """
