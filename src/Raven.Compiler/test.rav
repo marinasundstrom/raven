@@ -8,8 +8,9 @@ let value : bool = bool.Parse(str);
 let x : String = "Test";
 let y = 42;
 
-//
-// This is a comment
+/* let a = DateTime.Parse("1990-01-05").Day;
+let b = x.Length; */
+
 if (value) {
     Console.WriteLine("Hello" + ", World!");
 } else

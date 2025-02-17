@@ -6,5 +6,9 @@ internal interface ILexer
 
     SyntaxToken ReadToken();
 
+    IEnumerable<SyntaxToken> ReadTokens(int count);
+
+    void ReadAndDiscardTokens(int count);
+
     SyntaxToken PeekToken(int index = 0);
 }

@@ -221,6 +221,10 @@ public static class Ext
             {
                 sb.Append(Colorize(syntaxTrivia.Text, AnsiColor.Green));
             }
+            else if (syntaxTrivia.Kind == SyntaxKind.MultiLineCommentTrivia)
+            {
+                sb.Append(Colorize(syntaxTrivia.Text, AnsiColor.Green));
+            }
             else
             {
                 sb.Append(syntaxTrivia.Text);

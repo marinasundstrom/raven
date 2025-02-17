@@ -7,6 +7,7 @@ internal class Tokenizer : ITokenizer
     private readonly ILexer _lexer;
     private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
     private SyntaxToken _currentToken;
+    private readonly StringBuilder _stringBuilder = new StringBuilder();
 
     public int Position { get; private set; }
 
@@ -70,6 +71,8 @@ internal class Tokenizer : ITokenizer
 
         while (true)
         {
+            if (_stringBuilder.Length > 0) _stringBuilder.Clear();
+
             var token = _lexer.PeekToken(0);
 
             if (token.Kind == SyntaxKind.SlashToken)
@@ -78,23 +81,50 @@ internal class Tokenizer : ITokenizer
 
                 if (token2.Kind == SyntaxKind.SlashToken)
                 {
-                    StringBuilder sb = new StringBuilder();
+                    _stringBuilder.Append(token.GetValueText());
+                    _stringBuilder.Append(token2.GetValueText());
 
-                    sb.Append(token.GetValueText());
-                    sb.Append(token2.GetValueText());
-
-                    _lexer.ReadToken();
-                    _lexer.ReadToken();
+                    _lexer.ReadTokens(2);
 
                     SyntaxToken peeked = _lexer.PeekToken();
                     while (peeked.Kind != SyntaxKind.EndOfLineToken && !IsEndOfFile)
                     {
                         _lexer.ReadToken();
-                        sb.Append(peeked.GetValueText());
+                        _stringBuilder.Append(peeked.GetValueText());
                         peeked = _lexer.PeekToken();
                     }
 
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, sb.ToString()));
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, _stringBuilder.ToString()));
+                    continue;
+                }
+                else if (token2.Kind == SyntaxKind.StarToken)
+                {
+                    _stringBuilder.Append(token.GetValueText());
+                    _stringBuilder.Append(token2.GetValueText());
+
+                    _lexer.ReadAndDiscardTokens(2);
+
+                    SyntaxToken peeked = _lexer.PeekToken(0);
+                    SyntaxToken peeked2 = _lexer.PeekToken(1);
+                    while (peeked.Kind != SyntaxKind.StarToken && peeked2.Kind != SyntaxKind.SlashToken && !IsEndOfFile)
+                    {
+                        _lexer.ReadToken();
+
+                        _stringBuilder.Append(peeked.GetValueText());
+
+                        peeked = _lexer.PeekToken(0);
+                        peeked2 = _lexer.PeekToken(1);
+
+                        if (peeked.Kind == SyntaxKind.StarToken && peeked2.Kind == SyntaxKind.SlashToken)
+                        {
+                            _lexer.ReadAndDiscardTokens(2);
+
+                            _stringBuilder.Append(peeked.GetValueText());
+                            _stringBuilder.Append(peeked2.GetValueText());
+                        }
+                    }
+
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, _stringBuilder.ToString()));
                     continue;
                 }
             }

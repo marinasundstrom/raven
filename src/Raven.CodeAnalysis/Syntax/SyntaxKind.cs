@@ -127,6 +127,7 @@ public enum SyntaxKind
     CarriageReturnLineFeedTrivia,
     TabTrivia,
     SingleLineCommentTrivia,
+    MultiLineCommentTrivia,
     SkippedTokensTrivia,
     EndOfLineTrivia,
 

@@ -5,14 +5,14 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 internal class Lexer : ILexer
 {
     private readonly TextReader _textReader;
-    private StringBuilder? _stringBuilder;
+    private readonly StringBuilder _stringBuilder = new StringBuilder();
     private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
     private int _currentPosition = 0;
     private int _tokenStartPosition = 0;
 
     public Lexer(TextReader textReader)
     {
-        this._textReader = textReader;
+        _textReader = textReader;
     }
 
     public SyntaxToken ReadToken()
@@ -34,6 +34,24 @@ internal class Lexer : ILexer
         return token;
     }
 
+    public void ReadAndDiscardTokens(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            ReadToken();
+        }
+    }
+
+    public IEnumerable<SyntaxToken> ReadTokens(int count)
+    {
+        var tokens = new SyntaxToken[count];
+        for (int i = 0; i < count; i++)
+        {
+            tokens[i] = ReadToken();
+        }
+        return tokens;
+    }
+
     public SyntaxToken PeekToken(int index = 0)
     {
         // Ensure the lookahead tokens list is populated up to the requested index
@@ -52,9 +70,10 @@ internal class Lexer : ILexer
 
         while (ReadChar(out var ch))
         {
+            if (_stringBuilder.Length > 0) _stringBuilder.Clear();
+
             if (char.IsLetterOrDigit(ch))
             {
-                _stringBuilder = new StringBuilder();
 
                 _stringBuilder.Append(ch);
 
@@ -200,8 +219,6 @@ internal class Lexer : ILexer
 
 
                     case '\'':
-                        _stringBuilder = new StringBuilder();
-
                         _stringBuilder.Append(ch);
 
                         while (PeekChar(out var ch9))
@@ -232,8 +249,6 @@ internal class Lexer : ILexer
 
 
                     case '\"':
-                        _stringBuilder = new StringBuilder();
-
                         _stringBuilder.Append(ch);
 
                         while (PeekChar(out var ch8) && ch8 != '\"')
