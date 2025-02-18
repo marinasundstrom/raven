@@ -36,6 +36,8 @@ public interface ISymbol : IEquatable<ISymbol?>
 
     bool IsImplicitlyDeclared { get; }
 
+    bool IsStatic { get; }
+
     bool Equals(ISymbol? other, SymbolEqualityComparer comparer);
 
     string ToDisplayString(SymbolDisplayFormat format = default);

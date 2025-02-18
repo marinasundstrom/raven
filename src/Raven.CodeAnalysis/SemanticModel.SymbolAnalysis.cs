@@ -262,6 +262,13 @@ public partial class SemanticModel
                         resolvedSymbols.AddRange(localType.GetMembers(name));
                         break;
                     }
+
+                case IPropertySymbol propertySymbol:
+                    {
+                        var propertyType = propertySymbol.Type;
+                        resolvedSymbols.AddRange(propertyType.GetMembers(name));
+                        break;
+                    }
             }
         }
 

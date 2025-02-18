@@ -464,6 +464,16 @@ internal class CodeGenerator
                 // It's an expression.
 
                 GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expr);
+
+                if (target.ContainingType.IsValueType)
+                {
+                    var clrType = target.ContainingType.GetClrType(_compilation);
+                    var builder = iLGenerator.DeclareLocal(clrType);
+                    //_localBuilders[target] = builder;
+
+                    iLGenerator.Emit(OpCodes.Stloc, builder);
+                    iLGenerator.Emit(OpCodes.Ldloca, builder);
+                }
             }
         }
 
@@ -490,11 +500,12 @@ internal class CodeGenerator
             var metadataPropertySymbol = propertySymbol as MetadataPropertySymbol;
             var getMethod = metadataPropertySymbol.GetMethod as MetadataMethodSymbol;
 
-            if (propertySymbol.ContainingType.IsValueType)
+            if (!propertySymbol.IsStatic
+                && propertySymbol.ContainingType.IsValueType)
             {
                 var clrType = propertySymbol.ContainingType.GetClrType(_compilation);
                 var builder = iLGenerator.DeclareLocal(clrType);
-                _localBuilders[symbol] = builder;
+                //_localBuilders[symbol] = builder;
 
                 iLGenerator.Emit(OpCodes.Stloc, builder);
                 iLGenerator.Emit(OpCodes.Ldloca, builder);

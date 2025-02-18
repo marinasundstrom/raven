@@ -100,6 +100,8 @@ internal abstract class Symbol : ISymbol
 
     public virtual bool IsImplicitlyDeclared => false;
 
+    public virtual bool IsStatic => false;
+
     public string ToDisplayString(SymbolDisplayFormat format = default!)
     {
         if (format is null)

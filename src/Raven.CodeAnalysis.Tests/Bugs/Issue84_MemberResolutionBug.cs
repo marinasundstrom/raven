@@ -20,4 +20,19 @@ public class Issue84_MemberResolutionBug : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void CanResolveMember2()
+    {
+        string testCode =
+            """
+            import System;
+
+            let a = DateTime.Now.ToString();
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
