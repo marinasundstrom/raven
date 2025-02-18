@@ -12,6 +12,7 @@ public static class TypeSymbolExtensions
     {
         if (typeSymbol == null)
             throw new ArgumentNullException(nameof(typeSymbol));
+
         if (compilation == null)
             throw new ArgumentNullException(nameof(compilation));
 

@@ -475,13 +475,33 @@ internal class CodeGenerator
         // Resolve target identifier or access
         // If local, property, or field, then load
 
-        var localSymbol = _compilation
+        var symbol = _compilation
             .GetSemanticModel(identifierName.SyntaxTree)
-            .GetSymbolInfo(identifierName).Symbol as ILocalSymbol;
+            .GetSymbolInfo(identifierName).Symbol;
 
-        var localBuilder = _localBuilders[localSymbol];
+        if (symbol is ILocalSymbol localSymbol)
+        {
+            var localBuilder = _localBuilders[localSymbol];
 
-        iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
+            iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
+        }
+        else if (symbol is IPropertySymbol propertySymbol)
+        {
+            var metadataPropertySymbol = propertySymbol as MetadataPropertySymbol;
+            var getMethod = metadataPropertySymbol.GetMethod as MetadataMethodSymbol;
+
+            if (propertySymbol.ContainingType.IsValueType)
+            {
+                var clrType = propertySymbol.ContainingType.GetClrType(_compilation);
+                var builder = iLGenerator.DeclareLocal(clrType);
+                _localBuilders[symbol] = builder;
+
+                iLGenerator.Emit(OpCodes.Stloc, builder);
+                iLGenerator.Emit(OpCodes.Ldloca, builder);
+            }
+
+            iLGenerator.Emit(OpCodes.Call, getMethod.GetMethodInfo());
+        }
     }
 
     private static void GenerateLiteralExpression(ILGenerator iLGenerator, LiteralExpressionSyntax literalExpression)

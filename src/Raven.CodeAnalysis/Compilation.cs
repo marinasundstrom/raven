@@ -192,6 +192,14 @@ public class Compilation
                         pi, null, symbol!, symbol, ns,
                         []);
 
+                    symbol3.GetMethod = pi.GetMethod is null ? null : new MetadataMethodSymbol(this,
+                        pi.GetMethod, null, symbol3!, symbol, ns,
+                        []);
+
+                    symbol3.SetMethod = pi.SetMethod is null ? null : new MetadataMethodSymbol(this,
+                        pi.SetMethod, null, symbol3!, symbol, ns,
+                        []);
+
                     _symbols.Add(symbol3);
                 }
 
@@ -414,11 +422,20 @@ public class Compilation
 
     readonly Dictionary<System.Reflection.TypeInfo, ITypeSymbol> typeSymbolMappings = new();
 
-    public ITypeSymbol GetType(Type type)
+    public ITypeSymbol? GetType(Type type)
     {
-        var typeInfo = type.GetTypeInfo();
+        if (type.IsArray)
+        {
+            var elementType = GetType(type.GetElementType());
+            return new ArrayTypeSymbol(this, elementType, null, null, null, null);
+        }
 
-        if (!typeSymbolMappings.TryGetValue(typeInfo, out var symbol)) ;
+        return GetSimpleType(type);
+
+        //return _symbols.OfType<MetadataTypeSymbol>().First(x => x.GetClrType(this) == typeInfo);
+
+        /*
+        if (!typeSymbolMappings.TryGetValue(typeInfo, out var symbol))
         {
             var ns = GetOrCreateNamespaceSymbol(type.Namespace);
 
@@ -428,6 +445,16 @@ public class Compilation
                 []);
         }
         return symbol;
+        */
+    }
+
+    private ITypeSymbol? GetSimpleType(Type type)
+    {
+        var typeInfo = type.GetTypeInfo();
+
+        var ns = GetOrCreateNamespaceSymbol(type.Namespace);
+
+        return ns.GetMembers(type.Name).FirstOrDefault() as ITypeSymbol;
     }
 }
 

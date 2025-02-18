@@ -83,7 +83,8 @@ public partial class SemanticModel
             }
             else
             {
-                propertyType = expSymbols.FirstOrDefault() as ITypeSymbol;
+                // INFO: Might be a hack
+                propertyType = expSymbols.FirstOrDefault()?.UnwrapType();
             }
 
             if (declarator?.Initializer?.Value is not null)
@@ -103,7 +104,7 @@ public partial class SemanticModel
                     }
                     else
                     {
-                        var z = Compilation.ClassifyConversion(typeSymbol, propertyType);
+                        //var z = Compilation.ClassifyConversion(typeSymbol, propertyType);
                     }
                 }
             }
@@ -294,6 +295,7 @@ public partial class SemanticModel
             return resolvedSymbols.ToImmutable();
         }
 
+        Bind(memberAccessExpression.Name, resolvedSymbols.First());
         Bind(expression, resolvedSymbols.First());
         return resolvedSymbols.ToImmutable();
     }

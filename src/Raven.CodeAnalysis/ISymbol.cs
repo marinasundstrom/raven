@@ -155,8 +155,13 @@ public interface INamedTypeSymbol : ITypeSymbol
 {
     ImmutableArray<IMethodSymbol> Constructors { get; }
     IMethodSymbol? StaticConstructor { get; }
-    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+    ImmutableArray<ITypeSymbol> TypeArguments { get; }
+    ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+}
+
+public interface IArrayTypeSymbol : ITypeSymbol
+{
+    ITypeSymbol ElementType { get; }
 }
 
 public interface ITypeParameterSymbol : ISymbol
