@@ -661,10 +661,9 @@ internal class LanguageParser
             if (!TryResolveOperatorPrecedence(operatorCandidate, out prec))
                 return expr;
 
-            ReadToken();
-
             if (prec >= precedence)
             {
+                ReadToken();
                 var right = ParseExpressionCore(prec + 1);
                 expr = BinaryExpression(GetBinaryExpressionKind(operatorCandidate), expr, operatorCandidate, right);
             }
