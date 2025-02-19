@@ -138,6 +138,10 @@ public interface IParameterSymbol : ISymbol
 public interface IFieldSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
+
+    bool IsLiteral { get; }
+
+    object? GetConstantValue();
 }
 
 public interface IPropertySymbol : ISymbol

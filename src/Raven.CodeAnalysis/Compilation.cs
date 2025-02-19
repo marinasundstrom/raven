@@ -203,6 +203,16 @@ public class Compilation
                     _symbols.Add(symbol3);
                 }
 
+                foreach (var fi in type.GetFields())
+                {
+                    var symbol4 = new MetadataFieldSymbol(this,
+                        fi, null, symbol!, symbol, ns,
+                        []);
+
+                    _symbols.Add(symbol4);
+                }
+
+
                 _symbols.Add(symbol);
             }
         }

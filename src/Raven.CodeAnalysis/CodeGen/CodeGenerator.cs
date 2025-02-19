@@ -495,6 +495,33 @@ internal class CodeGenerator
 
             iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
         }
+        else if (symbol is IFieldSymbol fieldSymbol)
+        {
+            var metadataFieldSymbol = fieldSymbol as MetadataFieldSymbol;
+
+            if (fieldSymbol.IsLiteral)
+            {
+                if (fieldSymbol.Type.SpecialType == SpecialType.System_Int32)
+                {
+                    iLGenerator.Emit(OpCodes.Ldc_I4, (int)metadataFieldSymbol.GetConstantValue()!);
+                }
+                else
+                {
+                    throw new Exception("Unsupported constant type");
+                }
+            }
+            else
+            {
+                if (metadataFieldSymbol.IsStatic)
+                {
+                    iLGenerator.Emit(OpCodes.Ldsfld, metadataFieldSymbol.GetFieldInfo());
+                }
+                else
+                {
+                    iLGenerator.Emit(OpCodes.Ldfld, metadataFieldSymbol.GetFieldInfo());
+                }
+            }
+        }
         else if (symbol is IPropertySymbol propertySymbol)
         {
             var metadataPropertySymbol = propertySymbol as MetadataPropertySymbol;

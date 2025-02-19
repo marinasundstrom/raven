@@ -269,6 +269,13 @@ public partial class SemanticModel
                         resolvedSymbols.AddRange(propertyType.GetMembers(name));
                         break;
                     }
+
+                case IFieldSymbol fieldSymbol:
+                    {
+                        var fieldProperty = fieldSymbol.Type;
+                        resolvedSymbols.AddRange(fieldProperty.GetMembers(name));
+                        break;
+                    }
             }
         }
 
@@ -406,9 +413,9 @@ public partial class SemanticModel
         symbols =
         [
             .. _localSymbols.Where(x => x.Name == identifier),
-                .. _imports.Select(x => (x.Key.ToString(), x.Value)).SelectMany(x => x.Value.GetMembers(identifier)),
-                .. _symbols.Where(x => x.Name == identifier && (x.ContainingSymbol == containingSymbol || x.ContainingSymbol == declaringSymbol || x.ContainingSymbol == Compilation.GlobalNamespace)),
-            ];
+            .. _imports.Select(x => (x.Key.ToString(), x.Value)).SelectMany(x => x.Value.GetMembers(identifier)),
+            .. _symbols.Where(x => x.Name == identifier && (x.ContainingSymbol == containingSymbol || x.ContainingSymbol == declaringSymbol || x.ContainingSymbol == Compilation.GlobalNamespace)),
+        ];
 
         // Fix
         symbols = symbols.DistinctBy(x => x.Name).ToImmutableArray();

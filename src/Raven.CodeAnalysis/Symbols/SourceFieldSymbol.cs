@@ -9,4 +9,11 @@ internal class SourceFieldSymbol : SourceSymbol, IFieldSymbol
     }
 
     public ITypeSymbol Type { get; }
+
+    public bool IsLiteral { get; }
+
+    public object? GetConstantValue()
+    {
+        return null;
+    }
 }
