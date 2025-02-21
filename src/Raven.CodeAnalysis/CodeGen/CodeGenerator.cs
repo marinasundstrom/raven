@@ -185,6 +185,10 @@ internal class CodeGenerator
                 GenerateIfStatement(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax);
                 break;
 
+            case WhileStatementSyntax whileStatement:
+                GenerateWhileStatement(typeBuilder, methodBuilder, iLGenerator, statement, whileStatement);
+                break;
+
             case ExpressionStatementSyntax expressionStatement:
                 GenerateExpressionStatement(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement);
                 break;
@@ -287,6 +291,26 @@ internal class CodeGenerator
         {
             iLGenerator.Emit(OpCodes.Brfalse_S, end);
         }
+    }
+
+
+    private void GenerateWhileStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, WhileStatementSyntax whileStatementSyntax)
+    {
+        var beginLabel = iLGenerator.DefineLabel();
+        var endLabel = iLGenerator.DefineLabel();
+
+        iLGenerator.MarkLabel(beginLabel);
+
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, whileStatementSyntax.Condition);
+
+        GenerateBranchOpForCondition(whileStatementSyntax.Condition, iLGenerator, endLabel);
+
+        GenerateStatement(typeBuilder, methodBuilder, iLGenerator, whileStatementSyntax.Statement);
+
+        iLGenerator.Emit(OpCodes.Br_S, beginLabel);
+
+        //End
+        iLGenerator.MarkLabel(endLabel);
     }
 
     private void GenerateExpressionStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ExpressionStatementSyntax expressionStatement)

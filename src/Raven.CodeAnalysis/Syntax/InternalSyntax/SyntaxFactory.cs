@@ -20,6 +20,7 @@ internal static partial class SyntaxFactory
     public static readonly SyntaxToken LetKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "let");
     public static readonly SyntaxToken IfKeyword = new SyntaxToken(SyntaxKind.IfKeyword, "if");
     public static readonly SyntaxToken ElseKeyword = new SyntaxToken(SyntaxKind.ElseKeyword, "else");
+    public static readonly SyntaxToken WhileKeyword = new SyntaxToken(SyntaxKind.WhileKeyword, "while");
     public static readonly SyntaxToken ReturnKeyword = new SyntaxToken(SyntaxKind.ReturnKeyword, "return");
     public static readonly SyntaxToken TrueKeyword = new SyntaxToken(SyntaxKind.TrueKeyword, "true");
     public static readonly SyntaxToken FalseKeyword = new SyntaxToken(SyntaxKind.FalseKeyword, "false");

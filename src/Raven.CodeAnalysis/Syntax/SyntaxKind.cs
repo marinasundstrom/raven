@@ -36,6 +36,7 @@ public enum SyntaxKind
     ReturnStatement,
     IfStatement,
     ElseClause,
+    WhileStatement,
     Block,
 
     VariableDeclaration,
@@ -87,6 +88,7 @@ public enum SyntaxKind
     LetKeyword,
     IfKeyword,
     ElseKeyword,
+    WhileKeyword,
     ReturnKeyword,
     TrueKeyword,
     FalseKeyword,

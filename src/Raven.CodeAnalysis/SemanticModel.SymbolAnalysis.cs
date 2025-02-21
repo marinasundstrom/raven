@@ -25,6 +25,10 @@ public partial class SemanticModel
                 AnalyzeIfStatement(declaringSymbol, ifStatement);
                 break;
 
+            case WhileStatementSyntax whileStatement:
+                AnalyzeWhileStatement(declaringSymbol, whileStatement);
+                break;
+
             case ReturnStatementSyntax returnStatement:
                 AnalyzeReturnStatement(declaringSymbol, returnStatement);
                 break;
@@ -136,6 +140,14 @@ public partial class SemanticModel
         {
             AnalyzeStatement(declaringSymbol, ifStatement.ElseClause.Statement);
         }
+    }
+
+
+    private void AnalyzeWhileStatement(ISymbol declaringSymbol, WhileStatementSyntax whileStatement)
+    {
+        AnalyzeExpression(declaringSymbol, declaringSymbol, whileStatement.Condition, out var s);
+
+        AnalyzeStatement(declaringSymbol, whileStatement.Statement);
     }
 
     private void AnalyzeReturnStatement(ISymbol declaringSymbol, ReturnStatementSyntax returnStatement)

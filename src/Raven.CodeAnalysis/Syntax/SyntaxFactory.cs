@@ -18,6 +18,7 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken LetKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.LetKeyword;
     public static readonly SyntaxToken IfKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.IfKeyword;
     public static readonly SyntaxToken ElseKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ElseKeyword;
+    public static readonly SyntaxToken WhileKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.WhileKeyword;
     public static readonly SyntaxToken ReturnKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.ReturnKeyword;
     public static readonly SyntaxToken TrueKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.TrueKeyword;
     public static readonly SyntaxToken FalseKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.FalseKeyword;

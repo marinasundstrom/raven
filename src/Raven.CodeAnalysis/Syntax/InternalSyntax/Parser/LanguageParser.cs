@@ -237,6 +237,10 @@ internal class LanguageParser
                 statement = ParseIfStatementSyntax();
                 break;
 
+            case SyntaxKind.WhileKeyword:
+                statement = ParseWhileStatementSyntax();
+                break;
+
             case SyntaxKind.ReturnKeyword:
                 statement = ParseReturnStatementSyntax();
                 break;
@@ -492,6 +496,57 @@ internal class LanguageParser
         var elseKeyword = ReadToken();
 
         return ElseClause(elseKeyword, ParseStatementSyntax());
+    }
+
+    private WhileStatementSyntax? ParseWhileStatementSyntax()
+    {
+        List<DiagnosticInfo>? diagnostics = null;
+
+        var ifKeyword = ReadToken();
+
+        ConsumeToken(SyntaxKind.OpenParenToken, out var openParenToken);
+
+        var condition = ParseExpressionSyntaxOrMissing();
+
+        if (!ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken))
+        {
+            Diagnostics(ref diagnostics).Add(
+               DiagnosticInfo.Create(
+                   CompilerDiagnostics.CharacterExpected,
+                   GetEndOfLastToken(),
+                   [')']
+               ));
+        }
+
+        var afterCloseParen = GetEndOfLastToken();
+
+        if (condition.IsMissing)
+        {
+            Diagnostics(ref diagnostics).Add(
+               DiagnosticInfo.Create(
+                   CompilerDiagnostics.InvalidExpressionTerm,
+                   GetStartOfLastToken(),
+                   [')']
+               ));
+        }
+
+        var statement = ParseStatementSyntax();
+
+        if (statement!.IsMissing)
+        {
+            Diagnostics(ref diagnostics).Add(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.SemicolonExpected,
+                    afterCloseParen
+                ));
+        }
+
+        if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
+        {
+
+        }
+
+        return WhileStatement(ifKeyword, openParenToken, condition!, closeParenToken, statement!, diagnostics);
     }
 
     private ExpressionSyntax? ParseExpressionSyntax()

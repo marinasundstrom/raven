@@ -12,6 +12,7 @@ public static class SyntaxFacts
         { "namespace", SyntaxKind.NamespaceKeyword },
         { "let", SyntaxKind.LetKeyword },
         { "if", SyntaxKind.IfKeyword },
+        { "while", SyntaxKind.WhileKeyword },
         { "else", SyntaxKind.ElseKeyword },
         { "return", SyntaxKind.ReturnKeyword },
         { "true", SyntaxKind.TrueKeyword },
@@ -56,6 +57,7 @@ public static class SyntaxFacts
             SyntaxKind.SinglequoteToken => "'",
             SyntaxKind.BackquoteToken => "`", */
             SyntaxKind.IfKeyword => "if",
+            SyntaxKind.WhileKeyword => "while",
             //SyntaxKind.VarKeyword => "var",
             SyntaxKind.ElseKeyword => "else ",
             //SyntaxKind.Var" => "var",
