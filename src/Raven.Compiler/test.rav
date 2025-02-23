@@ -1,11 +1,15 @@
 import System;
 
-let u = "Hello".Length;
+Console.WriteLine("Foo: ");
 
-if (x > 2) {
-    Console.WriteLine(u.ToString());
-}
+let z = int.Parse(Console.ReadLine());
 
-while u < 10 {
-    Console.WriteLine(u.ToString());
-}
+let x = (if (z > 2) {
+    Console.WriteLine(z.ToString());
+    2;
+} else {
+    // Test
+    3;;
+});;
+
+Console.WriteLine(x.ToString());

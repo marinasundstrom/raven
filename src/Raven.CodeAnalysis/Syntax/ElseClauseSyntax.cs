@@ -4,7 +4,7 @@ public partial class ElseClauseSyntax : SyntaxNode
 {
     public partial SyntaxToken ElseKeyword { get; }
 
-    public partial StatementSyntax Statement { get; }
+    public partial ExpressionSyntax Expression { get; }
 
     internal ElseClauseSyntax(
         InternalSyntax.SyntaxNode greenNode,
@@ -14,15 +14,15 @@ public partial class ElseClauseSyntax : SyntaxNode
     {
     }
 
-    public ElseClauseSyntax(SyntaxToken elseKeyword, StatementSyntax statement)
+    public ElseClauseSyntax(SyntaxToken elseKeyword, ExpressionSyntax expression)
       : this(
-            new InternalSyntax.ElseClauseSyntax(elseKeyword.Green, (InternalSyntax.StatementSyntax)statement.Green))
+            new InternalSyntax.ElseClauseSyntax(elseKeyword.Green, (InternalSyntax.ExpressionSyntax)expression.Green))
     {
 
     }
 
-    public ElseClauseSyntax(StatementSyntax statement)
-      : this(SyntaxFactory.ElseKeyword, statement)
+    public ElseClauseSyntax(ExpressionSyntax expression)
+      : this(SyntaxFactory.ElseKeyword, expression)
     {
 
     }
@@ -30,6 +30,6 @@ public partial class ElseClauseSyntax : SyntaxNode
 
 public static partial class SyntaxFactory
 {
-    public static ElseClauseSyntax ElseClause(StatementSyntax statement)
-        => new ElseClauseSyntax(statement);
+    public static ElseClauseSyntax ElseClause(ExpressionSyntax expression)
+        => new ElseClauseSyntax(expression);
 }

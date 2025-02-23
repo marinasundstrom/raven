@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Runtime.ConstrainedExecution;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -9,24 +10,12 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    private void AnalyzeStatement(ISymbol declaringSymbol, StatementSyntax statement)
+    private ImmutableArray<ISymbol> AnalyzeStatement(ISymbol declaringSymbol, StatementSyntax statement)
     {
         switch (statement)
         {
             case LocalDeclarationStatementSyntax localDeclarationStatement:
                 AnalyzeDeclarationStatement(declaringSymbol, localDeclarationStatement);
-                break;
-
-            case BlockSyntax block:
-                AnalyzeBlock(declaringSymbol, block);
-                break;
-
-            case IfStatementSyntax ifStatement:
-                AnalyzeIfStatement(declaringSymbol, ifStatement);
-                break;
-
-            case WhileStatementSyntax whileStatement:
-                AnalyzeWhileStatement(declaringSymbol, whileStatement);
                 break;
 
             case ReturnStatementSyntax returnStatement:
@@ -35,8 +24,10 @@ public partial class SemanticModel
 
             case ExpressionStatementSyntax expressionStatement:
                 AnalyzeExpression(declaringSymbol, declaringSymbol, expressionStatement.Expression, out var s);
-                break;
+                return s;
         }
+
+        return [];
     }
 
     private void AnalyzeDeclarationStatement(ISymbol declaringSymbol, LocalDeclarationStatementSyntax localDeclarationStatement)
@@ -122,40 +113,57 @@ public partial class SemanticModel
         }
     }
 
-    private void AnalyzeBlock(ISymbol declaringSymbol, BlockSyntax block)
+    private ImmutableArray<ISymbol> AnalyzeBlock(ISymbol declaringSymbol, ISymbol containingSymbol, BlockSyntax block)
     {
         foreach (var s in block.Statements)
         {
-            AnalyzeStatement(declaringSymbol, s);
+            var r = AnalyzeStatement(declaringSymbol, s);
+
+            if (s == block.Statements.Last())
+            {
+                return r;
+            }
         }
+
+        return [];
     }
 
-    private void AnalyzeIfStatement(ISymbol declaringSymbol, IfStatementSyntax ifStatement)
+    private ImmutableArray<ISymbol> AnalyzeIfExpression(ISymbol declaringSymbol, ISymbol containingSymbol, IfExpressionSyntax ifStatement)
     {
         AnalyzeExpression(declaringSymbol, declaringSymbol, ifStatement.Condition, out var s);
 
-        AnalyzeStatement(declaringSymbol, ifStatement.Statement);
+        AnalyzeExpression(declaringSymbol, declaringSymbol, ifStatement.Expression, out var z);
 
         if (ifStatement.ElseClause is not null)
         {
-            AnalyzeStatement(declaringSymbol, ifStatement.ElseClause.Statement);
+            AnalyzeExpression(declaringSymbol, declaringSymbol, ifStatement.ElseClause.Expression, out var y);
+            
+            // TODO: Check that the return types of else and if are compatible
+
+            return z;
         }
+
+        return z;
     }
 
 
-    private void AnalyzeWhileStatement(ISymbol declaringSymbol, WhileStatementSyntax whileStatement)
+    private ImmutableArray<ISymbol> AnalyzeWhileExpression(ISymbol declaringSymbol, ISymbol containingSymbol, WhileExpressionSyntax whileStatement)
     {
         AnalyzeExpression(declaringSymbol, declaringSymbol, whileStatement.Condition, out var s);
 
         AnalyzeStatement(declaringSymbol, whileStatement.Statement);
+
+        return [];
     }
 
-    private void AnalyzeReturnStatement(ISymbol declaringSymbol, ReturnStatementSyntax returnStatement)
+    private ImmutableArray<ISymbol> AnalyzeReturnStatement(ISymbol declaringSymbol, ReturnStatementSyntax returnStatement)
     {
         if (returnStatement.Expression is not null)
         {
             AnalyzeExpression(declaringSymbol, declaringSymbol, returnStatement.Expression, out var s);
         }
+
+        return [];
     }
 
     private ISymbol? ResolveType(TypeSyntax typeExpr)
@@ -244,6 +252,18 @@ public partial class SemanticModel
 
             case ParenthesizedExpressionSyntax parenthesizedExpression:
                 symbols = AnalyzeParenthesizedExpression(declaringSymbol, containingSymbol, parenthesizedExpression);
+                break;
+
+            case IfExpressionSyntax ifStatement:
+                symbols = AnalyzeIfExpression(declaringSymbol, containingSymbol, ifStatement);
+                break;
+
+            case WhileExpressionSyntax whileStatement:
+                symbols = AnalyzeWhileExpression(declaringSymbol, containingSymbol, whileStatement);
+                break;
+
+            case BlockSyntax block:
+                symbols = AnalyzeBlock(declaringSymbol, containingSymbol, block);
                 break;
 
             default:

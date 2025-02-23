@@ -4,13 +4,13 @@ internal partial class ElseClauseSyntax : SyntaxNode
 {
     public ElseClauseSyntax(
         SyntaxToken elseKeyword,
-        StatementSyntax statement,
+        ExpressionSyntax expression,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.ElseClause,
               [
                       elseKeyword ?? throw new ArgumentNullException(nameof(elseKeyword)),
-                      statement ?? throw new ArgumentNullException(nameof(statement))
+                      expression ?? throw new ArgumentNullException(nameof(expression))
               ],
               diagnostics)
     {
@@ -21,7 +21,7 @@ internal static partial class SyntaxFactory
 {
     public static ElseClauseSyntax ElseClause(
         SyntaxToken elseKeyword,
-        StatementSyntax statement,
+        ExpressionSyntax expression,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(elseKeyword, statement, diagnostics);
+        => new(elseKeyword, expression, diagnostics);
 }

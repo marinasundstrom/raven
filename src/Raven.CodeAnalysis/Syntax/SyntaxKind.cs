@@ -34,9 +34,9 @@ public enum SyntaxKind
 
     ExpressionStatement,
     ReturnStatement,
-    IfStatement,
+    IfExpression,
     ElseClause,
-    WhileStatement,
+    WhileExpression,
     Block,
 
     VariableDeclaration,

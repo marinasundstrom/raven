@@ -229,18 +229,6 @@ internal class LanguageParser
 
         switch (token.Kind)
         {
-            case SyntaxKind.OpenBraceToken:
-                statement = ParseBlockSyntax();
-                break;
-
-            case SyntaxKind.IfKeyword:
-                statement = ParseIfStatementSyntax();
-                break;
-
-            case SyntaxKind.WhileKeyword:
-                statement = ParseWhileStatementSyntax();
-                break;
-
             case SyntaxKind.ReturnKeyword:
                 statement = ParseReturnStatementSyntax();
                 break;
@@ -293,6 +281,14 @@ internal class LanguageParser
         {
             case SyntaxKind.LetKeyword:
                 return ParseLocalDeclarationStatementSyntax();
+
+            case SyntaxKind.IfKeyword:
+                var ifExpr = ParseIfExpressionSyntax();
+                return new ExpressionStatement1Syntax(ifExpr, diagnostics);
+
+            case SyntaxKind.WhileKeyword:
+                var whileExpr = ParseWhileExpressionSyntax();
+                return new ExpressionStatement1Syntax(whileExpr, diagnostics);
         }
 
         var expression = ParseExpressionSyntax();
@@ -322,6 +318,7 @@ internal class LanguageParser
                 Block.ReplaceStatement(oldLast, lastStatement);
             }
 
+            // INFO: Remember
             Diagnostics(ref diagnostics).Add(
                 DiagnosticInfo.Create(
                     CompilerDiagnostics.InvalidExpressionTerm,
@@ -331,12 +328,13 @@ internal class LanguageParser
 
             if (LastStatement is null)
             {
-                return ExpressionStatement(new ExpressionSyntax.Missing(), MissingToken(SyntaxKind.SemicolonToken).WithTrailingTrivia(trivia), diagnostics);
+                return ExpressionStatement(new ExpressionSyntax.Missing(), diagnostics);
             }
 
             return null;
         }
 
+        // INFO: Remember
         if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
         {
             semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
@@ -348,7 +346,7 @@ internal class LanguageParser
                 ));
         }
 
-        return ExpressionStatement(expression, semicolonToken, diagnostics);
+        return ExpressionStatementWithSemicolon(expression, semicolonToken, diagnostics);
     }
 
     private LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()
@@ -431,7 +429,7 @@ internal class LanguageParser
         return IdentifierName(token);
     }
 
-    private IfStatementSyntax? ParseIfStatementSyntax()
+    private IfExpressionSyntax? ParseIfExpressionSyntax()
     {
         List<DiagnosticInfo>? diagnostics = null;
 
@@ -451,9 +449,9 @@ internal class LanguageParser
                ));
         }
 
-        var statement = ParseStatementSyntax();
+        var expression = ParseExpressionSyntax();
 
-        if (statement!.IsMissing)
+        if (expression!.IsMissing)
         {
             Diagnostics(ref diagnostics).Add(
                 DiagnosticInfo.Create(
@@ -471,22 +469,17 @@ internal class LanguageParser
             elseClause = ParseElseClauseSyntax();
         }
 
-        if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
-        {
-
-        }
-
-        return IfStatement(ifKeyword, condition!, statement!, elseClause, diagnostics);
+        return IfExpression(ifKeyword, condition!, expression!, elseClause, diagnostics);
     }
 
     private ElseClauseSyntax? ParseElseClauseSyntax()
     {
         var elseKeyword = ReadToken();
 
-        return ElseClause(elseKeyword, ParseStatementSyntax());
+        return ElseClause(elseKeyword, ParseExpressionSyntax());
     }
 
-    private WhileStatementSyntax? ParseWhileStatementSyntax()
+    private WhileExpressionSyntax? ParseWhileExpressionSyntax()
     {
         List<DiagnosticInfo>? diagnostics = null;
 
@@ -515,11 +508,6 @@ internal class LanguageParser
                     CompilerDiagnostics.SemicolonExpected,
                     afterCloseParen
                 ));
-        }
-
-        if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
-        {
-
         }
 
         return WhileStatement(whileKeyword, condition!, statement!, diagnostics);
@@ -740,6 +728,18 @@ internal class LanguageParser
                 expr = UnaryExpression(token, expr);
                 break;
 
+            case SyntaxKind.IfKeyword:
+                expr = ParseIfExpressionSyntax();
+                break;
+
+            case SyntaxKind.WhileKeyword:
+                expr = ParseWhileExpressionSyntax();
+                break;
+
+            case SyntaxKind.OpenBraceToken:
+                expr = ParseBlockSyntax();
+                break;
+
             default:
                 return ParsePowerExpression();
         }
@@ -939,10 +939,6 @@ internal class LanguageParser
         if (requestedSyntaxType == typeof(Syntax.StatementSyntax))
         {
             return ParseStatementSyntax();
-        }
-        else if (requestedSyntaxType == typeof(Syntax.IfStatementSyntax))
-        {
-            return ParseIfStatementSyntax();
         }
         else if (requestedSyntaxType == typeof(Syntax.ExpressionSyntax))
         {

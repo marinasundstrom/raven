@@ -33,7 +33,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     {
         var statement = base.VisitStatement(node)!;
 
-        if (node is BlockSyntax && node?.Parent is IfStatementSyntax)
+        if (node is BlockSyntax && node?.Parent is IfExpressionSyntax)
         {
             return statement;
         }
@@ -42,18 +42,18 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         return statement.WithLeadingTrivia(FormatTrivia());
     }
 
-    public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
+    public override SyntaxNode? VisitIfExpression(IfExpressionSyntax node)
     {
         // Ensure a single space after the `if` keyword.
         var ifKeyword = node.IfKeyword.WithTrailingTrivia(SyntaxFactory.Space);
 
         // Visit the child nodes (condition and statement).
         var condition = (ExpressionSyntax)VisitExpression(node.Condition)!;
-        var statement = (StatementSyntax)VisitStatement(node.Statement)!;
-        
+        var statement = (ExpressionSyntax)VisitExpression(node.Expression)!;
+
         // Reconstruct the node with the updated `if` keyword.
         return node.Update(ifKeyword, condition, statement,
-            node.ElseClause is null ? null : (ElseClauseSyntax?)VisitElseClause(node.ElseClause!), node.SemicolonToken);
+            node.ElseClause is null ? null : (ElseClauseSyntax?)VisitElseClause(node.ElseClause!));
     }
 
     public override SyntaxNode? VisitElseClause(ElseClauseSyntax node)
@@ -61,25 +61,25 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var elseKeyword = node.ElseKeyword
             .WithLeadingTrivia(SyntaxFactory.Space);
 
-        StatementSyntax statement = null!;
+        ExpressionSyntax expression = null!;
 
-        if (node.Statement is not BlockSyntax)
+        if (node.Expression is not BlockSyntax)
         {
             IncreaseIdent();
 
             elseKeyword = elseKeyword
                 .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
 
-            statement = (StatementSyntax)VisitStatement(node.Statement)!;
+            expression = (ExpressionSyntax)VisitExpression(node.Expression)!;
 
             DecreaseIndent();
         }
         else
         {
-            statement = (StatementSyntax)VisitStatement(node.Statement)!;
+            expression = (ExpressionSyntax)VisitExpression(node.Expression)!;
         }
 
-        return node.Update(elseKeyword, statement);
+        return node.Update(elseKeyword, expression);
     }
 
     public override SyntaxNode? VisitBlock(BlockSyntax node)

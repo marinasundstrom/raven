@@ -1,6 +1,6 @@
 ﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-internal partial class BlockSyntax : StatementSyntax
+internal partial class BlockSyntax : ExpressionSyntax
 {
     public BlockSyntax(
         SyntaxToken openBraceToken,

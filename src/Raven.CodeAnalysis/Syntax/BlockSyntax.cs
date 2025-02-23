@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax;
 
-public partial class BlockSyntax : StatementSyntax
+public partial class BlockSyntax : ExpressionSyntax
 {
     public partial SyntaxToken OpenBraceToken { get; }
     public partial SyntaxList<StatementSyntax> Statements { get; }

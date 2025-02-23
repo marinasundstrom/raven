@@ -177,18 +177,6 @@ internal class CodeGenerator
                 GenerateReturnStatement(typeBuilder, methodBuilder, iLGenerator, statement, returnStatement);
                 break;
 
-            case BlockSyntax block:
-                GenerateBlock(typeBuilder, methodBuilder, iLGenerator, block);
-                break;
-
-            case IfStatementSyntax ifStatementSyntax:
-                GenerateIfStatement(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax);
-                break;
-
-            case WhileStatementSyntax whileStatement:
-                GenerateWhileStatement(typeBuilder, methodBuilder, iLGenerator, statement, whileStatement);
-                break;
-
             case ExpressionStatementSyntax expressionStatement:
                 GenerateExpressionStatement(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement);
                 break;
@@ -217,7 +205,7 @@ internal class CodeGenerator
         }
     }
 
-    private void GenerateIfStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, IfStatementSyntax ifStatementSyntax)
+    private void GenerateIfStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, IfExpressionSyntax ifStatementSyntax)
     {
         GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax.Condition);
 
@@ -225,7 +213,7 @@ internal class CodeGenerator
 
         GenerateBranchOpForCondition(ifStatementSyntax.Condition, iLGenerator, elseLabel);
 
-        GenerateStatement(typeBuilder, methodBuilder, iLGenerator, ifStatementSyntax.Statement);
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax.Expression);
 
         if (ifStatementSyntax.ElseClause is ElseClauseSyntax elseClause)
         {
@@ -239,7 +227,7 @@ internal class CodeGenerator
             iLGenerator.MarkLabel(elseLabel);
 
             // Generate the 'else' block
-            GenerateStatement(typeBuilder, methodBuilder, iLGenerator, elseClause.Statement);
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, elseClause.Expression);
 
             // Mark the end of the 'if' statement
             iLGenerator.MarkLabel(endIfLabel);
@@ -253,6 +241,12 @@ internal class CodeGenerator
 
     private static void GenerateBranchOpForCondition(ExpressionSyntax expression, ILGenerator iLGenerator, Label end)
     {
+        if (expression is ParenthesizedExpressionSyntax parenthesizedExpression)
+        {
+            GenerateBranchOpForCondition(parenthesizedExpression.Expression, iLGenerator, end);
+            return;
+        }
+
         if (expression is BinaryExpressionSyntax binaryExpression)
         {
             switch (binaryExpression.Kind)
@@ -294,7 +288,7 @@ internal class CodeGenerator
     }
 
 
-    private void GenerateWhileStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, WhileStatementSyntax whileStatementSyntax)
+    private void GenerateWhileStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, WhileExpressionSyntax whileStatementSyntax)
     {
         var beginLabel = iLGenerator.DefineLabel();
         var endLabel = iLGenerator.DefineLabel();
@@ -326,12 +320,16 @@ internal class CodeGenerator
             symbol = ((IMethodSymbol)symbol).ReturnType;
         }
 
+        // TODO: Handle the case that Pop is required. If not Void, and not assigned anywhere.
+
+        /*
         if (symbol?.UnwrapType()?.SpecialType != SpecialType.System_Void)
         {
             // The value is not used, pop it from the stack.
 
             iLGenerator.Emit(OpCodes.Pop);
         }
+        */
     }
 
     private void GenerateDeclarationStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, LocalDeclarationStatementSyntax localDeclarationStatement)
@@ -384,6 +382,18 @@ internal class CodeGenerator
 
             case ParenthesizedExpressionSyntax parenthesized:
                 GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, parenthesized.Expression);
+                break;
+
+            case IfExpressionSyntax ifStatementSyntax:
+                GenerateIfStatement(typeBuilder, methodBuilder, iLGenerator, statement, ifStatementSyntax);
+                break;
+
+            case WhileExpressionSyntax whileStatement:
+                GenerateWhileStatement(typeBuilder, methodBuilder, iLGenerator, statement, whileStatement);
+                break;
+
+            case BlockSyntax block:
+                GenerateBlock(typeBuilder, methodBuilder, iLGenerator, block);
                 break;
         }
     }
