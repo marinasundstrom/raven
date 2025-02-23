@@ -2,8 +2,8 @@ import System;
 
 let u = "Hello".Length;
 
-if x > 2 {
-
+if (x > 2) {
+    Console.WriteLine(u.ToString());
 }
 
 while u < 10 {

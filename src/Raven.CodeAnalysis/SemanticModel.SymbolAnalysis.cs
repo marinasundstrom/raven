@@ -242,10 +242,21 @@ public partial class SemanticModel
                 symbols = AnalyzeBinaryExpression(declaringSymbol, containingSymbol, binaryExpression);
                 break;
 
+            case ParenthesizedExpressionSyntax parenthesizedExpression:
+                symbols = AnalyzeParenthesizedExpression(declaringSymbol, containingSymbol, parenthesizedExpression);
+                break;
+
             default:
                 symbols = ImmutableArray<ISymbol>.Empty;
                 break;
         }
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeParenthesizedExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ParenthesizedExpressionSyntax parenthesizedExpression)
+    {
+        AnalyzeExpression(declaringSymbol, containingSymbol, parenthesizedExpression.Expression, out var baseSymbols);
+
+        return baseSymbols;
     }
 
     private ImmutableArray<ISymbol> AnalyzeMemberAccessExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, MemberAccessExpressionSyntax memberAccessExpression)
