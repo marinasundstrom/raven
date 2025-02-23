@@ -437,19 +437,7 @@ internal class LanguageParser
 
         var ifKeyword = ReadToken();
 
-        ConsumeToken(SyntaxKind.OpenParenToken, out var openParenToken);
-
         var condition = ParseExpressionSyntaxOrMissing();
-
-        if (!ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken))
-        {
-            Diagnostics(ref diagnostics).Add(
-               DiagnosticInfo.Create(
-                   CompilerDiagnostics.CharacterExpected,
-                   GetEndOfLastToken(),
-                   [')']
-               ));
-        }
 
         var afterCloseParen = GetEndOfLastToken();
 
@@ -488,7 +476,7 @@ internal class LanguageParser
 
         }
 
-        return IfStatement(ifKeyword, openParenToken, condition!, closeParenToken, statement!, elseClause, diagnostics);
+        return IfStatement(ifKeyword, condition!, statement!, elseClause, diagnostics);
     }
 
     private ElseClauseSyntax? ParseElseClauseSyntax()
@@ -502,21 +490,9 @@ internal class LanguageParser
     {
         List<DiagnosticInfo>? diagnostics = null;
 
-        var ifKeyword = ReadToken();
-
-        ConsumeToken(SyntaxKind.OpenParenToken, out var openParenToken);
+        var whileKeyword = ReadToken();
 
         var condition = ParseExpressionSyntaxOrMissing();
-
-        if (!ConsumeToken(SyntaxKind.CloseParenToken, out var closeParenToken))
-        {
-            Diagnostics(ref diagnostics).Add(
-               DiagnosticInfo.Create(
-                   CompilerDiagnostics.CharacterExpected,
-                   GetEndOfLastToken(),
-                   [')']
-               ));
-        }
 
         var afterCloseParen = GetEndOfLastToken();
 
@@ -546,7 +522,7 @@ internal class LanguageParser
 
         }
 
-        return WhileStatement(ifKeyword, openParenToken, condition!, closeParenToken, statement!, diagnostics);
+        return WhileStatement(whileKeyword, condition!, statement!, diagnostics);
     }
 
     private ExpressionSyntax? ParseExpressionSyntax()

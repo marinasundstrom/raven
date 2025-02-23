@@ -50,11 +50,9 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         // Visit the child nodes (condition and statement).
         var condition = (ExpressionSyntax)VisitExpression(node.Condition)!;
         var statement = (StatementSyntax)VisitStatement(node.Statement)!;
-
-        var closeParenToken = node.CloseParenToken.WithTrailingTrivia(SyntaxFactory.Space);
-
+        
         // Reconstruct the node with the updated `if` keyword.
-        return node.Update(ifKeyword, node.OpenParenToken, condition, closeParenToken, statement,
+        return node.Update(ifKeyword, condition, statement,
             node.ElseClause is null ? null : (ElseClauseSyntax?)VisitElseClause(node.ElseClause!), node.SemicolonToken);
     }
 
