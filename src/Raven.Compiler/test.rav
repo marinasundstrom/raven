@@ -2,14 +2,11 @@ import System;
 
 Console.WriteLine("Foo: ");
 
-let z = int.Parse(Console.ReadLine());
-
-let x = (if (z > 2) {
-    Console.WriteLine(z.ToString());
-    2;
+let x = if int.Parse(Console.ReadLine()) > 2 {
+    12;
 } else {
     // Test
-    3;;
-});;
+    43;
+};
 
 Console.WriteLine(x.ToString());
