@@ -42,8 +42,11 @@ import System;
 
 Console.WriteLine("Input: ");
 
-let str = Console.ReadLine();
-let value = bool.Parse(str);
+let value = Console.ReadLine() |> bool.Parse;
+
+let value = [2, 3, 4] 
+    |> Where(x -> x == 2) 
+    |> OrderBy(2);
 
 let message = if value {
     "Hello" + ", World!";

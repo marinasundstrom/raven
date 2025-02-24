@@ -395,7 +395,24 @@ internal class CodeGenerator
             case BlockSyntax block:
                 GenerateBlock(typeBuilder, methodBuilder, iLGenerator, block);
                 break;
+
+            case AssignmentExpressionSyntax assignmentExpression:
+                GenerateAssignmentExpression(typeBuilder, methodBuilder, iLGenerator, statement, assignmentExpression);
+                break;
         }
+    }
+
+    private void GenerateAssignmentExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, AssignmentExpressionSyntax assignmentExpression)
+    {
+        var localSymbol = _compilation
+            .GetSemanticModel(assignmentExpression.SyntaxTree)
+            .GetSymbolInfo(assignmentExpression.LeftHandSide).Symbol as ILocalSymbol;
+
+        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, assignmentExpression.RightHandSide);
+
+        var localBuilder = _localBuilders[localSymbol];
+
+        iLGenerator.Emit(OpCodes.Stloc, localBuilder);
     }
 
     private void GenerateBinaryExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, BinaryExpressionSyntax binaryExpression)

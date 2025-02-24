@@ -11,6 +11,7 @@ public static class SyntaxFacts
         { "import", SyntaxKind.ImportKeyword },
         { "namespace", SyntaxKind.NamespaceKeyword },
         { "let", SyntaxKind.LetKeyword },
+        { "var", SyntaxKind.VarKeyword },
         { "if", SyntaxKind.IfKeyword },
         { "while", SyntaxKind.WhileKeyword },
         { "else", SyntaxKind.ElseKeyword },

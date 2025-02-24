@@ -132,7 +132,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var declarators = SyntaxFactory.SeparatedList<VariableDeclaratorSyntax>(newList.ToArray());
 
-        return node.Update(node.LetKeyword.WithTrailingTrivia(SyntaxFactory.Space), declarators!);
+        return node.Update(node.LetOrVarKeyword.WithTrailingTrivia(SyntaxFactory.Space), declarators!);
     }
 
     public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)

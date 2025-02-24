@@ -45,6 +45,8 @@ public enum SyntaxKind
     EqualsValueClause,
     LocalDeclaration,
 
+    SimpleAssignmentExpression,
+
     ParenthesizedExpression,
     UnaryExpression,
     BinaryExpression,
@@ -86,6 +88,7 @@ public enum SyntaxKind
     ImportKeyword,
     NamespaceKeyword,
     LetKeyword,
+    VarKeyword,
     IfKeyword,
     ElseKeyword,
     WhileKeyword,

@@ -26,6 +26,9 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _invalidExpressionTerm;
     private static DiagnosticDescriptor? _theNameDoesNotExistInTheCurrentContext;
     private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
+    private static DiagnosticDescriptor? _leftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer;
+    private static DiagnosticDescriptor? _readOnlyFieldCannotBeAssignedTo;
+    private static DiagnosticDescriptor? _thisValueIsNotMutable;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -35,7 +38,7 @@ internal class CompilerDiagnostics
         title: "Identifier expected",
         description: "",
         helpLinkUri: "",
-        messageFormat: "Identifier; expected",
+        messageFormat: "Identifier expected",
         category: "compiler",
         DiagnosticSeverity.Error);
 
@@ -279,6 +282,42 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
+    /// <summary>
+    /// RAV0131: The left-hand side of an assignment must be a variable, property or indexer
+    /// </summary>
+    public static DiagnosticDescriptor LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer => _leftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer ??= DiagnosticDescriptor.Create(
+        id: "RAV0131",
+        title: "The left-hand side of an assignment must be a variable, property or indexer",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The left-hand side of an assignment must be a variable, property or indexer",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
+    /// <summary>
+    /// RAV0191: A readonly field cannot be assigned to (except in a constructor or a variable initializer)
+    /// </summary>
+    public static DiagnosticDescriptor ReadOnlyFieldCannotBeAssignedTo => _readOnlyFieldCannotBeAssignedTo ??= DiagnosticDescriptor.Create(
+        id: "RAV0191",
+        title: "A readonly field cannot be assigned to (except in a constructor or a variable initializer)",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "A readonly field cannot be assigned to (except in a constructor or a variable initializer)",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
+    /// <summary>
+    /// RAV0027: This value is not mutable
+    /// </summary>
+    public static DiagnosticDescriptor ThisValueIsNotMutable => _thisValueIsNotMutable ??= DiagnosticDescriptor.Create(
+        id: "RAV0027",
+        title: "This value is not mutable",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "This value is not mutable",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -301,7 +340,8 @@ internal class CompilerDiagnostics
         TypeOrNamespaceNameDoesNotExistInTheNamespace,
         InvalidExpressionTerm,
         TheNameDoesNotExistInTheCurrentContext,
-        CannotAssignVoidToAnImplicitlyTypedVariable
+        CannotAssignVoidToAnImplicitlyTypedVariable,
+        LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -329,6 +369,7 @@ internal class CompilerDiagnostics
             "RAV1525" => InvalidExpressionTerm,
             "RAV0103" => TheNameDoesNotExistInTheCurrentContext,
             "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,
+            "RAV0131" => LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

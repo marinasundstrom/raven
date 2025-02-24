@@ -7,11 +7,19 @@ Console.WriteLine("Input: ");
 let str = Console.ReadLine();
 let value = bool.Parse(str);
 
-let message = if value {
+var message = if value {
     "Hello" + ", World!";
 } else {
     "boo";
-};  
+};
+
+let i = 0;
+
+while i < 10
+{
+    Console.WriteLine("Test: " + i.ToString());
+    i = i + 1;
+};
     
 // Print result
 Console.WriteLine(message);

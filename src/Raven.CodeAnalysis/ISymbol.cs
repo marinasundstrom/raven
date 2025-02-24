@@ -177,4 +177,6 @@ public interface ITypeParameterSymbol : ISymbol
 public interface ILocalSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
+
+    bool IsReadOnly { get; }
 }

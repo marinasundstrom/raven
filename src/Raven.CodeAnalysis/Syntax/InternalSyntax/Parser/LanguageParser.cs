@@ -280,6 +280,7 @@ internal class LanguageParser
         switch (token.Kind)
         {
             case SyntaxKind.LetKeyword:
+            case SyntaxKind.VarKeyword:
                 return ParseLocalDeclarationStatementSyntax();
 
             case SyntaxKind.IfKeyword:
@@ -371,7 +372,7 @@ internal class LanguageParser
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
     {
-        var letKeyword = ReadToken();
+        var letOrVarKeyword = ReadToken();
 
         var name = ParseSimpleName();
 
@@ -387,7 +388,7 @@ internal class LanguageParser
         var declarators = new SyntaxList(
             [VariableDeclarator(name, typeAnnotation, initializer)]);
 
-        return new VariableDeclarationSyntax(letKeyword, declarators);
+        return new VariableDeclarationSyntax(letOrVarKeyword, declarators);
     }
 
     private TypeAnnotationSyntax? ParseTypeAnnotationSyntax()
@@ -670,7 +671,27 @@ internal class LanguageParser
     /// <param name="precedence">The current level of precedence.</param>
     private ExpressionSyntax ParseExpressionCore(int precedence)
     {
+        List<DiagnosticInfo>? diagnostics = null;
+
+        int start = this.Position;
+
         var expr = ParseFactorExpression();
+
+        if (ConsumeToken(SyntaxKind.EqualsToken, out var assignToken))
+        {
+            if (expr is not IdentifierNameSyntax and not MemberAccessExpressionSyntax)
+            {
+                Diagnostics(ref diagnostics).Add(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.IdentifierExpected,
+                        GetActualTextSpan(start, expr)
+                    ));
+            }
+
+            var right = ParseExpressionCore(0);
+
+            return AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, expr, assignToken, right, diagnostics);
+        }
 
         while (true)
         {
@@ -691,6 +712,18 @@ internal class LanguageParser
                 return expr;
             }
         }
+    }
+
+    /// <summary>
+    /// Get the actual span of a node.
+    /// </summary>
+    /// <param name="start">The start fullwidth</param>
+    /// <param name="node">The given node</param>
+    /// <returns>The actual text span</returns>
+    private TextSpan GetActualTextSpan(int start, SyntaxNode node)
+    {
+        var firstToken = node.GetFirstToken();
+        return new TextSpan(start + firstToken.LeadingTrivia.Width, node.Width);
     }
 
     /// <summary>

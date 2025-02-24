@@ -3,13 +3,13 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class VariableDeclarationSyntax : SyntaxNode
 {
     public VariableDeclarationSyntax(
-        SyntaxToken letKeyword,
+        SyntaxToken letOrVarKeyword,
         SyntaxList variableDeclarators,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.VariableDeclaration,
               [
-                      letKeyword ?? throw new ArgumentNullException(nameof(letKeyword)),
+                      letOrVarKeyword ?? throw new ArgumentNullException(nameof(letOrVarKeyword)),
                       variableDeclarators ?? throw new ArgumentNullException(nameof(variableDeclarators))
               ],
               diagnostics)
@@ -20,8 +20,8 @@ internal partial class VariableDeclarationSyntax : SyntaxNode
 internal static partial class SyntaxFactory
 {
     public static VariableDeclarationSyntax VariableDeclaration(
-        SyntaxToken letKeyword,
+        SyntaxToken letOrVarKeyword,
         SyntaxList variableDeclarators,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-      => new(letKeyword, variableDeclarators, diagnostics);
+      => new(letOrVarKeyword, variableDeclarators, diagnostics);
 }

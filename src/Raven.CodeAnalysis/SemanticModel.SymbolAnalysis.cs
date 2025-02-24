@@ -104,8 +104,10 @@ public partial class SemanticModel
                 }
             }
 
+            bool isReadOnly = localDeclarationStatement.Declaration.LetOrVarKeyword.IsKind(SyntaxKind.LetKeyword);
+
             var symbol = new SourceLocalSymbol(
-                declarator.Name.Identifier.Text.ToString(), propertyType, declaringSymbol!, declaringSymbol.ContainingType, declaringSymbol.ContainingNamespace,
+                declarator.Name.Identifier.Text.ToString(), propertyType, isReadOnly, declaringSymbol!, declaringSymbol.ContainingType, declaringSymbol.ContainingNamespace,
                 locations, references);
 
             Bind(declarator, symbol);
@@ -137,7 +139,7 @@ public partial class SemanticModel
         if (ifStatement.ElseClause is not null)
         {
             AnalyzeExpression(declaringSymbol, declaringSymbol, ifStatement.ElseClause.Expression, out var y);
-            
+
             // TODO: Check that the return types of else and if are compatible
 
             return z;
@@ -266,10 +268,50 @@ public partial class SemanticModel
                 symbols = AnalyzeBlock(declaringSymbol, containingSymbol, block);
                 break;
 
+            case AssignmentExpressionSyntax assignmentExpression:
+                symbols = AnalyzeAssignmentExpression(declaringSymbol, containingSymbol, assignmentExpression);
+                break;
+
             default:
                 symbols = ImmutableArray<ISymbol>.Empty;
                 break;
         }
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeAssignmentExpression(ISymbol declaringSymbol, ISymbol containingSymbol, AssignmentExpressionSyntax assignmentExpression)
+    {
+        AnalyzeExpression(declaringSymbol, containingSymbol, assignmentExpression.LeftHandSide, out var baseSymbols);
+
+        var single = baseSymbols.Single();
+
+        if (single is not ILocalSymbol and not IFieldSymbol and not IPropertySymbol)
+        {
+            Diagnostics.Add(Diagnostic.Create(
+                        CompilerDiagnostics.LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer,
+                        assignmentExpression.LeftHandSide.GetLocation(),
+                        []
+                    ));
+        }
+
+        if (single is ILocalSymbol localSymbol)
+        {
+            if (localSymbol.IsReadOnly)
+            {
+                Diagnostics.Add(Diagnostic.Create(
+                       CompilerDiagnostics.ThisValueIsNotMutable,
+                       assignmentExpression.LeftHandSide.GetLocation(),
+                       []
+                   ));
+            }
+        }
+        else if (single is IPropertySymbol propertySymbol)
+        {
+
+        }
+
+        AnalyzeExpression(declaringSymbol, containingSymbol, assignmentExpression.RightHandSide, out var baseSymbols2);
+
+        return baseSymbols;
     }
 
     private ImmutableArray<ISymbol> AnalyzeParenthesizedExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ParenthesizedExpressionSyntax parenthesizedExpression)
