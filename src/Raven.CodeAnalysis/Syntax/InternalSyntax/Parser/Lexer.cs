@@ -249,14 +249,19 @@ internal class Lexer : ILexer
 
 
                     case '\"':
-                        _stringBuilder.Append(ch);
+                        _stringBuilder.Append(ch); // Append opening quote
 
-                        while (PeekChar(out var ch8) && ch8 != '\"')
+                        while (PeekChar(out var ch8))
                         {
-                            _stringBuilder.Append(ch8);
                             ReadChar();
 
-                            if (IsEndOfFile)
+                            if (ch8 == '\"') // Found closing quote
+                            {
+                                _stringBuilder.Append(ch8);
+                                break;
+                            }
+
+                            if (IsEndOfFile) // Check EOF before adding anything
                             {
                                 diagnostics.Add(
                                     DiagnosticInfo.Create(
@@ -267,16 +272,10 @@ internal class Lexer : ILexer
                                 break;
                             }
 
-                            if (PeekChar(out ch8) && ch8 == '\"')
-                            {
-                                ReadChar();
-                                _stringBuilder.Append(ch8);
-                                break;
-                            }
+                            _stringBuilder.Append(ch8);
                         }
 
                         return new Token(SyntaxKind.StringLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
-
 
                     case '\t':
                         return new Token(SyntaxKind.TabToken, "\t");
