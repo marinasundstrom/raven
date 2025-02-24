@@ -1,12 +1,17 @@
+/* Sample program */
+
 import System;
 
-Console.WriteLine("Foo: ");
+Console.WriteLine("Input: ");
 
-let x = if int.Parse(Console.ReadLine()) > 2 {
-    12;
+let str = Console.ReadLine();
+let value = bool.Parse(str);
+
+let message = if value {
+    "Hello" + ", World!";
 } else {
-    // Test
-    43;
-};
-
-Console.WriteLine(x.ToString());
+    "boo";
+};  
+    
+// Print result
+Console.WriteLine(message);

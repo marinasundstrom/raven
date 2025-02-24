@@ -36,6 +36,8 @@ See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
 Here’s a sample of the Raven syntax, taken from [this file](src/Raven.Compiler/test.rav):
 
 ```raven
+/* Sample program */
+
 import System;
 
 Console.WriteLine("Input: ");
@@ -43,11 +45,20 @@ Console.WriteLine("Input: ");
 let str = Console.ReadLine();
 let value = bool.Parse(str);
 
-if (value) {
-    Console.WriteLine("Hello" + ", World!");
-} else
-    Console.WriteLine("boo");
+let message = if value {
+    "Hello" + ", World!";
+} else {
+    "boo";
+};  
+    
+// Print result
+Console.WriteLine(message);
 ```
+
+Demonstrated here:
+
+* Control flow constructs as expressions, with `if`.
+* Implicit return from block (no `return` needed)
 
 ---
 
