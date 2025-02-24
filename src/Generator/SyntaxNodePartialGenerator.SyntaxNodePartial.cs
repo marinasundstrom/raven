@@ -16,11 +16,6 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
         var className = classSymbol.Name;
 
-#if !DEBUG
-        if (namespaceName != "Raven.CodeAnalysis.Syntax")
-            return;
-#endif
-
         var accessModifier = Token(SyntaxKind.PublicKeyword);
 
         var members = GenerateFields(classSymbol).ToList();
