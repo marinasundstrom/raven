@@ -42,17 +42,22 @@ import System;
 
 Console.WriteLine("Input: ");
 
-let value = Console.ReadLine() |> bool.Parse;
+let str = Console.ReadLine();
+let value = bool.Parse(str);
 
-let value = [2, 3, 4] 
-    |> Where(x -> x == 2) 
-    |> OrderBy(2);
-
-let message = if value {
+var message = if value {
     "Hello" + ", World!";
 } else {
     "boo";
-};  
+};
+
+var i = 0;
+
+while i < 10
+{
+    Console.WriteLine("Test: " + i.ToString());
+    i = i + 1;
+};
     
 // Print result
 Console.WriteLine(message);
