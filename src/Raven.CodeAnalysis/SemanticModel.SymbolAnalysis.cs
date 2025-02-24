@@ -306,7 +306,14 @@ public partial class SemanticModel
         }
         else if (single is IPropertySymbol propertySymbol)
         {
-
+            if (propertySymbol.SetMethod is null)
+            {
+                Diagnostics.Add(Diagnostic.Create(
+                       CompilerDiagnostics.PropertyOrIndexerCannotBeAssignedIsReadOnly,
+                       assignmentExpression.LeftHandSide.GetLocation(),
+                       [single.ToDisplayString()]
+                   ));
+            }
         }
 
         AnalyzeExpression(declaringSymbol, containingSymbol, assignmentExpression.RightHandSide, out var baseSymbols2);

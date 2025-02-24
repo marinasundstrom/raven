@@ -29,6 +29,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _leftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer;
     private static DiagnosticDescriptor? _readOnlyFieldCannotBeAssignedTo;
     private static DiagnosticDescriptor? _thisValueIsNotMutable;
+    private static DiagnosticDescriptor? _propertyOrIndexerCannotBeAssignedIsReadOnly;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -318,6 +319,18 @@ internal class CompilerDiagnostics
         category: "compiler",
         DiagnosticSeverity.Error);
 
+    /// <summary>
+    /// RAV0200: Property or indexer '{0}' cannot be assigned to -- it is read only
+    /// </summary>
+    public static DiagnosticDescriptor PropertyOrIndexerCannotBeAssignedIsReadOnly => _propertyOrIndexerCannotBeAssignedIsReadOnly ??= DiagnosticDescriptor.Create(
+        id: "RAV0200",
+        title: "RAV0200: Property or indexer '{0}' cannot be assigned to -- it is read only",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "RAV0200: Property or indexer '{0}' cannot be assigned to -- it is read only",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -341,7 +354,10 @@ internal class CompilerDiagnostics
         InvalidExpressionTerm,
         TheNameDoesNotExistInTheCurrentContext,
         CannotAssignVoidToAnImplicitlyTypedVariable,
-        LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer
+        LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer,
+        ReadOnlyFieldCannotBeAssignedTo,
+        ThisValueIsNotMutable,
+        PropertyOrIndexerCannotBeAssignedIsReadOnly
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -370,6 +386,9 @@ internal class CompilerDiagnostics
             "RAV0103" => TheNameDoesNotExistInTheCurrentContext,
             "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,
             "RAV0131" => LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer,
+            "RAV0191" => ReadOnlyFieldCannotBeAssignedTo,
+            "RAV0027" => ThisValueIsNotMutable,
+            "RAV0200" => PropertyOrIndexerCannotBeAssignedIsReadOnly,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }
