@@ -2,7 +2,8 @@ import System;
 import System.Text;
 
 let sb = new StringBuilder();
-sb.Append("Foo");
-sb.Append(" Bar");
+
+sb.Append("Foo").Append(" Bar");
+sb.Append(2.ToString());
 
 Console.WriteLine(sb.ToString());
