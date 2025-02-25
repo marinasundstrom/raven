@@ -322,7 +322,7 @@ internal class CodeGenerator
 
         // TODO: Handle the case that Pop is required. If not Void, and not assigned anywhere.
 
-        if (symbol?.UnwrapType()?.SpecialType != SpecialType.System_Void)
+        if (symbol is not null && symbol?.UnwrapType()?.SpecialType != SpecialType.System_Void)
         {
             // The value is not used, pop it from the stack.
 

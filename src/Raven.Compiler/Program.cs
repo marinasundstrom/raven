@@ -40,9 +40,7 @@ using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
 
 //CreateAppHost(compilation);
 
-/*
 ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
 
 Console.WriteLine();
 Console.WriteLine(root.WriteNodeToText(compilation));
-*/

@@ -3,7 +3,12 @@ import System.Text;
 
 let sb = new StringBuilder();
 
-sb.Append("Foo").Append(" Bar");
-sb.Append(2.ToString());
+var i = 0;
+
+while (i < 10) {
+    sb.Append("Foo").AppendLine(" Bar");
+    sb.AppendLine(i.ToString());
+    i = i + 1;
+};
 
 Console.WriteLine(sb.ToString());
