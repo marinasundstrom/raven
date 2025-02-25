@@ -908,9 +908,20 @@ internal class LanguageParser
             case SyntaxKind.OpenParenToken:
                 expr = ParseParenthesisExpression();
                 break;
+
+            case SyntaxKind.NewKeyword:
+                expr = ParseNewExpression();
+                break;
         }
 
         return expr;
+    }
+
+    private ExpressionSyntax ParseNewExpression()
+    {
+        var newKeyword = ReadToken();
+
+        return ObjectCreationExpression(newKeyword, ParseTypeName(), ParseArgumentListSyntax());
     }
 
     private ExpressionSyntax ParsePredefinedTypeSyntax()

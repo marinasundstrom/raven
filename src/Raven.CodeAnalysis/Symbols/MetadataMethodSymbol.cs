@@ -5,11 +5,11 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
 {
-    private readonly MethodInfo _methodInfo;
+    private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
 
-    public MetadataMethodSymbol(Compilation compilation, MethodInfo methodInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public MetadataMethodSymbol(Compilation compilation, MethodBase methodInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(compilation, containingSymbol, containingType, containingNamespace, locations)
     {
         _methodInfo = methodInfo;
@@ -24,7 +24,7 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
             if (_returnType == null)
             {
 
-                _returnType = _compilation.GetType(_methodInfo.ReturnType);
+                _returnType = _compilation.GetType(((MethodInfo)_methodInfo).ReturnType);
 
                 /*
                 _returnType = _methodInfo.ReturnType == typeof(void)
@@ -53,5 +53,7 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
 
     public override bool IsStatic => _methodInfo.IsStatic;
 
-    public MethodInfo GetMethodInfo() => _methodInfo;
+    public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
+
+    public ConstructorInfo GetConstructorInfo() => (ConstructorInfo)_methodInfo;
 }

@@ -322,14 +322,12 @@ internal class CodeGenerator
 
         // TODO: Handle the case that Pop is required. If not Void, and not assigned anywhere.
 
-        /*
         if (symbol?.UnwrapType()?.SpecialType != SpecialType.System_Void)
         {
             // The value is not used, pop it from the stack.
 
             iLGenerator.Emit(OpCodes.Pop);
         }
-        */
     }
 
     private void GenerateDeclarationStatement(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, LocalDeclarationStatementSyntax localDeclarationStatement)
@@ -399,7 +397,25 @@ internal class CodeGenerator
             case AssignmentExpressionSyntax assignmentExpression:
                 GenerateAssignmentExpression(typeBuilder, methodBuilder, iLGenerator, statement, assignmentExpression);
                 break;
+
+            case ObjectCreationExpressionSyntax objectCreationExpression:
+                GenerateObjectCreationExpression(typeBuilder, methodBuilder, iLGenerator, statement, objectCreationExpression);
+                break;
         }
+    }
+
+    private void GenerateObjectCreationExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ObjectCreationExpressionSyntax objectCreationExpression)
+    {
+        foreach (var argument in objectCreationExpression.ArgumentList.Arguments.Reverse())
+        {
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
+        }
+
+        var target = _compilation
+            .GetSemanticModel(objectCreationExpression.SyntaxTree)
+            .GetSymbolInfo(objectCreationExpression.Type).Symbol as MetadataMethodSymbol;
+
+        iLGenerator.Emit(OpCodes.Newobj, target.GetConstructorInfo());
     }
 
     private void GenerateAssignmentExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, AssignmentExpressionSyntax assignmentExpression)
@@ -467,11 +483,6 @@ internal class CodeGenerator
         // Resolve target identifier or access
         // If method or delegate, then invoke
 
-        foreach (var argument in invocationExpression.ArgumentList.Arguments)
-        {
-            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
-        }
-
         var target = _compilation
             .GetSemanticModel(invocationExpression.SyntaxTree)
             .GetSymbolInfo(invocationExpression).Symbol as MetadataMethodSymbol;
@@ -528,7 +539,19 @@ internal class CodeGenerator
             }
         }
 
-        iLGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
+        foreach (var argument in invocationExpression.ArgumentList.Arguments.Reverse())
+        {
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
+        }
+
+        if (target?.IsStatic ?? false)
+        {
+            iLGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
+        }
+        else
+        {
+            iLGenerator.Emit(OpCodes.Callvirt, target.GetMethodInfo());
+        }
     }
 
     private void GenerateNameExpression(ILGenerator iLGenerator, IdentifierNameSyntax identifierName)

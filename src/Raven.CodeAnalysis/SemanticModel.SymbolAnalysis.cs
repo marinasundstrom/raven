@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Immutable;
-using System.Runtime.ConstrainedExecution;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -272,9 +271,103 @@ public partial class SemanticModel
                 symbols = AnalyzeAssignmentExpression(declaringSymbol, containingSymbol, assignmentExpression);
                 break;
 
+            case ObjectCreationExpressionSyntax objectCreationExpression:
+                symbols = AnalyzeObjectCreationExpression(declaringSymbol, containingSymbol, objectCreationExpression);
+                break;
+
             default:
                 symbols = ImmutableArray<ISymbol>.Empty;
                 break;
+        }
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeObjectCreationExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ObjectCreationExpressionSyntax objectCreationExpression)
+    {
+        // Analyze the base expression to get potential methods or delegates
+        AnalyzeExpression(declaringSymbol, containingSymbol, objectCreationExpression.Type, out var baseSymbols);
+
+        if (!baseSymbols.Any())
+        {
+            return [];
+        }
+
+        var type = baseSymbols.OfType<ITypeSymbol>().First();
+
+        // Ensure we are invoking a method or delegate
+        var candidateMethods = type
+            .GetMembers()
+            .OfType<IMethodSymbol>()
+            .Where(x => x.Name == ".ctor")
+            .ToList();
+
+        if (!candidateMethods.Any())
+        {
+            // TODO: Centralize
+            Diagnostics.Add(
+                Diagnostic.Create(
+                    CompilerDiagnostics.MethodNameExpected,
+                    objectCreationExpression.Type.GetLocation()
+                ));
+
+            return [];
+        }
+
+        var count = objectCreationExpression.ArgumentList.Arguments.Count;
+
+        var method = candidateMethods.First(x => x.Parameters.Length == count) as IMethodSymbol;
+
+        // Collect argument types
+        var argumentTypes = new List<ITypeSymbol>();
+        int i = 0;
+        foreach (var argument in objectCreationExpression.ArgumentList.Arguments)
+        {
+            AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
+
+            var typeSymbol = argSymbols.First().UnwrapType();
+
+            if (typeSymbol is IErrorTypeSymbol)
+            {
+                return [];
+            }
+
+            if (typeSymbol.SpecialType == SpecialType.System_Void)
+            {
+                var param = method.Parameters.ElementAt(i);
+
+                // TODO: Centralize
+                Diagnostics.Add(
+                    Diagnostic.Create(
+                        CompilerDiagnostics.CannotConvertFromTypeToType,
+                        argument.Expression.GetLocation(),
+                        [typeSymbol.Name, param.Type.Name]
+                    ));
+            }
+
+            argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
+
+            i++;
+        }
+
+        // Perform overload resolution
+        var bestMethod = ResolveMethodOverload(candidateMethods, argumentTypes);
+
+        if (bestMethod is null)
+        {
+            // TODO: Centralize
+            Diagnostics.Add(
+                Diagnostic.Create(
+                    CompilerDiagnostics.NoOverloadForMethod,
+                    objectCreationExpression.Type.GetLocation(),
+                    [method.Name, count]
+                ));
+
+            Bind(objectCreationExpression.Type, CandidateReason.OverloadResolutionFailure, []);
+            return [];
+        }
+        else
+        {
+            Bind(objectCreationExpression.Type, bestMethod);
+            return [type];
         }
     }
 

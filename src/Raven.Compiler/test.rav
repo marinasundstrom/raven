@@ -1,25 +1,8 @@
-/* Sample program */
-
 import System;
+import System.Text;
 
-Console.WriteLine("Input: ");
+let sb = new StringBuilder();
+sb.Append("Foo");
+sb.Append(" Bar");
 
-let str = Console.ReadLine();
-let value = bool.Parse(str);
-
-var message = if value {
-    "Hello" + ", World!";
-} else {
-    "boo";
-};
-
-var i = 0;
-
-while i < 10
-{
-    Console.WriteLine("Test: " + i.ToString());
-    i = i + 1;
-};
-    
-// Print result
-Console.WriteLine(message);
+Console.WriteLine(sb.ToString());

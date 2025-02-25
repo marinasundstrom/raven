@@ -186,6 +186,15 @@ public class Compilation
                     _symbols.Add(symbol2);
                 }
 
+                foreach (var mi in type.GetConstructors())
+                {
+                    var symbol2 = new MetadataMethodSymbol(this,
+                        mi, null, symbol!, symbol, ns,
+                        []);
+
+                    _symbols.Add(symbol2);
+                }
+
                 foreach (var pi in type.GetProperties())
                 {
                     var symbol3 = new MetadataPropertySymbol(this,
@@ -298,6 +307,10 @@ public class Compilation
 
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)
     {
+        // INFO: Temp
+        if (destination is null)
+            return new Conversion(isImplicit: false);
+
         if (SymbolEqualityComparer.Default.Equals(source, destination))
         {
             // Identity conversion

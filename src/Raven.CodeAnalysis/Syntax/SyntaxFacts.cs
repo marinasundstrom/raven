@@ -16,6 +16,7 @@ public static class SyntaxFacts
         { "while", SyntaxKind.WhileKeyword },
         { "else", SyntaxKind.ElseKeyword },
         { "return", SyntaxKind.ReturnKeyword },
+        { "new", SyntaxKind.NewKeyword },
         { "true", SyntaxKind.TrueKeyword },
         { "false", SyntaxKind.FalseKeyword },
         //{ "is", SyntaxKind.IsKeyword },

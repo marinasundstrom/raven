@@ -38,6 +38,7 @@ public enum SyntaxKind
     ElseClause,
     WhileExpression,
     Block,
+    ObjectCreationExpression,
 
     VariableDeclaration,
     VariableDeclarator,
@@ -93,6 +94,7 @@ public enum SyntaxKind
     ElseKeyword,
     WhileKeyword,
     ReturnKeyword,
+    NewKeyword,
     TrueKeyword,
     FalseKeyword,
     NotKeyword,
