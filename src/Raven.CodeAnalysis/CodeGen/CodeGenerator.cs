@@ -166,6 +166,7 @@ internal class CodeGenerator
             GenerateStatement(typeBuilder, methodBuilder, ilGenerator, statement);
         }
 
+        ilGenerator.Emit(OpCodes.Nop);
         ilGenerator.Emit(OpCodes.Ret);
     }
 
@@ -550,7 +551,14 @@ internal class CodeGenerator
         }
         else
         {
-            iLGenerator.Emit(OpCodes.Callvirt, target.GetMethodInfo());
+            if (target.ContainingType.IsValueType)
+            {
+                iLGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
+            }
+            else
+            {
+                iLGenerator.Emit(OpCodes.Callvirt, target.GetMethodInfo());
+            }
         }
     }
 

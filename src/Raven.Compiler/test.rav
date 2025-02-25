@@ -3,7 +3,8 @@ import System.Text;
 
 let sb = new StringBuilder();
 
-var i = 0;
+let str = Console.ReadLine();
+var i = int.Parse(str);
 
 while (i < 10) {
     sb.Append("Foo").AppendLine(" Bar");
