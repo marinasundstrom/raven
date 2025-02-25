@@ -1,15 +1,12 @@
 import System;
-import System.Text;
-
-let sb = new StringBuilder();
 
 let str = Console.ReadLine();
-var i = int.Parse(str);
+let index = int.Parse(str);
 
-while (i < 10) {
-    sb.Append("Foo").AppendLine(" Bar");
-    sb.AppendLine(i.ToString());
-    i = i + 1;
-};
+let foo = [2, 42, 5, 6];
+foo[1] = 3;
+let x = foo[index];
 
-Console.WriteLine(sb.ToString());
+// TODO: Implement OpCodes.Ldlen
+//Console.WriteLine("Array has length: " + foo.Length.ToString());
+Console.WriteLine("Value at index " + index.ToString() + " is: " + x.ToString());

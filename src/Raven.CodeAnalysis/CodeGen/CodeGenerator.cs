@@ -402,6 +402,57 @@ internal class CodeGenerator
             case ObjectCreationExpressionSyntax objectCreationExpression:
                 GenerateObjectCreationExpression(typeBuilder, methodBuilder, iLGenerator, statement, objectCreationExpression);
                 break;
+
+            case CollectionExpressionSyntax collectionExpression:
+                GenerateCollectionExpression(typeBuilder, methodBuilder, iLGenerator, statement, collectionExpression);
+                break;
+
+            case ElementAccessExpressionSyntax elementAccessExpression:
+                GenerateElementAccessExpression(typeBuilder, methodBuilder, iLGenerator, statement, elementAccessExpression);
+                break;
+        }
+    }
+
+    private void GenerateCollectionExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, CollectionExpressionSyntax collectionExpression)
+    {
+        var target = _compilation
+            .GetSemanticModel(collectionExpression.SyntaxTree)
+            .GetSymbolInfo(collectionExpression).Symbol;
+
+        if (target is IArrayTypeSymbol arrayTypeSymbol)
+        {
+            iLGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count);
+            iLGenerator.Emit(OpCodes.Newarr, arrayTypeSymbol.ElementType.GetClrType(_compilation));
+
+            int index = 0;
+            foreach (var element in collectionExpression.Elements)
+            {
+                iLGenerator.Emit(OpCodes.Dup);
+                iLGenerator.Emit(OpCodes.Ldc_I4, index);
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, element.Expression);
+                iLGenerator.Emit(OpCodes.Stelem_I4);
+                index++;
+            }
+        }
+    }
+
+    private void GenerateElementAccessExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ElementAccessExpressionSyntax elementAccessExpression)
+    {
+        var target = _compilation
+            .GetSemanticModel(elementAccessExpression.SyntaxTree)
+            .GetSymbolInfo(elementAccessExpression.Expression).Symbol;
+
+        if (target is ILocalSymbol localSymbol
+            && localSymbol.Type is IArrayTypeSymbol arrayTypeSymbol)
+        {
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, elementAccessExpression.Expression);
+
+            foreach (var argument in elementAccessExpression.ArgumentList.Arguments.Reverse())
+            {
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
+            }
+
+            iLGenerator.Emit(OpCodes.Ldelem_I4);
         }
     }
 
@@ -421,15 +472,39 @@ internal class CodeGenerator
 
     private void GenerateAssignmentExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, AssignmentExpressionSyntax assignmentExpression)
     {
-        var localSymbol = _compilation
+        var symbol = _compilation
             .GetSemanticModel(assignmentExpression.SyntaxTree)
-            .GetSymbolInfo(assignmentExpression.LeftHandSide).Symbol as ILocalSymbol;
+            .GetSymbolInfo(assignmentExpression.LeftHandSide).Symbol;
 
-        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, assignmentExpression.RightHandSide);
+        if (assignmentExpression.LeftHandSide is ElementAccessExpressionSyntax elementAccessExpression)
+        {
+            var localSymbol = _compilation
+                .GetSemanticModel(elementAccessExpression.SyntaxTree)
+                .GetSymbolInfo(elementAccessExpression.Expression).Symbol as ILocalSymbol;
 
-        var localBuilder = _localBuilders[localSymbol];
+            var localBuilder = _localBuilders[localSymbol];
+            iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
 
-        iLGenerator.Emit(OpCodes.Stloc, localBuilder);
+            foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
+            {
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
+            }
+
+            GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, assignmentExpression.RightHandSide);
+
+            iLGenerator.Emit(OpCodes.Stelem_I4);
+        }
+        else
+        {
+            if (symbol is ILocalSymbol localSymbol)
+            {
+                GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, assignmentExpression.RightHandSide);
+
+                var localBuilder = _localBuilders[localSymbol];
+
+                iLGenerator.Emit(OpCodes.Stloc, localBuilder);
+            }
+        }
     }
 
     private void GenerateBinaryExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, BinaryExpressionSyntax binaryExpression)

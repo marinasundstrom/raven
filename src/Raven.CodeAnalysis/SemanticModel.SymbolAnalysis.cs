@@ -65,7 +65,6 @@ public partial class SemanticModel
 
                         Bind(typeExpr, propertyType);
 
-                        // TODO: Centralize
                         Diagnostics.Add(
                             Diagnostic.Create(
                                 CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
@@ -89,7 +88,6 @@ public partial class SemanticModel
 
                     if (typeSymbol.SpecialType == SpecialType.System_Void)
                     {
-                        // TODO: Centralize
                         Diagnostics.Add(
                             Diagnostic.Create(
                                 CompilerDiagnostics.CannotAssignVoidToAnImplicitlyTypedVariable,
@@ -275,10 +273,144 @@ public partial class SemanticModel
                 symbols = AnalyzeObjectCreationExpression(declaringSymbol, containingSymbol, objectCreationExpression);
                 break;
 
+            case CollectionExpressionSyntax collectionExpression:
+                symbols = AnalyzeCollectionExpression(declaringSymbol, containingSymbol, collectionExpression);
+                break;
+
+            case ElementAccessExpressionSyntax elementAccessExpression:
+                symbols = AnalyzeElementAccessExpression(declaringSymbol, containingSymbol, expression, elementAccessExpression);
+                break;
+
             default:
                 symbols = ImmutableArray<ISymbol>.Empty;
                 break;
         }
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeCollectionExpression(ISymbol declaringSymbol, ISymbol containingSymbol, CollectionExpressionSyntax collectionExpression)
+    {
+        foreach (var element in collectionExpression.Elements)
+        {
+            AnalyzeExpression(declaringSymbol, containingSymbol, element.Expression, out var baseSymbols);
+        }
+
+        var symbol = new ArrayTypeSymbol(Compilation, Compilation.GetSpecialType(SpecialType.System_Int32), null, null, null, []);
+        Bind(collectionExpression, symbol);
+        return [symbol];
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeElementAccessExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, ElementAccessExpressionSyntax elementAccessExpression)
+    {
+        // Analyze the base expression to get potential methods or delegates
+        AnalyzeExpression(declaringSymbol, containingSymbol, elementAccessExpression.Expression, out var baseSymbols);
+
+        if (!baseSymbols.Any())
+        {
+            return [];
+        }
+
+        var s = baseSymbols.Single();
+
+
+        if (s is IPropertySymbol propertySymbol)
+        {
+
+        }
+        else if (s is IFieldSymbol fieldSymbol)
+        {
+
+        }
+        else if (s is ILocalSymbol localSymbol)
+        {
+            if (localSymbol.Type is IArrayTypeSymbol arrayTypeSymbol)
+            {
+                foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
+                {
+                    AnalyzeExpression(declaringSymbol, containingSymbol, argument.Expression, out var baseSymbols2);
+                }
+
+                Bind(elementAccessExpression, arrayTypeSymbol.ElementType);
+                return [arrayTypeSymbol.ElementType];
+            }
+            else { }
+        }
+
+        throw new Exception();
+
+
+        /*
+                // Ensure we are invoking a method or delegate
+                var candidates = baseSymbols;
+
+
+                if (candidate is not IFieldSymbol or not ILocalSymbol)
+                {
+                    Diagnostics.Add(
+                        Diagnostic.Create(
+                            CompilerDiagnostics.CannotApplyIndexingWithToAnExpressionOfType,
+                            elementAccessExpression.Expression.GetLocation(),
+                            [e]
+                        ));
+
+                    return [];
+                }
+
+                var count = elementAccessExpression.ArgumentList.Arguments.Count;
+
+                var method = candidates.First();
+
+                // Collect argument types
+                var argumentTypes = new List<ITypeSymbol>();
+                int i = 0;
+                foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
+                {
+                    AnalyzeExpression(declaringSymbol, declaringSymbol, argument.Expression, out var argSymbols);
+
+                    var typeSymbol = argSymbols.First().UnwrapType();
+
+                    if (typeSymbol is IErrorTypeSymbol)
+                    {
+                        return [];
+                    }
+
+                    if (typeSymbol.SpecialType == SpecialType.System_Void)
+                    {
+                        var param = method.Parameters.ElementAt(i);
+
+                        Diagnostics.Add(
+                            Diagnostic.Create(
+                                CompilerDiagnostics.CannotConvertFromTypeToType,
+                                argument.Expression.GetLocation(),
+                                [typeSymbol.Name, param.Type.Name]
+                            ));
+                    }
+
+                    argumentTypes.Add(typeSymbol!); // Handle null appropriately in production
+
+                    i++;
+                }
+
+                // Perform overload resolution
+                var bestMethod = ResolveMethodOverload(candidateMethods, argumentTypes);
+
+                if (bestMethod is null)
+                {
+                    Diagnostics.Add(
+                        Diagnostic.Create(
+                            CompilerDiagnostics.NoOverloadForMethod,
+                            elementAccessExpression.Expression.GetLocation(),
+                            [method.Name, count]
+                        ));
+
+                    Bind(expression, CandidateReason.OverloadResolutionFailure, []);
+                    return [];
+                }
+                else
+                {
+                    Bind(expression, bestMethod);
+                    return [bestMethod.ReturnType];
+                }
+                */
     }
 
     private ImmutableArray<ISymbol> AnalyzeObjectCreationExpression(ISymbol declaringSymbol, ISymbol containingSymbol, ObjectCreationExpressionSyntax objectCreationExpression)
@@ -302,9 +434,9 @@ public partial class SemanticModel
 
         if (!candidateMethods.Any())
         {
-            // TODO: Centralize
             Diagnostics.Add(
                 Diagnostic.Create(
+                    // TODO: M
                     CompilerDiagnostics.MethodNameExpected,
                     objectCreationExpression.Type.GetLocation()
                 ));
@@ -334,7 +466,6 @@ public partial class SemanticModel
             {
                 var param = method.Parameters.ElementAt(i);
 
-                // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.CannotConvertFromTypeToType,
@@ -353,7 +484,6 @@ public partial class SemanticModel
 
         if (bestMethod is null)
         {
-            // TODO: Centralize
             Diagnostics.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.NoOverloadForMethod,
@@ -377,13 +507,16 @@ public partial class SemanticModel
 
         var single = baseSymbols.Single();
 
-        if (single is not ILocalSymbol and not IFieldSymbol and not IPropertySymbol)
+        if (assignmentExpression.LeftHandSide is not ElementAccessExpressionSyntax)
         {
-            Diagnostics.Add(Diagnostic.Create(
-                        CompilerDiagnostics.LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer,
-                        assignmentExpression.LeftHandSide.GetLocation(),
-                        []
-                    ));
+            if (single is not ILocalSymbol and not IFieldSymbol and not IPropertySymbol)
+            {
+                Diagnostics.Add(Diagnostic.Create(
+                            CompilerDiagnostics.LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer,
+                            assignmentExpression.LeftHandSide.GetLocation(),
+                            []
+                        ));
+            }
         }
 
         if (single is ILocalSymbol localSymbol)
@@ -472,7 +605,6 @@ public partial class SemanticModel
 
             if (baseSymbol is INamespaceSymbol namespaceSymbol)
             {
-                // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.TypeOrNamespaceNameDoesNotExistInTheNamespace,
@@ -482,7 +614,6 @@ public partial class SemanticModel
             }
             else if (baseSymbol is ITypeSymbol typeSymbol)
             {
-                // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.MemberDoesNotContainDefinition,
@@ -513,7 +644,6 @@ public partial class SemanticModel
         var candidateMethods = baseSymbols.OfType<IMethodSymbol>().ToList();
         if (!candidateMethods.Any())
         {
-            // TODO: Centralize
             Diagnostics.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.MethodNameExpected,
@@ -545,7 +675,6 @@ public partial class SemanticModel
             {
                 var param = method.Parameters.ElementAt(i);
 
-                // TODO: Centralize
                 Diagnostics.Add(
                     Diagnostic.Create(
                         CompilerDiagnostics.CannotConvertFromTypeToType,
@@ -564,7 +693,6 @@ public partial class SemanticModel
 
         if (bestMethod is null)
         {
-            // TODO: Centralize
             Diagnostics.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.NoOverloadForMethod,
@@ -611,7 +739,6 @@ public partial class SemanticModel
         }
         else if (symbols.Count() == 0)
         {
-            // TODO: Centralize
             Diagnostics.Add(
                 Diagnostic.Create(
                     CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,

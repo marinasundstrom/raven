@@ -32,6 +32,8 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken CloseParenToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CloseParenToken;
     public static readonly SyntaxToken OpenBraceToken = (SyntaxToken)InternalSyntax.SyntaxFactory.OpenBraceToken;
     public static readonly SyntaxToken CloseBraceToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CloseBraceToken;
+    public static readonly SyntaxToken OpenBracketToken = (SyntaxToken)InternalSyntax.SyntaxFactory.OpenBracketToken;
+    public static readonly SyntaxToken CloseBracketToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CloseBracketToken;
 
     public static readonly SyntaxToken GreaterThanToken = (SyntaxToken)InternalSyntax.SyntaxFactory.GreaterThanToken;
     public static readonly SyntaxToken LessThanToken = (SyntaxToken)InternalSyntax.SyntaxFactory.LessThanToken;

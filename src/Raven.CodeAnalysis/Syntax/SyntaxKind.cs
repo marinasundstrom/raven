@@ -39,6 +39,8 @@ public enum SyntaxKind
     WhileExpression,
     Block,
     ObjectCreationExpression,
+    CollectionExpression,
+    CollectionElement,
 
     VariableDeclaration,
     VariableDeclarator,
@@ -71,6 +73,8 @@ public enum SyntaxKind
     //PointeMemberAccessExpression,
     InvocationExpression,
     ArgumentList,
+    ElementAccessExpression,
+    BracketedArgumentList,
     Argument,
 
     // Token Kinds
@@ -111,6 +115,8 @@ public enum SyntaxKind
     CloseParenToken,
     OpenBraceToken,
     CloseBraceToken,
+    OpenBracketToken,
+    CloseBracketToken,
 
     CommaToken,
     EqualsToken,

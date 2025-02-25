@@ -430,7 +430,7 @@ internal class LanguageParser
         return IdentifierName(token);
     }
 
-    private IfExpressionSyntax? ParseIfExpressionSyntax()
+    private IfExpressionSyntax ParseIfExpressionSyntax()
     {
         List<DiagnosticInfo>? diagnostics = null;
 
@@ -473,14 +473,14 @@ internal class LanguageParser
         return IfExpression(ifKeyword, condition!, expression!, elseClause, diagnostics);
     }
 
-    private ElseClauseSyntax? ParseElseClauseSyntax()
+    private ElseClauseSyntax ParseElseClauseSyntax()
     {
         var elseKeyword = ReadToken();
 
         return ElseClause(elseKeyword, ParseExpressionSyntax());
     }
 
-    private WhileExpressionSyntax? ParseWhileExpressionSyntax()
+    private WhileExpressionSyntax ParseWhileExpressionSyntax()
     {
         List<DiagnosticInfo>? diagnostics = null;
 
@@ -514,7 +514,7 @@ internal class LanguageParser
         return WhileStatement(whileKeyword, condition!, statement!, diagnostics);
     }
 
-    private ExpressionSyntax? ParseExpressionSyntax()
+    private ExpressionSyntax ParseExpressionSyntax()
     {
         return ParseOrExpression();
     }
@@ -679,7 +679,9 @@ internal class LanguageParser
 
         if (ConsumeToken(SyntaxKind.EqualsToken, out var assignToken))
         {
-            if (expr is not IdentifierNameSyntax and not MemberAccessExpressionSyntax)
+            if (expr is not IdentifierNameSyntax
+                and not MemberAccessExpressionSyntax
+                and not ElementAccessExpressionSyntax)
             {
                 Diagnostics(ref diagnostics).Add(
                     DiagnosticInfo.Create(
@@ -786,9 +788,11 @@ internal class LanguageParser
     /// <returns>An expression.</returns>
     private ExpressionSyntax ParsePowerExpression()
     {
+        var start = Position;
+
         ExpressionSyntax expr = ParsePrimaryExpression();
 
-        expr = AddTrailers(expr);
+        expr = AddTrailers(start, expr);
 
         if (ConsumeToken(SyntaxKind.CaretToken, out var token))
         {
@@ -799,8 +803,10 @@ internal class LanguageParser
         return expr;
     }
 
-    private ExpressionSyntax AddTrailers(ExpressionSyntax expr)
+    private ExpressionSyntax AddTrailers(int start, ExpressionSyntax expr)
     {
+        List<DiagnosticInfo>? diagnostics = null;
+
         while (true) // Loop to handle consecutive member access and invocations
         {
             var token = PeekToken();
@@ -815,6 +821,21 @@ internal class LanguageParser
                 var dotToken = ReadToken();
                 var memberName = ParseSimpleName();
                 expr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expr, dotToken, memberName);
+            }
+            else if (token.Kind == SyntaxKind.OpenBracketToken) // Element access
+            {
+                var argumentList = ParseBracketedArgumentListSyntax();
+
+                /*
+                Diagnostics(ref diagnostics).Add(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.CannotApplyIndexingWithToAnExpressionOfType,
+                        GetActualTextSpan(start, expr),
+                        [expr.Kind]
+                    ));
+                    */
+
+                expr = ElementAccessExpression(expr, argumentList, diagnostics);
             }
             else
             {
@@ -856,6 +877,38 @@ internal class LanguageParser
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken);
+    }
+
+    private BracketedArgumentListSyntax ParseBracketedArgumentListSyntax()
+    {
+        var openBracketToken = ReadToken();
+
+        List<GreenNode> argumentList = new List<GreenNode>();
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.Kind == SyntaxKind.CloseBracketToken)
+                break;
+
+            var expression = ParseExpressionSyntax();
+            if (expression is null)
+                break;
+
+            argumentList.Add(Argument(expression));
+
+            var commaToken = PeekToken();
+            if (commaToken.Kind == SyntaxKind.CommaToken)
+            {
+                ReadToken();
+                argumentList.Add(commaToken);
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+
+        return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken);
     }
 
     /// <summary>
@@ -912,9 +965,45 @@ internal class LanguageParser
             case SyntaxKind.NewKeyword:
                 expr = ParseNewExpression();
                 break;
+
+            case SyntaxKind.OpenBracketToken:
+                expr = ParseCollectionExpression();
+                break;
         }
 
         return expr;
+    }
+
+    private ExpressionSyntax ParseCollectionExpression()
+    {
+        var openBracketToken = ReadToken();
+
+        List<GreenNode> elementList = new List<GreenNode>();
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.Kind == SyntaxKind.CloseBracketToken)
+                break;
+
+            var expression = ParseExpressionSyntax();
+            if (expression is null)
+                break;
+
+            elementList.Add(CollectionElement(expression));
+
+            var commaToken = PeekToken();
+            if (commaToken.Kind == SyntaxKind.CommaToken)
+            {
+                ReadToken();
+                elementList.Add(commaToken);
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+
+        return CollectionExpression(openBracketToken, List(elementList), closeBracketToken);
     }
 
     private ExpressionSyntax ParseNewExpression()

@@ -170,14 +170,11 @@ internal class Lexer : ILexer
                     case '}':
                         return new Token(SyntaxKind.CloseBraceToken, chStr);
 
-                    /*
+                    case '[':
+                        return new Token(SyntaxKind.OpenBracketToken, chStr);
 
-                case '[':
-                    return new Token(SyntaxKind.OpenSquareToken, chStr);
-
-                case ']':
-                    return new Token(SyntaxKind.CloseSquareToken, chStr);
-                    */
+                    case ']':
+                        return new Token(SyntaxKind.CloseBracketToken, chStr);
 
                     case '=':
                         return new Token(SyntaxKind.EqualsToken, chStr);

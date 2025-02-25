@@ -7,6 +7,8 @@ namespace Raven.CodeAnalysis.Syntax;
 public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     where TNode : SyntaxNode
 {
+    public static readonly SeparatedSyntaxList<TNode> Empty = new SeparatedSyntaxList<TNode>(new InternalSyntax.SyntaxList([]), null, 0);
+
     internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;
     private readonly int _position;

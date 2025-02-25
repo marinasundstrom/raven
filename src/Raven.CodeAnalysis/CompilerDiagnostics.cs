@@ -30,6 +30,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _readOnlyFieldCannotBeAssignedTo;
     private static DiagnosticDescriptor? _thisValueIsNotMutable;
     private static DiagnosticDescriptor? _propertyOrIndexerCannotBeAssignedIsReadOnly;
+    private static DiagnosticDescriptor? _cannotApplyIndexingWithToAnExpressionOfType;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -324,12 +325,25 @@ internal class CompilerDiagnostics
     /// </summary>
     public static DiagnosticDescriptor PropertyOrIndexerCannotBeAssignedIsReadOnly => _propertyOrIndexerCannotBeAssignedIsReadOnly ??= DiagnosticDescriptor.Create(
         id: "RAV0200",
-        title: "RAV0200: Property or indexer '{0}' cannot be assigned to -- it is read only",
+        title: "Property or indexer '{0}' cannot be assigned to -- it is read only",
         description: "",
         helpLinkUri: "",
-        messageFormat: "RAV0200: Property or indexer '{0}' cannot be assigned to -- it is read only",
+        messageFormat: "Property or indexer '{0}' cannot be assigned to -- it is read only",
         category: "compiler",
         DiagnosticSeverity.Error);
+
+    /// <summary>
+    /// RAV0021: Cannot apply indexing with [] to an expression of type 'method group'
+    /// </summary>
+    public static DiagnosticDescriptor CannotApplyIndexingWithToAnExpressionOfType => _cannotApplyIndexingWithToAnExpressionOfType ??= DiagnosticDescriptor.Create(
+        id: "RAV0021",
+        title: "Cannot apply indexing with [] to an expression of type '{0}'",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Cannot apply indexing with [] to an expression of type '{0}'",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
 
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
@@ -357,7 +371,8 @@ internal class CompilerDiagnostics
         LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer,
         ReadOnlyFieldCannotBeAssignedTo,
         ThisValueIsNotMutable,
-        PropertyOrIndexerCannotBeAssignedIsReadOnly
+        PropertyOrIndexerCannotBeAssignedIsReadOnly,
+        CannotApplyIndexingWithToAnExpressionOfType
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -389,6 +404,7 @@ internal class CompilerDiagnostics
             "RAV0191" => ReadOnlyFieldCannotBeAssignedTo,
             "RAV0027" => ThisValueIsNotMutable,
             "RAV0200" => PropertyOrIndexerCannotBeAssignedIsReadOnly,
+            "RAV0021" => CannotApplyIndexingWithToAnExpressionOfType,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }
