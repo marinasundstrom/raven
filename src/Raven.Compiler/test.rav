@@ -1,12 +1,13 @@
 import System;
 
-let str = Console.ReadLine();
-let index = int.Parse(str);
-
 let foo = [2, 42, 5, 6];
-foo[1] = 3;
-let x = foo[index];
+let length = 4;
 
-// TODO: Implement OpCodes.Ldlen
-//Console.WriteLine("Array has length: " + foo.Length.ToString());
-Console.WriteLine("Value at index " + index.ToString() + " is: " + x.ToString());
+foo[length - 1] = 8;
+
+var index = 0;
+while index < length {
+    let x = foo[index];
+    Console.WriteLine("Value at index " + index.ToString() + " is: " + x.ToString());
+    index = index + 1;
+};
