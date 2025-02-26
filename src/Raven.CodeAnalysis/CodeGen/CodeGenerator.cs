@@ -312,9 +312,7 @@ internal class CodeGenerator
     {
         GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, expressionStatement.Expression);
 
-        var symbol = _compilation
-                        .GetSemanticModel(expressionStatement.SyntaxTree)
-                        .GetSymbolInfo(expressionStatement.Expression).Symbol;
+        var symbol = GetSymbolInfo(expressionStatement.Expression).Symbol;
 
         if (expressionStatement.Expression is InvocationExpressionSyntax invocationExpression)
         {
@@ -343,9 +341,7 @@ internal class CodeGenerator
     {
         if (declarator.Initializer is not null)
         {
-            var localSymbol = _compilation
-                .GetSemanticModel(localDeclarationStatement.SyntaxTree)
-                .GetSymbolInfo(declarator).Symbol as ILocalSymbol;
+            var localSymbol = GetSymbolInfo(declarator).Symbol as ILocalSymbol;
 
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, declarator.Initializer.Value);
 
@@ -415,9 +411,7 @@ internal class CodeGenerator
 
     private void GenerateCollectionExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, CollectionExpressionSyntax collectionExpression)
     {
-        var target = _compilation
-            .GetSemanticModel(collectionExpression.SyntaxTree)
-            .GetSymbolInfo(collectionExpression).Symbol;
+        var target = GetSymbolInfo(collectionExpression).Symbol;
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
@@ -438,9 +432,7 @@ internal class CodeGenerator
 
     private void GenerateElementAccessExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, ElementAccessExpressionSyntax elementAccessExpression)
     {
-        var target = _compilation
-            .GetSemanticModel(elementAccessExpression.SyntaxTree)
-            .GetSymbolInfo(elementAccessExpression.Expression).Symbol;
+        var target = GetSymbolInfo(elementAccessExpression.Expression).Symbol;
 
         if (target is ILocalSymbol localSymbol
             && localSymbol.Type is IArrayTypeSymbol arrayTypeSymbol)
@@ -463,24 +455,18 @@ internal class CodeGenerator
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
         }
 
-        var target = _compilation
-            .GetSemanticModel(objectCreationExpression.SyntaxTree)
-            .GetSymbolInfo(objectCreationExpression.Type).Symbol as MetadataMethodSymbol;
+        var target = GetSymbolInfo(objectCreationExpression.Type).Symbol as MetadataMethodSymbol;
 
         iLGenerator.Emit(OpCodes.Newobj, target.GetConstructorInfo());
     }
 
     private void GenerateAssignmentExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, AssignmentExpressionSyntax assignmentExpression)
     {
-        var symbol = _compilation
-            .GetSemanticModel(assignmentExpression.SyntaxTree)
-            .GetSymbolInfo(assignmentExpression.LeftHandSide).Symbol;
+        var symbol = GetSymbolInfo(assignmentExpression.LeftHandSide).Symbol;
 
         if (assignmentExpression.LeftHandSide is ElementAccessExpressionSyntax elementAccessExpression)
         {
-            var localSymbol = _compilation
-                .GetSemanticModel(elementAccessExpression.SyntaxTree)
-                .GetSymbolInfo(elementAccessExpression.Expression).Symbol as ILocalSymbol;
+            var localSymbol = GetSymbolInfo(elementAccessExpression.Expression).Symbol as ILocalSymbol;
 
             var localBuilder = _localBuilders[localSymbol];
             iLGenerator.Emit(OpCodes.Ldloc, localBuilder);
@@ -505,6 +491,13 @@ internal class CodeGenerator
                 iLGenerator.Emit(OpCodes.Stloc, localBuilder);
             }
         }
+    }
+
+    private SymbolInfo GetSymbolInfo(SyntaxNode syntaxNode)
+    {
+        return _compilation
+                        .GetSemanticModel(syntaxNode.SyntaxTree)
+                        .GetSymbolInfo(syntaxNode);
     }
 
     private void GenerateBinaryExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, BinaryExpressionSyntax binaryExpression)
@@ -559,9 +552,7 @@ internal class CodeGenerator
         // Resolve target identifier or access
         // If method or delegate, then invoke
 
-        var target = _compilation
-            .GetSemanticModel(invocationExpression.SyntaxTree)
-            .GetSymbolInfo(invocationExpression).Symbol as MetadataMethodSymbol;
+        var target = GetSymbolInfo(invocationExpression).Symbol as MetadataMethodSymbol;
 
         if (!target?.IsStatic ?? false)
         {
@@ -574,9 +565,7 @@ internal class CodeGenerator
                 expr = e.Expression;
             }
 
-            var localSymbol = _compilation
-                .GetSemanticModel(expr.SyntaxTree)
-                .GetSymbolInfo(expr).Symbol as ILocalSymbol;
+            var localSymbol = GetSymbolInfo(expr).Symbol as ILocalSymbol;
 
             if (localSymbol is not null)
             {
@@ -642,9 +631,7 @@ internal class CodeGenerator
         // Resolve target identifier or access
         // If local, property, or field, then load
 
-        var symbol = _compilation
-            .GetSemanticModel(identifierName.SyntaxTree)
-            .GetSymbolInfo(identifierName).Symbol;
+        var symbol = GetSymbolInfo(identifierName).Symbol;
 
         if (symbol is ILocalSymbol localSymbol)
         {
