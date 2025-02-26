@@ -1,14 +1,13 @@
 import System;
 
 let foo = [2, 42, 5, 6];
-let length = 4;
 
-foo[length - 1] = 8;
+foo[foo.Length  - 1] = 8 + 1;
 
 let sb = new System.Text.StringBuilder();
 
 var index = 0;
-while index < length {
+while index < foo.Length {
     let x = foo[index];
     Console.WriteLine("Value at index " + index.ToString() + " is: " + x.ToString());
     index = index + 1;

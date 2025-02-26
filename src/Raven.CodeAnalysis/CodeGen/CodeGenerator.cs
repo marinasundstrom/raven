@@ -668,21 +668,31 @@ internal class CodeGenerator
         }
         else if (symbol is IPropertySymbol propertySymbol)
         {
-            var metadataPropertySymbol = propertySymbol as MetadataPropertySymbol;
-            var getMethod = metadataPropertySymbol.GetMethod as MetadataMethodSymbol;
-
-            if (!propertySymbol.IsStatic
-                && propertySymbol.ContainingType.IsValueType)
+            if (propertySymbol.ContainingType!.Name == "Array") //.SpecialType == SpecialType.System_Array)
             {
-                var clrType = propertySymbol.ContainingType.GetClrType(_compilation);
-                var builder = iLGenerator.DeclareLocal(clrType);
-                //_localBuilders[symbol] = builder;
-
-                iLGenerator.Emit(OpCodes.Stloc, builder);
-                iLGenerator.Emit(OpCodes.Ldloca, builder);
+                if (propertySymbol.Name == "Length")
+                {
+                    iLGenerator.Emit(OpCodes.Ldlen);
+                }
             }
+            else
+            {
+                var metadataPropertySymbol = propertySymbol as MetadataPropertySymbol;
+                var getMethod = metadataPropertySymbol.GetMethod as MetadataMethodSymbol;
 
-            iLGenerator.Emit(OpCodes.Call, getMethod.GetMethodInfo());
+                if (!propertySymbol.IsStatic
+                    && propertySymbol.ContainingType.IsValueType)
+                {
+                    var clrType = propertySymbol.ContainingType.GetClrType(_compilation);
+                    var builder = iLGenerator.DeclareLocal(clrType);
+                    //_localBuilders[symbol] = builder;
+
+                    iLGenerator.Emit(OpCodes.Stloc, builder);
+                    iLGenerator.Emit(OpCodes.Ldloca, builder);
+                }
+
+                iLGenerator.Emit(OpCodes.Call, getMethod.GetMethodInfo());
+            }
         }
     }
 

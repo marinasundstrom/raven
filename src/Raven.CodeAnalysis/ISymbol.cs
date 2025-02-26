@@ -153,6 +153,7 @@ public interface IPropertySymbol : ISymbol
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol
 {
+    INamedTypeSymbol? BaseType { get; }
     SpecialType SpecialType { get; }
     bool IsValueType { get; }
 }

@@ -439,6 +439,10 @@ public class Compilation
         {
             return GetTypeByMetadataName("System.Char");
         }
+        else if (specialType == SpecialType.System_Array)
+        {
+            return GetTypeByMetadataName("System.Array");
+        }
 
         return null;
     }

@@ -7,6 +7,7 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
 {
     private readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
+    private INamedTypeSymbol? _baseType;
 
     public MetadataTypeSymbol(Compilation compilation, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(compilation, containingSymbol, containingType, containingNamespace, locations)
@@ -78,6 +79,8 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
     }
 
     public bool IsValueType => _typeInfo.IsValueType;
+
+    public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)_compilation.GetType(_typeInfo.BaseType) : null);
 
     public ImmutableArray<ISymbol> GetMembers()
     {

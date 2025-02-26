@@ -4,6 +4,8 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
 {
+    private INamedTypeSymbol? _baseType;
+
     public ArrayTypeSymbol(Compilation compilation, ITypeSymbol elementType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(compilation, containingSymbol, containingType, containingNamespace, locations)
     {
@@ -24,16 +26,16 @@ internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
 
     public bool IsType => true;
 
+    public INamedTypeSymbol? BaseType => _baseType ??= (INamedTypeSymbol?)_compilation.GetSpecialType(SpecialType.System_Array);
+
     public ImmutableArray<ISymbol> GetMembers()
     {
-        // TODO: Fix
-        return [];
+        return BaseType!.GetMembers();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        // TODO: Fix
-        return [];
+        return BaseType!.GetMembers(name);
     }
 
     public override string ToString()
