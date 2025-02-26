@@ -10,6 +10,10 @@ internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
         ElementType = elementType;
     }
 
+    public override string Name => $"{ElementType}[]";
+
+    public override SymbolKind Kind => SymbolKind.Type;
+
     public ITypeSymbol ElementType { get; }
 
     public SpecialType SpecialType => SpecialType.System_Array;
@@ -30,5 +34,10 @@ internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
     {
         // TODO: Fix
         return [];
+    }
+
+    public override string ToString()
+    {
+        return Name;
     }
 }
