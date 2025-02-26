@@ -5,9 +5,12 @@ let length = 4;
 
 foo[length - 1] = 8;
 
+let sb = new System.Text.StringBuilder();
+
 var index = 0;
 while index < length {
     let x = foo[index];
     Console.WriteLine("Value at index " + index.ToString() + " is: " + x.ToString());
     index = index + 1;
+    sb.AppendLine(index.ToString());
 };

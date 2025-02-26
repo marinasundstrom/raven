@@ -281,10 +281,21 @@ public partial class SemanticModel
                 symbols = AnalyzeElementAccessExpression(declaringSymbol, containingSymbol, expression, elementAccessExpression);
                 break;
 
+            case QualifiedNameSyntax qualifiedNameSyntax:
+                symbols = AnalyzeQualifiedName(declaringSymbol, containingSymbol, expression, qualifiedNameSyntax);
+                break;
+
             default:
                 symbols = ImmutableArray<ISymbol>.Empty;
                 break;
         }
+    }
+
+    private ImmutableArray<ISymbol> AnalyzeQualifiedName(ISymbol declaringSymbol, ISymbol containingSymbol, ExpressionSyntax expression, QualifiedNameSyntax qualifiedNameSyntax)
+    {
+        var type = ResolveType(qualifiedNameSyntax);
+        Bind(qualifiedNameSyntax, type!);
+        return [type!];
     }
 
     private ImmutableArray<ISymbol> AnalyzeCollectionExpression(ISymbol declaringSymbol, ISymbol containingSymbol, CollectionExpressionSyntax collectionExpression)
