@@ -13,3 +13,5 @@ while index < foo.Length {
     index = index + 1;
     sb.AppendLine(index.ToString());
 };
+
+Console.WriteLine(sb.ToString());
