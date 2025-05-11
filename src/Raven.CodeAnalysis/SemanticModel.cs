@@ -196,6 +196,11 @@ internal class ErrorTypeSymbol : Symbol, IErrorTypeSymbol
     public ImmutableArray<ISymbol> GetMembers() => [];
 
     public ImmutableArray<ISymbol> GetMembers(string name) => [];
+
+    public ITypeSymbol? LookupType(string name)
+    {
+        throw new NotImplementedException();
+    }
 }
 
 internal interface IErrorTypeSymbol : INamedTypeSymbol

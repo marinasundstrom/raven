@@ -116,11 +116,15 @@ public interface INamespaceOrTypeSymbol : ISymbol
     bool IsType { get; }
     ImmutableArray<ISymbol> GetMembers();
     ImmutableArray<ISymbol> GetMembers(string name);
+
+    ITypeSymbol? LookupType(string name);
 }
 
 public interface INamespaceSymbol : INamespaceOrTypeSymbol
 {
     bool IsGlobalNamespace { get; }
+
+    INamespaceSymbol? LookupNamespace(string name);
 }
 
 public interface IMethodSymbol : ISymbol

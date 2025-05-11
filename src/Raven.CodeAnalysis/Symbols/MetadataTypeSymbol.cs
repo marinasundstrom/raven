@@ -92,6 +92,11 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
         return _members.Where(x => x.Name == name).ToImmutableArray();
     }
 
+    public ITypeSymbol? LookupType(string name)
+    {
+        throw new NotImplementedException();
+    }
+
     internal void AddMember(ISymbol member)
     {
         _members.Add(member);

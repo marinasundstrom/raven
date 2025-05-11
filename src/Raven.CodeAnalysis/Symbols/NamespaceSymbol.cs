@@ -30,5 +30,15 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
         _members.Add(member);
     }
 
+    public INamespaceSymbol? LookupNamespace(string name)
+    {
+        throw new NotImplementedException();
+    }
+
+    public ITypeSymbol? LookupType(string name)
+    {
+        throw new NotImplementedException();
+    }
+
     public bool IsGlobalNamespace => ContainingNamespace is null;
 }

@@ -38,6 +38,11 @@ internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
         return BaseType!.GetMembers(name);
     }
 
+    public ITypeSymbol? LookupType(string name)
+    {
+        throw new NotImplementedException();
+    }
+
     public override string ToString()
     {
         return Name;

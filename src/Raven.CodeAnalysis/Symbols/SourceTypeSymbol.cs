@@ -36,6 +36,11 @@ internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
         return _members.Where(x => x.Name == name).ToImmutableArray();
     }
 
+    public ITypeSymbol? LookupType(string name)
+    {
+        throw new NotImplementedException();
+    }
+
     internal void AddMember(ISymbol member)
     {
         _members.Add(member);
