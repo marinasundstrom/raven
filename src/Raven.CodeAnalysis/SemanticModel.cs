@@ -10,6 +10,7 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
+    private readonly BinderFactory _binderFactory;
     private readonly DiagnosticBag _diagnostics;
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly List<ISymbol> _localSymbols = new List<ISymbol>();
@@ -19,11 +20,14 @@ public partial class SemanticModel
 
     public SemanticModel(Compilation compilation, List<ISymbol> symbols, SyntaxTree syntaxTree)
     {
+        _binderFactory = new BinderFactory(compilation);
+
         _symbols = symbols;
         _diagnostics = new DiagnosticBag();
         Compilation = compilation;
         SyntaxTree = syntaxTree;
 
+        /*
         _keywordTypeSymbols = new Dictionary<string, ITypeSymbol>
         {
             { "int", Compilation.GetSpecialType(SpecialType.System_Int32) },
@@ -31,12 +35,20 @@ public partial class SemanticModel
             { "char", Compilation.GetSpecialType(SpecialType.System_Char) },
             { "string", Compilation.GetSpecialType(SpecialType.System_String) }
         };
+        */
 
         CreateModel();
     }
 
     private void CreateModel()
     {
+        // Optional: preload binder for compilation unit to cache imports
+        var root = SyntaxTree.GetRoot();
+        _ = _binderFactory.GetBinder(root);
+
+        // Diagnostics will be filled lazily as semantic queries come in
+
+        /*
         foreach (var symbol in _symbols.OfType<SourceMethodSymbol>())
         {
             var syntaxRef = symbol.DeclaringSyntaxReferences.First();
@@ -63,6 +75,7 @@ public partial class SemanticModel
                 }
             }
         }
+        */
     }
 
     public Compilation Compilation { get; }
@@ -76,11 +89,13 @@ public partial class SemanticModel
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
         if (_bindings.TryGetValue(node, out var symbolInfo))
-        {
             return symbolInfo;
-        }
 
-        return new SymbolInfo(CandidateReason.None, ImmutableArray<ISymbol>.Empty);
+        // NEW: Ask binder to bind the node
+        var binder = _binderFactory.GetBinder(node);
+        var info = binder.BindSymbol(node);
+        _bindings[node] = info;
+        return info;
     }
 
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
@@ -104,48 +119,15 @@ public partial class SemanticModel
         _bindings[node] = new SymbolInfo(reason, symbols.ToImmutableArray());
     }
 
+    /*
     public TypeInfo GetTypeInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
-        // Get the symbol associated with the syntax node
-        var symbolInfo = GetSymbolInfo(node).Symbol;
+        var binder = _binderFactory.GetBinder(node);
+        var type = binder.BindType(node)?.UnwrapType();
 
-        // If a symbol is found, attempt to determine its type
-        if (symbolInfo is not null)
-        {
-            // Handle specific types of symbols
-            if (symbolInfo is ITypeSymbol typeSymbol)
-            {
-                // Directly return the TypeInfo for type symbols
-                return new TypeInfo(typeSymbol, null);
-            }
-            else if (symbolInfo is IMethodSymbol methodSymbol)
-            {
-                // Return the return type of the method
-                return new TypeInfo(methodSymbol.ReturnType, null);
-            }
-            else if (symbolInfo is IPropertySymbol propertySymbol)
-            {
-                // Return the type of the property
-                return new TypeInfo(propertySymbol.Type, null);
-            }
-            else if (symbolInfo is IFieldSymbol fieldSymbol)
-            {
-                // Return the type of the field
-                return new TypeInfo(fieldSymbol.Type, null);
-            }
-        }
-
-        // Handle cases where no symbol is found
-        if (node is LiteralExpressionSyntax literalExpression)
-        {
-            // Infer the type of the literal
-            var literalType = InferLiteralType(literalExpression);
-            return new TypeInfo(literalType, null);
-        }
-
-        // If no type could be determined, return null TypeInfo
-        return new TypeInfo(null, null);
+        return new TypeInfo(type, convertedType: null);
     }
+    */
 
     private ITypeSymbol? InferLiteralType(LiteralExpressionSyntax literal)
     {

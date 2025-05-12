@@ -13,7 +13,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var root = syntaxTree.GetRoot();
 
-        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(false, false, includeNames: true));
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true, false, includeNames: true));
         testOutputHelper.WriteLine(root.ToFullString());
 
         root.PrintSyntaxTree(includeNames: true, includeTokens: true, includeTrivia: true, includeSpans: false, includeLocation: true);
@@ -28,7 +28,10 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
                 MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
                 MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
             ])
-            .AnalyzeCodeTemp(); // Temporary
+        .AnalyzeCodeTemp(); // Temporary
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var x = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().First());
 
         #endregion
     }

@@ -13,6 +13,7 @@ public class Compilation
     private readonly MetadataReference[] _references;
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
+    private readonly GlobalBinder _globalBinder;
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -20,7 +21,11 @@ public class Compilation
         _syntaxTrees = syntaxTrees;
         _references = references;
         Options = options ?? new CompilationOptions();
+
+        _globalBinder = new GlobalBinder(this);
     }
+
+    internal GlobalBinder GlobalBinder => _globalBinder;
 
     public string AssemblyName { get; }
 
@@ -131,7 +136,7 @@ public class Compilation
                 _symbols.Add(symbol2);
 
                 var symbol = new SourceMethodSymbol(
-                    "Main", typeSymbol, symbol2!, symbol2, globalNamespace,
+                    "Main", typeSymbol, [], symbol2!, symbol2, globalNamespace,
                     [syntaxTree.GetLocation(root.Span)], [new SyntaxReference(syntaxTree, root)]);
 
                 _symbols.Add(symbol);
@@ -283,7 +288,7 @@ public class Compilation
             ITypeSymbol typeSymbol = null!;
 
             var symbol = new SourceMethodSymbol(
-                methodDeclaration.Name.ToString(), typeSymbol, null!, null, null,
+                methodDeclaration.Name.ToString(), typeSymbol, [], null!, null, null,
                 locations, references);
 
             _symbols.Add(symbol);
@@ -482,6 +487,12 @@ public class Compilation
         var ns = GetOrCreateNamespaceSymbol(type.Namespace);
 
         return ns.GetMembers(type.Name).FirstOrDefault() as ITypeSymbol;
+    }
+
+    public void AddReference(string assemblyPath)
+    {
+        var metadata = MetadataReference.CreateFromFile(assemblyPath);
+        //GlobalNamespace.AddMetadata(metadata);
     }
 }
 

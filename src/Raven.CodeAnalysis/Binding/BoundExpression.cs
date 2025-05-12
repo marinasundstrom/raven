@@ -59,6 +59,7 @@ class BoundBinaryOperator
     public ITypeSymbol LeftType { get; }
     public ITypeSymbol RightType { get; }
     public ITypeSymbol ResultType { get; }
+    public static BoundBinaryOperator Error { get; internal set; }
 
     private BoundBinaryOperator(SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, ITypeSymbol result)
     {
