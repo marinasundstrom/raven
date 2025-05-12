@@ -98,9 +98,27 @@ public partial class SemanticModel
         return info;
     }
 
+    /*
+    public SymbolInfo GetSymbolInfo(ExpressionSyntax expr)
+    {
+        var binder = _binderFactory.GetBinder(expr);
+        var bound = binder.BindExpression(expr);
+        return new SymbolInfo(bound.Symbol);
+    }
+
+    public TypeInfo GetTypeInfo(ExpressionSyntax expr)
+    {
+        var binder = _binderFactory.GetBinder(expr);
+        var bound = binder.BindExpression(expr);
+        return new TypeInfo(bound.Type);
+    }
+    */
+
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
-        return _symbols.Concat(_localSymbols).FirstOrDefault(x => x.DeclaringSyntaxReferences.Any(x2 => x2.GetSyntax() == node));
+        var binder = _binderFactory.GetBinder(node);
+        var info = binder.BindSymbol(node);
+        return info.Symbol;
     }
 
     public ImmutableArray<ISymbol> LookupSymbols(int position,
