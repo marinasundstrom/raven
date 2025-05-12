@@ -31,7 +31,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         .AnalyzeCodeTemp(); // Temporary
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        var x = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().First());
+        var x = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
 
         #endregion
     }

@@ -9,15 +9,6 @@ class BlockBinder : Binder
 
     public BlockBinder(Binder parent) : base(parent) { }
 
-    public BoundNode BindStatement(SyntaxNode statement)
-    {
-        return statement switch
-        {
-            LocalDeclarationStatementSyntax varDecl => BindVariableDeclaration(varDecl),
-            ExpressionStatementSyntax exprStmt => BindExpression(exprStmt.Expression),
-            _ => null!,
-        };
-    }
 
     public override ISymbol? LookupSymbol(string name)
     {
@@ -32,18 +23,43 @@ class BlockBinder : Binder
         throw new NotImplementedException();
     }
 
-    private BoundNode BindVariableDeclaration(LocalDeclarationStatementSyntax variableDeclarationSyntax)
+    public override SymbolInfo BindSymbol(SyntaxNode node)
     {
-        foreach (var decl in variableDeclarationSyntax.Declaration.Declarators)
+        switch (node)
         {
-            /*
-            var type = ResolveType(varDecl.TypeAnnotation); // t.ex. "int"
-            var name = node.Identifier.Text;
-            var symbol = new SourceLocalSymbol(name, type);
-            _locals[name] = symbol;
-            */
+            case VariableDeclaratorSyntax varDecl:
+                return new SymbolInfo(BindVariableDeclaration(varDecl));
+
+            case ExpressionStatementSyntax exprStmt:
+                BindExpression(exprStmt.Expression);
+                break;
+
+            default:
+                return base.BindSymbol(node);
         }
 
-        return null!;
+        return default!;
+
+        //return base.BindSymbol(node);
     }
+
+    private ILocalSymbol BindVariableDeclaration(VariableDeclaratorSyntax variableDeclarator)
+    {
+        ITypeSymbol type = null!; // ResolveType(varDecl.TypeAnnotation); // t.ex. "int"
+        var name = variableDeclarator.Name.Identifier.Text;
+
+        var isReadOnly = (variableDeclarator.Parent as VariableDeclarationSyntax).LetOrVarKeyword.IsKind(SyntaxKind.LetKeyword);
+
+        var symbol = new SourceLocalSymbol(name, type, isReadOnly, null, null, null, [variableDeclarator.GetLocation()], []);
+        _locals[name] = symbol;
+
+        return symbol;
+    }
+
+    /*
+    private ITypeSymbol ResolveType(TypeSyntax typeSyntax)
+    {
+        return _compilation.GetTypeByName(typeSyntax.ToString());
+    }
+    */
 }

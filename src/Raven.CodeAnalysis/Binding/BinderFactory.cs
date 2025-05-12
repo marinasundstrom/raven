@@ -76,11 +76,6 @@ class BinderFactory
         var mainMethodSymbol = new SynthesizedMainMethodSymbol(_compilation);
         var topLevelBinder = new TopLevelBinder(nsBinder); //, mainMethodSymbol);
 
-        foreach (var statement in cu.Members.OfType<GlobalStatementSyntax>().Select(x => x.Statement))
-        {
-            topLevelBinder.BindStatement(statement);
-        }
-
         return topLevelBinder;
     }
 
