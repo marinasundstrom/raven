@@ -8,10 +8,15 @@ abstract class Binder
     protected readonly Binder ParentBinder;
     protected readonly Dictionary<string, ISymbol> SymbolTable = new();
 
-    public Binder(Binder parent)
+    protected readonly DiagnosticBag _diagnostics;
+
+    protected Binder(Binder? parent, DiagnosticBag? diagnostics = null)
     {
-        ParentBinder = parent;
+        ParentBinder = parent!;
+        _diagnostics = diagnostics ?? new DiagnosticBag();
     }
+
+    public DiagnosticBag Diagnostics => _diagnostics;
 
     public virtual Compilation Compilation
     {

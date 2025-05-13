@@ -72,7 +72,6 @@ class BlockBinder : Binder
             case LiteralExpressionSyntax literal:
                 return BindLiteralExpression(literal);
 
-            /*
             case IdentifierNameSyntax identifier:
                 return BindIdentifierName(identifier);
 
@@ -81,7 +80,6 @@ class BlockBinder : Binder
 
             case InvocationExpressionSyntax invocation:
                 return BindInvocationExpression(invocation);
-            */
 
             default:
                 throw new NotSupportedException($"Unsupported expression: {syntax.Kind}");
@@ -102,5 +100,60 @@ class BlockBinder : Binder
         }
 
         return new BoundLiteralExpression(value, type);
+    }
+
+    private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax)
+    {
+        var symbol = LookupSymbol(syntax.Identifier.Text);
+
+        if (symbol is ILocalSymbol local)
+            return new BoundLocalExpression(local);
+
+        _diagnostics.ReportUndefinedName(syntax.Identifier.Text, syntax.GetLocation());
+        return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object)); // or System_Void if you want to signal invalid
+    }
+
+    private BoundExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
+    {
+        var left = BindExpression(syntax.LeftHandSide);
+        var right = BindExpression(syntax.RightHandSide);
+
+        var opKind = syntax.OperatorToken.Kind;
+        var op = BoundBinaryOperator.Lookup(opKind, left.Type, right.Type);
+
+        if (op is null)
+        {
+            _diagnostics.ReportUndefinedBinaryOperator(opKind.ToString(), left.Type, right.Type, syntax.OperatorToken.GetLocation());
+            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object));
+        }
+
+        return new BoundBinaryExpression(left, op, right); //, op.ResultType);
+    }
+
+    private BoundExpression BindInvocationExpression(InvocationExpressionSyntax syntax)
+    {
+        if (syntax.Expression is not IdentifierNameSyntax id)
+        {
+            _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object));
+        }
+
+        var symbol = LookupSymbol(id.Identifier.Text);
+        if (symbol is not IMethodSymbol method)
+        {
+            _diagnostics.ReportNotAMethod(id.Identifier.Text, syntax.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object));
+        }
+
+        var arguments = syntax.ArgumentList.Arguments.Select(arg => BindExpression(arg.Expression)).ToArray();
+
+        // Optional: Type check arguments
+        if (method.Parameters.Length != arguments.Length)
+        {
+            _diagnostics.ReportArgumentCountMismatch(method.Name, method.Parameters.Length, arguments.Length, syntax.ArgumentList.GetLocation());
+            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object));
+        }
+
+        return new BoundCallExpression(method, [.. arguments]);
     }
 }

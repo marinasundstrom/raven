@@ -24,7 +24,7 @@ public class Diagnostic
 
     public override string ToString() => GetMessage();
 
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, object[]? messageArgs = null)
+    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, params object[]? messageArgs)
     {
         return new Diagnostic(descriptor, location, messageArgs);
     }

@@ -16,7 +16,7 @@ public class DiagnosticBag
         _diagnostics = enumerable.ToList();
     }
 
-    public void Add(Diagnostic diagnostic)
+    public void Report(Diagnostic diagnostic)
     {
         _diagnostics.Add(diagnostic);
     }
@@ -25,6 +25,8 @@ public class DiagnosticBag
     {
         _diagnostics.AddRange(diagnostics);
     }
+
+    public bool Any() => _diagnostics.Count > 0;
 
     public ImmutableArray<Diagnostic> ToImmutableArray()
     {
