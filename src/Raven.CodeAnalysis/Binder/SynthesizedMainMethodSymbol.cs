@@ -7,9 +7,9 @@ namespace Raven.CodeAnalysis;
 sealed class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSymbol
 {
 
-    public SynthesizedMainMethodSymbol(Compilation compilation) : base("Main",
+    public SynthesizedMainMethodSymbol(Compilation compilation, INamespaceSymbol @namespace) : base("Main",
                returnType: compilation.GetSpecialType(SpecialType.System_Void),
-               parameters: ImmutableArray<IParameterSymbol>.Empty, null, null, compilation.GlobalNamespace, [], [])
+               parameters: ImmutableArray<IParameterSymbol>.Empty, null, null, @namespace, [], [])
     {
 
     }

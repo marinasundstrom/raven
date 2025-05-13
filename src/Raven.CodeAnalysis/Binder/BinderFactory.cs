@@ -64,19 +64,36 @@ class BinderFactory
 
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, Binder parentBinder)
     {
-        var nsBinder = new NamespaceBinder(parentBinder, _compilation.GlobalNamespace, _compilation);
+        // Determine if there's a file-scoped namespace
+        var declaredNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
 
-        foreach (var import in cu.Imports)
+        INamespaceSymbol targetNamespace;
+
+        if (declaredNamespace is not null)
         {
-            var importSymbol = _compilation.GetNamespaceSymbol(import.NamespaceOrType.ToString());
-            if (importSymbol is NamespaceSymbol ns)
-                nsBinder.AddUsingDirective(ns);
+            targetNamespace = _compilation.GetNamespaceSymbol(declaredNamespace.Name.ToString())
+                              ?? throw new Exception("Namespace not found");
+
+            parentBinder = new NamespaceBinder(parentBinder, targetNamespace, _compilation);
+        }
+        else
+        {
+            targetNamespace = _compilation.GlobalNamespace;
+            parentBinder = new NamespaceBinder(parentBinder, targetNamespace, _compilation);
         }
 
-        var mainMethodSymbol = new SynthesizedMainMethodSymbol(_compilation);
-        var topLevelBinder = new TopLevelBinder(nsBinder); //, mainMethodSymbol);
+        // Process import/using directives
+        var imports = cu.Imports
+            .Select(i => _compilation.GetNamespaceSymbol(i.NamespaceOrType.ToString()))
+            .OfType<INamespaceSymbol>()
+            .ToList();
 
-        return topLevelBinder;
+        var importBinder = new ImportBinder(parentBinder, imports);
+
+        // Synthesize the Program/Main method inside the namespace
+        var mainMethodSymbol = new SynthesizedMainMethodSymbol(_compilation, targetNamespace);
+
+        return new TopLevelBinder(importBinder, mainMethodSymbol);
     }
 
     public BoundExpression BindExpression(SyntaxNode node)

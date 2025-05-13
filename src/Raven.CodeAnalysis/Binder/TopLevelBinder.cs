@@ -4,5 +4,5 @@ namespace Raven.CodeAnalysis;
 
 class TopLevelBinder : BlockBinder
 {
-    public TopLevelBinder(Binder parent) : base(parent) { }
+    public TopLevelBinder(Binder parent, IMethodSymbol methodSymbol) : base(parent) { }
 }

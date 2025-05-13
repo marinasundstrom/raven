@@ -6,7 +6,9 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     public void Test()
     {
         var code = """
-                   let x : int = 2;
+                    import System;
+
+                   let foo = 2;
                    """;
 
         var syntaxTree = SyntaxTree.ParseText(code);

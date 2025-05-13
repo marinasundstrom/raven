@@ -18,11 +18,6 @@ class BlockBinder : Binder
         return base.LookupSymbol(name);
     }
 
-    private BoundNode BindExpression(ExpressionSyntax expression)
-    {
-        return null;
-    }
-
     public override SymbolInfo BindSymbol(SyntaxNode node)
     {
         switch (node)
@@ -56,7 +51,7 @@ class BlockBinder : Binder
             // Infer type from initializer
             var initializerExpr = variableDeclarator.Initializer!.Value;
             var boundInitializer = BindExpression(initializerExpr);
-            //type = boundInitializer.Type!;
+            type = boundInitializer.Type!;
         }
         else
         {
@@ -70,10 +65,42 @@ class BlockBinder : Binder
         return symbol;
     }
 
-    /*
-    private ITypeSymbol ResolveType(TypeSyntax typeSyntax)
+    public override BoundExpression BindExpression(ExpressionSyntax syntax)
     {
-        return _compilation.GetTypeByName(typeSyntax.ToString());
+        switch (syntax)
+        {
+            case LiteralExpressionSyntax literal:
+                return BindLiteralExpression(literal);
+
+            /*
+            case IdentifierNameSyntax identifier:
+                return BindIdentifierName(identifier);
+
+            case BinaryExpressionSyntax binary:
+                return BindBinaryExpression(binary);
+
+            case InvocationExpressionSyntax invocation:
+                return BindInvocationExpression(invocation);
+            */
+
+            default:
+                throw new NotSupportedException($"Unsupported expression: {syntax.Kind}");
+        }
     }
-    */
+
+    private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
+    {
+        var value = syntax.Token.Value; // already parsed
+        ITypeSymbol type;
+
+        switch (value)
+        {
+            case int _: type = Compilation.GetSpecialType(SpecialType.System_Int32); break;
+            case bool _: type = Compilation.GetSpecialType(SpecialType.System_Boolean); break;
+            case string _: type = Compilation.GetSpecialType(SpecialType.System_String); break;
+            default: throw new Exception("Unsupported literal type");
+        }
+
+        return new BoundLiteralExpression(value, type);
+    }
 }

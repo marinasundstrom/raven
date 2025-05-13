@@ -2,9 +2,9 @@
 
 internal class SyntaxToken : GreenNode
 {
-    private readonly object _value;
+    private string _text;
+    private readonly object? _value;
     private bool _isMissing;
-    private string? _valueText;
 
     public string Text => GetValueText()!;
 
@@ -14,21 +14,24 @@ internal class SyntaxToken : GreenNode
         SyntaxTriviaList leadingTrivia = null,
         SyntaxTriviaList trailingTrivia = null,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-    : this(kind, text, text.Length, leadingTrivia, trailingTrivia, diagnostics)
+    : this(kind, text, null, text.Length, leadingTrivia, trailingTrivia, diagnostics)
     {
 
     }
 
     public SyntaxToken(
         SyntaxKind kind,
-        object value,
+        string text,
+        object? value,
         int width,
         SyntaxTriviaList? leadingTrivia = null,
         SyntaxTriviaList? trailingTrivia = null,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(kind, 0, diagnostics)
     {
+        _text = text;
         _value = value;
+
         LeadingTrivia = leadingTrivia ?? SyntaxTriviaList.Empty;
         TrailingTrivia = trailingTrivia ?? SyntaxTriviaList.Empty;
 
@@ -42,7 +45,7 @@ internal class SyntaxToken : GreenNode
 
     public override object? GetValue() => _value;
 
-    public override string? GetValueText() => _valueText ??= _value.ToString();
+    public override string? GetValueText() => _text ??= _value.ToString();
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
@@ -92,7 +95,7 @@ internal class SyntaxToken : GreenNode
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
-        return new SyntaxToken(Kind, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics);
+        return new SyntaxToken(Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics);
     }
 
     internal override void Accept(SyntaxVisitor visitor)

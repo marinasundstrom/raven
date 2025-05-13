@@ -13,12 +13,12 @@ abstract class Binder
         ParentBinder = parent;
     }
 
-    public virtual Compilation? Compilation
+    public virtual Compilation Compilation
     {
         get
         {
             if (ParentBinder is null)
-                return null;
+                return null!;
 
             if (this is GlobalBinder globalBinder)
             {
