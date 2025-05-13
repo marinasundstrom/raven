@@ -6,14 +6,30 @@ namespace Raven.CodeAnalysis;
 abstract class Binder
 {
     protected readonly Binder ParentBinder;
-    protected readonly NamespaceSymbol CurrentNamespace;
     protected readonly Dictionary<string, ISymbol> SymbolTable = new();
 
     public Binder(Binder parent)
     {
         ParentBinder = parent;
-        //CurrentNamespace = currentNamespace;
     }
+
+    public virtual Compilation? Compilation
+    {
+        get
+        {
+            if (ParentBinder is null)
+                return null;
+
+            if (this is GlobalBinder globalBinder)
+            {
+                return globalBinder.Compilation;
+            }
+
+            return ParentBinder.Compilation;
+        }
+    }
+
+    public virtual INamespaceSymbol? CurrentNamespace => ParentBinder?.CurrentNamespace;
 
     public virtual SymbolInfo BindSymbol(SyntaxNode node)
     {
@@ -60,5 +76,30 @@ abstract class Binder
     public virtual ISymbol? LookupSymbol(string name)
     {
         return SymbolTable.TryGetValue(name, out var symbol) ? symbol : ParentBinder?.LookupSymbol(name);
+    }
+
+    public virtual BoundExpression BindExpression(ExpressionSyntax expression)
+    {
+        return ParentBinder?.BindExpression(expression)
+               ?? throw new NotImplementedException("BindExpression not implemented in root binder.");
+    }
+
+    public virtual ITypeSymbol ResolveType(TypeSyntax typeSyntax)
+    {
+        if (typeSyntax is PredefinedTypeSyntax predefinedTypeSyntax)
+        {
+            return Compilation.ResolvePredefinedType(predefinedTypeSyntax);
+        }
+
+        if (typeSyntax is IdentifierNameSyntax ident)
+        {
+            var type = LookupType(ident.Identifier.Text);
+            if (type is not null)
+                return type;
+        }
+
+        // Add more cases here as needed (e.g. qualified names, generics, etc.)
+
+        throw new Exception($"Type '{typeSyntax}' could not be resolved.");
     }
 }

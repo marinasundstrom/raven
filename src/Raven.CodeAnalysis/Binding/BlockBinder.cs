@@ -20,7 +20,7 @@ class BlockBinder : Binder
 
     private BoundNode BindExpression(ExpressionSyntax expression)
     {
-        throw new NotImplementedException();
+        return null;
     }
 
     public override SymbolInfo BindSymbol(SyntaxNode node)
@@ -45,10 +45,24 @@ class BlockBinder : Binder
 
     private ILocalSymbol BindVariableDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
-        ITypeSymbol type = null!; // ResolveType(varDecl.TypeAnnotation); // t.ex. "int"
         var name = variableDeclarator.Name.Identifier.Text;
 
-        var isReadOnly = (variableDeclarator.Parent as VariableDeclarationSyntax).LetOrVarKeyword.IsKind(SyntaxKind.LetKeyword);
+        var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
+        var isReadOnly = decl!.LetOrVarKeyword.IsKind(SyntaxKind.LetKeyword);
+
+        ITypeSymbol type = null!;
+        if (variableDeclarator.TypeAnnotation is null)
+        {
+            // Infer type from initializer
+            var initializerExpr = variableDeclarator.Initializer!.Value;
+            var boundInitializer = BindExpression(initializerExpr);
+            //type = boundInitializer.Type!;
+        }
+        else
+        {
+            // Use explicitly declared type
+            type = ResolveType(variableDeclarator.TypeAnnotation.Type);
+        }
 
         var symbol = new SourceLocalSymbol(name, type, isReadOnly, null, null, null, [variableDeclarator.GetLocation()], []);
         _locals[name] = symbol;
