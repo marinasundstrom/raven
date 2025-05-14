@@ -147,7 +147,7 @@ class BlockBinder : Binder
 
         if (symbol is not IMethodSymbol method)
         {
-            _diagnostics.ReportNotInvocable(id.Identifier.Text, syntax.Expression.GetLocation());
+            _diagnostics.NotAMethod(id.Identifier.Text, syntax.Expression.GetLocation());
 
             return new BoundErrorExpression(
                 Compilation.GetSpecialType(SpecialType.System_Object),
