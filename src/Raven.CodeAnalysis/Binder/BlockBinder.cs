@@ -9,7 +9,6 @@ class BlockBinder : Binder
 
     public BlockBinder(Binder parent) : base(parent) { }
 
-
     public override ISymbol? LookupSymbol(string name)
     {
         if (_locals.TryGetValue(name, out var sym))
@@ -20,22 +19,25 @@ class BlockBinder : Binder
 
     public override SymbolInfo BindSymbol(SyntaxNode node)
     {
+        ISymbol? symbol = null;
+
         switch (node)
         {
             case VariableDeclaratorSyntax varDecl:
-                return new SymbolInfo(BindVariableDeclaration(varDecl));
+                symbol = BindVariableDeclaration(varDecl);
+                break;
+
+            case ExpressionSyntax expr:
+                return BindExpression(expr).GetSymbolInfo();
 
             case ExpressionStatementSyntax exprStmt:
-                BindExpression(exprStmt.Expression);
-                break;
+                return BindExpression(exprStmt.Expression).GetSymbolInfo();
 
             default:
                 return base.BindSymbol(node);
         }
 
-        return default!;
-
-        //return base.BindSymbol(node);
+        return new SymbolInfo(symbol);
     }
 
     private ILocalSymbol BindVariableDeclaration(VariableDeclaratorSyntax variableDeclarator)
@@ -45,17 +47,16 @@ class BlockBinder : Binder
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
         var isReadOnly = decl!.LetOrVarKeyword.IsKind(SyntaxKind.LetKeyword);
 
-        ITypeSymbol type = null!;
+        ITypeSymbol type;
+
         if (variableDeclarator.TypeAnnotation is null)
         {
-            // Infer type from initializer
             var initializerExpr = variableDeclarator.Initializer!.Value;
             var boundInitializer = BindExpression(initializerExpr);
             type = boundInitializer.Type!;
         }
         else
         {
-            // Use explicitly declared type
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
         }
 
@@ -67,37 +68,26 @@ class BlockBinder : Binder
 
     public override BoundExpression BindExpression(ExpressionSyntax syntax)
     {
-        switch (syntax)
+        return syntax switch
         {
-            case LiteralExpressionSyntax literal:
-                return BindLiteralExpression(literal);
-
-            case IdentifierNameSyntax identifier:
-                return BindIdentifierName(identifier);
-
-            case BinaryExpressionSyntax binary:
-                return BindBinaryExpression(binary);
-
-            case InvocationExpressionSyntax invocation:
-                return BindInvocationExpression(invocation);
-
-            default:
-                throw new NotSupportedException($"Unsupported expression: {syntax.Kind}");
-        }
+            LiteralExpressionSyntax literal => BindLiteralExpression(literal),
+            IdentifierNameSyntax identifier => BindIdentifierName(identifier),
+            BinaryExpressionSyntax binary => BindBinaryExpression(binary),
+            InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
+            _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
+        };
     }
 
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
     {
-        var value = syntax.Token.Value; // already parsed
-        ITypeSymbol type;
-
-        switch (value)
+        var value = syntax.Token.Value!;
+        ITypeSymbol type = value switch
         {
-            case int _: type = Compilation.GetSpecialType(SpecialType.System_Int32); break;
-            case bool _: type = Compilation.GetSpecialType(SpecialType.System_Boolean); break;
-            case string _: type = Compilation.GetSpecialType(SpecialType.System_String); break;
-            default: throw new Exception("Unsupported literal type");
-        }
+            int => Compilation.GetSpecialType(SpecialType.System_Int32),
+            bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
+            string => Compilation.GetSpecialType(SpecialType.System_String),
+            _ => throw new Exception("Unsupported literal type")
+        };
 
         return new BoundLiteralExpression(value, type);
     }
@@ -110,7 +100,12 @@ class BlockBinder : Binder
             return new BoundLocalExpression(local);
 
         _diagnostics.ReportUndefinedName(syntax.Identifier.Text, syntax.GetLocation());
-        return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object)); // or System_Void if you want to signal invalid
+
+        return new BoundErrorExpression(
+            Compilation.GetSpecialType(SpecialType.System_Object),
+            null,
+            CandidateReason.NotFound
+        );
     }
 
     private BoundExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
@@ -124,10 +119,15 @@ class BlockBinder : Binder
         if (op is null)
         {
             _diagnostics.ReportUndefinedBinaryOperator(opKind.ToString(), left.Type, right.Type, syntax.OperatorToken.GetLocation());
-            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object));
+
+            return new BoundErrorExpression(
+                Compilation.GetSpecialType(SpecialType.System_Object),
+                null,
+                CandidateReason.NotFound
+            );
         }
 
-        return new BoundBinaryExpression(left, op, right); //, op.ResultType);
+        return new BoundBinaryExpression(left, op, right);
     }
 
     private BoundExpression BindInvocationExpression(InvocationExpressionSyntax syntax)
@@ -135,25 +135,45 @@ class BlockBinder : Binder
         if (syntax.Expression is not IdentifierNameSyntax id)
         {
             _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object));
+
+            return new BoundErrorExpression(
+                Compilation.GetSpecialType(SpecialType.System_Object),
+                null,
+                CandidateReason.NotFound
+            );
         }
 
         var symbol = LookupSymbol(id.Identifier.Text);
+
         if (symbol is not IMethodSymbol method)
         {
-            _diagnostics.ReportNotAMethod(id.Identifier.Text, syntax.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object));
+            _diagnostics.ReportNotInvocable(id.Identifier.Text, syntax.Expression.GetLocation());
+
+            return new BoundErrorExpression(
+                Compilation.GetSpecialType(SpecialType.System_Object),
+                symbol,
+                CandidateReason.NotInvocable
+            );
         }
 
         var arguments = syntax.ArgumentList.Arguments.Select(arg => BindExpression(arg.Expression)).ToArray();
 
-        // Optional: Type check arguments
         if (method.Parameters.Length != arguments.Length)
         {
-            _diagnostics.ReportArgumentCountMismatch(method.Name, method.Parameters.Length, arguments.Length, syntax.ArgumentList.GetLocation());
-            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object));
+            _diagnostics.ReportArgumentCountMismatch(
+                method.Name,
+                method.Parameters.Length,
+                arguments.Length,
+                syntax.ArgumentList.GetLocation()
+            );
+
+            return new BoundErrorExpression(
+                Compilation.GetSpecialType(SpecialType.System_Object),
+                method,
+                CandidateReason.WrongArity
+            );
         }
 
-        return new BoundCallExpression(method, [.. arguments]);
+        return new BoundCallExpression(method, arguments);
     }
 }

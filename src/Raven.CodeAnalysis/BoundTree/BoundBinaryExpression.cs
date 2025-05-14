@@ -6,9 +6,8 @@ class BoundBinaryExpression : BoundExpression
     public BoundBinaryOperator Operator { get; }
     public BoundExpression Right { get; }
 
-    public override ITypeSymbol Type => Operator.ResultType;
-
     public BoundBinaryExpression(BoundExpression left, BoundBinaryOperator op, BoundExpression right)
+        : base(op.ResultType, null, CandidateReason.None)
     {
         Left = left;
         Operator = op;

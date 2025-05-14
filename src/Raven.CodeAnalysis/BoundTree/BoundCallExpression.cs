@@ -5,11 +5,10 @@ namespace Raven.CodeAnalysis;
 class BoundCallExpression : BoundExpression
 {
     public IMethodSymbol Method { get; }
-    public ImmutableArray<BoundExpression> Arguments { get; }
+    public IReadOnlyList<BoundExpression> Arguments { get; }
 
-    public override ITypeSymbol Type => Method.ReturnType;
-
-    public BoundCallExpression(IMethodSymbol method, ImmutableArray<BoundExpression> arguments)
+    public BoundCallExpression(IMethodSymbol method, IReadOnlyList<BoundExpression> arguments)
+        : base(method.ReturnType, method, CandidateReason.None)
     {
         Method = method;
         Arguments = arguments;

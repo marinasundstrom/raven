@@ -3,6 +3,7 @@ namespace Raven.CodeAnalysis;
 public enum CandidateReason
 {
     None,
+    NotFound,
     NotATypeOrNamespace,
     NotAnEvent,
     NotAWithEventsMember,

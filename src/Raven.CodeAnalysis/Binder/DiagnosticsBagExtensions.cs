@@ -11,8 +11,8 @@ public static class DiagnosticBagExtensions
     public static void ReportInvalidInvocation(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(DiagnosticDescriptors.InvalidInvocation, location));
 
-    public static void ReportNotAMethod(this DiagnosticBag diagnostics, string name, Location location)
-        => diagnostics.Report(Diagnostic.Create(DiagnosticDescriptors.NotAMethod, location, name));
+    public static void ReportNotInvocable(this DiagnosticBag diagnostics, string name, Location location)
+        => diagnostics.Report(Diagnostic.Create(DiagnosticDescriptors.NotInvocable, location, name));
 
     public static void ReportArgumentCountMismatch(this DiagnosticBag diagnostics, string methodName, int expectedCount, int actualCount, Location location)
         => diagnostics.Report(Diagnostic.Create(DiagnosticDescriptors.ArgumentCountMismatch, location, methodName, expectedCount, actualCount));
@@ -50,13 +50,13 @@ public static class DiagnosticDescriptors
             category: "Semantic",
             defaultSeverity: DiagnosticSeverity.Error);
 
-    public static readonly DiagnosticDescriptor NotAMethod =
+    public static readonly DiagnosticDescriptor NotInvocable =
         DiagnosticDescriptor.Create(
             id: "RAV004",
-            title: "Not a method",
+            title: "Not invocable",
             description: null,
             helpLinkUri: "",
-            messageFormat: "'{0}' is not a method.",
+            messageFormat: "'{0}' is not invocable.",
             category: "Semantic",
             defaultSeverity: DiagnosticSeverity.Error);
 

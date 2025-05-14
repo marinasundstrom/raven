@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -96,17 +98,6 @@ class BinderFactory
         return new TopLevelBinder(importBinder, mainMethodSymbol);
     }
 
-    public BoundExpression BindExpression(SyntaxNode node)
-    {
-        return node switch
-        {
-            LiteralExpressionSyntax literal => new BoundLiteralExpression(literal.Token.Value, GetTypeFromLiteral(literal.Token.Value)),
-            IdentifierNameSyntax identifier => BindVariable(identifier),
-            BinaryExpressionSyntax binary => BindBinaryExpression(binary),
-            _ => throw new Exception($"Unexpected syntax: {node.Kind}")
-        };
-    }
-
     private Binder CreateNamespaceBinder(NamespaceDeclarationSyntax nsSyntax, Binder parentBinder)
     {
         var nsSymbol = _compilation.GlobalNamespace.LookupNamespace(nsSyntax.Name.ToString());
@@ -121,29 +112,5 @@ class BinderFactory
         }
 
         return nsBinder;
-    }
-
-    private ITypeSymbol GetTypeFromLiteral(object value)
-    {
-        throw new NotImplementedException();
-    }
-
-    private BoundLiteralExpression BindVariable(IdentifierNameSyntax identifier)
-    {
-        throw new NotImplementedException();
-    }
-
-    private BoundBinaryExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
-    {
-        var left = BindExpression(syntax.LeftHandSide);
-        var right = BindExpression(syntax.RightHandSide);
-
-        var op = BoundBinaryOperator.Lookup(syntax.OperatorToken.Kind, left.Type, right.Type);
-        if (op == null)
-        {
-            throw new Exception($"Operator '{syntax.OperatorToken.Text}' is not defined for types {left.Type} and {right.Type}.");
-        }
-
-        return new BoundBinaryExpression(left, op, right);
     }
 }

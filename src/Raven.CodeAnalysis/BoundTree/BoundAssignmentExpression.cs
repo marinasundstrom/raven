@@ -5,9 +5,8 @@ class BoundAssignmentExpression : BoundExpression
     public ILocalSymbol Variable { get; }
     public BoundExpression Expression { get; }
 
-    public override ITypeSymbol Type => Expression.Type;
-
     public BoundAssignmentExpression(ILocalSymbol variable, BoundExpression expression)
+        : base(expression.Type, variable, CandidateReason.None)
     {
         Variable = variable;
         Expression = expression;

@@ -2,12 +2,9 @@ namespace Raven.CodeAnalysis;
 
 internal class BoundErrorExpression : BoundExpression
 {
-    private readonly INamedTypeSymbol _namedTypeSymbol;
-
-    public BoundErrorExpression(INamedTypeSymbol namedTypeSymbol)
+    public BoundErrorExpression(ITypeSymbol type, ISymbol? symbol = null, CandidateReason candidateReason = CandidateReason.None)
+        : base(type, symbol, candidateReason)
     {
-        _namedTypeSymbol = namedTypeSymbol;
-    }
 
-    public override ITypeSymbol Type => _namedTypeSymbol;
+    }
 }
