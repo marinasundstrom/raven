@@ -6,9 +6,9 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     public void Test()
     {
         var code = """
-                    import System;
+                   import System;
 
-                   let foo = 2; // + 3;
+                   let foo = 2 + 3;
                    System.Console.WriteLine(foo);
                    """;
 

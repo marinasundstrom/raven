@@ -114,7 +114,7 @@ class BlockBinder : Binder
         var right = BindExpression(syntax.RightHandSide);
 
         var opKind = syntax.OperatorToken.Kind;
-        var op = BoundBinaryOperator.Lookup(opKind, left.Type, right.Type);
+        var op = BoundBinaryOperator.Lookup(Compilation, opKind, left.Type, right.Type);
 
         if (op is null)
         {

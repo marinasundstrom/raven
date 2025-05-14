@@ -21,22 +21,24 @@ sealed class BoundBinaryOperator
         ResultType = result;
     }
 
-    private static readonly BoundBinaryOperator[] Operators =
+    public static BoundBinaryOperator? Lookup(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right)
     {
-        new BoundBinaryOperator(SyntaxKind.PlusToken, TypeSymbol.Int, TypeSymbol.Int, TypeSymbol.Int),
-        new BoundBinaryOperator(SyntaxKind.MinusToken, TypeSymbol.Int, TypeSymbol.Int, TypeSymbol.Int),
-        new BoundBinaryOperator(SyntaxKind.StarToken, TypeSymbol.Int, TypeSymbol.Int, TypeSymbol.Int),
-        new BoundBinaryOperator(SyntaxKind.SlashToken, TypeSymbol.Int, TypeSymbol.Int, TypeSymbol.Int),
-        new BoundBinaryOperator(SyntaxKind.PlusToken, TypeSymbol.String, TypeSymbol.String, TypeSymbol.String),
-        //new BoundBinaryOperator(SyntaxKind.EqualsEqualsToken, TypeSymbol.Int, TypeSymbol.Int, TypeSymbol.Bool),
-        //new BoundBinaryOperator(SyntaxKind.BangEqualsToken, TypeSymbol.Int, TypeSymbol.Int, TypeSymbol.Bool),
-    };
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
 
-    public static BoundBinaryOperator? Lookup(SyntaxKind kind, ITypeSymbol left, ITypeSymbol right)
-    {
-        return Operators.FirstOrDefault(op =>
+        var candidates = new[]
+        {
+            new BoundBinaryOperator(SyntaxKind.PlusToken, intType, intType, intType),
+            new BoundBinaryOperator(SyntaxKind.MinusToken, intType, intType, intType),
+            new BoundBinaryOperator(SyntaxKind.StarToken, intType, intType, intType),
+            new BoundBinaryOperator(SyntaxKind.SlashToken, intType, intType, intType),
+            new BoundBinaryOperator(SyntaxKind.PlusToken, stringType, stringType, stringType),
+        };
+
+        return candidates.FirstOrDefault(op =>
             op.SyntaxKind == kind &&
-            Equals(op.LeftType, left) &&
-            Equals(op.RightType, right));
+            SymbolEqualityComparer.Default.Equals(op.LeftType, left) &&
+            SymbolEqualityComparer.Default.Equals(op.RightType, right));
     }
 }
