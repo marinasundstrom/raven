@@ -32,4 +32,9 @@ public class DiagnosticBag
     {
         return [.. _diagnostics];
     }
+
+    internal void ReportInvalidMemberAccess(string memberName, Location location)
+    {
+        throw new NotImplementedException();
+    }
 }

@@ -125,6 +125,8 @@ public interface INamespaceSymbol : INamespaceOrTypeSymbol
     bool IsGlobalNamespace { get; }
 
     INamespaceSymbol? LookupNamespace(string name);
+
+    string? ToMetadataName();
 }
 
 public interface IMethodSymbol : ISymbol

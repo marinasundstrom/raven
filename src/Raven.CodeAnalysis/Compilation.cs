@@ -109,6 +109,7 @@ public class Compilation
     public Compilation AnalyzeCodeTemp()
     {
         var globalNamespace = new NamespaceSymbol(
+            this,
             "", null!, null, null,
             [], []);
 
@@ -155,6 +156,9 @@ public class Compilation
         return this;
     }
 
+    private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
+    private MetadataLoadContext _metadataLoadContext;
+
     private void LoadMetadataReferences()
     {
         List<string> paths = _references
@@ -163,73 +167,15 @@ public class Compilation
             .ToList();
 
         var resolver = new PathAssemblyResolver(paths);
+        _metadataLoadContext = new MetadataLoadContext(resolver);
 
-        var metadataLoadContext = new MetadataLoadContext(resolver);
-
-        var assemblies = paths.Select(x => metadataLoadContext.LoadFromAssemblyPath(x));
-
-        CoreAssembly = metadataLoadContext.CoreAssembly!;
-
-        foreach (var assembly in assemblies)
+        foreach (var path in paths)
         {
-            var module = assembly.GetModules().First();
-
-            foreach (var type in module.GetTypes())
-            {
-                var ns = GetOrCreateNamespaceSymbol(type.Namespace);
-
-                var symbol = new MetadataTypeSymbol(this,
-                    type.GetTypeInfo(), ns, null, ns,
-                    []);
-
-                foreach (var mi in type.GetMethods())
-                {
-                    var symbol2 = new MetadataMethodSymbol(this,
-                        mi, null, symbol!, symbol, ns,
-                        []);
-
-                    _symbols.Add(symbol2);
-                }
-
-                foreach (var mi in type.GetConstructors())
-                {
-                    var symbol2 = new MetadataMethodSymbol(this,
-                        mi, null, symbol!, symbol, ns,
-                        []);
-
-                    _symbols.Add(symbol2);
-                }
-
-                foreach (var pi in type.GetProperties())
-                {
-                    var symbol3 = new MetadataPropertySymbol(this,
-                        pi, null, symbol!, symbol, ns,
-                        []);
-
-                    symbol3.GetMethod = pi.GetMethod is null ? null : new MetadataMethodSymbol(this,
-                        pi.GetMethod, null, symbol3!, symbol, ns,
-                        []);
-
-                    symbol3.SetMethod = pi.SetMethod is null ? null : new MetadataMethodSymbol(this,
-                        pi.SetMethod, null, symbol3!, symbol, ns,
-                        []);
-
-                    _symbols.Add(symbol3);
-                }
-
-                foreach (var fi in type.GetFields())
-                {
-                    var symbol4 = new MetadataFieldSymbol(this,
-                        fi, null, symbol!, symbol, ns,
-                        []);
-
-                    _symbols.Add(symbol4);
-                }
-
-
-                _symbols.Add(symbol);
-            }
+            var asm = _metadataLoadContext.LoadFromAssemblyPath(path);
+            _lazyMetadataAssemblies[path] = asm;
         }
+
+        CoreAssembly = _metadataLoadContext.CoreAssembly!;
     }
 
     private INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
@@ -251,7 +197,7 @@ public class Compilation
 
             if (currentNamespace == null)
             {
-                currentNamespace = new NamespaceSymbol(part, parent, null, parent, [], []);
+                currentNamespace = new NamespaceSymbol(this, part, parent, null, parent, [], []);
                 _symbols.Add(currentNamespace);
                 return currentNamespace; // Namespace not found
             }
@@ -268,7 +214,7 @@ public class Compilation
 
             SyntaxReference[] references = [new SyntaxReference(syntaxTree, namespaceDeclarationSyntax.Span)];
 
-            var symbol = new NamespaceSymbol(
+            var symbol = new NamespaceSymbol(this,
                 namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, null!, (INamespaceSymbol?)declaringSymbol,
                 locations, references);
 
@@ -395,31 +341,39 @@ public class Compilation
                (sourceType == SpecialType.System_Int64 && destType == SpecialType.System_Int32);
     }
 
-    public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedMetadataName)
+    private readonly Dictionary<string, INamedTypeSymbol> _resolvedMetadataTypes = new();
+
+    public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
-        if (fullyQualifiedMetadataName is null)
-            return null;
+        if (_resolvedMetadataTypes.TryGetValue(metadataName, out var cached))
+            return cached;
 
-        // Split the namespace into parts
-        var nameParts = fullyQualifiedMetadataName.Split('.');
-
-        // Start with the global namespace
-        INamespaceOrTypeSymbol currentPart = GlobalNamespace;
-
-        // Traverse the namespace hierarchy
-        foreach (var part in nameParts)
+        // Find matching type across all referenced assemblies
+        foreach (var asm in _lazyMetadataAssemblies.Values)
         {
-            currentPart = currentPart
-                .GetMembers()
-                .FirstOrDefault(n => n.Name == part) as INamespaceOrTypeSymbol;
-
-            if (currentPart == null)
+            var type = asm.GetType(metadataName, throwOnError: false, ignoreCase: false);
+            if (type != null)
             {
-                return null; // Type not found
+                var symbol = CreateMetadataTypeSymbol(type);
+                _resolvedMetadataTypes[metadataName] = symbol;
+                return symbol;
             }
         }
 
-        return currentPart as INamedTypeSymbol;
+        return null;
+    }
+
+    private MetadataTypeSymbol CreateMetadataTypeSymbol(Type type)
+    {
+        var ns = GetOrCreateNamespaceSymbol(type.Namespace);
+
+        var typeSymbol = new MetadataTypeSymbol(
+            this,
+            type.GetTypeInfo(), ns, null, ns,
+            []);
+
+        // You can lazily resolve members of this type later when accessed
+        return typeSymbol;
     }
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
@@ -488,7 +442,7 @@ public class Compilation
         if (type.IsArray)
         {
             var elementType = GetType(type.GetElementType());
-            return new ArrayTypeSymbol(this, elementType, null, null, null, null);
+            return new ArrayTypeSymbol(this, elementType, null, null, null, []);
         }
 
         return GetSimpleType(type);
@@ -522,6 +476,38 @@ public class Compilation
     {
         var metadata = MetadataReference.CreateFromFile(assemblyPath);
         //GlobalNamespace.AddMetadata(metadata);
+    }
+
+    public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
+    {
+        var nsName = namespaceSymbol.ToMetadataName(); // like "System"
+
+        var fullName = string.IsNullOrEmpty(nsName)
+            ? name
+            : nsName + "." + name;
+
+        // Check cache first
+        if (_resolvedMetadataTypes.TryGetValue(fullName, out var cached))
+            return cached;
+
+        foreach (var asm in _lazyMetadataAssemblies.Values)
+        {
+            var type = asm.GetType(fullName, throwOnError: false, ignoreCase: false);
+            if (type != null)
+            {
+                var symbol = CreateMetadataTypeSymbol(type);
+                _resolvedMetadataTypes[fullName] = symbol;
+
+                // Add it to the namespace symbol
+                if (namespaceSymbol is NamespaceSymbol nsSym)
+                    nsSym.AddMember(symbol);
+
+                return symbol;
+            }
+        }
+
+        // Could optionally support lazy sub-namespaces in future
+        return null;
     }
 }
 

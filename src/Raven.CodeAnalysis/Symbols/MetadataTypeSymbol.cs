@@ -8,6 +8,7 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
     private readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
+    private bool _membersLoaded;
 
     public MetadataTypeSymbol(Compilation compilation, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(compilation, containingSymbol, containingType, containingNamespace, locations)
@@ -84,11 +85,13 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
 
     public ImmutableArray<ISymbol> GetMembers()
     {
+        EnsureMembersLoaded();
         return _members.ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
+        EnsureMembersLoaded();
         return _members.Where(x => x.Name == name).ToImmutableArray();
     }
 
@@ -100,5 +103,99 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
     internal void AddMember(ISymbol member)
     {
         _members.Add(member);
+    }
+
+    private void EnsureMembersLoaded()
+    {
+        if (_membersLoaded)
+            return;
+
+        _membersLoaded = true;
+
+        foreach (var mi in _typeInfo.DeclaredMethods)
+        {
+            if (mi.IsSpecialName)
+                continue;
+
+            var method = new MetadataMethodSymbol(
+                _compilation,
+                mi,
+                null,
+                this,
+                this,
+                ContainingNamespace,
+                []);
+
+            AddMember(method);
+        }
+
+        foreach (var pi in _typeInfo.DeclaredProperties)
+        {
+            var property = new MetadataPropertySymbol(
+                _compilation,
+                pi,
+                null,
+                this,
+                this,
+                ContainingNamespace,
+                []);
+
+            if (pi.GetMethod is not null)
+            {
+                property.GetMethod = new MetadataMethodSymbol(
+                    _compilation,
+                    pi.GetMethod,
+                    null,
+                    property,
+                    this,
+                    ContainingNamespace,
+                    []);
+            }
+
+            if (pi.SetMethod is not null)
+            {
+                property.SetMethod = new MetadataMethodSymbol(
+                    _compilation,
+                    pi.SetMethod,
+                    null,
+                    property,
+                    this,
+                    ContainingNamespace,
+                    []);
+            }
+
+            AddMember(property);
+        }
+
+        foreach (var fi in _typeInfo.DeclaredFields)
+        {
+            if (fi.IsSpecialName)
+                continue;
+
+            var field = new MetadataFieldSymbol(
+                _compilation,
+                fi,
+                null,
+                this,
+                this,
+                ContainingNamespace,
+                []);
+
+            AddMember(field);
+        }
+
+        foreach (var ci in _typeInfo.DeclaredConstructors)
+        {
+            var ctor = new MetadataMethodSymbol(
+                _compilation,
+                ci,
+                null,
+                this,
+                this,
+                ContainingNamespace,
+                []);
+
+            AddMember(ctor);
+        }
     }
 }

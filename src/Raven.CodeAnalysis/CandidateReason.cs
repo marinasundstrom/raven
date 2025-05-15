@@ -18,5 +18,5 @@ public enum CandidateReason
     OverloadResolutionFailure,
     LateBound,
     Ambiguous,
-    MemberGroup
+    MemberGroup,
 }
