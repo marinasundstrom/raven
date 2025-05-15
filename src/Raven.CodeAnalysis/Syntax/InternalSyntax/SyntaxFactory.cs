@@ -8,7 +8,7 @@ internal static partial class SyntaxFactory
 
 
     public static SyntaxToken IdentifierToken(string text) => new SyntaxToken(SyntaxKind.IdentifierToken, text);
-    public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString());
+    public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString(), value, value.ToString().Length);
 
     public static readonly SyntaxToken VoidKeyword = new SyntaxToken(SyntaxKind.VoidKeyword, "void");
     public static readonly SyntaxToken IntKeyword = new SyntaxToken(SyntaxKind.IntKeyword, "int");

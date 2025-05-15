@@ -20,7 +20,8 @@ public class DiagnosticDescriptor
         string helpLinkUri,
         LocalizableString messageFormat,
         string category,
-        DiagnosticSeverity defaultSeverity)
+        DiagnosticSeverity defaultSeverity,
+        bool isEnabledByDefault = true)
     {
         return new DiagnosticDescriptor(id, title, description, helpLinkUri, messageFormat, category, defaultSeverity);
     }
@@ -38,4 +39,14 @@ public class DiagnosticDescriptor
     public string Category { get; }
 
     public DiagnosticSeverity DefaultSeverity { get; }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is DiagnosticDescriptor other && Id == other.Id;
+    }
+
+    public override int GetHashCode()
+    {
+        return Id.GetHashCode();
+    }
 }

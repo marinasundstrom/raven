@@ -12,6 +12,7 @@ internal abstract class SourceSymbol : Symbol
         Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-
     }
+
+    public virtual Compilation Compilation { get; protected set; } = null!;
 }

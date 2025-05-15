@@ -26,6 +26,8 @@ internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
 
     public INamedTypeSymbol? BaseType => throw new NotImplementedException();
 
+    public bool IsArray => false;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return _members.ToImmutableArray();
@@ -36,8 +38,19 @@ internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
         return _members.Where(x => x.Name == name).ToImmutableArray();
     }
 
+    public ITypeSymbol? LookupType(string name)
+    {
+        throw new NotImplementedException();
+    }
+
     internal void AddMember(ISymbol member)
     {
         _members.Add(member);
+    }
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        symbol = _members.FirstOrDefault(m => m.Name == name);
+        return symbol is not null;
     }
 }

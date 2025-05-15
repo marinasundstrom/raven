@@ -60,7 +60,7 @@ internal class Tokenizer : ITokenizer
 
         trailingTrivia = ReadTrivia(isTrailingTrivia: true);
 
-        return new SyntaxToken(token.Kind, token.Text, leadingTrivia, trailingTrivia, token.GetDiagnostics());
+        return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, leadingTrivia, trailingTrivia, token.GetDiagnostics());
     }
 
     private SyntaxTriviaList ReadTrivia(bool isTrailingTrivia)
@@ -84,8 +84,8 @@ internal class Tokenizer : ITokenizer
 
                 if (token2.Kind == SyntaxKind.SlashToken)
                 {
-                    _stringBuilder.Append(token.GetValueText());
-                    _stringBuilder.Append(token2.GetValueText());
+                    _stringBuilder.Append(token.Text);
+                    _stringBuilder.Append(token2.Text);
 
                     _lexer.ReadTokens(2);
 
@@ -93,7 +93,7 @@ internal class Tokenizer : ITokenizer
                     while (peeked.Kind != SyntaxKind.EndOfLineToken && peeked.Kind != SyntaxKind.EndOfFileToken)
                     {
                         _lexer.ReadToken();
-                        _stringBuilder.Append(peeked.GetValueText());
+                        _stringBuilder.Append(peeked.Text);
                         peeked = _lexer.PeekToken();
                     }
 
@@ -102,8 +102,8 @@ internal class Tokenizer : ITokenizer
                 }
                 else if (token2.Kind == SyntaxKind.StarToken)
                 {
-                    _stringBuilder.Append(token.GetValueText());
-                    _stringBuilder.Append(token2.GetValueText());
+                    _stringBuilder.Append(token.Text);
+                    _stringBuilder.Append(token2.Text);
 
                     _lexer.ReadAndDiscardTokens(2);
 
@@ -113,7 +113,7 @@ internal class Tokenizer : ITokenizer
                     {
                         _lexer.ReadToken();
 
-                        _stringBuilder.Append(peeked.GetValueText());
+                        _stringBuilder.Append(peeked.Text);
 
                         peeked = _lexer.PeekToken(0);
                         peeked2 = _lexer.PeekToken(1);
@@ -122,8 +122,8 @@ internal class Tokenizer : ITokenizer
                         {
                             _lexer.ReadAndDiscardTokens(2);
 
-                            _stringBuilder.Append(peeked.GetValueText());
-                            _stringBuilder.Append(peeked2.GetValueText());
+                            _stringBuilder.Append(peeked.Text);
+                            _stringBuilder.Append(peeked2.Text);
                         }
                     }
 

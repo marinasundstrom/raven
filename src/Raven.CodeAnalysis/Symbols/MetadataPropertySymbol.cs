@@ -21,4 +21,6 @@ internal class MetadataPropertySymbol : MetadataSymbol, IPropertySymbol
     public IMethodSymbol? SetMethod { get; set; }
 
     public override bool IsStatic => (_propertyInfo.GetMethod?.IsStatic ?? false) || (_propertyInfo.SetMethod?.IsStatic ?? false);
+
+    public bool IsIndexer => _propertyInfo.GetIndexParameters().Length > 0;
 }

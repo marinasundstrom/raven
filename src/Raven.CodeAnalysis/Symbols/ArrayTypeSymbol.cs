@@ -28,6 +28,8 @@ internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
 
     public INamedTypeSymbol? BaseType => _baseType ??= (INamedTypeSymbol?)_compilation.GetSpecialType(SpecialType.System_Array);
 
+    public bool IsArray => true;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return BaseType!.GetMembers();
@@ -38,8 +40,18 @@ internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
         return BaseType!.GetMembers(name);
     }
 
+    public ITypeSymbol? LookupType(string name)
+    {
+        throw new NotImplementedException();
+    }
+
     public override string ToString()
     {
         return Name;
+    }
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        throw new NotSupportedException();
     }
 }

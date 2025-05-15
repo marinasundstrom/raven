@@ -65,7 +65,7 @@ public partial class SemanticModel
 
                         Bind(typeExpr, propertyType);
 
-                        Diagnostics.Add(
+                        Diagnostics.Report(
                             Diagnostic.Create(
                                 CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
                                 typeExpr.GetLocation(),
@@ -88,7 +88,7 @@ public partial class SemanticModel
 
                     if (typeSymbol.SpecialType == SpecialType.System_Void)
                     {
-                        Diagnostics.Add(
+                        Diagnostics.Report(
                             Diagnostic.Create(
                                 CompilerDiagnostics.CannotAssignVoidToAnImplicitlyTypedVariable,
                                 declarator.Initializer.Value.GetLocation()
@@ -445,7 +445,7 @@ public partial class SemanticModel
 
         if (!candidateMethods.Any())
         {
-            Diagnostics.Add(
+            Diagnostics.Report(
                 Diagnostic.Create(
                     // TODO: M
                     CompilerDiagnostics.MethodNameExpected,
@@ -477,7 +477,7 @@ public partial class SemanticModel
             {
                 var param = method.Parameters.ElementAt(i);
 
-                Diagnostics.Add(
+                Diagnostics.Report(
                     Diagnostic.Create(
                         CompilerDiagnostics.CannotConvertFromTypeToType,
                         argument.Expression.GetLocation(),
@@ -495,7 +495,7 @@ public partial class SemanticModel
 
         if (bestMethod is null)
         {
-            Diagnostics.Add(
+            Diagnostics.Report(
                 Diagnostic.Create(
                     CompilerDiagnostics.NoOverloadForMethod,
                     objectCreationExpression.Type.GetLocation(),
@@ -522,7 +522,7 @@ public partial class SemanticModel
         {
             if (single is not ILocalSymbol and not IFieldSymbol and not IPropertySymbol)
             {
-                Diagnostics.Add(Diagnostic.Create(
+                Diagnostics.Report(Diagnostic.Create(
                             CompilerDiagnostics.LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer,
                             assignmentExpression.LeftHandSide.GetLocation(),
                             []
@@ -534,7 +534,7 @@ public partial class SemanticModel
         {
             if (localSymbol.IsReadOnly)
             {
-                Diagnostics.Add(Diagnostic.Create(
+                Diagnostics.Report(Diagnostic.Create(
                        CompilerDiagnostics.ThisValueIsNotMutable,
                        assignmentExpression.LeftHandSide.GetLocation(),
                        []
@@ -545,7 +545,7 @@ public partial class SemanticModel
         {
             if (propertySymbol.SetMethod is null)
             {
-                Diagnostics.Add(Diagnostic.Create(
+                Diagnostics.Report(Diagnostic.Create(
                        CompilerDiagnostics.PropertyOrIndexerCannotBeAssignedIsReadOnly,
                        assignmentExpression.LeftHandSide.GetLocation(),
                        [single.ToDisplayString()]
@@ -616,7 +616,7 @@ public partial class SemanticModel
 
             if (baseSymbol is INamespaceSymbol namespaceSymbol)
             {
-                Diagnostics.Add(
+                Diagnostics.Report(
                     Diagnostic.Create(
                         CompilerDiagnostics.TypeOrNamespaceNameDoesNotExistInTheNamespace,
                         memberAccessExpression.Name.Identifier.GetLocation(),
@@ -625,7 +625,7 @@ public partial class SemanticModel
             }
             else if (baseSymbol is ITypeSymbol typeSymbol)
             {
-                Diagnostics.Add(
+                Diagnostics.Report(
                     Diagnostic.Create(
                         CompilerDiagnostics.MemberDoesNotContainDefinition,
                         memberAccessExpression.Name.Identifier.GetLocation(),
@@ -655,7 +655,7 @@ public partial class SemanticModel
         var candidateMethods = baseSymbols.OfType<IMethodSymbol>().ToList();
         if (!candidateMethods.Any())
         {
-            Diagnostics.Add(
+            Diagnostics.Report(
                 Diagnostic.Create(
                     CompilerDiagnostics.MethodNameExpected,
                     invocationExpression.Expression.GetLocation()
@@ -686,7 +686,7 @@ public partial class SemanticModel
             {
                 var param = method.Parameters.ElementAt(i);
 
-                Diagnostics.Add(
+                Diagnostics.Report(
                     Diagnostic.Create(
                         CompilerDiagnostics.CannotConvertFromTypeToType,
                         argument.Expression.GetLocation(),
@@ -704,7 +704,7 @@ public partial class SemanticModel
 
         if (bestMethod is null)
         {
-            Diagnostics.Add(
+            Diagnostics.Report(
                 Diagnostic.Create(
                     CompilerDiagnostics.NoOverloadForMethod,
                     invocationExpression.Expression.GetLocation(),
@@ -750,7 +750,7 @@ public partial class SemanticModel
         }
         else if (symbols.Count() == 0)
         {
-            Diagnostics.Add(
+            Diagnostics.Report(
                 Diagnostic.Create(
                     CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
                     expression.GetLocation(),

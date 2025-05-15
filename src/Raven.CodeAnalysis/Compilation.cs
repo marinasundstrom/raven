@@ -22,6 +22,8 @@ public class Compilation
         Options = options ?? new CompilationOptions();
     }
 
+    internal GlobalBinder GlobalBinder => _globalBinder ??= new GlobalBinder(this);
+
     public string AssemblyName { get; }
 
     public CompilationOptions Options { get; }
@@ -65,6 +67,12 @@ public class Compilation
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
     {
+        if (!setup)
+        {
+            Setup();
+            setup = true;
+        }
+
         if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
         {
             return semanticModel;
@@ -101,9 +109,12 @@ public class Compilation
         return _symbols.SingleOrDefault(x => x.Name == "Name" && x.ContainingType!.Name == "Program") as IMethodSymbol;
     }
 
-    public Compilation AnalyzeCodeTemp()
+
+
+    private void Setup()
     {
         var globalNamespace = new NamespaceSymbol(
+            this,
             "", null!, null, null,
             [], []);
 
@@ -131,7 +142,7 @@ public class Compilation
                 _symbols.Add(symbol2);
 
                 var symbol = new SourceMethodSymbol(
-                    "Main", typeSymbol, symbol2!, symbol2, globalNamespace,
+                    "Main", typeSymbol, [], symbol2!, symbol2, globalNamespace,
                     [syntaxTree.GetLocation(root.Span)], [new SyntaxReference(syntaxTree, root)]);
 
                 _symbols.Add(symbol);
@@ -146,9 +157,12 @@ public class Compilation
 
             _symbols.Add(globalNamespace);
         }
-
-        return this;
     }
+
+    private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
+    private MetadataLoadContext _metadataLoadContext;
+    private GlobalBinder _globalBinder;
+    private bool setup;
 
     private void LoadMetadataReferences()
     {
@@ -158,73 +172,15 @@ public class Compilation
             .ToList();
 
         var resolver = new PathAssemblyResolver(paths);
+        _metadataLoadContext = new MetadataLoadContext(resolver);
 
-        var metadataLoadContext = new MetadataLoadContext(resolver);
-
-        var assemblies = paths.Select(x => metadataLoadContext.LoadFromAssemblyPath(x));
-
-        CoreAssembly = metadataLoadContext.CoreAssembly!;
-
-        foreach (var assembly in assemblies)
+        foreach (var path in paths)
         {
-            var module = assembly.GetModules().First();
-
-            foreach (var type in module.GetTypes())
-            {
-                var ns = GetOrCreateNamespaceSymbol(type.Namespace);
-
-                var symbol = new MetadataTypeSymbol(this,
-                    type.GetTypeInfo(), ns, null, ns,
-                    []);
-
-                foreach (var mi in type.GetMethods())
-                {
-                    var symbol2 = new MetadataMethodSymbol(this,
-                        mi, null, symbol!, symbol, ns,
-                        []);
-
-                    _symbols.Add(symbol2);
-                }
-
-                foreach (var mi in type.GetConstructors())
-                {
-                    var symbol2 = new MetadataMethodSymbol(this,
-                        mi, null, symbol!, symbol, ns,
-                        []);
-
-                    _symbols.Add(symbol2);
-                }
-
-                foreach (var pi in type.GetProperties())
-                {
-                    var symbol3 = new MetadataPropertySymbol(this,
-                        pi, null, symbol!, symbol, ns,
-                        []);
-
-                    symbol3.GetMethod = pi.GetMethod is null ? null : new MetadataMethodSymbol(this,
-                        pi.GetMethod, null, symbol3!, symbol, ns,
-                        []);
-
-                    symbol3.SetMethod = pi.SetMethod is null ? null : new MetadataMethodSymbol(this,
-                        pi.SetMethod, null, symbol3!, symbol, ns,
-                        []);
-
-                    _symbols.Add(symbol3);
-                }
-
-                foreach (var fi in type.GetFields())
-                {
-                    var symbol4 = new MetadataFieldSymbol(this,
-                        fi, null, symbol!, symbol, ns,
-                        []);
-
-                    _symbols.Add(symbol4);
-                }
-
-
-                _symbols.Add(symbol);
-            }
+            var asm = _metadataLoadContext.LoadFromAssemblyPath(path);
+            _lazyMetadataAssemblies[path] = asm;
         }
+
+        CoreAssembly = _metadataLoadContext.CoreAssembly!;
     }
 
     private INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
@@ -246,7 +202,7 @@ public class Compilation
 
             if (currentNamespace == null)
             {
-                currentNamespace = new NamespaceSymbol(part, parent, null, parent, [], []);
+                currentNamespace = new NamespaceSymbol(this, part, parent, null, parent, [], []);
                 _symbols.Add(currentNamespace);
                 return currentNamespace; // Namespace not found
             }
@@ -263,7 +219,7 @@ public class Compilation
 
             SyntaxReference[] references = [new SyntaxReference(syntaxTree, namespaceDeclarationSyntax.Span)];
 
-            var symbol = new NamespaceSymbol(
+            var symbol = new NamespaceSymbol(this,
                 namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, null!, (INamespaceSymbol?)declaringSymbol,
                 locations, references);
 
@@ -283,7 +239,7 @@ public class Compilation
             ITypeSymbol typeSymbol = null!;
 
             var symbol = new SourceMethodSymbol(
-                methodDeclaration.Name.ToString(), typeSymbol, null!, null, null,
+                methodDeclaration.Name.ToString(), typeSymbol, [], null!, null, null,
                 locations, references);
 
             _symbols.Add(symbol);
@@ -390,31 +346,39 @@ public class Compilation
                (sourceType == SpecialType.System_Int64 && destType == SpecialType.System_Int32);
     }
 
-    public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedMetadataName)
+    private readonly Dictionary<string, INamedTypeSymbol> _resolvedMetadataTypes = new();
+
+    public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
-        if (fullyQualifiedMetadataName is null)
-            return null;
+        if (_resolvedMetadataTypes.TryGetValue(metadataName, out var cached))
+            return cached;
 
-        // Split the namespace into parts
-        var nameParts = fullyQualifiedMetadataName.Split('.');
-
-        // Start with the global namespace
-        INamespaceOrTypeSymbol currentPart = GlobalNamespace;
-
-        // Traverse the namespace hierarchy
-        foreach (var part in nameParts)
+        // Find matching type across all referenced assemblies
+        foreach (var asm in _lazyMetadataAssemblies.Values)
         {
-            currentPart = currentPart
-                .GetMembers()
-                .FirstOrDefault(n => n.Name == part) as INamespaceOrTypeSymbol;
-
-            if (currentPart == null)
+            var type = asm.GetType(metadataName, throwOnError: false, ignoreCase: false);
+            if (type != null)
             {
-                return null; // Type not found
+                var symbol = CreateMetadataTypeSymbol(type);
+                _resolvedMetadataTypes[metadataName] = symbol;
+                return symbol;
             }
         }
 
-        return currentPart as INamedTypeSymbol;
+        return null;
+    }
+
+    private MetadataTypeSymbol CreateMetadataTypeSymbol(Type type)
+    {
+        var ns = GetOrCreateNamespaceSymbol(type.Namespace);
+
+        var typeSymbol = new MetadataTypeSymbol(
+            this,
+            type.GetTypeInfo(), ns, null, ns,
+            []);
+
+        // You can lazily resolve members of this type later when accessed
+        return typeSymbol;
     }
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
@@ -447,6 +411,35 @@ public class Compilation
         return null;
     }
 
+    public ITypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)
+    {
+        var keywordKind = predefinedType.Keyword.Kind;
+
+        var specialType = keywordKind switch
+        {
+            SyntaxKind.BoolKeyword => SpecialType.System_Boolean,
+            //SyntaxKind.ByteKeyword => SpecialType.System_Byte,
+            SyntaxKind.CharKeyword => SpecialType.System_Char,
+            //SyntaxKind.DecimalKeyword => SpecialType.System_Decimal,
+            //SyntaxKind.DoubleKeyword => SpecialType.System_Double,
+            //SyntaxKind.FloatKeyword => SpecialType.System_Single,
+            SyntaxKind.IntKeyword => SpecialType.System_Int32,
+            //SyntaxKind.LongKeyword => SpecialType.System_Int64,
+            //SyntaxKind.ObjectKeyword => SpecialType.System_Object,
+            //SyntaxKind.SByteKeyword => SpecialType.System_SByte,
+            //SyntaxKind.ShortKeyword => SpecialType.System_Int16,
+            SyntaxKind.StringKeyword => SpecialType.System_String,
+            //SyntaxKind.UIntKeyword => SpecialType.System_UInt32,
+            //SyntaxKind.ULongKeyword => SpecialType.System_UInt64,
+            //SyntaxKind.UShortKeyword => SpecialType.System_UInt16,
+            SyntaxKind.VoidKeyword => SpecialType.System_Void,
+            _ => throw new Exception($"Unexpected predefined keyword: {keywordKind}")
+        };
+
+        return GetSpecialType(specialType)
+               ?? throw new Exception($"Special type not found for: {specialType}");
+    }
+
     readonly Dictionary<System.Reflection.TypeInfo, ITypeSymbol> typeSymbolMappings = new();
 
     public ITypeSymbol? GetType(Type type)
@@ -454,25 +447,10 @@ public class Compilation
         if (type.IsArray)
         {
             var elementType = GetType(type.GetElementType());
-            return new ArrayTypeSymbol(this, elementType, null, null, null, null);
+            return new ArrayTypeSymbol(this, elementType, null, null, null, []);
         }
 
         return GetSimpleType(type);
-
-        //return _symbols.OfType<MetadataTypeSymbol>().First(x => x.GetClrType(this) == typeInfo);
-
-        /*
-        if (!typeSymbolMappings.TryGetValue(typeInfo, out var symbol))
-        {
-            var ns = GetOrCreateNamespaceSymbol(type.Namespace);
-
-            symbol = new MetadataTypeSymbol(
-                this,
-                typeInfo, ns, null, ns,
-                []);
-        }
-        return symbol;
-        */
     }
 
     private ITypeSymbol? GetSimpleType(Type type)
@@ -483,161 +461,59 @@ public class Compilation
 
         return ns.GetMembers(type.Name).FirstOrDefault() as ITypeSymbol;
     }
-}
 
-public enum SpecialType
-{
-    None = 0,
-
-    // System namespace
-    System_Object = 1,
-    System_Enum = 2,
-    System_MulticastDelegate = 3,
-    System_Delegate = 4,
-    System_ValueType = 5,
-    System_Void = 6,
-    System_Boolean = 7,
-    System_Char = 8,
-    System_SByte = 9,
-    System_Byte = 10,
-    System_Int16 = 11,
-    System_UInt16 = 12,
-    System_Int32 = 13,
-    System_UInt32 = 14,
-    System_Int64 = 15,
-    System_UInt64 = 16,
-    System_Decimal = 17,
-    System_Single = 18,
-    System_Double = 19,
-    System_String = 20,
-    System_IntPtr = 21,
-    System_UIntPtr = 22,
-    System_Array = 23,
-    System_Collections_IEnumerable = 24,
-    System_Collections_Generic_IEnumerable_T = 25,
-    System_Collections_Generic_IList_T = 26,
-    System_Collections_Generic_ICollection_T = 27,
-    System_Collections_IEnumerator = 28,
-    System_Collections_Generic_IEnumerator_T = 29,
-    System_Nullable_T = 30,
-
-    // Task and async
-    System_DateTime = 31,
-    System_Runtime_CompilerServices_IsVolatile = 32,
-    System_IDisposable = 33,
-    System_TypedReference = 34,
-    System_ArgIterator = 35,
-    System_RuntimeArgumentHandle = 36,
-    System_RuntimeFieldHandle = 37,
-    System_RuntimeMethodHandle = 38,
-    System_RuntimeTypeHandle = 39,
-    System_IAsyncResult = 40,
-    System_AsyncCallback = 41,
-    System_Runtime_CompilerServices_AsyncVoidMethodBuilder = 42,
-    System_Runtime_CompilerServices_AsyncTaskMethodBuilder = 43,
-    System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T = 44,
-    System_Runtime_CompilerServices_AsyncStateMachineAttribute = 45,
-    System_Runtime_CompilerServices_IteratorStateMachineAttribute = 46,
-    System_Threading_Tasks_Task = 47,
-    System_Threading_Tasks_Task_T = 48,
-
-    // Interop
-    System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken = 49,
-    System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T = 50,
-
-    // Tuple types
-    System_ValueTuple_T1 = 51,
-    System_ValueTuple_T2 = 52,
-    System_ValueTuple_T3 = 53,
-    System_ValueTuple_T4 = 54,
-    System_ValueTuple_T5 = 55,
-    System_ValueTuple_T6 = 56,
-    System_ValueTuple_T7 = 57,
-    System_ValueTuple_TRest = 58
-}
-
-public struct Conversion
-{
-    public bool IsImplicit { get; }
-    public bool IsExplicit => !IsImplicit;
-    public bool IsIdentity { get; }
-    public bool IsReference { get; }
-    public bool IsBoxing { get; }
-    public bool IsUnboxing { get; }
-
-    public bool IsUserDefined { get; }
-    public IMethodSymbol? MethodSymbol { get; }
-
-    public Conversion(bool isImplicit, bool isIdentity = false, bool isReference = false, bool isBoxing = false, bool isUnboxing = false)
+    public void AddReference(string assemblyPath)
     {
-        IsImplicit = isImplicit;
-        IsIdentity = isIdentity;
-        IsReference = isReference;
-        IsBoxing = isBoxing;
-        IsUnboxing = isUnboxing;
+        var metadata = MetadataReference.CreateFromFile(assemblyPath);
+        //GlobalNamespace.AddMetadata(metadata);
     }
 
-    public static Conversion None => new Conversion(false);
-}
-
-public class EmitResult
-{
-    internal EmitResult(bool success, ImmutableArray<Diagnostic> diagnostics)
+    public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
     {
-        Success = success;
-        Diagnostics = diagnostics;
-    }
+        var nsName = namespaceSymbol.ToMetadataName(); // e.g., "System"
+        var fullName = string.IsNullOrEmpty(nsName)
+            ? name
+            : nsName + "." + name;
 
-    public bool Success { get; }
-    public ImmutableArray<Diagnostic> Diagnostics { get; }
-}
+        if (_resolvedMetadataTypes.TryGetValue(fullName, out var cached))
+            return cached;
 
-public class CompilationOptions
-{
-    public CompilationOptions()
-    {
-        OutputKind = OutputKind.ConsoleApplication;
-    }
-
-    public CompilationOptions(OutputKind outputKind)
-    {
-        OutputKind = outputKind;
-    }
-
-    public OutputKind OutputKind { get; }
-}
-
-public enum OutputKind
-{
-    ConsoleApplication = 0,
-    WindowsApplication = 1,
-    DynamicallyLinkedLibrary = 2
-}
-
-public static class CompilationExtensions
-{
-    public static INamespaceSymbol? GetNamespaceSymbol(this Compilation compilation, string? ns)
-    {
-        if (ns is null)
-            return compilation.GlobalNamespace;
-
-        // Split the namespace into parts
-        var namespaceParts = ns.Split('.');
-
-        // Start with the global namespace
-        var currentNamespace = compilation.GlobalNamespace;
-
-        // Traverse the namespace hierarchy
-        foreach (var part in namespaceParts)
+        foreach (var asm in _lazyMetadataAssemblies.Values)
         {
-            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as NamespaceSymbol;
-
-            if (currentNamespace == null)
+            // Try to resolve as a type first
+            var type = asm.GetType(fullName, throwOnError: false, ignoreCase: false);
+            if (type != null)
             {
-                return null; // Namespace not found
+                if (namespaceSymbol.IsMemberDefined(name, out var existingSymbol))
+                    return existingSymbol;
+
+                var symbol = CreateMetadataTypeSymbol(type);
+                _resolvedMetadataTypes[fullName] = symbol;
+
+                return symbol;
+            }
+
+            // If no type found, try to verify as a namespace
+            // Does any type start with "System.Text."?
+            bool namespaceLikelyExists = asm.GetTypes()
+                .Any(t => t.FullName.StartsWith(fullName + ".", StringComparison.Ordinal));
+
+            if (namespaceLikelyExists && namespaceSymbol is NamespaceSymbol parentNs)
+            {
+                // Check if the namespace already exists in the parent
+                if (parentNs.IsMemberDefined(name, out var existingSymbol))
+                    return existingSymbol;
+
+                return new NamespaceSymbol(this, name, parentNs, null, parentNs, [], []);
             }
         }
 
-        return currentNamespace;
+        return null;
+    }
+
+    public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType)
+    {
+        var ns = GlobalNamespace.LookupNamespace("System");
+        return new ArrayTypeSymbol(this, elementType, ns, null, ns, []);
     }
 }

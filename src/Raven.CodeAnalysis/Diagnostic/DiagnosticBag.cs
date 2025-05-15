@@ -4,7 +4,9 @@ namespace Raven.CodeAnalysis;
 
 public class DiagnosticBag
 {
-    private readonly List<Diagnostic> _diagnostics;
+    private readonly HashSet<Diagnostic> _diagnostics;
+
+    public bool IsEmpty => _diagnostics.Count == 0;
 
     public DiagnosticBag()
     {
@@ -13,17 +15,12 @@ public class DiagnosticBag
 
     internal DiagnosticBag(IEnumerable<Diagnostic> enumerable)
     {
-        _diagnostics = enumerable.ToList();
+        _diagnostics = [.. enumerable];
     }
 
-    public void Add(Diagnostic diagnostic)
+    public void Report(Diagnostic diagnostic)
     {
         _diagnostics.Add(diagnostic);
-    }
-
-    public void AddRange(IEnumerable<Diagnostic> diagnostics)
-    {
-        _diagnostics.AddRange(diagnostics);
     }
 
     public ImmutableArray<Diagnostic> ToImmutableArray()

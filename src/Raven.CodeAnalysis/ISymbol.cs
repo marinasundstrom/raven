@@ -39,8 +39,6 @@ public interface ISymbol : IEquatable<ISymbol?>
     bool IsStatic { get; }
 
     bool Equals(ISymbol? other, SymbolEqualityComparer comparer);
-
-    string ToDisplayString(SymbolDisplayFormat format = default);
 }
 
 public enum Accessibility
@@ -116,11 +114,19 @@ public interface INamespaceOrTypeSymbol : ISymbol
     bool IsType { get; }
     ImmutableArray<ISymbol> GetMembers();
     ImmutableArray<ISymbol> GetMembers(string name);
+
+    ITypeSymbol? LookupType(string name);
+
+    bool IsMemberDefined(string name, out ISymbol? symbol);
 }
 
 public interface INamespaceSymbol : INamespaceOrTypeSymbol
 {
     bool IsGlobalNamespace { get; }
+
+    INamespaceSymbol? LookupNamespace(string name);
+
+    string? ToMetadataName();
 }
 
 public interface IMethodSymbol : ISymbol
@@ -149,6 +155,7 @@ public interface IPropertySymbol : ISymbol
     ITypeSymbol Type { get; }
     IMethodSymbol? GetMethod { get; }
     IMethodSymbol? SetMethod { get; }
+    bool IsIndexer { get; }
 }
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol
@@ -156,6 +163,9 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
     INamedTypeSymbol? BaseType { get; }
     SpecialType SpecialType { get; }
     bool IsValueType { get; }
+    bool IsArray { get; }
+
+    public string ToFullyQualifiedMetadataName() => ContainingNamespace is null ? Name : $"{ContainingNamespace.ToMetadataName()}.{Name}";
 }
 
 public interface INamedTypeSymbol : ITypeSymbol

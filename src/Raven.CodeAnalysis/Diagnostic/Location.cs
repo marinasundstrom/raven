@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Text;
 namespace Raven.CodeAnalysis;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-public abstract class Location : IComparable<Location>
+public abstract class Location : IComparable<Location>, IEquatable<Location>
 {
     public static Location None { get; } = new NoLocation();
 
@@ -57,32 +57,72 @@ public abstract class Location : IComparable<Location>
         return default;
     }
 
-    // Implement the comparison logic
     public int CompareTo(Location? other)
     {
-        if (other == null)
+        if (other is null)
             return 1;
 
-        var lineSpan = GetLineSpan();
+        // 1. Compare by file path (null-safe)
+        var path1 = GetLineSpan().Path ?? "";
+        var path2 = other.GetLineSpan().Path ?? "";
 
-        /*
-        // Compare by Path
-        int pathComparison = string.Compare(GetLineSpan().Path, other.GetLineSpan().Path, StringComparison.OrdinalIgnoreCase);
+        int pathComparison = string.Compare(path1, path2, StringComparison.OrdinalIgnoreCase);
         if (pathComparison != 0)
-            return pathComparison; */
+            return pathComparison;
 
-        /*
-                // Compare by Start Line
-                int startLineComparison = GetLineSpan().StartLinePosition.Line.CompareTo(other.GetLineSpan().StartLinePosition.Line);
-                if (startLineComparison != 0)
-                    return startLineComparison;
+        // 2. Compare by line number
+        int lineComparison = GetLineSpan().StartLinePosition.Line
+            .CompareTo(other.GetLineSpan().StartLinePosition.Line);
+        if (lineComparison != 0)
+            return lineComparison;
 
-                // Compare by Start Character
-                int startCharComparison = GetLineSpan().StartLinePosition.Character.CompareTo(other.GetLineSpan().StartLinePosition.Character);
-                if (startCharComparison != 0)
-                    return startCharComparison;
-        */
-        // Compare by Span Start
+        // 3. Compare by character position
+        int charComparison = GetLineSpan().StartLinePosition.Character
+            .CompareTo(other.GetLineSpan().StartLinePosition.Character);
+        if (charComparison != 0)
+            return charComparison;
+
+        // 4. Compare by span start offset as tiebreaker
         return SourceSpan.Start.CompareTo(other.SourceSpan.Start);
     }
+
+    public override bool Equals(object? obj)
+        => Equals(obj as Location);
+
+    public bool Equals(Location? other)
+    {
+        if (other is null)
+            return false;
+
+        // Quick check for reference equality
+        if (ReferenceEquals(this, other))
+            return true;
+
+        // Must be of same runtime type
+        if (GetType() != other.GetType())
+            return false;
+
+        // Compare spans and trees (simplest for source locations)
+        return SourceSpan == other.SourceSpan &&
+               Equals(SourceTree, other.SourceTree);
+    }
+
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hash = 17;
+
+            hash = hash * 31 + SourceSpan.GetHashCode();
+            hash = hash * 31 + (SourceTree?.GetHashCode() ?? 0);
+
+            return hash;
+        }
+    }
+
+    public static bool operator ==(Location? left, Location? right)
+        => Equals(left, right);
+
+    public static bool operator !=(Location? left, Location? right)
+        => !Equals(left, right);
 }

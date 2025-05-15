@@ -101,8 +101,8 @@ internal class Lexer : ILexer
                         ReadChar();
                         _stringBuilder.Append(ch);
                     }
-
-                    return new Token(SyntaxKind.NumericLiteralToken, int.Parse(_stringBuilder.ToString()), _stringBuilder.Length, diagnostics: diagnostics);
+                    var text = _stringBuilder.ToString();
+                    return new Token(SyntaxKind.NumericLiteralToken, text, int.Parse(text), _stringBuilder.Length, diagnostics: diagnostics);
                 }
             }
             else

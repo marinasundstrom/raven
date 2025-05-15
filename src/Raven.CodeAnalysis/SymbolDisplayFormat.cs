@@ -2,12 +2,77 @@ namespace Raven.CodeAnalysis;
 
 public class SymbolDisplayFormat
 {
+    public static SymbolDisplayFormat CSharpTooltipFormat { get; } = new SymbolDisplayFormat
+    {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.InstanceMethod,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters | SymbolDisplayGenericsOptions.IncludeTypeConstraints,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeAccessibility |
+                    SymbolDisplayMemberOptions.IncludeType |
+                    SymbolDisplayMemberOptions.IncludeParameters |
+                    SymbolDisplayMemberOptions.IncludeModifiers,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                           SymbolDisplayMiscellaneousOptions.EscapeIdentifiers
+    };
+
+    public static SymbolDisplayFormat CSharpDebuggerFormat { get; } = new SymbolDisplayFormat
+    {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        ExtensionMethodStyle = SymbolDisplayExtensionMethodStyle.StaticMethod,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters | SymbolDisplayGenericsOptions.IncludeTypeConstraints,
+        GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Included,
+        KindOptions = SymbolDisplayKindOptions.IncludeNamespaceKeyword | SymbolDisplayKindOptions.IncludeTypeKeyword | SymbolDisplayKindOptions.IncludeMemberKeyword,
+        LocalOptions = SymbolDisplayLocalOptions.IncludeType | SymbolDisplayLocalOptions.IncludeModifiers | SymbolDisplayLocalOptions.IncludeRef,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeAccessibility |
+                    SymbolDisplayMemberOptions.IncludeModifiers |
+                    SymbolDisplayMemberOptions.IncludeType |
+                    SymbolDisplayMemberOptions.IncludeParameters |
+                    SymbolDisplayMemberOptions.IncludeContainingType,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
+                       SymbolDisplayParameterOptions.IncludeName |
+                       SymbolDisplayParameterOptions.IncludeDefaultValue |
+                       SymbolDisplayParameterOptions.IncludeOptionalBrackets |
+                       SymbolDisplayParameterOptions.IncludeExtensionThis,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                           SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.ExpandNullable,
+        PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
+    };
+
+    public static SymbolDisplayFormat CSharpCodeGenerationFormat { get; } = new SymbolDisplayFormat
+    {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeType |
+                    SymbolDisplayMemberOptions.IncludeParameters |
+                    SymbolDisplayMemberOptions.IncludeModifiers |
+                    SymbolDisplayMemberOptions.IncludeAccessibility,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName | SymbolDisplayParameterOptions.IncludeParamsRefOut,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                           SymbolDisplayMiscellaneousOptions.RemoveAttributeSuffix
+    };
+
+    public static SymbolDisplayFormat CSharpSymbolKeyFormat { get; } = new SymbolDisplayFormat
+    {
+        DelegateStyle = SymbolDisplayDelegateStyle.NameAndSignature,
+        GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeParameters |
+                        SymbolDisplayMemberOptions.IncludeContainingType,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType,
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes
+    };
+
     public static SymbolDisplayFormat CSharpErrorMessageFormat { get; } = new SymbolDisplayFormat
     {
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
         GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
-        MemberOptions = SymbolDisplayMemberOptions.IncludeContainingType,
-        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.EscapeIdentifiers
+        MemberOptions = SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.EscapeIdentifiers,
     };
 
     public static SymbolDisplayFormat CSharpShortErrorMessageFormat { get; } = new SymbolDisplayFormat
@@ -25,10 +90,11 @@ public class SymbolDisplayFormat
         GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Included,
         KindOptions = SymbolDisplayKindOptions.IncludeNamespaceKeyword | SymbolDisplayKindOptions.IncludeTypeKeyword,
         LocalOptions = SymbolDisplayLocalOptions.IncludeType,
-        MemberOptions = SymbolDisplayMemberOptions.IncludeAccessibility | SymbolDisplayMemberOptions.IncludeParameters,
+        MemberOptions = SymbolDisplayMemberOptions.IncludeAccessibility | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeModifiers,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes,
         PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
-        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
+        TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName | SymbolDisplayParameterOptions.IncludeExtensionThis
     };
 
     /*

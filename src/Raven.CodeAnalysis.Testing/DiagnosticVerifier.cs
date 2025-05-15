@@ -37,8 +37,7 @@ public class DiagnosticVerifier
         var syntaxTree = SyntaxTree.ParseText(Test.TestCode);
         var compilation = Compilation.Create("Test")
             .AddSyntaxTrees(syntaxTree)
-            .AddReferences([.. Test.State.ReferenceAssemblies, .. Test.State.AdditionalReferences])
-            .AnalyzeCodeTemp(); // Temporary
+            .AddReferences([.. Test.State.ReferenceAssemblies, .. Test.State.AdditionalReferences]);
 
         var actualDiagnostics = compilation.GetDiagnostics().AsEnumerable();
         var expectedDiagnostics = Test.ExpectedDiagnostics;

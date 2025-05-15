@@ -21,15 +21,14 @@ root.PrintSyntaxTree(includeNames: true, includeTokens: true, includeTrivia: tru
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
-var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir("9.0.0", "net9.0");
 
 var compilation = Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
         MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-    ])
-    .AnalyzeCodeTemp(); // Temporary
+    ]);
 
 // INFO: The sample will compile, but not all constructs are supported yet.
 using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
