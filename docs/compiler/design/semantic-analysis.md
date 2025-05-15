@@ -22,49 +22,11 @@ A `SemanticModel` manages statement- and expression-level context for a given `S
 
 ### Symbol Resolution and Binding
 
-During semantic analysis, various syntax nodes—particularly expressions—are associated with the symbols that represent their meaning.
+During semantic analysis, various syntax nodes — particularly expressions — are associated, or bound, with the symbols that represent their meaning.
 
-#### Example: Simple Resolution
+The actual semantic binding is performed by Binders. They are specialized classes that traverse the syntax tree and resolve symbols based on the context of the code. Each binder is responsible for a specific scope, such as a method or class, and it uses the `SemanticModel` to resolve symbols. If a particular symbol is not found in the current scope, the binder will look up the symbol in its parent scopes until it finds a match or determines that the symbol is not defined.
 
-Below is a simplified illustration of how a method might resolve symbols:
-
-```csharp
-void AnalyzeExpression(ExpressionSyntax expression, out ImmutableArray<ISymbol> symbols) 
-{
-    ISymbol resolvedSymbol = ...;
-
-    symbols = [resolvedSymbol];
-
-    Bind(expressionSyntax, [resolvedSymbol]);
-}
-```
-
-Here, the `symbols` array conveys the type or symbol that the expression resolves to. Using an `ImmutableArray<ISymbol>` allows for multiple symbols to be returned in cases of ambiguity.
-
-#### Example: More complex scenario
-
-Consider a scenario involving a binary expression, where the symbol resolution and the final set of symbols differ:
-
-```csharp
-void AnalyzeBinaryExpression(BinaryExpressionSyntax binaryExpression, out ImmutableArray<ISymbol> symbols) 
-{
-    // Suppose the binary expression, combining two operands, maps to a method call:
-
-    // SyntaxKind: AddExpression
-
-    // Example: "Hello, " + "World!"
-    // becomes string.Concat("Hello, " + "World!")
-
-    // Identify the appropriate method overload for "string.Concat"
-    IMethodSymbol resolvedMethod = /* Omitted */;
-
-    // Return only the symbol corresponding to the result type of this binary operation
-    symbols = [resolvedMethod.ReturnType];
-
-    // Use Bind to link the expression with the resolved method
-    Bind(expressionSyntax, [resolvedMethod]);
-}
-```
+The BlockBinder, for example, is responsible for binding local variables and parameters within a method or block of code. It uses the `SemanticModel` to resolve symbols and check for any potential conflicts or errors.
 
 ### Querying Symbols for Bindings
 
