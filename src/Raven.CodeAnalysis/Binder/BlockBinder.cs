@@ -112,15 +112,21 @@ class BlockBinder : Binder
         };
     }
 
-    private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax syntax)
+    private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)
     {
-        var receiver = BindExpression(syntax.Expression);
+        var receiver = BindExpression(memberAccess.Expression);
 
         // Short-circuit if receiver is already in error
         if (receiver is BoundErrorExpression)
             return receiver;
 
-        var memberName = syntax.Name.Identifier.Text;
+        if (receiver.Type?.SpecialType == SpecialType.System_Void)
+        {
+            _diagnostics.ReportMemberAccessOnVoid(memberAccess.Name.Identifier.Text, memberAccess.Name.GetLocation());
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
+        }
+
+        var memberName = memberAccess.Name.Identifier.Text;
 
         if (receiver is BoundNamespaceExpression nsExpr)
         {
@@ -133,7 +139,7 @@ class BlockBinder : Binder
             if (member is ITypeSymbol type)
                 return new BoundTypeExpression(type);
 
-            _diagnostics.ReportUndefinedName(memberName, syntax.Name.GetLocation());
+            _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
         }
 
@@ -142,7 +148,7 @@ class BlockBinder : Binder
 
         if (symbol is null)
         {
-            _diagnostics.ReportUndefinedName(memberName, syntax.Name.GetLocation());
+            _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
         }
 
@@ -216,6 +222,12 @@ class BlockBinder : Binder
             // ❗ Early exit if receiver is invalid
             if (receiver is BoundErrorExpression)
                 return receiver;
+
+            if (receiver.Type?.SpecialType == SpecialType.System_Void)
+            {
+                _diagnostics.ReportMemberAccessOnVoid(memberAccess.Name.Identifier.Text, memberAccess.Name.GetLocation());
+                return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
+            }
 
             methodName = memberAccess.Name.Identifier.Text;
         }

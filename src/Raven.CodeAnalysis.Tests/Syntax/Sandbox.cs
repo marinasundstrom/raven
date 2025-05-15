@@ -9,7 +9,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
                    import System;
 
                    let foo = 2 + 3;
-                   System.Console.WriteLine(foo);
+                   System.Console.WriteLine(foo).ToString();
                    """;
 
         var syntaxTree = SyntaxTree.ParseText(code);

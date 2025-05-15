@@ -25,4 +25,10 @@ public static class DiagnosticBagExtensions
 
     public static void ReportAmbiguousMethod(this DiagnosticBag diagnostics, string name, Location location)
         => diagnostics.Report(Diagnostic.Create(SemanticDiagnostics.AmbiguousMethod, location, name));
+
+    //public static void ReportInvalidMemberAccess(this DiagnosticBag diagnostics, string memberName, Location location)
+    //    => diagnostics.Report(Diagnostic.Create(SemanticDiagnostics.AmbiguousMethod, location, name));
+
+    public static void ReportMemberAccessOnVoid(this DiagnosticBag diagnostics, string name, Location location)
+        => diagnostics.Report(Diagnostic.Create(SemanticDiagnostics.MemberAccessOnVoid, location, name));
 }

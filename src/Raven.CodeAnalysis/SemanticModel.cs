@@ -49,7 +49,7 @@ public partial class SemanticModel
         return _binderFactory
              .GetAllBinders()
              .SelectMany(b => b.Diagnostics.ToImmutableArray())
-             .DistinctBy(d => (d.Descriptor.Id, d.Location, d.GetMessage()))
+             //.DistinctBy(d => (d.Descriptor.Id, d.Location, d.GetMessage()))
              .ToImmutableArray();
     }
 

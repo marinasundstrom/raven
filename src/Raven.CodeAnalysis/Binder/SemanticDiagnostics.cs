@@ -12,6 +12,7 @@ public static class SemanticDiagnostics
     private static DiagnosticDescriptor? _symbolNotFound;
     private static DiagnosticDescriptor? _noMatchingOverload;
     private static DiagnosticDescriptor? _ambiguousMethod;
+    private static DiagnosticDescriptor _memberAccessOnVoid;
 
     public static DiagnosticDescriptor UndefinedName => _undefinedName ??= DiagnosticDescriptor.Create(
         id: "RAV001",
@@ -93,6 +94,15 @@ public static class SemanticDiagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor MemberAccessOnVoid = DiagnosticDescriptor.Create(
+        id: "RAV009",
+        title: "Member access on void value",
+        description: "Cannot access a member on a value of type 'void'.",
+        helpLinkUri: "",
+        messageFormat: "Cannot access member '{0}' on a value of type 'void'.",
+        category: "Semantic",
+        defaultSeverity: DiagnosticSeverity.Error);
+
     public static DiagnosticDescriptor[] All => _allDescriptors ??= [
         UndefinedName,
         UndefinedBinaryOperator,
@@ -101,7 +111,8 @@ public static class SemanticDiagnostics
         ArgumentCountMismatch,
         SymbolNotFound,
         NoMatchingOverload,
-        AmbiguousMethod
+        AmbiguousMethod,
+        MemberAccessOnVoid
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId) => diagnosticId switch
@@ -114,6 +125,7 @@ public static class SemanticDiagnostics
         "RAV006" => SymbolNotFound,
         "RAV007" => NoMatchingOverload,
         "RAV008" => AmbiguousMethod,
+        "RAV009" => MemberAccessOnVoid,
         _ => null
     };
 }
