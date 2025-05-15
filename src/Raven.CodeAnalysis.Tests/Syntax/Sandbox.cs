@@ -10,14 +10,15 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var code = """
                    import System;
 
-                   Console.WriteLine(2);
+                   let foo = 42;
+                   Console.WriteLine(foo);
                    """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
         var root = syntaxTree.GetRoot();
 
-        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true, false, includeNames: true));
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true, false, includeNames: true, includeSpans: false, includeLocation: true));
         testOutputHelper.WriteLine(root.ToFullString());
 
         root.PrintSyntaxTree(includeNames: true, includeTokens: true, includeTrivia: true, includeSpans: false, includeLocation: true);
@@ -36,9 +37,9 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
         //var fooSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
-        var consoleWriteLineSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
+        //var consoleWriteLineSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
 
-        testOutputHelper.WriteLine(consoleWriteLineSymbol.Symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        //testOutputHelper.WriteLine(consoleWriteLineSymbol.Symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
         var diagnostics = semanticModel.GetDiagnostics();
 

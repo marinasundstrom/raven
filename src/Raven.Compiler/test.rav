@@ -1,3 +1,4 @@
 import System;
 
-Console.WriteLine(42);
+let foo = 42;
+Console.WriteLine(foo);

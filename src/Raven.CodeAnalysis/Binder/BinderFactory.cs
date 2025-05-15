@@ -104,7 +104,15 @@ class BinderFactory
         // Synthesize the Program/Main method inside the namespace
         var mainMethodSymbol = new SynthesizedMainMethodSymbol(_compilation, targetNamespace);
 
-        return new TopLevelBinder(importBinder, mainMethodSymbol);
+        var topLevelBinder = new TopLevelBinder(importBinder, mainMethodSymbol);
+
+        // 🔥 Eagerly bind all top-level statements
+        foreach (var stmt in cu.Members.OfType<GlobalStatementSyntax>())
+        {
+            topLevelBinder.BindGlobalStatement(stmt);
+        }
+
+        return topLevelBinder;
     }
 
     private Binder CreateNamespaceBinder(NamespaceDeclarationSyntax nsSyntax, Binder parentBinder)

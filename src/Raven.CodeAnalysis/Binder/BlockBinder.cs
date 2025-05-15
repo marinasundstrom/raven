@@ -74,6 +74,9 @@ class BlockBinder : Binder
 
     private ILocalSymbol BindVariableDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
+        if (_locals.TryGetValue(variableDeclarator.Name.Identifier.Text, out var existingSymbol))
+            return existingSymbol;
+
         var name = variableDeclarator.Name.Identifier.Text;
 
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
@@ -186,6 +189,12 @@ class BlockBinder : Binder
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax)
     {
         var symbol = LookupSymbol(syntax.Identifier.Text);
+
+        if (symbol is null)
+        {
+            _diagnostics.ReportUndefinedName(syntax.Identifier.Text, syntax.Identifier.GetLocation());
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
+        }
 
         return symbol switch
         {
