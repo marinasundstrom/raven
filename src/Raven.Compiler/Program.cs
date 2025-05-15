@@ -28,8 +28,7 @@ var compilation = Compilation.Create(assemblyName, new CompilationOptions(Output
     .AddReferences([
         MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-    ])
-    .AnalyzeCodeTemp(); // Temporary
+    ]);
 
 // INFO: The sample will compile, but not all constructs are supported yet.
 using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))

@@ -31,8 +31,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
             .AddReferences([
                 MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
                 MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-            ])
-        .AnalyzeCodeTemp(); // Temporary
+            ]);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 

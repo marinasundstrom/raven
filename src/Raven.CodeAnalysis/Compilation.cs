@@ -67,6 +67,12 @@ public class Compilation
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
     {
+        if (!setup)
+        {
+            Setup();
+            setup = true;
+        }
+
         if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
         {
             return semanticModel;
@@ -103,7 +109,9 @@ public class Compilation
         return _symbols.SingleOrDefault(x => x.Name == "Name" && x.ContainingType!.Name == "Program") as IMethodSymbol;
     }
 
-    public Compilation AnalyzeCodeTemp()
+
+
+    private void Setup()
     {
         var globalNamespace = new NamespaceSymbol(
             this,
@@ -149,13 +157,12 @@ public class Compilation
 
             _symbols.Add(globalNamespace);
         }
-
-        return this;
     }
 
     private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
     private MetadataLoadContext _metadataLoadContext;
     private GlobalBinder _globalBinder;
+    private bool setup;
 
     private void LoadMetadataReferences()
     {

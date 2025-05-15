@@ -178,8 +178,7 @@ var compilation = Compilation.Create("MyAssembly", new CompilationOptions(Output
         // On Windows the path is different.Despite pointing at a file in Mac. The app will run on other platforms.
         MetadataReference.CreateFromFile("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net9.0/System.Runtime.dll"),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
-    ])
-    .AnalyzeCodeTemp(); // Temporary
+    ]);
 
 syntaxTree = compilation.SyntaxTrees.First();
 
@@ -207,8 +206,7 @@ var compilation = Compilation.Create("MyAssembly", new CompilationOptions(Output
     .AddReferences([
         MetadataReference.CreateFromFile(("/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.0/ref/net9.0/System.Runtime.dll"),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
-    ])
-    .AnalyzeCodeTemp(); // Temporary
+    ]);
 
 using var stream = File.OpenWrite("MyAssembly.exe");
 var result = compilation.Emit(stream);
