@@ -463,33 +463,42 @@ public class Compilation
 
     public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
     {
-        var nsName = namespaceSymbol.ToMetadataName(); // like "System"
-
+        var nsName = namespaceSymbol.ToMetadataName(); // e.g., "System"
         var fullName = string.IsNullOrEmpty(nsName)
             ? name
             : nsName + "." + name;
 
-        // Check cache first
         if (_resolvedMetadataTypes.TryGetValue(fullName, out var cached))
             return cached;
 
         foreach (var asm in _lazyMetadataAssemblies.Values)
         {
+            // Try to resolve as a type first
             var type = asm.GetType(fullName, throwOnError: false, ignoreCase: false);
             if (type != null)
             {
                 var symbol = CreateMetadataTypeSymbol(type);
                 _resolvedMetadataTypes[fullName] = symbol;
 
-                // Add it to the namespace symbol
                 if (namespaceSymbol is NamespaceSymbol nsSym)
                     nsSym.AddMember(symbol);
 
                 return symbol;
             }
+
+            // If no type found, try to verify as a namespace
+            // Does any type start with "System.Text."?
+            bool namespaceLikelyExists = asm.GetTypes()
+                .Any(t => t.FullName.StartsWith(fullName + ".", StringComparison.Ordinal));
+
+            if (namespaceLikelyExists && namespaceSymbol is NamespaceSymbol parentNs)
+            {
+                var newNamespace = new NamespaceSymbol(this, name, parentNs, null, parentNs, [], []);
+                parentNs.AddMember(newNamespace);
+                return newNamespace;
+            }
         }
 
-        // Could optionally support lazy sub-namespaces in future
         return null;
     }
 }

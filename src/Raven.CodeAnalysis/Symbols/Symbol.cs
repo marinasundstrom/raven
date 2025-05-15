@@ -104,8 +104,7 @@ internal abstract class Symbol : ISymbol
 
     public string ToDisplayString(SymbolDisplayFormat format = default!)
     {
-        if (format is null)
-            format = SymbolDisplayFormat.CSharpErrorMessageFormat;
+        format ??= SymbolDisplayFormat.CSharpErrorMessageFormat;
 
         var result = new StringBuilder();
 
@@ -168,6 +167,16 @@ internal abstract class Symbol : ISymbol
 
         if (this is IMethodSymbol methodSymbol)
         {
+            // Return type (if requested)
+            if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
+            {
+                var returnType = methodSymbol.ReturnType?.ToDisplayString(format);
+                if (!string.IsNullOrEmpty(returnType))
+                {
+                    result.Insert(0, returnType + " ");
+                }
+            }
+
             // Handle method parameters (if the symbol is a method)
             if (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature)
             {
@@ -209,7 +218,7 @@ internal abstract class Symbol : ISymbol
 
         if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))
         {
-            sb.Append(parameter.Type); // Assume `Type` is a property of the parameter
+            sb.Append(parameter.Type.ToDisplayString(format));
             sb.Append(" ");
         }
 

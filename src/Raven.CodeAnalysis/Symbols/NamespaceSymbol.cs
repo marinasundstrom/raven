@@ -42,35 +42,6 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
         return [];
     }
 
-    /*
-
-    public override IEnumerable<ISymbol> GetMembers(string name)
-    {
-        var matches = _members.Where(m => m.Name == name).ToList();
-
-        if (matches.Count > 0)
-            return matches;
-
-        // Lazy resolve from metadata
-        var metadataSymbol = _compilation.ResolveMetadataMember(this, name);
-
-        if (metadataSymbol is not null)
-        {
-            AddMember(metadataSymbol); // Ensure next call finds it directly
-            return [metadataSymbol];
-        }
-
-        return [];
-    }
-
-    public ImmutableArray<ISymbol> GetMembers(string name)
-    {
-        return _members.Where(x => x.Name == name).ToImmutableArray();
-    }
-    
-    */
-
-
     internal void AddMember(ISymbol member)
     {
         _members.Add(member);
@@ -78,12 +49,45 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
 
     public INamespaceSymbol? LookupNamespace(string name)
     {
-        throw new NotImplementedException();
+        // Check existing members
+        foreach (var member in _members)
+        {
+            if (member is INamespaceSymbol ns && member.Name == name)
+                return ns;
+        }
+
+        // Lazy resolve from metadata (assumes ResolveMetadataMember handles namespaces)
+        var resolved = Compilation.ResolveMetadataMember(this, name);
+
+        if (resolved is INamespaceSymbol nsResolved)
+        {
+            AddMember(nsResolved);
+            return nsResolved;
+        }
+
+        return null;
     }
 
     public ITypeSymbol? LookupType(string name)
     {
-        throw new NotImplementedException();
+        // Check if a matching type already exists in this namespace
+        foreach (var member in _members)
+        {
+            if (member is ITypeSymbol type && member.Name == name)
+                return type;
+        }
+
+        // Attempt to resolve from metadata (e.g., Console in System)
+        var metadataSymbol = Compilation.ResolveMetadataMember(this, name);
+
+        if (metadataSymbol is ITypeSymbol typeSymbol)
+        {
+            AddMember(typeSymbol); // Cache it for next time
+            return typeSymbol;
+        }
+
+        // Could be a namespace, but this method only cares about types
+        return null;
     }
 
     public bool IsGlobalNamespace => ContainingNamespace is null;

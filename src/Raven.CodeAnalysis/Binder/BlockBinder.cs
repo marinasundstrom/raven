@@ -116,22 +116,16 @@ class BlockBinder : Binder
     {
         var receiver = BindExpression(memberAccess.Expression);
 
-        // Short-circuit if receiver is already in error
+        // If receiver is already an error, short-circuit
         if (receiver is BoundErrorExpression)
             return receiver;
 
-        if (receiver.Type?.SpecialType == SpecialType.System_Void)
-        {
-            _diagnostics.ReportMemberAccessOnVoid(memberAccess.Name.Identifier.Text, memberAccess.Name.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
-        }
-
         var memberName = memberAccess.Name.Identifier.Text;
 
+        // Namespace access
         if (receiver is BoundNamespaceExpression nsExpr)
         {
-            var ns = nsExpr.Namespace;
-            var member = ns.GetMembers(memberName).FirstOrDefault();
+            var member = nsExpr.Namespace.GetMembers(memberName).FirstOrDefault();
 
             if (member is INamespaceSymbol ns2)
                 return new BoundNamespaceExpression(ns2);
@@ -143,16 +137,36 @@ class BlockBinder : Binder
             return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
         }
 
-        var receiverType = receiver.Type;
-        var symbol = receiverType?.GetMembers(memberName).FirstOrDefault();
+        // Static type access
+        if (receiver is BoundTypeExpression typeExpr)
+        {
+            var member = typeExpr.Type.GetMembers(memberName).FirstOrDefault();
 
-        if (symbol is null)
+            if (member is null)
+            {
+                _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
+                return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
+            }
+
+            return new BoundMemberAccessExpression(typeExpr, member);
+        }
+
+        // Instance member access (for objects)
+        if (receiver.Type?.SpecialType == SpecialType.System_Void)
+        {
+            _diagnostics.ReportMemberAccessOnVoid(memberName, memberAccess.Name.GetLocation());
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
+        }
+
+        var instanceMember = receiver.Type?.GetMembers(memberName).FirstOrDefault();
+
+        if (instanceMember == null)
         {
             _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
         }
 
-        return new BoundMemberAccessExpression(receiver, symbol);
+        return new BoundMemberAccessExpression(receiver, instanceMember);
     }
 
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
@@ -173,19 +187,13 @@ class BlockBinder : Binder
     {
         var symbol = LookupSymbol(syntax.Identifier.Text);
 
-        if (symbol is INamespaceSymbol ns)
-            return new BoundNamespaceExpression(ns);
-
-        if (symbol is ILocalSymbol local)
-            return new BoundLocalExpression(local);
-
-        _diagnostics.ReportUndefinedName(syntax.Identifier.Text, syntax.GetLocation());
-
-        return new BoundErrorExpression(
-            ErrorTypeSymbol.Default,
-            null,
-            CandidateReason.NotFound
-        );
+        return symbol switch
+        {
+            INamespaceSymbol ns => new BoundNamespaceExpression(ns),
+            ITypeSymbol type => new BoundTypeExpression(type),
+            ILocalSymbol local => new BoundLocalExpression(local),
+            _ => new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound)
+        };
     }
 
     private BoundExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
