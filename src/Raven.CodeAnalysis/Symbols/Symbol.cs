@@ -126,7 +126,15 @@ internal abstract class Symbol : ISymbol
         return Equals((ISymbol)other);
     }
 
-    private string GetDebuggerDisplay() => this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+    private string GetDebuggerDisplay()
+    {
+        if (this is INamespaceSymbol ns && ns.IsGlobalNamespace)
+        {
+            return "<global>";
+        }
+
+        return this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+    }
 
     public override string ToString()
     {

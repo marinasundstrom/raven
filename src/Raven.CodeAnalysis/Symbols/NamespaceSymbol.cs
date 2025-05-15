@@ -108,4 +108,11 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
         symbol = _members.FirstOrDefault(m => m.Name == name);
         return symbol is not null;
     }
+
+    public override string ToString()
+    {
+        if (IsGlobalNamespace) return "<global>";
+
+        return this.ToDisplayString();
+    }
 }
