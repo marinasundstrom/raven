@@ -229,36 +229,75 @@ class BlockBinder : Binder
             );
         }
 
-        // Bind argument expressions first
-        var arguments = syntax.ArgumentList.Arguments.Select(arg => BindExpression(arg.Expression)).ToArray();
+        // Bind argument expressions
+        var boundArguments = new List<BoundExpression>();
+        bool hasErrors = false;
 
+        foreach (var arg in syntax.ArgumentList.Arguments)
+        {
+            var boundArg = BindExpression(arg.Expression);
+            if (boundArg is BoundErrorExpression)
+                hasErrors = true;
+            boundArguments.Add(boundArg);
+        }
+
+        // If argument binding failed, abort early
+        if (hasErrors)
+        {
+            return new BoundErrorExpression(
+                ErrorTypeSymbol.Default,
+                null,
+                CandidateReason.NotFound
+            );
+        }
+
+        // Lookup candidate methods
         IEnumerable<IMethodSymbol> candidates;
         if (receiver != null)
         {
-            var receiverType = receiver.Type;
-            candidates = receiverType.GetMembers(methodName).OfType<IMethodSymbol>();
+            candidates = receiver.Type.GetMembers(methodName).OfType<IMethodSymbol>();
         }
         else
         {
             var symbol = LookupSymbol(methodName);
+            if (symbol == null)
+            {
+                _diagnostics.ReportSymbolNotFound(methodName, syntax.Expression.GetLocation());
+                return new BoundErrorExpression(
+                    ErrorTypeSymbol.Default,
+                    null,
+                    CandidateReason.NotFound
+                );
+            }
+
             candidates = symbol is IMethodSymbol single
                 ? new[] { single }
                 : (symbol as INamedTypeSymbol)?.GetMembers(methodName).OfType<IMethodSymbol>() ?? Enumerable.Empty<IMethodSymbol>();
         }
 
-        // Overload resolution: find best match
-        var method = ResolveOverload(candidates, arguments);
-        if (method == null)
+        if (!candidates.Any())
         {
-            _diagnostics.NotAMethod(methodName, syntax.Expression.GetLocation());
+            _diagnostics.ReportSymbolNotFound(methodName, syntax.Expression.GetLocation());
             return new BoundErrorExpression(
-                Compilation.GetSpecialType(SpecialType.System_Object),
+                ErrorTypeSymbol.Default,
                 null,
-                CandidateReason.Ambiguous // or NotInvocable
+                CandidateReason.NotFound
             );
         }
 
-        return new BoundCallExpression(method, arguments, receiver);
+        // Try overload resolution
+        var method = ResolveOverload(candidates, boundArguments.ToArray());
+        if (method == null)
+        {
+            _diagnostics.ReportNoMatchingOverload(methodName, syntax.GetLocation());
+            return new BoundErrorExpression(
+                ErrorTypeSymbol.Default,
+                null,
+                CandidateReason.OverloadResolutionFailure
+            );
+        }
+
+        return new BoundCallExpression(method, boundArguments.ToArray(), receiver);
     }
 
     private IMethodSymbol? ResolveOverload(IEnumerable<IMethodSymbol> methods, BoundExpression[] arguments)

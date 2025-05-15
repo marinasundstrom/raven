@@ -16,6 +16,15 @@ public static class DiagnosticBagExtensions
 
     public static void ReportArgumentCountMismatch(this DiagnosticBag diagnostics, string methodName, int expectedCount, int actualCount, Location location)
         => diagnostics.Report(Diagnostic.Create(DiagnosticDescriptors.ArgumentCountMismatch, location, methodName, expectedCount, actualCount));
+
+    public static void ReportSymbolNotFound(this DiagnosticBag diagnostics, string name, Location location)
+        => diagnostics.Report(Diagnostic.Create(DiagnosticDescriptors.SymbolNotFound, location, name));
+
+    public static void ReportNoMatchingOverload(this DiagnosticBag diagnostics, string name, Location location)
+        => diagnostics.Report(Diagnostic.Create(DiagnosticDescriptors.NoMatchingOverload, location, name));
+
+    public static void ReportAmbiguousMethod(this DiagnosticBag diagnostics, string name, Location location)
+        => diagnostics.Report(Diagnostic.Create(DiagnosticDescriptors.AmbiguousMethod, location, name));
 }
 
 public static class DiagnosticDescriptors
@@ -69,4 +78,34 @@ public static class DiagnosticDescriptors
             messageFormat: "Method '{0}' expects {1} arguments but got {2}.",
             category: "Semantic",
             defaultSeverity: DiagnosticSeverity.Error);
+
+    public static readonly DiagnosticDescriptor SymbolNotFound =
+            DiagnosticDescriptor.Create(
+            id: "RAV006",
+            title: "Symbol not found",
+            description: null,
+            helpLinkUri: "",
+            messageFormat: "No symbol named '{0}' could be found.",
+            category: "Semantic",
+            defaultSeverity: DiagnosticSeverity.Error);
+
+    public static readonly DiagnosticDescriptor NoMatchingOverload =
+        DiagnosticDescriptor.Create(
+        id: "RAV007",
+        title: "No matching overload",
+        description: null,
+        helpLinkUri: "",
+        messageFormat: "No matching overload for method '{0}' was found with the given argument types.",
+        category: "Semantic",
+        defaultSeverity: DiagnosticSeverity.Error);
+
+    public static readonly DiagnosticDescriptor AmbiguousMethod =
+    DiagnosticDescriptor.Create(
+        id: "RAV008",
+        title: "Ambiguous method call",
+        description: null,
+        helpLinkUri: "",
+        messageFormat: "The call to method '{0}' is ambiguous.",
+        category: "Semantic",
+        defaultSeverity: DiagnosticSeverity.Error);
 }
