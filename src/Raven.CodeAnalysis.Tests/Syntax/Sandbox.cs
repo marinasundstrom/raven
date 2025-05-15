@@ -8,7 +8,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var code = """
                    import System;
 
-                   let foo = 2 + 3;
+                   let foo = 2 + 3
                    System.Console.WriteLine(foo).ToString();
                    """;
 
@@ -39,6 +39,13 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var consoleWriteLineSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
 
         var diagnostics = semanticModel.GetDiagnostics();
+
+        testOutputHelper.WriteLine("");
+
+        foreach (var diagnostic in compilation.GetDiagnostics())
+        {
+            testOutputHelper.WriteLine(diagnostic.ToString());
+        }
 
         #endregion
     }
