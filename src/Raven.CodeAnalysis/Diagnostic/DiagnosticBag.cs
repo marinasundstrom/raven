@@ -6,6 +6,8 @@ public class DiagnosticBag
 {
     private readonly List<Diagnostic> _diagnostics;
 
+    public bool IsEmpty => _diagnostics.Count == 0;
+
     public DiagnosticBag()
     {
         _diagnostics = new();
@@ -25,8 +27,6 @@ public class DiagnosticBag
     {
         _diagnostics.AddRange(diagnostics);
     }
-
-    public bool Any() => _diagnostics.Count > 0;
 
     public ImmutableArray<Diagnostic> ToImmutableArray()
     {

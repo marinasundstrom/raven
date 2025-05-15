@@ -9,7 +9,7 @@ class BinderFactory
 {
     private readonly Dictionary<SyntaxNode, Binder> _cache = new();
     private readonly Compilation _compilation;
-    private GlobalBinder rootBinder;
+    private Binder rootBinder;
 
     public BinderFactory(Compilation compilation)
     {
@@ -19,26 +19,35 @@ class BinderFactory
     public Binder GetBinder(SyntaxNode node, Binder parentBinder = null)
     {
         if (_cache.TryGetValue(node, out var existingBinder))
-        {
             return existingBinder;
-        }
 
-        // Ensure parent binder exists before creating the current binder
-        var actualParentBinder = parentBinder ?? (node.Parent != null ? GetBinder(node.Parent) : null)!;
-
-        if (node.Parent is null)
+        // special case for CompilationUnitSyntax
+        if (node is CompilationUnitSyntax cu)
         {
-            actualParentBinder = rootBinder ??= _compilation.GlobalBinder;
+            var topLevelBinder = CreateTopLevelBinder(cu, _compilation.GlobalBinder);
+            _cache[cu] = topLevelBinder;
+            return topLevelBinder;
         }
 
+        // Ensure parent binder is constructed and cached first
+        Binder actualParentBinder = parentBinder;
+
+        if (actualParentBinder == null)
+        {
+            if (!_cache.TryGetValue(node.Parent, out actualParentBinder))
+            {
+                // Recursively create and cache the parent binder first
+                actualParentBinder = GetBinder(node.Parent);
+            }
+        }
+
+        // Now safely construct this node's binder with a guaranteed parent
         Binder newBinder = node switch
         {
-            CompilationUnitSyntax cu => CreateTopLevelBinder(cu, actualParentBinder),
-            NamespaceDeclarationSyntax nsSyntax => CreateNamespaceBinder(nsSyntax, actualParentBinder),
-            // ClassDeclarationSyntax => new TypeBinder(actualParentBinder),
+            NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, actualParentBinder),
             MethodDeclarationSyntax => new MethodBinder(actualParentBinder),
             BlockSyntax => new LocalScopeBinder(actualParentBinder),
-            _ => actualParentBinder // Use the resolved parent binder
+            _ => actualParentBinder
         };
 
         _cache[node] = newBinder;
@@ -112,5 +121,10 @@ class BinderFactory
         }
 
         return nsBinder;
+    }
+
+    public IEnumerable<Binder> GetAllBinders()
+    {
+        return _cache.Values.Distinct();
     }
 }

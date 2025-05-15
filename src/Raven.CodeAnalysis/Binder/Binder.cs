@@ -83,6 +83,12 @@ abstract class Binder
         return SymbolTable.TryGetValue(name, out var symbol) ? symbol : ParentBinder?.LookupSymbol(name);
     }
 
+    public virtual BoundExpression BindStatement(StatementSyntax statement)
+    {
+        return ParentBinder?.BindStatement(statement)
+             ?? throw new NotImplementedException("BindStatement not implemented in root binder.");
+    }
+
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)
     {
         return ParentBinder?.BindExpression(expression)

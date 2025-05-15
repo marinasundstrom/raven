@@ -40,13 +40,36 @@ class BlockBinder : Binder
                 return BindExpression(expr).GetSymbolInfo();
 
             case ExpressionStatementSyntax exprStmt:
-                return BindExpression(exprStmt.Expression).GetSymbolInfo();
+                return BindStatement(exprStmt).GetSymbolInfo();
 
             default:
                 return base.BindSymbol(node);
         }
 
         return new SymbolInfo(symbol);
+    }
+
+    public override BoundExpression BindStatement(StatementSyntax statement)
+    {
+        return statement switch
+        {
+            LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindVariableDeclaration(localDeclaration.Declaration.Declarators[0])),
+            ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
+            /*BlockSyntax block => BindBlock(block),
+            IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
+            WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
+            ForStatementSyntax forStmt => BindForStatement(forStmt),
+            ReturnStatementSyntax returnStmt => BindReturnStatement(returnStmt), */
+            _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
+        };
+    }
+
+    private BoundExpression BindBlock(BlockSyntax block)
+    {
+        var blockBinder = new BlockBinder(this);
+        var statements = block.Statements.Select(blockBinder.BindStatement).ToArray();
+
+        return new BoundBlockExpression(statements);
     }
 
     private ILocalSymbol BindVariableDeclaration(VariableDeclaratorSyntax variableDeclarator)
@@ -84,6 +107,7 @@ class BlockBinder : Binder
             BinaryExpressionSyntax binary => BindBinaryExpression(binary),
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
+            BlockSyntax block => BindBlock(block),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
     }
@@ -106,7 +130,7 @@ class BlockBinder : Binder
                 return new BoundTypeExpression(type);
 
             _diagnostics.ReportUndefinedName(memberName, syntax.Name.GetLocation());
-            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object), null, CandidateReason.NotFound);
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
         }
 
         var receiverType = receiver.Type;
@@ -118,7 +142,7 @@ class BlockBinder : Binder
         if (symbol is null)
         {
             _diagnostics.ReportUndefinedName(memberName, syntax.Name.GetLocation());
-            return new BoundErrorExpression(Compilation.GetSpecialType(SpecialType.System_Object), null, CandidateReason.NotFound);
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
         }
 
         return new BoundMemberAccessExpression(receiver, symbol);
@@ -151,7 +175,7 @@ class BlockBinder : Binder
         _diagnostics.ReportUndefinedName(syntax.Identifier.Text, syntax.GetLocation());
 
         return new BoundErrorExpression(
-            Compilation.GetSpecialType(SpecialType.System_Object),
+            ErrorTypeSymbol.Default,
             null,
             CandidateReason.NotFound
         );
@@ -170,7 +194,7 @@ class BlockBinder : Binder
             _diagnostics.ReportUndefinedBinaryOperator(opKind.ToString(), left.Type, right.Type, syntax.OperatorToken.GetLocation());
 
             return new BoundErrorExpression(
-                Compilation.GetSpecialType(SpecialType.System_Object),
+                ErrorTypeSymbol.Default,
                 null,
                 CandidateReason.NotFound
             );
@@ -199,7 +223,7 @@ class BlockBinder : Binder
         {
             _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
             return new BoundErrorExpression(
-                Compilation.GetSpecialType(SpecialType.System_Object),
+                ErrorTypeSymbol.Default,
                 null,
                 CandidateReason.NotFound
             );

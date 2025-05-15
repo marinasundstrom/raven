@@ -13,7 +13,6 @@ public class Compilation
     private readonly MetadataReference[] _references;
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
-    private readonly GlobalBinder _globalBinder;
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -21,11 +20,9 @@ public class Compilation
         _syntaxTrees = syntaxTrees;
         _references = references;
         Options = options ?? new CompilationOptions();
-
-        _globalBinder = new GlobalBinder(this);
     }
 
-    internal GlobalBinder GlobalBinder => _globalBinder;
+    internal GlobalBinder GlobalBinder => _globalBinder ??= new GlobalBinder(this);
 
     public string AssemblyName { get; }
 
@@ -158,6 +155,7 @@ public class Compilation
 
     private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
     private MetadataLoadContext _metadataLoadContext;
+    private GlobalBinder _globalBinder;
 
     private void LoadMetadataReferences()
     {
@@ -446,21 +444,6 @@ public class Compilation
         }
 
         return GetSimpleType(type);
-
-        //return _symbols.OfType<MetadataTypeSymbol>().First(x => x.GetClrType(this) == typeInfo);
-
-        /*
-        if (!typeSymbolMappings.TryGetValue(typeInfo, out var symbol))
-        {
-            var ns = GetOrCreateNamespaceSymbol(type.Namespace);
-
-            symbol = new MetadataTypeSymbol(
-                this,
-                typeInfo, ns, null, ns,
-                []);
-        }
-        return symbol;
-        */
     }
 
     private ITypeSymbol? GetSimpleType(Type type)
@@ -508,162 +491,5 @@ public class Compilation
 
         // Could optionally support lazy sub-namespaces in future
         return null;
-    }
-}
-
-public enum SpecialType
-{
-    None = 0,
-
-    // System namespace
-    System_Object = 1,
-    System_Enum = 2,
-    System_MulticastDelegate = 3,
-    System_Delegate = 4,
-    System_ValueType = 5,
-    System_Void = 6,
-    System_Boolean = 7,
-    System_Char = 8,
-    System_SByte = 9,
-    System_Byte = 10,
-    System_Int16 = 11,
-    System_UInt16 = 12,
-    System_Int32 = 13,
-    System_UInt32 = 14,
-    System_Int64 = 15,
-    System_UInt64 = 16,
-    System_Decimal = 17,
-    System_Single = 18,
-    System_Double = 19,
-    System_String = 20,
-    System_IntPtr = 21,
-    System_UIntPtr = 22,
-    System_Array = 23,
-    System_Collections_IEnumerable = 24,
-    System_Collections_Generic_IEnumerable_T = 25,
-    System_Collections_Generic_IList_T = 26,
-    System_Collections_Generic_ICollection_T = 27,
-    System_Collections_IEnumerator = 28,
-    System_Collections_Generic_IEnumerator_T = 29,
-    System_Nullable_T = 30,
-
-    // Task and async
-    System_DateTime = 31,
-    System_Runtime_CompilerServices_IsVolatile = 32,
-    System_IDisposable = 33,
-    System_TypedReference = 34,
-    System_ArgIterator = 35,
-    System_RuntimeArgumentHandle = 36,
-    System_RuntimeFieldHandle = 37,
-    System_RuntimeMethodHandle = 38,
-    System_RuntimeTypeHandle = 39,
-    System_IAsyncResult = 40,
-    System_AsyncCallback = 41,
-    System_Runtime_CompilerServices_AsyncVoidMethodBuilder = 42,
-    System_Runtime_CompilerServices_AsyncTaskMethodBuilder = 43,
-    System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T = 44,
-    System_Runtime_CompilerServices_AsyncStateMachineAttribute = 45,
-    System_Runtime_CompilerServices_IteratorStateMachineAttribute = 46,
-    System_Threading_Tasks_Task = 47,
-    System_Threading_Tasks_Task_T = 48,
-
-    // Interop
-    System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken = 49,
-    System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T = 50,
-
-    // Tuple types
-    System_ValueTuple_T1 = 51,
-    System_ValueTuple_T2 = 52,
-    System_ValueTuple_T3 = 53,
-    System_ValueTuple_T4 = 54,
-    System_ValueTuple_T5 = 55,
-    System_ValueTuple_T6 = 56,
-    System_ValueTuple_T7 = 57,
-    System_ValueTuple_TRest = 58
-}
-
-public struct Conversion
-{
-    public bool IsImplicit { get; }
-    public bool IsExplicit => !IsImplicit;
-    public bool IsIdentity { get; }
-    public bool IsReference { get; }
-    public bool IsBoxing { get; }
-    public bool IsUnboxing { get; }
-
-    public bool IsUserDefined { get; }
-    public IMethodSymbol? MethodSymbol { get; }
-
-    public Conversion(bool isImplicit, bool isIdentity = false, bool isReference = false, bool isBoxing = false, bool isUnboxing = false)
-    {
-        IsImplicit = isImplicit;
-        IsIdentity = isIdentity;
-        IsReference = isReference;
-        IsBoxing = isBoxing;
-        IsUnboxing = isUnboxing;
-    }
-
-    public static Conversion None => new Conversion(false);
-}
-
-public class EmitResult
-{
-    internal EmitResult(bool success, ImmutableArray<Diagnostic> diagnostics)
-    {
-        Success = success;
-        Diagnostics = diagnostics;
-    }
-
-    public bool Success { get; }
-    public ImmutableArray<Diagnostic> Diagnostics { get; }
-}
-
-public class CompilationOptions
-{
-    public CompilationOptions()
-    {
-        OutputKind = OutputKind.ConsoleApplication;
-    }
-
-    public CompilationOptions(OutputKind outputKind)
-    {
-        OutputKind = outputKind;
-    }
-
-    public OutputKind OutputKind { get; }
-}
-
-public enum OutputKind
-{
-    ConsoleApplication = 0,
-    WindowsApplication = 1,
-    DynamicallyLinkedLibrary = 2
-}
-
-public static class CompilationExtensions
-{
-    public static INamespaceSymbol? GetNamespaceSymbol(this Compilation compilation, string? ns)
-    {
-        if (ns is null)
-            return compilation.GlobalNamespace;
-
-        // Split the namespace into parts
-        var namespaceParts = ns.Split('.');
-
-        // Start with the global namespace
-        var currentNamespace = compilation.GlobalNamespace;
-
-        // Traverse the namespace hierarchy
-        foreach (var part in namespaceParts)
-        {
-            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as NamespaceSymbol;
-
-            if (currentNamespace == null)
-            {
-                return null; // Namespace not found
-            }
-        }
-
-        return currentNamespace;
     }
 }

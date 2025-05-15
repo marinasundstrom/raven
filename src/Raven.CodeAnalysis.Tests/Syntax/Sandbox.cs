@@ -9,7 +9,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
                    import System;
 
                    let foo = 2 + 3;
-                   System.Console.WriteLine(foo);
+                   System.Console.WriteLine(x);
                    """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -37,6 +37,8 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var fooSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
         var consoleWriteLineSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
+
+        var diagnostics = semanticModel.GetDiagnostics();
 
         #endregion
     }
