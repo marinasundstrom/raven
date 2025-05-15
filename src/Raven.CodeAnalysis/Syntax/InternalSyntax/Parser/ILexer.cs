@@ -22,6 +22,7 @@ internal struct Token
     {
         Kind = kind;
         Text = string.Intern(text);
+        Length = text.Length;
         _diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
     }
 
@@ -30,6 +31,7 @@ internal struct Token
         Kind = kind;
         Text = string.Intern(text);
         Value = value;
+        Length = text.Length;
         _diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
     }
 
