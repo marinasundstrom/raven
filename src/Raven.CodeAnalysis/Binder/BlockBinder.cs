@@ -206,6 +206,7 @@ class BlockBinder : Binder
             INamespaceSymbol ns => new BoundNamespaceExpression(ns),
             ITypeSymbol type => new BoundTypeExpression(type),
             ILocalSymbol local => new BoundLocalExpression(local),
+            IPropertySymbol prop => new BoundPropertyExpression(prop),
             _ => new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound)
         };
     }
@@ -298,7 +299,7 @@ class BlockBinder : Binder
             }
 
             candidates = symbol is IMethodSymbol single
-                ? new[] { single }
+                ? [single]
                 : (symbol as INamedTypeSymbol)?.GetMembers(methodName).OfType<IMethodSymbol>() ?? Enumerable.Empty<IMethodSymbol>();
         }
 

@@ -9,11 +9,8 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     {
         var code = """
                    import System;
-
                    let x = [1, 2, 3];
-                   let foo = x[1];
-                   
-                   Console.WriteLine(foo);
+                   Console.WriteLine(x.Length);
                    """;
 
         var syntaxTree = SyntaxTree.ParseText(code);

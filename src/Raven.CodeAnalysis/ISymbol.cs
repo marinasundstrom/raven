@@ -116,6 +116,8 @@ public interface INamespaceOrTypeSymbol : ISymbol
     ImmutableArray<ISymbol> GetMembers(string name);
 
     ITypeSymbol? LookupType(string name);
+
+    bool IsMemberDefined(string name, out ISymbol? symbol);
 }
 
 public interface INamespaceSymbol : INamespaceOrTypeSymbol

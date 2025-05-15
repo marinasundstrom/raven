@@ -2,7 +2,5 @@ import System;
 
 let x = [1, 2, 3];
 
-x[2] = 42;
-
-let foo = x[1];
-Console.WriteLine(foo);
+Console.WriteLine(x[0]);
+Console.WriteLine(x.Length.ToString());

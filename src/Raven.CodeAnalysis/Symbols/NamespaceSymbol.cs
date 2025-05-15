@@ -35,7 +35,6 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
 
         if (metadataSymbol is not null)
         {
-            AddMember(metadataSymbol); // Ensure next call finds it directly
             return [metadataSymbol];
         }
 
@@ -61,7 +60,6 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
 
         if (resolved is INamespaceSymbol nsResolved)
         {
-            AddMember(nsResolved);
             return nsResolved;
         }
 
@@ -82,7 +80,6 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
 
         if (metadataSymbol is ITypeSymbol typeSymbol)
         {
-            AddMember(typeSymbol); // Cache it for next time
             return typeSymbol;
         }
 
@@ -104,5 +101,11 @@ internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
         }
 
         return string.Join(".", parts);
+    }
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        symbol = _members.FirstOrDefault(m => m.Name == name);
+        return symbol is not null;
     }
 }

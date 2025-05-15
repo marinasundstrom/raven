@@ -49,4 +49,9 @@ internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
     {
         return Name;
     }
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        throw new NotSupportedException();
+    }
 }

@@ -484,11 +484,11 @@ public class Compilation
             var type = asm.GetType(fullName, throwOnError: false, ignoreCase: false);
             if (type != null)
             {
+                if (namespaceSymbol.IsMemberDefined(name, out var existingSymbol))
+                    return existingSymbol;
+
                 var symbol = CreateMetadataTypeSymbol(type);
                 _resolvedMetadataTypes[fullName] = symbol;
-
-                if (namespaceSymbol is NamespaceSymbol nsSym)
-                    nsSym.AddMember(symbol);
 
                 return symbol;
             }
@@ -500,9 +500,11 @@ public class Compilation
 
             if (namespaceLikelyExists && namespaceSymbol is NamespaceSymbol parentNs)
             {
-                var newNamespace = new NamespaceSymbol(this, name, parentNs, null, parentNs, [], []);
-                parentNs.AddMember(newNamespace);
-                return newNamespace;
+                // Check if the namespace already exists in the parent
+                if (parentNs.IsMemberDefined(name, out var existingSymbol))
+                    return existingSymbol;
+
+                return new NamespaceSymbol(this, name, parentNs, null, parentNs, [], []);
             }
         }
 

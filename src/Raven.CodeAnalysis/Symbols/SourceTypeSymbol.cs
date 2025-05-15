@@ -47,4 +47,10 @@ internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
     {
         _members.Add(member);
     }
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        symbol = _members.FirstOrDefault(m => m.Name == name);
+        return symbol is not null;
+    }
 }

@@ -97,6 +97,12 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
         return _members.Where(x => x.Name == name).ToImmutableArray();
     }
 
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        symbol = _members.FirstOrDefault(m => m.Name == name);
+        return symbol is not null;
+    }
+
     public ITypeSymbol? LookupType(string name)
     {
         throw new NotImplementedException();
@@ -127,8 +133,6 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
                 this,
                 ContainingNamespace,
                 []);
-
-            AddMember(method);
         }
 
         foreach (var pi in _typeInfo.DeclaredProperties)
@@ -165,8 +169,6 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
                     ContainingNamespace,
                     []);
             }
-
-            AddMember(property);
         }
 
         foreach (var fi in _typeInfo.DeclaredFields)
@@ -182,8 +184,6 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
                 this,
                 ContainingNamespace,
                 []);
-
-            AddMember(field);
         }
 
         foreach (var ci in _typeInfo.DeclaredConstructors)
@@ -196,8 +196,6 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
                 this,
                 ContainingNamespace,
                 []);
-
-            AddMember(ctor);
         }
     }
 }

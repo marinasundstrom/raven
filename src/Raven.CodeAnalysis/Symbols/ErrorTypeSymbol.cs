@@ -41,4 +41,9 @@ internal class ErrorTypeSymbol : Symbol, IErrorTypeSymbol
     {
         throw new NotImplementedException();
     }
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        throw new NotSupportedException();
+    }
 }

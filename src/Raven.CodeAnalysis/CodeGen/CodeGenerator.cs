@@ -541,10 +541,43 @@ internal class CodeGenerator
         }
     }
 
-    private void GenerateMemberAccessExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, MemberAccessExpressionSyntax memberAccessExpression)
+    private void GenerateMemberAccessExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator ilGenerator, StatementSyntax statement, MemberAccessExpressionSyntax memberAccessExpression)
     {
-        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression.Expression);
-        GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, memberAccessExpression.Name);
+        var symbol = GetSymbolInfo(memberAccessExpression).Symbol;
+
+        if (symbol is IPropertySymbol propertySymbol)
+        {
+            // First load the target expression (e.g., the array object)
+            GenerateExpression(typeBuilder, methodBuilder, ilGenerator, statement, memberAccessExpression.Expression);
+
+            if (propertySymbol.ContainingType!.SpecialType == SpecialType.System_Array && propertySymbol.Name == "Length")
+            {
+                ilGenerator.Emit(OpCodes.Ldlen);
+            }
+            else
+            {
+                var metadataPropertySymbol = propertySymbol as MetadataPropertySymbol;
+                var getMethod = metadataPropertySymbol?.GetMethod as MetadataMethodSymbol;
+
+                if (getMethod is null)
+                    throw new Exception($"Cannot resolve getter for property {propertySymbol.Name}");
+
+                // Value types need address loading
+                if (!propertySymbol.IsStatic && propertySymbol.ContainingType.IsValueType)
+                {
+                    var clrType = propertySymbol.ContainingType.GetClrType(_compilation);
+                    var tmp = ilGenerator.DeclareLocal(clrType);
+                    ilGenerator.Emit(OpCodes.Stloc, tmp);
+                    ilGenerator.Emit(OpCodes.Ldloca, tmp);
+                }
+
+                ilGenerator.Emit(OpCodes.Call, getMethod.GetMethodInfo());
+            }
+        }
+        else
+        {
+            throw new Exception($"Unsupported member access: {memberAccessExpression}");
+        }
     }
 
     private void GenerateInvocationExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, InvocationExpressionSyntax invocationExpression)
