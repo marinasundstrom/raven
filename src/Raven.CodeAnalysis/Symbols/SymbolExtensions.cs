@@ -4,6 +4,38 @@ namespace Raven.CodeAnalysis;
 
 public static partial class SymbolExtensions
 {
+    private static readonly Dictionary<string, string> s_specialTypeNames = new()
+    {
+        ["System.Object"] = "object",
+        ["System.String"] = "string",
+        ["System.Boolean"] = "bool",
+        ["System.Byte"] = "byte",
+        ["System.SByte"] = "sbyte",
+        ["System.Int16"] = "short",
+        ["System.UInt16"] = "ushort",
+        ["System.Int32"] = "int",
+        ["System.UInt32"] = "uint",
+        ["System.Int64"] = "long",
+        ["System.UInt64"] = "ulong",
+        ["System.Single"] = "float",
+        ["System.Double"] = "double",
+        ["System.Decimal"] = "decimal",
+        ["System.Char"] = "char",
+        ["System.Void"] = "void"
+    };
+
+    public static string ToDisplayStringKeywordAware(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    {
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
+        {
+            var fullName = typeSymbol.ToFullyQualifiedMetadataName(); // e.g. "System.Int32"
+            if (s_specialTypeNames.TryGetValue(fullName, out var keyword))
+                return keyword;
+        }
+
+        return typeSymbol.ToDisplayString(format);
+    }
+
     public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat format = default!)
     {
         format ??= SymbolDisplayFormat.CSharpErrorMessageFormat;
@@ -14,7 +46,7 @@ public static partial class SymbolExtensions
         {
             if (format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType))
             {
-                var localType = localSymbol.Type.ToDisplayString(format);
+                var localType = localSymbol.Type.ToDisplayStringKeywordAware(format);
                 result.Append($"{localType} ");
             }
 
@@ -26,7 +58,7 @@ public static partial class SymbolExtensions
         {
             if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))
             {
-                var localType = parameterSymbol.Type.ToDisplayString(format);
+                var localType = parameterSymbol.Type.ToDisplayStringKeywordAware(format);
                 result.Append($"{localType} ");
             }
 
@@ -72,7 +104,7 @@ public static partial class SymbolExtensions
             // Return type (if requested)
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
             {
-                var returnType = methodSymbol.ReturnType?.ToDisplayString(format);
+                var returnType = methodSymbol.ReturnType?.ToDisplayStringKeywordAware(format);
                 if (!string.IsNullOrEmpty(returnType))
                 {
                     result.Insert(0, returnType + " ");
@@ -120,7 +152,7 @@ public static partial class SymbolExtensions
 
         if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))
         {
-            sb.Append(parameter.Type.ToDisplayString(format));
+            sb.Append(parameter.Type.ToDisplayStringKeywordAware(format));
             sb.Append(" ");
         }
 

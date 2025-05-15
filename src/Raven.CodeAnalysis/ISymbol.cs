@@ -160,6 +160,8 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
     INamedTypeSymbol? BaseType { get; }
     SpecialType SpecialType { get; }
     bool IsValueType { get; }
+
+    public string ToFullyQualifiedMetadataName() => ContainingNamespace is null ? Name : $"{ContainingNamespace.ToMetadataName()}.{Name}";
 }
 
 public interface INamedTypeSymbol : ITypeSymbol
