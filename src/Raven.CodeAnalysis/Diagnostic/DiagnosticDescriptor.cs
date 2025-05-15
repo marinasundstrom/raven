@@ -20,7 +20,8 @@ public class DiagnosticDescriptor
         string helpLinkUri,
         LocalizableString messageFormat,
         string category,
-        DiagnosticSeverity defaultSeverity)
+        DiagnosticSeverity defaultSeverity,
+        bool isEnabledByDefault = true)
     {
         return new DiagnosticDescriptor(id, title, description, helpLinkUri, messageFormat, category, defaultSeverity);
     }

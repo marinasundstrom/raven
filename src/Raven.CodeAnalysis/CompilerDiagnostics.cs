@@ -15,7 +15,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _nonInvocableMember;
     private static DiagnosticDescriptor? _unassignedOutParameter;
     private static DiagnosticDescriptor? _variableUsedLikeAType;
-    private static DiagnosticDescriptor? _useOfAssignedVariable;
+    private static DiagnosticDescriptor? _useOfUnassignedVariable;
     private static DiagnosticDescriptor? _memberDoesNotContainDefinition;
     private static DiagnosticDescriptor? _operatorCannotBeAppliedToOperandOfType;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
@@ -155,7 +155,7 @@ internal class CompilerDiagnostics
     /// <summary>
     /// RAV0165: Use of unassigned local variable '{0}'
     /// </summary>
-    public static DiagnosticDescriptor UseOfUnassignedVariable => _useOfAssignedVariable ??= DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor UseOfUnassignedVariable => _useOfUnassignedVariable ??= DiagnosticDescriptor.Create(
         id: "RAV0165",
         title: "Use of unassigned local variable",
         description: "",

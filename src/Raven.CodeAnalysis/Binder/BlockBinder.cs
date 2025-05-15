@@ -116,6 +116,10 @@ class BlockBinder : Binder
     {
         var receiver = BindExpression(syntax.Expression);
 
+        // Short-circuit if receiver is already in error
+        if (receiver is BoundErrorExpression)
+            return receiver;
+
         var memberName = syntax.Name.Identifier.Text;
 
         if (receiver is BoundNamespaceExpression nsExpr)
@@ -134,10 +138,7 @@ class BlockBinder : Binder
         }
 
         var receiverType = receiver.Type;
-
-        var symbol = receiverType
-            .GetMembers(memberName)
-            .FirstOrDefault();
+        var symbol = receiverType?.GetMembers(memberName).FirstOrDefault();
 
         if (symbol is null)
         {
@@ -208,10 +209,14 @@ class BlockBinder : Binder
         BoundExpression? receiver;
         string methodName;
 
-        // Determine the method name and receiver
         if (syntax.Expression is MemberAccessExpressionSyntax memberAccess)
         {
             receiver = BindExpression(memberAccess.Expression);
+
+            // ❗ Early exit if receiver is invalid
+            if (receiver is BoundErrorExpression)
+                return receiver;
+
             methodName = memberAccess.Name.Identifier.Text;
         }
         else if (syntax.Expression is IdentifierNameSyntax id)
@@ -222,17 +227,12 @@ class BlockBinder : Binder
         else
         {
             _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
-            return new BoundErrorExpression(
-                ErrorTypeSymbol.Default,
-                null,
-                CandidateReason.NotFound
-            );
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
         }
 
-        // Bind argument expressions
+        // Bind arguments
         var boundArguments = new List<BoundExpression>();
         bool hasErrors = false;
-
         foreach (var arg in syntax.ArgumentList.Arguments)
         {
             var boundArg = BindExpression(arg.Expression);
@@ -241,15 +241,8 @@ class BlockBinder : Binder
             boundArguments.Add(boundArg);
         }
 
-        // If argument binding failed, abort early
         if (hasErrors)
-        {
-            return new BoundErrorExpression(
-                ErrorTypeSymbol.Default,
-                null,
-                CandidateReason.NotFound
-            );
-        }
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
 
         // Lookup candidate methods
         IEnumerable<IMethodSymbol> candidates;
