@@ -39,8 +39,6 @@ public interface ISymbol : IEquatable<ISymbol?>
     bool IsStatic { get; }
 
     bool Equals(ISymbol? other, SymbolEqualityComparer comparer);
-
-    string ToDisplayString(SymbolDisplayFormat format = default);
 }
 
 public enum Accessibility

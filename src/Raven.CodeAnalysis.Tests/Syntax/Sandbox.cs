@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
 public class Sandbox(ITestOutputHelper testOutputHelper)

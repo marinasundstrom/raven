@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public static class SymbolExtensions
+public static partial class SymbolExtensions
 {
     /// <summary>
     /// Unwraps the actual type of a property symbol or local symbol. 
