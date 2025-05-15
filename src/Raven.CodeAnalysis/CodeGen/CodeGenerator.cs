@@ -702,8 +702,7 @@ internal class CodeGenerator
         {
             case SyntaxKind.NumericLiteralExpression:
                 {
-                    var v = literalExpression.Token.ValueText;
-                    iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(v));
+                    iLGenerator.Emit(OpCodes.Ldc_I4, (int)literalExpression.Token.Value);
                     break;
                 }
 

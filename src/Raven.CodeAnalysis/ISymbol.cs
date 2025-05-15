@@ -153,6 +153,7 @@ public interface IPropertySymbol : ISymbol
     ITypeSymbol Type { get; }
     IMethodSymbol? GetMethod { get; }
     IMethodSymbol? SetMethod { get; }
+    bool IsIndexer { get; }
 }
 
 public interface ITypeSymbol : INamespaceOrTypeSymbol
@@ -160,6 +161,7 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
     INamedTypeSymbol? BaseType { get; }
     SpecialType SpecialType { get; }
     bool IsValueType { get; }
+    bool IsArray { get; }
 
     public string ToFullyQualifiedMetadataName() => ContainingNamespace is null ? Name : $"{ContainingNamespace.ToMetadataName()}.{Name}";
 }

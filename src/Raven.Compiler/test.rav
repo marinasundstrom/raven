@@ -1,4 +1,8 @@
 import System;
 
-let foo = 42;
+let x = [1, 2, 3];
+
+x[2] = 42;
+
+let foo = x[1];
 Console.WriteLine(foo);

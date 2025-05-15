@@ -11,4 +11,5 @@ internal class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     public ITypeSymbol Type { get; }
     public IMethodSymbol? GetMethod { get; }
     public IMethodSymbol? SetMethod { get; }
+    public bool IsIndexer => false;
 }

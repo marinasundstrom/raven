@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Raven.CodeAnalysis;
 
 sealed class BoundCallExpression : BoundExpression

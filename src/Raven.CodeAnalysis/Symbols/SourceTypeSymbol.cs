@@ -26,6 +26,8 @@ internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
 
     public INamedTypeSymbol? BaseType => throw new NotImplementedException();
 
+    public bool IsArray => false;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return _members.ToImmutableArray();

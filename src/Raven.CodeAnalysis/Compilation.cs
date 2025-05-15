@@ -508,4 +508,10 @@ public class Compilation
 
         return null;
     }
+
+    public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType)
+    {
+        var ns = GlobalNamespace.LookupNamespace("System");
+        return new ArrayTypeSymbol(this, elementType, ns, null, ns, []);
+    }
 }

@@ -83,6 +83,8 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
 
     public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)_compilation.GetType(_typeInfo.BaseType) : null);
 
+    public bool IsArray => false;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         EnsureMembersLoaded();

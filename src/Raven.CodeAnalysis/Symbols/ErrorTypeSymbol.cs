@@ -31,6 +31,8 @@ internal class ErrorTypeSymbol : Symbol, IErrorTypeSymbol
 
     public INamedTypeSymbol? BaseType => throw new NotImplementedException();
 
+    public bool IsArray => false;
+
     public ImmutableArray<ISymbol> GetMembers() => [];
 
     public ImmutableArray<ISymbol> GetMembers(string name) => [];

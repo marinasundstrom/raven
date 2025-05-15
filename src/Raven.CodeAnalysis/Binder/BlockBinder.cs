@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -110,6 +112,9 @@ class BlockBinder : Binder
             BinaryExpressionSyntax binary => BindBinaryExpression(binary),
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
+            ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
+            AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
+            CollectionExpressionSyntax collection => BindCollectionExpression(collection),
             BlockSyntax block => BindBlock(block),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
@@ -346,5 +351,110 @@ class BlockBinder : Binder
         }
 
         return null; // No matching overload
+    }
+
+    private BoundExpression BindElementAccessExpression(ElementAccessExpressionSyntax syntax)
+    {
+        var receiver = BindExpression(syntax.Expression);
+        var argumentExprs = syntax.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
+
+        var receiverType = receiver.Type;
+        if (receiverType is null)
+        {
+            _diagnostics.ReportInvalidInvocation(syntax.GetLocation());
+            return new BoundErrorExpression(
+                Compilation.GetSpecialType(SpecialType.System_Object),
+                null,
+                CandidateReason.NotFound);
+        }
+
+        if (receiverType.IsArray)
+        {
+            return new BoundArrayAccessExpression(receiver, argumentExprs, ((IArrayTypeSymbol)receiverType).ElementType);
+        }
+
+        var indexer = ResolveIndexer(receiverType, argumentExprs.Length);
+
+        if (indexer is null)
+        {
+            //_diagnostics.ReportUndefinedIndexer(receiverType, syntax.GetLocation());
+            return new BoundErrorExpression(receiverType, null, CandidateReason.NotFound);
+        }
+
+        return new BoundIndexerAccessExpression(receiver, argumentExprs, indexer);
+    }
+
+    private IPropertySymbol? ResolveIndexer(ITypeSymbol receiverType, int argCount)
+    {
+        return receiverType
+            .GetMembers()
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(p => p.IsIndexer &&
+                                 p.GetMethod is not null &&
+                                 p.GetMethod.Parameters.Length == argCount);
+    }
+
+    private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
+    {
+        var right = BindExpression(syntax.RightHandSide);
+
+        if (syntax.LeftHandSide is ElementAccessExpressionSyntax elementAccess)
+        {
+            var receiver = BindExpression(elementAccess.Expression);
+            var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
+
+            if (receiver.Type?.IsArray == true)
+            {
+                return new BoundArrayAssignmentExpression(
+                    new BoundArrayAccessExpression(receiver, args, receiver.Type),
+                    right);
+            }
+
+            var indexer = ResolveIndexer(receiver.Type!, args.Length);
+
+            if (indexer is null || indexer.SetMethod is null)
+            {
+                //_diagnostics.ReportInvalidIndexerAssignment(syntax.GetLocation());
+                return new BoundErrorExpression(receiver.Type!, null, CandidateReason.NotFound);
+            }
+
+            var access = new BoundIndexerAccessExpression(receiver, args, indexer);
+            return new BoundIndexerAssignmentExpression(access, right);
+        }
+
+        // Fall back to normal variable/property assignment
+        var left = BindExpression(syntax.LeftHandSide);
+        return new BoundVariableAssignmentExpression(left.Symbol as ILocalSymbol, right);
+    }
+
+    private BoundExpression BindCollectionExpression(CollectionExpressionSyntax syntax)
+    {
+        var elements = ImmutableArray.CreateBuilder<BoundExpression>();
+        ITypeSymbol? elementType = null;
+
+        foreach (var expr in syntax.Elements)
+        {
+            var boundElement = BindExpression(expr.Expression);
+            elements.Add(boundElement);
+
+            if (elementType == null)
+            {
+                elementType = boundElement.Type!;
+            }
+            else if (!SymbolEqualityComparer.Default.Equals(elementType, boundElement.Type))
+            {
+                // TODO: Add implicit conversion or report error for heterogeneous types
+            }
+        }
+
+        if (elementType == null)
+        {
+            // Empty collection: default to object[]
+            elementType = Compilation.GetSpecialType(SpecialType.System_Object);
+        }
+
+        var arrayType = Compilation.CreateArrayTypeSymbol(elementType);
+
+        return new BoundCollectionExpression(arrayType, elements.ToArray(), elementType);
     }
 }

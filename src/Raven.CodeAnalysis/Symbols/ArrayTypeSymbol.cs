@@ -28,6 +28,8 @@ internal class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
 
     public INamedTypeSymbol? BaseType => _baseType ??= (INamedTypeSymbol?)_compilation.GetSpecialType(SpecialType.System_Array);
 
+    public bool IsArray => true;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return BaseType!.GetMembers();
