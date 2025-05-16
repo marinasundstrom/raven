@@ -83,8 +83,16 @@ public static partial class SymbolExtensions
             }
         }
 
-        // Append the symbol's name
-        result.Append(symbol.Name); // Assume `Name` is a property of the symbol
+        if (symbol is IArrayTypeSymbol arrayTypeSymbol)
+        {
+            result.Append(arrayTypeSymbol.ElementType.ToDisplayStringKeywordAware(format));
+            result.Append("[]");
+        }
+        else
+        {
+            // Append the symbol's name
+            result.Append(symbol.Name); // Assume `Name` is a property of the symbol   
+        }
 
         if (symbol is INamedTypeSymbol typeSymbol)
         {

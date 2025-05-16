@@ -40,7 +40,7 @@ public class Diagnostic
         {
             if (arg is ISymbol symbol)
             {
-                return symbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+                return symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
             }
 
             return arg;
