@@ -10,9 +10,6 @@ sealed class BoundBinaryOperator
     public ITypeSymbol RightType { get; }
     public ITypeSymbol ResultType { get; }
 
-    public static readonly BoundBinaryOperator Error =
-        new BoundBinaryOperator(SyntaxKind.None, TypeSymbol.Object, TypeSymbol.Object, TypeSymbol.Object);
-
     private BoundBinaryOperator(SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, ITypeSymbol result)
     {
         SyntaxKind = kind;
