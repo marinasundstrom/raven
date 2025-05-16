@@ -50,7 +50,7 @@ static class ConsoleEx
                 _ => ConsoleColor.Black
             };
 
-            AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{descriptor.DefaultSeverity.ToString().ToLower()} {descriptor.Id}[/]: {string.Format(descriptor.MessageFormat, diagnostic.GetMessageArgs() ?? [])}");
+            AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{descriptor.DefaultSeverity.ToString().ToLower()} {descriptor.Id}[/]: {Markup.Escape(diagnostic.GetMessage())}");
         }
     }
 }

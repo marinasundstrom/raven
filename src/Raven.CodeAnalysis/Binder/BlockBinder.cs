@@ -179,7 +179,7 @@ class BlockBinder : Binder
 
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
     {
-        var value = syntax.Token.Value!;
+        var value = syntax.Token.Value ?? syntax.Token.Text!;
         ITypeSymbol type = value switch
         {
             int => Compilation.GetSpecialType(SpecialType.System_Int32),
@@ -290,7 +290,7 @@ class BlockBinder : Binder
             var symbol = LookupSymbol(methodName);
             if (symbol == null)
             {
-                _diagnostics.ReportSymbolNotFound(methodName, syntax.Expression.GetLocation());
+                _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
                 return new BoundErrorExpression(
                     ErrorTypeSymbol.Default,
                     null,
@@ -305,7 +305,7 @@ class BlockBinder : Binder
 
         if (!candidates.Any())
         {
-            _diagnostics.ReportSymbolNotFound(methodName, syntax.Expression.GetLocation());
+            _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
             return new BoundErrorExpression(
                 ErrorTypeSymbol.Default,
                 null,
@@ -317,7 +317,7 @@ class BlockBinder : Binder
         var method = ResolveOverload(candidates, boundArguments.ToArray());
         if (method == null)
         {
-            _diagnostics.ReportNoMatchingOverload(methodName, syntax.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Count, syntax.GetLocation());
             return new BoundErrorExpression(
                 ErrorTypeSymbol.Default,
                 null,
@@ -378,7 +378,7 @@ class BlockBinder : Binder
 
         if (indexer is null)
         {
-            //_diagnostics.ReportUndefinedIndexer(receiverType, syntax.GetLocation());
+            _diagnostics.ReportUndefinedIndexer(receiverType, syntax.GetLocation());
             return new BoundErrorExpression(receiverType, null, CandidateReason.NotFound);
         }
 
@@ -397,10 +397,10 @@ class BlockBinder : Binder
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
     {
-        var right = BindExpression(syntax.RightHandSide);
-
         if (syntax.LeftHandSide is ElementAccessExpressionSyntax elementAccess)
         {
+            var right = BindExpression(syntax.RightHandSide);
+
             var receiver = BindExpression(elementAccess.Expression);
             var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
 
@@ -415,7 +415,7 @@ class BlockBinder : Binder
 
             if (indexer is null || indexer.SetMethod is null)
             {
-                //_diagnostics.ReportInvalidIndexerAssignment(syntax.GetLocation());
+                _diagnostics.ReportInvalidIndexerAssignment(syntax.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, CandidateReason.NotFound);
             }
 
@@ -425,13 +425,53 @@ class BlockBinder : Binder
 
         // Fall back to normal variable/property assignment
         var left = BindExpression(syntax.LeftHandSide);
-        return new BoundVariableAssignmentExpression(left.Symbol as ILocalSymbol, right);
+        var localSymbol = (ILocalSymbol)left.Symbol!;
+
+        if (localSymbol.IsReadOnly)
+        {
+            _diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, CandidateReason.NotFound);
+        }
+
+        var right2 = BindExpression(syntax.RightHandSide);
+
+        if (right2 is BoundEmptyCollectionExpression)
+        {
+            return new BoundVariableAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
+        }
+
+        if (!IsAssignable(localSymbol.Type, right2.Type!))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(right2.Type!, localSymbol.Type, syntax.RightHandSide.GetLocation());
+            return new BoundErrorExpression(localSymbol.Type, null, CandidateReason.TypeMismatch);
+        }
+
+        return new BoundVariableAssignmentExpression(localSymbol, right2);
+    }
+
+    private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)
+    {
+        // Trivial exact match
+        if (SymbolEqualityComparer.Default.Equals(targetType, sourceType))
+            return true;
+
+        // Allow implicit conversions, e.g., int -> double
+        var conversion = Compilation.ClassifyConversion(sourceType, targetType);
+        return conversion.IsImplicit;
     }
 
     private BoundExpression BindCollectionExpression(CollectionExpressionSyntax syntax)
     {
         var elements = ImmutableArray.CreateBuilder<BoundExpression>();
         ITypeSymbol? elementType = null;
+
+        if (syntax.Elements.Count == 0)
+        {
+            // Empty collection: default to object[]
+            elementType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+            return new BoundEmptyCollectionExpression();
+        }
 
         foreach (var expr in syntax.Elements)
         {

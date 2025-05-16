@@ -189,6 +189,18 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error);
 
     /// <summary>
+    // RAV0024: Operator '{0}' cannot be applied to operands of type '{1}' and '{2}'
+    /// </summary>
+    public static DiagnosticDescriptor OperatorCannotBeAppliedToOperandsOfTypes => _operatorCannotBeAppliedToOperandOfType ??= DiagnosticDescriptor.Create(
+        id: "RAV0024",
+        title: "Operator cannot be applied to operanda of specific typea",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Operator '{0}' cannot be applied to operands of type '{1}' and '{2}'",
+        category: "compiler",
+        DiagnosticSeverity.Error);
+
+    /// <summary>
     /// RAV0426: The type name '{0}' does not exist in the type '{1}'
     /// </summary>
     public static DiagnosticDescriptor TypeNameDoesNotExistInType => _typeNameDoesNotExistInType ??= DiagnosticDescriptor.Create(

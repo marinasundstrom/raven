@@ -23,14 +23,29 @@ public class Diagnostic
         _messageArgs = messageArgs;
     }
 
-    public override string ToString() => GetMessage();
+    public override string ToString() => GetDescription();
 
     public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, params object[]? messageArgs)
     {
         return new Diagnostic(descriptor, location, messageArgs);
     }
 
-    public string GetMessage() => $"{Descriptor.DefaultSeverity.ToString().ToLower()} {Descriptor.Id}: {string.Format(Descriptor.MessageFormat, _messageArgs ?? [])}";
+    public string GetDescription() => $"{Descriptor.DefaultSeverity.ToString().ToLower()} {Descriptor.Id}: {string.Format(Descriptor.MessageFormat, _messageArgs is not null ? ProcessArgs(_messageArgs).ToArray() : [])}";
+
+    public string GetMessage() => string.Format(Descriptor.MessageFormat, _messageArgs is not null ? ProcessArgs(_messageArgs).ToArray() : []);
+
+    private IEnumerable<object> ProcessArgs(object[]? messageArgs)
+    {
+        return messageArgs?.Select(arg =>
+        {
+            if (arg is ISymbol symbol)
+            {
+                return symbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
+            }
+
+            return arg;
+        }) ?? [];
+    }
 
     internal static Diagnostic Create(object memberAccessOnVoid, Location location)
     {

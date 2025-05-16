@@ -19,4 +19,5 @@ public enum CandidateReason
     LateBound,
     Ambiguous,
     MemberGroup,
+    TypeMismatch,
 }

@@ -1,6 +1,10 @@
 import System;
 
-let x = [1, 2, 3];
+Console.WriteLine("Hello!");
+
+var x = [1, 2, 3];
+
+//x = [];
 
 Console.WriteLine(x[0]);
 Console.WriteLine(x.Length.ToString());

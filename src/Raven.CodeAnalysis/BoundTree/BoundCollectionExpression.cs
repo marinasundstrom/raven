@@ -14,3 +14,14 @@ sealed class BoundCollectionExpression : BoundExpression
 
     public BoundExpression[] Elements { get; }
 }
+
+sealed class BoundEmptyCollectionExpression : BoundExpression
+{
+    public BoundEmptyCollectionExpression(
+        ITypeSymbol? type = null,
+        CandidateReason candidateReason = CandidateReason.None)
+        : base(type!, null, candidateReason)
+    {
+
+    }
+}
