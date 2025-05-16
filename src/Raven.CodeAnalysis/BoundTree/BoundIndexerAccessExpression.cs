@@ -7,7 +7,7 @@ sealed class BoundIndexerAccessExpression : BoundExpression
     public IPropertySymbol Indexer { get; }
 
     public BoundIndexerAccessExpression(BoundExpression receiver, BoundExpression[] arguments, IPropertySymbol indexer)
-        : base(indexer.Type, indexer, CandidateReason.None)
+        : base(indexer.Type, indexer, BoundExpressionReason.None)
     {
         Receiver = receiver;
         Arguments = arguments;

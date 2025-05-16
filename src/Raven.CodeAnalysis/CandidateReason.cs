@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public enum CandidateReason
+public enum MapToCandidateReason
 {
     None,
     NotFound,
@@ -19,5 +19,5 @@ public enum CandidateReason
     LateBound,
     Ambiguous,
     MemberGroup,
-    TypeMismatch,
+
 }

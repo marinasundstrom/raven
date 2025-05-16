@@ -6,7 +6,7 @@ sealed class BoundCollectionExpression : BoundExpression
         ITypeSymbol type,
         BoundExpression[] elements,
         ISymbol? collectionSymbol = null,
-        CandidateReason candidateReason = CandidateReason.None)
+        BoundExpressionReason candidateReason = BoundExpressionReason.None)
         : base(type, type, candidateReason)
     {
         Elements = elements;
@@ -19,7 +19,7 @@ sealed class BoundEmptyCollectionExpression : BoundExpression
 {
     public BoundEmptyCollectionExpression(
         ITypeSymbol? type = null,
-        CandidateReason candidateReason = CandidateReason.None)
+        BoundExpressionReason candidateReason = BoundExpressionReason.None)
         : base(type!, null, candidateReason)
     {
 

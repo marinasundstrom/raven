@@ -9,7 +9,7 @@ sealed class BoundCallExpression : BoundExpression
     public BoundExpression? Receiver { get; }
 
     public BoundCallExpression(IMethodSymbol method, BoundExpression[] arguments, BoundExpression? receiver = null)
-           : base(method.ReturnType, method, CandidateReason.None)
+           : base(method.ReturnType, method, BoundExpressionReason.None)
     {
         Method = method;
         Arguments = arguments;

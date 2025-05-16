@@ -4,7 +4,7 @@ Console.WriteLine("Hello!");
 
 var x = [1, 2, 3];
 
-//x = [];
+x = [""];
 
 Console.WriteLine(x[0]);
 Console.WriteLine(x.Length.ToString());

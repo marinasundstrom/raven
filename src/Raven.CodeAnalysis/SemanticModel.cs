@@ -94,7 +94,7 @@ public partial class SemanticModel
         _bindings[node] = new SymbolInfo(symbol);
     }
 
-    private void Bind(SyntaxNode node, CandidateReason reason, params IEnumerable<ISymbol> symbols)
+    private void Bind(SyntaxNode node, MapToCandidateReason reason, params IEnumerable<ISymbol> symbols)
     {
         _bindings[node] = new SymbolInfo(reason, symbols.ToImmutableArray());
     }

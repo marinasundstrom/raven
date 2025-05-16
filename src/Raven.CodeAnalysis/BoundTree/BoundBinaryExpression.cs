@@ -7,7 +7,7 @@ class BoundBinaryExpression : BoundExpression
     public BoundExpression Right { get; }
 
     public BoundBinaryExpression(BoundExpression left, BoundBinaryOperator op, BoundExpression right)
-        : base(op.ResultType, null, CandidateReason.None)
+        : base(op.ResultType, null, BoundExpressionReason.None)
     {
         Left = left;
         Operator = op;

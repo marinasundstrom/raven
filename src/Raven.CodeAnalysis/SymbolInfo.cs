@@ -9,13 +9,13 @@ public struct SymbolInfo
         Symbol = symbol;
     }
 
-    internal SymbolInfo(CandidateReason candidateReason, ImmutableArray<ISymbol> candidateSymbols) : this()
+    internal SymbolInfo(MapToCandidateReason candidateReason, ImmutableArray<ISymbol> candidateSymbols) : this()
     {
         CandidateReason = candidateReason;
         CandidateSymbols = candidateSymbols;
     }
 
-    public CandidateReason CandidateReason { get; }
+    public MapToCandidateReason CandidateReason { get; }
 
     public ImmutableArray<ISymbol> CandidateSymbols { get; }
 

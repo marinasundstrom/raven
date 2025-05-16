@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 sealed class BoundMemberAccessExpression : BoundExpression
 {
-    public BoundMemberAccessExpression(BoundExpression receiver, ISymbol member, CandidateReason reason = CandidateReason.None)
+    public BoundMemberAccessExpression(BoundExpression receiver, ISymbol member, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(GetMemberType(member), member, reason)
     {
         Receiver = receiver;

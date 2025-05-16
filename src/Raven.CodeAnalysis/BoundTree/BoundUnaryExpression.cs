@@ -6,7 +6,7 @@ class BoundUnaryExpression : BoundExpression
     public BoundExpression Operand { get; }
 
     public BoundUnaryExpression(BoundUnaryOperator op, BoundExpression operand)
-        : base(op.ResultType, null, CandidateReason.None)
+        : base(op.ResultType, null, BoundExpressionReason.None)
     {
         Operator = op;
         Operand = operand;

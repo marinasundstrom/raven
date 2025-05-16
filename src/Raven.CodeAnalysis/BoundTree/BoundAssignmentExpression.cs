@@ -5,7 +5,7 @@ abstract class BoundAssignmentExpression : BoundExpression
     public BoundExpression Right { get; }
 
     protected BoundAssignmentExpression(ITypeSymbol type, BoundExpression right)
-        : base(type, null, CandidateReason.None)
+        : base(type, null, BoundExpressionReason.None)
     {
         Right = right;
     }

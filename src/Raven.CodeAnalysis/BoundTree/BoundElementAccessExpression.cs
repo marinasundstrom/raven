@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis;
 sealed class BoundArrayAccessExpression : BoundExpression
 {
     public BoundArrayAccessExpression(BoundExpression receiver, BoundExpression[] indices, ITypeSymbol elementType)
-        : base(elementType, null, CandidateReason.None)
+        : base(elementType, null, BoundExpressionReason.None)
     {
         Receiver = receiver;
         Indices = indices;
