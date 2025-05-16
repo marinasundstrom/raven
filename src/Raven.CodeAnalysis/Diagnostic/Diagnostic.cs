@@ -66,14 +66,10 @@ public class Diagnostic
         var args1 = GetMessageArgs();
         var args2 = other.GetMessageArgs();
 
-        if (args1.Length != args2.Length)
+        /*
+        if (!args1.SequenceEqual(args2))
             return false;
-
-        for (int i = 0; i < args1.Length; i++)
-        {
-            if (!Equals(args1[i], args2[i]))
-                return false;
-        }
+        */
 
         return true;
     }
@@ -84,8 +80,10 @@ public class Diagnostic
         hash.Add(Descriptor);
         hash.Add(Location);
 
+        /*
         foreach (var arg in GetMessageArgs())
             hash.Add(arg);
+        */
 
         return hash.ToHashCode();
     }
