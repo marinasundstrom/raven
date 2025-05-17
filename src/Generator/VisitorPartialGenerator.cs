@@ -40,7 +40,7 @@ public static class VisitorPartialGenerator
                                                 IdentifierName("DefaultVisit"))
                                             .WithArgumentList(
                                                 ArgumentList(
-                                                    SingletonSeparatedList<ArgumentSyntax>(
+                                                    SingletonSeparatedList(
                                                         Argument(
                                                             IdentifierName("node"))))))))));
 
@@ -72,7 +72,7 @@ public static class VisitorPartialGenerator
                                 Token(SyntaxKind.VirtualKeyword)]))
                             .WithParameterList(
                                 ParameterList(
-                                    SingletonSeparatedList<ParameterSyntax>(
+                                    SingletonSeparatedList(
                                         Parameter(
                                             Identifier("node"))
                                         .WithType(
@@ -208,162 +208,5 @@ public static class VisitorPartialGenerator
             .AddMembers(methods.ToArray());
 
         return generatedClass;
-    }
-}
-
-public static class AcceptMethodGenerator
-{
-    public static IEnumerable<MethodDeclarationSyntax> GenerateAcceptMethods(string nodeClassName, bool makeInternal = false)
-    {
-        var methodName = $"Visit{nodeClassName.Replace("Syntax", string.Empty)}";
-
-        return [
-            MethodDeclaration(
-                PredefinedType(
-                    Token(SyntaxKind.VoidKeyword)),
-                Identifier("Accept"))
-            .WithModifiers(
-                TokenList(
-                    [
-                        Token(makeInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword),
-                        Token(SyntaxKind.OverrideKeyword)]))
-            .WithParameterList(
-                ParameterList(
-                    SingletonSeparatedList(
-                        Parameter(
-                            Identifier("visitor"))
-                        .WithType(
-                            IdentifierName("SyntaxVisitor")))))
-            .WithBody(
-                Block(
-                    SingletonList<StatementSyntax>(
-                        ExpressionStatement(
-                            InvocationExpression(
-                                MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName("visitor"),
-                                    IdentifierName(methodName)))
-                            .WithArgumentList(
-                                ArgumentList(
-                                    SingletonSeparatedList(
-                                        Argument(
-                                            ThisExpression())))))))),
-            MethodDeclaration(
-                IdentifierName("TNode"),
-                Identifier("Accept"))
-            .WithModifiers(
-                TokenList(
-                    [
-                        Token(makeInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword),
-                        Token(SyntaxKind.OverrideKeyword)]))
-            .WithTypeParameterList(
-                TypeParameterList(
-                    SingletonSeparatedList(
-                        TypeParameter(
-                            Identifier("TNode")))))
-            .WithParameterList(
-                ParameterList(
-                    SingletonSeparatedList(
-                        Parameter(
-                            Identifier("visitor"))
-                        .WithType(
-                            GenericName(
-                                Identifier("SyntaxVisitor"))
-                            .WithTypeArgumentList(
-                                TypeArgumentList(
-                                    SingletonSeparatedList<TypeSyntax>(
-                                        IdentifierName("TNode"))))))))
-            .WithBody(
-                Block(
-                    SingletonList<StatementSyntax>(
-                        ReturnStatement(
-                            InvocationExpression(
-                                MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName("visitor"),
-                                    IdentifierName(methodName)))
-                            .WithArgumentList(
-                                ArgumentList(
-                                    SingletonSeparatedList(
-                                        Argument(
-                                            ThisExpression()))))))))];
-    }
-}
-
-public class PropOrParamType(string name, string type)
-{
-    public string Name { get; } = name;
-    public string Type { get; } = type;
-}
-
-
-public static class UpdateMethodGenerator
-{
-    private static string FixName(PropOrParamType property)
-    {
-        var name = property.Name.ToCamelCase();
-
-        var x = SyntaxFacts.IsKeywordKind(SyntaxFacts.GetKeywordKind(name));
-        if (x)
-        {
-            return $"@{name}";
-        }
-        return name;
-    }
-
-    public static MethodDeclarationSyntax GenerateUpdateMethod(string className, IEnumerable<PropOrParamType> parameters)
-    {
-        var paramDef = parameters.Select(property =>
-        {
-            var propertyType = ParseTypeName(property.Type);
-            var propertyName = Identifier(property.Name);
-
-            return Parameter(Identifier(FixName(property)))
-                            .WithType(propertyType);
-        }).ToList();
-
-        var typeName = ParseTypeName(className);
-
-        ExpressionSyntax condition = null!;
-
-        foreach (var p in parameters)
-        {
-            var expr1 = BinaryExpression(SyntaxKind.NotEqualsExpression,
-                IdentifierName(p.Name), IdentifierName(FixName(p)));
-
-            if (condition is null)
-            {
-                condition = expr1;
-            }
-            else
-            {
-                condition = BinaryExpression(SyntaxKind.LogicalOrExpression,
-                    condition, expr1);
-            }
-        }
-
-        var expr = ObjectCreationExpression(
-                    typeName)
-                .WithArgumentList(
-                    ArgumentList(
-                        SeparatedList<ArgumentSyntax>(
-                            paramDef.Select(p =>
-                            {
-                                return Argument(IdentifierName(p.Identifier));
-                            }))));
-
-        var updateMethodDeclaration = MethodDeclaration(typeName, "Update")
-                .WithModifiers([Token(SyntaxKind.PublicKeyword)])
-                .WithParameterList(
-                    ParameterList(
-                        SeparatedList(
-                            paramDef
-                ))).WithBody(
-                    Block(
-                        IfStatement(condition,
-                            Block(ReturnStatement(expr))),
-                        ReturnStatement(ThisExpression())));
-
-        return updateMethodDeclaration;
     }
 }
