@@ -1,15 +1,15 @@
 import System;
 import System.Text;
 
-//Console.WriteLine("Hello!");
+let list = [1, 42, 3];
+var i = 0; 
 
-//var x = [1, 2, 3];
-
-//x = [""];
-
-var sb = new StringBuilder();
-sb.AppendLine("Hello");
-
-//Console.WriteLine(x[0]);
-//Console.WriteLine(x.Length.ToString());
-Console.WriteLine(sb.ToString());
+while (i < list.Length) {
+    let x = list[i];
+    Console.WriteLine(x);
+    if(x > 3) 
+    {
+        Console.WriteLine("Hello, World!");   
+    }
+    i = i + 1;
+};

@@ -12,4 +12,6 @@ internal abstract class MetadataSymbol : Symbol
     {
         _compilation = compilation;
     }
+
+    public override Compilation Compilation => _compilation;
 }

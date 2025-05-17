@@ -57,18 +57,13 @@ class BlockBinder : Binder
         {
             LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindVariableDeclaration(localDeclaration.Declaration.Declarators[0])),
             ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
-            /*BlockSyntax block => BindBlock(block),
-            IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
-            WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
-            ForStatementSyntax forStmt => BindForStatement(forStmt),
-            ReturnStatementSyntax returnStmt => BindReturnStatement(returnStmt), */
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
     }
 
     private BoundExpression BindBlock(BlockSyntax block)
     {
-        var blockBinder = new BlockBinder(this);
+        var blockBinder = Compilation.BinderFactory.GetBinder(block, this);
         var statements = block.Statements.Select(blockBinder.BindStatement).ToArray();
 
         return new BoundBlockExpression(statements);
@@ -103,23 +98,60 @@ class BlockBinder : Binder
         return symbol;
     }
 
-    public override BoundExpression BindExpression(ExpressionSyntax syntax)
+    public override BoundExpression BindExpression(ExpressionSyntax syntax) => syntax switch
     {
-        return syntax switch
+        LiteralExpressionSyntax literal => BindLiteralExpression(literal),
+        IdentifierNameSyntax identifier => BindIdentifierName(identifier),
+        TypeSyntax type => BindTypeSyntax(type),
+        BinaryExpressionSyntax binary => BindBinaryExpression(binary),
+        InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
+        ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
+        MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
+        ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
+        AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
+        CollectionExpressionSyntax collection => BindCollectionExpression(collection),
+        ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
+        IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
+        WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
+        BlockSyntax block => BindBlock(block),
+        _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
+    };
+
+    private BoundExpression BindParenthesizedExpression(ParenthesizedExpressionSyntax parenthesizedExpression)
+    {
+        var expression = BindExpression(parenthesizedExpression.Expression);
+
+        if (expression is BoundErrorExpression)
+            return expression;
+
+        return new BoundParenthesizedExpression(expression);
+    }
+
+    private BoundExpression BindIfExpression(IfExpressionSyntax ifExpression)
+    {
+        var condition = BindExpression(ifExpression.Condition);
+
+        var thenBinder = Compilation.BinderFactory.GetBinder(ifExpression, this);
+        var thenExpr = thenBinder.BindExpression(ifExpression.Expression);
+
+        BoundExpression? elseExpr = null;
+        if (ifExpression.ElseClause != null)
         {
-            LiteralExpressionSyntax literal => BindLiteralExpression(literal),
-            IdentifierNameSyntax identifier => BindIdentifierName(identifier),
-            TypeSyntax type => BindTypeSyntax(type),
-            BinaryExpressionSyntax binary => BindBinaryExpression(binary),
-            InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
-            ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
-            MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
-            ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
-            AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
-            CollectionExpressionSyntax collection => BindCollectionExpression(collection),
-            BlockSyntax block => BindBlock(block),
-            _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
-        };
+            var elseBinder = Compilation.BinderFactory.GetBinder(ifExpression.ElseClause, this);
+            elseExpr = elseBinder.BindExpression(ifExpression.ElseClause.Expression);
+        }
+
+        return new BoundIfExpression(condition, thenExpr, elseExpr);
+    }
+
+    private BoundExpression BindWhileExpression(WhileExpressionSyntax whileExpression)
+    {
+        var condition = BindExpression(whileExpression.Condition);
+
+        var expressionBinder = Compilation.BinderFactory.GetBinder(whileExpression, this);
+        var expression = expressionBinder.BindStatement(whileExpression.Statement);
+
+        return new BoundWhileExpression(condition, expression);
     }
 
     private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)
@@ -557,7 +589,7 @@ class BlockBinder : Binder
 
         if (right2 is BoundEmptyCollectionExpression)
         {
-            return new BoundVariableAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
+            return new BoundLocalAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
         }
 
         if (!IsAssignable(localSymbol.Type, right2.Type!))
@@ -566,7 +598,7 @@ class BlockBinder : Binder
             return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
         }
 
-        return new BoundVariableAssignmentExpression(localSymbol, right2);
+        return new BoundLocalAssignmentExpression(localSymbol, right2);
     }
 
     private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)

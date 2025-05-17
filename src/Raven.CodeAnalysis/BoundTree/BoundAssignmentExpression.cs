@@ -11,14 +11,14 @@ abstract class BoundAssignmentExpression : BoundExpression
     }
 }
 
-sealed class BoundVariableAssignmentExpression : BoundAssignmentExpression
+sealed class BoundLocalAssignmentExpression : BoundAssignmentExpression
 {
-    public ILocalSymbol Variable { get; }
+    public ILocalSymbol Local { get; }
 
-    public BoundVariableAssignmentExpression(ILocalSymbol variable, BoundExpression right)
+    public BoundLocalAssignmentExpression(ILocalSymbol variable, BoundExpression right)
         : base(variable.Type, right)
     {
-        Variable = variable;
+        Local = variable;
     }
 }
 

@@ -23,8 +23,8 @@ public class DiagnosticBag
         _diagnostics.Add(diagnostic);
     }
 
-    public ImmutableArray<Diagnostic> ToImmutableArray()
+    public IEnumerable<Diagnostic> AsEnumerable()
     {
-        return [.. _diagnostics];
+        return _diagnostics;
     }
 }

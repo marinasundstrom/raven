@@ -34,6 +34,8 @@ public class Compilation
 
     public Assembly CoreAssembly { get; private set; }
 
+    internal BinderFactory BinderFactory { get; private set; }
+
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
         return new Compilation(assemblyName, syntaxTrees, [], options);
@@ -113,6 +115,8 @@ public class Compilation
 
     private void Setup()
     {
+        BinderFactory = new BinderFactory(this);
+
         var globalNamespace = new NamespaceSymbol(
             this,
             "", null!, null, null,
@@ -257,6 +261,15 @@ public class Compilation
             var model = GetSemanticModel(syntaxTree);
             diagnostics.AddRange(model.GetDiagnostics(cancellationToken));
         }
+
+        /*
+        var diagnostics = BinderFactory
+            .GetAllBinders()
+            .SelectMany(b => b.Diagnostics.AsEnumerable())
+            .ToImmutableArray();
+        
+        diagnostics.AddRange(model.GetDiagnostics(cancellationToken));
+        */
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
     }

@@ -14,5 +14,5 @@ internal abstract class SourceSymbol : Symbol
     {
     }
 
-    public virtual Compilation Compilation { get; protected set; } = null!;
+    public override Compilation Compilation { get; protected set; } = null!;
 }

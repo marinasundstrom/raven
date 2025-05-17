@@ -92,6 +92,15 @@ internal class Lexer : ILexer
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
 
+                    if (syntaxKind == SyntaxKind.TrueKeyword)
+                    {
+                        return new Token(SyntaxKind.TrueKeyword, _stringBuilder.ToString(), true, _stringBuilder.Length, diagnostics: diagnostics);
+                    }
+                    else if (syntaxKind == SyntaxKind.FalseKeyword)
+                    {
+                        return new Token(SyntaxKind.FalseKeyword, _stringBuilder.ToString(), false, _stringBuilder.Length, diagnostics: diagnostics);
+                    }
+
                     return new Token(syntaxKind, _stringBuilder.ToString(), diagnostics: diagnostics);
                 }
                 else if (char.IsDigit(ch))

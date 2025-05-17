@@ -60,6 +60,12 @@ internal abstract class Symbol : ISymbol
         get;
     }
 
+    public virtual Compilation Compilation
+    {
+        get;
+        protected set;
+    }
+
     public virtual string Name
     {
         get;

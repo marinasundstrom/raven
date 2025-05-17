@@ -47,6 +47,9 @@ class BinderFactory
             NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, actualParentBinder),
             MethodDeclarationSyntax => new MethodBinder(actualParentBinder),
             BlockSyntax => new LocalScopeBinder(actualParentBinder),
+            IfExpressionSyntax expr => new LocalScopeBinder(actualParentBinder),
+            ElseClauseSyntax elseClause => new LocalScopeBinder(actualParentBinder),
+            WhileExpressionSyntax expr => new LocalScopeBinder(actualParentBinder),
             _ => actualParentBinder
         };
 
@@ -134,5 +137,13 @@ class BinderFactory
     public IEnumerable<Binder> GetAllBinders()
     {
         return _cache.Values.Distinct();
+    }
+
+    public IEnumerable<Binder> GetAllBinders(SyntaxTree syntaxTree)
+    {
+        return _cache
+            .Where(x => x.Key.SyntaxTree == syntaxTree)
+            .Select(x => x.Value)
+            .Distinct();
     }
 }

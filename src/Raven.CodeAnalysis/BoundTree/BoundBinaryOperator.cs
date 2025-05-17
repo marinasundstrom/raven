@@ -22,6 +22,7 @@ sealed class BoundBinaryOperator
     {
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
 
         var candidates = new[]
@@ -31,6 +32,11 @@ sealed class BoundBinaryOperator
             new BoundBinaryOperator(SyntaxKind.StarToken, intType, intType, intType),
             new BoundBinaryOperator(SyntaxKind.SlashToken, intType, intType, intType),
             new BoundBinaryOperator(SyntaxKind.PlusToken, stringType, stringType, stringType),
+
+            new BoundBinaryOperator(SyntaxKind.GreaterThanToken, intType, intType, boolType),
+            new BoundBinaryOperator(SyntaxKind.LessThanToken, intType, intType, boolType),
+            new BoundBinaryOperator(SyntaxKind.GreaterOrEqualsToken, intType, intType, boolType),
+            new BoundBinaryOperator(SyntaxKind.LessThanOrEqualExpression, intType, intType, boolType),
         };
 
         return candidates.FirstOrDefault(op =>

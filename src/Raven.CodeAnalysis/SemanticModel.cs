@@ -9,18 +9,12 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    private readonly BinderFactory _binderFactory;
     private readonly DiagnosticBag _diagnostics;
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
-    private readonly List<ISymbol> _localSymbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _bindings = new();
-    private readonly Dictionary<TypeSyntax, INamespaceSymbol> _imports = new();
-    private readonly Dictionary<string, ITypeSymbol> _keywordTypeSymbols = new();
 
     public SemanticModel(Compilation compilation, List<ISymbol> symbols, SyntaxTree syntaxTree)
     {
-        _binderFactory = new BinderFactory(compilation);
-
         _symbols = symbols;
         _diagnostics = new DiagnosticBag();
         Compilation = compilation;
@@ -33,7 +27,7 @@ public partial class SemanticModel
     {
         // Optional: preload binder for compilation unit to cache imports
         var root = SyntaxTree.GetRoot();
-        _ = _binderFactory.GetBinder(root);
+        _ = Compilation.BinderFactory.GetBinder(root);
     }
 
     public Compilation Compilation { get; }
@@ -46,10 +40,9 @@ public partial class SemanticModel
     {
         EnsureDiagnosticsCollected();
 
-        return _binderFactory
-             .GetAllBinders()
-             .SelectMany(b => b.Diagnostics.ToImmutableArray())
-             //.DistinctBy(d => (d.Descriptor.Id, d.Location, d.GetMessage()))
+        return Compilation.BinderFactory
+             .GetAllBinders(SyntaxTree)
+             .SelectMany(b => b.Diagnostics.AsEnumerable())
              .ToImmutableArray();
     }
 
@@ -59,7 +52,7 @@ public partial class SemanticModel
 
         foreach (var globalStmt in root.DescendantNodes().OfType<GlobalStatementSyntax>())
         {
-            var binder = _binderFactory.GetBinder(globalStmt);
+            var binder = Compilation.BinderFactory.GetBinder(globalStmt);
             binder.BindStatement(globalStmt.Statement);
         }
     }
@@ -70,7 +63,7 @@ public partial class SemanticModel
             return symbolInfo;
 
         // NEW: Ask binder to bind the node
-        var binder = _binderFactory.GetBinder(node);
+        var binder = Compilation.BinderFactory.GetBinder(node);
         var info = binder.BindSymbol(node);
         _bindings[node] = info;
         return info;
@@ -78,7 +71,7 @@ public partial class SemanticModel
 
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
-        var binder = _binderFactory.GetBinder(node);
+        var binder = Compilation.BinderFactory.GetBinder(node);
         var info = binder.BindSymbol(node);
         return info.Symbol;
     }

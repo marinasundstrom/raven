@@ -20,6 +20,8 @@ public interface ISymbol : IEquatable<ISymbol?>
 {
     SymbolKind Kind { get; }
 
+    Compilation Compilation { get; }
+
     string Name { get; }
 
     public ISymbol? ContainingSymbol { get; }

@@ -18,9 +18,9 @@ internal class CodeGenerator
     private ModuleBuilder moduleBuilder;
     private MethodBuilder entryPoint;
 
-    private readonly IDictionary<ISymbol, TypeBuilder> _typeBuilders = new Dictionary<ISymbol, TypeBuilder>();
-    private readonly IDictionary<ISymbol, MethodBuilder> _methodBuilders = new Dictionary<ISymbol, MethodBuilder>();
-    private readonly IDictionary<ISymbol, LocalBuilder> _localBuilders = new Dictionary<ISymbol, LocalBuilder>();
+    private readonly IDictionary<ISymbol, TypeBuilder> _typeBuilders = new Dictionary<ISymbol, TypeBuilder>(SymbolEqualityComparer.Default);
+    private readonly IDictionary<ISymbol, MethodBuilder> _methodBuilders = new Dictionary<ISymbol, MethodBuilder>(SymbolEqualityComparer.Default);
+    private readonly IDictionary<ISymbol, LocalBuilder> _localBuilders = new Dictionary<ISymbol, LocalBuilder>(SymbolEqualityComparer.Default);
 
     private readonly Label end;
     private readonly Compilation _compilation;
@@ -748,21 +748,18 @@ internal class CodeGenerator
 
             case SyntaxKind.TrueLiteralExpression:
                 {
-                    var v = literalExpression.Token.ValueText;
                     iLGenerator.Emit(OpCodes.Ldc_I4_1);
                     break;
                 }
 
             case SyntaxKind.FalseLiteralExpression:
                 {
-                    var v = literalExpression.Token.ValueText;
                     iLGenerator.Emit(OpCodes.Ldc_I4_0);
                     break;
                 }
 
             default:
-                iLGenerator.Emit(OpCodes.Ldc_I4, int.Parse(literalExpression.Token.ValueText));
-                break;
+                throw new Exception("Not supported");
         }
     }
 
