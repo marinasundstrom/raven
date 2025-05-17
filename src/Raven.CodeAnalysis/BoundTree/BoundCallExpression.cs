@@ -15,4 +15,7 @@ sealed class BoundCallExpression : BoundExpression
         Arguments = arguments;
         Receiver = receiver;
     }
+
+    public override string ToString() =>
+        $"new {Method.ContainingType.Name}({string.Join(", ", Arguments.Select(a => a.ToString()))})";
 }

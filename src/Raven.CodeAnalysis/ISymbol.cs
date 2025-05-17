@@ -133,6 +133,7 @@ public interface IMethodSymbol : ISymbol
 {
     ITypeSymbol ReturnType { get; }
     ImmutableArray<IParameterSymbol> Parameters { get; }
+    bool IsConstructor { get; }
 }
 
 public interface IParameterSymbol : ISymbol

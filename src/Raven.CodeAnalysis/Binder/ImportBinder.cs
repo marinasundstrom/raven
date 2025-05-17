@@ -10,7 +10,7 @@ class ImportBinder : Binder
         _imports = imports;
     }
 
-    public override ITypeSymbol LookupType(string name)
+    public override ITypeSymbol? LookupType(string name)
     {
         foreach (var ns in _imports)
         {
@@ -19,7 +19,7 @@ class ImportBinder : Binder
                 return type;
         }
 
-        return base.LookupType(name);
+        return ParentBinder?.LookupType(name);
     }
 
     public override ISymbol? LookupSymbol(string name)
@@ -31,6 +31,6 @@ class ImportBinder : Binder
                 return type;
         }
 
-        return base.LookupSymbol(name);
+        return ParentBinder?.LookupSymbol(name);
     }
 }

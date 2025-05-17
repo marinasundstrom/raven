@@ -25,7 +25,7 @@ class NamespaceBinder : Binder
     /// <summary>
     /// Looks up a type, checking imported namespaces before the current namespace.
     /// </summary>
-    public override ITypeSymbol LookupType(string name)
+    public override ITypeSymbol? LookupType(string name)
     {
         // 1. Check the current namespace
         var type = _namespaceSymbol.LookupType(name);

@@ -35,10 +35,10 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-        //var fooSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
-        //var consoleWriteLineSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
+        var fooSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
+        var consoleWriteLineSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
 
-        //testOutputHelper.WriteLine(consoleWriteLineSymbol.Symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        testOutputHelper.WriteLine(consoleWriteLineSymbol.Symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
         var diagnostics = semanticModel.GetDiagnostics();
 

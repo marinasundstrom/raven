@@ -109,8 +109,10 @@ class BlockBinder : Binder
         {
             LiteralExpressionSyntax literal => BindLiteralExpression(literal),
             IdentifierNameSyntax identifier => BindIdentifierName(identifier),
+            TypeSyntax type => BindTypeSyntax(type),
             BinaryExpressionSyntax binary => BindBinaryExpression(binary),
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
+            ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
             ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
             AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
@@ -175,6 +177,71 @@ class BlockBinder : Binder
         }
 
         return new BoundMemberAccessExpression(receiver, instanceMember);
+    }
+
+    private BoundExpression BindTypeSyntax(TypeSyntax syntax)
+    {
+        if (syntax is IdentifierNameSyntax id)
+        {
+            var symbol = LookupSymbol(id.Identifier.Text);
+
+            return symbol switch
+            {
+                INamespaceSymbol ns => new BoundNamespaceExpression(ns),
+                ITypeSymbol type => new BoundTypeExpression(type),
+                _ => new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound)
+                /*
+                _ =>
+                {
+                    _diagnostics.ReportUndefinedName(id.Identifier.Text, id.Identifier.GetLocation());
+                    return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+                }
+                */
+            };
+        }
+        else if (syntax is QualifiedNameSyntax qualified)
+        {
+            var left = BindTypeSyntax(qualified.Left);
+
+            if (left is BoundNamespaceExpression nsExpr)
+            {
+                var member = nsExpr.Namespace.GetMembers(qualified.Right.Identifier.Text)
+                                             .FirstOrDefault(m => m is INamespaceSymbol || m is ITypeSymbol);
+
+                return member switch
+                {
+                    INamespaceSymbol ns => new BoundNamespaceExpression(ns),
+                    ITypeSymbol type => new BoundTypeExpression(type),
+                    _ => new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound)
+                    /*_ =>
+                        {
+                    _diagnostics.ReportUndefinedName(qualified.Right.Identifier.Text, qualified.Right.GetLocation());
+                        return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+                }*/
+                }
+            ;
+            }
+            else if (left is BoundTypeExpression typeExpr)
+            {
+                var member = typeExpr.Type.GetMembers(qualified.Right.Identifier.Text)
+                                          .OfType<INamedTypeSymbol>()
+                                          .FirstOrDefault();
+
+                if (member != null)
+                    return new BoundTypeExpression(member);
+
+                _diagnostics.ReportUndefinedName(qualified.Right.Identifier.Text, qualified.Right.GetLocation());
+                return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            }
+            else
+            {
+                //_diagnostics.ReportInvalidQualifiedName(qualified.GetLocation());
+                return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            }
+        }
+
+        //_diagnostics.ReportInvalidTypeSyntax(syntax.GetLocation());
+        return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
@@ -326,6 +393,59 @@ class BlockBinder : Binder
         }
 
         return new BoundCallExpression(method, boundArguments.ToArray(), receiver);
+    }
+
+    private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
+    {
+        INamedTypeSymbol? typeSymbol = null;
+
+        var typeExpr = BindTypeSyntax(syntax.Type);
+
+        if (typeExpr is BoundTypeExpression boundType)
+        {
+            typeSymbol = boundType.Type as INamedTypeSymbol;
+        }
+        else
+        {
+            //_diagnostics.ReportInvalidObjectCreation(syntax.Type.GetLocation());
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+        }
+
+        if (typeSymbol == null)
+        {
+            //_diagnostics.ReportInvalidObjectCreation(syntax.Type.GetLocation());
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+        }
+
+        if (typeSymbol == null)
+        {
+            _diagnostics.ReportUndefinedName(syntax.Type.ToString(), syntax.Type.GetLocation());
+            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+        }
+
+        // Bind arguments
+        var boundArguments = new List<BoundExpression>(syntax.ArgumentList.Arguments.Count);
+        bool hasErrors = false;
+        foreach (var arg in syntax.ArgumentList.Arguments)
+        {
+            var boundArg = BindExpression(arg.Expression);
+            if (boundArg is BoundErrorExpression)
+                hasErrors = true;
+            boundArguments.Add(boundArg);
+        }
+
+        if (hasErrors)
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+
+        // Overload resolution
+        var constructor = ResolveOverload(typeSymbol.Constructors, boundArguments.ToArray());
+        if (constructor == null)
+        {
+            _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Count, syntax.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+        }
+
+        return new BoundObjectCreationExpression(constructor, boundArguments.ToArray());
     }
 
     private IMethodSymbol? ResolveOverload(IEnumerable<IMethodSymbol> methods, BoundExpression[] arguments)

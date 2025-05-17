@@ -22,7 +22,7 @@ internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbo
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
 
-    public ImmutableArray<IMethodSymbol> Constructors { get; }
+    public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }

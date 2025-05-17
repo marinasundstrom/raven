@@ -12,5 +12,6 @@ public enum BoundExpressionReason
     MissingType,            // Type information could not be resolved.
     ConstantExpected,       // Expression is not a constant where one was required.
     UnsupportedOperation,   // Operation is not valid for this expression.
-    OtherError              // Generic catch-all for other binding failures.
+    OtherError,              // Generic catch-all for other binding failures.
+    ArgumentBindingFailed
 }

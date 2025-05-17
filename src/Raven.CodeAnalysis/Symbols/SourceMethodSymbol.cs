@@ -12,5 +12,8 @@ internal class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     }
 
     public ITypeSymbol ReturnType { get; }
+
     public ImmutableArray<IParameterSymbol> Parameters { get; set; } = [];
+
+    public bool IsConstructor => false;
 }

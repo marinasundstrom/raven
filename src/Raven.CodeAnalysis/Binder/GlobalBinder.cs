@@ -16,7 +16,7 @@ sealed class GlobalBinder : Binder
 
     public override INamespaceSymbol? CurrentNamespace => _currentNamespace;
 
-    public override ITypeSymbol LookupType(string name)
+    public override ITypeSymbol? LookupType(string name)
     {
         var type = base.LookupType(name); // Look in CurrentNamespace
 

@@ -49,7 +49,7 @@ abstract class Binder
     /// <summary>
     /// Looks up a type name, checking the current namespace and falling back to global.
     /// </summary>
-    public virtual ITypeSymbol LookupType(string name)
+    public virtual ITypeSymbol? LookupType(string name)
     {
         // Check if the type exists in the current namespace
         var type = CurrentNamespace?.LookupType(name);
@@ -60,7 +60,7 @@ abstract class Binder
         return ParentBinder?.LookupType(name);
     }
 
-    public virtual INamespaceSymbol LookupNamespace(string name)
+    public virtual INamespaceSymbol? LookupNamespace(string name)
     {
         // First, check the current namespace
         var ns = CurrentNamespace?.LookupNamespace(name);

@@ -23,14 +23,14 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
         {
             if (_returnType == null)
             {
-
-                _returnType = _compilation.GetType(((MethodInfo)_methodInfo).ReturnType);
-
-                /*
-                _returnType = _methodInfo.ReturnType == typeof(void)
-                    ? _compilation.GetSpecialType(SpecialType.System_Void)
-                    : _compilation.GetType(_methodInfo.ReturnType);
-                    */
+                if (_methodInfo is ConstructorInfo)
+                {
+                    _returnType = _compilation.GetSpecialType(SpecialType.System_Void);
+                }
+                else
+                {
+                    _returnType = _compilation.GetType(((MethodInfo)_methodInfo).ReturnType);
+                }
             }
             return _returnType;
         }
@@ -52,6 +52,8 @@ internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
     }
 
     public override bool IsStatic => _methodInfo.IsStatic;
+
+    public bool IsConstructor => _methodInfo.IsConstructor;
 
     public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
 

@@ -455,7 +455,7 @@ internal class CodeGenerator
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
         }
 
-        var target = GetSymbolInfo(objectCreationExpression.Type).Symbol as MetadataMethodSymbol;
+        var target = GetSymbolInfo(objectCreationExpression).Symbol as MetadataMethodSymbol;
 
         iLGenerator.Emit(OpCodes.Newobj, target.GetConstructorInfo());
     }
