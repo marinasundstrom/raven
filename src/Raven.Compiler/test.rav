@@ -7,8 +7,7 @@ var i = 0;
 while (i < list.Length) {
     let x = list[i];
     Console.WriteLine(x);
-    if(x > 3) 
-    {
+    if(x > 3) {
         Console.WriteLine("Hello, World!");   
     }
     i = i + 1;
