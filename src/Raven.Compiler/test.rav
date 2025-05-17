@@ -15,4 +15,4 @@ while (i < list.Length) {
     i = i + 1;
 };
 
-Console.WriteLine(stringBuilder.ToString());  
+Console.WriteLine(stringBuilder.ToString());

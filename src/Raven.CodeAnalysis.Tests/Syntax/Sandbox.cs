@@ -7,11 +7,27 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     [Fact]
     public void Test()
     {
-        var code = """
-                   import System;
-                   let x = [1, 2, 3];
-                   Console.WriteLine(x.Length);
-                   """;
+        var code =
+        """
+        import System;
+        import System.Text;
+
+        let list = [1, 42, 3];
+        var i = 0; 
+
+        let stringBuilder = new StringBuilder();
+
+        while (i < list.Length) {
+            let x = list[i];
+            stringBuilder.AppendLine(x.ToString());
+            if(x > 3) {
+                Console.WriteLine("Hello, World!");   
+            }
+            i = i + 1;
+        };
+
+        Console.WriteLine(stringBuilder.ToString());
+        """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
