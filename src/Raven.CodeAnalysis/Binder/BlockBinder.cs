@@ -57,6 +57,7 @@ class BlockBinder : Binder
         {
             LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindVariableDeclaration(localDeclaration.Declaration.Declarators[0])),
             ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
+            EmptyStatementSyntax emptyStatement => new BoundVoidExpression(Compilation),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
     }

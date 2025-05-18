@@ -12,7 +12,7 @@ while i < list.Length {
     if x > 3 {
         Console.WriteLine("Hello, World!");   
     }
-    i = i + 1;
-};
+    i = { i + 1; };;
+}
 
 Console.WriteLine(stringBuilder.ToString());

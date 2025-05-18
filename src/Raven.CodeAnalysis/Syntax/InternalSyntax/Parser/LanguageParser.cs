@@ -283,18 +283,20 @@ internal class LanguageParser
             case SyntaxKind.VarKeyword:
                 return ParseLocalDeclarationStatementSyntax();
 
-            case SyntaxKind.IfKeyword:
-                var ifExpr = ParseIfExpressionSyntax();
-                return new ExpressionStatement1Syntax(ifExpr, diagnostics);
+                /*
+                            case SyntaxKind.IfKeyword:
+                                var ifExpr = ParseIfExpressionSyntax();
+                                return new ExpressionStatement1Syntax(ifExpr, diagnostics);
 
-            case SyntaxKind.WhileKeyword:
-                var whileExpr = ParseWhileExpressionSyntax();
-                return new ExpressionStatement1Syntax(whileExpr, diagnostics);
+                            case SyntaxKind.WhileKeyword:
+                                var whileExpr = ParseWhileExpressionSyntax();
+                                return new ExpressionStatement1Syntax(whileExpr, diagnostics);
+                                */
         }
 
         var expression = ParseExpressionSyntax();
 
-        if (expression is null)
+        if (expression.IsMissing)
         {
             var unexpectedToken = ReadToken();
 
@@ -333,6 +335,15 @@ internal class LanguageParser
             }
 
             return null;
+        }
+
+        if (expression is IfExpressionSyntax or WhileExpressionSyntax or BlockSyntax)
+        {
+            if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken2))
+            {
+                return ExpressionStatementWithSemicolon(expression, semicolonToken2, diagnostics);
+            }
+            return ExpressionStatement(expression, diagnostics);
         }
 
         // INFO: Remember
