@@ -2,15 +2,15 @@ namespace Raven.CodeAnalysis;
 
 public abstract partial class SymbolVisitor
 {
-    public virtual void Visit(ISymbol node)
+    public virtual void Visit(ISymbol symbol)
     {
-        if (node != null)
+        if (symbol != null)
         {
-            node.Accept(this);
+            symbol.Accept(this);
         }
     }
 
-    public virtual void DefaultVisit(ISymbol node)
+    public virtual void DefaultVisit(ISymbol symbol)
     {
 
     }

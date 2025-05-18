@@ -16,9 +16,13 @@ public static class VisitorPartialGenerator
 
         string sv = nodeClassName;
 
+        string nodeName = "node";
+
         if (suffix == "Symbol")
         {
             sv = sv.Substring(1);
+
+            nodeName = "symbol";
         }
 
         var methodName = $"Visit{sv.Replace(suffix, string.Empty)}";
@@ -36,7 +40,7 @@ public static class VisitorPartialGenerator
                                 ParameterList(
                                     SingletonSeparatedList<ParameterSyntax>(
                                         Parameter(
-                                            Identifier("node"))
+                                            Identifier(nodeName))
                                         .WithType(
                                             IdentifierName(nodeClassName)))))
                             .WithBody(
@@ -49,7 +53,7 @@ public static class VisitorPartialGenerator
                                                 ArgumentList(
                                                     SingletonSeparatedList(
                                                         Argument(
-                                                            IdentifierName("node"))))))))));
+                                                            IdentifierName(nodeName))))))))));
 
 
         // Generate the partial class
@@ -69,9 +73,13 @@ public static class VisitorPartialGenerator
 
         string sv = nodeClassName;
 
+        string nodeName = "node";
+
         if (suffix == "Symbol")
         {
             sv = sv.Substring(1);
+
+            nodeName = "symbol";
         }
 
         var methodName = $"Visit{sv.Replace(suffix, string.Empty)}";
@@ -88,7 +96,7 @@ public static class VisitorPartialGenerator
                                 ParameterList(
                                     SingletonSeparatedList(
                                         Parameter(
-                                            Identifier("node"))
+                                            Identifier(nodeName))
                                         .WithType(
                                             IdentifierName(nodeClassName)))))
                             .WithBody(
@@ -101,7 +109,7 @@ public static class VisitorPartialGenerator
                                                 ArgumentList(
                                                     SingletonSeparatedList<ArgumentSyntax>(
                                                         Argument(
-                                                            IdentifierName("node"))))))))));
+                                                            IdentifierName(nodeName))))))))));
 
 
         // Generate the partial class
@@ -127,9 +135,13 @@ public static class VisitorPartialGenerator
 
         string sv = className;
 
+        string nodeName = "node";
+
         if (suffix == "Symbol")
         {
             sv = sv.Substring(1);
+
+            nodeName = "symbol";
         }
 
         var methodName = $"Visit{sv.Replace(suffix, string.Empty)}";
@@ -149,7 +161,7 @@ public static class VisitorPartialGenerator
             string childPropertyName = property.Name;
 
             var accessNodeChild = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                    IdentifierName("node"),
+                    IdentifierName(nodeName),
                     Token(SyntaxKind.DotToken),
                     IdentifierName(childPropertyName));
 
@@ -185,7 +197,7 @@ public static class VisitorPartialGenerator
         }).ToList();
 
         var expr = InvocationExpression(
-            ConditionalAccessExpression(IdentifierName("node"), MemberBindingExpression(IdentifierName("Update"))))
+            ConditionalAccessExpression(IdentifierName(nodeName), MemberBindingExpression(IdentifierName("Update"))))
         .WithArgumentList(
             ArgumentList(
                 SeparatedList(
@@ -203,7 +215,7 @@ public static class VisitorPartialGenerator
                                         ParameterList(
                                             SingletonSeparatedList(
                                                 Parameter(
-                                                    Identifier("node"))
+                                                    Identifier(nodeName))
                                                 .WithType(
                                                     IdentifierName(className)))))
                                   .WithExpressionBody(ArrowExpressionClause(expr))
