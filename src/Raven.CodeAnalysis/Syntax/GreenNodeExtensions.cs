@@ -22,7 +22,7 @@ static class GreenNodeExtensions
         var f1 = node.GetFirstToken();
         var f2 = node.GetLastToken();
 
-        return value - f1.LeadingTrivia.Width - f2.TrailingTrivia.Width;
+        return value - (f1?.LeadingTrivia.Width ?? 0) - (f2?.TrailingTrivia.Width ?? 0);
     }
 
     public static int CalculateFullWidth(this GreenNode node)

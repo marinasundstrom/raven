@@ -436,7 +436,7 @@ internal class LanguageParser
 
         var ifKeyword = ReadToken();
 
-        var condition = ParseExpressionSyntaxOrMissing();
+        var condition = ParseExpressionSyntax();
 
         var afterCloseParen = GetEndOfLastToken();
 
@@ -486,7 +486,7 @@ internal class LanguageParser
 
         var whileKeyword = ReadToken();
 
-        var condition = ParseExpressionSyntaxOrMissing();
+        var condition = ParseExpressionSyntax();
 
         var afterCloseParen = GetEndOfLastToken();
 
@@ -514,12 +514,12 @@ internal class LanguageParser
         return WhileStatement(whileKeyword, condition!, statement!, diagnostics);
     }
 
-    private ExpressionSyntax ParseExpressionSyntax()
+    private ExpressionSyntax ParseExpressionOrNull()
     {
         return ParseOrExpression();
     }
 
-    private ExpressionSyntax ParseExpressionSyntaxOrMissing()
+    private ExpressionSyntax ParseExpressionSyntax()
     {
         return ParseOrExpression() ?? new ExpressionSyntax.Missing();
     }

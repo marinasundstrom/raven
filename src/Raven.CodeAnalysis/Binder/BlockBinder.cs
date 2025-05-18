@@ -114,8 +114,14 @@ class BlockBinder : Binder
         IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
         WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
         BlockSyntax block => BindBlock(block),
+        ExpressionSyntax.Missing missing => BindMissingExpression(missing),
         _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
     };
+
+    private BoundExpression BindMissingExpression(ExpressionSyntax.Missing missing)
+    {
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
 
     private BoundExpression BindParenthesizedExpression(ParenthesizedExpressionSyntax parenthesizedExpression)
     {
