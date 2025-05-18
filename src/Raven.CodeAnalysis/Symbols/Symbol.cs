@@ -36,6 +36,9 @@ internal abstract class Symbol : ISymbol
         Locations = [.. locations];
         DeclaringSyntaxReferences = [.. declaringSyntaxReferences];
 
+        if (this is IParameterSymbol)
+            return;
+
         if (this is ITypeSymbol or INamespaceSymbol)
         {
             if (containingNamespace is NamespaceSymbol ns)
