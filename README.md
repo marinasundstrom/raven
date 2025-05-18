@@ -51,7 +51,7 @@ while i < list.Length {
         Console.WriteLine("Hello, World!");   
     }
     i = i + 1;
-};
+}
 
 Console.WriteLine(stringBuilder.ToString());
 ```

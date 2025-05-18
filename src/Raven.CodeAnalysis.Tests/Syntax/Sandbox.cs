@@ -24,7 +24,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
                 Console.WriteLine("Hello, World!");   
             }
             i = i + 1;
-        };
+        }
 
         Console.WriteLine(stringBuilder.ToString());
         """;
