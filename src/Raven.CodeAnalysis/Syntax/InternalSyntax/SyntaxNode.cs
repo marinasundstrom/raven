@@ -3,7 +3,7 @@
 internal abstract class SyntaxNode : GreenNode
 {
     private readonly GreenNode[] _slots;
-    private bool _isMissing;
+    private bool? _isMissing;
 
     public SyntaxNode(
         SyntaxKind kind,
@@ -17,7 +17,7 @@ internal abstract class SyntaxNode : GreenNode
         FullWidth = this.CalculateFullWidth();
     }
 
-    public override bool IsMissing => _isMissing = GetChildren()
+    public override bool IsMissing => _isMissing ??= GetChildren()
         .All(s => s.IsMissing);
 
     public override GreenNode GetSlot(int index)
