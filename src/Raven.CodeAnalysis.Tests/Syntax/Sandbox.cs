@@ -17,10 +17,10 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         let stringBuilder = new StringBuilder();
 
-        while (i < list.Length) {
+        while i < list.Length {
             let x = list[i];
             stringBuilder.AppendLine(x.ToString());
-            if(x > 3) {
+            if x > 3 {
                 Console.WriteLine("Hello, World!");   
             }
             i = i + 1;
