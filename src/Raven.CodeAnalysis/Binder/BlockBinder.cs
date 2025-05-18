@@ -176,7 +176,7 @@ class BlockBinder : Binder
                 return new BoundTypeExpression(type);
 
             _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         // Static type access
@@ -187,7 +187,7 @@ class BlockBinder : Binder
             if (member is null)
             {
                 _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
-                return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
             return new BoundMemberAccessExpression(typeExpr, member);
@@ -197,7 +197,7 @@ class BlockBinder : Binder
         if (receiver.Type?.SpecialType == SpecialType.System_Void)
         {
             _diagnostics.ReportMemberAccessOnVoid(memberName, memberAccess.Name.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         var instanceMember = receiver.Type?.GetMembers(memberName).FirstOrDefault();
@@ -205,7 +205,7 @@ class BlockBinder : Binder
         if (instanceMember == null)
         {
             _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         return new BoundMemberAccessExpression(receiver, instanceMember);
@@ -221,12 +221,12 @@ class BlockBinder : Binder
             {
                 INamespaceSymbol ns => new BoundNamespaceExpression(ns),
                 ITypeSymbol type => new BoundTypeExpression(type),
-                _ => new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound)
+                _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
                 /*
                 _ =>
                 {
                     _diagnostics.ReportUndefinedName(id.Identifier.Text, id.Identifier.GetLocation());
-                    return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
                 }
                 */
             };
@@ -244,11 +244,11 @@ class BlockBinder : Binder
                 {
                     INamespaceSymbol ns => new BoundNamespaceExpression(ns),
                     ITypeSymbol type => new BoundTypeExpression(type),
-                    _ => new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound)
+                    _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
                     /*_ =>
                         {
                     _diagnostics.ReportUndefinedName(qualified.Right.Identifier.Text, qualified.Right.GetLocation());
-                        return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
                 }*/
                 }
             ;
@@ -263,17 +263,17 @@ class BlockBinder : Binder
                     return new BoundTypeExpression(member);
 
                 _diagnostics.ReportUndefinedName(qualified.Right.Identifier.Text, qualified.Right.GetLocation());
-                return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
             else
             {
                 //_diagnostics.ReportInvalidQualifiedName(qualified.GetLocation());
-                return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
         }
 
         //_diagnostics.ReportInvalidTypeSyntax(syntax.GetLocation());
-        return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
@@ -297,7 +297,7 @@ class BlockBinder : Binder
         if (symbol is null)
         {
             _diagnostics.ReportUndefinedName(syntax.Identifier.Text, syntax.Identifier.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         return symbol switch
@@ -306,7 +306,7 @@ class BlockBinder : Binder
             ITypeSymbol type => new BoundTypeExpression(type),
             ILocalSymbol local => new BoundLocalExpression(local),
             IPropertySymbol prop => new BoundPropertyExpression(prop),
-            _ => new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound)
+            _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
         };
     }
 
@@ -323,7 +323,7 @@ class BlockBinder : Binder
             _diagnostics.ReportUndefinedBinaryOperator(opKind.ToString(), left.Type, right.Type, syntax.OperatorToken.GetLocation());
 
             return new BoundErrorExpression(
-                ErrorTypeSymbol.Default,
+                Compilation.ErrorTypeSymbol,
                 null,
                 BoundExpressionReason.NotFound
             );
@@ -348,7 +348,7 @@ class BlockBinder : Binder
             if (receiver.Type?.SpecialType == SpecialType.System_Void)
             {
                 _diagnostics.ReportMemberAccessOnVoid(memberAccess.Name.Identifier.Text, memberAccess.Name.GetLocation());
-                return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
             methodName = memberAccess.Name.Identifier.Text;
@@ -361,7 +361,7 @@ class BlockBinder : Binder
         else
         {
             _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         // Bind arguments
@@ -376,7 +376,7 @@ class BlockBinder : Binder
         }
 
         if (hasErrors)
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
 
         // Lookup candidate methods
         IEnumerable<IMethodSymbol> candidates;
@@ -391,7 +391,7 @@ class BlockBinder : Binder
             {
                 _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
                 return new BoundErrorExpression(
-                    ErrorTypeSymbol.Default,
+                    Compilation.ErrorTypeSymbol,
                     null,
                     BoundExpressionReason.NotFound
                 );
@@ -406,7 +406,7 @@ class BlockBinder : Binder
         {
             _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
             return new BoundErrorExpression(
-                ErrorTypeSymbol.Default,
+                Compilation.ErrorTypeSymbol,
                 null,
                 BoundExpressionReason.NotFound
             );
@@ -418,7 +418,7 @@ class BlockBinder : Binder
         {
             _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Count, syntax.GetLocation());
             return new BoundErrorExpression(
-                ErrorTypeSymbol.Default,
+                Compilation.ErrorTypeSymbol,
                 null,
                 BoundExpressionReason.OverloadResolutionFailed
             );
@@ -440,19 +440,19 @@ class BlockBinder : Binder
         else
         {
             //_diagnostics.ReportInvalidObjectCreation(syntax.Type.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         if (typeSymbol == null)
         {
             //_diagnostics.ReportInvalidObjectCreation(syntax.Type.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         if (typeSymbol == null)
         {
             _diagnostics.ReportUndefinedName(syntax.Type.ToString(), syntax.Type.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         // Bind arguments
@@ -582,7 +582,7 @@ class BlockBinder : Binder
         if (localSymbol.IsReadOnly)
         {
             _diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
-            return new BoundErrorExpression(ErrorTypeSymbol.Default, null, BoundExpressionReason.NotFound);
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         var right2 = BindExpression(syntax.RightHandSide);

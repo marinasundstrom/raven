@@ -36,6 +36,8 @@ public class Compilation
 
     internal BinderFactory BinderFactory { get; private set; }
 
+    public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= new ErrorTypeSymbol(this, "Error", null, [], []);
+
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
         return new Compilation(assemblyName, syntaxTrees, [], options);
@@ -167,6 +169,7 @@ public class Compilation
     private MetadataLoadContext _metadataLoadContext;
     private GlobalBinder _globalBinder;
     private bool setup;
+    private ErrorTypeSymbol _errorTypeSymbol;
 
     private void LoadMetadataReferences()
     {

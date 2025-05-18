@@ -5,13 +5,15 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 {
-    public static ITypeSymbol Default { get; } = new ErrorTypeSymbol("Error", null, [], []);
+    private readonly Compilation _compilation;
 
-    public ErrorTypeSymbol(string name, ISymbol containingSymbol, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+    public ErrorTypeSymbol(Compilation compilation, string name, ISymbol containingSymbol, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.ErrorType, name, containingSymbol, null, null, locations, declaringSyntaxReferences)
     {
+        _compilation = compilation;
     }
 
+    public override Compilation Compilation => _compilation;
 
     public ImmutableArray<IMethodSymbol> Constructors => [];
 
