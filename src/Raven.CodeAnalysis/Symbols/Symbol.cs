@@ -137,12 +137,17 @@ internal abstract class Symbol : ISymbol
 
     private string GetDebuggerDisplay()
     {
-        if (this is INamespaceSymbol ns && ns.IsGlobalNamespace)
+        try
         {
-            return "<global>";
-        }
+            if (this is INamespaceSymbol ns && ns.IsGlobalNamespace)
+                return "<global>";
 
-        return this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
+        }
+        catch
+        {
+            return $"{Kind}: <error>";
+        }
     }
 
     public override string ToString()

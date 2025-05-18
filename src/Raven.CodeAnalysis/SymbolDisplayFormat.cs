@@ -97,15 +97,6 @@ public class SymbolDisplayFormat
         ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName | SymbolDisplayParameterOptions.IncludeExtensionThis
     };
 
-    /*
-     * new SymbolDisplayFormat
-       {
-           TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
-           GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
-           GlobalNamespaceStyle = SymbolDisplayGlobalNamespaceStyle.Included
-       };
-     */
-
     public static SymbolDisplayFormat MinimallyQualifiedFormat { get; } = new SymbolDisplayFormat
     {
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
@@ -134,6 +125,83 @@ public class SymbolDisplayFormat
     public SymbolDisplayPropertyStyle PropertyStyle { get; private set; }
 
     public SymbolDisplayTypeQualificationStyle TypeQualificationStyle { get; private set; }
+
+    public SymbolDisplayFormat WithDelegateStyle(SymbolDisplayDelegateStyle value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.DelegateStyle = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithExtensionMethodStyle(SymbolDisplayExtensionMethodStyle value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.ExtensionMethodStyle = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithGenericsOptions(SymbolDisplayGenericsOptions value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.GenericsOptions = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.GlobalNamespaceStyle = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithKindOptions(SymbolDisplayKindOptions value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.KindOptions = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithLocalOptions(SymbolDisplayLocalOptions value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.LocalOptions = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithMemberOptions(SymbolDisplayMemberOptions value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.MemberOptions = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.MiscellaneousOptions = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithParameterOptions(SymbolDisplayParameterOptions value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.ParameterOptions = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithPropertyStyle(SymbolDisplayPropertyStyle value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.PropertyStyle = value;
+        return clone;
+    }
+
+    public SymbolDisplayFormat WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle value)
+    {
+        var clone = (SymbolDisplayFormat)this.MemberwiseClone();
+        clone.TypeQualificationStyle = value;
+        return clone;
+    }
 }
 
 public enum SymbolDisplayPropertyStyle

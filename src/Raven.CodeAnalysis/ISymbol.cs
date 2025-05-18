@@ -187,6 +187,8 @@ public interface INamedTypeSymbol : ITypeSymbol
 public interface IArrayTypeSymbol : ITypeSymbol
 {
     ITypeSymbol ElementType { get; }
+
+    public int Rank { get; }
 }
 
 public interface ITypeParameterSymbol : ISymbol

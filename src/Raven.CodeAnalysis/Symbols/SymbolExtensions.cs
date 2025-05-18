@@ -26,6 +26,24 @@ public static partial class SymbolExtensions
 
     public static string ToDisplayStringKeywordAware(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            var elementType = arrayType.ElementType;
+
+            if (arrayType.Rank > 1)
+            {
+                return elementType + "[" + new string(',', arrayType.Rank - 1) + "]";
+            }
+
+            return elementType.ToDisplayStringKeywordAware(format) + "[]";
+        }
+
+        /*
+        if (typeSymbol is IPointerTypeSymbol pointerType)
+        {
+            return pointerType.PointedAtType.ToDisplayStringKeywordAware(format) + "*";
+        } */
+
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
         {
             var fullName = typeSymbol.ToFullyQualifiedMetadataName(); // e.g. "System.Int32"
@@ -83,16 +101,8 @@ public static partial class SymbolExtensions
             }
         }
 
-        if (symbol is IArrayTypeSymbol arrayTypeSymbol)
-        {
-            result.Append(arrayTypeSymbol.ElementType.ToDisplayStringKeywordAware(format));
-            result.Append("[]");
-        }
-        else
-        {
-            // Append the symbol's name
-            result.Append(symbol.Name); // Assume `Name` is a property of the symbol   
-        }
+        // Append the symbol's name
+        result.Append(symbol.Name); // Assume `Name` is a property of the symbol   
 
         if (symbol is INamedTypeSymbol typeSymbol)
         {
