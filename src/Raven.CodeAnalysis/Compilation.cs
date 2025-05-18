@@ -139,7 +139,7 @@ public class Compilation
             {
                 ITypeSymbol typeSymbol = null!;
 
-                var symbol2 = new SourceTypeSymbol(
+                var symbol2 = new SourceNamedTypeSymbol(
                     "Program", globalNamespace!, null, globalNamespace,
                     locations, references);
 
@@ -381,11 +381,11 @@ public class Compilation
         return null;
     }
 
-    private MetadataTypeSymbol CreateMetadataTypeSymbol(Type type)
+    private MetadataNamedTypeSymbol CreateMetadataTypeSymbol(Type type)
     {
         var ns = GetOrCreateNamespaceSymbol(type.Namespace);
 
-        var typeSymbol = new MetadataTypeSymbol(
+        var typeSymbol = new MetadataNamedTypeSymbol(
             this,
             type.GetTypeInfo(), ns, null, ns,
             []);

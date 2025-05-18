@@ -1,10 +1,8 @@
 using System.Collections.Immutable;
 
-using Raven.CodeAnalysis.Symbols;
+namespace Raven.CodeAnalysis.Symbols;
 
-namespace Raven.CodeAnalysis;
-
-sealed class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSymbol
+sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSymbol
 {
 
     public SynthesizedMainMethodSymbol(Compilation compilation, INamespaceSymbol @namespace) : base("Main",

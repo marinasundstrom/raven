@@ -7,9 +7,20 @@ namespace Generator;
 
 public static class AcceptMethodGenerator
 {
-    public static IEnumerable<MethodDeclarationSyntax> GenerateAcceptMethods(string nodeClassName, bool makeInternal = false)
+    public static IEnumerable<MethodDeclarationSyntax> GenerateAcceptMethods(string nodeClassName, bool makeInternal = false, string suffix = "Syntax")
     {
-        var methodName = $"Visit{nodeClassName.Replace("Syntax", string.Empty)}";
+        var str = suffix == "Syntax" ? "TNode" : "TResult";
+
+        string name = nodeClassName.Replace(suffix, string.Empty);
+
+        if (suffix == "Symbol")
+        {
+            name = name
+                .Replace("Metadata", string.Empty)
+                .Replace("Source", string.Empty);
+        }
+
+        var methodName = $"Visit{name}";
 
         return [
             MethodDeclaration(
@@ -27,7 +38,7 @@ public static class AcceptMethodGenerator
                         Parameter(
                             Identifier("visitor"))
                         .WithType(
-                            IdentifierName("SyntaxVisitor")))))
+                            IdentifierName($"{(suffix == "Syntax" ? "" : "CodeAnalysis.")}{suffix}Visitor")))))
             .WithBody(
                 Block(
                     SingletonList<StatementSyntax>(
@@ -43,7 +54,7 @@ public static class AcceptMethodGenerator
                                         Argument(
                                             ThisExpression())))))))),
             MethodDeclaration(
-                IdentifierName("TNode"),
+                IdentifierName(str),
                 Identifier("Accept"))
             .WithModifiers(
                 TokenList(
@@ -54,7 +65,7 @@ public static class AcceptMethodGenerator
                 TypeParameterList(
                     SingletonSeparatedList(
                         TypeParameter(
-                            Identifier("TNode")))))
+                            Identifier(str)))))
             .WithParameterList(
                 ParameterList(
                     SingletonSeparatedList(
@@ -62,11 +73,11 @@ public static class AcceptMethodGenerator
                             Identifier("visitor"))
                         .WithType(
                             GenericName(
-                                Identifier("SyntaxVisitor"))
+                                Identifier($"{(suffix == "Syntax" ? "" : "CodeAnalysis.")}{suffix}Visitor"))
                             .WithTypeArgumentList(
                                 TypeArgumentList(
                                     SingletonSeparatedList<TypeSyntax>(
-                                        IdentifierName("TNode"))))))))
+                                        IdentifierName(str))))))))
             .WithBody(
                 Block(
                     SingletonList<StatementSyntax>(

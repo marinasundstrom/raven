@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -41,6 +42,10 @@ public interface ISymbol : IEquatable<ISymbol?>
     bool IsStatic { get; }
 
     bool Equals(ISymbol? other, SymbolEqualityComparer comparer);
+
+    void Accept(SymbolVisitor visitor);
+
+    TResult Accept<TResult>(SymbolVisitor<TResult> visitor);
 }
 
 public enum Accessibility
@@ -193,4 +198,8 @@ public interface ILocalSymbol : ISymbol
     ITypeSymbol Type { get; }
 
     bool IsReadOnly { get; }
+}
+
+public interface IErrorTypeSymbol : INamedTypeSymbol
+{
 }

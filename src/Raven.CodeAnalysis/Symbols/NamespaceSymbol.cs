@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal class NamespaceSymbol : SourceSymbol, INamespaceSymbol
+internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
 {
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private Compilation _compilation;

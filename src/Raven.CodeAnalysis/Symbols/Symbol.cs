@@ -44,11 +44,11 @@ internal abstract class Symbol : ISymbol
             }
         }
 
-        if (containingType is SourceTypeSymbol t)
+        if (containingType is SourceNamedTypeSymbol t)
         {
             t.AddMember(this);
         }
-        else if (containingType is MetadataTypeSymbol t2)
+        else if (containingType is MetadataNamedTypeSymbol t2)
         {
             t2.AddMember(this);
         }
@@ -146,4 +146,8 @@ internal abstract class Symbol : ISymbol
     {
         return this.ToDisplayString();
     }
+
+    public abstract void Accept(CodeAnalysis.SymbolVisitor visitor);
+
+    public abstract TResult Accept<TResult>(CodeAnalysis.SymbolVisitor<TResult> visitor);
 }

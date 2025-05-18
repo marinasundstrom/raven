@@ -10,11 +10,18 @@ namespace Generator;
 
 public static class VisitorPartialGenerator
 {
-    public static ClassDeclarationSyntax GeneratePartialClassWithVisitMethodForVisitor(SourceProductionContext context, string namespaceNem, string nodeClassName, bool isInternal = false)
+    public static ClassDeclarationSyntax GeneratePartialClassWithVisitMethodForVisitor(SourceProductionContext context, string namespaceNem, string nodeClassName, bool isInternal = false, string suffix = "Syntax", string resultType = "SyntaxNode")
     {
         List<MethodDeclarationSyntax> methods = [];
 
-        var methodName = $"Visit{nodeClassName.Replace("Syntax", string.Empty)}";
+        string sv = nodeClassName;
+
+        if (suffix == "Symbol")
+        {
+            sv = sv.Substring(1);
+        }
+
+        var methodName = $"Visit{sv.Replace(suffix, string.Empty)}";
 
         methods.Add(MethodDeclaration(
         PredefinedType(
@@ -46,7 +53,7 @@ public static class VisitorPartialGenerator
 
 
         // Generate the partial class
-        var generatedClass = ClassDeclaration("SyntaxVisitor")
+        var generatedClass = ClassDeclaration($"{suffix}Visitor")
             .WithModifiers(TokenList(
                 Token(isInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword),
                 Token(SyntaxKind.AbstractKeyword),
@@ -56,11 +63,18 @@ public static class VisitorPartialGenerator
         return generatedClass;
     }
 
-    public static ClassDeclarationSyntax GeneratePartialClassWithVisitMethodForGenericVisitor(SourceProductionContext context, string namespaceNem, string nodeClassName, bool isInternal = false)
+    public static ClassDeclarationSyntax GeneratePartialClassWithVisitMethodForGenericVisitor(SourceProductionContext context, string namespaceNem, string nodeClassName, bool isInternal = false, string suffix = "Syntax", string resultType = "SyntaxNode")
     {
         List<MethodDeclarationSyntax> methods = [];
 
-        var methodName = $"Visit{nodeClassName.Replace("Syntax", string.Empty)}";
+        string sv = nodeClassName;
+
+        if (suffix == "Symbol")
+        {
+            sv = sv.Substring(1);
+        }
+
+        var methodName = $"Visit{sv.Replace(suffix, string.Empty)}";
 
         methods.Add(MethodDeclaration(
             IdentifierName("TResult"),
@@ -91,7 +105,7 @@ public static class VisitorPartialGenerator
 
 
         // Generate the partial class
-        var generatedClass = ClassDeclaration("SyntaxVisitor")
+        var generatedClass = ClassDeclaration($"{suffix}Visitor")
             .WithTypeParameterList(
                 TypeParameterList(
                     SeparatedList<TypeParameterSyntax>([TypeParameter("TResult")])))
@@ -104,14 +118,21 @@ public static class VisitorPartialGenerator
         return generatedClass;
     }
 
-    public static ClassDeclarationSyntax GenerateVisitMethodForRewriter(SourceProductionContext context, INamedTypeSymbol? classSymbol)
+    public static ClassDeclarationSyntax GenerateVisitMethodForRewriter(SourceProductionContext context, INamedTypeSymbol? classSymbol, string suffix = "Syntax", string resultType = "SyntaxNode")
     {
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
         var className = classSymbol.Name;
 
         List<MethodDeclarationSyntax> methods = [];
 
-        var methodName = $"Visit{classSymbol.Name.Replace("Syntax", string.Empty)}";
+        string sv = className;
+
+        if (suffix == "Symbol")
+        {
+            sv = sv.Substring(1);
+        }
+
+        var methodName = $"Visit{sv.Replace(suffix, string.Empty)}";
 
         var properties = classSymbol.GetMembers()
             .OfType<IPropertySymbol>()
@@ -171,7 +192,7 @@ public static class VisitorPartialGenerator
                     args)));
 
         methods.Add(MethodDeclaration(
-            NullableType(IdentifierName("SyntaxNode")),
+            NullableType(IdentifierName(resultType)),
                         Identifier(methodName))
                         .WithModifiers(
                             TokenList(
@@ -191,16 +212,16 @@ public static class VisitorPartialGenerator
 
 
         // Generate the partial class
-        var generatedClass = ClassDeclaration("SyntaxRewriter")
+        var generatedClass = ClassDeclaration($"{suffix}Rewriter")
             .WithBaseList(BaseList(
                 SingletonSeparatedList<BaseTypeSyntax>(
                     SimpleBaseType(
                         GenericName(
-                            Identifier("SyntaxVisitor"))
+                            Identifier($"{suffix}Visitor"))
                         .WithTypeArgumentList(
                             TypeArgumentList(
                                 SingletonSeparatedList<TypeSyntax>(
-                                    NullableType(IdentifierName("SyntaxNode")))))))))
+                                    NullableType(IdentifierName(resultType)))))))))
             .WithModifiers(TokenList(
                 Token(SyntaxKind.PublicKeyword),
                 Token(SyntaxKind.AbstractKeyword),

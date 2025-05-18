@@ -2,7 +2,7 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal class MetadataPropertySymbol : MetadataSymbol, IPropertySymbol
+internal partial class MetadataPropertySymbol : MetadataSymbol, IPropertySymbol
 {
     private readonly PropertyInfo _propertyInfo;
     private ITypeSymbol _type;

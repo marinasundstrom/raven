@@ -2,7 +2,7 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal class MetadataFieldSymbol : MetadataSymbol, IFieldSymbol
+internal partial class MetadataFieldSymbol : MetadataSymbol, IFieldSymbol
 {
     private readonly FieldInfo _fieldInfo;
     private ITypeSymbol? _type;

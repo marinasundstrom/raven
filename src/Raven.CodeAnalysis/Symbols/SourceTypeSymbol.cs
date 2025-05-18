@@ -2,11 +2,11 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal class SourceTypeSymbol : SourceSymbol, ITypeSymbol, INamedTypeSymbol
+internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 {
     private readonly List<ISymbol> _members = new List<ISymbol>();
 
-    public SourceTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+    public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
 

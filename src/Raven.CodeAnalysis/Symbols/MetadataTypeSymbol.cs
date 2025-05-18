@@ -3,14 +3,14 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal class MetadataTypeSymbol : MetadataSymbol, ITypeSymbol, INamedTypeSymbol
+internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbol
 {
     private readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
 
-    public MetadataTypeSymbol(Compilation compilation, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public MetadataNamedTypeSymbol(Compilation compilation, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(compilation, containingSymbol, containingType, containingNamespace, locations)
     {
         _typeInfo = typeInfo;

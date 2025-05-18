@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.Symbols;
 
 
-internal class ErrorTypeSymbol : Symbol, IErrorTypeSymbol
+internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 {
     public static ITypeSymbol Default { get; } = new ErrorTypeSymbol("Error", null, [], []);
 

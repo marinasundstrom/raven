@@ -54,6 +54,9 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var fooSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
         var consoleWriteLineSymbol = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
 
+        var visitor = new TestSymbolVisitor();
+        visitor.VisitNamespace(compilation.GlobalNamespace);
+
         testOutputHelper.WriteLine(consoleWriteLineSymbol.Symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
         var diagnostics = semanticModel.GetDiagnostics();
@@ -66,5 +69,21 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         }
 
         #endregion
+    }
+}
+
+public class TestSymbolVisitor : SymbolVisitor
+{
+    public override void VisitNamespace(INamespaceSymbol node)
+    {
+        foreach (var member in node.GetMembers())
+        {
+            member.Accept(this);
+        }
+    }
+
+    public override void VisitNamedType(INamedTypeSymbol node)
+    {
+        base.VisitNamedType(node);
     }
 }

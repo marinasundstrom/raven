@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
+internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
 {
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
