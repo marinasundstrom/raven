@@ -33,7 +33,7 @@ public abstract class Location : IComparable<Location>, IEquatable<Location>
 
     public LocationKind Kind { get; protected set; } = LocationKind.None;
 
-    //public MetadataModule MetadataModule { get; };
+    //public IModuleSymbol MetadataModule { get; };
 
     public TextSpan SourceSpan { get; protected set; }
     public SyntaxTree SourceTree { get; protected set; }

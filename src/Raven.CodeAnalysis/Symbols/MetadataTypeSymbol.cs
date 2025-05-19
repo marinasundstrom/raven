@@ -127,43 +127,39 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
 
             var method = new MetadataMethodSymbol(
                 mi,
-                null,
                 this,
                 this,
                 ContainingNamespace,
-                []);
+                [new MetadataLocation()]);
         }
 
         foreach (var pi in _typeInfo.DeclaredProperties)
         {
             var property = new MetadataPropertySymbol(
                 pi,
-                null,
                 this,
                 this,
                 ContainingNamespace,
-                []);
+                [new MetadataLocation()]);
 
             if (pi.GetMethod is not null)
             {
                 property.GetMethod = new MetadataMethodSymbol(
                     pi.GetMethod,
-                    null,
                     property,
                     this,
                     ContainingNamespace,
-                    []);
+                    [new MetadataLocation()]);
             }
 
             if (pi.SetMethod is not null)
             {
                 property.SetMethod = new MetadataMethodSymbol(
                     pi.SetMethod,
-                    null,
                     property,
                     this,
                     ContainingNamespace,
-                    []);
+                    [new MetadataLocation()]);
             }
         }
 
@@ -174,22 +170,20 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
 
             var field = new MetadataFieldSymbol(
                 fi,
-                null,
                 this,
                 this,
                 ContainingNamespace,
-                []);
+                [new MetadataLocation()]);
         }
 
         foreach (var ci in _typeInfo.DeclaredConstructors)
         {
             var ctor = new MetadataMethodSymbol(
                 ci,
-                null,
                 this,
                 this,
                 ContainingNamespace,
-                []);
+                [new MetadataLocation()]);
         }
     }
 }

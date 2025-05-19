@@ -9,7 +9,7 @@ internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
 
-    public MetadataMethodSymbol(MethodBase methodInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public MetadataMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _methodInfo = methodInfo;
@@ -46,7 +46,7 @@ internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
 
                 return new MetadataParameterSymbol(
                       param, null, this, this.ContainingType, this.ContainingNamespace,
-                      []);
+                      [new MetadataLocation()]);
             }).OfType<IParameterSymbol>().ToImmutableArray();
         }
     }

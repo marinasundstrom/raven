@@ -35,7 +35,7 @@ class BlockBinder : Binder
         switch (node)
         {
             case VariableDeclaratorSyntax varDecl:
-                symbol = BindVariableDeclaration(varDecl);
+                symbol = BindLocalDeclaration(varDecl);
                 break;
 
             case ExpressionSyntax expr:
@@ -55,7 +55,7 @@ class BlockBinder : Binder
     {
         return statement switch
         {
-            LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindVariableDeclaration(localDeclaration.Declaration.Declarators[0])),
+            LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindLocalDeclaration(localDeclaration.Declaration.Declarators[0])),
             ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
             EmptyStatementSyntax emptyStatement => new BoundVoidExpression(Compilation),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
@@ -70,7 +70,7 @@ class BlockBinder : Binder
         return new BoundBlockExpression(statements);
     }
 
-    private ILocalSymbol BindVariableDeclaration(VariableDeclaratorSyntax variableDeclarator)
+    private ILocalSymbol BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
         if (_locals.TryGetValue(variableDeclarator.Name.Identifier.Text, out var existingSymbol))
             return existingSymbol;
@@ -93,7 +93,9 @@ class BlockBinder : Binder
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
         }
 
-        var symbol = new SourceLocalSymbol(name, type, isReadOnly, null, null, null, [variableDeclarator.GetLocation()], []);
+        ISymbol containingSymbol = null!;
+
+        var symbol = new SourceLocalSymbol(name, type, isReadOnly, containingSymbol, null, null, [variableDeclarator.GetLocation()], [variableDeclarator.GetReference()]);
         _locals[name] = symbol;
 
         return symbol;

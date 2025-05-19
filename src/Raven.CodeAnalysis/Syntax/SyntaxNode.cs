@@ -376,4 +376,6 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
         return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
+
+    public SyntaxReference GetReference() => new SyntaxReference(SyntaxTree, this);
 }

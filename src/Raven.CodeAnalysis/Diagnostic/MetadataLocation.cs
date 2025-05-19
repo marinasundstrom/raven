@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 internal class MetadataLocation : Location
 {
-    private MetadataLocation()
+    internal MetadataLocation()
     {
         Kind = LocationKind.MetadataFile;
     }

@@ -134,7 +134,7 @@ public class Compilation
 
             Location[] locations = [syntaxTree.GetLocation(root.Span)];
 
-            SyntaxReference[] references = [new SyntaxReference(syntaxTree, root)];
+            SyntaxReference[] references = [root.GetReference()];
 
             var globalStatements = root.Members.OfType<GlobalStatementSyntax>();
             if (globalStatements.Any())
@@ -149,7 +149,7 @@ public class Compilation
 
                 var symbol = new SourceMethodSymbol(
                     "Main", typeSymbol, [], symbol2!, symbol2, globalNamespace,
-                    [syntaxTree.GetLocation(root.Span)], [new SyntaxReference(syntaxTree, root)]);
+                    [syntaxTree.GetLocation(root.Span)], [root.GetReference()]);
 
                 _symbols.Add(symbol);
             }
@@ -224,7 +224,7 @@ public class Compilation
         {
             Location[] locations = [syntaxTree.GetLocation(namespaceDeclarationSyntax.Span)];
 
-            SyntaxReference[] references = [new SyntaxReference(syntaxTree, namespaceDeclarationSyntax.Span)];
+            SyntaxReference[] references = [namespaceDeclarationSyntax.GetReference()];
 
             var symbol = new NamespaceSymbol(
                 namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, (INamespaceSymbol?)declaringSymbol,
@@ -241,7 +241,7 @@ public class Compilation
         {
             Location[] locations = [syntaxTree.GetLocation(methodDeclaration.Span)];
 
-            SyntaxReference[] references = [new SyntaxReference(syntaxTree, methodDeclaration.Span)];
+            SyntaxReference[] references = [methodDeclaration.GetReference()];
 
             ITypeSymbol typeSymbol = null!;
 
@@ -390,7 +390,7 @@ public class Compilation
 
         var typeSymbol = new MetadataNamedTypeSymbol(
             type.GetTypeInfo(), ns, null, ns,
-            []);
+            [new MetadataLocation()]);
 
         // You can lazily resolve members of this type later when accessed
         return typeSymbol;

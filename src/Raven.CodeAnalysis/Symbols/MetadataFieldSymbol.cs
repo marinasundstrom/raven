@@ -7,7 +7,7 @@ internal partial class MetadataFieldSymbol : MetadataSymbol, IFieldSymbol
     private readonly FieldInfo _fieldInfo;
     private ITypeSymbol? _type;
 
-    public MetadataFieldSymbol(FieldInfo fieldInfo, ITypeSymbol fieldType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public MetadataFieldSymbol(FieldInfo fieldInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _fieldInfo = fieldInfo;
