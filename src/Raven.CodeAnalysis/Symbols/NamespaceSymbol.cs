@@ -7,13 +7,19 @@ internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private Compilation _compilation;
 
-    public NamespaceSymbol(Compilation compilation, string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
-        : base(SymbolKind.Namespace, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+    public NamespaceSymbol(string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+    : base(SymbolKind.Namespace, name, containingSymbol, null, containingNamespace, locations, declaringSyntaxReferences)
+    {
+
+    }
+
+    public NamespaceSymbol(Compilation compilation, string name, ISymbol containingSymbol, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+        : base(SymbolKind.Namespace, name, containingSymbol, null, null, locations, declaringSyntaxReferences)
     {
         _compilation = compilation;
     }
 
-    public override Compilation Compilation => _compilation;
+    public override Compilation Compilation => _compilation ?? ContainingNamespace!.Compilation;
 
     public bool IsNamespace { get; } = true;
     public bool IsType { get; } = false;

@@ -6,8 +6,8 @@ internal partial class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
 {
     private INamedTypeSymbol? _baseType;
 
-    public ArrayTypeSymbol(Compilation compilation, ITypeSymbol elementType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
-        : base(compilation, containingSymbol, containingType, containingNamespace, locations)
+    public ArrayTypeSymbol(ITypeSymbol elementType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
+        : base(containingSymbol, containingType, containingNamespace, locations)
     {
         ElementType = elementType;
         Rank = rank;
@@ -29,7 +29,7 @@ internal partial class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
 
     public int Rank { get; }
 
-    public INamedTypeSymbol? BaseType => _baseType ??= (INamedTypeSymbol?)_compilation.GetSpecialType(SpecialType.System_Array);
+    public INamedTypeSymbol? BaseType => _baseType ??= (INamedTypeSymbol?)Compilation.GetSpecialType(SpecialType.System_Array);
 
     public bool IsArray => true;
 

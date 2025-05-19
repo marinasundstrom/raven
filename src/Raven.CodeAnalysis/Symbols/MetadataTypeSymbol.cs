@@ -10,8 +10,8 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
 
-    public MetadataNamedTypeSymbol(Compilation compilation, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
-        : base(compilation, containingSymbol, containingType, containingNamespace, locations)
+    public MetadataNamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+        : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _typeInfo = typeInfo;
     }
@@ -81,7 +81,7 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
 
     public bool IsValueType => _typeInfo.IsValueType;
 
-    public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)_compilation.GetType(_typeInfo.BaseType) : null);
+    public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)Compilation.GetType(_typeInfo.BaseType) : null);
 
     public bool IsArray => false;
 
@@ -126,7 +126,6 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
                 continue;
 
             var method = new MetadataMethodSymbol(
-                _compilation,
                 mi,
                 null,
                 this,
@@ -138,7 +137,6 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
         foreach (var pi in _typeInfo.DeclaredProperties)
         {
             var property = new MetadataPropertySymbol(
-                _compilation,
                 pi,
                 null,
                 this,
@@ -149,7 +147,6 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
             if (pi.GetMethod is not null)
             {
                 property.GetMethod = new MetadataMethodSymbol(
-                    _compilation,
                     pi.GetMethod,
                     null,
                     property,
@@ -161,7 +158,6 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
             if (pi.SetMethod is not null)
             {
                 property.SetMethod = new MetadataMethodSymbol(
-                    _compilation,
                     pi.SetMethod,
                     null,
                     property,
@@ -177,7 +173,6 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
                 continue;
 
             var field = new MetadataFieldSymbol(
-                _compilation,
                 fi,
                 null,
                 this,
@@ -189,7 +184,6 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
         foreach (var ci in _typeInfo.DeclaredConstructors)
         {
             var ctor = new MetadataMethodSymbol(
-                _compilation,
                 ci,
                 null,
                 this,

@@ -9,8 +9,8 @@ internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
 
-    public MetadataMethodSymbol(Compilation compilation, MethodBase methodInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
-        : base(compilation, containingSymbol, containingType, containingNamespace, locations)
+    public MetadataMethodSymbol(MethodBase methodInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+        : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _methodInfo = methodInfo;
     }
@@ -25,11 +25,11 @@ internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
             {
                 if (_methodInfo is ConstructorInfo)
                 {
-                    _returnType = _compilation.GetSpecialType(SpecialType.System_Void);
+                    _returnType = Compilation.GetSpecialType(SpecialType.System_Void);
                 }
                 else
                 {
-                    _returnType = _compilation.GetType(((MethodInfo)_methodInfo).ReturnType);
+                    _returnType = Compilation.GetType(((MethodInfo)_methodInfo).ReturnType);
                 }
             }
             return _returnType;
@@ -42,9 +42,9 @@ internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
         {
             return _parameters ??= _methodInfo.GetParameters().Select(param =>
             {
-                var t = _compilation.GetType(param.ParameterType);
+                var t = Compilation.GetType(param.ParameterType);
 
-                return new MetadataParameterSymbol(_compilation,
+                return new MetadataParameterSymbol(
                       param, null, this, this.ContainingType, this.ContainingNamespace,
                       []);
             }).OfType<IParameterSymbol>().ToImmutableArray();

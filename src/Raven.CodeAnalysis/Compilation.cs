@@ -121,7 +121,7 @@ public class Compilation
 
         var globalNamespace = new NamespaceSymbol(
             this,
-            "", null!, null, null,
+            "", null,
             [], []);
 
         GlobalNamespace = globalNamespace;
@@ -209,7 +209,7 @@ public class Compilation
 
             if (currentNamespace == null)
             {
-                currentNamespace = new NamespaceSymbol(this, part, parent, null, parent, [], []);
+                currentNamespace = new NamespaceSymbol(part, null, parent, [], []);
                 _symbols.Add(currentNamespace);
                 return currentNamespace; // Namespace not found
             }
@@ -226,8 +226,8 @@ public class Compilation
 
             SyntaxReference[] references = [new SyntaxReference(syntaxTree, namespaceDeclarationSyntax.Span)];
 
-            var symbol = new NamespaceSymbol(this,
-                namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, null!, (INamespaceSymbol?)declaringSymbol,
+            var symbol = new NamespaceSymbol(
+                namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, (INamespaceSymbol?)declaringSymbol,
                 locations, references);
 
             _symbols.Add(symbol);
@@ -389,7 +389,6 @@ public class Compilation
         var ns = GetOrCreateNamespaceSymbol(type.Namespace);
 
         var typeSymbol = new MetadataNamedTypeSymbol(
-            this,
             type.GetTypeInfo(), ns, null, ns,
             []);
 
@@ -463,7 +462,7 @@ public class Compilation
         if (type.IsArray)
         {
             var elementType = GetType(type.GetElementType());
-            return new ArrayTypeSymbol(this, elementType, null, null, null, []);
+            return new ArrayTypeSymbol(elementType, null, null, null, []);
         }
 
         return GetSimpleType(type);
@@ -520,7 +519,7 @@ public class Compilation
                 if (parentNs.IsMemberDefined(name, out var existingSymbol))
                     return existingSymbol;
 
-                return new NamespaceSymbol(this, name, parentNs, null, parentNs, [], []);
+                return new NamespaceSymbol(name, null, parentNs, [], []);
             }
         }
 
@@ -530,6 +529,6 @@ public class Compilation
     public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType)
     {
         var ns = GlobalNamespace.LookupNamespace("System");
-        return new ArrayTypeSymbol(this, elementType, ns, null, ns, []);
+        return new ArrayTypeSymbol(elementType, ns, null, ns, []);
     }
 }
