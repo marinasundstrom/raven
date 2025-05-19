@@ -3,14 +3,14 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbol
+internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSymbol, INamedTypeSymbol
 {
     private readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
 
-    public MetadataNamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PortableExecutableNamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _typeInfo = typeInfo;
@@ -125,7 +125,7 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
             if (mi.IsSpecialName)
                 continue;
 
-            var method = new MetadataMethodSymbol(
+            var method = new PortableExecutableMethodSymbol(
                 mi,
                 this,
                 this,
@@ -135,7 +135,7 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
 
         foreach (var pi in _typeInfo.DeclaredProperties)
         {
-            var property = new MetadataPropertySymbol(
+            var property = new PortableExecutablePropertySymbol(
                 pi,
                 this,
                 this,
@@ -144,7 +144,7 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
 
             if (pi.GetMethod is not null)
             {
-                property.GetMethod = new MetadataMethodSymbol(
+                property.GetMethod = new PortableExecutableMethodSymbol(
                     pi.GetMethod,
                     property,
                     this,
@@ -154,7 +154,7 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
 
             if (pi.SetMethod is not null)
             {
-                property.SetMethod = new MetadataMethodSymbol(
+                property.SetMethod = new PortableExecutableMethodSymbol(
                     pi.SetMethod,
                     property,
                     this,
@@ -168,7 +168,7 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
             if (fi.IsSpecialName)
                 continue;
 
-            var field = new MetadataFieldSymbol(
+            var field = new PortableExecutableFieldSymbol(
                 fi,
                 this,
                 this,
@@ -178,7 +178,7 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
 
         foreach (var ci in _typeInfo.DeclaredConstructors)
         {
-            var ctor = new MetadataMethodSymbol(
+            var ctor = new PortableExecutableMethodSymbol(
                 ci,
                 this,
                 this,

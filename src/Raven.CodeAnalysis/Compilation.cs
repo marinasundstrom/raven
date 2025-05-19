@@ -43,7 +43,7 @@ public class Compilation
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
-    internal MetadataNamespaceSymbol MetadataGlobalNamespace { get; private set; }
+    internal PortableExecutableNamespaceSymbol MetadataGlobalNamespace { get; private set; }
 
     public Assembly CoreAssembly { get; private set; }
 
@@ -140,7 +140,7 @@ public class Compilation
             "", null!, null, null,
             [], []);
 
-        MetadataGlobalNamespace = new MetadataNamespaceSymbol(
+        MetadataGlobalNamespace = new PortableExecutableNamespaceSymbol(
             "", null!, null);
 
         LoadMetadataReferences();
@@ -226,7 +226,7 @@ public class Compilation
 
             if (currentNamespace == null)
             {
-                currentNamespace = new MetadataNamespaceSymbol(part, null!, parent);
+                currentNamespace = new PortableExecutableNamespaceSymbol(part, null!, parent);
                 _symbols.Add(currentNamespace);
                 return currentNamespace; // Namespace not found
             }
@@ -401,11 +401,11 @@ public class Compilation
         return null;
     }
 
-    private MetadataNamedTypeSymbol CreateMetadataTypeSymbol(Type type)
+    private PortableExecutableNamedTypeSymbol CreateMetadataTypeSymbol(Type type)
     {
         var ns = GetOrCreateNamespaceSymbol(type.Namespace);
 
-        var typeSymbol = new MetadataNamedTypeSymbol(
+        var typeSymbol = new PortableExecutableNamedTypeSymbol(
             type.GetTypeInfo(), ns, null, ns,
             [new MetadataLocation()]);
 
@@ -506,7 +506,7 @@ public class Compilation
                 throw new InvalidOperationException();
 
             var assembly = _metadataLoadContext.LoadFromAssemblyPath(portableExecutableReference.Location);
-            symbol = new MetadataAssemblySymbol(assembly, []);
+            symbol = new PortableExecutableAssemblySymbol(assembly, []);
             _metadataReferenceSymbols[metadataReference] = symbol;
         }
         return symbol;
@@ -548,7 +548,7 @@ public class Compilation
                 if (parentNs.IsMemberDefined(name, out var existingSymbol))
                     return existingSymbol;
 
-                return new MetadataNamespaceSymbol(name, parentNs, parentNs);
+                return new PortableExecutableNamespaceSymbol(name, parentNs, parentNs);
             }
         }
 

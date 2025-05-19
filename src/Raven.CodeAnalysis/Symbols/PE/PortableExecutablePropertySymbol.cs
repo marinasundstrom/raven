@@ -2,12 +2,12 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataPropertySymbol : MetadataSymbol, IPropertySymbol
+internal partial class PortableExecutablePropertySymbol : PortableExecutableSymbol, IPropertySymbol
 {
     private readonly PropertyInfo _propertyInfo;
     private ITypeSymbol _type;
 
-    public MetadataPropertySymbol(PropertyInfo propertyInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PortableExecutablePropertySymbol(PropertyInfo propertyInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _propertyInfo = propertyInfo;

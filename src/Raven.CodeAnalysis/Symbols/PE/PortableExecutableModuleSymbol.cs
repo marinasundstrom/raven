@@ -3,11 +3,11 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataModuleSymbol : MetadataSymbol, IModuleSymbol
+internal partial class PortableExecutableModuleSymbol : PortableExecutableSymbol, IModuleSymbol
 {
     private readonly Module _module;
 
-    public MetadataModuleSymbol(Module module, Location[] locations)
+    public PortableExecutableModuleSymbol(Module module, Location[] locations)
         : base(null!, null, null, locations)
     {
         _module = module;

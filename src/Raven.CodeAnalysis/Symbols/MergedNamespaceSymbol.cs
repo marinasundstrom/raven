@@ -5,9 +5,9 @@ namespace Raven.CodeAnalysis.Symbols;
 internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 {
     private readonly SourceNamespaceSymbol _source;
-    private readonly MetadataNamespaceSymbol _metadata;
+    private readonly PortableExecutableNamespaceSymbol _metadata;
 
-    public MergedNamespaceSymbol(SourceNamespaceSymbol source, MetadataNamespaceSymbol metadata)
+    public MergedNamespaceSymbol(SourceNamespaceSymbol source, PortableExecutableNamespaceSymbol metadata)
         : base(SymbolKind.Namespace,
                source.Name,
                source.ContainingSymbol,
@@ -50,7 +50,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
     public INamespaceSymbol? LookupNamespace(string name)
     {
         var sourceChild = _source.LookupNamespace(name) as SourceNamespaceSymbol;
-        var metadataChild = _metadata.LookupNamespace(name) as MetadataNamespaceSymbol;
+        var metadataChild = _metadata.LookupNamespace(name) as PortableExecutableNamespaceSymbol;
 
         if (sourceChild is not null && metadataChild is not null)
             return new MergedNamespaceSymbol(sourceChild, metadataChild);

@@ -2,20 +2,20 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class MetadataNamespaceSymbol : MetadataSymbol, INamespaceSymbol
+internal sealed partial class PortableExecutableNamespaceSymbol : PortableExecutableSymbol, INamespaceSymbol
 {
-    private MetadataModuleSymbol _module = default!;
+    private PortableExecutableModuleSymbol _module = default!;
     private readonly List<ISymbol> _members = new();
     private readonly string _name;
 
-    public MetadataNamespaceSymbol(string name, ISymbol containingSymbol,
+    public PortableExecutableNamespaceSymbol(string name, ISymbol containingSymbol,
     INamespaceSymbol? containingNamespace)
     : base(containingSymbol, null, containingNamespace, [])
     {
         _name = name;
     }
 
-    public MetadataNamespaceSymbol(MetadataModuleSymbol containingModule, string name, ISymbol containingSymbol,
+    public PortableExecutableNamespaceSymbol(PortableExecutableModuleSymbol containingModule, string name, ISymbol containingSymbol,
         INamespaceSymbol? containingNamespace)
         : base(containingSymbol, null, containingNamespace, [])
     {

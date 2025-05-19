@@ -2,9 +2,9 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal abstract class MetadataSymbol : Symbol
+internal abstract class PortableExecutableSymbol : Symbol
 {
-    protected MetadataSymbol(ISymbol containingSymbol,
+    protected PortableExecutableSymbol(ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
         Location[] locations) : base(containingSymbol, containingType, containingNamespace, locations, [])
     {

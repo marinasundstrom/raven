@@ -2,11 +2,11 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataAssemblySymbol : MetadataSymbol, IAssemblySymbol
+internal partial class PortableExecutableAssemblySymbol : PortableExecutableSymbol, IAssemblySymbol
 {
     private readonly Assembly _assembly;
 
-    public MetadataAssemblySymbol(Assembly assembly, Location[] locations)
+    public PortableExecutableAssemblySymbol(Assembly assembly, Location[] locations)
         : base(null!, null, null, locations)
     {
         _assembly = assembly;
@@ -22,7 +22,7 @@ internal partial class MetadataAssemblySymbol : MetadataSymbol, IAssemblySymbol
 
     public IEnumerable<IModuleSymbol> Modules => throw new NotImplementedException();
 
-    public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedMetadataName)
+    public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedPortableExecutableName)
     {
         throw new NotImplementedException();
     }

@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
+internal partial class ArrayTypeSymbol : PortableExecutableSymbol, IArrayTypeSymbol
 {
     private INamedTypeSymbol? _baseType;
 

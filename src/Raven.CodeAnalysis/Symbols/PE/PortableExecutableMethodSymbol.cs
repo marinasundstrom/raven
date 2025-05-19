@@ -3,13 +3,13 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
+internal partial class PortableExecutableMethodSymbol : PortableExecutableSymbol, IMethodSymbol
 {
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
 
-    public MetadataMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PortableExecutableMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _methodInfo = methodInfo;
@@ -44,7 +44,7 @@ internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
             {
                 var t = Compilation.GetType(param.ParameterType);
 
-                return new MetadataParameterSymbol(
+                return new PortableExecutableParameterSymbol(
                       param, null, this, this.ContainingType, this.ContainingNamespace,
                       [new MetadataLocation()]);
             }).OfType<IParameterSymbol>().ToImmutableArray();

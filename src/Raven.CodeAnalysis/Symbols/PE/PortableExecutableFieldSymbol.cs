@@ -2,12 +2,12 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataFieldSymbol : MetadataSymbol, IFieldSymbol
+internal partial class PortableExecutableFieldSymbol : PortableExecutableSymbol, IFieldSymbol
 {
     private readonly FieldInfo _fieldInfo;
     private ITypeSymbol? _type;
 
-    public MetadataFieldSymbol(FieldInfo fieldInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PortableExecutableFieldSymbol(FieldInfo fieldInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _fieldInfo = fieldInfo;
