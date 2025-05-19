@@ -17,7 +17,8 @@ public static class AcceptMethodGenerator
         {
             name = name
                 .Replace("Metadata", string.Empty)
-                .Replace("Source", string.Empty);
+                .Replace("Source", string.Empty)
+                .Replace("Merged", string.Empty);
         }
 
         var methodName = $"Visit{name}";

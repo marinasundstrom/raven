@@ -9,10 +9,12 @@ namespace Raven.CodeAnalysis;
 
 public class Compilation
 {
+    private INamespaceSymbol? _globalNamespace;
     private readonly SyntaxTree[] _syntaxTrees;
     private readonly MetadataReference[] _references;
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
+    private readonly Dictionary<MetadataReference, ISymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, ISymbol>();
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -28,9 +30,20 @@ public class Compilation
 
     public CompilationOptions Options { get; }
 
+    public IAssemblySymbol Assembly { get; private set; }
+
+    public IModuleSymbol Module { get; private set; }
+
+    public IEnumerable<MetadataReference> References => _references;
+
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
 
-    public INamespaceSymbol GlobalNamespace { get; private set; }
+    public INamespaceSymbol GlobalNamespace =>
+        _globalNamespace ??= new MergedNamespaceSymbol(SourceGlobalNamespace, MetadataGlobalNamespace);
+
+    internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
+
+    internal MetadataNamespaceSymbol MetadataGlobalNamespace { get; private set; }
 
     public Assembly CoreAssembly { get; private set; }
 
@@ -59,7 +72,7 @@ public class Compilation
         return new Compilation(AssemblyName, syntaxTrees, _references, Options);
     }
 
-    public Compilation AddReferences(MetadataReference[] references)
+    public Compilation AddReferences(params MetadataReference[] references)
     {
         return new Compilation(AssemblyName, _syntaxTrees, references, Options);
     }
@@ -119,12 +132,16 @@ public class Compilation
     {
         BinderFactory = new BinderFactory(this);
 
-        var globalNamespace = new NamespaceSymbol(
-            this,
-            "", null,
+        Assembly = new SourceAssemblySymbol(AssemblyName, []);
+
+        Module = new SourceModuleSymbol(AssemblyName, []);
+
+        SourceGlobalNamespace = new SourceNamespaceSymbol((SourceModuleSymbol)Module,
+            "", null!, null, null,
             [], []);
 
-        GlobalNamespace = globalNamespace;
+        MetadataGlobalNamespace = new MetadataNamespaceSymbol(
+            "", null!, null);
 
         LoadMetadataReferences();
 
@@ -142,13 +159,13 @@ public class Compilation
                 ITypeSymbol typeSymbol = null!;
 
                 var symbol2 = new SourceNamedTypeSymbol(
-                    "Program", globalNamespace!, null, globalNamespace,
+                    "Program", SourceGlobalNamespace!, null, SourceGlobalNamespace,
                     locations, references);
 
                 _symbols.Add(symbol2);
 
                 var symbol = new SourceMethodSymbol(
-                    "Main", typeSymbol, [], symbol2!, symbol2, globalNamespace,
+                    "Main", typeSymbol, [], symbol2!, symbol2, SourceGlobalNamespace,
                     [syntaxTree.GetLocation(root.Span)], [root.GetReference()]);
 
                 _symbols.Add(symbol);
@@ -157,11 +174,11 @@ public class Compilation
             {
                 foreach (var memberDeclaration in root.Members)
                 {
-                    AnalyzeMemberDeclaration(syntaxTree, globalNamespace, memberDeclaration);
+                    AnalyzeMemberDeclaration(syntaxTree, SourceGlobalNamespace, memberDeclaration);
                 }
             }
 
-            _symbols.Add(globalNamespace);
+            _symbols.Add(SourceGlobalNamespace);
         }
     }
 
@@ -205,11 +222,11 @@ public class Compilation
         foreach (var part in namespaceParts)
         {
             var parent = currentNamespace;
-            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as NamespaceSymbol;
+            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as INamespaceSymbol;
 
             if (currentNamespace == null)
             {
-                currentNamespace = new NamespaceSymbol(part, null, parent, [], []);
+                currentNamespace = new MetadataNamespaceSymbol(part, null!, parent);
                 _symbols.Add(currentNamespace);
                 return currentNamespace; // Namespace not found
             }
@@ -226,7 +243,7 @@ public class Compilation
 
             SyntaxReference[] references = [namespaceDeclarationSyntax.GetReference()];
 
-            var symbol = new NamespaceSymbol(
+            var symbol = new SourceNamespaceSymbol(
                 namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, (INamespaceSymbol?)declaringSymbol,
                 locations, references);
 
@@ -477,10 +494,22 @@ public class Compilation
         return ns.GetMembers(type.Name).FirstOrDefault() as ITypeSymbol;
     }
 
-    public void AddReference(string assemblyPath)
+    public ISymbol? GetAssemblyOrModuleSymbol(MetadataReference metadataReference)
     {
-        var metadata = MetadataReference.CreateFromFile(assemblyPath);
-        //GlobalNamespace.AddMetadata(metadata);
+        if (!_references.Contains(metadataReference))
+            throw new InvalidOperationException();
+
+        if (!_metadataReferenceSymbols.TryGetValue(metadataReference, out var symbol))
+        {
+            var portableExecutableReference = metadataReference as PortableExecutableReference;
+            if (portableExecutableReference is null)
+                throw new InvalidOperationException();
+
+            var assembly = _metadataLoadContext.LoadFromAssemblyPath(portableExecutableReference.Location);
+            symbol = new MetadataAssemblySymbol(assembly, []);
+            _metadataReferenceSymbols[metadataReference] = symbol;
+        }
+        return symbol;
     }
 
     public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
@@ -513,13 +542,13 @@ public class Compilation
             bool namespaceLikelyExists = asm.GetTypes()
                 .Any(t => t.FullName.StartsWith(fullName + ".", StringComparison.Ordinal));
 
-            if (namespaceLikelyExists && namespaceSymbol is NamespaceSymbol parentNs)
+            if (namespaceLikelyExists && namespaceSymbol is INamespaceSymbol parentNs)
             {
                 // Check if the namespace already exists in the parent
                 if (parentNs.IsMemberDefined(name, out var existingSymbol))
                     return existingSymbol;
 
-                return new NamespaceSymbol(name, null, parentNs, [], []);
+                return new MetadataNamespaceSymbol(name, parentNs, parentNs);
             }
         }
 

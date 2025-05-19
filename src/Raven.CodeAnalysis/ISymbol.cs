@@ -7,6 +7,8 @@ namespace Raven.CodeAnalysis;
 
 public enum SymbolKind
 {
+    Assembly,
+    Module,
     Namespace,
     Type,
     Method,
@@ -25,7 +27,13 @@ public interface ISymbol : IEquatable<ISymbol?>
 
     string Name { get; }
 
+    string MetadataName { get; }
+
     public ISymbol? ContainingSymbol { get; }
+
+    IAssemblySymbol? ContainingAssembly { get; }
+
+    IModuleSymbol? ContainingModule { get; }
 
     INamedTypeSymbol? ContainingType { get; }
 
@@ -204,4 +212,24 @@ public interface ILocalSymbol : ISymbol
 
 public interface IErrorTypeSymbol : INamedTypeSymbol
 {
+}
+
+public interface IAssemblySymbol : ISymbol
+{
+    INamespaceSymbol GlobalNamespace { get; }
+
+    IEnumerable<IModuleSymbol> Modules { get; }
+
+    INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedMetadataName);
+}
+
+public interface IModuleSymbol : ISymbol
+{
+    INamespaceSymbol GlobalNamespace { get; }
+
+    //ImmutableArray<AssemlyIdentity> ReferencedAssembly { get; }
+
+    ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols { get; }
+
+    INamespaceSymbol? GetModuleNamespace(INamespaceSymbol namespaceSymbol);
 }

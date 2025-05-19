@@ -121,14 +121,14 @@ class BinderFactory
     private Binder CreateNamespaceBinder(NamespaceDeclarationSyntax nsSyntax, Binder parentBinder)
     {
         var nsSymbol = _compilation.GlobalNamespace.LookupNamespace(nsSyntax.Name.ToString());
-        var nsBinder = new NamespaceBinder(parentBinder, (NamespaceSymbol)nsSymbol, _compilation);
+        var nsBinder = new NamespaceBinder(parentBinder, (INamespaceSymbol)nsSymbol, _compilation);
 
         // Register `import` directives
         foreach (var importDirective in nsSyntax.Imports)
         {
             var importedNamespace = _compilation.GlobalNamespace.LookupNamespace(importDirective.NamespaceOrType.ToString());
             if (importedNamespace != null)
-                nsBinder.AddUsingDirective((NamespaceSymbol)importedNamespace);
+                nsBinder.AddUsingDirective((INamespaceSymbol)importedNamespace);
         }
 
         return nsBinder;

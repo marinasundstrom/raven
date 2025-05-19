@@ -41,9 +41,14 @@ internal abstract class Symbol : ISymbol
 
         if (this is ITypeSymbol or INamespaceSymbol)
         {
-            if (containingNamespace is NamespaceSymbol ns)
+            if (containingNamespace is SourceNamespaceSymbol ns)
             {
                 ns.AddMember(this);
+            }
+
+            if (containingNamespace is MetadataNamespaceSymbol ns2)
+            {
+                ns2.AddMember(this);
             }
         }
 
@@ -74,10 +79,25 @@ internal abstract class Symbol : ISymbol
         get;
     }
 
+    public virtual string MetadataName
+    {
+        get;
+    }
+
     public ISymbol? ContainingSymbol
     {
         get;
         private set;
+    }
+
+    public virtual IAssemblySymbol ContainingAssembly
+    {
+        get;
+    }
+
+    public virtual IModuleSymbol ContainingModule
+    {
+        get;
     }
 
     public INamedTypeSymbol? ContainingType

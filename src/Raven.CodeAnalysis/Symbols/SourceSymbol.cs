@@ -15,4 +15,9 @@ internal abstract class SourceSymbol : Symbol
     }
 
     public override Compilation Compilation => ContainingSymbol!.Compilation;
+
+    public override IAssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
+
+    public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
+
 }
