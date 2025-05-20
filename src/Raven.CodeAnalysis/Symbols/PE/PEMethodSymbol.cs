@@ -3,14 +3,20 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
+internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 {
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
 
-    public MetadataMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
-        : base(containingSymbol, containingType, containingNamespace, locations)
+    public PEMethodSymbol(MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
+        : base(containingType, containingType, containingType.ContainingNamespace, locations)
+    {
+        _methodInfo = methodInfo;
+    }
+
+    public PEMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations)
+    : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
     {
         _methodInfo = methodInfo;
     }
@@ -25,11 +31,11 @@ internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
             {
                 if (_methodInfo is ConstructorInfo)
                 {
-                    _returnType = Compilation.GetSpecialType(SpecialType.System_Void);
+                    _returnType = PEContainingAssembly.GetTypeByMetadataName("System.Void");
                 }
                 else
                 {
-                    _returnType = Compilation.GetType(((MethodInfo)_methodInfo).ReturnType);
+                    _returnType = PEContainingModule.GetType(((MethodInfo)_methodInfo).ReturnType);
                 }
             }
             return _returnType;
@@ -42,9 +48,9 @@ internal partial class MetadataMethodSymbol : MetadataSymbol, IMethodSymbol
         {
             return _parameters ??= _methodInfo.GetParameters().Select(param =>
             {
-                var t = Compilation.GetType(param.ParameterType);
+                var t = PEContainingModule.GetType(param.ParameterType);
 
-                return new MetadataParameterSymbol(
+                return new PEParameterSymbol(
                       param, null, this, this.ContainingType, this.ContainingNamespace,
                       [new MetadataLocation()]);
             }).OfType<IParameterSymbol>().ToImmutableArray();

@@ -7,7 +7,7 @@ internal class BoundIfExpression : BoundExpression
     public BoundExpression? ElseBranch { get; }
 
     public BoundIfExpression(BoundExpression condition, BoundExpression thenBranch, BoundExpression? elseBranch = null)
-        : base(condition.Type.Compilation.GetSpecialType(SpecialType.System_Void), null, BoundExpressionReason.None)
+        : base(condition.Type.ContainingAssembly.GetTypeByMetadataName("System.Void"), null, BoundExpressionReason.None)
     {
         Condition = condition;
         ThenBranch = thenBranch;

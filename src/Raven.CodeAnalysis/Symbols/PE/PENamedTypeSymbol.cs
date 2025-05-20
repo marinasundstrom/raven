@@ -3,14 +3,14 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbol
+internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
     private readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
 
-    public MetadataNamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PENamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _typeInfo = typeInfo;
@@ -81,7 +81,7 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
 
     public bool IsValueType => _typeInfo.IsValueType;
 
-    public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)Compilation.GetType(_typeInfo.BaseType) : null);
+    public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)PEContainingModule.GetType(_typeInfo.BaseType) : null);
 
     public bool IsArray => false;
 
@@ -125,40 +125,34 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
             if (mi.IsSpecialName)
                 continue;
 
-            var method = new MetadataMethodSymbol(
+            var method = new PEMethodSymbol(
                 mi,
                 this,
-                this,
-                ContainingNamespace,
                 [new MetadataLocation()]);
         }
 
         foreach (var pi in _typeInfo.DeclaredProperties)
         {
-            var property = new MetadataPropertySymbol(
+            var property = new PEPropertySymbol(
                 pi,
                 this,
-                this,
-                ContainingNamespace,
                 [new MetadataLocation()]);
 
             if (pi.GetMethod is not null)
             {
-                property.GetMethod = new MetadataMethodSymbol(
+                property.GetMethod = new PEMethodSymbol(
                     pi.GetMethod,
                     property,
                     this,
-                    ContainingNamespace,
                     [new MetadataLocation()]);
             }
 
             if (pi.SetMethod is not null)
             {
-                property.SetMethod = new MetadataMethodSymbol(
+                property.SetMethod = new PEMethodSymbol(
                     pi.SetMethod,
                     property,
                     this,
-                    ContainingNamespace,
                     [new MetadataLocation()]);
             }
         }
@@ -168,21 +162,17 @@ internal partial class MetadataNamedTypeSymbol : MetadataSymbol, INamedTypeSymbo
             if (fi.IsSpecialName)
                 continue;
 
-            var field = new MetadataFieldSymbol(
+            var field = new PEFieldSymbol(
                 fi,
                 this,
-                this,
-                ContainingNamespace,
                 [new MetadataLocation()]);
         }
 
         foreach (var ci in _typeInfo.DeclaredConstructors)
         {
-            var ctor = new MetadataMethodSymbol(
+            var ctor = new PEMethodSymbol(
                 ci,
                 this,
-                this,
-                ContainingNamespace,
                 [new MetadataLocation()]);
         }
     }

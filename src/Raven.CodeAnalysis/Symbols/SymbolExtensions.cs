@@ -54,7 +54,7 @@ public static partial class SymbolExtensions
         return typeSymbol.ToDisplayString(format);
     }
 
-    public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat format = default!)
+    public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat? format = default!)
     {
         format ??= SymbolDisplayFormat.CSharpErrorMessageFormat;
 

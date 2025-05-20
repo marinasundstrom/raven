@@ -2,27 +2,40 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
+internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 {
-    private readonly List<ISymbol> _members = new List<ISymbol>();
-    private Compilation _compilation;
+    private PEModuleSymbol _module = default!;
+    private readonly List<ISymbol> _members = new();
+    private readonly string _name;
 
-    public NamespaceSymbol(string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
-    : base(SymbolKind.Namespace, name, containingSymbol, null, containingNamespace, locations, declaringSyntaxReferences)
+    public PENamespaceSymbol(string name, ISymbol containingSymbol,
+    INamespaceSymbol? containingNamespace)
+    : base(containingSymbol, null, containingNamespace, [])
     {
-
+        _name = name;
     }
 
-    public NamespaceSymbol(Compilation compilation, string name, ISymbol containingSymbol, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
-        : base(SymbolKind.Namespace, name, containingSymbol, null, null, locations, declaringSyntaxReferences)
+    public PENamespaceSymbol(PEModuleSymbol containingModule, string name, ISymbol containingSymbol,
+        INamespaceSymbol? containingNamespace)
+        : base(containingSymbol, null, containingNamespace, [])
     {
-        _compilation = compilation;
+        _module = containingModule;
+        _name = name;
     }
 
-    public override Compilation Compilation => _compilation ?? ContainingNamespace!.Compilation;
+    public override IAssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
 
-    public bool IsNamespace { get; } = true;
-    public bool IsType { get; } = false;
+    public override IModuleSymbol ContainingModule => _module ?? ContainingSymbol!.ContainingModule!;
+
+    public override string Name => _name;
+
+    public override SymbolKind Kind => SymbolKind.Namespace;
+
+    public bool IsNamespace => true;
+    public bool IsType => false;
+    public bool IsGlobalNamespace => ContainingNamespace is null;
+
+    internal void AddMember(ISymbol symbol) => _members.Add(symbol);
 
     public ImmutableArray<ISymbol> GetMembers()
     {
@@ -37,7 +50,8 @@ internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
             return matches.ToImmutableArray();
 
         // Lazy resolve from metadata
-        var metadataSymbol = Compilation.ResolveMetadataMember(this, name);
+        //var metadataSymbol = ContainingAssembly.GetTypeByMetadataName(name);
+        var metadataSymbol = PEContainingModule.ResolveMetadataMember(this, name);
 
         if (metadataSymbol is not null)
         {
@@ -45,11 +59,6 @@ internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
         }
 
         return [];
-    }
-
-    internal void AddMember(ISymbol member)
-    {
-        _members.Add(member);
     }
 
     public INamespaceSymbol? LookupNamespace(string name)
@@ -62,7 +71,7 @@ internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
         }
 
         // Lazy resolve from metadata (assumes ResolveMetadataMember handles namespaces)
-        var resolved = Compilation.ResolveMetadataMember(this, name);
+        var resolved = PEContainingModule.ResolveMetadataMember(this, name);
 
         if (resolved is INamespaceSymbol nsResolved)
         {
@@ -82,7 +91,7 @@ internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
         }
 
         // Attempt to resolve from metadata (e.g., Console in System)
-        var metadataSymbol = Compilation.ResolveMetadataMember(this, name);
+        var metadataSymbol = PEContainingModule.ResolveMetadataMember(this, name);
 
         if (metadataSymbol is ITypeSymbol typeSymbol)
         {
@@ -93,17 +102,17 @@ internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
         return null;
     }
 
-    public bool IsGlobalNamespace => ContainingNamespace is null;
+    public override string ToString() => IsGlobalNamespace ? "<global>" : this.ToDisplayString();
 
     public string ToMetadataName()
     {
         var parts = new Stack<string>();
-        var current = this;
+        INamespaceSymbol current = this;
 
         while (!current.IsGlobalNamespace)
         {
             parts.Push(current.Name);
-            current = (NamespaceSymbol)current.ContainingNamespace!;
+            current = current.ContainingNamespace!;
         }
 
         return string.Join(".", parts);
@@ -113,12 +122,5 @@ internal partial class NamespaceSymbol : SourceSymbol, INamespaceSymbol
     {
         symbol = _members.FirstOrDefault(m => m.Name == name);
         return symbol is not null;
-    }
-
-    public override string ToString()
-    {
-        if (IsGlobalNamespace) return "<global>";
-
-        return this.ToDisplayString();
     }
 }

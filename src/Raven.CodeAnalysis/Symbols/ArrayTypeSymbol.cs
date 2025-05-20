@@ -2,13 +2,12 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
+internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 {
-    private INamedTypeSymbol? _baseType;
-
-    public ArrayTypeSymbol(ITypeSymbol elementType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
+    public ArrayTypeSymbol(INamedTypeSymbol baseType, ITypeSymbol elementType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
+        BaseType = baseType;
         ElementType = elementType;
         Rank = rank;
     }
@@ -29,7 +28,7 @@ internal partial class ArrayTypeSymbol : MetadataSymbol, IArrayTypeSymbol
 
     public int Rank { get; }
 
-    public INamedTypeSymbol? BaseType => _baseType ??= (INamedTypeSymbol?)Compilation.GetSpecialType(SpecialType.System_Array);
+    public INamedTypeSymbol? BaseType { get; }
 
     public bool IsArray => true;
 

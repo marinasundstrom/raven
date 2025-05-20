@@ -2,13 +2,13 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class MetadataPropertySymbol : MetadataSymbol, IPropertySymbol
+internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 {
     private readonly PropertyInfo _propertyInfo;
     private ITypeSymbol _type;
 
-    public MetadataPropertySymbol(PropertyInfo propertyInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
-        : base(containingSymbol, containingType, containingNamespace, locations)
+    public PEPropertySymbol(PropertyInfo propertyInfo, INamedTypeSymbol? containingType, Location[] locations)
+        : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _propertyInfo = propertyInfo;
     }
@@ -16,7 +16,7 @@ internal partial class MetadataPropertySymbol : MetadataSymbol, IPropertySymbol
     public override SymbolKind Kind => SymbolKind.Property;
     public override string Name => _propertyInfo.Name;
 
-    public ITypeSymbol Type => _type ??= Compilation.GetType(_propertyInfo.PropertyType);
+    public ITypeSymbol Type => _type ??= PEContainingModule.GetType(_propertyInfo.PropertyType);
     public IMethodSymbol? GetMethod { get; set; }
     public IMethodSymbol? SetMethod { get; set; }
 

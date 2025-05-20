@@ -41,9 +41,14 @@ internal abstract class Symbol : ISymbol
 
         if (this is ITypeSymbol or INamespaceSymbol)
         {
-            if (containingNamespace is NamespaceSymbol ns)
+            if (containingNamespace is SourceNamespaceSymbol ns)
             {
                 ns.AddMember(this);
+            }
+
+            if (containingNamespace is PENamespaceSymbol ns2)
+            {
+                ns2.AddMember(this);
             }
         }
 
@@ -51,7 +56,7 @@ internal abstract class Symbol : ISymbol
         {
             t.AddMember(this);
         }
-        else if (containingType is MetadataNamedTypeSymbol t2)
+        else if (containingType is PENamedTypeSymbol t2)
         {
             t2.AddMember(this);
         }
@@ -63,13 +68,12 @@ internal abstract class Symbol : ISymbol
         get;
     }
 
-    public virtual Compilation Compilation
+    public virtual string Name
     {
         get;
-        protected set;
     }
 
-    public virtual string Name
+    public virtual string MetadataName
     {
         get;
     }
@@ -78,6 +82,16 @@ internal abstract class Symbol : ISymbol
     {
         get;
         private set;
+    }
+
+    public virtual IAssemblySymbol ContainingAssembly
+    {
+        get;
+    }
+
+    public virtual IModuleSymbol ContainingModule
+    {
+        get;
     }
 
     public INamedTypeSymbol? ContainingType
@@ -139,14 +153,32 @@ internal abstract class Symbol : ISymbol
     {
         try
         {
-            if (this is INamespaceSymbol ns && ns.IsGlobalNamespace)
-                return "<global>";
+            if (this is INamespaceSymbol ns)
+            {
+                if (ns.IsGlobalNamespace)
+                {
+                    if (ns is MergedNamespaceSymbol)
+                    {
+                        return $"{Kind}: <global> (Merged)";
+                    }
+
+                    return $"{Kind}: <global>";
+                }
+
+                if (ns is MergedNamespaceSymbol)
+                {
+                    return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} (Merged)";
+                }
+            }
+
+            if (this is IAssemblySymbol or IModuleSymbol)
+                return $"{Kind}: {Name}";
 
             return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
         }
-        catch
+        catch (Exception exc)
         {
-            return $"{Kind}: <error>";
+            return $"{Kind}: <{exc.GetType().Name}>";
         }
     }
 

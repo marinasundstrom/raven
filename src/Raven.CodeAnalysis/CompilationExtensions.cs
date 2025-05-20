@@ -18,7 +18,7 @@ public static class CompilationExtensions
         // Traverse the namespace hierarchy
         foreach (var part in namespaceParts)
         {
-            currentNamespace = currentNamespace.GetMembers(part).FirstOrDefault() as NamespaceSymbol;
+            currentNamespace = currentNamespace.GetMembers(part).FirstOrDefault() as INamespaceSymbol;
 
             if (currentNamespace == null)
             {
