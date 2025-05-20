@@ -37,7 +37,7 @@ using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
     result.Print();
 }
 
-Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
+//Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
 
 //CreateAppHost(compilation);
 

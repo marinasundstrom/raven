@@ -25,22 +25,67 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 
     public ImmutableArray<ISymbol> GetMembers()
     {
-        var result = new List<ISymbol>();
+        var namespaceGroups = new Dictionary<string, List<INamespaceSymbol>>();
+        var otherSymbols = new List<ISymbol>();
 
         foreach (var ns in _namespaces)
-            result.AddRange(ns.GetMembers());
+        {
+            foreach (var member in ns.GetMembers())
+            {
+                if (member is INamespaceSymbol nsMember)
+                {
+                    if (!namespaceGroups.TryGetValue(nsMember.Name, out var group))
+                    {
+                        group = new List<INamespaceSymbol>();
+                        namespaceGroups[nsMember.Name] = group;
+                    }
 
-        return result.ToImmutableArray();
+                    group.Add(nsMember);
+                }
+                else
+                {
+                    otherSymbols.Add(member);
+                }
+            }
+        }
+
+        // Merge namespace groups
+        foreach (var group in namespaceGroups.Values)
+        {
+            if (group.Count == 1)
+                otherSymbols.Add(group[0]);
+            else
+                otherSymbols.Add(new MergedNamespaceSymbol(group));
+        }
+
+        return otherSymbols.ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        var result = new List<ISymbol>();
+        var matches = new List<INamespaceSymbol>();
+        var others = new List<ISymbol>();
 
         foreach (var ns in _namespaces)
-            result.AddRange(ns.GetMembers(name));
+        {
+            foreach (var member in ns.GetMembers(name))
+            {
+                if (member is INamespaceSymbol nsMember)
+                    matches.Add(nsMember);
+                else
+                    others.Add(member);
+            }
+        }
 
-        return result.ToImmutableArray();
+        if (matches.Count > 0)
+        {
+            if (matches.Count == 1)
+                others.Add(matches[0]);
+            else
+                others.Add(new MergedNamespaceSymbol(matches));
+        }
+
+        return others.ToImmutableArray();
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)

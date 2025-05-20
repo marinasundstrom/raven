@@ -15,6 +15,7 @@ public class Compilation
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, IAssemblySymbol>();
+    private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new Dictionary<Assembly, IAssemblySymbol>();
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -150,6 +151,8 @@ public class Compilation
 
         var resolver = new PathAssemblyResolver(paths);
         _metadataLoadContext = new MetadataLoadContext(resolver);
+
+        CoreAssembly = _metadataLoadContext.CoreAssembly!;
 
         foreach (var metadataReference in References)
         {
@@ -390,26 +393,12 @@ public class Compilation
                (sourceType == SpecialType.System_Int64 && destType == SpecialType.System_Int32);
     }
 
-    private readonly Dictionary<string, INamedTypeSymbol> _resolvedMetadataTypes = new();
-
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         return _metadataReferenceSymbols
             .Select(x => x.Value)
             .Select(x => x.GetTypeByMetadataName(metadataName))
             .FirstOrDefault();
-    }
-
-    private PENamedTypeSymbol CreateMetadataTypeSymbol(Type type)
-    {
-        var ns = GetOrCreateNamespaceSymbol(type.Namespace);
-
-        var typeSymbol = new PENamedTypeSymbol(
-            type.GetTypeInfo(), ns, null, ns,
-            [new MetadataLocation()]);
-
-        // You can lazily resolve members of this type later when accessed
-        return typeSymbol;
     }
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
@@ -511,9 +500,14 @@ public class Compilation
 
     private IAssemblySymbol GetAssembly(Assembly assembly)
     {
+        if (_assemblySymbols.TryGetValue(assembly, out var asss))
+        {
+            return asss;
+        }
+
         PEAssemblySymbol assemblySymbol = new PEAssemblySymbol(assembly, []);
-        var symbol = assemblySymbol;
-        var refs = assembly.GetReferencedAssemblies().ToArray();
+
+        var refs = assembly.GetReferencedAssemblies();
 
         assemblySymbol.AddModules(
             new PEModuleSymbol(
@@ -528,16 +522,18 @@ public class Compilation
                         if (loadedAssembly is null)
                             return null;
 
-                        return (IAssemblySymbol?)GetAssembly(loadedAssembly);
+                        return GetAssembly(loadedAssembly);
                     }
                     catch
                     {
                         // Ignore failed loads
                         return null;
                     }
-                })));
+                }).Where(x => x is not null).ToArray()));
 
-        return symbol;
+        _assemblySymbols[assembly] = assemblySymbol;
+
+        return assemblySymbol;
     }
 
     public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType)

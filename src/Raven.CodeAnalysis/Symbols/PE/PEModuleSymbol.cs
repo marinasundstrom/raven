@@ -6,6 +6,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 {
     readonly Dictionary<Type, ITypeSymbol> _typeSymbolTypeInfoMapping = new Dictionary<Type, ITypeSymbol>();
+    readonly Dictionary<string, INamedTypeSymbol> _resolvedMetadataTypes = new();
 
     private readonly PEAssemblySymbol _assembly;
     private readonly Module _module;
@@ -55,8 +56,8 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         var nsName = namespaceSymbol.ToMetadataName();
         var fullName = string.IsNullOrEmpty(nsName) ? name : nsName + "." + name;
 
-        if (namespaceSymbol.IsMemberDefined(name, out var existingSymbol0))
-            return existingSymbol0;
+        if (_resolvedMetadataTypes.TryGetValue(fullName, out var cached))
+            return cached;
 
         var assembly = PEContainingAssembly.GetAssemblyInfo();
 
@@ -64,6 +65,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         if (type is not null)
         {
             var symbol = CreateMetadataTypeSymbol(type);
+            _resolvedMetadataTypes[fullName] = symbol;
             return symbol;
         }
 

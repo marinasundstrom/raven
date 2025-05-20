@@ -6,7 +6,7 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
 {
     private readonly Assembly _assembly;
     private PEModuleSymbol[] _modules = [];
-    private MergedNamespaceSymbol? _globalNamespace;
+    private INamespaceSymbol? _globalNamespace;
 
     public PEAssemblySymbol(Assembly assembly, Location[] locations)
         : base(null!, null, null, locations)
@@ -28,10 +28,10 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
 
     public string FullName => _assembly.GetName().FullName;
 
-    public INamespaceSymbol GlobalNamespace =>
+    public INamespaceSymbol GlobalNamespace => _globalNamespace ??= (
         _modules.Length == 1
             ? _modules[0].GlobalNamespace
-            : _globalNamespace ??= new MergedNamespaceSymbol(_modules.Select(x => x.GlobalNamespace));
+            : new MergedNamespaceSymbol(_modules.Select(x => x.GlobalNamespace)));
 
     public IEnumerable<IModuleSymbol> Modules => _modules;
 
