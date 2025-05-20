@@ -7,9 +7,15 @@ namespace Raven.CodeAnalysis;
 
 class BlockBinder : Binder
 {
+    private readonly ISymbol _containingSymbol;
     private readonly Dictionary<string, ILocalSymbol> _locals = new();
 
-    public BlockBinder(Binder parent) : base(parent) { }
+    public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
+    {
+        _containingSymbol = containingSymbol;
+    }
+
+    public ISymbol ContainingSymbol => _containingSymbol;
 
     public override ISymbol? LookupSymbol(string name)
     {
@@ -93,10 +99,15 @@ class BlockBinder : Binder
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
         }
 
-        ISymbol containingSymbol = null!;
-
-        var symbol = new SourceLocalSymbol(name, type, isReadOnly, containingSymbol, null, null, [variableDeclarator.GetLocation()], [variableDeclarator.GetReference()]);
-        _locals[name] = symbol;
+        var symbol = new SourceLocalSymbol(
+            name,
+            type,
+            isReadOnly,
+            _containingSymbol,
+            _containingSymbol.ContainingType as INamedTypeSymbol, 
+            _containingSymbol?.ContainingNamespace,
+            [variableDeclarator.GetLocation()],
+            [variableDeclarator.GetReference()]); _locals[name] = symbol;
 
         return symbol;
     }

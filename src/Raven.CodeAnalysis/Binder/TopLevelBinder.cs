@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis;
 
 class TopLevelBinder : BlockBinder
 {
-    public TopLevelBinder(Binder parent, IMethodSymbol methodSymbol) : base(parent) { }
+    public TopLevelBinder(Binder parent, IMethodSymbol methodSymbol) : base(methodSymbol, parent) { }
 
     public void BindGlobalStatement(GlobalStatementSyntax stmt)
     {

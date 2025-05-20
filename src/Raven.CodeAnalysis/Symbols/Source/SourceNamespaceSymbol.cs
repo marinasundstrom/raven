@@ -24,6 +24,8 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
 
     }
 
+    public override IAssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
+
     public override IModuleSymbol ContainingModule => _containingModule ?? ContainingSymbol!.ContainingModule!;
 
     public bool IsNamespace => true;

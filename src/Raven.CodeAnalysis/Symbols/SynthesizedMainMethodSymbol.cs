@@ -7,7 +7,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
 
     public SynthesizedMainMethodSymbol(SynthesizedProgramClassSymbol type, Location[] location, SyntaxReference[] syntaxReferences) : base("Main",
                returnType: type.ContainingAssembly.GetTypeByMetadataName("System.Void"),
-               parameters: [], type, type, null, location, syntaxReferences)
+               parameters: [], type, type, type.ContainingNamespace, location, syntaxReferences)
     {
 
     }
@@ -26,7 +26,9 @@ sealed partial class SynthesizedProgramClassSymbol : SourceNamedTypeSymbol, ITyp
 
     }
 
-    public override IAssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
+    public override IAssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
+
+    public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
 
     public override bool IsStatic => true;
 
