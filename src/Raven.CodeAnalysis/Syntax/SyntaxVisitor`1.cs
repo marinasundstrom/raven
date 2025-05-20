@@ -4,9 +4,9 @@ public abstract partial class SyntaxVisitor<TResult>
 {
     public virtual TResult? Visit(SyntaxNode? node)
     {
-        if (node != null)
+        if (node is not null)
         {
-            return ((SyntaxNode)node).Accept(this);
+            return node.Accept(this);
         }
 
         // should not come here too often so we will put this at the end of the method.

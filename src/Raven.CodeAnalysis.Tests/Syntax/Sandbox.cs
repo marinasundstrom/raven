@@ -33,6 +33,9 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var root = syntaxTree.GetRoot();
 
+        var visitor = new TestSyntaxVisitor();
+        visitor.Visit(root);
+
         testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true, false, includeNames: true, includeSpans: false, includeLocation: true));
         testOutputHelper.WriteLine(root.ToFullString());
 
@@ -55,11 +58,11 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var typeSymbol = methodSymbol?.ContainingType;
 
         var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
-        
+
         var method = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
-        
-        var visitor = new TestSymbolVisitor(compilation);
-        visitor.Visit(compilation.GlobalNamespace);
+
+        var visitor2 = new TestSymbolVisitor();
+        visitor2.Visit(compilation.GlobalNamespace);
 
         testOutputHelper.WriteLine(method.Symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
@@ -76,19 +79,35 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     }
 }
 
-public class TestSymbolVisitor(Compilation compilation) : SymbolVisitor
+public class TestSyntaxVisitor : SyntaxVisitor
 {
-    public override void VisitNamespace(INamespaceSymbol node)
+    public override void VisitCompilationUnit(CompilationUnitSyntax node)
     {
-        foreach (var member in node.GetMembers())
+        foreach (var member in node.Members)
         {
             member.Accept(this);
         }
     }
 
-    public override void VisitNamedType(INamedTypeSymbol node)
+    public override void VisitGlobalStatement(GlobalStatementSyntax node)
     {
-        foreach (var member in node.GetMembers())
+        base.VisitGlobalStatement(node);
+    }
+}
+
+public class TestSymbolVisitor : SymbolVisitor
+{
+    public override void VisitNamespace(INamespaceSymbol symbol)
+    {
+        foreach (var member in symbol.GetMembers())
+        {
+            member.Accept(this);
+        }
+    }
+
+    public override void VisitNamedType(INamedTypeSymbol symbol)
+    {
+        foreach (var member in symbol.GetMembers())
         {
             member.Accept(this);
         }

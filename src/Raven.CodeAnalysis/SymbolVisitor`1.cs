@@ -4,7 +4,7 @@ public abstract partial class SymbolVisitor<TResult>
 {
     public virtual TResult? Visit(ISymbol? symbol)
     {
-        if (symbol != null)
+        if (symbol is not null)
         {
             return symbol.Accept(this);
         }

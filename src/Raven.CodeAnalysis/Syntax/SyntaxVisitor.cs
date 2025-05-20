@@ -5,9 +5,9 @@ public abstract partial class SyntaxVisitor
 {
     public virtual void Visit(SyntaxNode node)
     {
-        if (node != null)
+        if (node is not null)
         {
-            ((SyntaxNode)node).Accept(this);
+            node.Accept(this);
         }
     }
 
