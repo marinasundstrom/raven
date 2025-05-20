@@ -26,7 +26,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
     public ImmutableArray<ISymbol> GetMembers()
     {
         var namespaceGroups = new Dictionary<string, List<INamespaceSymbol>>();
-        var otherSymbols = new List<ISymbol>();
+        var otherSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
         foreach (var ns in _namespaces)
         {
@@ -64,7 +64,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
         var matches = new List<INamespaceSymbol>();
-        var others = new List<ISymbol>();
+        var others = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
         foreach (var ns in _namespaces)
         {
