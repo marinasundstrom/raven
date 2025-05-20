@@ -52,6 +52,9 @@ internal abstract class Symbol : ISymbol
             }
         }
 
+        if (this is ILocalSymbol)
+            return;
+
         if (containingType is SourceNamedTypeSymbol t)
         {
             t.AddMember(this);
