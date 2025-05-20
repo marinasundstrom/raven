@@ -4,41 +4,48 @@ using Raven.CodeAnalysis;
 
 public static class SymbolExtensions
 {
-    public static string ToSymbolHierarchyString(this ISymbol symbol)
+    public static string ToSymbolHierarchyString(this ISymbol symbol, int maxDepth = int.MaxValue)
     {
         var builder = new StringBuilder();
-        AppendSymbol(symbol, builder, indent: 0);
+        AppendSymbol(symbol, builder, indent: 0, maxDepth);
         return builder.ToString();
     }
 
-    private static void AppendSymbol(ISymbol symbol, StringBuilder builder, int indent)
+    private static void AppendSymbol(ISymbol symbol, StringBuilder builder, int indent, int maxDepth)
     {
-        builder.Append(' ', indent * 2);
-        builder.AppendLine($"{symbol.ToString()}");
+        if (indent > maxDepth)
+            return;
 
-        switch (symbol)
+        try
         {
-            case INamespaceSymbol ns:
-                foreach (var member in ns.GetMembers().OrderBy(m => m.Name))
-                {
-                    AppendSymbol(member, builder, indent + 1);
-                }
-                break;
+            builder.Append(new string(' ', indent * 2));
+            builder.AppendLine($"{symbol.Kind}: {symbol.Name ?? "<null>"}");
 
-            case INamedTypeSymbol type:
-                foreach (var member in type.GetMembers().OrderBy(m => m.Name))
-                {
-                    AppendSymbol(member, builder, indent + 1);
-                }
-                break;
+            switch (symbol)
+            {
+                case IAssemblySymbol asm:
+                    AppendSymbol(asm.GlobalNamespace, builder, indent + 1, maxDepth);
+                    break;
 
-            case IAssemblySymbol asm:
-                AppendSymbol(asm.GlobalNamespace, builder, indent + 1);
-                break;
+                case IModuleSymbol mod:
+                    AppendSymbol(mod.GlobalNamespace, builder, indent + 1, maxDepth);
+                    break;
 
-            case IModuleSymbol mod:
-                AppendSymbol(mod.GlobalNamespace, builder, indent + 1);
-                break;
+                case INamespaceSymbol ns:
+                    foreach (var member in ns.GetMembers().OrderBy(m => m.Name, StringComparer.Ordinal))
+                        AppendSymbol(member, builder, indent + 1, maxDepth);
+                    break;
+
+                case INamedTypeSymbol type:
+                    foreach (var member in type.GetMembers().OrderBy(m => m.Name, StringComparer.Ordinal))
+                        AppendSymbol(member, builder, indent + 1, maxDepth);
+                    break;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            builder.Append(new string(' ', indent * 2));
+            builder.AppendLine($"[Error: Failed to load symbol '{symbol.Name}']");
         }
     }
 }

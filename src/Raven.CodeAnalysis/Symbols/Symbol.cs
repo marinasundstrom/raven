@@ -153,17 +153,32 @@ internal abstract class Symbol : ISymbol
     {
         try
         {
-            if (this is INamespaceSymbol ns && ns.IsGlobalNamespace)
-                return "<global>";
+            if (this is INamespaceSymbol ns)
+            {
+                if (ns.IsGlobalNamespace)
+                {
+                    if (ns is MergedNamespaceSymbol)
+                    {
+                        return $"{Kind}: <global> (Merged)";
+                    }
+
+                    return $"{Kind}: <global>";
+                }
+
+                if (ns is MergedNamespaceSymbol)
+                {
+                    return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} (Merged)";
+                }
+            }
 
             if (this is IAssemblySymbol or IModuleSymbol)
                 return $"{Kind}: {Name}";
 
             return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
         }
-        catch
+        catch (Exception exc)
         {
-            return $"{Kind}: <error>";
+            return $"{Kind}: <{exc.GetType().Name}>";
         }
     }
 

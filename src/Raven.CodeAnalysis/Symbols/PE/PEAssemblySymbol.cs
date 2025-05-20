@@ -31,7 +31,7 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
     public INamespaceSymbol GlobalNamespace => _globalNamespace ??= (
         _modules.Length == 1
             ? _modules[0].GlobalNamespace
-            : new MergedNamespaceSymbol(_modules.Select(x => x.GlobalNamespace)));
+            : new MergedNamespaceSymbol(_modules.Select(x => x.GlobalNamespace), null));
 
     public IEnumerable<IModuleSymbol> Modules => _modules;
 

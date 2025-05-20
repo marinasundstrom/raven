@@ -40,7 +40,7 @@ public class Compilation
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
 
     public INamespaceSymbol GlobalNamespace =>
-        _globalNamespace ??= new MergedNamespaceSymbol(new INamespaceSymbol[] { SourceGlobalNamespace }.Concat(_metadataReferenceSymbols.Select(x => x.Value.GlobalNamespace)));
+        _globalNamespace ??= new MergedNamespaceSymbol(new INamespaceSymbol[] { SourceGlobalNamespace }.Concat(_metadataReferenceSymbols.Select(x => x.Value.GlobalNamespace)), null);
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 

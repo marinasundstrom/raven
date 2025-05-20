@@ -37,11 +37,13 @@ using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
     result.Print();
 }
 
-//Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
-
 //CreateAppHost(compilation);
 
 ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
 
 Console.WriteLine();
 Console.WriteLine(root.WriteNodeToText(compilation));
+
+Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
+
+Console.WriteLine();
