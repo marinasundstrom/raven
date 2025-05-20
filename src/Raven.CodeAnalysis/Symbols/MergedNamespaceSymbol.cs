@@ -4,21 +4,20 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 {
-    private readonly SourceNamespaceSymbol _source;
-    private readonly PortableExecutableNamespaceSymbol _metadata;
+    private readonly ImmutableArray<INamespaceSymbol> _namespaces;
 
-    public MergedNamespaceSymbol(SourceNamespaceSymbol source, PortableExecutableNamespaceSymbol metadata)
+    public MergedNamespaceSymbol(params IEnumerable<INamespaceSymbol> namespaces)
         : base(SymbolKind.Namespace,
-               source.Name,
-               source.ContainingSymbol,
+               namespaces.First().Name,
+               namespaces.First().ContainingSymbol,
                null,
-               source.ContainingNamespace ?? metadata.ContainingNamespace,
-               [],
-               [])
+               namespaces.First().ContainingNamespace,
+               [], [])
     {
-        _source = source;
-        _metadata = metadata;
+        _namespaces = namespaces.ToImmutableArray();
     }
+
+    public override SymbolKind Kind => SymbolKind.Namespace;
 
     public bool IsNamespace => true;
     public bool IsType => false;
@@ -26,22 +25,31 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 
     public ImmutableArray<ISymbol> GetMembers()
     {
-        var combined = new List<ISymbol>(_source.GetMembers());
-        combined.AddRange(_metadata.GetMembers());
-        return combined.ToImmutableArray();
+        var result = new List<ISymbol>();
+
+        foreach (var ns in _namespaces)
+            result.AddRange(ns.GetMembers());
+
+        return result.ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        var combined = new List<ISymbol>(_source.GetMembers(name));
-        combined.AddRange(_metadata.GetMembers(name));
-        return combined.ToImmutableArray();
+        var result = new List<ISymbol>();
+
+        foreach (var ns in _namespaces)
+            result.AddRange(ns.GetMembers(name));
+
+        return result.ToImmutableArray();
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        if (_source.IsMemberDefined(name, out symbol)) return true;
-        if (_metadata.IsMemberDefined(name, out symbol)) return true;
+        foreach (var ns in _namespaces)
+        {
+            if (ns.IsMemberDefined(name, out symbol))
+                return true;
+        }
 
         symbol = null;
         return false;
@@ -49,19 +57,33 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 
     public INamespaceSymbol? LookupNamespace(string name)
     {
-        var sourceChild = _source.LookupNamespace(name) as SourceNamespaceSymbol;
-        var metadataChild = _metadata.LookupNamespace(name) as PortableExecutableNamespaceSymbol;
+        var found = new List<INamespaceSymbol>();
 
-        if (sourceChild is not null && metadataChild is not null)
-            return new MergedNamespaceSymbol(sourceChild, metadataChild);
+        foreach (var ns in _namespaces)
+        {
+            var child = ns.LookupNamespace(name);
+            if (child is not null)
+                found.Add(child);
+        }
 
-        return sourceChild ?? (INamespaceSymbol?)metadataChild;
+        return found.Count switch
+        {
+            0 => null,
+            1 => found[0],
+            _ => new MergedNamespaceSymbol(found)
+        };
     }
 
     public ITypeSymbol? LookupType(string name)
     {
-        // You can prioritize source over metadata, or merge lists if needed
-        return _source.LookupType(name) ?? _metadata.LookupType(name);
+        foreach (var ns in _namespaces)
+        {
+            var type = ns.LookupType(name);
+            if (type is not null)
+                return type;
+        }
+
+        return null;
     }
 
     public string ToMetadataName()
@@ -80,3 +102,84 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 
     public override string ToString() => IsGlobalNamespace ? "<global>" : this.ToDisplayString();
 }
+
+/*
+internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
+{
+    private readonly INamespaceSymbol _left;
+    private readonly INamespaceSymbol _right;
+
+    public MergedNamespaceSymbol(INamespaceSymbol left, INamespaceSymbol right)
+        : base(SymbolKind.Namespace,
+               left.Name,
+               left.ContainingSymbol,
+               null,
+               left.ContainingNamespace ?? right.ContainingNamespace,
+               [],
+               [])
+    {
+        _left = left;
+        _right = right;
+    }
+
+    public bool IsNamespace => true;
+    public bool IsType => false;
+    public bool IsGlobalNamespace => ContainingNamespace is null;
+
+    public ImmutableArray<ISymbol> GetMembers()
+    {
+        var combined = new List<ISymbol>(_left.GetMembers());
+        combined.AddRange(_right.GetMembers());
+        return combined.ToImmutableArray();
+    }
+
+    public ImmutableArray<ISymbol> GetMembers(string name)
+    {
+        var combined = new List<ISymbol>(_left.GetMembers(name));
+        combined.AddRange(_right.GetMembers(name));
+        return combined.ToImmutableArray();
+    }
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        if (_left.IsMemberDefined(name, out symbol)) return true;
+        if (_right.IsMemberDefined(name, out symbol)) return true;
+
+        symbol = null;
+        return false;
+    }
+
+    public INamespaceSymbol? LookupNamespace(string name)
+    {
+        var sourceChild = _left.LookupNamespace(name);
+        var metadataChild = _right.LookupNamespace(name);
+
+        if (sourceChild is not null && metadataChild is not null)
+            return new MergedNamespaceSymbol(sourceChild, metadataChild);
+
+        return sourceChild ?? metadataChild;
+    }
+
+    public ITypeSymbol? LookupType(string name)
+    {
+        // You can prioritize source over metadata, or merge lists if needed
+        return _left.LookupType(name) ?? _right.LookupType(name);
+    }
+
+    public string ToMetadataName()
+    {
+        var parts = new Stack<string>();
+        INamespaceSymbol current = this;
+
+        while (!current.IsGlobalNamespace)
+        {
+            parts.Push(current.Name);
+            current = current.ContainingNamespace!;
+        }
+
+        return string.Join(".", parts);
+    }
+
+    public override string ToString() => IsGlobalNamespace ? "<global>" : this.ToDisplayString();
+}
+*/

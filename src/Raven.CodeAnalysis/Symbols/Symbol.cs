@@ -68,12 +68,6 @@ internal abstract class Symbol : ISymbol
         get;
     }
 
-    public virtual Compilation Compilation
-    {
-        get;
-        protected set;
-    }
-
     public virtual string Name
     {
         get;
@@ -161,6 +155,9 @@ internal abstract class Symbol : ISymbol
         {
             if (this is INamespaceSymbol ns && ns.IsGlobalNamespace)
                 return "<global>";
+
+            if (this is IAssemblySymbol or IModuleSymbol)
+                return $"{Kind}: {Name}";
 
             return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
         }

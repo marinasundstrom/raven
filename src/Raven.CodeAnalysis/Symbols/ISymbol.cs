@@ -23,8 +23,6 @@ public interface ISymbol : IEquatable<ISymbol?>
 {
     SymbolKind Kind { get; }
 
-    Compilation Compilation { get; }
-
     string Name { get; }
 
     string MetadataName { get; }
@@ -221,6 +219,8 @@ public interface IAssemblySymbol : ISymbol
     IEnumerable<IModuleSymbol> Modules { get; }
 
     INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedMetadataName);
+
+    //ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name);
 }
 
 public interface IModuleSymbol : ISymbol

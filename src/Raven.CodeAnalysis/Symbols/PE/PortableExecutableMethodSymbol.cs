@@ -9,8 +9,14 @@ internal partial class PortableExecutableMethodSymbol : PortableExecutableSymbol
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
 
-    public PortableExecutableMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
-        : base(containingSymbol, containingType, containingNamespace, locations)
+    public PortableExecutableMethodSymbol(MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
+        : base(containingType, containingType, containingType.ContainingNamespace, locations)
+    {
+        _methodInfo = methodInfo;
+    }
+
+    public PortableExecutableMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations)
+    : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
     {
         _methodInfo = methodInfo;
     }
@@ -25,11 +31,11 @@ internal partial class PortableExecutableMethodSymbol : PortableExecutableSymbol
             {
                 if (_methodInfo is ConstructorInfo)
                 {
-                    _returnType = Compilation.GetSpecialType(SpecialType.System_Void);
+                    _returnType = PEContainingAssembly.GetTypeByMetadataName("System.Void");
                 }
                 else
                 {
-                    _returnType = Compilation.GetType(((MethodInfo)_methodInfo).ReturnType);
+                    _returnType = PEContainingModule.GetType(((MethodInfo)_methodInfo).ReturnType);
                 }
             }
             return _returnType;
@@ -42,7 +48,7 @@ internal partial class PortableExecutableMethodSymbol : PortableExecutableSymbol
         {
             return _parameters ??= _methodInfo.GetParameters().Select(param =>
             {
-                var t = Compilation.GetType(param.ParameterType);
+                var t = PEContainingModule.GetType(param.ParameterType);
 
                 return new PortableExecutableParameterSymbol(
                       param, null, this, this.ContainingType, this.ContainingNamespace,

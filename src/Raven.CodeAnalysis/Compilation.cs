@@ -14,7 +14,7 @@ public class Compilation
     private readonly MetadataReference[] _references;
     private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
-    private readonly Dictionary<MetadataReference, ISymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, ISymbol>();
+    private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, IAssemblySymbol>();
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -39,7 +39,7 @@ public class Compilation
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
 
     public INamespaceSymbol GlobalNamespace =>
-        _globalNamespace ??= new MergedNamespaceSymbol(SourceGlobalNamespace, MetadataGlobalNamespace);
+        _globalNamespace ??= new MergedNamespaceSymbol(new INamespaceSymbol[] { SourceGlobalNamespace }.Concat(_metadataReferenceSymbols.Select(x => x.Value.GlobalNamespace)));
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
@@ -126,8 +126,6 @@ public class Compilation
         return _symbols.SingleOrDefault(x => x.Name == "Name" && x.ContainingType!.Name == "Program") as IMethodSymbol;
     }
 
-
-
     private void Setup()
     {
         BinderFactory = new BinderFactory(this);
@@ -137,13 +135,26 @@ public class Compilation
         Module = new SourceModuleSymbol(AssemblyName, []);
 
         SourceGlobalNamespace = new SourceNamespaceSymbol((SourceModuleSymbol)Module,
-            "", null!, null, null,
+            "", Module, null, null,
             [], []);
 
         MetadataGlobalNamespace = new PortableExecutableNamespaceSymbol(
-            "", null!, null);
+            "", Module, null);
 
-        LoadMetadataReferences();
+        //LoadMetadataReferences();
+
+        List<string> paths = _references
+        .OfType<PortableExecutableReference>()
+        .Select(portableExecutableReference => portableExecutableReference.Location)
+        .ToList();
+
+        var resolver = new PathAssemblyResolver(paths);
+        _metadataLoadContext = new MetadataLoadContext(resolver);
+
+        foreach (var metadataReference in References)
+        {
+            GetAssemblyOrModuleSymbol(metadataReference);
+        }
 
         foreach (var syntaxTree in SyntaxTrees)
         {
@@ -383,22 +394,10 @@ public class Compilation
 
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
-        if (_resolvedMetadataTypes.TryGetValue(metadataName, out var cached))
-            return cached;
-
-        // Find matching type across all referenced assemblies
-        foreach (var asm in _lazyMetadataAssemblies.Values)
-        {
-            var type = asm.GetType(metadataName, throwOnError: false, ignoreCase: false);
-            if (type != null)
-            {
-                var symbol = CreateMetadataTypeSymbol(type);
-                _resolvedMetadataTypes[metadataName] = symbol;
-                return symbol;
-            }
-        }
-
-        return null;
+        return _metadataReferenceSymbols
+            .Select(x => x.Value)
+            .Select(x => x.GetTypeByMetadataName(metadataName))
+            .FirstOrDefault();
     }
 
     private PortableExecutableNamedTypeSymbol CreateMetadataTypeSymbol(Type type)
@@ -472,14 +471,12 @@ public class Compilation
                ?? throw new Exception($"Special type not found for: {specialType}");
     }
 
-    readonly Dictionary<System.Reflection.TypeInfo, ITypeSymbol> typeSymbolMappings = new();
-
     public ITypeSymbol? GetType(Type type)
     {
         if (type.IsArray)
         {
             var elementType = GetType(type.GetElementType());
-            return new ArrayTypeSymbol(elementType, null, null, null, []);
+            return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, null, null, null, []);
         }
 
         return GetSimpleType(type);
@@ -496,8 +493,8 @@ public class Compilation
 
     public ISymbol? GetAssemblyOrModuleSymbol(MetadataReference metadataReference)
     {
-        if (!_references.Contains(metadataReference))
-            throw new InvalidOperationException();
+        //if (!_references.Contains(metadataReference))
+        //    throw new InvalidOperationException();
 
         if (!_metadataReferenceSymbols.TryGetValue(metadataReference, out var symbol))
         {
@@ -506,58 +503,46 @@ public class Compilation
                 throw new InvalidOperationException();
 
             var assembly = _metadataLoadContext.LoadFromAssemblyPath(portableExecutableReference.Location);
-            symbol = new PortableExecutableAssemblySymbol(assembly, []);
+            symbol = GetAssembly(assembly);
             _metadataReferenceSymbols[metadataReference] = symbol;
         }
         return symbol;
     }
 
-    public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
+    private IAssemblySymbol GetAssembly(Assembly assembly)
     {
-        var nsName = namespaceSymbol.ToMetadataName(); // e.g., "System"
-        var fullName = string.IsNullOrEmpty(nsName)
-            ? name
-            : nsName + "." + name;
+        PortableExecutableAssemblySymbol assemblySymbol = new PortableExecutableAssemblySymbol(assembly, []);
+        var symbol = assemblySymbol;
+        var refs = assembly.GetReferencedAssemblies().ToArray();
 
-        if (_resolvedMetadataTypes.TryGetValue(fullName, out var cached))
-            return cached;
+        assemblySymbol.AddModules(
+            new PortableExecutableModuleSymbol(
+                assemblySymbol,
+                assembly.ManifestModule,
+                [],
+                refs.Select(x =>
+                {
+                    try
+                    {
+                        var loadedAssembly = _metadataLoadContext.LoadFromAssemblyName(x);
+                        if (loadedAssembly is null)
+                            return null;
 
-        foreach (var asm in _lazyMetadataAssemblies.Values)
-        {
-            // Try to resolve as a type first
-            var type = asm.GetType(fullName, throwOnError: false, ignoreCase: false);
-            if (type != null)
-            {
-                if (namespaceSymbol.IsMemberDefined(name, out var existingSymbol))
-                    return existingSymbol;
+                        return (IAssemblySymbol?)GetAssembly(loadedAssembly);
+                    }
+                    catch
+                    {
+                        // Ignore failed loads
+                        return null;
+                    }
+                })));
 
-                var symbol = CreateMetadataTypeSymbol(type);
-                _resolvedMetadataTypes[fullName] = symbol;
-
-                return symbol;
-            }
-
-            // If no type found, try to verify as a namespace
-            // Does any type start with "System.Text."?
-            bool namespaceLikelyExists = asm.GetTypes()
-                .Any(t => t.FullName.StartsWith(fullName + ".", StringComparison.Ordinal));
-
-            if (namespaceLikelyExists && namespaceSymbol is INamespaceSymbol parentNs)
-            {
-                // Check if the namespace already exists in the parent
-                if (parentNs.IsMemberDefined(name, out var existingSymbol))
-                    return existingSymbol;
-
-                return new PortableExecutableNamespaceSymbol(name, parentNs, parentNs);
-            }
-        }
-
-        return null;
+        return symbol;
     }
 
     public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType)
     {
         var ns = GlobalNamespace.LookupNamespace("System");
-        return new ArrayTypeSymbol(elementType, ns, null, ns, []);
+        return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, []);
     }
 }

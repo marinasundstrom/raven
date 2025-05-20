@@ -15,5 +15,5 @@ internal partial class PortableExecutableParameterSymbol : PortableExecutableSym
 
     public override SymbolKind Kind => SymbolKind.Parameter;
     public override string Name => _parameterInfo.Name;
-    public ITypeSymbol Type => _type ??= Compilation.GetType(_parameterInfo.ParameterType);
+    public ITypeSymbol Type => _type ??= PEContainingModule.GetType(_parameterInfo.ParameterType);
 }

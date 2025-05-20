@@ -13,8 +13,6 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
         _compilation = compilation;
     }
 
-    public override Compilation Compilation => _compilation;
-
     public ImmutableArray<IMethodSymbol> Constructors => [];
 
     public IMethodSymbol? StaticConstructor => null;

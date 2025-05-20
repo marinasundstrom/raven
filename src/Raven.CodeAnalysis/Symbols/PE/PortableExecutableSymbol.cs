@@ -11,5 +11,11 @@ internal abstract class PortableExecutableSymbol : Symbol
 
     }
 
-    public override Compilation Compilation => ContainingNamespace!.Compilation;
+    public override IAssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+
+    public override IModuleSymbol ContainingModule => ContainingNamespace?.ContainingModule;
+
+    protected PortableExecutableAssemblySymbol PEContainingAssembly => (PortableExecutableAssemblySymbol)ContainingAssembly;
+
+    protected PortableExecutableModuleSymbol PEContainingModule => (PortableExecutableModuleSymbol)ContainingModule;
 }

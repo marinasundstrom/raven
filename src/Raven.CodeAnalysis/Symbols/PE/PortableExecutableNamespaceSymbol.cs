@@ -23,13 +23,13 @@ internal sealed partial class PortableExecutableNamespaceSymbol : PortableExecut
         _name = name;
     }
 
-    //public override Compilation Compilation => _compilation ?? ContainingNamespace!.Compilation;
-
     public override IAssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
 
     public override IModuleSymbol ContainingModule => _module ?? ContainingSymbol!.ContainingModule!;
 
     public override string Name => _name;
+
+    public override SymbolKind Kind => SymbolKind.Namespace;
 
     public bool IsNamespace => true;
     public bool IsType => false;
@@ -50,7 +50,8 @@ internal sealed partial class PortableExecutableNamespaceSymbol : PortableExecut
             return matches.ToImmutableArray();
 
         // Lazy resolve from metadata
-        var metadataSymbol = Compilation.ResolveMetadataMember(this, name);
+        //var metadataSymbol = ContainingAssembly.GetTypeByMetadataName(name);
+        var metadataSymbol = PEContainingModule.ResolveMetadataMember(this, name);
 
         if (metadataSymbol is not null)
         {
@@ -70,7 +71,7 @@ internal sealed partial class PortableExecutableNamespaceSymbol : PortableExecut
         }
 
         // Lazy resolve from metadata (assumes ResolveMetadataMember handles namespaces)
-        var resolved = Compilation.ResolveMetadataMember(this, name);
+        var resolved = PEContainingModule.ResolveMetadataMember(this, name);
 
         if (resolved is INamespaceSymbol nsResolved)
         {
@@ -90,7 +91,7 @@ internal sealed partial class PortableExecutableNamespaceSymbol : PortableExecut
         }
 
         // Attempt to resolve from metadata (e.g., Console in System)
-        var metadataSymbol = Compilation.ResolveMetadataMember(this, name);
+        var metadataSymbol = PEContainingModule.ResolveMetadataMember(this, name);
 
         if (metadataSymbol is ITypeSymbol typeSymbol)
         {

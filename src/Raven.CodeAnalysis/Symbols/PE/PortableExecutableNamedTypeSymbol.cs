@@ -81,7 +81,7 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
 
     public bool IsValueType => _typeInfo.IsValueType;
 
-    public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)Compilation.GetType(_typeInfo.BaseType) : null);
+    public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)PEContainingModule.GetType(_typeInfo.BaseType) : null);
 
     public bool IsArray => false;
 
@@ -128,8 +128,6 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
             var method = new PortableExecutableMethodSymbol(
                 mi,
                 this,
-                this,
-                ContainingNamespace,
                 [new MetadataLocation()]);
         }
 
@@ -138,8 +136,6 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
             var property = new PortableExecutablePropertySymbol(
                 pi,
                 this,
-                this,
-                ContainingNamespace,
                 [new MetadataLocation()]);
 
             if (pi.GetMethod is not null)
@@ -148,7 +144,6 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
                     pi.GetMethod,
                     property,
                     this,
-                    ContainingNamespace,
                     [new MetadataLocation()]);
             }
 
@@ -158,7 +153,6 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
                     pi.SetMethod,
                     property,
                     this,
-                    ContainingNamespace,
                     [new MetadataLocation()]);
             }
         }
@@ -171,8 +165,6 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
             var field = new PortableExecutableFieldSymbol(
                 fi,
                 this,
-                this,
-                ContainingNamespace,
                 [new MetadataLocation()]);
         }
 
@@ -181,8 +173,6 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
             var ctor = new PortableExecutableMethodSymbol(
                 ci,
                 this,
-                this,
-                ContainingNamespace,
                 [new MetadataLocation()]);
         }
     }

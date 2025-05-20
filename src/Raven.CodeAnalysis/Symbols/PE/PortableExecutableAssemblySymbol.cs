@@ -5,11 +5,21 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class PortableExecutableAssemblySymbol : PortableExecutableSymbol, IAssemblySymbol
 {
     private readonly Assembly _assembly;
+    private PortableExecutableModuleSymbol[] _modules = [];
+    private MergedNamespaceSymbol? _globalNamespace;
 
     public PortableExecutableAssemblySymbol(Assembly assembly, Location[] locations)
         : base(null!, null, null, locations)
     {
         _assembly = assembly;
+    }
+
+    public void AddModules(params PortableExecutableModuleSymbol[] modules)
+    {
+        // Filter out invalid or null modules
+        _modules = modules
+            .Where(m => m != null && m.GlobalNamespace != null)
+            .ToArray();
     }
 
     public override SymbolKind Kind => SymbolKind.Assembly;
@@ -18,12 +28,54 @@ internal partial class PortableExecutableAssemblySymbol : PortableExecutableSymb
 
     public string FullName => _assembly.GetName().FullName;
 
-    public INamespaceSymbol GlobalNamespace => throw new NotImplementedException();
+    public INamespaceSymbol GlobalNamespace =>
+        _modules.Length == 1
+            ? _modules[0].GlobalNamespace
+            : _globalNamespace ??= new MergedNamespaceSymbol(_modules.Select(x => x.GlobalNamespace));
 
-    public IEnumerable<IModuleSymbol> Modules => throw new NotImplementedException();
+    public IEnumerable<IModuleSymbol> Modules => _modules;
+
+    internal PortableExecutableModuleSymbol PrimaryModule =>
+        _modules.Length > 0 ? _modules[0] : throw new InvalidOperationException("No modules assigned.");
 
     public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedPortableExecutableName)
     {
-        throw new NotImplementedException();
+        return _modules
+            .OfType<PortableExecutableModuleSymbol>()
+            .Select(m => m.ResolveMetadataMember(GlobalNamespace, fullyQualifiedPortableExecutableName))
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault();
     }
+
+    public ITypeSymbol? GetType(Type type)
+    {
+        return _modules
+            .OfType<PortableExecutableModuleSymbol>()
+            .Select(m => m.GetType(type))
+            .SingleOrDefault();
+    }
+
+    private INamespaceSymbol? TryGetNamespaceSymbol(string? ns)
+    {
+        if (ns is null)
+            return GlobalNamespace;
+
+        var namespaceParts = ns.Split('.');
+        var currentNamespace = GlobalNamespace;
+
+        foreach (var part in namespaceParts)
+        {
+            var next = currentNamespace.GetMembers()
+                .FirstOrDefault(n => n.Name == part) as INamespaceSymbol;
+
+            if (next is null)
+                return null;
+
+            currentNamespace = next;
+        }
+
+        return currentNamespace;
+    }
+
+    public Assembly GetAssemblyInfo() => _assembly;
 }
