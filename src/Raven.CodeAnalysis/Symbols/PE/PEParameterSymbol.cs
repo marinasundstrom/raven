@@ -2,12 +2,12 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PortableExecutableParameterSymbol : PortableExecutableSymbol, IParameterSymbol
+internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
 {
     private readonly ParameterInfo _parameterInfo;
     private ITypeSymbol _type;
 
-    public PortableExecutableParameterSymbol(ParameterInfo parameterInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PEParameterSymbol(ParameterInfo parameterInfo, ITypeSymbol returnType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _parameterInfo = parameterInfo;

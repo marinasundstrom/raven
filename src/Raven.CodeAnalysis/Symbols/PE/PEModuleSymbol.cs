@@ -3,16 +3,16 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PortableExecutableModuleSymbol : PortableExecutableSymbol, IModuleSymbol
+internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 {
     readonly Dictionary<Type, ITypeSymbol> _typeSymbolTypeInfoMapping = new Dictionary<Type, ITypeSymbol>();
 
-    private readonly PortableExecutableAssemblySymbol _assembly;
+    private readonly PEAssemblySymbol _assembly;
     private readonly Module _module;
     private INamespaceSymbol? _globalNamespace;
 
-    public PortableExecutableModuleSymbol(
-        PortableExecutableAssemblySymbol assembly,
+    public PEModuleSymbol(
+        PEAssemblySymbol assembly,
         Module module,
         Location[] locations,
         IEnumerable<IAssemblySymbol> referencedAssemblySymbols)
@@ -30,7 +30,7 @@ internal partial class PortableExecutableModuleSymbol : PortableExecutableSymbol
     public override IAssemblySymbol ContainingAssembly => _assembly;
 
     public INamespaceSymbol GlobalNamespace =>
-        _globalNamespace ??= new PortableExecutableNamespaceSymbol(this, string.Empty, this, null);
+        _globalNamespace ??= new PENamespaceSymbol(this, string.Empty, this, null);
 
     public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols { get; }
 
@@ -45,7 +45,7 @@ internal partial class PortableExecutableModuleSymbol : PortableExecutableSymbol
             return typeSymbol;
 
         return ReferencedAssemblySymbols
-                .OfType<PortableExecutableAssemblySymbol>()
+                .OfType<PEAssemblySymbol>()
                 .Select(x => x.GetType(type))
                 .SingleOrDefault();
     }
@@ -78,19 +78,19 @@ internal partial class PortableExecutableModuleSymbol : PortableExecutableSymbol
             if (parentNs.IsMemberDefined(name, out var existingSymbol))
                 return existingSymbol;
 
-            return new PortableExecutableNamespaceSymbol(name, parentNs, parentNs);
+            return new PENamespaceSymbol(name, parentNs, parentNs);
         }
 
         return null;
     }
 
-    private PortableExecutableNamedTypeSymbol CreateMetadataTypeSymbol(Type type)
+    private PENamedTypeSymbol CreateMetadataTypeSymbol(Type type)
     {
         var ns = GetOrCreateNamespaceSymbol(type.Namespace);
 
         var typeInfo = type.GetTypeInfo();
 
-        var typeSymbol = new PortableExecutableNamedTypeSymbol(
+        var typeSymbol = new PENamedTypeSymbol(
             typeInfo, ns, null, ns,
             [new MetadataLocation()]);
 
@@ -115,7 +115,7 @@ internal partial class PortableExecutableModuleSymbol : PortableExecutableSymbol
 
             if (next is null)
             {
-                next = new PortableExecutableNamespaceSymbol(part, _assembly, current);
+                next = new PENamespaceSymbol(part, _assembly, current);
             }
 
             current = next;

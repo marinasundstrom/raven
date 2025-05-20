@@ -46,7 +46,7 @@ internal abstract class Symbol : ISymbol
                 ns.AddMember(this);
             }
 
-            if (containingNamespace is PortableExecutableNamespaceSymbol ns2)
+            if (containingNamespace is PENamespaceSymbol ns2)
             {
                 ns2.AddMember(this);
             }
@@ -56,7 +56,7 @@ internal abstract class Symbol : ISymbol
         {
             t.AddMember(this);
         }
-        else if (containingType is PortableExecutableNamedTypeSymbol t2)
+        else if (containingType is PENamedTypeSymbol t2)
         {
             t2.AddMember(this);
         }

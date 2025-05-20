@@ -43,7 +43,7 @@ public class Compilation
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
-    internal PortableExecutableNamespaceSymbol MetadataGlobalNamespace { get; private set; }
+    internal PENamespaceSymbol MetadataGlobalNamespace { get; private set; }
 
     public Assembly CoreAssembly { get; private set; }
 
@@ -138,13 +138,13 @@ public class Compilation
             "", Module, null, null,
             [], []);
 
-        MetadataGlobalNamespace = new PortableExecutableNamespaceSymbol(
+        MetadataGlobalNamespace = new PENamespaceSymbol(
             "", Module, null);
 
         //LoadMetadataReferences();
 
         List<string> paths = _references
-        .OfType<PortableExecutableReference>()
+        .OfType<PEReference>()
         .Select(portableExecutableReference => portableExecutableReference.Location)
         .ToList();
 
@@ -202,7 +202,7 @@ public class Compilation
     private void LoadMetadataReferences()
     {
         List<string> paths = _references
-            .OfType<PortableExecutableReference>()
+            .OfType<PEReference>()
             .Select(portableExecutableReference => portableExecutableReference.Location)
             .ToList();
 
@@ -237,7 +237,7 @@ public class Compilation
 
             if (currentNamespace == null)
             {
-                currentNamespace = new PortableExecutableNamespaceSymbol(part, null!, parent);
+                currentNamespace = new PENamespaceSymbol(part, null!, parent);
                 _symbols.Add(currentNamespace);
                 return currentNamespace; // Namespace not found
             }
@@ -400,11 +400,11 @@ public class Compilation
             .FirstOrDefault();
     }
 
-    private PortableExecutableNamedTypeSymbol CreateMetadataTypeSymbol(Type type)
+    private PENamedTypeSymbol CreateMetadataTypeSymbol(Type type)
     {
         var ns = GetOrCreateNamespaceSymbol(type.Namespace);
 
-        var typeSymbol = new PortableExecutableNamedTypeSymbol(
+        var typeSymbol = new PENamedTypeSymbol(
             type.GetTypeInfo(), ns, null, ns,
             [new MetadataLocation()]);
 
@@ -498,7 +498,7 @@ public class Compilation
 
         if (!_metadataReferenceSymbols.TryGetValue(metadataReference, out var symbol))
         {
-            var portableExecutableReference = metadataReference as PortableExecutableReference;
+            var portableExecutableReference = metadataReference as PEReference;
             if (portableExecutableReference is null)
                 throw new InvalidOperationException();
 
@@ -511,12 +511,12 @@ public class Compilation
 
     private IAssemblySymbol GetAssembly(Assembly assembly)
     {
-        PortableExecutableAssemblySymbol assemblySymbol = new PortableExecutableAssemblySymbol(assembly, []);
+        PEAssemblySymbol assemblySymbol = new PEAssemblySymbol(assembly, []);
         var symbol = assemblySymbol;
         var refs = assembly.GetReferencedAssemblies().ToArray();
 
         assemblySymbol.AddModules(
-            new PortableExecutableModuleSymbol(
+            new PEModuleSymbol(
                 assemblySymbol,
                 assembly.ManifestModule,
                 [],

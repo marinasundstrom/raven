@@ -455,7 +455,7 @@ internal class CodeGenerator
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, argument.Expression);
         }
 
-        var target = GetSymbolInfo(objectCreationExpression).Symbol as PortableExecutableMethodSymbol;
+        var target = GetSymbolInfo(objectCreationExpression).Symbol as PEMethodSymbol;
 
         iLGenerator.Emit(OpCodes.Newobj, target.GetConstructorInfo());
     }
@@ -511,7 +511,7 @@ internal class CodeGenerator
 
         if (methodSymbol is not null)
         {
-            var concatMethod = methodSymbol as PortableExecutableMethodSymbol;
+            var concatMethod = methodSymbol as PEMethodSymbol;
 
             iLGenerator.Emit(OpCodes.Call, concatMethod.GetMethodInfo());
             return;
@@ -556,8 +556,8 @@ internal class CodeGenerator
             }
             else
             {
-                var metadataPropertySymbol = propertySymbol as PortableExecutablePropertySymbol;
-                var getMethod = metadataPropertySymbol?.GetMethod as PortableExecutableMethodSymbol;
+                var metadataPropertySymbol = propertySymbol as PEPropertySymbol;
+                var getMethod = metadataPropertySymbol?.GetMethod as PEMethodSymbol;
 
                 if (getMethod is null)
                     throw new Exception($"Cannot resolve getter for property {propertySymbol.Name}");
@@ -585,7 +585,7 @@ internal class CodeGenerator
         // Resolve target identifier or access
         // If method or delegate, then invoke
 
-        var target = GetSymbolInfo(invocationExpression).Symbol as PortableExecutableMethodSymbol;
+        var target = GetSymbolInfo(invocationExpression).Symbol as PEMethodSymbol;
 
         if (!target?.IsStatic ?? false)
         {
@@ -674,7 +674,7 @@ internal class CodeGenerator
         }
         else if (symbol is IFieldSymbol fieldSymbol)
         {
-            var metadataFieldSymbol = fieldSymbol as PortableExecutableFieldSymbol;
+            var metadataFieldSymbol = fieldSymbol as PEFieldSymbol;
 
             if (fieldSymbol.IsLiteral)
             {
@@ -710,8 +710,8 @@ internal class CodeGenerator
             }
             else
             {
-                var metadataPropertySymbol = propertySymbol as PortableExecutablePropertySymbol;
-                var getMethod = metadataPropertySymbol.GetMethod as PortableExecutableMethodSymbol;
+                var metadataPropertySymbol = propertySymbol as PEPropertySymbol;
+                var getMethod = metadataPropertySymbol.GetMethod as PEMethodSymbol;
 
                 if (!propertySymbol.IsStatic
                     && propertySymbol.ContainingType.IsValueType)

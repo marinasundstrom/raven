@@ -16,7 +16,7 @@ public static class AcceptMethodGenerator
         if (suffix == "Symbol")
         {
             name = name
-                .Replace("PortableExecutable", string.Empty)
+                .Replace("PE", string.Empty)
                 .Replace("Source", string.Empty)
                 .Replace("Merged", string.Empty);
         }

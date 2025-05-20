@@ -2,19 +2,19 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PortableExecutableAssemblySymbol : PortableExecutableSymbol, IAssemblySymbol
+internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
 {
     private readonly Assembly _assembly;
-    private PortableExecutableModuleSymbol[] _modules = [];
+    private PEModuleSymbol[] _modules = [];
     private MergedNamespaceSymbol? _globalNamespace;
 
-    public PortableExecutableAssemblySymbol(Assembly assembly, Location[] locations)
+    public PEAssemblySymbol(Assembly assembly, Location[] locations)
         : base(null!, null, null, locations)
     {
         _assembly = assembly;
     }
 
-    public void AddModules(params PortableExecutableModuleSymbol[] modules)
+    public void AddModules(params PEModuleSymbol[] modules)
     {
         // Filter out invalid or null modules
         _modules = modules
@@ -35,14 +35,14 @@ internal partial class PortableExecutableAssemblySymbol : PortableExecutableSymb
 
     public IEnumerable<IModuleSymbol> Modules => _modules;
 
-    internal PortableExecutableModuleSymbol PrimaryModule =>
+    internal PEModuleSymbol PrimaryModule =>
         _modules.Length > 0 ? _modules[0] : throw new InvalidOperationException("No modules assigned.");
 
-    public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedPortableExecutableName)
+    public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedPEName)
     {
         return _modules
-            .OfType<PortableExecutableModuleSymbol>()
-            .Select(m => m.ResolveMetadataMember(GlobalNamespace, fullyQualifiedPortableExecutableName))
+            .OfType<PEModuleSymbol>()
+            .Select(m => m.ResolveMetadataMember(GlobalNamespace, fullyQualifiedPEName))
             .OfType<INamedTypeSymbol>()
             .FirstOrDefault();
     }
@@ -50,7 +50,7 @@ internal partial class PortableExecutableAssemblySymbol : PortableExecutableSymb
     public ITypeSymbol? GetType(Type type)
     {
         return _modules
-            .OfType<PortableExecutableModuleSymbol>()
+            .OfType<PEModuleSymbol>()
             .Select(m => m.GetType(type))
             .SingleOrDefault();
     }

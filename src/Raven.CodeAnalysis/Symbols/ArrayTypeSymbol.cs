@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class ArrayTypeSymbol : PortableExecutableSymbol, IArrayTypeSymbol
+internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 {
     public ArrayTypeSymbol(INamedTypeSymbol baseType, ITypeSymbol elementType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
         : base(containingSymbol, containingType, containingNamespace, locations)

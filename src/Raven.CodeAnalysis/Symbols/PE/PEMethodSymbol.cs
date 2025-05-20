@@ -3,19 +3,19 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PortableExecutableMethodSymbol : PortableExecutableSymbol, IMethodSymbol
+internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 {
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
 
-    public PortableExecutableMethodSymbol(MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEMethodSymbol(MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _methodInfo = methodInfo;
     }
 
-    public PortableExecutableMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations)
+    public PEMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations)
     : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
     {
         _methodInfo = methodInfo;
@@ -50,7 +50,7 @@ internal partial class PortableExecutableMethodSymbol : PortableExecutableSymbol
             {
                 var t = PEContainingModule.GetType(param.ParameterType);
 
-                return new PortableExecutableParameterSymbol(
+                return new PEParameterSymbol(
                       param, null, this, this.ContainingType, this.ContainingNamespace,
                       [new MetadataLocation()]);
             }).OfType<IParameterSymbol>().ToImmutableArray();

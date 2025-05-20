@@ -4,7 +4,7 @@ public abstract class MetadataReference : IEquatable<MetadataReference>
 {
     public static MetadataReference CreateFromFile(string location)
     {
-        return new PortableExecutableReference(location);
+        return new PEReference(location);
     }
 
     public abstract override bool Equals(object? obj);
@@ -52,11 +52,11 @@ public sealed class CompilationReference : MetadataReference
     }
 }
 
-public sealed class PortableExecutableReference : MetadataReference
+public sealed class PEReference : MetadataReference
 {
     public string Location { get; }
 
-    internal PortableExecutableReference(string location)
+    internal PEReference(string location)
     {
         Location = location;
     }
@@ -68,7 +68,7 @@ public sealed class PortableExecutableReference : MetadataReference
 
     public override bool Equals(MetadataReference? other)
     {
-        return other is PortableExecutableReference per &&
+        return other is PEReference per &&
                string.Equals(Location, per.Location, StringComparison.OrdinalIgnoreCase);
     }
 

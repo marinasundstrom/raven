@@ -3,14 +3,14 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSymbol, INamedTypeSymbol
+internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
     private readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
 
-    public PortableExecutableNamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PENamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _typeInfo = typeInfo;
@@ -125,7 +125,7 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
             if (mi.IsSpecialName)
                 continue;
 
-            var method = new PortableExecutableMethodSymbol(
+            var method = new PEMethodSymbol(
                 mi,
                 this,
                 [new MetadataLocation()]);
@@ -133,14 +133,14 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
 
         foreach (var pi in _typeInfo.DeclaredProperties)
         {
-            var property = new PortableExecutablePropertySymbol(
+            var property = new PEPropertySymbol(
                 pi,
                 this,
                 [new MetadataLocation()]);
 
             if (pi.GetMethod is not null)
             {
-                property.GetMethod = new PortableExecutableMethodSymbol(
+                property.GetMethod = new PEMethodSymbol(
                     pi.GetMethod,
                     property,
                     this,
@@ -149,7 +149,7 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
 
             if (pi.SetMethod is not null)
             {
-                property.SetMethod = new PortableExecutableMethodSymbol(
+                property.SetMethod = new PEMethodSymbol(
                     pi.SetMethod,
                     property,
                     this,
@@ -162,7 +162,7 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
             if (fi.IsSpecialName)
                 continue;
 
-            var field = new PortableExecutableFieldSymbol(
+            var field = new PEFieldSymbol(
                 fi,
                 this,
                 [new MetadataLocation()]);
@@ -170,7 +170,7 @@ internal partial class PortableExecutableNamedTypeSymbol : PortableExecutableSym
 
         foreach (var ci in _typeInfo.DeclaredConstructors)
         {
-            var ctor = new PortableExecutableMethodSymbol(
+            var ctor = new PEMethodSymbol(
                 ci,
                 this,
                 [new MetadataLocation()]);
