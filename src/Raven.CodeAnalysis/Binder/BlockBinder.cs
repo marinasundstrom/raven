@@ -50,11 +50,27 @@ class BlockBinder : Binder
             case ExpressionStatementSyntax exprStmt:
                 return BindStatement(exprStmt).GetSymbolInfo();
 
+            case CompilationUnitSyntax compilationUnit:
+                return BindCompilationUnit(compilationUnit);
+
             default:
                 return base.BindSymbol(node);
         }
 
         return new SymbolInfo(symbol);
+    }
+
+    private SymbolInfo BindCompilationUnit(CompilationUnitSyntax compilationUnit)
+    {
+        var entryPoint = Compilation.GetEntryPoint();
+        if (entryPoint is not null && entryPoint.IsImplicitlyDeclared)
+        {
+            if (entryPoint.DeclaringSyntaxReferences.FirstOrDefault()!.GetSyntax() == compilationUnit)
+            {
+                return new SymbolInfo(entryPoint);
+            }
+        }
+        return new SymbolInfo(Compilation.SourceGlobalNamespace);
     }
 
     public override BoundExpression BindStatement(StatementSyntax statement)
@@ -104,7 +120,7 @@ class BlockBinder : Binder
             type,
             isReadOnly,
             _containingSymbol,
-            _containingSymbol.ContainingType as INamedTypeSymbol, 
+            _containingSymbol.ContainingType as INamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
             [variableDeclarator.GetLocation()],
             [variableDeclarator.GetReference()]); _locals[name] = symbol;

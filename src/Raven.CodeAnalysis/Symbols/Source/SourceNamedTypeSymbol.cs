@@ -9,7 +9,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-
+        //BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object");
     }
 
     public bool IsNamespace { get; } = false;
@@ -22,9 +22,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public SpecialType SpecialType => SpecialType.None;
 
-    public bool IsValueType => throw new NotImplementedException();
+    public bool IsValueType => false;
 
-    public INamedTypeSymbol? BaseType => throw new NotImplementedException();
+    public virtual INamedTypeSymbol? BaseType { get; }
 
     public bool IsArray => false;
 

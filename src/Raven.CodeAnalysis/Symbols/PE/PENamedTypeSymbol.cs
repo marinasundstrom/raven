@@ -176,4 +176,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 [new MetadataLocation(ContainingModule!)]);
         }
     }
+
+    public System.Reflection.TypeInfo GetTypeInfo() => _typeInfo;
+
 }
