@@ -19,38 +19,96 @@ public enum SymbolKind
     ErrorType
 }
 
+/// <summary>
+/// Represents a symbol in the Raven compiler's semantic model, such as a namespace, type, method, or variable.
+/// </summary>
 public interface ISymbol : IEquatable<ISymbol?>
 {
+    /// <summary>
+    /// Gets the kind of symbol (e.g., namespace, type, method).
+    /// </summary>
     SymbolKind Kind { get; }
 
+    /// <summary>
+    /// Gets the name of the symbol.
+    /// </summary>
     string Name { get; }
 
+    /// <summary>
+    /// Gets the name used in metadata to identify the symbol.
+    /// </summary>
     string MetadataName { get; }
 
-    public ISymbol? ContainingSymbol { get; }
+    /// <summary>
+    /// Gets the symbol that contains this symbol. May be <c>null</c> for root symbols.
+    /// </summary>
+    ISymbol? ContainingSymbol { get; }
 
+    /// <summary>
+    /// Gets the assembly that contains this symbol, or <c>null</c> if the symbol is not contained in an assembly.
+    /// </summary>
     IAssemblySymbol? ContainingAssembly { get; }
 
+    /// <summary>
+    /// Gets the module that contains this symbol, or <c>null</c> if the symbol is not contained in a module.
+    /// </summary>
     IModuleSymbol? ContainingModule { get; }
 
+    /// <summary>
+    /// Gets the named type that contains this symbol, or <c>null</c> if the symbol is not contained in a type.
+    /// </summary>
     INamedTypeSymbol? ContainingType { get; }
 
+    /// <summary>
+    /// Gets the namespace that contains this symbol, or <c>null</c> if the symbol is not contained in a namespace.
+    /// </summary>
     INamespaceSymbol? ContainingNamespace { get; }
 
+    /// <summary>
+    /// Gets the source or metadata locations associated with this symbol.
+    /// </summary>
     ImmutableArray<Location> Locations { get; }
 
+    /// <summary>
+    /// Gets the declared accessibility (e.g., public, internal, private) of this symbol.
+    /// </summary>
     Accessibility DeclaredAccessibility { get; }
 
+    /// <summary>
+    /// Gets the syntax references used to declare this symbol.
+    /// </summary>
     ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; }
 
+    /// <summary>
+    /// Gets a value indicating whether the symbol was implicitly declared by the compiler.
+    /// </summary>
     bool IsImplicitlyDeclared { get; }
 
+    /// <summary>
+    /// Gets a value indicating whether the symbol is static.
+    /// </summary>
     bool IsStatic { get; }
 
+    /// <summary>
+    /// Determines whether this symbol is equal to another symbol using the specified symbol equality comparer.
+    /// </summary>
+    /// <param name="other">The other symbol to compare with.</param>
+    /// <param name="comparer">The comparer to use for symbol equality.</param>
+    /// <returns><c>true</c> if the symbols are considered equal; otherwise, <c>false</c>.</returns>
     bool Equals(ISymbol? other, SymbolEqualityComparer comparer);
 
+    /// <summary>
+    /// Accepts a symbol visitor to perform an operation on this symbol.
+    /// </summary>
+    /// <param name="visitor">The visitor to accept.</param>
     void Accept(SymbolVisitor visitor);
 
+    /// <summary>
+    /// Accepts a symbol visitor to perform an operation on this symbol and returns a result.
+    /// </summary>
+    /// <typeparam name="TResult">The type of result returned by the visitor.</typeparam>
+    /// <param name="visitor">The visitor to accept.</param>
+    /// <returns>The result produced by the visitor.</returns>
     TResult Accept<TResult>(SymbolVisitor<TResult> visitor);
 }
 
