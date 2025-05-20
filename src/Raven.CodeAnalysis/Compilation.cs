@@ -116,13 +116,12 @@ public class Compilation
 
     public IMethodSymbol? GetEntryPoint(CancellationToken cancellationToken = default)
     {
-        /*
-        return SourceGlobalNamespace.Get
+        var main = SourceGlobalNamespace
+            .GetAllMembersRecursive()
             .OfType<IMethodSymbol>()
-            .SingleOrDefault(x => x.Name == "Main" && x.ContainingType?.Name == "Program");
-        */
+            .FirstOrDefault(x => x.Name == "Main" && x.ContainingType?.Name == "Program");
 
-        return null;
+        return main;
     }
 
     private readonly object _setupLock = new();
@@ -174,25 +173,9 @@ public class Compilation
 
             SyntaxReference[] references = [root.GetReference()];
 
-            var globalStatements = root.Members.OfType<GlobalStatementSyntax>();
-            if (globalStatements.Any())
+            foreach (var memberDeclaration in root.Members)
             {
-                ITypeSymbol typeSymbol = null!;
-
-                var symbol2 = new SourceNamedTypeSymbol(
-                    "Program", SourceGlobalNamespace!, null, SourceGlobalNamespace,
-                    locations, references);
-
-                var symbol = new SourceMethodSymbol(
-                    "Main", typeSymbol, [], symbol2!, symbol2, SourceGlobalNamespace,
-                    [syntaxTree.GetLocation(root.Span)], [root.GetReference()]);
-            }
-            else
-            {
-                foreach (var memberDeclaration in root.Members)
-                {
-                    AnalyzeMemberDeclaration(syntaxTree, SourceGlobalNamespace, memberDeclaration);
-                }
+                AnalyzeMemberDeclaration(syntaxTree, SourceGlobalNamespace, memberDeclaration);
             }
         }
     }

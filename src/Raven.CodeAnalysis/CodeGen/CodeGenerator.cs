@@ -44,7 +44,7 @@ internal class CodeGenerator
         assemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly, [targetFrameworkAttribute]);
         moduleBuilder = assemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
-        var globalNamespace = _compilation.GlobalNamespace;
+        var globalNamespace = _compilation.SourceGlobalNamespace;
 
         GenerateNamespace(globalNamespace);
 

@@ -180,4 +180,6 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
             }
         }
     }
+
+    public IEnumerable<INamespaceSymbol> GetMergedNamespaces() => _namespaces;
 }

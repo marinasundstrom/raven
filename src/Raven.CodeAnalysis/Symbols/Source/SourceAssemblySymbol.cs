@@ -22,7 +22,11 @@ internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
 
     public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedMetadataName)
     {
-        throw new NotImplementedException();
+        return _modules
+            .OfType<SourceModuleSymbol>()
+            .Select(m => m.ResolveMetadataMember(GlobalNamespace, fullyQualifiedMetadataName))
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault();
     }
 
     internal void AddModule(SourceModuleSymbol sourceModuleSymbol)

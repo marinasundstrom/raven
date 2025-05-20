@@ -104,8 +104,9 @@ class BinderFactory
 
         var importBinder = new ImportBinder(parentBinder, imports);
 
-        // Synthesize the Program/Main method inside the namespace
-        var mainMethodSymbol = new SynthesizedMainMethodSymbol(_compilation, targetNamespace);
+        var programClassSymbol = new SynthesizedProgramClassSymbol(_compilation, targetNamespace.AsSourceNamespace(), [cu.GetLocation()], [cu.GetReference()]);
+
+        var mainMethodSymbol = new SynthesizedMainMethodSymbol(programClassSymbol, [cu.GetLocation()], [cu.GetReference()]);
 
         var topLevelBinder = new TopLevelBinder(importBinder, mainMethodSymbol);
 
