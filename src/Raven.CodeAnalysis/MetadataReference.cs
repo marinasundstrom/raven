@@ -2,10 +2,24 @@ namespace Raven.CodeAnalysis;
 
 public abstract class MetadataReference : IEquatable<MetadataReference>
 {
-    public static MetadataReference CreateFromFile(string location)
+    public static PortableExecutableReference CreateFromFile(string filePath)
     {
-        return new PEReference(location);
+        return new PortableExecutableReference(filePath);
     }
+
+    /*
+
+    public static PortableExecutableReference CreateFromStream(Stream peStream, string? filePath = null)
+    {
+        throw new NotImplementedException();
+    }
+
+    public static PortableExecutableReference CreateFromImage(byte[] peBytes, string? filePath = null)
+    {
+        throw new NotImplementedException();
+    }
+
+    */
 
     public abstract override bool Equals(object? obj);
     public abstract bool Equals(MetadataReference? other);
@@ -52,13 +66,13 @@ public sealed class CompilationReference : MetadataReference
     }
 }
 
-public sealed class PEReference : MetadataReference
+public sealed class PortableExecutableReference : MetadataReference
 {
-    public string Location { get; }
+    public string FilePath { get; }
 
-    internal PEReference(string location)
+    internal PortableExecutableReference(string filePath)
     {
-        Location = location;
+        FilePath = filePath;
     }
 
     public override bool Equals(object? obj)
@@ -68,12 +82,12 @@ public sealed class PEReference : MetadataReference
 
     public override bool Equals(MetadataReference? other)
     {
-        return other is PEReference per &&
-               string.Equals(Location, per.Location, StringComparison.OrdinalIgnoreCase);
+        return other is PortableExecutableReference per &&
+               string.Equals(FilePath, per.FilePath, StringComparison.OrdinalIgnoreCase);
     }
 
     public override int GetHashCode()
     {
-        return StringComparer.OrdinalIgnoreCase.GetHashCode(Location);
+        return StringComparer.OrdinalIgnoreCase.GetHashCode(FilePath);
     }
 }

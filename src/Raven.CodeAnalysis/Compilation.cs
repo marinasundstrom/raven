@@ -143,8 +143,8 @@ public class Compilation
     private void Setup()
     {
         List<string> paths = _references
-        .OfType<PEReference>()
-        .Select(portableExecutableReference => portableExecutableReference.Location)
+        .OfType<PortableExecutableReference>()
+        .Select(portableExecutableReference => portableExecutableReference.FilePath)
         .ToList();
 
         var resolver = new PathAssemblyResolver(paths);
@@ -447,11 +447,11 @@ public class Compilation
 
         if (!_metadataReferenceSymbols.TryGetValue(metadataReference, out var symbol))
         {
-            var portableExecutableReference = metadataReference as PEReference;
+            var portableExecutableReference = metadataReference as PortableExecutableReference;
             if (portableExecutableReference is null)
                 throw new InvalidOperationException();
 
-            var assembly = _metadataLoadContext.LoadFromAssemblyPath(portableExecutableReference.Location);
+            var assembly = _metadataLoadContext.LoadFromAssemblyPath(portableExecutableReference.FilePath);
             symbol = GetAssembly(assembly);
             _metadataReferenceSymbols[metadataReference] = symbol;
         }
