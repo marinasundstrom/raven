@@ -44,6 +44,6 @@ ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
 Console.WriteLine();
 Console.WriteLine(root.WriteNodeToText(compilation));
 
-Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
+//Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
 
 Console.WriteLine();

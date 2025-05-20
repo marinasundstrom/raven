@@ -44,8 +44,6 @@ public class Compilation
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
-    internal PENamespaceSymbol MetadataGlobalNamespace { get; private set; }
-
     public Assembly CoreAssembly { get; private set; }
 
     internal BinderFactory BinderFactory { get; private set; }
@@ -129,21 +127,6 @@ public class Compilation
 
     private void Setup()
     {
-        BinderFactory = new BinderFactory(this);
-
-        Assembly = new SourceAssemblySymbol(AssemblyName, []);
-
-        Module = new SourceModuleSymbol(AssemblyName, []);
-
-        SourceGlobalNamespace = new SourceNamespaceSymbol((SourceModuleSymbol)Module,
-            "", Module, null, null,
-            [], []);
-
-        MetadataGlobalNamespace = new PENamespaceSymbol(
-            "", Module, null);
-
-        //LoadMetadataReferences();
-
         List<string> paths = _references
         .OfType<PEReference>()
         .Select(portableExecutableReference => portableExecutableReference.Location)
@@ -158,6 +141,14 @@ public class Compilation
         {
             GetAssemblyOrModuleSymbol(metadataReference);
         }
+
+        BinderFactory = new BinderFactory(this);
+
+        Assembly = new SourceAssemblySymbol(AssemblyName, []);
+
+        Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
+
+        SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
 
         foreach (var syntaxTree in SyntaxTrees)
         {
@@ -201,25 +192,6 @@ public class Compilation
     private GlobalBinder _globalBinder;
     private bool setup;
     private ErrorTypeSymbol _errorTypeSymbol;
-
-    private void LoadMetadataReferences()
-    {
-        List<string> paths = _references
-            .OfType<PEReference>()
-            .Select(portableExecutableReference => portableExecutableReference.Location)
-            .ToList();
-
-        var resolver = new PathAssemblyResolver(paths);
-        _metadataLoadContext = new MetadataLoadContext(resolver);
-
-        foreach (var path in paths)
-        {
-            var asm = _metadataLoadContext.LoadFromAssemblyPath(path);
-            _lazyMetadataAssemblies[path] = asm;
-        }
-
-        CoreAssembly = _metadataLoadContext.CoreAssembly!;
-    }
 
     private INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
     {
