@@ -17,47 +17,51 @@ class BlockBinder : Binder
 
     public ISymbol ContainingSymbol => _containingSymbol;
 
+    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    {
+        return node switch
+        {
+            VariableDeclaratorSyntax v => BindLocalDeclaration(v),
+            CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
+            _ => base.BindDeclaredSymbol(node)
+        };
+    }
+
+    public override SymbolInfo BindReferencedSymbol(SyntaxNode node)
+    {
+        return node switch
+        {
+            ExpressionSyntax expr => BindExpression(expr).GetSymbolInfo(),
+            ExpressionStatementSyntax stmt => BindStatement(stmt).GetSymbolInfo(),
+            _ => base.BindReferencedSymbol(node)
+        };
+    }
+
+    internal override SymbolInfo BindIdentifierReference(IdentifierNameSyntax node)
+    {
+        return BindIdentifierName(node).GetSymbolInfo();
+    }
+
+    internal override SymbolInfo BindInvocationReference(InvocationExpressionSyntax node)
+    {
+        return BindInvocationExpression(node).GetSymbolInfo();
+    }
+
+    internal override SymbolInfo BindMemberAccessReference(MemberAccessExpressionSyntax node)
+    {
+        return BindMemberAccessExpression(node).GetSymbolInfo();
+    }
+
     public override ISymbol? LookupSymbol(string name)
     {
-        // Local scope
         if (_locals.TryGetValue(name, out var sym))
             return sym;
 
-        // Parent scopes
         var parentSymbol = base.LookupSymbol(name);
         if (parentSymbol != null)
             return parentSymbol;
 
-        // Global namespace lookup
-        return Compilation.GlobalNamespace
-            .GetMembers(name)
-            .FirstOrDefault(); // could be namespace or type
-    }
-
-    public override SymbolInfo BindSymbol(SyntaxNode node)
-    {
-        ISymbol? symbol = null;
-
-        switch (node)
-        {
-            case VariableDeclaratorSyntax varDecl:
-                symbol = BindLocalDeclaration(varDecl);
-                break;
-
-            case ExpressionSyntax expr:
-                return BindExpression(expr).GetSymbolInfo();
-
-            case ExpressionStatementSyntax exprStmt:
-                return BindStatement(exprStmt).GetSymbolInfo();
-
-            case CompilationUnitSyntax compilationUnit:
-                return BindCompilationUnit(compilationUnit);
-
-            default:
-                return base.BindSymbol(node);
-        }
-
-        return new SymbolInfo(symbol);
+        return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
     }
 
     private SymbolInfo BindCompilationUnit(CompilationUnitSyntax compilationUnit)
@@ -71,25 +75,6 @@ class BlockBinder : Binder
             }
         }
         return new SymbolInfo(Compilation.SourceGlobalNamespace);
-    }
-
-    public override BoundExpression BindStatement(StatementSyntax statement)
-    {
-        return statement switch
-        {
-            LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindLocalDeclaration(localDeclaration.Declaration.Declarators[0])),
-            ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
-            EmptyStatementSyntax emptyStatement => new BoundVoidExpression(Compilation),
-            _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
-        };
-    }
-
-    private BoundExpression BindBlock(BlockSyntax block)
-    {
-        var blockBinder = Compilation.BinderFactory.GetBinder(block, this);
-        var statements = block.Statements.Select(blockBinder.BindStatement).ToArray();
-
-        return new BoundBlockExpression(statements);
     }
 
     private ILocalSymbol BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
@@ -123,9 +108,30 @@ class BlockBinder : Binder
             _containingSymbol.ContainingType as INamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
             [variableDeclarator.GetLocation()],
-            [variableDeclarator.GetReference()]); _locals[name] = symbol;
+            [variableDeclarator.GetReference()]);
 
+        _locals[name] = symbol;
         return symbol;
+    }
+
+
+    public override BoundExpression BindStatement(StatementSyntax statement)
+    {
+        return statement switch
+        {
+            LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindLocalDeclaration(localDeclaration.Declaration.Declarators[0])),
+            ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
+            EmptyStatementSyntax emptyStatement => new BoundVoidExpression(Compilation),
+            _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
+        };
+    }
+
+    private BoundExpression BindBlock(BlockSyntax block)
+    {
+        var blockBinder = Compilation.BinderFactory.GetBinder(block, this);
+        var statements = block.Statements.Select(blockBinder.BindStatement).ToArray();
+
+        return new BoundBlockExpression(statements);
     }
 
     public override BoundExpression BindExpression(ExpressionSyntax syntax) => syntax switch

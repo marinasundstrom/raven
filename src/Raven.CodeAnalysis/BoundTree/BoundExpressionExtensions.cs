@@ -11,16 +11,16 @@ static class BoundExpressionExtensions
         return new SymbolInfo(Convert(expression.Reason), expression.Symbol is not null ? [expression.Symbol] : []);
     }
 
-    private static MapToCandidateReason Convert(BoundExpressionReason candidateReason)
+    private static CandidateReason Convert(BoundExpressionReason candidateReason)
     {
         return candidateReason switch
         {
-            BoundExpressionReason.None => CodeAnalysis.MapToCandidateReason.None,
-            BoundExpressionReason.NotFound => CodeAnalysis.MapToCandidateReason.NotFound,
-            BoundExpressionReason.Ambiguous => CodeAnalysis.MapToCandidateReason.Ambiguous,
-            BoundExpressionReason.Inaccessible => CodeAnalysis.MapToCandidateReason.Inaccessible,
-            BoundExpressionReason.WrongArity => CodeAnalysis.MapToCandidateReason.WrongArity,
-            BoundExpressionReason.OverloadResolutionFailed => CodeAnalysis.MapToCandidateReason.OverloadResolutionFailure,
+            BoundExpressionReason.None => CodeAnalysis.CandidateReason.None,
+            BoundExpressionReason.NotFound => CodeAnalysis.CandidateReason.NotFound,
+            BoundExpressionReason.Ambiguous => CodeAnalysis.CandidateReason.Ambiguous,
+            BoundExpressionReason.Inaccessible => CodeAnalysis.CandidateReason.Inaccessible,
+            BoundExpressionReason.WrongArity => CodeAnalysis.CandidateReason.WrongArity,
+            BoundExpressionReason.OverloadResolutionFailed => CodeAnalysis.CandidateReason.OverloadResolutionFailure,
             _ => throw new ArgumentOutOfRangeException(nameof(candidateReason), candidateReason, null)
         };
     }

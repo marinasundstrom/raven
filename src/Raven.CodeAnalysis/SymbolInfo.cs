@@ -9,15 +9,17 @@ public struct SymbolInfo
         Symbol = symbol;
     }
 
-    internal SymbolInfo(MapToCandidateReason candidateReason, ImmutableArray<ISymbol> candidateSymbols) : this()
+    internal SymbolInfo(CandidateReason candidateReason, ImmutableArray<ISymbol> candidateSymbols) : this()
     {
         CandidateReason = candidateReason;
         CandidateSymbols = candidateSymbols;
     }
 
-    public MapToCandidateReason CandidateReason { get; }
+    public CandidateReason CandidateReason { get; }
 
     public ImmutableArray<ISymbol> CandidateSymbols { get; }
 
     public ISymbol? Symbol { get; }
+
+    public static readonly SymbolInfo None = new SymbolInfo(CandidateReason.None, []);
 }

@@ -341,7 +341,7 @@ internal class CodeGenerator
     {
         if (declarator.Initializer is not null)
         {
-            var localSymbol = GetSymbolInfo(declarator).Symbol as ILocalSymbol;
+            var localSymbol = GetDeclaredSymbol<ILocalSymbol>(declarator);
 
             GenerateExpression(typeBuilder, methodBuilder, iLGenerator, statement, declarator.Initializer.Value);
 
@@ -498,6 +498,14 @@ internal class CodeGenerator
         return _compilation
                         .GetSemanticModel(syntaxNode.SyntaxTree)
                         .GetSymbolInfo(syntaxNode);
+    }
+
+    private TNode? GetDeclaredSymbol<TNode>(SyntaxNode syntaxNode)
+        where TNode : class, ISymbol
+    {
+        return _compilation
+                        .GetSemanticModel(syntaxNode.SyntaxTree)
+                        .GetDeclaredSymbol(syntaxNode) as TNode;
     }
 
     private void GenerateBinaryExpression(TypeBuilder typeBuilder, MethodBuilder methodBuilder, ILGenerator iLGenerator, StatementSyntax statement, BinaryExpressionSyntax binaryExpression)

@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public enum MapToCandidateReason
+public enum CandidateReason
 {
     None,
     NotFound,

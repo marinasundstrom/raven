@@ -32,10 +32,10 @@ var compilation = Compilation.Create(assemblyName, new CompilationOptions(Output
 
 var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-var methodSymbol = semanticModel.GetSymbolInfo(root).Symbol as IMethodSymbol;
+var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
 var typeSymbol = methodSymbol?.ContainingType;
 
-var local = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
+var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
 
 // INFO: The sample will compile, but not all constructs are supported yet.
 using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))

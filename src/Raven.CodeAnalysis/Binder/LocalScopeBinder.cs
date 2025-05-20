@@ -39,4 +39,20 @@ class LocalScopeBinder : Binder
 
         return base.BindSymbol(node);
     }
+
+    internal override SymbolInfo BindIdentifierReference(IdentifierNameSyntax node)
+    {
+        return ParentBinder?.BindIdentifierReference(node) ?? default;
+    }
+
+    internal override SymbolInfo BindMemberAccessReference(MemberAccessExpressionSyntax node)
+    {
+        return ParentBinder?.BindMemberAccessReference(node) ?? default;
+    }
+
+    internal override SymbolInfo BindInvocationReference(InvocationExpressionSyntax node)
+    {
+        return ParentBinder?.BindInvocationReference(node) ?? default;
+    }
+
 }

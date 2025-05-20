@@ -53,13 +53,11 @@ public partial class SemanticModel
 
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
-        // TODO: Remove caching
         if (_bindings.TryGetValue(node, out var symbolInfo))
             return symbolInfo;
 
-        // NEW: Ask binder to bind the node
         var binder = Compilation.BinderFactory.GetBinder(node);
-        var info = binder.BindSymbol(node);
+        var info = binder.BindReferencedSymbol(node);
         _bindings[node] = info;
         return info;
     }
@@ -67,8 +65,7 @@ public partial class SemanticModel
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
         var binder = Compilation.BinderFactory.GetBinder(node);
-        var info = binder.BindSymbol(node);
-        return info.Symbol;
+        return binder.BindDeclaredSymbol(node);
     }
 
     public ImmutableArray<ISymbol> LookupSymbols(int position,

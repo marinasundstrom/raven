@@ -10,7 +10,7 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
     private SourceNamespaceSymbol _globalNamespace;
 
     public SourceModuleSymbol(string name, SourceAssemblySymbol containingAssembly, IEnumerable<IAssemblySymbol> referencedAssemblySymbols, Location[] locations)
-        : base(SymbolKind.Module, name, null!, null, null, locations, [])
+        : base(SymbolKind.Module, name, containingAssembly, null, null, locations, [])
     {
         _containingAssembly = containingAssembly;
         _referencedAssemblySymbols = referencedAssemblySymbols.ToImmutableArray();
