@@ -9,12 +9,10 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    private readonly DiagnosticBag _diagnostics;
     private readonly Dictionary<SyntaxNode, SymbolInfo> _bindings = new();
 
     public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
     {
-        _diagnostics = new DiagnosticBag();
         Compilation = compilation;
         SyntaxTree = syntaxTree;
 
