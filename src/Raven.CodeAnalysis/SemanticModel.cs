@@ -10,12 +10,10 @@ namespace Raven.CodeAnalysis;
 public partial class SemanticModel
 {
     private readonly DiagnosticBag _diagnostics;
-    private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _bindings = new();
 
-    public SemanticModel(Compilation compilation, List<ISymbol> symbols, SyntaxTree syntaxTree)
+    public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
     {
-        _symbols = symbols;
         _diagnostics = new DiagnosticBag();
         Compilation = compilation;
         SyntaxTree = syntaxTree;
@@ -33,8 +31,6 @@ public partial class SemanticModel
     public Compilation Compilation { get; }
 
     public SyntaxTree SyntaxTree { get; }
-
-    private DiagnosticBag Diagnostics => _diagnostics;
 
     public IImmutableList<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
@@ -59,6 +55,7 @@ public partial class SemanticModel
 
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
+        // TODO: Remove caching
         if (_bindings.TryGetValue(node, out var symbolInfo))
             return symbolInfo;
 
@@ -80,35 +77,5 @@ public partial class SemanticModel
         INamespaceOrTypeSymbol container, string name, bool includeReducedExtensionMethods)
     {
         throw new NotImplementedException();
-    }
-
-    private void Bind(SyntaxNode node, ISymbol symbol)
-    {
-        _bindings[node] = new SymbolInfo(symbol);
-    }
-
-    private void Bind(SyntaxNode node, MapToCandidateReason reason, params IEnumerable<ISymbol> symbols)
-    {
-        _bindings[node] = new SymbolInfo(reason, symbols.ToImmutableArray());
-    }
-
-    private ITypeSymbol? InferLiteralType(LiteralExpressionSyntax literal)
-    {
-        // Example inference logic for literals
-        return literal.Token.Value switch
-        {
-            int => GetTypeSymbol("System.Int32"),
-            string => GetTypeSymbol("System.String"),
-            double => GetTypeSymbol("System.Double"),
-            bool => GetTypeSymbol("System.Boolean"),
-            _ => null
-        };
-    }
-
-    private ITypeSymbol? GetTypeSymbol(string typeName)
-    {
-        return _symbols
-            .OfType<ITypeSymbol>()
-            .FirstOrDefault(x => x.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == typeName);
     }
 }

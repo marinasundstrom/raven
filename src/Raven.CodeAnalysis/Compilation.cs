@@ -12,7 +12,6 @@ public class Compilation
     private INamespaceSymbol? _globalNamespace;
     private readonly SyntaxTree[] _syntaxTrees;
     private readonly MetadataReference[] _references;
-    private readonly List<ISymbol> _symbols = new List<ISymbol>();
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, IAssemblySymbol>();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new Dictionary<Assembly, IAssemblySymbol>();
@@ -67,8 +66,7 @@ public class Compilation
 
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
     {
-        // TODO: Create new compilation
-        return new Compilation(AssemblyName, syntaxTrees, _references, Options);
+        return new Compilation(AssemblyName, _syntaxTrees.Concat(syntaxTrees).ToArray(), _references, Options);
     }
 
     public Compilation AddReferences(params MetadataReference[] references)
@@ -83,11 +81,7 @@ public class Compilation
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree)
     {
-        if (!setup)
-        {
-            Setup();
-            setup = true;
-        }
+        EnsureSetup();
 
         if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
         {
@@ -99,7 +93,7 @@ public class Compilation
             throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
         }
 
-        semanticModel = new SemanticModel(this, _symbols, syntaxTree);
+        semanticModel = new SemanticModel(this, syntaxTree);
         _semanticModels[syntaxTree] = semanticModel;
         return semanticModel;
     }
@@ -122,7 +116,29 @@ public class Compilation
 
     public IMethodSymbol? GetEntryPoint(CancellationToken cancellationToken = default)
     {
-        return _symbols.SingleOrDefault(x => x.Name == "Name" && x.ContainingType!.Name == "Program") as IMethodSymbol;
+        /*
+        return SourceGlobalNamespace.Get
+            .OfType<IMethodSymbol>()
+            .SingleOrDefault(x => x.Name == "Main" && x.ContainingType?.Name == "Program");
+        */
+
+        return null;
+    }
+
+    private readonly object _setupLock = new();
+
+    private void EnsureSetup()
+    {
+        if (setup) return;
+
+        lock (_setupLock)
+        {
+            if (!setup)
+            {
+                Setup();
+                setup = true;
+            }
+        }
     }
 
     private void Setup()
@@ -167,13 +183,9 @@ public class Compilation
                     "Program", SourceGlobalNamespace!, null, SourceGlobalNamespace,
                     locations, references);
 
-                _symbols.Add(symbol2);
-
                 var symbol = new SourceMethodSymbol(
                     "Main", typeSymbol, [], symbol2!, symbol2, SourceGlobalNamespace,
                     [syntaxTree.GetLocation(root.Span)], [root.GetReference()]);
-
-                _symbols.Add(symbol);
             }
             else
             {
@@ -182,8 +194,6 @@ public class Compilation
                     AnalyzeMemberDeclaration(syntaxTree, SourceGlobalNamespace, memberDeclaration);
                 }
             }
-
-            _symbols.Add(SourceGlobalNamespace);
         }
     }
 
@@ -213,7 +223,6 @@ public class Compilation
             if (currentNamespace == null)
             {
                 currentNamespace = new PENamespaceSymbol(part, null!, parent);
-                _symbols.Add(currentNamespace);
                 return currentNamespace; // Namespace not found
             }
         }
@@ -233,8 +242,6 @@ public class Compilation
                 namespaceDeclarationSyntax.Name.ToString(), declaringSymbol, (INamespaceSymbol?)declaringSymbol,
                 locations, references);
 
-            _symbols.Add(symbol);
-
             foreach (var memberDeclaration2 in namespaceDeclarationSyntax.Members)
             {
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
@@ -251,8 +258,6 @@ public class Compilation
             var symbol = new SourceMethodSymbol(
                 methodDeclaration.Name.ToString(), typeSymbol, [], null!, null, null,
                 locations, references);
-
-            _symbols.Add(symbol);
         }
     }
 
