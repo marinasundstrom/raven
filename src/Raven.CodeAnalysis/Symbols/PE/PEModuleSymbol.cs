@@ -94,7 +94,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
         var typeSymbol = new PENamedTypeSymbol(
             typeInfo, ns, null, ns,
-            [new MetadataLocation()]);
+            [new MetadataLocation(ns.ContainingModule!)]);
 
         _typeSymbolTypeInfoMapping[typeInfo] = typeSymbol;
 

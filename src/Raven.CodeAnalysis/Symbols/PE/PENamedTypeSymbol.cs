@@ -128,7 +128,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             var method = new PEMethodSymbol(
                 mi,
                 this,
-                [new MetadataLocation()]);
+                [new MetadataLocation(ContainingModule!)]);
         }
 
         foreach (var pi in _typeInfo.DeclaredProperties)
@@ -136,7 +136,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             var property = new PEPropertySymbol(
                 pi,
                 this,
-                [new MetadataLocation()]);
+                [new MetadataLocation(ContainingModule!)]);
 
             if (pi.GetMethod is not null)
             {
@@ -144,7 +144,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                     pi.GetMethod,
                     property,
                     this,
-                    [new MetadataLocation()]);
+                    [new MetadataLocation(ContainingModule!)]);
             }
 
             if (pi.SetMethod is not null)
@@ -153,7 +153,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                     pi.SetMethod,
                     property,
                     this,
-                    [new MetadataLocation()]);
+                    [new MetadataLocation(ContainingModule!)]);
             }
         }
 
@@ -165,7 +165,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             var field = new PEFieldSymbol(
                 fi,
                 this,
-                [new MetadataLocation()]);
+                [new MetadataLocation(ContainingModule!)]);
         }
 
         foreach (var ci in _typeInfo.DeclaredConstructors)
@@ -173,7 +173,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             var ctor = new PEMethodSymbol(
                 ci,
                 this,
-                [new MetadataLocation()]);
+                [new MetadataLocation(ContainingModule!)]);
         }
     }
 }

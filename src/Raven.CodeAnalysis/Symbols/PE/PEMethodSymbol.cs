@@ -52,7 +52,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
                 return new PEParameterSymbol(
                       param, null, this, this.ContainingType, this.ContainingNamespace,
-                      [new MetadataLocation()]);
+                      [new MetadataLocation(ContainingModule!)]);
             }).OfType<IParameterSymbol>().ToImmutableArray();
         }
     }
