@@ -36,6 +36,8 @@ public class Compilation
 
     public IEnumerable<MetadataReference> References => _references;
 
+    public IEnumerable<IAssemblySymbol> ReferencedAssemblySymbols => Module.ReferencedAssemblySymbols;
+
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
 
     public INamespaceSymbol GlobalNamespace =>
