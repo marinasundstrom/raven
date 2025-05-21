@@ -1,7 +1,4 @@
 using System.Collections.Immutable;
-using System.Reflection;
-using System.Reflection.Metadata;
-using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -72,5 +69,17 @@ public partial class SemanticModel
         INamespaceOrTypeSymbol container, string name, bool includeReducedExtensionMethods)
     {
         throw new NotImplementedException();
+    }
+
+    public TypeInfo GetTypeInfo(ExpressionSyntax expr)
+    {
+        var binder = Compilation.BinderFactory.GetBinder(expr);
+
+        var boundExpr = binder.BindExpression(expr);
+
+        if (boundExpr is null || boundExpr is BoundErrorExpression)
+            return new TypeInfo(null, null);
+
+        return new TypeInfo(boundExpr.Type, boundExpr.GetConvertedType());
     }
 }

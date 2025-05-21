@@ -503,4 +503,9 @@ public class Compilation
         var ns = GlobalNamespace.LookupNamespace("System");
         return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, []);
     }
+
+    internal Binder GetBinder(SyntaxNode node)
+    {
+        return BinderFactory.GetBinder(node);
+    }
 }

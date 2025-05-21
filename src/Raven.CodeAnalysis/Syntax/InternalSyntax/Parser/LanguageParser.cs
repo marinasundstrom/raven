@@ -80,7 +80,7 @@ internal class LanguageParser
 
         var tokenizer = new Tokenizer(textReader);
         var parseContext = new BaseParseContext(_tokenizer, offset);
-        
+
         return new StatementSyntaxParser(parseContext).ParseStatement();
     }
 }

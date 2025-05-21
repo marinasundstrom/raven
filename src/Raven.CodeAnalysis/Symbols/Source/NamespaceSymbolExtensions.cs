@@ -20,6 +20,23 @@ public static class NamespaceSymbolExtensions
         }
     }
 
+    /*
+
+    public static IEnumerable<ISymbol> GetAllMembersRecursive(this INamespaceSymbol ns)
+    {
+        foreach (var member in ns.GetMembers())
+        {
+            yield return member;
+
+            if (member is INamespaceSymbol childNs)
+            {
+                foreach (var nested in childNs.GetAllMembersRecursive())
+                    yield return nested;
+            }
+        }
+    }
+    */
+
     internal static SourceNamespaceSymbol? AsSourceNamespace(this INamespaceSymbol ns)
     {
         if (ns is SourceNamespaceSymbol sourceNamespace)

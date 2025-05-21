@@ -39,6 +39,8 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
     public int Position { get; }
 
+    public int End => Position + FullWidth;
+
     public int Width => Green.Width;
 
     public int FullWidth => Green.FullWidth;
@@ -377,5 +379,35 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
 
-    public SyntaxReference GetReference() => new SyntaxReference(SyntaxTree, this);
+    public SyntaxReference GetReference() => new SyntaxReference(SyntaxTree!, this);
+
+    public SyntaxToken FindToken(int position)
+    {
+        if (position < Position || position > this.FullSpan.End)
+            throw new ArgumentOutOfRangeException(nameof(position), "Position is out of bounds of this syntax tree.");
+
+        return FindTokenInternal(this, position);
+    }
+
+    private static SyntaxToken FindTokenInternal(SyntaxNode node, int position)
+    {
+        foreach (var child in node.ChildNodesAndTokens())
+        {
+            if (child.IsToken)
+            {
+                var token = child.Token;
+                if (position >= token.Position && position < token.End)
+                    return token;
+            }
+            else
+            {
+                var childNode = child.Node!;
+                if (position >= childNode.Position && position < childNode.End)
+                    return FindTokenInternal(childNode, position);
+            }
+        }
+
+        // If not found (e.g., position == EndOfFile), return EOF token
+        return node is CompilationUnitSyntax cu ? cu.EndOfFileToken : default;
+    }
 }

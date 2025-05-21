@@ -17,14 +17,14 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     public int Width => Green.Width;
     public int FullWidth => Green.FullWidth;
 
-    public SyntaxTriviaList LeadingTrivia => new SyntaxTriviaList(this, Green.LeadingTrivia, StartPosition);
-    public SyntaxTriviaList TrailingTrivia => new SyntaxTriviaList(this, Green.TrailingTrivia, StartPosition + Width);
+    public SyntaxTriviaList LeadingTrivia => new SyntaxTriviaList(this, Green.LeadingTrivia, Position);
+    public SyntaxTriviaList TrailingTrivia => new SyntaxTriviaList(this, Green.TrailingTrivia, Position + Width);
 
     internal SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode parent, int position = 0)
     {
         Green = greenToken;
         _parent = parent;
-        StartPosition = position;
+        Position = position;
     }
 
     private string GetDebuggerDisplay()
@@ -53,7 +53,9 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         }
     }
 
-    public int StartPosition { get; }
+    public int Position { get; }
+
+    public int End => Position + FullWidth;
 
     public TextSpan Span
     {
@@ -67,7 +69,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     {
         get
         {
-            return StartPosition + LeadingTrivia.Width;
+            return Position + LeadingTrivia.Width;
         }
     }
 
@@ -75,7 +77,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     {
         get
         {
-            return new TextSpan(StartPosition, Green.FullWidth);
+            return new TextSpan(Position, Green.FullWidth);
         }
     }
 

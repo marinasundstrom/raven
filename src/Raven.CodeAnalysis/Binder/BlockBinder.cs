@@ -692,4 +692,41 @@ class BlockBinder : Binder
 
         return new BoundCollectionExpression(arrayType, elements.ToArray(), elementType);
     }
+
+    public override IEnumerable<ISymbol> LookupAvailableSymbols()
+    {
+        var seen = new HashSet<string>();
+        Binder? current = this;
+
+        // Walk up the binder chain to accumulate visible symbols
+        while (current is not null)
+        {
+            // Add locals from BlockBinder
+            if (current is BlockBinder block)
+            {
+                foreach (var local in block._locals.Values)
+                {
+                    if (seen.Add(local.Name))
+                        yield return local;
+                }
+
+                // Add symbols from symbol table (like parameters, etc.)
+
+                foreach (var symbol in block.SymbolTable.Values)
+                {
+                    if (seen.Add(symbol.Name))
+                        yield return symbol;
+                }
+            }
+
+            current = current.ParentBinder;
+        }
+
+        // Add from GlobalNamespace
+        foreach (var member in Compilation.GlobalNamespace.GetAllMembersRecursive())
+        {
+            if (seen.Add(member.Name))
+                yield return member;
+        }
+    }
 }

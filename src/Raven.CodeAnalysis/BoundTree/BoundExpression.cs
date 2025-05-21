@@ -1,4 +1,5 @@
 
+
 namespace Raven.CodeAnalysis;
 
 abstract class BoundExpression : BoundNode
@@ -12,5 +13,10 @@ abstract class BoundExpression : BoundNode
         Type = type;
         Symbol = symbol;
         Reason = reason;
+    }
+
+    public ITypeSymbol? GetConvertedType()
+    {
+        return null;
     }
 }
