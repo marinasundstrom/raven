@@ -17,12 +17,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Generator\Generator.csproj" PrivateAssets="all" ReferenceOutputAssembly="true" OutputItemType="Analyzer" SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference Include="..\Generator\Generator.csproj" PrivateAssets="all"
+      ReferenceOutputAssembly="true" OutputItemType="Analyzer"
+      SetTargetFramework="TargetFramework=netstandard2.0" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Syntax\InternalSyntax\Parser\Old\" />
-  </ItemGroup>
-
 
 </Project>
