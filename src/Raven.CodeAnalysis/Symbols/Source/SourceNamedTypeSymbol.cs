@@ -9,7 +9,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
-        //BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object");
+        BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object");
     }
 
     public bool IsNamespace { get; } = false;
