@@ -8,8 +8,9 @@ public static class CompletionProvider
     {
         var binder = model.Compilation.GetBinder(token.Parent);
         var completions = new List<CompletionItem>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        // Handle member access expressions like Console.Wri
+        // Member access: Console.Wri
         var memberAccess = token.GetAncestor<MemberAccessExpressionSyntax>();
         if (memberAccess is not null)
         {
@@ -21,22 +22,54 @@ public static class CompletionProvider
                 if (symbolInfo.Symbol is INamedTypeSymbol typeSymbol)
                 {
                     var prefix = memberAccess.Name.Identifier.Text;
-                    completions.AddRange(
-                        typeSymbol.GetMembers()
-                            .Where(m => m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                            .Select(m => new CompletionItem(m.Name, m.Name))
-                    );
+
+                    foreach (var member in typeSymbol.GetMembers()
+                                 .Where(x => x.DeclaredAccessibility == Accessibility.Public)
+                                 .Where(m => m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        if (member is IMethodSymbol method && method.ContainingSymbol is IPropertySymbol) //& method.MethodKind == MethodKind.PropertyGet or MethodKind.PropertySet)
+                            continue;
+
+                        var insertText = member is IMethodSymbol ? member.Name + "()" : member.Name;
+                        if (seen.Add(member.Name))
+                            completions.Add(new CompletionItem(member.Name, insertText));
+                    }
                 }
 
                 return completions;
             }
         }
 
-        // Top-level completions (e.g. in global scope or statement block)
-        if (token.Parent is CompilationUnitSyntax || token.Parent is BlockSyntax)
+        // Basic prefix from current token
+        var tokenText = token.Text;
+
+        // Language keywords
+        var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "new", "true", "false", "null" };
+        foreach (var keyword in keywords.Where(m => m.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)))
         {
-            completions.AddRange(binder.LookupAvailableSymbols()
-                .Select(sym => new CompletionItem(sym.Name, sym.Name)));
+            if (seen.Add(keyword))
+                completions.Add(new CompletionItem(keyword, keyword));
+        }
+
+        // Visible symbols (locals, globals, parameters, etc.)
+        foreach (var symbol in binder.LookupAvailableSymbols())
+        {
+            if (symbol.DeclaredAccessibility != Accessibility.Public &&
+                symbol.DeclaredAccessibility != Accessibility.NotApplicable)
+                continue;
+
+            if (symbol is IMethodSymbol { IsConstructor: true })
+                continue;
+            
+            if (symbol is IMethodSymbol && symbol.ContainingSymbol is IPropertySymbol)
+                continue;
+
+            if (!token.IsKind(SyntaxKind.DotToken) &&  !symbol.Name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var insertText = symbol is IMethodSymbol ? symbol.Name + "()" : symbol.Name;
+            if (seen.Add(symbol.Name))
+                completions.Add(new CompletionItem(symbol.Name, insertText));
         }
 
         return completions;

@@ -8,6 +8,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
+    private Accessibility? _accessibility;
 
     public PEMethodSymbol(MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
@@ -56,6 +57,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             }).OfType<IParameterSymbol>().ToImmutableArray();
         }
     }
+
+    public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_methodInfo);
 
     public override bool IsStatic => _methodInfo.IsStatic;
 

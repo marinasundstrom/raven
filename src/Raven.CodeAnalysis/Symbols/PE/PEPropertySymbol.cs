@@ -6,6 +6,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 {
     private readonly PropertyInfo _propertyInfo;
     private ITypeSymbol _type;
+    private Accessibility? _accessibility;
 
     public PEPropertySymbol(PropertyInfo propertyInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
@@ -19,6 +20,8 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     public ITypeSymbol Type => _type ??= PEContainingModule.GetType(_propertyInfo.PropertyType);
     public IMethodSymbol? GetMethod { get; set; }
     public IMethodSymbol? SetMethod { get; set; }
+
+    public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_propertyInfo);
 
     public override bool IsStatic => (_propertyInfo.GetMethod?.IsStatic ?? false) || (_propertyInfo.SetMethod?.IsStatic ?? false);
 
