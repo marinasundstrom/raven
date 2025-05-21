@@ -5,7 +5,7 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class NamespaceDeclarationParser : SyntaxParser
 {
-    public NamespaceDeclarationParser(SyntaxParser parent) : base(parent)
+    public NamespaceDeclarationParser(ParseContext context) : base(context)
     {
 
     }
@@ -19,7 +19,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
         var namespaceKeyword = ReadToken();
 
-        var name = new NameParser(this).ParseName();
+        var name = new NameSyntaxParser(this).ParseName();
 
         if (ConsumeToken(SyntaxKind.OpenBraceToken, out var openBraceToken))
         {
@@ -76,13 +76,13 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
     private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken, List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations)
     {
-        if (nextToken.Kind == SyntaxKind.ImportKeyword)
+        if (nextToken.IsKind(SyntaxKind.ImportKeyword))
         {
-            var importDirective = ParseImportDirective();
+            var importDirective = new ImportDirectiveSyntaxParser(this).ParseImportDirective();
 
             importDirectives.Add(importDirective);
         }
-        else if (nextToken.Kind == SyntaxKind.NamespaceKeyword)
+        else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
         {
             var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
@@ -92,7 +92,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
         {
             // Should warn (?)
 
-            var statement = new StatementParser(this).ParseStatement();
+            var statement = new StatementSyntaxParser(this).ParseStatement();
 
             if (statement is null)
                 return;
@@ -101,23 +101,5 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             memberDeclarations.Add(globalStatement);
         }
-    }
-
-    private ImportDirectiveSyntax ParseImportDirective()
-    {
-        var importKeyword = ReadToken();
-
-        var namespaceName = new NameParser(this).ParseName();
-
-        if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
-        {
-            return ImportDirective(importKeyword, namespaceName, semicolonToken,
-                [DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                )]);
-        }
-
-        return ImportDirective(importKeyword, namespaceName, semicolonToken);
     }
 }

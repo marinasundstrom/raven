@@ -5,9 +5,10 @@ internal class BaseParseContext : ParseContext
     private SyntaxToken? _lastToken;
     private int _position;
 
-    public BaseParseContext(Tokenizer tokenizer) : base()
+    public BaseParseContext(Tokenizer tokenizer, int position = 0) : base()
     {
         Tokenizer = tokenizer;
+        _position = position;
     }
 
     public Tokenizer Tokenizer { get; }

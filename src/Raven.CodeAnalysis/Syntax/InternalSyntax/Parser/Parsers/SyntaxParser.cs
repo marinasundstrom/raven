@@ -73,4 +73,16 @@ internal class SyntaxParser : ParseContext
         var missing = MissingToken(kind);
         return missing;
     }
+    
+    /// <summary>
+    /// Get the actual span of a node.
+    /// </summary>
+    /// <param name="start">The start fullwidth</param>
+    /// <param name="node">The given node</param>
+    /// <returns>The actual text span</returns>
+    protected TextSpan GetActualTextSpan(int start, SyntaxNode node)
+    {
+        var firstToken = node.GetFirstToken();
+        return new TextSpan(start + firstToken.LeadingTrivia.Width, node.Width);
+    }
 }
