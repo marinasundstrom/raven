@@ -721,12 +721,5 @@ class BlockBinder : Binder
 
             current = current.ParentBinder;
         }
-
-        // Add from GlobalNamespace
-        foreach (var member in Compilation.GlobalNamespace.GetAllMembersRecursive())
-        {
-            if (seen.Add(member.Name))
-                yield return member;
-        }
     }
 }

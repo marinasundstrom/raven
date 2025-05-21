@@ -102,10 +102,10 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var service = new CompletionService();
 
         var items = service.GetCompletions(compilation, syntaxTree, 28);
-
-        var items2 = service.GetCompletions(compilation, syntaxTree, 26);
         
         var items3 = service.GetCompletions(compilation, syntaxTree, 25);
+        
+        var items4 = service.GetCompletions(compilation, syntaxTree, 26);
     }
 }
 
