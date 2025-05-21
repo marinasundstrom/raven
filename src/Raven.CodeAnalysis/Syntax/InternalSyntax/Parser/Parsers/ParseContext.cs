@@ -1,0 +1,34 @@
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
+
+internal abstract class ParseContext
+{
+    private List<DiagnosticInfo>? _diagnostics;
+
+    protected ParseContext() { }
+
+    protected ParseContext(ParseContext? parent)
+    {
+        Parent = parent;
+    }
+
+    public IReadOnlyList<DiagnosticInfo> Diagnostics => _diagnostics ?? [];
+
+    public void AddDiagnostic(DiagnosticInfo diagnostic)
+    {
+        (_diagnostics ??= new List<DiagnosticInfo>()).Add(diagnostic);
+    }
+
+    public ParseContext? Parent { get; protected set; }
+
+    public virtual int Position => Parent?.Position ?? throw new InvalidOperationException("No parent set");
+
+    public virtual SyntaxToken LastToken => Parent?.LastToken ?? throw new InvalidOperationException("No parent set");
+
+    public virtual SyntaxToken PeekToken(int index = 0) => Parent?.PeekToken(index) ?? throw new InvalidOperationException("No parent set");
+
+    public virtual SyntaxToken ReadToken() => Parent?.ReadToken() ?? throw new InvalidOperationException("No parent set");
+
+    public virtual TextSpan GetStartOfLastToken() => Parent?.GetStartOfLastToken() ?? throw new InvalidOperationException("No parent set");
+
+    public virtual TextSpan GetEndOfLastToken() => Parent?.GetEndOfLastToken() ?? throw new InvalidOperationException("No parent set");
+}

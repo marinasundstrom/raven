@@ -10,6 +10,9 @@ public abstract class GreenNode
     internal IEnumerable<DiagnosticInfo>? _diagnostics;
 
     public virtual SyntaxKind Kind { get; }
+
+    public bool IsKind(SyntaxKind kind) => Kind == kind;
+
     public int Width { get; protected set; }
     public int FullWidth { get; protected set; }
     public int SlotCount { get; }
