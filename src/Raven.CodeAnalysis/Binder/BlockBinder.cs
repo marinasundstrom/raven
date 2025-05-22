@@ -347,6 +347,7 @@ class BlockBinder : Binder
             INamespaceSymbol ns => new BoundNamespaceExpression(ns),
             ITypeSymbol type => new BoundTypeExpression(type),
             ILocalSymbol local => new BoundLocalExpression(local),
+            IParameterSymbol param => new BoundParameterExpression(param),
             IPropertySymbol prop => new BoundPropertyExpression(prop),
             _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
         };

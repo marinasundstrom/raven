@@ -141,7 +141,11 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
             """
             import System;
 
-            arg
+            let x = args;
+            var i = 0;
+            while i < x.Length {
+                Console.WriteLine(x[i]);
+            }
             """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -158,6 +162,8 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var service = new CompletionService();
 
         var items3 = service.GetCompletions(compilation, syntaxTree, 20);
+
+        var x = compilation.Module.GlobalNamespace.LookupType("Program");
     }
 }
 
