@@ -1,8 +1,7 @@
 import System;
 
-let x = args;
 var i = 0;
-while i < x.Length {
-    Console.WriteLine(x[i]);
+while i < args.Length {
+    Console.WriteLine(args[i]);
     i = i + 1;
 }
