@@ -26,7 +26,7 @@ public static class TypeSymbolExtensions
         // Handle special types (e.g., int, string, etc.)
         if (typeSymbol.SpecialType != SpecialType.None)
         {
-            return GetFrameworkType(typeSymbol.SpecialType);
+            return GetFrameworkType(typeSymbol.SpecialType, compilation);
         }
 
         // Handle named types (classes, structs, enums, etc.)
@@ -58,7 +58,7 @@ public static class TypeSymbolExtensions
         throw new NotSupportedException($"Unsupported type symbol: {typeSymbol}");
     }
 
-    private static Type GetFrameworkType(SpecialType specialType)
+    private static Type GetFrameworkType(SpecialType specialType, Compilation compilation)
     {
         // Map Roslyn SpecialType to CLR types
         return specialType switch
@@ -67,7 +67,7 @@ public static class TypeSymbolExtensions
             SpecialType.System_String => typeof(string),
             SpecialType.System_Boolean => typeof(bool),
             SpecialType.System_Object => typeof(object),
-            SpecialType.System_Void => typeof(void),
+            SpecialType.System_Void => compilation.CoreAssembly.GetType(typeof(void).FullName)!,
             SpecialType.System_Double => typeof(double),
             SpecialType.System_Char => typeof(char),
             SpecialType.System_Int64 => typeof(long),

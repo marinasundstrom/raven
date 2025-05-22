@@ -8,7 +8,7 @@ using static Raven.AppHostBuilder;
 // ravc test.rav [-o test.exe]
 // dotnet run -- test.rav [-o test.exe]
 
-var filePath = args.Length > 0 ? args[0] : "../../../test.rav";
+var filePath = args.Length > 0 ? args[0] : "../../../samples/test.rav";
 filePath = Path.GetFullPath(filePath);
 
 using var file = File.OpenRead(filePath);

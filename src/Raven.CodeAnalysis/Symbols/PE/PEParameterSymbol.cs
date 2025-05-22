@@ -16,4 +16,6 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     public override SymbolKind Kind => SymbolKind.Parameter;
     public override string Name => _parameterInfo.Name;
     public ITypeSymbol Type => _type ??= PEContainingModule.GetType(_parameterInfo.ParameterType);
+
+    public ParameterInfo GetParameterInfo() => _parameterInfo;
 }

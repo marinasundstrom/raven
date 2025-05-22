@@ -1,0 +1,7 @@
+import System;
+
+let x = args;
+var i = 0;
+while i < x.Length {
+    Console.WriteLine(x[i]);
+}
