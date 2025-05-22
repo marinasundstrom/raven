@@ -6,7 +6,7 @@ namespace Raven;
 
 static class EmitResultEx
 {
-    public static void Print(this EmitResult result)
+    public static void WriteToConsole(this EmitResult result)
     {
         // Check the result
         if (!result.Success)

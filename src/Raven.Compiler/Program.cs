@@ -3,13 +3,23 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
+using Spectre.Console;
+
 using static Raven.AppHostBuilder;
 
 // ravc test.rav [-o test.exe]
 // dotnet run -- test.rav [-o test.exe]
 
 var filePath = args.Length > 0 ? args[0] : "../../../samples/test.rav";
+var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : null;
+
 filePath = Path.GetFullPath(filePath);
+
+if (!File.Exists(filePath))
+{
+    AnsiConsole.MarkupLine($"[red]Input file '{filePath}' doesn't exist.[/]");
+    return;
+}
 
 using var file = File.OpenRead(filePath);
 var sourceText = SourceText.From(file);
@@ -37,11 +47,14 @@ var typeSymbol = methodSymbol?.ContainingType;
 
 var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
 
+outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
+outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
+
 // INFO: The sample will compile, but not all constructs are supported yet.
-using (var stream = File.OpenWrite($"{compilation.AssemblyName}.dll"))
+using (var stream = File.OpenWrite($"{outputPath}"))
 {
     var result = compilation.Emit(stream);
-    result.Print();
+    result.WriteToConsole();
 }
 
 //CreateAppHost(compilation);
