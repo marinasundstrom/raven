@@ -10,6 +10,9 @@ public static class CompletionProvider
         var completions = new List<CompletionItem>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
+        var tokenText = token.Text;
+        var replacementSpan = new TextSpan(token.Position, tokenText.Length);
+
         // Member access: Console.Wri
         var memberAccess = token.GetAncestor<MemberAccessExpressionSyntax>();
         if (memberAccess is not null)
@@ -22,38 +25,59 @@ public static class CompletionProvider
                 if (symbolInfo.Symbol is INamedTypeSymbol typeSymbol)
                 {
                     var prefix = memberAccess.Name.Identifier.Text;
+                    var nameSpan = memberAccess.Name.Identifier.Span;
 
                     foreach (var member in typeSymbol.GetMembers()
                                  .Where(x => x.DeclaredAccessibility == Accessibility.Public)
                                  .Where(m => m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                     {
-                        if (member is IMethodSymbol method && method.ContainingSymbol is IPropertySymbol) //& method.MethodKind == MethodKind.PropertyGet or MethodKind.PropertySet)
+                        if (member is IMethodSymbol method && method.ContainingSymbol is IPropertySymbol)
                             continue;
 
                         var insertText = member is IMethodSymbol ? member.Name + "()" : member.Name;
+
+                        var cursorOffset = member switch
+                        {
+                            IMethodSymbol => insertText.Length - 1,
+                            IPropertySymbol => insertText.Length - 1,
+                            ITypeSymbol => insertText.Length - 1,
+                            _ => (int?)null
+                        };
+                        
                         if (seen.Add(member.Name))
-                            completions.Add(new CompletionItem(member.Name, insertText));
+                        {
+                            completions.Add(new CompletionItem(
+                                DisplayText: member.Name,
+                                InsertionText: insertText,
+                                ReplacementSpan: nameSpan,
+                                CursorOffset: cursorOffset,
+                                Description: member.ToDisplayString()
+                            ));
+                        }
                     }
                 }
 
                 return completions;
             }
         }
-        
-        // Basic prefix from current token
-        var tokenText = token.Text;
 
         // Language keywords
         var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "new", "true", "false", "null" };
         foreach (var keyword in keywords.Where(m => m.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)))
         {
             if (seen.Add(keyword))
-                completions.Add(new CompletionItem(keyword, keyword));
+            {
+                completions.Add(new CompletionItem(
+                    DisplayText: keyword,
+                    InsertionText: keyword,
+                    ReplacementSpan: replacementSpan
+                ));
+            }
         }
 
+        // Visible symbols (locals, globals, etc.)
         if (token.Parent is IdentifierNameSyntax { Parent: BlockSyntax or ExpressionStatementSyntax })
         {
-            // Visible symbols (locals, globals, parameters, etc.)
             foreach (var symbol in binder.LookupAvailableSymbols())
             {
                 if (symbol.DeclaredAccessibility != Accessibility.Public &&
@@ -71,8 +95,24 @@ public static class CompletionProvider
                     continue;
 
                 var insertText = symbol is IMethodSymbol ? symbol.Name + "()" : symbol.Name;
+                
+                var cursorOffset = symbol switch
+                {
+                    IMethodSymbol => insertText.Length - 1,
+                    ITypeSymbol => insertText.Length - 1,
+                    _ => (int?)null
+                };
+                
                 if (seen.Add(symbol.Name))
-                    completions.Add(new CompletionItem(symbol.Name, insertText));
+                {
+                    completions.Add(new CompletionItem(
+                        DisplayText: symbol.Name,
+                        InsertionText: insertText,
+                        ReplacementSpan: replacementSpan,
+                        CursorOffset: cursorOffset,
+                        Description: symbol.ToDisplayString()
+                    ));
+                }
             }
         }
 
