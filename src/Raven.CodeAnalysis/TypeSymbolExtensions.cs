@@ -60,27 +60,31 @@ public static class TypeSymbolExtensions
 
     private static Type GetFrameworkType(SpecialType specialType, Compilation compilation)
     {
-        // Map Roslyn SpecialType to CLR types
+        // Helper to fetch type from the MetadataLoadContext CoreAssembly
+        static Type FromCoreAssembly(Compilation c, string fullName) =>
+            c.CoreAssembly.GetType(fullName) ?? throw new InvalidOperationException($"Type '{fullName}' not found in CoreAssembly");
+
         return specialType switch
         {
-            SpecialType.System_Int32 => typeof(int),
-            SpecialType.System_String => typeof(string),
-            SpecialType.System_Boolean => typeof(bool),
-            SpecialType.System_Object => typeof(object),
-            SpecialType.System_Void => compilation.CoreAssembly.GetType(typeof(void).FullName)!,
-            SpecialType.System_Double => typeof(double),
-            SpecialType.System_Char => typeof(char),
-            SpecialType.System_Int64 => typeof(long),
-            SpecialType.System_Single => typeof(float),
-            SpecialType.System_Byte => typeof(byte),
-            SpecialType.System_Decimal => typeof(decimal),
-            SpecialType.System_Int16 => typeof(short),
-            SpecialType.System_UInt32 => typeof(uint),
-            SpecialType.System_UInt64 => typeof(ulong),
-            SpecialType.System_UInt16 => typeof(ushort),
-            SpecialType.System_SByte => typeof(sbyte),
-            SpecialType.System_DateTime => typeof(DateTime),
-            _ => null!
+            SpecialType.System_Int32 => FromCoreAssembly(compilation, "System.Int32"),
+            SpecialType.System_String => FromCoreAssembly(compilation, "System.String"),
+            SpecialType.System_Boolean => FromCoreAssembly(compilation, "System.Boolean"),
+            SpecialType.System_Object => FromCoreAssembly(compilation, "System.Object"),
+            SpecialType.System_Void => FromCoreAssembly(compilation, "System.Void"),
+            SpecialType.System_Double => FromCoreAssembly(compilation, "System.Double"),
+            SpecialType.System_Char => FromCoreAssembly(compilation, "System.Char"),
+            SpecialType.System_Int64 => FromCoreAssembly(compilation, "System.Int64"),
+            SpecialType.System_Single => FromCoreAssembly(compilation, "System.Single"),
+            SpecialType.System_Byte => FromCoreAssembly(compilation, "System.Byte"),
+            SpecialType.System_Decimal => FromCoreAssembly(compilation, "System.Decimal"),
+            SpecialType.System_Int16 => FromCoreAssembly(compilation, "System.Int16"),
+            SpecialType.System_UInt32 => FromCoreAssembly(compilation, "System.UInt32"),
+            SpecialType.System_UInt64 => FromCoreAssembly(compilation, "System.UInt64"),
+            SpecialType.System_UInt16 => FromCoreAssembly(compilation, "System.UInt16"),
+            SpecialType.System_SByte => FromCoreAssembly(compilation, "System.SByte"),
+            SpecialType.System_DateTime => FromCoreAssembly(compilation, "System.DateTime"),
+            SpecialType.System_Array => FromCoreAssembly(compilation, "System.Array"),
+            _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
     }
 }

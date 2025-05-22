@@ -14,6 +14,8 @@ public static partial class SymbolExtensions
 
         if (symbol is IFieldSymbol fieldSymbol) return fieldSymbol.Type;
 
+        if (symbol is IParameterSymbol parameterSymbol) return parameterSymbol.Type;
+
         if (symbol is ILocalSymbol localSymbol) return localSymbol.Type;
 
         return symbol as ITypeSymbol;

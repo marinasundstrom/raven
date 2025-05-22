@@ -4,4 +4,5 @@ let x = args;
 var i = 0;
 while i < x.Length {
     Console.WriteLine(x[i]);
+    i = i + 1;
 }

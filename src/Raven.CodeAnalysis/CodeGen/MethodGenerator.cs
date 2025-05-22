@@ -31,14 +31,13 @@ internal class MethodGenerator
             .DefineMethod(MethodSymbol.Name,
                 MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard,
                 returnType,
-                []);
+                parameterTypes.ToArray());
 
-        int i = 0;
+        int i = 1;
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {
             var methodBuilder = MethodBuilder.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
             _parameterBuilders[parameterSymbol] = methodBuilder;
-
             i++;
         }
 
@@ -49,6 +48,8 @@ internal class MethodGenerator
     }
 
     public IEnumerable<ParameterBuilder> GetParameterBuilders() => _parameterBuilders.Values;
+
+    public ParameterBuilder GetParameterBuilder(IParameterSymbol parameterSymbol) => _parameterBuilders[parameterSymbol];
 
     public void GenerateBody()
     {

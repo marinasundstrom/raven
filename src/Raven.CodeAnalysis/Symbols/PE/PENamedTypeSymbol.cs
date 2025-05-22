@@ -72,7 +72,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (type == typeof(UIntPtr))
                 return SpecialType.System_UIntPtr;
 
-            if (type.IsArray)
+            if (type.FullName == "System.Array" || type.IsArray)
                 return SpecialType.System_Array;
 
             return SpecialType.None;

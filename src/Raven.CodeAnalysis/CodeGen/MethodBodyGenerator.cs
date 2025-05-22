@@ -49,16 +49,23 @@ internal class MethodBodyGenerator
             }
         }
 
-        if (syntax is CompilationUnitSyntax compilationUnit)
+        switch (syntax)
         {
-            var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
-                .Select(x => x.Statement);
+            case CompilationUnitSyntax compilationUnit:
+                var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
+                    .Select(x => x.Statement);
+                GenerateIL(statements);
+                break;
 
-            GenerateIL(statements);
-        }
-        else if (syntax is MethodDeclarationSyntax methodDeclaration)
-        {
-            GenerateIL(methodDeclaration.Body.Statements.ToList());
+            case MethodDeclarationSyntax methodDeclaration:
+                if (methodDeclaration.Body != null)
+                    GenerateIL(methodDeclaration.Body.Statements.ToList());
+                else
+                    ILGenerator.Emit(OpCodes.Ret);
+                break;
+
+            default:
+                throw new InvalidOperationException($"Unsupported syntax node in MethodBodyGenerator: {syntax.GetType().Name}");
         }
     }
 
@@ -327,7 +334,16 @@ internal class MethodBodyGenerator
                 ILGenerator.Emit(OpCodes.Dup);
                 ILGenerator.Emit(OpCodes.Ldc_I4, index);
                 GenerateExpression(statement, element.Expression);
-                ILGenerator.Emit(OpCodes.Stelem_I4);
+
+                if (!arrayTypeSymbol.ElementType.IsValueType)
+                {
+                    ILGenerator.Emit(OpCodes.Stelem_Ref);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Stelem_I4);
+                }
+
                 index++;
             }
         }
@@ -347,18 +363,31 @@ internal class MethodBodyGenerator
                 GenerateExpression(statement, argument.Expression);
             }
 
-            ILGenerator.Emit(OpCodes.Ldelem_I4);
+            if (!arrayTypeSymbol.ElementType.IsValueType)
+            {
+                ILGenerator.Emit(OpCodes.Ldelem_Ref);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldelem_I4);
+            }
         }
         else if (target is IParameterSymbol parameterSymbol
                  && parameterSymbol.Type is IArrayTypeSymbol arrayTypeSymbol2)
         {
-            if (parameterSymbol is PEParameterSymbol parameterSymbol2)
-            {
-                foreach (var argument in elementAccessExpression.ArgumentList.Arguments.Reverse())
-                {
-                    GenerateExpression(statement, argument.Expression);
-                }
+            GenerateExpression(statement, elementAccessExpression.Expression);
 
+            foreach (var argument in elementAccessExpression.ArgumentList.Arguments.Reverse())
+            {
+                GenerateExpression(statement, argument.Expression);
+            }
+
+            if (!arrayTypeSymbol2.ElementType.IsValueType)
+            {
+                ILGenerator.Emit(OpCodes.Ldelem_Ref);
+            }
+            else
+            {
                 ILGenerator.Emit(OpCodes.Ldelem_I4);
             }
         }
@@ -391,10 +420,16 @@ internal class MethodBodyGenerator
             }
             else if (symbol2 is IParameterSymbol parameterSymbol)
             {
-                if (parameterSymbol is PEParameterSymbol parameterSymbol2)
+                var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
+
+                int position = parameterBuilder.Position;
+
+                if (MethodSymbol.IsStatic)
                 {
-                    ILGenerator.Emit(OpCodes.Ldarg, parameterSymbol2.GetParameterInfo().Position);
+                    position -= 1;
                 }
+
+                ILGenerator.Emit(OpCodes.Ldarg, position);
             }
 
             foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
@@ -404,7 +439,16 @@ internal class MethodBodyGenerator
 
             GenerateExpression(statement, assignmentExpression.RightHandSide);
 
-            ILGenerator.Emit(OpCodes.Stelem_I4);
+            var type = symbol2.UnwrapType() as IArrayTypeSymbol;
+
+            if (!type.ElementType.IsValueType)
+            {
+                ILGenerator.Emit(OpCodes.Stelem_Ref);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Stelem_I4);
+            }
         }
         else
         {
@@ -418,12 +462,18 @@ internal class MethodBodyGenerator
             }
             else if (symbol is IParameterSymbol parameterSymbol)
             {
-                if (parameterSymbol is PEParameterSymbol parameterSymbol2)
-                {
-                    GenerateExpression(statement, assignmentExpression.RightHandSide);
+                GenerateExpression(statement, assignmentExpression.RightHandSide);
 
-                    ILGenerator.Emit(OpCodes.Starg, parameterSymbol2.GetParameterInfo().Position);
+                var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
+
+                int position = parameterBuilder.Position;
+
+                if (MethodSymbol.IsStatic)
+                {
+                    position -= 1;
                 }
+
+                ILGenerator.Emit(OpCodes.Starg, position);
             }
         }
     }
@@ -496,6 +546,7 @@ internal class MethodBodyGenerator
             if (propertySymbol.ContainingType!.SpecialType == SpecialType.System_Array && propertySymbol.Name == "Length")
             {
                 ILGenerator.Emit(OpCodes.Ldlen);
+                ILGenerator.Emit(OpCodes.Conv_I4);
             }
             else
             {
@@ -617,10 +668,16 @@ internal class MethodBodyGenerator
         }
         else if (symbol is IParameterSymbol parameterSymbol)
         {
-            if (parameterSymbol is PEParameterSymbol parameterSymbol2)
+            var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
+
+            int position = parameterBuilder.Position;
+
+            if (MethodSymbol.IsStatic)
             {
-                ILGenerator.Emit(OpCodes.Ldarg, parameterSymbol2.GetParameterInfo().Position);
+                position -= 1;
             }
+
+            ILGenerator.Emit(OpCodes.Ldarg, position);
         }
         else if (symbol is IFieldSymbol fieldSymbol)
         {
@@ -656,6 +713,7 @@ internal class MethodBodyGenerator
                 if (propertySymbol.Name == "Length")
                 {
                     ILGenerator.Emit(OpCodes.Ldlen);
+                    ILGenerator.Emit(OpCodes.Conv_I4);
                 }
             }
             else
