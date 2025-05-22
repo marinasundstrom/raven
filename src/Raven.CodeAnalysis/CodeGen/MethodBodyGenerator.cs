@@ -39,11 +39,13 @@ internal class MethodBodyGenerator
         {
             foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
             {
-                var symbol = semanticModel.GetDeclaredSymbol(localDeclarator) as ILocalSymbol;
-                var clrType = symbol.Type.GetClrType(_compilation);
+                var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
+
+                var clrType = localSymbol.Type.GetClrType(_compilation);
                 var builder = ILGenerator.DeclareLocal(clrType);
-                builder.SetLocalSymInfo(symbol.Name);
-                _localBuilders[symbol] = builder;
+                builder.SetLocalSymInfo(localSymbol.Name);
+
+                _localBuilders[localSymbol] = builder;
             }
         }
 
