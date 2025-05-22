@@ -51,7 +51,8 @@ public static class CompletionProvider
                                 InsertionText: insertText,
                                 ReplacementSpan: nameSpan,
                                 CursorOffset: cursorOffset,
-                                Description: member.ToDisplayString()
+                                Description: member.ToDisplayString(),
+                                Symbol: member
                             ));
                         }
                     }
@@ -110,7 +111,8 @@ public static class CompletionProvider
                         InsertionText: insertText,
                         ReplacementSpan: replacementSpan,
                         CursorOffset: cursorOffset,
-                        Description: symbol.ToDisplayString()
+                        Description: symbol.ToDisplayString(),
+                        Symbol: symbol
                     ));
                 }
             }
