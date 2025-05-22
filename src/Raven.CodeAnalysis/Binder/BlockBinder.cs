@@ -728,6 +728,15 @@ class BlockBinder : Binder
                     }
                 }
             }
+            
+            if (current is TopLevelBinder topLevelBinder)
+            {
+                foreach (var param in topLevelBinder.GetParameters())
+                {
+                    if (seen.Add(param.Name))
+                        yield return param;
+                }
+            }
 
             current = current.ParentBinder;
         }
