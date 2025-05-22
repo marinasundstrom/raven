@@ -12,9 +12,9 @@ internal abstract class PESymbol : Symbol
 
     }
 
-    public override IAssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+    public override IAssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly!;
 
-    public override IModuleSymbol ContainingModule => ContainingNamespace?.ContainingModule;
+    public override IModuleSymbol ContainingModule => ContainingNamespace?.ContainingModule!;
 
     protected PEAssemblySymbol PEContainingAssembly => (PEAssemblySymbol)ContainingAssembly;
 

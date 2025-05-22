@@ -107,6 +107,32 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         
         var items4 = service.GetCompletions(compilation, syntaxTree, 26);
     }
+    
+    [Fact]
+    public void Test3()
+    {
+        var code =
+            """
+            import System;
+
+            Con
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences([
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            ]);
+
+        var service = new CompletionService();
+        
+        var items3 = service.GetCompletions(compilation, syntaxTree, 20);
+    }
 }
 
 public class TestSyntaxVisitor : SyntaxVisitor

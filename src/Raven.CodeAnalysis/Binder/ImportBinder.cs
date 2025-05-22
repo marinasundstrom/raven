@@ -1,3 +1,5 @@
+using System.Collections;
+
 namespace Raven.CodeAnalysis;
 
 class ImportBinder : Binder
@@ -33,4 +35,6 @@ class ImportBinder : Binder
 
         return ParentBinder?.LookupSymbol(name);
     }
+
+    public IEnumerable<INamespaceSymbol> GetImportedNamespaces() => _imports;
 }

@@ -120,59 +120,69 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         _membersLoaded = true;
 
-        foreach (var mi in _typeInfo.DeclaredMethods)
+        foreach (var methodInfo in _typeInfo.DeclaredMethods)
         {
-            if (mi.IsSpecialName)
+            if (methodInfo.IsSpecialName)
                 continue;
 
-            var method = new PEMethodSymbol(
-                mi,
+            new PEMethodSymbol(
+                methodInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
         }
 
-        foreach (var pi in _typeInfo.DeclaredProperties)
+        foreach (var propertyInfo in _typeInfo.DeclaredProperties)
         {
             var property = new PEPropertySymbol(
-                pi,
+                propertyInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
 
-            if (pi.GetMethod is not null)
+            if (propertyInfo.GetMethod is not null)
             {
                 property.GetMethod = new PEMethodSymbol(
-                    pi.GetMethod,
+                    propertyInfo.GetMethod,
                     property,
                     this,
                     [new MetadataLocation(ContainingModule!)]);
             }
 
-            if (pi.SetMethod is not null)
+            if (propertyInfo.SetMethod is not null)
             {
                 property.SetMethod = new PEMethodSymbol(
-                    pi.SetMethod,
+                    propertyInfo.SetMethod,
                     property,
                     this,
                     [new MetadataLocation(ContainingModule!)]);
             }
         }
 
-        foreach (var fi in _typeInfo.DeclaredFields)
+        foreach (var fieldInfo in _typeInfo.DeclaredFields)
         {
-            if (fi.IsSpecialName)
+            if (fieldInfo.IsSpecialName)
                 continue;
 
-            var field = new PEFieldSymbol(
-                fi,
+            new PEFieldSymbol(
+                fieldInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
         }
 
-        foreach (var ci in _typeInfo.DeclaredConstructors)
+        foreach (var constructorInfo in _typeInfo.DeclaredConstructors)
         {
-            var ctor = new PEMethodSymbol(
-                ci,
+            new PEMethodSymbol(
+                constructorInfo,
                 this,
+                [new MetadataLocation(ContainingModule!)]);
+        }
+
+        foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
+        {
+            new PENamedTypeSymbol(
+                nestedTypeInfo,
+                this,
+                this,
+                this.ContainingNamespace,
                 [new MetadataLocation(ContainingModule!)]);
         }
     }

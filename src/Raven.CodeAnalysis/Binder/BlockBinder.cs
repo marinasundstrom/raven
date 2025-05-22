@@ -698,10 +698,9 @@ class BlockBinder : Binder
         var seen = new HashSet<string>();
         Binder? current = this;
 
-        // Walk up the binder chain to accumulate visible symbols
         while (current is not null)
         {
-            // Add locals from BlockBinder
+            // Locals and scoped symbols
             if (current is BlockBinder block)
             {
                 foreach (var local in block._locals.Values)
@@ -710,8 +709,6 @@ class BlockBinder : Binder
                         yield return local;
                 }
 
-                // Add symbols from symbol table (like parameters, etc.)
-
                 foreach (var symbol in block.SymbolTable.Values)
                 {
                     if (seen.Add(symbol.Name))
@@ -719,7 +716,27 @@ class BlockBinder : Binder
                 }
             }
 
+            // Import namespaces
+            if (current is ImportBinder importBinder)
+            {
+                foreach (var ns in importBinder.GetImportedNamespaces())
+                {
+                    foreach (var member in ns.GetMembers())
+                    {
+                        if (seen.Add(member.Name))
+                            yield return member;
+                    }
+                }
+            }
+
             current = current.ParentBinder;
+        }
+
+        // Also include GlobalNamespace as a last fallback
+        foreach (var member in Compilation.GlobalNamespace.GetMembers())
+        {
+            if (seen.Add(member.Name))
+                yield return member;
         }
     }
 }

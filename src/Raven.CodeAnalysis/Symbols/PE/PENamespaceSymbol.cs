@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -7,16 +8,15 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     private PEModuleSymbol _module = default!;
     private readonly List<ISymbol> _members = new();
     private readonly string _name;
+    private bool _membersLoaded;
 
-    public PENamespaceSymbol(string name, ISymbol containingSymbol,
-    INamespaceSymbol? containingNamespace)
-    : base(containingSymbol, null, containingNamespace, [])
+    public PENamespaceSymbol(string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
+        : base(containingSymbol, null, containingNamespace, [])
     {
         _name = name;
     }
 
-    public PENamespaceSymbol(PEModuleSymbol containingModule, string name, ISymbol containingSymbol,
-        INamespaceSymbol? containingNamespace)
+    public PENamespaceSymbol(PEModuleSymbol containingModule, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
         : base(containingSymbol, null, containingNamespace, [])
     {
         _module = containingModule;
@@ -24,12 +24,11 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     }
 
     public override IAssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
-
     public override IModuleSymbol ContainingModule => _module ?? ContainingSymbol!.ContainingModule!;
-
     public override string Name => _name;
-
     public override SymbolKind Kind => SymbolKind.Namespace;
+
+    public override string MetadataName => IsGlobalNamespace ? "" : ToMetadataName();
 
     public bool IsNamespace => true;
     public bool IsType => false;
@@ -39,67 +38,33 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 
     public ImmutableArray<ISymbol> GetMembers()
     {
+        EnsureMembersLoaded();
         return _members.ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        var matches = _members.Where(m => m.Name == name).ToList();
-
-        if (matches.Count > 0)
-            return matches.ToImmutableArray();
-
-        // Lazy resolve from metadata
-        //var metadataSymbol = ContainingAssembly.GetTypeByMetadataName(name);
-        var metadataSymbol = PEContainingModule.ResolveMetadataMember(this, name);
-
-        if (metadataSymbol is not null)
-        {
-            return [metadataSymbol];
-        }
-
-        return [];
+        EnsureMembersLoaded();
+        return _members.Where(m => m.Name == name).ToImmutableArray();
     }
 
     public INamespaceSymbol? LookupNamespace(string name)
     {
-        // Check existing members
-        foreach (var member in _members)
-        {
-            if (member is INamespaceSymbol ns && member.Name == name)
-                return ns;
-        }
-
-        // Lazy resolve from metadata (assumes ResolveMetadataMember handles namespaces)
-        var resolved = PEContainingModule.ResolveMetadataMember(this, name);
-
-        if (resolved is INamespaceSymbol nsResolved)
-        {
-            return nsResolved;
-        }
-
-        return null;
+        EnsureMembersLoaded();
+        return _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
     }
 
     public ITypeSymbol? LookupType(string name)
     {
-        // Check if a matching type already exists in this namespace
-        foreach (var member in _members)
-        {
-            if (member is ITypeSymbol type && member.Name == name)
-                return type;
-        }
+        EnsureMembersLoaded();
+        return _members.OfType<ITypeSymbol>().FirstOrDefault(t => t.Name == name);
+    }
 
-        // Attempt to resolve from metadata (e.g., Console in System)
-        var metadataSymbol = PEContainingModule.ResolveMetadataMember(this, name);
-
-        if (metadataSymbol is ITypeSymbol typeSymbol)
-        {
-            return typeSymbol;
-        }
-
-        // Could be a namespace, but this method only cares about types
-        return null;
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        EnsureMembersLoaded();
+        symbol = _members.FirstOrDefault(m => m.Name == name);
+        return symbol is not null;
     }
 
     public override string ToString() => IsGlobalNamespace ? "<global>" : this.ToDisplayString();
@@ -107,20 +72,55 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     public string ToMetadataName()
     {
         var parts = new Stack<string>();
-        INamespaceSymbol current = this;
-
-        while (!current.IsGlobalNamespace)
-        {
+        for (INamespaceSymbol current = this; !current.IsGlobalNamespace; current = current.ContainingNamespace!)
             parts.Push(current.Name);
-            current = current.ContainingNamespace!;
-        }
 
         return string.Join(".", parts);
     }
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    private void EnsureMembersLoaded()
     {
-        symbol = _members.FirstOrDefault(m => m.Name == name);
-        return symbol is not null;
+        if (_membersLoaded)
+            return;
+
+        _membersLoaded = true;
+
+        var assemblyInfo = PEContainingAssembly.GetAssemblyInfo();
+
+        foreach (var type in assemblyInfo.GetTypes())
+        {
+            if (type.Namespace != MetadataName)
+                continue;
+
+            var typeSymbol = new PENamedTypeSymbol(
+                type.GetTypeInfo(),
+                this,
+                null,
+                this,
+                [new MetadataLocation(ContainingModule!)]);
+
+            AddMember(typeSymbol);
+        }
+
+        foreach (var nsName in FindNestedNamespaces(assemblyInfo))
+        {
+            var childName = nsName.Split('.').Last(); // e.g., for "System.IO", take "IO"
+            var nestedNamespace = new PENamespaceSymbol(_module, childName, this, this);
+            AddMember(nestedNamespace);
+        }
+    }
+
+    private IEnumerable<string> FindNestedNamespaces(Assembly assembly)
+    {
+        var thisName = MetadataName;
+        var prefix = string.IsNullOrEmpty(thisName) ? "" : thisName + ".";
+
+        return assembly.GetTypes()
+            .Select(t => t.Namespace ?? string.Empty)
+            .Where(ns => ns.StartsWith(prefix) && ns.Length > prefix.Length)
+            .Select(ns => ns.Substring(0, ns.IndexOf('.', prefix.Length) > -1
+                ? ns.IndexOf('.', prefix.Length)
+                : ns.Length))
+            .Distinct();
     }
 }

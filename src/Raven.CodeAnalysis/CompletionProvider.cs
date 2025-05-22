@@ -39,7 +39,7 @@ public static class CompletionProvider
                 return completions;
             }
         }
-
+        
         // Basic prefix from current token
         var tokenText = token.Text;
 
@@ -51,25 +51,29 @@ public static class CompletionProvider
                 completions.Add(new CompletionItem(keyword, keyword));
         }
 
-        // Visible symbols (locals, globals, parameters, etc.)
-        foreach (var symbol in binder.LookupAvailableSymbols())
+        if (token.Parent is IdentifierNameSyntax { Parent: BlockSyntax or ExpressionStatementSyntax })
         {
-            if (symbol.DeclaredAccessibility != Accessibility.Public &&
-                symbol.DeclaredAccessibility != Accessibility.NotApplicable)
-                continue;
+            // Visible symbols (locals, globals, parameters, etc.)
+            foreach (var symbol in binder.LookupAvailableSymbols())
+            {
+                if (symbol.DeclaredAccessibility != Accessibility.Public &&
+                    symbol.DeclaredAccessibility != Accessibility.NotApplicable)
+                    continue;
 
-            if (symbol is IMethodSymbol { IsConstructor: true })
-                continue;
-            
-            if (symbol is IMethodSymbol && symbol.ContainingSymbol is IPropertySymbol)
-                continue;
+                if (symbol is IMethodSymbol { IsConstructor: true })
+                    continue;
 
-            if (!token.IsKind(SyntaxKind.DotToken) &&  !symbol.Name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase))
-                continue;
+                if (symbol is IMethodSymbol && symbol.ContainingSymbol is IPropertySymbol)
+                    continue;
 
-            var insertText = symbol is IMethodSymbol ? symbol.Name + "()" : symbol.Name;
-            if (seen.Add(symbol.Name))
-                completions.Add(new CompletionItem(symbol.Name, insertText));
+                if (!token.IsKind(SyntaxKind.DotToken) &&
+                    !symbol.Name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var insertText = symbol is IMethodSymbol ? symbol.Name + "()" : symbol.Name;
+                if (seen.Add(symbol.Name))
+                    completions.Add(new CompletionItem(symbol.Name, insertText));
+            }
         }
 
         return completions;
