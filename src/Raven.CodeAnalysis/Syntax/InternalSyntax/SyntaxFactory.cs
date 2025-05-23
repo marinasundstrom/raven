@@ -11,6 +11,7 @@ internal static partial class SyntaxFactory
     public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString(), value, value.ToString().Length);
 
     public static readonly SyntaxToken VoidKeyword = new SyntaxToken(SyntaxKind.VoidKeyword, "void");
+    public static readonly SyntaxToken NullKeyword = new SyntaxToken(SyntaxKind.NullKeyword, "null");
     public static readonly SyntaxToken IntKeyword = new SyntaxToken(SyntaxKind.IntKeyword, "int");
     public static readonly SyntaxToken StringKeyword = new SyntaxToken(SyntaxKind.StringKeyword, "string");
     public static readonly SyntaxToken BoolKeyword = new SyntaxToken(SyntaxKind.BoolKeyword, "bool");

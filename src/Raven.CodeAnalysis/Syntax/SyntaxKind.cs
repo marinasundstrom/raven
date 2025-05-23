@@ -19,7 +19,7 @@ public enum SyntaxKind
     FalseLiteralExpression,
     CharacterLiteralExpression,
     StringLiteralExpression,
-    NothingLiteralExpression,
+    NullLiteralExpression,
 
     CompilationUnit,
 
@@ -86,6 +86,7 @@ public enum SyntaxKind
     PredefinedType,
 
     VoidKeyword,
+    NullKeyword,
     IntKeyword,
     StringKeyword,
     BoolKeyword,

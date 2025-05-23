@@ -10,6 +10,7 @@ public static partial class SyntaxFactory
     public static SyntaxToken NumericLiteral(int value) => (SyntaxToken)InternalSyntax.SyntaxFactory.NumericLiteral(value);
 
     public static readonly SyntaxToken VoidKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.VoidKeyword;
+    public static readonly SyntaxToken NullKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.NullKeyword;
     public static readonly SyntaxToken IntKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.IntKeyword;
     public static readonly SyntaxToken StringKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.StringKeyword;
     public static readonly SyntaxToken CharKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.CharKeyword;

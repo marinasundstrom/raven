@@ -509,6 +509,12 @@ internal class ExpressionGenerator : Generator
                     break;
                 }
 
+            case SyntaxKind.NullLiteralExpression:
+                {
+                    ILGenerator.Emit(OpCodes.Ldnull);
+                    break;
+                }
+
             default:
                 throw new Exception("Not supported");
         }

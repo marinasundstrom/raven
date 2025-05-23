@@ -4,6 +4,7 @@ public static class SyntaxFacts
 {
     private static readonly IDictionary<string, SyntaxKind> _keywordStrings = new Dictionary<string, SyntaxKind> {
         { "void", SyntaxKind.VoidKeyword },
+        { "null", SyntaxKind.NullKeyword },
         { "int", SyntaxKind.IntKeyword },
         { "string", SyntaxKind.StringKeyword },
         { "bool", SyntaxKind.BoolKeyword },

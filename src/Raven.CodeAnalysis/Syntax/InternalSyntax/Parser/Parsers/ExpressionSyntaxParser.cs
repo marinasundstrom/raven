@@ -435,6 +435,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = LiteralExpression(SyntaxKind.CharacterLiteralExpression, token);
                 break;
 
+            case SyntaxKind.NullKeyword:
+                ReadToken();
+                expr = LiteralExpression(SyntaxKind.NullLiteralExpression, token);
+                break;
+
             case SyntaxKind.OpenParenToken:
                 expr = ParseParenthesisExpression();
                 break;
