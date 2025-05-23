@@ -27,7 +27,7 @@ var sourceText = SourceText.From(file);
 var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
 var root = syntaxTree.GetRoot();
 
-root.PrintSyntaxTree(includeNames: true, includeTokens: true, includeTrivia: true, includeSpans: false, includeLocation: true);
+root.PrintSyntaxTree(includeNames: true, includeTokens: false, includeTrivia: false, includeSpans: false, includeLocation: false);
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
@@ -45,7 +45,15 @@ var semanticModel = compilation.GetSemanticModel(syntaxTree);
 var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
 var typeSymbol = methodSymbol?.ContainingType;
 
+ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
+
+Console.WriteLine();
+Console.WriteLine(root.WriteNodeToText(compilation));
+
 var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
+
+//var result1 = semanticModel.AnalyzeControlFlow(root.DescendantNodes().OfType<ExpressionStatementSyntax>().ElementAt(2));
+var result2 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<BlockSyntax>().First());
 
 outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
@@ -58,11 +66,6 @@ using (var stream = File.OpenWrite($"{outputPath}"))
 }
 
 //CreateAppHost(compilation);
-
-ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
-
-Console.WriteLine();
-Console.WriteLine(root.WriteNodeToText(compilation));
 
 //Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
 

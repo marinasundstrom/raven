@@ -87,13 +87,21 @@ class BlockBinder : Binder
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
         var isReadOnly = decl!.LetOrVarKeyword.IsKind(SyntaxKind.LetKeyword);
 
-        ITypeSymbol type;
+        ITypeSymbol type = Compilation.ErrorTypeSymbol;
 
         if (variableDeclarator.TypeAnnotation is null)
         {
-            var initializerExpr = variableDeclarator.Initializer!.Value;
-            var boundInitializer = BindExpression(initializerExpr);
-            type = boundInitializer.Type!;
+            var initializer = variableDeclarator.Initializer;
+            if (initializer is not null)
+            {
+                var initializerExpr = initializer.Value;
+                var boundInitializer = BindExpression(initializerExpr);
+                type = boundInitializer.Type!;
+            }
+            else
+            {
+                //Diagnostics.ReportMemberAccessOnVoid();    
+            }
         }
         else
         {
@@ -729,7 +737,7 @@ class BlockBinder : Binder
                     }
                 }
             }
-            
+
             if (current is TopLevelBinder topLevelBinder)
             {
                 foreach (var param in topLevelBinder.GetParameters())

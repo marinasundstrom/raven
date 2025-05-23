@@ -2,7 +2,8 @@ using System.Collections;
 
 namespace Raven.CodeAnalysis.Syntax;
 
-public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
+public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>, IReadOnlyList<TNode>
+    where TNode : SyntaxNode
 {
     public static readonly SyntaxList<TNode> Empty = new SyntaxList<TNode>(new InternalSyntax.SyntaxList([]), null, 0);
 
@@ -32,6 +33,27 @@ public struct SyntaxList<TNode> : IEnumerable<TNode> where TNode : SyntaxNode
     public SyntaxList<TNode> Remove(TNode node)
     {
         return new SyntaxList<TNode>(Green.Remove(node.Green), null);
+    }
+
+    public int IndexOf(Func<TNode, bool> predicate)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            var node = this[i];
+            if (predicate(node))
+                return i;
+        }
+        return -1;
+    }
+
+    public int IndexOf(TNode node)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            if (this[i].Equals(node))
+                return i;
+        }
+        return -1;
     }
 
     public int Count => Green.SlotCount;

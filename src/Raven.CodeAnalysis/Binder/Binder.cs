@@ -137,4 +137,9 @@ internal abstract class Binder
     {
         throw new NotImplementedException();
     }
+
+    public ISymbol? LookupLocalSymbol(string name)
+    {
+        return LookupSymbol(name);
+    }
 }
