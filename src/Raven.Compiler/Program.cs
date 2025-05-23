@@ -45,15 +45,16 @@ var semanticModel = compilation.GetSemanticModel(syntaxTree);
 var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
 var typeSymbol = methodSymbol?.ContainingType;
 
-ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
-
-Console.WriteLine();
-Console.WriteLine(root.WriteNodeToText(compilation));
-
 var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
 
 //var result1 = semanticModel.AnalyzeControlFlow(root.DescendantNodes().OfType<ExpressionStatementSyntax>().ElementAt(2));
-var result2 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<BlockSyntax>().First());
+//var result2 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<BlockSyntax>().First());
+
+ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
+
+Console.WriteLine(root.WriteNodeToText(compilation));
+
+Console.WriteLine();
 
 outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
