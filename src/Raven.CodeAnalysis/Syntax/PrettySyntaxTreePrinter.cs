@@ -69,12 +69,9 @@ public static class PrettySyntaxTreePrinter
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
-        var children = node.ChildNodesAndTokens().ToArray();
-
-        if (!includeTokens)
-        {
-            children = children.Where(x => x.IsNode).ToArray();
-        }
+        ChildSyntaxListItem[] children = !includeTokens
+            ? node.ChildNodesAndTokens().Where(x => x.IsNode).ToArray()
+            : node.ChildNodesAndTokens().ToArray();
 
         for (int i = 0; i < children.Length; i++)
         {
