@@ -492,8 +492,8 @@ internal class ExpressionGenerator : Generator
 
             case SyntaxKind.StringLiteralExpression:
                 {
-                    var v = literalExpression.Token.ValueText;
-                    ILGenerator.Emit(OpCodes.Ldstr, v.Substring(1, v.Length - 2));
+                    var v = literalExpression.Token.Value;
+                    ILGenerator.Emit(OpCodes.Ldstr, (string)v);
                     break;
                 }
 

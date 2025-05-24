@@ -63,7 +63,9 @@ public static class PrettySyntaxTreePrinter
             }
         }
 
-        sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}{node.Kind}", AnsiColor.BrightBlue, colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
+        var value = MaybeColorize(Value(node), AnsiColor.Yellow, colorize);
+
+        sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightBlue, colorize) + value + MaybeColorize($"{node.Kind}", AnsiColor.BrightBlue, colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
@@ -113,6 +115,20 @@ public static class PrettySyntaxTreePrinter
                 }
             }
         }
+    }
+
+    private static string Value(SyntaxNode node)
+    {
+        return node switch
+        {
+            LiteralExpressionSyntax { Kind: SyntaxKind.NullLiteralExpression } le => $"null ",
+            LiteralExpressionSyntax { Kind: SyntaxKind.StringLiteralExpression } le => $"{le.Token.Text} ",
+            LiteralExpressionSyntax { Kind: SyntaxKind.TrueLiteralExpression } le => $"{le.Token.Text} ",
+            LiteralExpressionSyntax { Kind: SyntaxKind.FalseKeyword } le => $"{le.Token.Text} ",
+            LiteralExpressionSyntax le => $"{le.Token.Value} ",
+            IdentifierNameSyntax ine => $"{ine.Identifier.Text} ",
+            _ => string.Empty
+        };
     }
 
     private static void PrintTrivia(SyntaxTriviaList triviaList, bool isLeading, StringBuilder sb, string indent, bool isFirst, bool isLast, bool includeTokens, bool includeTrivia, bool includeSpans, bool includeLocation, bool includeNames, bool colorize, int maxDepth, int currentDepth = 0)

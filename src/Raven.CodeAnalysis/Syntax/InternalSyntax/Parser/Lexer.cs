@@ -281,7 +281,9 @@ internal class Lexer : ILexer
                             _stringBuilder.Append(ch8);
                         }
 
-                        return new Token(SyntaxKind.StringLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
+                        var str = _stringBuilder.ToString();
+
+                        return new Token(SyntaxKind.StringLiteralToken, str, str[1..^1], diagnostics: diagnostics);
 
                     case '\t':
                         return new Token(SyntaxKind.TabToken, "\t");

@@ -6,7 +6,7 @@ internal class SyntaxToken : GreenNode
     private readonly object? _value;
     private bool _isMissing;
 
-    public string Text => GetValueText()!;
+    public string Text => _text;
 
     public SyntaxToken(
         SyntaxKind kind,
@@ -45,7 +45,7 @@ internal class SyntaxToken : GreenNode
 
     public override object? GetValue() => _value;
 
-    public override string? GetValueText() => _text ??= _value.ToString();
+    public override string? GetValueText() => _value?.ToString();
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
