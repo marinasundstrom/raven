@@ -55,6 +55,7 @@ internal static partial class SyntaxFactory
     public static readonly SyntaxToken DotToken = new SyntaxToken(SyntaxKind.DotToken, ".");
     public static readonly SyntaxToken CaretToken = new SyntaxToken(SyntaxKind.CaretToken, "^");
     public static readonly SyntaxToken ExclamationToken = new SyntaxToken(SyntaxKind.ExclamationToken, "!");
+    public static readonly SyntaxToken QuestionToken = new SyntaxToken(SyntaxKind.QuestionToken, "?");
 
     public static readonly SyntaxToken CommaToken = new SyntaxToken(SyntaxKind.CommaToken, ",");
     public static readonly SyntaxToken ColonToken = new SyntaxToken(SyntaxKind.ColonToken, ":");

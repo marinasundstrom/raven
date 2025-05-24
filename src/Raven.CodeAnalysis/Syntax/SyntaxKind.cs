@@ -10,6 +10,7 @@ public enum SyntaxKind
     GenericName,
     QualifiedName,
     AliasQualifiedName,
+    NullableType,
 
     TypeArgumentList,
     TypeArgument,
@@ -130,6 +131,7 @@ public enum SyntaxKind
     DotToken,
     CaretToken,
     ExclamationToken,
+    QuestionToken,
 
     ColonToken,
     SemicolonToken,

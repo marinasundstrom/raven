@@ -117,6 +117,24 @@ public partial class AliasQualifiedNameSyntax : NameSyntax
     }
 }
 
+public partial class NullableTypeSyntax : TypeSyntax
+{
+    public partial TypeSyntax ElementType { get; }
+
+    public partial SyntaxToken QuestionToken { get; }
+
+    internal NullableTypeSyntax(GreenNode greenNode, SyntaxNode parent, int position)
+        : base(greenNode, parent, position)
+    {
+    }
+
+    public NullableTypeSyntax(TypeSyntax elementType, SyntaxToken questionToken)
+        : this(new InternalSyntax.NullableTypeSyntax((InternalSyntax.TypeSyntax)elementType.Green, questionToken.Green), (SyntaxNode)null, 0)
+    {
+
+    }
+}
+
 public static partial class SyntaxFactory
 {
     public static IdentifierNameSyntax IdentifierName(SyntaxToken identifier) => new IdentifierNameSyntax(identifier);
@@ -131,4 +149,5 @@ public static partial class SyntaxFactory
 
     public static AliasQualifiedNameSyntax AliasQualifiedName(IdentifierNameSyntax alias, SyntaxToken colonColonToken, IdentifierNameSyntax name) => new AliasQualifiedNameSyntax(alias, colonColonToken, name);
 
+    public static NullableTypeSyntax NullableType(TypeSyntax elementType, SyntaxToken questionToken) => new NullableTypeSyntax(elementType, questionToken);
 }

@@ -4,7 +4,7 @@ let input = Console.ReadLine();
 
 let f = "Foo bar";
 let f2 = true;
-let f3 : Object = null;
+let f3 : Object? = null;
 
 var i = 0;
 while i < args.Length {

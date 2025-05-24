@@ -34,11 +34,16 @@ internal class NameSyntaxParser : SyntaxParser
             return PredefinedType(peek);
         }
 
-        NameSyntax left = ParseSimpleName();
+        TypeSyntax left = ParseSimpleName();
 
         while (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
         {
-            left = QualifiedName(left, dotToken, ParseSimpleName());
+            left = QualifiedName((NameSyntax)left, dotToken, ParseSimpleName());
+        }
+
+        if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
+        {
+            left = NullableType(left, questionToken);
         }
 
         return left;

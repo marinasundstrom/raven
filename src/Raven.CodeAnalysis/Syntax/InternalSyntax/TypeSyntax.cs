@@ -83,6 +83,21 @@ internal partial class AliasQualifiedNameSyntax : NameSyntax
     }
 }
 
+
+internal partial class NullableTypeSyntax : TypeSyntax
+{
+    public NullableTypeSyntax(TypeSyntax elementType, SyntaxToken questionToken,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        : base(SyntaxKind.NullableType,
+        [
+            elementType ?? throw new ArgumentNullException(nameof(elementType)),
+            questionToken  ?? throw new ArgumentNullException(nameof(questionToken)),
+        ],
+        diagnostics)
+    {
+    }
+}
+
 internal static partial class SyntaxFactory
 {
     public static IdentifierNameSyntax IdentifierName(
@@ -109,4 +124,10 @@ internal static partial class SyntaxFactory
         SimpleNameSyntax name,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(alias, colonColonToken, name, diagnostics);
+
+    public static NullableTypeSyntax NullableType(
+        TypeSyntax elementType,
+        SyntaxToken questionToken,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        => new(elementType, questionToken, diagnostics);
 }

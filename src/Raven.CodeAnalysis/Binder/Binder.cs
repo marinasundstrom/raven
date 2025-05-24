@@ -118,6 +118,12 @@ internal abstract class Binder
 
     public virtual ITypeSymbol ResolveType(TypeSyntax typeSyntax)
     {
+        if (typeSyntax is NullableTypeSyntax nb)
+        {
+            // INFO: Temporary workaround
+            typeSyntax = nb.ElementType;
+        }
+
         if (typeSyntax is PredefinedTypeSyntax predefinedTypeSyntax)
         {
             return Compilation.ResolvePredefinedType(predefinedTypeSyntax);
