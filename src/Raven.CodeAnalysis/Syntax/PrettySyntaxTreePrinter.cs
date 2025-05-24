@@ -63,7 +63,7 @@ public static class PrettySyntaxTreePrinter
             }
         }
 
-        var value = MaybeColorize(Value(node), AnsiColor.Yellow, colorize);
+        var value = !includeTokens ? MaybeColorize(Value(node), AnsiColor.Yellow, colorize) : string.Empty;
 
         sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightBlue, colorize) + value + MaybeColorize($"{node.Kind}", AnsiColor.BrightBlue, colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(node.Span)}" : string.Empty)}{(includeLocation ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
