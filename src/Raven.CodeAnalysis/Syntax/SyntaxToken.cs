@@ -26,10 +26,9 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         _parent = parent;
         Position = position;
     }
-
     private string GetDebuggerDisplay()
     {
-        return GetType().Name + " " + (Green != null ? Green.Text : "None") + " " + ToString();
+        return $"{Kind} \"{Text}\"{(Value is not null ? $" = {Value}" : "")}";
     }
 
     public SyntaxKind Kind => Green.Kind;
@@ -83,12 +82,12 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 
     public override string ToString()
     {
-        return this.Text;
+        return Text;
     }
 
     public string ToFullString()
     {
-        return this.LeadingTrivia.ToString() + this.Text + this.TrailingTrivia.ToString();
+        return LeadingTrivia.ToString() + Text + TrailingTrivia.ToString();
     }
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)

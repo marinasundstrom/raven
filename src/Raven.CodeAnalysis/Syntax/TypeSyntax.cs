@@ -47,6 +47,9 @@ public partial class IdentifierNameSyntax : SimpleNameSyntax
     {
 
     }
+
+    protected override string GetDebuggerDisplay()
+        => $"{Kind}: {Identifier.Text}";
 }
 
 public partial class GenericNameSyntax : SimpleNameSyntax

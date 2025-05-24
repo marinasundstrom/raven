@@ -1,7 +1,10 @@
 using System.Collections;
+using System.Diagnostics;
+using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
 
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>, IReadOnlyList<TNode>
     where TNode : SyntaxNode
 {
@@ -137,6 +140,17 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
                     : default;
             }
         }
+    }
+
+    public string GetDebuggerDisplay()
+        => ToFullString();
+
+    public string ToFullString()
+    {
+        var sb = new StringBuilder();
+        foreach (var node in this)
+            sb.Append(node.ToFullString());
+        return sb.ToString();
     }
 }
 
