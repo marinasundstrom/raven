@@ -152,9 +152,25 @@ public static class PrettySyntaxTreePrinter
             var isFirstChild = i == 0;
             bool isChildLast = i == (listCount - 1);
 
-            var firstMarker = isLeading ? MarkerTop : MarkerBottom;
+            string childMarker = null;
 
-            sb.AppendLine($"{newIndent}{(isChildLast ? firstMarker : MarkerMiddle)}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, colorize) + $"{(includeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(includeLocation ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
+            if (listCount == 0)
+            {
+                childMarker = isLeading ? MarkerTop : MarkerBottom;
+            }
+            else
+            {
+                if (isLeading)
+                {
+                    childMarker = isFirstChild ? MarkerTop : MarkerMiddle;
+                }
+                else
+                {
+                    childMarker = isChildLast ? MarkerBottom : MarkerMiddle;
+                }
+            }
+
+            sb.AppendLine($"{newIndent}{childMarker}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, colorize) + $"{(includeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(includeLocation ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
 
             var newIndent2 = newIndent + (isChildLast ? IndentationStr : MarkerStraight);
 
