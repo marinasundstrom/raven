@@ -152,17 +152,6 @@ public static class PrettySyntaxTreePrinter
 
     private static void PrintTrivia(SyntaxTriviaList triviaList, bool isLeading, StringBuilder sb, string indent, bool isFirst, bool isLast, PrinterOptions printerOptions, int currentDepth)
     {
-        string marker = string.Empty;
-
-        if (isLeading)
-        {
-            marker = MarkerTop;
-        }
-        else
-        {
-            marker = MarkerBottom;
-        }
-
         var newIndent = isFirst ? string.Empty : indent + (isLast ? (isLeading ? MarkerStraight : IndentationStr) : MarkerStraight);
 
         var listCount = triviaList.Count;
