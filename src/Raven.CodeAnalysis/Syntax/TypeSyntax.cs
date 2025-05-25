@@ -135,6 +135,22 @@ public partial class NullableTypeSyntax : TypeSyntax
     }
 }
 
+public partial class UnionTypeSyntax : TypeSyntax
+{
+    public partial SeparatedSyntaxList<TypeSyntax> Types { get; }
+
+    internal UnionTypeSyntax(GreenNode greenNode, SyntaxNode parent, int position)
+        : base(greenNode, parent, position)
+    {
+    }
+
+    public UnionTypeSyntax(SeparatedSyntaxList<TypeSyntax> types)
+        : this(new InternalSyntax.UnionTypeSyntax((InternalSyntax.SyntaxList)types.Green), (SyntaxNode)null, 0)
+    {
+
+    }
+}
+
 public static partial class SyntaxFactory
 {
     public static IdentifierNameSyntax IdentifierName(SyntaxToken identifier) => new IdentifierNameSyntax(identifier);
@@ -150,4 +166,6 @@ public static partial class SyntaxFactory
     public static AliasQualifiedNameSyntax AliasQualifiedName(IdentifierNameSyntax alias, SyntaxToken colonColonToken, IdentifierNameSyntax name) => new AliasQualifiedNameSyntax(alias, colonColonToken, name);
 
     public static NullableTypeSyntax NullableType(TypeSyntax elementType, SyntaxToken questionToken) => new NullableTypeSyntax(elementType, questionToken);
+
+    public static UnionTypeSyntax UnionType(SeparatedSyntaxList<TypeSyntax> types) => new UnionTypeSyntax(types);
 }

@@ -98,6 +98,19 @@ internal partial class NullableTypeSyntax : TypeSyntax
     }
 }
 
+internal partial class UnionTypeSyntax : TypeSyntax
+{
+    public UnionTypeSyntax(SyntaxList types,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        : base(SyntaxKind.UnionType,
+        [
+            types ?? throw new ArgumentNullException(nameof(types)),
+        ],
+        diagnostics)
+    {
+    }
+}
+
 internal static partial class SyntaxFactory
 {
     public static IdentifierNameSyntax IdentifierName(
@@ -130,4 +143,9 @@ internal static partial class SyntaxFactory
         SyntaxToken questionToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(elementType, questionToken, diagnostics);
+
+    public static UnionTypeSyntax UnionType(
+        SyntaxList types,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        => new(types);
 }

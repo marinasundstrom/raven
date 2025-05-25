@@ -5,6 +5,7 @@ let input = Console.ReadLine();
 let f = "Foo bar";
 let f2 = true;
 let f3 : Object? = null;
+let f4 : int | string;
 
 var i = 0;
 while i < args.Length {

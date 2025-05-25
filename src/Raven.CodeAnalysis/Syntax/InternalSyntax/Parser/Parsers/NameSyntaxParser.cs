@@ -1,7 +1,5 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-using System;
-
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class NameSyntaxParser : SyntaxParser
@@ -25,6 +23,34 @@ internal class NameSyntaxParser : SyntaxParser
     }
 
     public TypeSyntax ParseTypeName()
+    {
+        var name = ParseNameCore();
+
+        SyntaxList types = SyntaxList.Empty;
+
+        bool isUnion = false;
+
+        if (IsNextToken(SyntaxKind.BarToken))
+        {
+            isUnion = true;
+            types = types.Add(name);
+        }
+
+        while (ConsumeToken(SyntaxKind.BarToken, out var barToken))
+        {
+            types = types.Add(barToken);
+            types = types.Add(ParseNameCore());
+        }
+
+        if (isUnion)
+        {
+            return UnionType(types);
+        }
+
+        return name;
+    }
+
+    private TypeSyntax ParseNameCore()
     {
         var peek = PeekToken();
         if (IsPredefinedTypeKeyword(peek))

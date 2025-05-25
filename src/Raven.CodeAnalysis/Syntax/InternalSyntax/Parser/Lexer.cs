@@ -188,6 +188,9 @@ internal class Lexer : ILexer
                     case '=':
                         return new Token(SyntaxKind.EqualsToken, chStr);
 
+                    case '|':
+                        return new Token(SyntaxKind.BarToken, chStr);
+
                     case '!':
                         if (PeekChar(out var ch6) && ch6 == '=')
                         {

@@ -11,6 +11,7 @@ public enum SyntaxKind
     QualifiedName,
     AliasQualifiedName,
     NullableType,
+    UnionType,
 
     TypeArgumentList,
     TypeArgument,
@@ -130,6 +131,7 @@ public enum SyntaxKind
     StarToken,
     DotToken,
     CaretToken,
+    BarToken,
     ExclamationToken,
     QuestionToken,
 
