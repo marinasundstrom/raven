@@ -100,6 +100,8 @@ public class ChildSyntaxListItem
         }
     }
 
+    public SyntaxNode Parent => _parent;
+
     public bool AsToken(out SyntaxToken token)
     {
         if (IsToken)
