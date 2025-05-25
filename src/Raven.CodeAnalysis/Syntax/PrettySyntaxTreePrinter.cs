@@ -101,8 +101,17 @@ public static class PrettySyntaxTreePrinter
                     }
                 }
 
+                string marker2 = isChildLast ? MarkerBottom : MarkerMiddle;
+
+                string newIndent2 = newIndent;
+
+                if (node.GetPropertyNameForChild(token) is null)
+                {
+                    marker2 = isChildLast ? MarkerBottom : MarkerMiddle;
+                }
+
                 // Print token
-                sb.AppendLine($"{newIndent}{(isChildLast ? MarkerBottom : MarkerMiddle)}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, colorize) + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent}{marker2}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, colorize) + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(includeSpans ? $" {Span(token.Span)}" : string.Empty)}{(includeLocation ? $" {Location(token.GetLocation())}" : string.Empty)}");
 
                 // Include trivia if specified
                 if (includeTrivia)
@@ -126,6 +135,7 @@ public static class PrettySyntaxTreePrinter
             LiteralExpressionSyntax { Kind: SyntaxKind.FalseKeyword } le => $"{le.Token.Text} ",
             LiteralExpressionSyntax le => $"{le.Token.Value} ",
             IdentifierNameSyntax ine => $"{ine.Identifier.Text} ",
+            PredefinedTypeSyntax pt => $"{pt.Keyword.Text} ",
             _ => string.Empty
         };
     }
