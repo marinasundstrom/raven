@@ -14,14 +14,35 @@ internal abstract class PatternSyntax : ExpressionOrPatternSyntax
 internal partial class UnaryPatternSyntax : PatternSyntax
 {
     public UnaryPatternSyntax(
+        SyntaxKind kind,
         SyntaxToken operatorToken,
         PatternSyntax pattern,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
-              SyntaxKind.UnaryPatternSyntax,
+              kind,
               [
                       operatorToken ?? throw new ArgumentNullException(nameof(operatorToken)),
                       pattern ?? throw new ArgumentNullException(nameof(pattern))
+              ],
+              diagnostics)
+    {
+    }
+}
+
+internal partial class BinaryPatternSyntax : PatternSyntax
+{
+    public BinaryPatternSyntax(
+        SyntaxKind kind,
+        PatternSyntax left,
+        SyntaxToken operatorToken,
+        PatternSyntax right,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        : base(
+              kind,
+              [
+                      left ?? throw new ArgumentNullException(nameof(left)),
+                      operatorToken ?? throw new ArgumentNullException(nameof(operatorToken)),
+                      right ?? throw new ArgumentNullException(nameof(right))
               ],
               diagnostics)
     {
@@ -36,7 +57,7 @@ internal partial class DeclarationPatternSyntax : PatternSyntax
         VariableDesignationSyntax variableDesignation,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
-              SyntaxKind.DeclarationPatternSyntax,
+              SyntaxKind.DeclarationPattern,
               [
                       type ?? throw new ArgumentNullException(nameof(type)),
                       variableDesignation ?? throw new ArgumentNullException(nameof(variableDesignation))
@@ -49,10 +70,19 @@ internal partial class DeclarationPatternSyntax : PatternSyntax
 internal static partial class SyntaxFactory
 {
     public static UnaryPatternSyntax UnaryPattern(
+        SyntaxKind kind,
         SyntaxToken operatorToken,
         PatternSyntax pattern,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(operatorToken, pattern, diagnostics);
+        => new(kind, operatorToken, pattern, diagnostics);
+
+    public static BinaryPatternSyntax BinaryPattern(
+        SyntaxKind kind,
+        PatternSyntax left,
+        SyntaxToken operatorToken,
+        PatternSyntax right,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        => new(kind, left, operatorToken, right, diagnostics);
 
     public static DeclarationPatternSyntax DeclarationPattern(
         TypeSyntax type,

@@ -28,6 +28,11 @@ internal abstract class Generator
 
     }
 
+    public virtual void AddLocal(ILocalSymbol localSymbol, LocalBuilder builder)
+    {
+        Parent?.AddLocal(localSymbol, builder);
+    }
+
     public virtual LocalBuilder? GetLocal(ILocalSymbol localSymbol)
     {
         return Parent?.GetLocal(localSymbol);
@@ -46,5 +51,12 @@ internal abstract class Generator
         return Compilation
                         .GetSemanticModel(syntaxNode.SyntaxTree)
                         .GetDeclaredSymbol(syntaxNode) as TNode;
+    }
+
+    protected TypeInfo GetTypeInfo(ExpressionSyntax expression)
+    {
+        return Compilation
+                        .GetSemanticModel(expression.SyntaxTree)
+                        .GetTypeInfo(expression);
     }
 }

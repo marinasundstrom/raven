@@ -15,12 +15,12 @@ static class BoundExpressionExtensions
     {
         return candidateReason switch
         {
-            BoundExpressionReason.None => CodeAnalysis.CandidateReason.None,
-            BoundExpressionReason.NotFound => CodeAnalysis.CandidateReason.NotFound,
-            BoundExpressionReason.Ambiguous => CodeAnalysis.CandidateReason.Ambiguous,
-            BoundExpressionReason.Inaccessible => CodeAnalysis.CandidateReason.Inaccessible,
-            BoundExpressionReason.WrongArity => CodeAnalysis.CandidateReason.WrongArity,
-            BoundExpressionReason.OverloadResolutionFailed => CodeAnalysis.CandidateReason.OverloadResolutionFailure,
+            BoundExpressionReason.None => CandidateReason.None,
+            BoundExpressionReason.NotFound => CandidateReason.NotFound,
+            BoundExpressionReason.Ambiguous => CandidateReason.Ambiguous,
+            BoundExpressionReason.Inaccessible => CandidateReason.Inaccessible,
+            BoundExpressionReason.WrongArity => CandidateReason.WrongArity,
+            BoundExpressionReason.OverloadResolutionFailed => CandidateReason.OverloadResolutionFailure,
             _ => throw new ArgumentOutOfRangeException(nameof(candidateReason), candidateReason, null)
         };
     }

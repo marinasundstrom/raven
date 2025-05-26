@@ -24,8 +24,17 @@ class BlockBinder : Binder
         {
             VariableDeclaratorSyntax v => BindLocalDeclaration(v),
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
+            SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation),
             _ => base.BindDeclaredSymbol(node)
         };
+    }
+
+    private ISymbol? BindSingleVariableDesignation(SingleVariableDesignationSyntax singleVariableDesignation)
+    {
+        var declaration = singleVariableDesignation.Parent as DeclarationPatternSyntax;
+        var name = singleVariableDesignation.Identifier.Text;
+        var type = ResolveType(declaration.Type);
+        return CreateLocalSymbol(singleVariableDesignation, name, false, type);
     }
 
     public override SymbolInfo BindReferencedSymbol(SyntaxNode node)
@@ -109,6 +118,11 @@ class BlockBinder : Binder
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
         }
 
+        return CreateLocalSymbol(variableDeclarator, name, isReadOnly, type);
+    }
+
+    private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isReadOnly, ITypeSymbol type)
+    {
         var symbol = new SourceLocalSymbol(
             name,
             type,
@@ -116,13 +130,12 @@ class BlockBinder : Binder
             _containingSymbol,
             _containingSymbol.ContainingType as INamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
-            [variableDeclarator.GetLocation()],
-            [variableDeclarator.GetReference()]);
+            [declaringSyntax.GetLocation()],
+            [declaringSyntax.GetReference()]);
 
         _locals[name] = symbol;
         return symbol;
     }
-
 
     public override BoundExpression BindStatement(StatementSyntax statement)
     {
@@ -188,22 +201,8 @@ class BlockBinder : Binder
                 }
             }
 
-            var name = singleVariableDesignation.Identifier.Text;
-
-            var symbol = new SourceLocalSymbol(
-                name,
-                type,
-                false,
-                _containingSymbol,
-                _containingSymbol.ContainingType as INamedTypeSymbol,
-                _containingSymbol?.ContainingNamespace,
-                [singleVariableDesignation.GetLocation()],
-                [singleVariableDesignation.GetReference()]);
-
-            //DeclareSymbol(singleVariableDesignation.Identifier.Text, symbol);
-            SymbolTable[name] = symbol;
-
-            return new BoundIsPatternExpression(symbol, BoundExpressionReason.NotFound);
+            var symbol = BindDeclaredSymbol(singleVariableDesignation) as ILocalSymbol;
+            return new BoundIsPatternExpression(symbol, BoundExpressionReason.None);
 
         }
 
@@ -329,6 +328,11 @@ class BlockBinder : Binder
                 */
             };
         }
+        else if (syntax is PredefinedTypeSyntax predefinedType)
+        {
+            var type = Compilation.ResolvePredefinedType(predefinedType);
+            return new BoundTypeExpression(type);
+        }
         else if (syntax is QualifiedNameSyntax qualified)
         {
             var left = BindTypeSyntax(qualified.Left);
@@ -348,8 +352,7 @@ class BlockBinder : Binder
                     _diagnostics.ReportUndefinedName(qualified.Right.Identifier.Text, qualified.Right.GetLocation());
                         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
                 }*/
-                }
-            ;
+                };
             }
             else if (left is BoundTypeExpression typeExpr)
             {

@@ -14,19 +14,43 @@ internal class PatternSyntaxParser : SyntaxParser
 
     public PatternSyntax ParsePattern()
     {
-        if (ConsumeToken(SyntaxKind.NotKeyword, out var notKeyword))
-        {
-            return UnaryPattern(notKeyword, ParsePatternCore());
-        }
-
-        return ParsePatternCore();
+        return ParseOrPattern();
     }
 
-    private PatternSyntax ParsePatternCore()
+    private PatternSyntax ParseOrPattern()
+    {
+        var left = ParseUnaryPattern();
+
+        while (ConsumeToken(SyntaxKind.OrKeyword, out var orKeyword))
+        {
+            var right = ParseUnaryPattern();
+            left = BinaryPattern(SyntaxKind.OrPattern, left, orKeyword, right);
+        }
+
+        return left;
+    }
+
+    private PatternSyntax ParseUnaryPattern()
+    {
+        if (ConsumeToken(SyntaxKind.NotKeyword, out var notKeyword))
+        {
+            var operand = ParseUnaryPattern(); // Right-associative
+            return UnaryPattern(SyntaxKind.NotPattern, notKeyword, operand);
+        }
+
+        return ParsePrimaryPattern();
+    }
+
+    private PatternSyntax ParsePrimaryPattern()
     {
         var type = new NameSyntaxParser(this).ParseTypeName();
 
-        var designation = ParseDesignation();
+        // Optionally consume a variable designation
+        VariableDesignationSyntax? designation = null;
+        if (IsNextToken(SyntaxKind.IdentifierToken))
+        {
+            designation = ParseDesignation();
+        }
 
         return DeclarationPattern(type, designation);
     }

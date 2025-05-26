@@ -80,6 +80,13 @@ internal class StatementGenerator : Generator
 
             var localBuilder = GetLocal(localSymbol);
 
+            var s = GetTypeInfo(declarator.Initializer.Value).Type;
+
+            if (s.IsValueType && (localSymbol.Type.SpecialType == SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            {
+                ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
+            }
+
             ILGenerator.Emit(OpCodes.Stloc, localBuilder);
         }
     }

@@ -148,13 +148,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
                     ReadToken();
                     break;
 
-
                 case SyntaxKind.IsKeyword:
                     {
-                        ReadToken(); // consume 'is'
-
+                        ReadToken();
                         var pattern = new PatternSyntaxParser(this).ParsePattern();
-
                         return IsPatternExpression(expr, token, pattern);
                     }
 

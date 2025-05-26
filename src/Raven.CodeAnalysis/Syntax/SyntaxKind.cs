@@ -72,8 +72,10 @@ public enum SyntaxKind
     LogicalOrExpression,
 
     IsPatternExpression,
-    DeclarationPatternSyntax, // Pattern
-    UnaryPatternSyntax,
+    DeclarationPattern, // Pattern
+    NotPattern,
+    AndPattern,
+    OrPattern,
     SingleVariableDesignation, //VariableDesignation
 
     SimpleMemberAccessExpression,

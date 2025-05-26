@@ -47,9 +47,11 @@ var typeSymbol = methodSymbol?.ContainingType;
 
 var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
 
+/*
 var result1 = semanticModel.AnalyzeControlFlow(root.DescendantNodes().OfType<ExpressionStatementSyntax>().ElementAt(2));
 var result2 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<BlockSyntax>().First());
 var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<AssignmentExpressionSyntax>().Last());
+*/
 
 ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
 

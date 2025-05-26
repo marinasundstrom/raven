@@ -74,6 +74,67 @@ internal class ExpressionGenerator : Generator
             case ElementAccessExpressionSyntax elementAccessExpression:
                 GenerateElementAccessExpression(elementAccessExpression);
                 break;
+
+            case IsPatternExpressionSyntax isPatternExpression:
+                GenerateIsPatternExpression(isPatternExpression);
+                break;
+
+            default:
+                throw new NotSupportedException("Unsupported expression type");
+        }
+    }
+
+    private void GenerateIsPatternExpression(IsPatternExpressionSyntax isPatternExpression)
+    {
+        GenerateExpression(isPatternExpression.Expression); // Push the value of the expression onto the stack
+
+        GeneratePattern(isPatternExpression.Pattern);       // Evaluate the pattern; leaves a boolean on the stack
+    }
+
+    private void GeneratePattern(PatternSyntax pattern)
+    {
+        if (pattern is DeclarationPatternSyntax declarationPattern)
+        {
+            var typeInfo = GetTypeInfo(declarationPattern.Type);
+            var clrType = typeInfo.Type.GetClrType(Compilation);
+
+            GenerateDesignation(declarationPattern.Designation);
+
+            // Assume you already declared the pattern local (e.g., "str")
+            var patternLocal = GetLocal(declarationPattern.Designation);
+
+            // Stack: [expr]
+            ILGenerator.Emit(OpCodes.Isinst, clrType);          // cast or null
+            ILGenerator.Emit(OpCodes.Stloc, patternLocal);      // str = casted or null
+            ILGenerator.Emit(OpCodes.Ldloc, patternLocal);      // load str again
+            ILGenerator.Emit(OpCodes.Ldnull);                   // compare against null
+            ILGenerator.Emit(OpCodes.Cgt_Un);                   // 1 if not null, 0 if null — push result (bool)
+        }
+    }
+
+    private LocalBuilder GetLocal(VariableDesignationSyntax designation)
+    {
+        // Create or retrieve a LocalBuilder for the variable name
+        if (designation is SingleVariableDesignationSyntax single)
+        {
+            var symbol = GetDeclaredSymbol<ILocalSymbol>(single);
+
+            return GetLocal(symbol); // assuming `locals` is a dictionary
+        }
+
+        throw new NotSupportedException("Unsupported designation");
+    }
+
+    private void GenerateDesignation(VariableDesignationSyntax designation)
+    {
+        if (designation is SingleVariableDesignationSyntax single)
+        {
+            var symbol = GetDeclaredSymbol<ILocalSymbol>(single);
+
+            var local = ILGenerator.DeclareLocal(symbol.Type.GetClrType(Compilation)); // resolve type
+            local.SetLocalSymInfo(single.Identifier.Text);
+
+            AddLocal(symbol, local);
         }
     }
 
@@ -214,7 +275,14 @@ internal class ExpressionGenerator : Generator
             {
                 GenerateExpression(assignmentExpression.RightHandSide);
 
+                var s = GetTypeInfo(assignmentExpression.RightHandSide).Type;
+
                 var localBuilder = GetLocal(localSymbol);
+
+                if (s.IsValueType && localSymbol.Type.SpecialType == SpecialType.System_Object)
+                {
+                    ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
+                }
 
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);
             }
@@ -223,6 +291,13 @@ internal class ExpressionGenerator : Generator
                 GenerateExpression(assignmentExpression.RightHandSide);
 
                 var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
+
+                var s = GetTypeInfo(assignmentExpression.RightHandSide).Type;
+
+                if (s.IsValueType && parameterSymbol.Type.SpecialType == SpecialType.System_Object)
+                {
+                    ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
+                }
 
                 int position = parameterBuilder.Position;
 
@@ -620,6 +695,10 @@ internal class ExpressionGenerator : Generator
             }
         }
         else if (expression is IdentifierNameSyntax identifierName)
+        {
+            ILGenerator.Emit(OpCodes.Brfalse_S, end);
+        }
+        else
         {
             ILGenerator.Emit(OpCodes.Brfalse_S, end);
         }

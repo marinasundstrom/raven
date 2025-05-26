@@ -1,20 +1,7 @@
 import System;
 
-let input = Console.ReadLine();
-
-let f = "Foo bar";
-let f2 = true;
-let f3 : Object? = null;
 let unionVal : int | string = 2;
 
 if unionVal is string str {
-
+    Console.WriteLine(str);
 }
-
-var i = 0;
-while i < args.Length {
-    Console.WriteLine(args[i]);
-    i = i + 1;
-}
-
-Console.WriteLine(input);
