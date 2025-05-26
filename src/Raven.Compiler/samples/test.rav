@@ -5,3 +5,7 @@ let unionVal : int | string = 2;
 if unionVal is string str {
     Console.WriteLine(str);
 }
+
+if unionVal is int i {
+    Console.WriteLine(i);
+}

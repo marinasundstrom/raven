@@ -96,19 +96,44 @@ internal class ExpressionGenerator : Generator
         if (pattern is DeclarationPatternSyntax declarationPattern)
         {
             var typeInfo = GetTypeInfo(declarationPattern.Type);
-            var clrType = typeInfo.Type.GetClrType(Compilation);
+            var typeSymbol = typeInfo.Type;
+            var clrType = typeSymbol.GetClrType(Compilation);
 
             GenerateDesignation(declarationPattern.Designation);
 
-            // Assume you already declared the pattern local (e.g., "str")
             var patternLocal = GetLocal(declarationPattern.Designation);
 
-            // Stack: [expr]
-            ILGenerator.Emit(OpCodes.Isinst, clrType);          // cast or null
-            ILGenerator.Emit(OpCodes.Stloc, patternLocal);      // str = casted or null
-            ILGenerator.Emit(OpCodes.Ldloc, patternLocal);      // load str again
-            ILGenerator.Emit(OpCodes.Ldnull);                   // compare against null
-            ILGenerator.Emit(OpCodes.Cgt_Un);                   // 1 if not null, 0 if null — push result (bool)
+            // [expr]
+            if (typeSymbol.IsValueType)
+            {
+                // Reference types can use isinst + cgt.un directly.
+                var labelFail = ILGenerator.DefineLabel();
+                var labelDone = ILGenerator.DefineLabel();
+
+                ILGenerator.Emit(OpCodes.Dup);                     // keep original value
+                ILGenerator.Emit(OpCodes.Isinst, clrType);         // type test
+                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);    // if not, jump to false
+
+                ILGenerator.Emit(OpCodes.Unbox_Any, clrType);      // unbox value
+                ILGenerator.Emit(OpCodes.Stloc, patternLocal);     // store into pattern variable
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);                // push true
+                ILGenerator.Emit(OpCodes.Br_S, labelDone);
+
+                ILGenerator.MarkLabel(labelFail);
+                ILGenerator.Emit(OpCodes.Pop);                     // discard original expr
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);                // push false
+
+                ILGenerator.MarkLabel(labelDone);
+            }
+            else
+            {
+                // Reference type flow — same as before
+                ILGenerator.Emit(OpCodes.Isinst, clrType);         // cast or null
+                ILGenerator.Emit(OpCodes.Dup);
+                ILGenerator.Emit(OpCodes.Stloc, patternLocal);     // assign
+                ILGenerator.Emit(OpCodes.Ldnull);
+                ILGenerator.Emit(OpCodes.Cgt_Un);                  // bool: not-null
+            }
         }
     }
 
