@@ -86,11 +86,11 @@ public static class PrettySyntaxTreePrinter
         for (int i = 0; i < children.Length; i++)
         {
             var isChildLast = i == children.Length - 1;
-            if (children[i].AsNode(out var childNode))
+            if (children[i].TryGetNode(out var childNode))
             {
                 PrintSyntaxTreeCore(childNode, sb, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
             }
-            else if (printerOptions.IncludeTokens && children[i].AsToken(out var token))
+            else if (printerOptions.IncludeTokens && children[i].TryGetToken(out var token))
             {
                 // Include trivia if specified
                 if (printerOptions.IncludeTrivia)
@@ -210,7 +210,7 @@ public static class PrettySyntaxTreePrinter
 
             var newIndent4 = newIndent2 + (isChildLast2 ? IndentationStr : MarkerStraight);
 
-            if (triviaChild.AsToken(out var token))
+            if (triviaChild.TryGetToken(out var token))
             {
                 sb.AppendLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.ValueText} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
             }

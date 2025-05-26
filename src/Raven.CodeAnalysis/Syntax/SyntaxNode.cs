@@ -69,7 +69,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     {
         foreach (var nodeOrToken in this.ChildNodesAndTokens())
         {
-            if (nodeOrToken.AsNode(out var node))
+            if (nodeOrToken.TryGetNode(out var node))
             {
                 yield return node;
             }
@@ -393,13 +393,13 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         {
             if (child.IsToken)
             {
-                var token = child.Token;
+                var token = child.AsToken();
                 if (position >= token.Position && position < token.End)
                     return token;
             }
             else
             {
-                var childNode = child.Node!;
+                var childNode = child.AsNode()!;
                 if (position >= childNode.Position && position < childNode.End)
                     return FindTokenInternal(childNode, position);
             }

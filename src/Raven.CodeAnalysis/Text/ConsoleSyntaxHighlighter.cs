@@ -61,7 +61,7 @@ public static class ConsoleSyntaxHighlighter
         // Recursively write child nodes
         foreach (var child in node.ChildNodesAndTokens())
         {
-            if (child.AsToken(out var token))
+            if (child.TryGetToken(out var token))
             {
                 string? t = token.ToFullColorizedString();
 
@@ -80,7 +80,7 @@ public static class ConsoleSyntaxHighlighter
 
                 builder.Append(t);
             }
-            else if (child.AsNode(out var childNode))
+            else if (child.TryGetNode(out var childNode))
             {
                 WriteNode(childNode, builder);
             }

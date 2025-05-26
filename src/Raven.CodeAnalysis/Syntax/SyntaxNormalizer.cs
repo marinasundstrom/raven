@@ -119,12 +119,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         foreach (var item in node.Declarators.GetWithSeparators())
         {
-            if (item.AsNode(out var node2))
+            if (item.TryGetNode(out var node2))
             {
                 newList.Add(
                     new SyntaxNodeOrToken(node2.Accept(this)!));
             }
-            else if (item.AsToken(out var token))
+            else if (item.TryGetToken(out var token))
             {
                 newList.Add(token.WithTrailingTrivia(SyntaxFactory.Space));
             }
@@ -222,12 +222,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         foreach (var item in node.Parameters.GetWithSeparators())
         {
-            if (item.AsNode(out var node2))
+            if (item.TryGetNode(out var node2))
             {
                 newList.Add(
                     new SyntaxNodeOrToken(node2.Accept(this)!));
             }
-            else if (item.AsToken(out var token))
+            else if (item.TryGetToken(out var token))
             {
                 newList.Add(token.WithTrailingTrivia(SyntaxFactory.Space));
             }

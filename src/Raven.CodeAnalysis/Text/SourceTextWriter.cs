@@ -30,11 +30,11 @@ public static class SourceTextWriter
         // Recursively write child nodes
         foreach (var child in node.ChildNodesAndTokens())
         {
-            if (child.AsToken(out var token))
+            if (child.TryGetToken(out var token))
             {
                 builder.Append(token.ToFullString());
             }
-            else if (child.AsNode(out var childNode))
+            else if (child.TryGetNode(out var childNode))
             {
                 WriteNodeToText(childNode, builder);
             }

@@ -7,3 +7,21 @@ internal class BoundIsPatternExpression : BoundExpression
 
     }
 }
+
+internal abstract class BoundPatternExpression : BoundExpression
+{
+    public BoundPatternExpression(ITypeSymbol type, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(type, null, candidateReason)
+    {
+
+    }
+
+    public virtual IEnumerable<BoundDesignatorExpression> GetDesignators() => [];
+}
+
+internal class BoundDesignatorExpression : BoundExpression
+{
+    public BoundDesignatorExpression(ILocalSymbol local, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(local.Type, local, candidateReason)
+    {
+
+    }
+}

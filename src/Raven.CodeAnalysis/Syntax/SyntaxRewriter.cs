@@ -117,12 +117,12 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
 
         foreach (var item in list.GetWithSeparators())
         {
-            if (item.AsNode(out var node))
+            if (item.TryGetNode(out var node))
             {
                 newList.Add(
                     new SyntaxNodeOrToken(node.Accept(this)!));
             }
-            else if (item.AsToken(out var token))
+            else if (item.TryGetToken(out var token))
             {
                 newList.Add(VisitToken(token));
             }
@@ -137,12 +137,12 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
 
         foreach (var item in list.GetWithSeparators())
         {
-            if (item.AsNode(out var node))
+            if (item.TryGetNode(out var node))
             {
                 newList.Add(
                     new SyntaxNodeOrToken(node.Accept(this)!));
             }
-            else if (item.AsToken(out var token))
+            else if (item.TryGetToken(out var token))
             {
                 newList.Add(VisitToken(token));
             }

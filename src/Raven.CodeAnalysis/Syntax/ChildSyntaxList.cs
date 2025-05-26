@@ -81,6 +81,8 @@ public class ChildSyntaxListItem
     private readonly GreenNode _node;
     private readonly SyntaxNode _parent;
     private readonly int _position;
+    private SyntaxToken? _token;
+    private SyntaxNode? _n;
 
     internal ChildSyntaxListItem(GreenNode node, SyntaxNode parent, int position)
     {
@@ -91,22 +93,17 @@ public class ChildSyntaxListItem
 
     public bool IsToken => _node is InternalSyntax.SyntaxToken;
     public bool IsNode => _node is InternalSyntax.SyntaxNode;
-    public SyntaxToken Token => IsToken ? new SyntaxToken(_node as InternalSyntax.SyntaxToken, _parent, _position) : default;
-    public SyntaxNode? Node
-    {
-        get
-        {
-            return IsNode ? (SyntaxNode?)SyntaxNodeCache.GetValue(_node, (s) => s.CreateRed(_parent, _position)) : null;
-        }
-    }
+
+    public SyntaxToken AsToken() => _token ??= IsToken ? new SyntaxToken(_node as InternalSyntax.SyntaxToken, _parent, _position) : default;
+    public SyntaxNode? AsNode() => _n ??= IsNode ? (SyntaxNode?)SyntaxNodeCache.GetValue(_node, (s) => s.CreateRed(_parent, _position)) : null;
 
     public SyntaxNode Parent => _parent;
 
-    public bool AsToken(out SyntaxToken token)
+    public bool TryGetToken(out SyntaxToken token)
     {
         if (IsToken)
         {
-            token = Token;
+            token = AsToken();
 
             return true;
         }
@@ -115,11 +112,11 @@ public class ChildSyntaxListItem
         return false;
     }
 
-    public bool AsNode([NotNullWhen(true)] out SyntaxNode? node)
+    public bool TryGetNode([NotNullWhen(true)] out SyntaxNode? node)
     {
         if (IsNode)
         {
-            node = Node!;
+            node = AsNode()!;
 
             return true;
         }

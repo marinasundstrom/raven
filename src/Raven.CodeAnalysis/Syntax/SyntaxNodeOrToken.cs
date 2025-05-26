@@ -34,30 +34,28 @@ public struct SyntaxNodeOrToken
     public bool IsToken => Green is InternalSyntax.SyntaxToken;
     public bool IsNode => Green is InternalSyntax.SyntaxNode;
 
-    public SyntaxToken Token => IsToken ? _token ??= new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent, _position) : default;
-    public SyntaxNode? Node
+    public SyntaxToken AsToken() => IsToken ? _token ??= new SyntaxToken(Green as InternalSyntax.SyntaxToken, _parent, _position) : default;
+
+    public SyntaxNode? AsNode()
     {
-        get
+        if (_node is not null)
         {
-            if (_node is not null)
-            {
-                return _node;
-            }
-
-            int position = _position;
-            SyntaxNode? parent = _parent;
-            GreenNode? green = Green;
-
-            return IsNode ? _node = SyntaxNodeCache.GetValue(Green, (s) => s.CreateRed(parent, position)) : default;
+            return _node;
         }
+
+        int position = _position;
+        SyntaxNode? parent = _parent;
+        GreenNode? green = Green;
+
+        return IsNode ? _node = SyntaxNodeCache.GetValue(Green, (s) => s.CreateRed(parent, position)) : default;
     }
 
 
-    public bool AsToken(out SyntaxToken token)
+    public bool TryGetToken(out SyntaxToken token)
     {
         if (IsToken)
         {
-            token = Token;
+            token = AsToken();
 
             return true;
         }
@@ -66,11 +64,11 @@ public struct SyntaxNodeOrToken
         return false;
     }
 
-    public bool AsNode([NotNullWhen(true)] out SyntaxNode? node)
+    public bool TryGetNode([NotNullWhen(true)] out SyntaxNode? node)
     {
         if (IsNode)
         {
-            node = Node!;
+            node = AsNode()!;
 
             return true;
         }
@@ -85,7 +83,7 @@ public struct SyntaxNodeOrToken
 
     public override string ToString()
     {
-        return $"{(Node?.ToFullString() ?? Token.Text)}";
+        return $"{(AsNode()?.ToFullString() ?? AsToken().Text)}";
     }
 
 }

@@ -63,7 +63,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     {
         return EnumerateItems()
             .Where(x => x.IsNode)
-            .Select(x => x.Node)
+            .Select(x => x.AsNode())
             .OfType<TNode>()
             .GetEnumerator();
     }
@@ -86,7 +86,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     {
         return EnumerateItems()
                 .Where(x => x.IsToken)
-                .Select(x => x.Token)
+                .Select(x => x.AsToken())
                 .OfType<SyntaxToken>();
     }
 

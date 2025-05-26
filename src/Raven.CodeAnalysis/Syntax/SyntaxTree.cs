@@ -56,7 +56,7 @@ public class SyntaxTree
 
     public IEnumerable<Diagnostic> GetDiagnostics(SyntaxNodeOrToken syntaxNodeOrToken)
     {
-        TextSpan span = syntaxNodeOrToken.Node?.FullSpan ?? syntaxNodeOrToken.Token.FullSpan;
+        TextSpan span = syntaxNodeOrToken.AsNode()?.FullSpan ?? syntaxNodeOrToken.AsToken().FullSpan;
 
         return GetDiagnostics().Where(x => x.Location.SourceSpan.Contains(span));
     }
