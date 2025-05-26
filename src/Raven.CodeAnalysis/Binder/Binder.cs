@@ -154,4 +154,10 @@ internal abstract class Binder
     {
         return LookupSymbol(name);
     }
+
+    public virtual BoundExpression BindLocalFunction(LocalFunctionStatementSyntax localFunction)
+    {
+        return ParentBinder?.BindLocalFunction(localFunction)
+             ?? throw new NotImplementedException("BindLocalFunction not implemented in root binder.");
+    }
 }

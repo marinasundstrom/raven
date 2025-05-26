@@ -48,7 +48,7 @@ internal class TypeGenerator
 
     public void GenerateMemberILBodies()
     {
-        foreach (var methodGenerators in _methodGenerators.Values)
+        foreach (var methodGenerators in _methodGenerators.Values.ToList())
         {
             methodGenerators.GenerateBody();
         }
@@ -57,5 +57,10 @@ internal class TypeGenerator
     public Type CreateType()
     {
         return TypeBuilder!.CreateType();
+    }
+
+    public void Add(IMethodSymbol methodSymbol, MethodGenerator methodGenerator)
+    {
+        _methodGenerators[methodSymbol] = methodGenerator;
     }
 }

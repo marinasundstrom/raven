@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Symbols;
@@ -484,7 +485,7 @@ internal class ExpressionGenerator : Generator
         // Resolve target identifier or access
         // If method or delegate, then invoke
 
-        var target = GetSymbolInfo(invocationExpression).Symbol as PEMethodSymbol;
+        var target = GetSymbolInfo(invocationExpression).Symbol as IMethodSymbol;
 
         if (!target?.IsStatic ?? false)
         {
@@ -543,17 +544,17 @@ internal class ExpressionGenerator : Generator
 
         if (target?.IsStatic ?? false)
         {
-            ILGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
         else
         {
             if (target.ContainingType.IsValueType)
             {
-                ILGenerator.Emit(OpCodes.Call, target.GetMethodInfo());
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
             }
             else
             {
-                ILGenerator.Emit(OpCodes.Callvirt, target.GetMethodInfo());
+                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(target));
             }
         }
     }
@@ -802,5 +803,16 @@ internal class ExpressionGenerator : Generator
     private void GenerateStatement(StatementSyntax statement)
     {
         new StatementGenerator(this, statement).Generate();
+    }
+
+    public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
+    {
+        if (methodSymbol is PEMethodSymbol pEMethodSymbol)
+            return pEMethodSymbol.GetMethodInfo();
+
+        if (methodSymbol is SourceMethodSymbol sourceMethodSymbol)
+            return MethodGenerator.TypeGenerator.MethodGenerators.First(x => x.MethodSymbol == sourceMethodSymbol).MethodBuilder;
+
+        throw new InvalidOperationException();
     }
 }

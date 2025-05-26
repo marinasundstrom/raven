@@ -25,6 +25,7 @@ class BlockBinder : Binder
             VariableDeclaratorSyntax v => BindLocalDeclaration(v),
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
             SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation),
+            LocalFunctionStatementSyntax localFunctionStatement => BindLocalFunction(localFunctionStatement).Symbol,
             _ => base.BindDeclaredSymbol(node)
         };
     }
@@ -66,6 +67,9 @@ class BlockBinder : Binder
     {
         if (_locals.TryGetValue(name, out var sym))
             return sym;
+
+        if (_localFunctions.TryGetValue(name, out var func))
+            return func;
 
         var parentSymbol = base.LookupSymbol(name);
         if (parentSymbol != null)
@@ -143,17 +147,41 @@ class BlockBinder : Binder
         {
             LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindLocalDeclaration(localDeclaration.Declaration.Declarators[0])),
             ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
+            LocalFunctionStatementSyntax localFunction => BindLocalFunction(localFunction),
+            ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             EmptyStatementSyntax emptyStatement => new BoundVoidExpression(Compilation),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
     }
 
+    private BoundExpression BindReturnStatement(ReturnStatementSyntax returnStatement)
+    {
+        var expr = BindExpression(returnStatement.Expression);
+        return new BoundReturnExpression(expr.Type);
+    }
+
+    public Dictionary<string, IMethodSymbol> _localFunctions = new();
+
     private BoundExpression BindBlock(BlockSyntax block)
     {
-        var blockBinder = Compilation.BinderFactory.GetBinder(block, this);
-        var statements = block.Statements.Select(blockBinder.BindStatement).ToArray();
+        // Step 1: Pre-declare all local functions
+        foreach (var stmt in block.Statements)
+        {
+            if (stmt is LocalFunctionStatementSyntax localFunc)
+            {
+                var localFuncBinder = Compilation.BinderFactory.GetBinder(localFunc, this);
+                if (localFuncBinder is LocalFunctionBinder lfBinder)
+                {
+                    var symbol = lfBinder.GetMethodSymbol();
+                    _localFunctions[symbol.Name] = symbol;
+                }
+            }
+        }
 
-        return new BoundBlockExpression(statements);
+        // Step 2: Bind all statements
+        var boundStatements = block.Statements.Select(BindStatement).ToArray();
+
+        return new BoundBlockExpression(boundStatements);
     }
 
     public override BoundExpression BindExpression(ExpressionSyntax syntax) => syntax switch
@@ -807,5 +835,24 @@ class BlockBinder : Binder
             if (seen.Add(member.Name))
                 yield return member;
         }
+    }
+
+    public override BoundExpression BindLocalFunction(LocalFunctionStatementSyntax localFunction)
+    {
+        // Get the binder from the factory
+        var binder = Compilation.BinderFactory.GetBinder(localFunction, this);
+
+        if (binder is not LocalFunctionBinder localFunctionBinder)
+            throw new InvalidOperationException("Expected LocalFunctionBinder");
+
+        // Register the symbol in the current scope
+        var symbol = localFunctionBinder.GetMethodSymbol();
+
+        // Bind the body with method binder
+        var methodBinder = localFunctionBinder.GetMethodBodyBinder();
+        var blockBinder = Compilation.BinderFactory.GetBinder(localFunction.Body, methodBinder);
+        var body = blockBinder.BindExpression(localFunction.Body);
+
+        return new BoundLocalFunctionExpression(symbol); // Possibly include body here if needed
     }
 }

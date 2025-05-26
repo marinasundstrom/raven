@@ -1,5 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using System;
+
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class StatementSyntaxParser : SyntaxParser
@@ -8,7 +10,7 @@ internal class StatementSyntaxParser : SyntaxParser
     {
 
     }
-    
+
     public StatementSyntax ParseStatement()
     {
         var token = PeekToken();
@@ -17,6 +19,10 @@ internal class StatementSyntaxParser : SyntaxParser
 
         switch (token.Kind)
         {
+            case SyntaxKind.FunKeyword:
+                statement = ParseFunctionSyntax();
+                break;
+
             case SyntaxKind.ReturnKeyword:
                 statement = ParseReturnStatementSyntax();
                 break;
@@ -33,6 +39,52 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return statement;
+    }
+
+    private StatementSyntax? ParseFunctionSyntax()
+    {
+        var funKeyword = ReadToken();
+
+        var name = new NameSyntaxParser(this).ParseSimpleName();
+
+        var parameters = ParseParameterList();
+
+        var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
+
+        var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
+
+        return LocalFunctionStatement(funKeyword, name, parameters, returnParameterAnnotation, block);
+    }
+
+    private ParameterListSyntax ParseParameterList()
+    {
+        var openParenToken = ReadToken();
+
+        List<GreenNode> parameterList = new List<GreenNode>();
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.IsKind(SyntaxKind.CloseParenToken))
+                break;
+
+            var name = new NameSyntaxParser(this).ParseSimpleName();
+            var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
+
+            parameterList.Add(Parameter(name, typeAnnotation));
+
+            var commaToken = PeekToken();
+            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            {
+                ReadToken();
+                parameterList.Add(commaToken);
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return ParameterList(openParenToken, List(parameterList.ToArray()), closeParenToken);
     }
 
     private StatementSyntax? ParseReturnStatementSyntax()

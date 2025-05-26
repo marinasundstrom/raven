@@ -200,16 +200,16 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        var returnType = (TypeSyntax)VisitType(node.ReturnType)!
-           .WithTrailingTrivia(SyntaxFactory.Space);
-
         var name = (IdentifierNameSyntax)VisitIdentifierName(node.Name)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
         var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(returnType, name, parameterList, (BlockSyntax?)VisitBlock(node.Body))
+        var returnType = (TypeAnnotationSyntax)VisitTypeAnnotation(node.ReturnType)!
+            .WithTrailingTrivia(SyntaxFactory.Space);
+
+        return node.Update(node.FunKeyword, name, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed

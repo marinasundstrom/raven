@@ -1,4 +1,5 @@
 
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -6,11 +7,23 @@ namespace Raven.CodeAnalysis;
 class TopLevelBinder : BlockBinder
 {
     public TopLevelBinder(Binder parent, IMethodSymbol methodSymbol) : base(methodSymbol, parent) { }
-    
+
     public IMethodSymbol MainMethod => (IMethodSymbol)ContainingSymbol;
 
     public void BindGlobalStatement(GlobalStatementSyntax stmt)
     {
+        if (stmt.Statement is LocalFunctionStatementSyntax localFunction)
+        {
+            var localFuncBinder = Compilation.BinderFactory.GetBinder(localFunction, this);
+            if (localFuncBinder is LocalFunctionBinder lfBinder)
+            {
+                var symbol = lfBinder.GetMethodSymbol();
+                DeclareLocalFunction(symbol);
+            }
+            BindStatement(localFunction);
+            return;
+        }
+
         BindStatement(stmt.Statement);
     }
 
@@ -30,5 +43,10 @@ class TopLevelBinder : BlockBinder
     public IEnumerable<IParameterSymbol> GetParameters()
     {
         return MainMethod.Parameters;
+    }
+
+    public void DeclareLocalFunction(IMethodSymbol symbol)
+    {
+        _localFunctions[symbol.Name] = symbol;
     }
 }

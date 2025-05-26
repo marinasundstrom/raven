@@ -56,9 +56,21 @@ internal class MethodBodyGenerator
         switch (syntax)
         {
             case CompilationUnitSyntax compilationUnit:
+                foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
+                {
+                    GenerateLocalFunction(localFunctionStmt);
+                }
+
                 var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
                     .Select(x => x.Statement);
                 GenerateIL(statements);
+                break;
+
+            case LocalFunctionStatementSyntax localFunctionStatement:
+                if (localFunctionStatement.Body != null)
+                    GenerateIL(localFunctionStatement.Body.Statements.ToList());
+                else
+                    ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             case MethodDeclarationSyntax methodDeclaration:
@@ -71,6 +83,18 @@ internal class MethodBodyGenerator
             default:
                 throw new InvalidOperationException($"Unsupported syntax node in MethodBodyGenerator: {syntax.GetType().Name}");
         }
+    }
+
+    private void GenerateLocalFunction(LocalFunctionStatementSyntax localFunctionStmt)
+    {
+        var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
+        if (methodSymbol is null)
+            return;
+
+        var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol);
+        MethodGenerator.TypeGenerator.Add(methodSymbol, methodGenerator);
+        methodGenerator.DefineMethodBuilder();
+        methodGenerator.GenerateBody();
     }
 
     private void GenerateIL(IEnumerable<StatementSyntax> statements)

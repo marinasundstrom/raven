@@ -46,10 +46,11 @@ class BinderFactory
         {
             NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, actualParentBinder),
             MethodDeclarationSyntax => new MethodBinder(actualParentBinder),
-            BlockSyntax => new LocalScopeBinder(actualParentBinder),
+            BlockSyntax => actualParentBinder is MethodBinder ? new BlockBinder(null, actualParentBinder) : new LocalScopeBinder(actualParentBinder),
             IfExpressionSyntax expr => new LocalScopeBinder(actualParentBinder),
             ElseClauseSyntax elseClause => new LocalScopeBinder(actualParentBinder),
             WhileExpressionSyntax expr => new LocalScopeBinder(actualParentBinder),
+            LocalFunctionStatementSyntax localFunc => new LocalFunctionBinder(actualParentBinder, localFunc),
             _ => actualParentBinder
         };
 
@@ -110,7 +111,21 @@ class BinderFactory
 
         var topLevelBinder = new TopLevelBinder(importBinder, mainMethodSymbol);
 
-        // 🔥 Eagerly bind all top-level statements
+        // 🟢 Step 1: Predeclare all local functions
+        foreach (var stmt in cu.Members.OfType<GlobalStatementSyntax>())
+        {
+            if (stmt.Statement is LocalFunctionStatementSyntax localFunc)
+            {
+                var binder = GetBinder(localFunc, topLevelBinder);
+                if (binder is LocalFunctionBinder lfBinder)
+                {
+                    var symbol = lfBinder.GetMethodSymbol();
+                    topLevelBinder.DeclareLocalFunction(symbol);
+                }
+            }
+        }
+
+        // 🟢 Step 2: Bind all statements
         foreach (var stmt in cu.Members.OfType<GlobalStatementSyntax>())
         {
             topLevelBinder.BindGlobalStatement(stmt);

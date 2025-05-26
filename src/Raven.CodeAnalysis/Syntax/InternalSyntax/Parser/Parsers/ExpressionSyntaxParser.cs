@@ -18,7 +18,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return ParseOrExpression() ?? new ExpressionSyntax.Missing();
     }
 
-    private BlockSyntax? ParseBlockSyntax()
+    public BlockSyntax? ParseBlockSyntax()
     {
         if (ConsumeToken(SyntaxKind.OpenBraceToken, out var openBraceToken))
         {

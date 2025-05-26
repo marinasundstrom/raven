@@ -1,11 +1,9 @@
 import System;
 
-let unionVal : int | string = 2;
+let i = test(2);
 
-if unionVal is string str {
-    Console.WriteLine(str);
-}
+Console.WriteLine(i);
 
-if unionVal is int i {
-    Console.WriteLine(i);
+fun test(x : int) : int {
+    return x + 2;
 }

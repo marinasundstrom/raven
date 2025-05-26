@@ -241,7 +241,7 @@ public class Compilation
             ITypeSymbol typeSymbol = null!;
 
             var symbol = new SourceMethodSymbol(
-                methodDeclaration.Name.ToString(), typeSymbol, [], null!, null, null,
+                methodDeclaration.Name.Identifier.Text.ToString(), typeSymbol, [], null!, null, null,
                 locations, references);
         }
     }

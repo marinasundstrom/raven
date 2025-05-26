@@ -24,6 +24,7 @@ public static class SyntaxFacts
         { "not", SyntaxKind.NotKeyword },
         { "and", SyntaxKind.AndKeyword },
         { "or", SyntaxKind.OrKeyword },
+        { "fun", SyntaxKind.FunKeyword },
     };
 
     public static string? GetSyntaxTokenText(this SyntaxKind kind)

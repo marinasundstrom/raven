@@ -29,13 +29,18 @@ public enum SyntaxKind
 
     NamespaceDeclaration,
     FileScopedNamespaceDeclaration,
+
     MethodDeclaration,
     ParameterList,
     Parameter,
+
     GlobalStatement,
 
     ExpressionStatement,
     ReturnStatement,
+    LocalFunctionStatement,
+    EmptyStatement,
+
     IfExpression,
     ElseClause,
     WhileExpression,
@@ -115,6 +120,7 @@ public enum SyntaxKind
     NotKeyword,
     AndKeyword,
     OrKeyword,
+    FunKeyword,
 
 
     OrToken,
@@ -166,5 +172,5 @@ public enum SyntaxKind
     EndOfLineToken,
     CarriageReturnToken,
     EndOfFileToken,
-    EmptyStatement
+
 }

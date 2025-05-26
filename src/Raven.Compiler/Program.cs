@@ -45,7 +45,7 @@ var semanticModel = compilation.GetSemanticModel(syntaxTree);
 var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
 var typeSymbol = methodSymbol?.ContainingType;
 
-var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
+//var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
 
 /*
 var result1 = semanticModel.AnalyzeControlFlow(root.DescendantNodes().OfType<ExpressionStatementSyntax>().ElementAt(2));

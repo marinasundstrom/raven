@@ -41,10 +41,11 @@ public partial class SemanticModel
     {
         var root = SyntaxTree.GetRoot();
 
+        var topLevelBinder = Compilation.BinderFactory.GetBinder(root) as TopLevelBinder;
+
         foreach (var globalStmt in root.DescendantNodes().OfType<GlobalStatementSyntax>())
         {
-            var binder = Compilation.BinderFactory.GetBinder(globalStmt);
-            binder.BindStatement(globalStmt.Statement);
+            topLevelBinder.BindGlobalStatement(globalStmt);
         }
     }
 

@@ -4,35 +4,21 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class MethodDeclarationSyntax : MemberDeclarationSyntax
 {
     public MethodDeclarationSyntax(
-        TypeSyntax returnType,
+        SyntaxToken funKeyword,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
+        TypeAnnotationSyntax typeAnnotation,
+        BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.MethodDeclaration,
               [
-                      returnType ?? throw new ArgumentNullException(nameof(returnType)),
+                      funKeyword ?? throw new ArgumentNullException(nameof(name)),
                       name ?? throw new ArgumentNullException(nameof(name)),
                       parameters ?? throw new ArgumentNullException(nameof(parameters)),
-                      null
+                      typeAnnotation ?? throw new ArgumentNullException(nameof(typeAnnotation)),
+                      body ?? throw new ArgumentNullException(nameof(body)),
               ],
               diagnostics)
-    {
-    }
-
-    public MethodDeclarationSyntax(
-        TypeSyntax returnType,
-        IdentifierNameSyntax name,
-        ParameterListSyntax parameters,
-        BlockSyntax body,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-    : base(SyntaxKind.MethodDeclaration,
-          [
-                returnType,
-                name,
-                parameters,
-                body
-          ],
-          diagnostics)
     {
     }
 }
@@ -40,10 +26,45 @@ internal partial class MethodDeclarationSyntax : MemberDeclarationSyntax
 internal static partial class SyntaxFactory
 {
     public static MethodDeclarationSyntax MethodDeclaration(
-        TypeSyntax returnType,
+        SyntaxToken funKeyword,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
+        TypeAnnotationSyntax typeAnnotation,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(returnType, name, parameters, body, diagnostics);
+        => new(funKeyword, name, parameters, typeAnnotation, body, diagnostics);
+}
+
+internal partial class LocalFunctionStatementSyntax : StatementSyntax
+{
+    public LocalFunctionStatementSyntax(
+        SyntaxToken funKeyword,
+        IdentifierNameSyntax name,
+        ParameterListSyntax parameters,
+        TypeAnnotationSyntax typeAnnotation,
+        BlockSyntax body,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        : base(SyntaxKind.LocalFunctionStatement,
+              [
+                     funKeyword ?? throw new ArgumentNullException(nameof(name)),
+                      name ?? throw new ArgumentNullException(nameof(name)),
+                      parameters ?? throw new ArgumentNullException(nameof(parameters)),
+                      typeAnnotation ?? throw new ArgumentNullException(nameof(typeAnnotation)),
+                      body ?? throw new ArgumentNullException(nameof(body)),
+              ],
+              diagnostics)
+    {
+    }
+}
+
+internal static partial class SyntaxFactory
+{
+    public static LocalFunctionStatementSyntax LocalFunctionStatement(
+        SyntaxToken funKeyword,
+        IdentifierNameSyntax name,
+        ParameterListSyntax parameters,
+        TypeAnnotationSyntax typeAnnotation,
+        BlockSyntax body,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        => new(funKeyword, name, parameters, typeAnnotation, body, diagnostics);
 }

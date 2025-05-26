@@ -1,5 +1,3 @@
-using Raven.CodeAnalysis.Syntax;
-
 namespace Raven.CodeAnalysis;
 
 class MethodBinder : Binder
@@ -14,13 +12,15 @@ class MethodBinder : Binder
             _parameters[param.Name] = param;
     }
 
-    public override SymbolInfo BindSymbol(SyntaxNode node)
+    public override ISymbol? LookupSymbol(string name)
     {
-        if (node is IdentifierNameSyntax identifier)
-        {
-            if (_parameters.TryGetValue(identifier.Identifier.Text, out var param))
-                return new SymbolInfo(param);
-        }
-        return base.BindSymbol(node);
+        if (_parameters.TryGetValue(name, out var sym))
+            return sym;
+
+        var parentSymbol = base.LookupSymbol(name);
+        if (parentSymbol != null)
+            return parentSymbol;
+
+        return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
     }
 }

@@ -13,7 +13,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
         var stringType = type.ContainingAssembly.GetTypeByMetadataName("System.String");
         var stringArrayType = new ArrayTypeSymbol(arrayType, stringType, arrayType.ContainingSymbol, null, arrayType.ContainingNamespace, []);
 
-        Parameters = [new SourceParameterSymbol("args", stringArrayType, this, type, type.ContainingNamespace, location, declaringSyntaxReferences)];
+        SetParameters([new SourceParameterSymbol("args", stringArrayType, this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
     }
 
     public override bool IsStatic => true;
