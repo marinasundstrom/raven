@@ -1,8 +1,11 @@
 import System;
 
-let i = a(2);
+let y : int | string = 2;
 
-Console.WriteLine(i);
+if y is int o {
+    let i = a(o);
+    Console.WriteLine(i);
+}
 
 fun b(x : int) : int {
     return x + 3;
