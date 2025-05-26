@@ -1,5 +1,7 @@
 # Symbol resolution
 
+From the Semantic model you can resolve symbols using the following methods.
+
 ## GetSymbolInfo
 
 Gets the referenced symbol for an expression node.
