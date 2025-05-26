@@ -1,9 +1,13 @@
 import System;
 
-let i = test(2);
+let i = a(2);
 
 Console.WriteLine(i);
 
-fun test(x : int) : int {
-    return x + 2;
+fun b(x : int) : int {
+    return x + 3;
+}
+
+fun a(x : int) : int {
+    return b(x) + 2;
 }
