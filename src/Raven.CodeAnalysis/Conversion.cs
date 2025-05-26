@@ -2,6 +2,8 @@ namespace Raven.CodeAnalysis;
 
 public struct Conversion
 {
+    public bool Exists { get; }
+
     public bool IsImplicit { get; }
     public bool IsExplicit => !IsImplicit;
     public bool IsIdentity { get; }

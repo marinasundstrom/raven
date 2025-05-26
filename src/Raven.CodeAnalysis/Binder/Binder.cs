@@ -124,6 +124,12 @@ internal abstract class Binder
             typeSyntax = nb.ElementType;
         }
 
+        if (typeSyntax is UnionTypeSyntax ut)
+        {
+            var types = ut.Types.Select(x => ResolveType(x)).ToArray();
+            return new UnionTypeSymbol(types, null, null, null, []);
+        }
+
         if (typeSyntax is PredefinedTypeSyntax predefinedTypeSyntax)
         {
             return Compilation.ResolvePredefinedType(predefinedTypeSyntax);

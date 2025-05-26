@@ -255,6 +255,11 @@ public interface IArrayTypeSymbol : ITypeSymbol
     public int Rank { get; }
 }
 
+public interface IUnionTypeSymbol : ITypeSymbol
+{
+    IEnumerable<ITypeSymbol> Types { get; }
+}
+
 public interface ITypeParameterSymbol : ISymbol
 {
 }

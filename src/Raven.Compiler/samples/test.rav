@@ -5,7 +5,11 @@ let input = Console.ReadLine();
 let f = "Foo bar";
 let f2 = true;
 let f3 : Object? = null;
-let f4 : int | string;
+let unionVal : int | string = 2;
+
+if unionVal is string str {
+
+}
 
 var i = 0;
 while i < args.Length {

@@ -27,7 +27,10 @@ internal static partial class SyntaxFactory
     public static readonly SyntaxToken NewKeyword = new SyntaxToken(SyntaxKind.NewKeyword, "new");
     public static readonly SyntaxToken TrueKeyword = new SyntaxToken(SyntaxKind.TrueKeyword, "true");
     public static readonly SyntaxToken FalseKeyword = new SyntaxToken(SyntaxKind.FalseKeyword, "false");
+    public static readonly SyntaxToken IsKeyword = new SyntaxToken(SyntaxKind.NotKeyword, "is");
     public static readonly SyntaxToken NotKeyword = new SyntaxToken(SyntaxKind.NotKeyword, "not");
+    public static readonly SyntaxToken AndKeyword = new SyntaxToken(SyntaxKind.NotKeyword, "and");
+    public static readonly SyntaxToken OrKeyword = new SyntaxToken(SyntaxKind.OrKeyword, "and");
 
     public static readonly SyntaxToken OrToken = new SyntaxToken(SyntaxKind.OrToken, "|");
     public static readonly SyntaxToken AndToken = new SyntaxToken(SyntaxKind.AndToken, "&");

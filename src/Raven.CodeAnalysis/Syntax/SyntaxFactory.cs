@@ -24,7 +24,10 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken NewKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.NewKeyword;
     public static readonly SyntaxToken TrueKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.TrueKeyword;
     public static readonly SyntaxToken FalseKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.FalseKeyword;
+    public static readonly SyntaxToken IsKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.IsKeyword;
     public static readonly SyntaxToken NotKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.NotKeyword;
+    public static readonly SyntaxToken AndKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.AndKeyword;
+    public static readonly SyntaxToken OrKeyword = (SyntaxToken)InternalSyntax.SyntaxFactory.OrKeyword;
 
     public static readonly SyntaxToken OrToken = (SyntaxToken)InternalSyntax.SyntaxFactory.OrToken;
     public static readonly SyntaxToken AndToken = (SyntaxToken)InternalSyntax.SyntaxFactory.AndToken;

@@ -1,5 +1,3 @@
-using System.Reflection.Metadata;
-
 namespace Raven.CodeAnalysis.Syntax;
 
 public abstract partial class TypeSyntax : ExpressionSyntax

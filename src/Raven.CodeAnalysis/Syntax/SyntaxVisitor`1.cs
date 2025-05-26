@@ -17,4 +17,17 @@ public abstract partial class SyntaxVisitor<TResult>
     {
         return default!;
     }
+
+    // WORKAROUND
+
+    public TResult VisitPattern(PatternSyntax node)
+    {
+        return default!;
+
+    }
+
+    public TResult VisitVariableDesignation(VariableDesignationSyntax node)
+    {
+        return default!;
+    }
 }

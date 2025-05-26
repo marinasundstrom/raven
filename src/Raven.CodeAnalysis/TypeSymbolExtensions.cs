@@ -37,6 +37,12 @@ public static class TypeSymbolExtensions
             return Type.GetType(fullyQualifiedName, throwOnError: false)!;
         }
 
+        // Handle dynamic type
+        if (typeSymbol is IUnionTypeSymbol)
+        {
+            return GetFrameworkType(SpecialType.System_Object, compilation);
+        }
+
         /*
         // Handle dynamic type
         if (typeSymbol is IDynamicTypeSymbol)

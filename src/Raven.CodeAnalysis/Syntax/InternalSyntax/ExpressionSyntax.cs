@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-internal abstract class ExpressionSyntax : SyntaxNode
+internal abstract class ExpressionSyntax : ExpressionOrPatternSyntax
 {
     public ExpressionSyntax(
         SyntaxKind kind,

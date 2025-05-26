@@ -20,10 +20,10 @@ public static class SyntaxFacts
         { "new", SyntaxKind.NewKeyword },
         { "true", SyntaxKind.TrueKeyword },
         { "false", SyntaxKind.FalseKeyword },
-        //{ "is", SyntaxKind.IsKeyword },
+        { "is", SyntaxKind.IsKeyword },
         { "not", SyntaxKind.NotKeyword },
-        //{ "and", SyntaxKind.AndKeyword },
-        //{ "or", SyntaxKind.OrKeyword },
+        { "and", SyntaxKind.AndKeyword },
+        { "or", SyntaxKind.OrKeyword },
     };
 
     public static string? GetSyntaxTokenText(this SyntaxKind kind)

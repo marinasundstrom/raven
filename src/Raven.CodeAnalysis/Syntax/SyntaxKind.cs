@@ -71,6 +71,11 @@ public enum SyntaxKind
     LogicalAndExpression,
     LogicalOrExpression,
 
+    IsPatternExpression,
+    DeclarationPatternSyntax, // Pattern
+    UnaryPatternSyntax,
+    SingleVariableDesignation, //VariableDesignation
+
     SimpleMemberAccessExpression,
     //PointeMemberAccessExpression,
     InvocationExpression,
@@ -104,7 +109,11 @@ public enum SyntaxKind
     NewKeyword,
     TrueKeyword,
     FalseKeyword,
+    IsKeyword,
     NotKeyword,
+    AndKeyword,
+    OrKeyword,
+
 
     OrToken,
     AndToken,

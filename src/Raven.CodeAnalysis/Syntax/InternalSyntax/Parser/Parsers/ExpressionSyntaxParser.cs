@@ -147,6 +147,17 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 case SyntaxKind.NotEqualsToken:
                     ReadToken();
                     break;
+
+
+                case SyntaxKind.IsKeyword:
+                    {
+                        ReadToken(); // consume 'is'
+
+                        var pattern = new PatternSyntaxParser(this).ParsePattern();
+
+                        return IsPatternExpression(expr, token, pattern);
+                    }
+
                 default:
                     return expr;
             }

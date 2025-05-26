@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Security.Cryptography.X509Certificates;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -158,9 +159,56 @@ class BlockBinder : Binder
         IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
         WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
         BlockSyntax block => BindBlock(block),
+        IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
         ExpressionSyntax.Missing missing => BindMissingExpression(missing),
         _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
     };
+
+    private BoundExpression BindIsPatternExpression(IsPatternExpressionSyntax isPatternExpression)
+    {
+        var expression = BindExpression(isPatternExpression.Expression);
+
+        if (expression is BoundErrorExpression boundErrorExpression)
+            return boundErrorExpression;
+
+        if (isPatternExpression.Pattern is DeclarationPatternSyntax declarationPattern && declarationPattern.Designation is SingleVariableDesignationSyntax singleVariableDesignation)
+        {
+            var type = ResolveType(declarationPattern.Type);
+
+            if (expression.Type is IUnionTypeSymbol unionType)
+            {
+                var isCompatible = unionType.Types.Any(x => x.Equals(type, SymbolEqualityComparer.Default));
+            }
+            else
+            {
+                var conversion = Compilation.ClassifyConversion(expression.Type, type);
+                if (!conversion.Exists && conversion.IsImplicit)
+                {
+                    //Error
+                }
+            }
+
+            var name = singleVariableDesignation.Identifier.Text;
+
+            var symbol = new SourceLocalSymbol(
+                name,
+                type,
+                false,
+                _containingSymbol,
+                _containingSymbol.ContainingType as INamedTypeSymbol,
+                _containingSymbol?.ContainingNamespace,
+                [singleVariableDesignation.GetLocation()],
+                [singleVariableDesignation.GetReference()]);
+
+            //DeclareSymbol(singleVariableDesignation.Identifier.Text, symbol);
+            SymbolTable[name] = symbol;
+
+            return new BoundIsPatternExpression(symbol, BoundExpressionReason.NotFound);
+
+        }
+
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
 
     private BoundExpression BindMissingExpression(ExpressionSyntax.Missing missing)
     {
