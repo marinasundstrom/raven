@@ -135,6 +135,68 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Cgt_Un);                  // bool: not-null
             }
         }
+        else if (pattern is UnaryPatternSyntax unaryPatternSyntax)
+        {
+            GeneratePattern(unaryPatternSyntax.Pattern);
+
+            if (unaryPatternSyntax.IsKind(SyntaxKind.NotPattern))
+            {
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq); // logical NOT
+            }
+            else
+            {
+                throw new NotSupportedException("Unsupported unary pattern kind");
+            }
+        }
+        else if (pattern is BinaryPatternSyntax binaryPattern)
+        {
+            var labelFail = ILGenerator.DefineLabel();
+            var labelDone = ILGenerator.DefineLabel();
+
+            if (binaryPattern.IsKind(SyntaxKind.AndPattern))
+            {
+                GeneratePattern(binaryPattern.Left);
+                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+
+                GeneratePattern(binaryPattern.Right);
+                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                ILGenerator.Emit(OpCodes.Br_S, labelDone);
+
+                ILGenerator.MarkLabel(labelFail);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+                ILGenerator.MarkLabel(labelDone);
+            }
+            else if (binaryPattern.IsKind(SyntaxKind.OrPattern))
+            {
+                var labelTrue = ILGenerator.DefineLabel();
+
+                GeneratePattern(binaryPattern.Left);
+                ILGenerator.Emit(OpCodes.Brtrue_S, labelTrue);
+
+                GeneratePattern(binaryPattern.Right);
+                ILGenerator.Emit(OpCodes.Brtrue_S, labelTrue);
+
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Br_S, labelDone);
+
+                ILGenerator.MarkLabel(labelTrue);
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
+
+                ILGenerator.MarkLabel(labelDone);
+            }
+            else
+            {
+                throw new NotSupportedException("Unsupported binary pattern kind");
+            }
+        }
+        else
+        {
+            throw new NotSupportedException("Unsupported pattern");
+        }
     }
 
     private LocalBuilder GetLocal(VariableDesignationSyntax designation)
