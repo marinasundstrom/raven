@@ -1,7 +1,8 @@
 import System;
 
+let u = 2;
 let x = 1 + 2;
-let y = if x > 2 { 42; } else { true; }
+let y = if x > 2 { 40 + u; } else { true; }
 
 if y is int o {
     Console.WriteLine(o);
