@@ -37,6 +37,16 @@ internal class MethodGenerator
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {
             var methodBuilder = MethodBuilder.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
+
+            if (parameterSymbol.Type.IsUnion)
+            {
+                var types = (parameterSymbol.Type as IUnionTypeSymbol).Types.Select(x => x.GetClrType(Compilation)).ToArray();
+                var construtor = TypeGenerator.CodeGen.TypeUnionAttributeType.GetConstructor(new[] { typeof(Type[]) });
+                CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(construtor, [types]);
+                methodBuilder.SetCustomAttribute(customAttributeBuilder);
+
+            }
+
             _parameterBuilders[parameterSymbol] = methodBuilder;
             i++;
         }

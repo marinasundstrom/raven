@@ -22,6 +22,8 @@ internal class CodeGenerator
 
     private MethodBuilder EntryPoint { get; set; }
 
+    public Type TypeUnionAttributeType { get; private set; }
+
     public CodeGenerator(Compilation compilation)
     {
         _compilation = compilation;
@@ -42,6 +44,8 @@ internal class CodeGenerator
         ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
         var globalNamespace = _compilation.SourceGlobalNamespace;
+
+        CreateTypeUnionAttribute();
 
         DefineTypeBuilders();
 
@@ -76,6 +80,77 @@ internal class CodeGenerator
         peBuilder.Serialize(peBlob);
 
         peBlob.WriteContentTo(peStream);
+    }
+
+    private void CreateTypeUnionAttribute()
+    {
+        // Define the attribute class
+        var attrBuilder = ModuleBuilder.DefineType(
+            "TypeUnionAttribute",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            typeof(Attribute));
+
+        // Mark as AttributeUsage (optional)
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor(new[] { typeof(AttributeTargets) });
+        var attrUsageBuilder = new CustomAttributeBuilder(attrUsageCtor, new object[] { AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.ReturnValue | AttributeTargets.Property });
+        attrBuilder.SetCustomAttribute(attrUsageBuilder);
+
+        // Define a private readonly field: private readonly Type[] _types;
+        var typesField = attrBuilder.DefineField(
+            "_types",
+            typeof(Type[]),
+            FieldAttributes.Private | FieldAttributes.InitOnly);
+
+        // Define the public property: public Type[] Types { get; }
+        var propBuilder = attrBuilder.DefineProperty(
+            "Types",
+            PropertyAttributes.None,
+            typeof(Type[]),
+            null);
+
+        var getterMethod = attrBuilder.DefineMethod(
+            "get_Types",
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
+            typeof(Type[]),
+            Type.EmptyTypes);
+
+        var ilGet = getterMethod.GetILGenerator();
+        ilGet.Emit(OpCodes.Ldarg_0); // this
+        ilGet.Emit(OpCodes.Ldfld, typesField); // _types
+        ilGet.Emit(OpCodes.Ret);
+
+        // Attach the getter to the property
+        propBuilder.SetGetMethod(getterMethod);
+
+        // Define the constructor: public TypeUnionAttribute(params Type[] types)
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            new[] { typeof(Type[]) });
+
+        // Add [ParamArray] attribute to the parameter
+        var paramArrayAttrCtor = typeof(ParamArrayAttribute).GetConstructor(Type.EmptyTypes);
+        var paramBuilder = ctorBuilder.DefineParameter(1, ParameterAttributes.None, "types");
+        var paramArrayAttr = new CustomAttributeBuilder(paramArrayAttrCtor, Array.Empty<object>());
+        paramBuilder.SetCustomAttribute(paramArrayAttr);
+
+        // Generate constructor body
+        var ilCtor = ctorBuilder.GetILGenerator();
+        var attributeCtor = typeof(Attribute).GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        if (attributeCtor is null)
+            throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        ilCtor.Emit(OpCodes.Ldarg_0);
+        ilCtor.Emit(OpCodes.Call, attributeCtor);
+
+        ilCtor.Emit(OpCodes.Ldarg_0); // this
+        ilCtor.Emit(OpCodes.Ldarg_1); // types (argument)
+        ilCtor.Emit(OpCodes.Stfld, typesField); // this._types = types
+
+        ilCtor.Emit(OpCodes.Ret);
+
+        // Create the type
+        TypeUnionAttributeType = attrBuilder.CreateType();
     }
 
     private void DefineTypeBuilders()

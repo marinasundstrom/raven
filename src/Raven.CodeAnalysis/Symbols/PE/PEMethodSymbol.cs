@@ -51,6 +51,13 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             {
                 var t = PEContainingModule.GetType(param.ParameterType);
 
+                var unionAttribute = param.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
+                if (unionAttribute is not null)
+                {
+                    var types = unionAttribute.ConstructorArguments.First().Value as Type[];
+                    t = new UnionTypeSymbol(types.Select(x => PEContainingModule.GetType(x)!).ToArray(), this, (INamedTypeSymbol?)this, this.ContainingNamespace, []);
+                }
+
                 return new PEParameterSymbol(
                       param, null, this, this.ContainingType, this.ContainingNamespace,
                       [new MetadataLocation(ContainingModule!)]);
