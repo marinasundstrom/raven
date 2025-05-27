@@ -1,22 +1,7 @@
 import System;
 
-let u = 2;
 let x = 1 + 2;
-let y = if x > 2 { 40 + u; } else { true; }
+let y = if x > 2 { 40; } else { true; }
 
-test(y);
-
-var i = 0;
-while i < args.Length { 
-    Console.WriteLine(args[i]);
-    i = i + 1;
-}
-
-fun test(y : int | bool): void {
-    if y is int o {
-        Console.WriteLine(o);
-    }
-    else if y is bool z {
-        Console.WriteLine(z);
-    }
-}
+TestDep.Foo.Test(y);
+TestDep.Foo.Test(x);

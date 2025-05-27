@@ -91,8 +91,8 @@ internal class CodeGenerator
             typeof(Attribute));
 
         // Mark as AttributeUsage (optional)
-        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor(new[] { typeof(AttributeTargets) });
-        var attrUsageBuilder = new CustomAttributeBuilder(attrUsageCtor, new object[] { AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.ReturnValue | AttributeTargets.Property });
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)]);
+        var attrUsageBuilder = new CustomAttributeBuilder(attrUsageCtor, [AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.ReturnValue | AttributeTargets.Property]);
         attrBuilder.SetCustomAttribute(attrUsageBuilder);
 
         // Define a private readonly field: private readonly Type[] _types;

@@ -52,7 +52,7 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
         return _modules
             .OfType<PEModuleSymbol>()
             .Select(m => m.GetType(type))
-            .SingleOrDefault();
+            .FirstOrDefault();
     }
 
     private INamespaceSymbol? TryGetNamespaceSymbol(string? ns)

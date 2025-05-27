@@ -44,7 +44,6 @@ internal class MethodGenerator
                 var construtor = TypeGenerator.CodeGen.TypeUnionAttributeType.GetConstructor(new[] { typeof(Type[]) });
                 CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(construtor, [types]);
                 methodBuilder.SetCustomAttribute(customAttributeBuilder);
-
             }
 
             _parameterBuilders[parameterSymbol] = methodBuilder;

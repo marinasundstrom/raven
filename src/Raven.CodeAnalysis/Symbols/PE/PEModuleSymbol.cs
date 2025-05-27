@@ -54,7 +54,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         return ReferencedAssemblySymbols
                 .OfType<PEAssemblySymbol>()
                 .Select(x => x.GetType(type))
-                .SingleOrDefault();
+                .FirstOrDefault();
     }
 
     private ITypeSymbol? FindType(INamespaceSymbol namespaceSymbol, Type type)
@@ -78,10 +78,14 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         // Final part is the type name
         var typeName = parts[^1];
 
-        return currentNamespace.GetMembers(typeName)
+        var t = currentNamespace.GetMembers(typeName)
                                .OfType<PENamedTypeSymbol>()
                                .Where(x => x.GetTypeInfo() == type)
                                .FirstOrDefault();
+
+        if (t is not null) return t;
+
+        return ResolveMetadataMember(GlobalNamespace, type.FullName) as ITypeSymbol;
     }
 
     public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)

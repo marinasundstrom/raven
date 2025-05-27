@@ -154,6 +154,9 @@ public class Compilation
 
         CoreAssembly = _metadataLoadContext.CoreAssembly!;
 
+        // Test
+        var x = GetCoreAssembly();
+
         foreach (var metadataReference in References)
         {
             GetAssemblyOrModuleSymbol(metadataReference);
@@ -280,6 +283,12 @@ public class Compilation
         {
             // Identity conversion
             return new Conversion(isImplicit: true, isIdentity: true);
+        }
+
+        if (destination is IUnionTypeSymbol unionType)
+        {
+            var v = unionType.Types.First(x => x.Equals(source, SymbolEqualityComparer.Default));
+            return new Conversion(isImplicit: true, isBoxing: v.IsValueType);
         }
 
         /*
@@ -458,6 +467,11 @@ public class Compilation
             _metadataReferenceSymbols[metadataReference] = symbol;
         }
         return symbol;
+    }
+
+    private IAssemblySymbol GetCoreAssembly()
+    {
+        return GetAssembly(CoreAssembly);
     }
 
     private IAssemblySymbol GetAssembly(Assembly assembly)

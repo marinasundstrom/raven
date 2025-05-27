@@ -38,6 +38,7 @@ var compilation = Compilation.Create(assemblyName, new CompilationOptions(Output
     .AddReferences([
         MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+        MetadataReference.CreateFromFile("TestDep.dll")
     ]);
 
 var semanticModel = compilation.GetSemanticModel(syntaxTree);

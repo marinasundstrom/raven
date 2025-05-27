@@ -537,9 +537,24 @@ internal class ExpressionGenerator : Generator
             }
         }
 
+        var paramSymbols = target.Parameters.Reverse().ToArray();
+        int pi = 0;
+
         foreach (var argument in invocationExpression.ArgumentList.Arguments.Reverse())
         {
+            var paramSymbol = paramSymbols[pi];
+            var argType = GetTypeInfo(argument.Expression)?.Type;
+            var paramType = paramSymbol.Type;
+
             GenerateExpression(argument.Expression);
+
+            if (argType is { IsValueType: true } && paramType is { IsValueType: false })
+            {
+                // Box value type before passing it to reference type parameter
+                ILGenerator.Emit(OpCodes.Box, argType.GetClrType(Compilation));
+            }
+
+            pi++;
         }
 
         if (target?.IsStatic ?? false)
