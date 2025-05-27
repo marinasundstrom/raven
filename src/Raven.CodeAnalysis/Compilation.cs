@@ -288,6 +288,10 @@ public class Compilation
         if (destination is IUnionTypeSymbol unionType)
         {
             var v = unionType.Types.First(x => x.Equals(source, SymbolEqualityComparer.Default));
+            if (v is null)
+            {
+                return Conversion.None;
+            }
             return new Conversion(isImplicit: true, isBoxing: v.IsValueType);
         }
 
