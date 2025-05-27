@@ -14,8 +14,9 @@ public struct Conversion
     public bool IsUserDefined { get; }
     public IMethodSymbol? MethodSymbol { get; }
 
-    public Conversion(bool isImplicit, bool isIdentity = false, bool isReference = false, bool isBoxing = false, bool isUnboxing = false)
+    public Conversion(bool isImplicit = false, bool isIdentity = false, bool isReference = false, bool isBoxing = false, bool isUnboxing = false)
     {
+        Exists = true;
         IsImplicit = isImplicit;
         IsIdentity = isIdentity;
         IsReference = isReference;
@@ -23,5 +24,10 @@ public struct Conversion
         IsUnboxing = isUnboxing;
     }
 
-    public static Conversion None => new Conversion(false);
+    public Conversion()
+    {
+        Exists = false;
+    }
+
+    public static Conversion None => new Conversion();
 }
