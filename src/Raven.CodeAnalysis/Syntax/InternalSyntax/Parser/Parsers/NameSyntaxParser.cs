@@ -89,6 +89,7 @@ internal class NameSyntaxParser : SyntaxParser
             case SyntaxKind.BoolKeyword:
             case SyntaxKind.CharKeyword:
             case SyntaxKind.IntKeyword:
+            case SyntaxKind.VoidKeyword:
                 return true;
         }
 

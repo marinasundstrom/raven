@@ -46,7 +46,7 @@ class BinderFactory
         {
             NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, actualParentBinder),
             MethodDeclarationSyntax => new MethodBinder(actualParentBinder),
-            BlockSyntax => actualParentBinder is MethodBinder ? new BlockBinder(null, actualParentBinder) : new LocalScopeBinder(actualParentBinder),
+            BlockSyntax => actualParentBinder is MethodBinder ? new BlockBinder((actualParentBinder?.ParentBinder as LocalFunctionBinder)?.GetMethodSymbol(), actualParentBinder) : new LocalScopeBinder(actualParentBinder),
             IfExpressionSyntax expr => new LocalScopeBinder(actualParentBinder),
             ElseClauseSyntax elseClause => new LocalScopeBinder(actualParentBinder),
             WhileExpressionSyntax expr => new LocalScopeBinder(actualParentBinder),

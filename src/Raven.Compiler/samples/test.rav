@@ -4,9 +4,19 @@ let u = 2;
 let x = 1 + 2;
 let y = if x > 2 { 40 + u; } else { true; }
 
-if y is int o {
-    Console.WriteLine(o);
+test(y);
+
+var i = 0;
+while i < args.Length { 
+    Console.WriteLine(args[i]);
+    i = i + 1;
 }
-else if y is bool z {
-    Console.WriteLine(z);
+
+fun test(y : int | bool): void {
+    if y is int o {
+        Console.WriteLine(o);
+    }
+    else if y is bool z {
+        Console.WriteLine(z);
+    }
 }
