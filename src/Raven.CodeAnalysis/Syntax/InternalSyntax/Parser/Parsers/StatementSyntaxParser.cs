@@ -49,7 +49,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var parameters = ParseParameterList();
 
-        var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
+        var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 

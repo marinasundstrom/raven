@@ -206,7 +206,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        var returnType = (TypeAnnotationSyntax)VisitTypeAnnotation(node.ReturnType)!
+        var returnType = (ReturnTypeAnnotationSyntax)VisitReturnTypeAnnotation(node.ReturnType)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
         return node.Update(node.FunKeyword, name, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))

@@ -56,6 +56,8 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken ExclamationToken = (SyntaxToken)InternalSyntax.SyntaxFactory.ExclamationToken;
     public static readonly SyntaxToken QuestionToken = (SyntaxToken)InternalSyntax.SyntaxFactory.QuestionToken;
 
+    public static readonly SyntaxToken ArrowToken = (SyntaxToken)InternalSyntax.SyntaxFactory.ArrowToken;
+
     public static readonly SyntaxToken CommaToken = (SyntaxToken)InternalSyntax.SyntaxFactory.CommaToken;
     public static readonly SyntaxToken ColonToken = (SyntaxToken)InternalSyntax.SyntaxFactory.ColonToken;
     public static readonly SyntaxToken SemicolonToken = (SyntaxToken)InternalSyntax.SyntaxFactory.SemicolonToken;

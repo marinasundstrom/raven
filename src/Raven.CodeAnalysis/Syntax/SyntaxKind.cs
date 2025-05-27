@@ -31,6 +31,7 @@ public enum SyntaxKind
     FileScopedNamespaceDeclaration,
 
     MethodDeclaration,
+    ReturnTypeAnnotation,
     ParameterList,
     Parameter,
 
@@ -51,6 +52,7 @@ public enum SyntaxKind
 
     VariableDeclaration,
     VariableDeclarator,
+    ArrowToken,
     TypeAnnotation,
     EqualsValueClause,
     LocalDeclaration,

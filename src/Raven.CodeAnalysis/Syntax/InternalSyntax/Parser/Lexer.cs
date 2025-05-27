@@ -124,6 +124,11 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.PlusToken, chStr);
 
                     case '-':
+                        if (PeekChar(out var ch2) && ch2 == '>')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.ArrowToken, "->");
+                        }
                         return new Token(SyntaxKind.MinusToken, chStr);
 
                     case '/':
@@ -203,7 +208,7 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.QuestionToken, chStr);
 
                     case '<':
-                        if (PeekChar(out var ch2) && ch2 == '=')
+                        if (PeekChar(out var ch10) && ch10 == '=')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.LessThanEqualsToken, "<=");

@@ -56,7 +56,7 @@ var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<Assign
 
 ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
-Console.WriteLine(root.WriteNodeToText(compilation));
+//Console.WriteLine(root.WriteNodeToText(compilation));
 
 Console.WriteLine();
 

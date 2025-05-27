@@ -7,7 +7,7 @@ internal partial class MethodDeclarationSyntax : MemberDeclarationSyntax
         SyntaxToken funKeyword,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
-        TypeAnnotationSyntax typeAnnotation,
+        ReturnTypeAnnotationSyntax returnTypeAnnotation,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.MethodDeclaration,
@@ -15,7 +15,7 @@ internal partial class MethodDeclarationSyntax : MemberDeclarationSyntax
                       funKeyword ?? throw new ArgumentNullException(nameof(name)),
                       name ?? throw new ArgumentNullException(nameof(name)),
                       parameters ?? throw new ArgumentNullException(nameof(parameters)),
-                      typeAnnotation ?? throw new ArgumentNullException(nameof(typeAnnotation)),
+                      returnTypeAnnotation ?? throw new ArgumentNullException(nameof(returnTypeAnnotation)),
                       body ?? throw new ArgumentNullException(nameof(body)),
               ],
               diagnostics)
@@ -29,10 +29,10 @@ internal static partial class SyntaxFactory
         SyntaxToken funKeyword,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
-        TypeAnnotationSyntax typeAnnotation,
+        ReturnTypeAnnotationSyntax returnTypeAnnotation,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(funKeyword, name, parameters, typeAnnotation, body, diagnostics);
+        => new(funKeyword, name, parameters, returnTypeAnnotation, body, diagnostics);
 }
 
 internal partial class LocalFunctionStatementSyntax : StatementSyntax
@@ -41,7 +41,7 @@ internal partial class LocalFunctionStatementSyntax : StatementSyntax
         SyntaxToken funKeyword,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
-        TypeAnnotationSyntax typeAnnotation,
+        ReturnTypeAnnotationSyntax returnTypeAnnotation,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.LocalFunctionStatement,
@@ -49,7 +49,7 @@ internal partial class LocalFunctionStatementSyntax : StatementSyntax
                      funKeyword ?? throw new ArgumentNullException(nameof(name)),
                       name ?? throw new ArgumentNullException(nameof(name)),
                       parameters ?? throw new ArgumentNullException(nameof(parameters)),
-                      typeAnnotation ?? throw new ArgumentNullException(nameof(typeAnnotation)),
+                      returnTypeAnnotation ?? throw new ArgumentNullException(nameof(returnTypeAnnotation)),
                       body ?? throw new ArgumentNullException(nameof(body)),
               ],
               diagnostics)
@@ -63,8 +63,8 @@ internal static partial class SyntaxFactory
         SyntaxToken funKeyword,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
-        TypeAnnotationSyntax typeAnnotation,
+        ReturnTypeAnnotationSyntax returnType,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(funKeyword, name, parameters, typeAnnotation, body, diagnostics);
+        => new(funKeyword, name, parameters, returnType, body, diagnostics);
 }

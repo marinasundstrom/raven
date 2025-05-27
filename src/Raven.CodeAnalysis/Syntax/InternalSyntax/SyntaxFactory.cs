@@ -60,6 +60,8 @@ internal static partial class SyntaxFactory
     public static readonly SyntaxToken ExclamationToken = new SyntaxToken(SyntaxKind.ExclamationToken, "!");
     public static readonly SyntaxToken QuestionToken = new SyntaxToken(SyntaxKind.QuestionToken, "?");
 
+    public static readonly SyntaxToken ArrowToken = new SyntaxToken(SyntaxKind.ArrowToken, "->");
+
     public static readonly SyntaxToken CommaToken = new SyntaxToken(SyntaxKind.CommaToken, ",");
     public static readonly SyntaxToken ColonToken = new SyntaxToken(SyntaxKind.ColonToken, ":");
     public static readonly SyntaxToken SemicolonToken = new SyntaxToken(SyntaxKind.SemicolonToken, ";");

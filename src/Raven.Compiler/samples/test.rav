@@ -21,7 +21,7 @@ else if v is bool b {
     Console.WriteLine(b);
 }
 
-fun test (input : int | bool) : void {
+fun test (input : int | bool) -> void {
     if input is int a {
         Console.WriteLine(a);
     }
