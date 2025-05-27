@@ -122,7 +122,7 @@ public enum SyntaxKind
     NotKeyword,
     AndKeyword,
     OrKeyword,
-    FunKeyword,
+    FuncKeyword,
 
 
     OrToken,

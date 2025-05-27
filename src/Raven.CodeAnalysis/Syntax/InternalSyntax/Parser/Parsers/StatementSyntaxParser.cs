@@ -19,7 +19,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         switch (token.Kind)
         {
-            case SyntaxKind.FunKeyword:
+            case SyntaxKind.FuncKeyword:
                 statement = ParseFunctionSyntax();
                 break;
 
@@ -43,7 +43,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private StatementSyntax? ParseFunctionSyntax()
     {
-        var funKeyword = ReadToken();
+        var funcKeyword = ReadToken();
 
         var name = new NameSyntaxParser(this).ParseSimpleName();
 
@@ -53,7 +53,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
-        return LocalFunctionStatement(funKeyword, name, parameters, returnParameterAnnotation, block);
+        return LocalFunctionStatement(funcKeyword, name, parameters, returnParameterAnnotation, block);
     }
 
     private ParameterListSyntax ParseParameterList()
