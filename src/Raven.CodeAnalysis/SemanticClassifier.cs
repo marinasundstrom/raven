@@ -26,10 +26,10 @@ public static class SemanticClassifier
 
                 if (symbol is INamespaceSymbol)
                     map[descendant] = SemanticClassification.Namespace;
-                else if (symbol is IMethodSymbol)
-                    map[descendant] = SemanticClassification.Method;
                 else if (symbol is ITypeSymbol)
                     map[descendant] = SemanticClassification.Type;
+                else if (symbol is IMethodSymbol)
+                    map[descendant] = SemanticClassification.Method;
                 else if (symbol is IParameterSymbol)
                     map[descendant] = SemanticClassification.Parameter;
                 else if (symbol is IFieldSymbol)
@@ -52,8 +52,8 @@ public enum SemanticClassification
     StringLiteral,
     Comment,
     Namespace,
-    Method,
     Type,
+    Method,
     Parameter,
     Property,
     Field
