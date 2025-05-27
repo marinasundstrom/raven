@@ -12,6 +12,8 @@ TestDep.Foo.Test(x);
 // External method returning type: int | bool
 let v = TestDep.Foo.Test2(true);
 
+//Console.WriteLine(v.ToString());
+
 if v is int a {
     Console.WriteLine(a);
 }

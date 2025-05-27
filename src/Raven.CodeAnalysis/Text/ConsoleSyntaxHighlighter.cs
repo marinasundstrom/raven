@@ -4,6 +4,9 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Text;
 
+
+
+
 public class ColorScheme
 {
     public AnsiColor Default { get; internal set; }
@@ -12,17 +15,23 @@ public class ColorScheme
 
     public AnsiColor Namespace { get; internal set; }
 
+    public AnsiColor Type { get; internal set; }
+
     public AnsiColor Keyword { get; internal set; }
 
     public AnsiColor StringLiteral { get; internal set; }
+
+    public AnsiColor Comment { get; internal set; }
 
     public static ColorScheme Light { get; } = new ColorScheme()
     {
         Default = AnsiColor.BrightBlack,
         Method = AnsiColor.BrightRed,
         Namespace = AnsiColor.BrightCyan,
+        Type = AnsiColor.Magenta,
         Keyword = AnsiColor.BrightBlue,
-        StringLiteral = AnsiColor.BrightYellow
+        StringLiteral = AnsiColor.BrightYellow,
+        Comment = AnsiColor.Green
     };
 
     public static ColorScheme Dark { get; } = new ColorScheme()
@@ -30,8 +39,10 @@ public class ColorScheme
         Default = AnsiColor.BrightWhite,
         Method = AnsiColor.BrightYellow,
         Namespace = AnsiColor.BrightCyan,
+        Type = AnsiColor.BrightMagenta,
         Keyword = AnsiColor.BrightBlue,
-        StringLiteral = AnsiColor.BrightRed
+        StringLiteral = AnsiColor.BrightRed,
+        Comment = AnsiColor.BrightGreen
     };
 }
 
@@ -42,193 +53,110 @@ public static class ConsoleSyntaxHighlighter
     public static Compilation Compilation { get; private set; }
     public static SemanticModel SemanticModel { get; private set; }
 
+    private static Dictionary<SyntaxToken, SemanticClassification> _classificationMap;
+
     public static string WriteNodeToText(this SyntaxNode node, Compilation compilation)
     {
         Compilation = compilation;
         SemanticModel = compilation.GetSemanticModel(node.SyntaxTree);
 
-        var builder = new StringBuilder();
+        _classificationMap = SemanticClassifier.Classify(node, SemanticModel);
 
-        WriteNodeToText(node, builder);
-        return builder.ToString();
-    }
-
-    private static void WriteNodeToText(SyntaxNode node, StringBuilder builder)
-    {
-        if (node is null)
-            return;
-
-        // Recursively write child nodes
-        foreach (var child in node.ChildNodesAndTokens())
-        {
-            if (child.TryGetToken(out var token))
-            {
-                string? t = token.ToFullColorizedString();
-
-                if (SyntaxFacts.IsKeywordKind(token.Kind))
-                {
-                    t = token.ToFullColorizedString(ColorScheme.Keyword);
-                }
-                else if (token.Kind == SyntaxKind.StringLiteralToken)
-                {
-                    t = token.ToFullColorizedString(ColorScheme.StringLiteral);
-                }
-                else
-                {
-                    t = token.ToFullColorizedString();
-                }
-
-                builder.Append(t);
-            }
-            else if (child.TryGetNode(out var childNode))
-            {
-                WriteNode(childNode, builder);
-            }
-        }
-    }
-
-    private static void WriteNode(SyntaxNode node, StringBuilder builder)
-    {
-        if (node is PredefinedTypeSyntax ptype)
-        {
-            string? t = ptype.ToFullColorizedString(ColorScheme.Keyword);
-            builder.Append(t);
-        }
-        else if (node is NameSyntax iname)
-        {
-            var symbol = SemanticModel.GetSymbolInfo(iname).Symbol;
-
-            if (symbol is IMethodSymbol)
-            {
-                string? t = iname.ToFullColorizedString(ColorScheme.Method);
-                builder.Append(t);
-            }
-            else if (symbol is INamespaceSymbol or ITypeSymbol)
-            {
-                string? t = iname.ToFullColorizedString(ColorScheme.Namespace);
-                builder.Append(t);
-            }
-            else
-            {
-                string? t = iname.ToFullColorizedString(ColorScheme.Default);
-                builder.Append(t);
-            }
-        }
-        else if (node is MemberAccessExpressionSyntax maccess)
-        {
-            WriteNode(maccess.Expression, builder);
-
-            string? t = maccess.OperatorToken.ToFullColorizedString(ColorScheme.Default);
-            builder.Append(t);
-
-            var symbol = SemanticModel.GetSymbolInfo(maccess).Symbol;
-
-            var color = symbol is IMethodSymbol ? ColorScheme.Method : ColorScheme.Default;
-
-            t = maccess.Name.ToFullColorizedString(color);
-            builder.Append(t);
-        }
-        else if (node is InvocationExpressionSyntax invocationExpression)
-        {
-            WriteNode(invocationExpression.Expression, builder);
-
-            foreach (var x in invocationExpression.ChildNodes().Skip(1))
-            {
-                WriteNodeToText(x, builder);
-            }
-        }
-        else
-        {
-            WriteNodeToText(node, builder);
-        }
-    }
-
-    private static void WriteNameSyntax(NameSyntax name, StringBuilder builder)
-    {
-        if (name is IdentifierNameSyntax iname)
-        {
-            var symbol = SemanticModel.GetSymbolInfo(iname).Symbol;
-
-            if (symbol is IMethodSymbol)
-            {
-                string? t = iname.ToFullColorizedString(ColorScheme.Method);
-                builder.Append(t);
-            }
-            else if (symbol is INamespaceSymbol or ITypeSymbol)
-            {
-                string? t = iname.ToFullColorizedString(ColorScheme.Namespace);
-                builder.Append(t);
-            }
-            else
-            {
-                string? t = iname.ToFullColorizedString(AnsiColor.White);
-                builder.Append(t);
-            }
-        }
-        else if (name is QualifiedNameSyntax qname)
-        {
-            WriteNameSyntax(qname.Left, builder);
-
-            string? t = qname.DotToken.ToFullColorizedString();
-            t = Colorize(t, ColorScheme.Default);
-            builder.Append(t);
-
-            WriteNameSyntax(qname.Right, builder);
-        }
-    }
-
-    private static string Colorize(string text, AnsiColor color)
-    {
-        return $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
-    }
-}
-
-public static class Ext
-{
-    private static string Colorize(string text, AnsiColor color)
-    {
-        return $"\u001b[{(int)color}m{text}\u001b[{(int)AnsiColor.Reset}m";
-    }
-
-    public static string ToFullColorizedString(this PredefinedTypeSyntax predefinedType, AnsiColor color = AnsiColor.Reset)
-    {
-        // Foo bar
-        return Colorize(predefinedType.ToFullString(), color);
-    }
-
-    public static string ToFullColorizedString(this NameSyntax name, AnsiColor color)
-    {
-        // Foo bar
-        return Colorize(name.ToFullString(), color);
-    }
-
-    public static string ToFullColorizedString(this SyntaxToken syntaxToken, AnsiColor color = AnsiColor.Reset)
-    {
-        StringBuilder sb = new();
-        var trivia = syntaxToken.LeadingTrivia;
-        LeadingTrivia(syntaxToken, sb, trivia);
-        sb.Append(Colorize(syntaxToken.Text, color));
-        trivia = syntaxToken.TrailingTrivia;
-        LeadingTrivia(syntaxToken, sb, trivia);
+        var sb = new StringBuilder();
+        WriteNode(node, sb);
         return sb.ToString();
     }
 
-    private static void LeadingTrivia(SyntaxToken syntaxToken, StringBuilder sb, SyntaxTriviaList trivia)
+    private static void WriteNode(SyntaxNode node, StringBuilder sb)
     {
-        foreach (var syntaxTrivia in trivia)
+        foreach (var child in node.ChildNodesAndTokens())
         {
-            if (syntaxTrivia.Kind == SyntaxKind.SingleLineCommentTrivia)
+            if (child.IsToken)
             {
-                sb.Append(Colorize(syntaxTrivia.Text, AnsiColor.Green));
-            }
-            else if (syntaxTrivia.Kind == SyntaxKind.MultiLineCommentTrivia)
-            {
-                sb.Append(Colorize(syntaxTrivia.Text, AnsiColor.Green));
+                WriteToken(child.AsToken(), sb);
             }
             else
             {
-                sb.Append(syntaxTrivia.Text);
+                WriteNode(child.AsNode()!, sb);
             }
         }
+    }
+
+    private static void WriteToken(SyntaxToken token, StringBuilder sb)
+    {
+        WriteTriviaList(token.LeadingTrivia, sb);
+
+        var color = GetColorForToken(token);
+        AppendAnsiColor(sb, color);
+        sb.Append(token.Text);
+        AppendAnsiColor(sb, AnsiColor.Reset);
+
+        WriteTriviaList(token.TrailingTrivia, sb);
+    }
+
+    private static void WriteTriviaList(SyntaxTriviaList triviaList, StringBuilder sb)
+    {
+        foreach (var trivia in triviaList)
+        {
+            if (trivia.HasStructure)
+            {
+                WriteStructuredTrivia(trivia.GetStructure()!, sb);
+            }
+            else
+            {
+                var color = GetColorForTrivia(trivia);
+                AppendAnsiColor(sb, color);
+                sb.Append(trivia.Text);
+                AppendAnsiColor(sb, AnsiColor.Reset);
+            }
+        }
+    }
+
+    private static void WriteStructuredTrivia(SyntaxNode structure, StringBuilder sb)
+    {
+        // Structured trivia are mini trees (e.g. documentation comments, directives)
+        foreach (var child in structure.ChildNodesAndTokens())
+        {
+            if (child.IsToken)
+            {
+                WriteToken(child.AsToken(), sb);
+            }
+            else
+            {
+                WriteStructuredTrivia(child.AsNode()!, sb);
+            }
+        }
+    }
+
+    private static AnsiColor GetColorForTrivia(SyntaxTrivia trivia)
+    {
+        return trivia.Kind switch
+        {
+            SyntaxKind.SingleLineCommentTrivia => ColorScheme.Comment,
+            SyntaxKind.MultiLineCommentTrivia => ColorScheme.Comment,
+            _ => ColorScheme.Default
+        };
+    }
+
+    private static AnsiColor GetColorForToken(SyntaxToken token)
+    {
+        if (!_classificationMap.TryGetValue(token, out var classification))
+            return ColorScheme.Default;
+
+        return classification switch
+        {
+            SemanticClassification.Keyword => ColorScheme.Keyword,
+            SemanticClassification.StringLiteral => ColorScheme.StringLiteral,
+            SemanticClassification.Comment => ColorScheme.Comment,
+            SemanticClassification.Method => ColorScheme.Method,
+            SemanticClassification.Type => ColorScheme.Type,
+            SemanticClassification.Namespace => ColorScheme.Namespace,
+            _ => ColorScheme.Default
+        };
+    }
+
+    private static void AppendAnsiColor(StringBuilder sb, AnsiColor color)
+    {
+        sb.Append($"\u001b[{(int)color}m");
     }
 }

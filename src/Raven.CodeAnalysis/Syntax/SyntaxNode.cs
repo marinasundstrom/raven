@@ -408,4 +408,43 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         // If not found (e.g., position == EndOfFile), return EOF token
         return node is CompilationUnitSyntax cu ? cu.EndOfFileToken : default;
     }
+
+    public IEnumerable<SyntaxToken> DescendantTokens(bool descendIntoTrivia = false)
+    {
+        foreach (var child in ChildNodesAndTokens())
+        {
+            if (child.IsToken)
+            {
+                var token = child.AsToken();
+                yield return token;
+
+                if (descendIntoTrivia)
+                {
+                    foreach (var trivia in token.LeadingTrivia)
+                    {
+                        if (trivia.HasStructure)
+                        {
+                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
+                                yield return t;
+                        }
+                    }
+
+                    foreach (var trivia in token.TrailingTrivia)
+                    {
+                        if (trivia.HasStructure)
+                        {
+                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
+                                yield return t;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                var node = child.AsNode()!;
+                foreach (var token in node.DescendantTokens(descendIntoTrivia))
+                    yield return token;
+            }
+        }
+    }
 }

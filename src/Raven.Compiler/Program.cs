@@ -54,7 +54,7 @@ var result2 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<BlockS
 var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<AssignmentExpressionSyntax>().Last());
 */
 
-ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
+ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
 Console.WriteLine(root.WriteNodeToText(compilation));
 
