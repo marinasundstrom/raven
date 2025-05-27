@@ -15,4 +15,10 @@ public class Foo
             Console.WriteLine(z);
         }
     }
+
+    [return: TypeUnion(typeof(int), typeof(bool))]
+    public static object Test2(bool flag)
+    {
+        return false ? 42 : false;
+    }
 }

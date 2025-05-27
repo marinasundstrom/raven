@@ -38,7 +38,7 @@ var compilation = Compilation.Create(assemblyName, new CompilationOptions(Output
     .AddReferences([
         MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-        MetadataReference.CreateFromFile("TestDep.dll")
+        MetadataReference.CreateFromFile(IsProjectFolder(Environment.CurrentDirectory) ? "TestDep.dll" : "../../../TestDep.dll")
     ]);
 
 var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -75,3 +75,8 @@ using (var stream = File.OpenWrite($"{outputPath}"))
 //Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
 
 Console.WriteLine();
+
+bool IsProjectFolder(string path)
+{
+    return Directory.EnumerateFiles(path, "*.csproj", SearchOption.TopDirectoryOnly).Any();
+}

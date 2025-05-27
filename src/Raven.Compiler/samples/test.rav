@@ -3,5 +3,27 @@ import System;
 let x = 1 + 2;
 let y = if x > 2 { 40; } else { true; }
 
+test(y);
+
+// External methods receiving: int | bool
 TestDep.Foo.Test(y);
 TestDep.Foo.Test(x);
+
+// External method returning type: int | bool
+let v = TestDep.Foo.Test2(true);
+
+if v is int a {
+    Console.WriteLine(a);
+}
+else if v is bool b {
+    Console.WriteLine(b);
+}
+
+fun test (input : int | bool) : void {
+    if input is int a {
+        Console.WriteLine(a);
+    }
+    else if input is bool b {
+        Console.WriteLine(b);
+    }
+}

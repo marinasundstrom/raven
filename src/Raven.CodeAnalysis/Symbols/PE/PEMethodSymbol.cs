@@ -36,7 +36,16 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
                 }
                 else
                 {
-                    _returnType = PEContainingModule.GetType(((MethodInfo)_methodInfo).ReturnType);
+                    var returnParam = ((MethodInfo)_methodInfo).ReturnParameter;
+
+                    _returnType = PEContainingModule.GetType(returnParam.ParameterType);
+
+                    var unionAttribute = returnParam.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
+                    if (unionAttribute is not null)
+                    {
+                        var types = ((IEnumerable<CustomAttributeTypedArgument>)unionAttribute.ConstructorArguments.First().Value).Select(x => (Type)x.Value);
+                        _returnType = new UnionTypeSymbol(types.Select(x => PEContainingModule.GetType(x)!).ToArray(), null, null, null, []);
+                    }
                 }
             }
             return _returnType;
