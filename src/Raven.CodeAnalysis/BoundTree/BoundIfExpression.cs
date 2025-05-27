@@ -1,3 +1,6 @@
+
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 internal class BoundIfExpression : BoundExpression
@@ -7,10 +10,20 @@ internal class BoundIfExpression : BoundExpression
     public BoundExpression? ElseBranch { get; }
 
     public BoundIfExpression(BoundExpression condition, BoundExpression thenBranch, BoundExpression? elseBranch = null)
-        : base(condition.Type.ContainingAssembly.GetTypeByMetadataName("System.Void"), null, BoundExpressionReason.None)
+        : base(Handle(thenBranch, elseBranch), null, BoundExpressionReason.None)
     {
         Condition = condition;
         ThenBranch = thenBranch;
         ElseBranch = elseBranch;
+    }
+
+    private static ITypeSymbol Handle(BoundExpression thenBranch, BoundExpression? elseBranch)
+    {
+        if (!elseBranch?.Type.Equals(thenBranch.Type, SymbolEqualityComparer.Default) ?? false)
+        {
+            return new UnionTypeSymbol([thenBranch.Type, elseBranch.Type], null, null, null, []);
+        }
+
+        return thenBranch.Type;
     }
 }

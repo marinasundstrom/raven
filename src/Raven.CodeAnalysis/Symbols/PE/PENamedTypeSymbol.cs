@@ -85,6 +85,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public bool IsArray => false;
 
+    public bool IsUnion => false;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         EnsureMembersLoaded();

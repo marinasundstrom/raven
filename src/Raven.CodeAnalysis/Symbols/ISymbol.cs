@@ -236,6 +236,7 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
     SpecialType SpecialType { get; }
     bool IsValueType { get; }
     bool IsArray { get; }
+    bool IsUnion { get; }
 
     public string ToFullyQualifiedMetadataName() => ContainingNamespace is null ? Name : $"{ContainingNamespace.ToMetadataName()}.{Name}";
 }

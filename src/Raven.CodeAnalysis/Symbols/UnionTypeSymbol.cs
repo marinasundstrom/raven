@@ -26,6 +26,8 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
 
     public bool IsArray => false;
 
+    public bool IsUnion => true;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return BaseType!.GetMembers();

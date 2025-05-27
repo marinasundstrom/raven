@@ -32,6 +32,8 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 
     public bool IsArray => true;
 
+    public bool IsUnion => false;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return BaseType!.GetMembers();

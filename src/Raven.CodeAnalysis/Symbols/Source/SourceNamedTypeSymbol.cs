@@ -28,6 +28,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool IsArray => false;
 
+    public bool IsUnion => false;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return _members.ToImmutableArray();

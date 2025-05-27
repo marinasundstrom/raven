@@ -49,11 +49,11 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case IfExpressionSyntax ifStatementSyntax:
-                GenerateIfStatement(ifStatementSyntax);
+                GenerateIfExpression(ifStatementSyntax);
                 break;
 
             case WhileExpressionSyntax whileStatement:
-                GenerateWhileStatement(whileStatement);
+                GenerateWhileExpression(whileStatement);
                 break;
 
             case BlockSyntax block:
@@ -683,7 +683,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateIfStatement(IfExpressionSyntax ifStatementSyntax)
+    private void GenerateIfExpression(IfExpressionSyntax ifStatementSyntax)
     {
         GenerateExpression(ifStatementSyntax.Condition);
 
@@ -691,8 +691,18 @@ internal class ExpressionGenerator : Generator
 
         GenerateBranchOpForCondition(ifStatementSyntax.Condition, elseLabel);
 
+        bool isAssigned = ifStatementSyntax.Parent is ExpressionSyntax or EqualsValueClauseSyntax;
+
+        var ifStatementType = GetTypeInfo(ifStatementSyntax);
+        var thenType = GetTypeInfo(ifStatementSyntax.Expression);
+
         var scope = new Scope(this);
         new ExpressionGenerator(scope, ifStatementSyntax.Expression).Generate();
+
+        if (isAssigned && ifStatementType.Type.IsUnion && thenType.Type.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Box, thenType.Type.GetClrType(Compilation));
+        }
 
         if (ifStatementSyntax.ElseClause is ElseClauseSyntax elseClause)
         {
@@ -705,9 +715,16 @@ internal class ExpressionGenerator : Generator
             // Mark the 'else' label
             ILGenerator.MarkLabel(elseLabel);
 
+            var elsType = GetTypeInfo(ifStatementSyntax.ElseClause.Expression);
+
             // Generate the 'else' block
             var scope2 = new Scope(this);
             new ExpressionGenerator(scope2, elseClause.Expression).Generate();
+
+            if (isAssigned && ifStatementType.Type.IsUnion && elsType.Type.IsValueType)
+            {
+                ILGenerator.Emit(OpCodes.Box, elsType.Type.GetClrType(Compilation));
+            }
 
             // Mark the end of the 'if' statement
             ILGenerator.MarkLabel(endIfLabel);
@@ -719,7 +736,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateWhileStatement(WhileExpressionSyntax whileStatementSyntax)
+    private void GenerateWhileExpression(WhileExpressionSyntax whileStatementSyntax)
     {
         var beginLabel = ILGenerator.DefineLabel();
         var endLabel = ILGenerator.DefineLabel();

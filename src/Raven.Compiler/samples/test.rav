@@ -1,16 +1,11 @@
 import System;
 
-let y : int | string = 2;
+let x = 1 + 2;
+let y = if x > 2 { 42; } else { true; }
 
 if y is int o {
-    let i = a(o);
-    Console.WriteLine(i);
+    Console.WriteLine(o);
 }
-
-fun b(x : int) : int {
-    return x + 3;
-}
-
-fun a(x : int) : int {
-    return b(x) + 2;
+else if y is bool z {
+    Console.WriteLine(z);
 }
