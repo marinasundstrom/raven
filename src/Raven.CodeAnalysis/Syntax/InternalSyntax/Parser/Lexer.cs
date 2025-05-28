@@ -15,6 +15,21 @@ internal class Lexer : ILexer
         _textReader = textReader;
     }
 
+    /// <summary>
+    /// NewLineToken for CR and LF
+    /// </summary>
+    /// <value></value>
+    public bool UseUnifiedNewLineToken { get; set; } = false;
+
+    /// <summary>
+    /// Treat the sequence CR and LF as one symbol.
+    /// </summary>
+    /// <value></value>
+    public bool MergeCarriageReturnAndLineFeed { get; set; } = false;
+
+    public SyntaxKind LineFeedTokenKind => UseUnifiedNewLineToken ? SyntaxKind.NewLineToken : SyntaxKind.LineFeedToken;
+    public SyntaxKind CarriageReturnLineFeedTokenKind => UseUnifiedNewLineToken ? SyntaxKind.NewLineToken : SyntaxKind.CarriageReturnLineFeedToken;
+
     public Token ReadToken()
     {
         Token token;
@@ -295,9 +310,14 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.TabToken, "\t");
 
                     case '\n':
-                        return new Token(SyntaxKind.EndOfLineToken, "\n");
+                        return new Token(LineFeedTokenKind, "\n");
 
                     case '\r':
+                        if (MergeCarriageReturnAndLineFeed && PeekChar(out ch2) && ch2 == '\n')
+                        {
+                            ReadChar();
+                            return new Token(CarriageReturnLineFeedTokenKind, "\r\n");
+                        }
                         return new Token(SyntaxKind.CarriageReturnToken, "\r");
                 }
             }
@@ -308,22 +328,11 @@ internal class Lexer : ILexer
         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
     }
 
-    private TextSpan GetTokenStartPositionSpan()
-    {
-        //System.Console.WriteLine("Hello" + ", World!);
-        return new TextSpan(_tokenStartPosition, 0);
-    }
+    private TextSpan GetTokenStartPositionSpan() => new TextSpan(_tokenStartPosition, 0);
 
-    private TextSpan GetEndPositionSpan(int offset = 0)
-    {
-        //System.Console.WriteLine("Hello" + ", World!);
-        return new TextSpan(_currentPosition + offset, 0);
-    }
+    private TextSpan GetEndPositionSpan(int offset = 0) => new TextSpan(_currentPosition + offset, 0);
 
-    private char ReadChar()
-    {
-        return (char)ReadCore();
-    }
+    private char ReadChar() => (char)ReadCore();
 
     private int ReadCore()
     {

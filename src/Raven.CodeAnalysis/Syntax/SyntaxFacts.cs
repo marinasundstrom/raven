@@ -32,7 +32,7 @@ public static class SyntaxFacts
         return kind switch
         {
             SyntaxKind.WhitespaceTrivia => " ",
-            SyntaxKind.EndOfLineToken => "\n",
+            SyntaxKind.LineFeedToken => "\n",
             SyntaxKind.CarriageReturnToken => "\r",
             SyntaxKind.OpenParenToken => "(",
             SyntaxKind.CloseParenToken => ")",

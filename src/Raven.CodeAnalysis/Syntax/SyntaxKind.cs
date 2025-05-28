@@ -159,20 +159,24 @@ public enum SyntaxKind
 
     // Trivia Kinds
     WhitespaceTrivia,
-    LineFeedTrivia,
-    CarriageReturnTrivia,
-    CarriageReturnLineFeedTrivia,
-    TabTrivia,
+    TabTrivia, // \t
+    LineFeedTrivia, // \n separately
+    CarriageReturnTrivia, // \r separately
+    CarriageReturnLineFeedTrivia, // \r\n separately
+    EndOfLineTrivia, // Used for all line sequences as one trivia
+
     SingleLineCommentTrivia,
     MultiLineCommentTrivia,
     SkippedTokensTrivia,
-    EndOfLineTrivia,
 
     Whitespace,
-    TabToken,
+    TabToken, // \t
 
-    EndOfLineToken,
-    CarriageReturnToken,
+    LineFeedToken, // \n
+    CarriageReturnToken, // \r
+    CarriageReturnLineFeedToken, // \r\n
+    NewLineToken, // Used for all line sequences represented as one token
+
     EndOfFileToken,
 
 }

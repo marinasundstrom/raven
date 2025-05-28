@@ -11,7 +11,27 @@ internal class Tokenizer : ITokenizer
 
     public int Position { get; private set; }
 
-    public bool EndOfLineAsTrivia { get; set; } = true;
+    /// <summary>
+    /// Treat newlines as tokens
+    /// </summary>
+    /// <value></value>
+    public bool EmitNewlinesAsTokens { get; set; } = false;
+
+    /// <summary>
+    /// Treat LineFeedToken, CarriageReturnToken, CarriageReturnLineFeedToken, and NewlineToken, as trivia.
+    /// </summary>
+    /// <value></value>
+    public bool TreatNewlineSequencesAsTrivia => !EmitNewlinesAsTokens;
+
+    /// <summary>
+    /// Use EndOfLineTrivia - instead of LineFeedTrivia, CarriageReturnTrivia, and CarriageReturnLineFeedTrivia.
+    /// </summary>
+    /// <value></value>
+    public bool UseEndOfLineTrivia { get; set; } = false;
+
+    public SyntaxKind LineFeedTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.LineFeedTrivia;
+    public SyntaxKind CarriageReturnTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.CarriageReturnTrivia;
+    public SyntaxKind CarriageReturnLineFeedTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.CarriageReturnLineFeedTrivia;
 
     public Tokenizer(TextReader textReader)
     {
@@ -92,7 +112,7 @@ internal class Tokenizer : ITokenizer
                     _lexer.ReadTokens(2);
 
                     Token peeked = _lexer.PeekToken();
-                    while (peeked.Kind != SyntaxKind.EndOfLineToken && peeked.Kind != SyntaxKind.EndOfFileToken)
+                    while (peeked.Kind != SyntaxKind.LineFeedToken && peeked.Kind != SyntaxKind.EndOfFileToken)
                     {
                         _lexer.ReadToken();
                         _stringBuilder.Append(peeked.Text);
@@ -147,17 +167,14 @@ internal class Tokenizer : ITokenizer
                     continue;
             }
 
-            if (EndOfLineAsTrivia)
+            if (TreatNewlineSequencesAsTrivia)
             {
-                if (token.Kind == SyntaxKind.EndOfLineToken)
+                if (token.Kind == SyntaxKind.LineFeedToken)
                 {
-                    Token peeked;
-                    do
-                    {
-                        _lexer.ReadToken();
-                        trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
-                        peeked = _lexer.PeekToken();
-                    } while (peeked.Kind == SyntaxKind.EndOfLineToken);
+                    // LineFeedToken
+
+                    _lexer.ReadToken();
+                    trivia.Add(new SyntaxTrivia(LineFeedTriviaKind, token.Text));
 
                     if (isTrailingTrivia)
                     {
@@ -167,24 +184,52 @@ internal class Tokenizer : ITokenizer
                 }
                 else if (token.Kind == SyntaxKind.CarriageReturnToken)
                 {
+                    // Separate CarriageReturnToken or CarriageReturnToken and LineFeedToken
+
                     Token peeked2;
                     do
                     {
                         _lexer.ReadToken();
                         var next = _lexer.PeekToken();
-                        if (next.Kind == SyntaxKind.EndOfLineToken)
+                        if (next.Kind == SyntaxKind.LineFeedToken)
                         {
                             _lexer.ReadToken();
                             trivia.Add(
-                                new SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, token.Text + next.Text));
+                                new SyntaxTrivia(LineFeedTriviaKind, token.Text + next.Text));
                         }
                         else
                         {
-                            trivia.Add(new SyntaxTrivia(SyntaxKind.CarriageReturnTrivia, token.Text));
+                            trivia.Add(new SyntaxTrivia(SyntaxKind.CarriageReturnLineFeedTrivia, token.Text));
                         }
 
                         peeked2 = _lexer.PeekToken();
                     } while (peeked2.Kind == SyntaxKind.CarriageReturnToken);
+
+                    if (isTrailingTrivia)
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                else if (token.Kind == SyntaxKind.CarriageReturnLineFeedToken)
+                {
+                    // Only if lexer produces merged CarriageReturnLineFeedToken
+
+                    _lexer.ReadToken();
+                    trivia.Add(new SyntaxTrivia(CarriageReturnLineFeedTriviaKind, token.Text));
+
+                    if (isTrailingTrivia)
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                else if (token.Kind == SyntaxKind.EndOfFileToken)
+                {
+                    // Only if lexer produces EndOfFileToken
+
+                    _lexer.ReadToken();
+                    trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
 
                     if (isTrailingTrivia)
                     {
