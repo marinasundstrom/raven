@@ -216,18 +216,7 @@ class BlockBinder : Binder
         {
             var type = ResolveType(declarationPattern.Type);
 
-            if (expression.Type is IUnionTypeSymbol unionType)
-            {
-                var isCompatible = unionType.Types.Any(x => x.Equals(type, SymbolEqualityComparer.Default));
-            }
-            else
-            {
-                var conversion = Compilation.ClassifyConversion(expression.Type, type);
-                if (!conversion.Exists && conversion.IsImplicit)
-                {
-                    //Error
-                }
-            }
+            var isCompatible = Compilation.ClassifyConversion(expression.Type, type);
 
             var symbol = BindDeclaredSymbol(singleVariableDesignation) as ILocalSymbol;
             return new BoundIsPatternExpression(symbol, BoundExpressionReason.None);
