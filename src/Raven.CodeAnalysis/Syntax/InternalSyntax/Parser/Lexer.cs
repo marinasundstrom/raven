@@ -68,7 +68,9 @@ internal class Lexer : ILexer
 
         _tokenStartPosition = _currentPosition;
 
-        while (ReadChar(out var ch))
+        char ch = '\0', ch2 = '\0';
+
+        while (ReadChar(out ch))
         {
             if (_stringBuilder.Length > 0) _stringBuilder.Clear();
 
@@ -92,13 +94,13 @@ internal class Lexer : ILexer
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
 
-                    if (syntaxKind == SyntaxKind.TrueKeyword)
+                    switch (syntaxKind)
                     {
-                        return new Token(SyntaxKind.TrueKeyword, _stringBuilder.ToString(), true, _stringBuilder.Length, diagnostics: diagnostics);
-                    }
-                    else if (syntaxKind == SyntaxKind.FalseKeyword)
-                    {
-                        return new Token(SyntaxKind.FalseKeyword, _stringBuilder.ToString(), false, _stringBuilder.Length, diagnostics: diagnostics);
+                        case SyntaxKind.TrueKeyword:
+                            return new Token(SyntaxKind.TrueKeyword, _stringBuilder.ToString(), true, _stringBuilder.Length, diagnostics: diagnostics);
+
+                        case SyntaxKind.FalseKeyword:
+                            return new Token(SyntaxKind.FalseKeyword, _stringBuilder.ToString(), false, _stringBuilder.Length, diagnostics: diagnostics);
                     }
 
                     return new Token(syntaxKind, _stringBuilder.ToString(), diagnostics: diagnostics);
@@ -124,7 +126,7 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.PlusToken, chStr);
 
                     case '-':
-                        if (PeekChar(out var ch2) && ch2 == '>')
+                        if (PeekChar(out ch2) && ch2 == '>')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.ArrowToken, "->");
@@ -132,13 +134,6 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.MinusToken, chStr);
 
                     case '/':
-                        /*
-                        if (PeekChar(out var ch10) && ch10 == '/')
-                        {
-                            ReadChar();
-                            return new InternalSyntax.SyntaxTr(SyntaxKind.LessThanEqualsToken, "<=");
-                        }
-                        */
                         return new Token(SyntaxKind.SlashToken, chStr);
 
                     case '*':
@@ -197,7 +192,7 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.BarToken, chStr);
 
                     case '!':
-                        if (PeekChar(out var ch6) && ch6 == '=')
+                        if (PeekChar(out ch2) && ch2 == '=')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.NotEqualsToken, "!=");
@@ -208,7 +203,7 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.QuestionToken, chStr);
 
                     case '<':
-                        if (PeekChar(out var ch10) && ch10 == '=')
+                        if (PeekChar(out ch2) && ch2 == '=')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.LessThanEqualsToken, "<=");
@@ -216,7 +211,7 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.LessThanToken, chStr);
 
                     case '>':
-                        if (PeekChar(out var ch3) && ch3 == '=')
+                        if (PeekChar(out ch2) && ch2 == '=')
                         {
                             ReadChar();
                             return new Token(SyntaxKind.GreaterOrEqualsToken, ">=");
@@ -238,9 +233,9 @@ internal class Lexer : ILexer
                     case '\'':
                         _stringBuilder.Append(ch);
 
-                        while (PeekChar(out var ch9))
+                        while (PeekChar(out ch2))
                         {
-                            _stringBuilder.Append(ch9);
+                            _stringBuilder.Append(ch2);
                             ReadChar();
 
                             if (IsEndOfFile)
@@ -254,10 +249,10 @@ internal class Lexer : ILexer
                                 break;
                             }
 
-                            if (PeekChar(out ch9) && ch9 == '\'')
+                            if (PeekChar(out ch2) && ch2 == '\'')
                             {
                                 ReadChar();
-                                _stringBuilder.Append(ch9);
+                                _stringBuilder.Append(ch2);
                                 break;
                             }
                         }
@@ -268,13 +263,13 @@ internal class Lexer : ILexer
                     case '\"':
                         _stringBuilder.Append(ch); // Append opening quote
 
-                        while (PeekChar(out var ch8))
+                        while (PeekChar(out ch2))
                         {
                             ReadChar();
 
-                            if (ch8 == '\"') // Found closing quote
+                            if (ch2 == '\"') // Found closing quote
                             {
-                                _stringBuilder.Append(ch8);
+                                _stringBuilder.Append(ch2);
                                 break;
                             }
 
@@ -289,7 +284,7 @@ internal class Lexer : ILexer
                                 break;
                             }
 
-                            _stringBuilder.Append(ch8);
+                            _stringBuilder.Append(ch2);
                         }
 
                         var str = _stringBuilder.ToString();
