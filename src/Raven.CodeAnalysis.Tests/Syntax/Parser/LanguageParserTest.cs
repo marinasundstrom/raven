@@ -1,4 +1,5 @@
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
+
 public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 {
     [Fact]
@@ -19,7 +20,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var str = syntaxTree.GetRoot().ToFullString();
         testOutputHelper.WriteLine(str);
-        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true }));
     }
 
     [Fact]
@@ -42,7 +43,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(str);
 
-        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true }));
     }
 
     [Fact]
@@ -64,6 +65,6 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(str);
 
-        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true));
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true }));
     }
 }

@@ -36,10 +36,29 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         var visitor = new TestSyntaxVisitor();
         visitor.Visit(root);
 
-        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(true, false, includeNames: true, includeSpans: false, includeLocation: true));
+        testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(new PrinterOptions
+        {
+            IncludeNames = true,
+            IncludeTokens = true,
+            IncludeTrivia = true,
+            IncludeSpans = false,
+            IncludeLocations = true,
+            Colorize = true,
+            ExpandListsAsProperties = true
+        }));
+        
         testOutputHelper.WriteLine(root.ToFullString());
 
-        root.PrintSyntaxTree(includeNames: true, includeTokens: true, includeTrivia: true, includeSpans: false, includeLocation: true);
+        root.PrintSyntaxTree(new PrinterOptions
+        {
+            IncludeNames = true,
+            IncludeTokens = true,
+            IncludeTrivia = true,
+            IncludeSpans = false,
+            IncludeLocations = true,
+            Colorize = true,
+            ExpandListsAsProperties = true
+        });
 
         #region Compilation
 
