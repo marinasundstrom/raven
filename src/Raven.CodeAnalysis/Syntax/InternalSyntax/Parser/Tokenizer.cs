@@ -112,7 +112,7 @@ internal class Tokenizer : ITokenizer
                     _lexer.ReadTokens(2);
 
                     Token peeked = _lexer.PeekToken();
-                    while (peeked.Kind != SyntaxKind.LineFeedToken && peeked.Kind != SyntaxKind.EndOfFileToken)
+                    while (!IsNewLine(peeked) && peeked.Kind != SyntaxKind.EndOfFileToken)
                     {
                         _lexer.ReadToken();
                         _stringBuilder.Append(peeked.Text);
@@ -173,8 +173,13 @@ internal class Tokenizer : ITokenizer
                 {
                     // LineFeedToken
 
-                    _lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(LineFeedTriviaKind, token.Text));
+                    Token peeked = default!;
+                    do
+                    {
+                        _lexer.ReadToken();
+                        trivia.Add(new SyntaxTrivia(LineFeedTriviaKind, token.Text));
+                        peeked = _lexer.PeekToken();
+                    } while (peeked.Kind == SyntaxKind.LineFeedToken);
 
                     if (isTrailingTrivia)
                     {
@@ -215,8 +220,13 @@ internal class Tokenizer : ITokenizer
                 {
                     // Only if lexer produces merged CarriageReturnLineFeedToken
 
-                    _lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(CarriageReturnLineFeedTriviaKind, token.Text));
+                    Token peeked = default!;
+                    do
+                    {
+                        _lexer.ReadToken();
+                        trivia.Add(new SyntaxTrivia(CarriageReturnLineFeedTriviaKind, token.Text));
+                        peeked = _lexer.PeekToken();
+                    } while (peeked.Kind == SyntaxKind.CarriageReturnLineFeedToken);
 
                     if (isTrailingTrivia)
                     {
@@ -228,8 +238,13 @@ internal class Tokenizer : ITokenizer
                 {
                     // Only if lexer produces EndOfFileToken
 
-                    _lexer.ReadToken();
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
+                    Token peeked = default!;
+                    do
+                    {
+                        _lexer.ReadToken();
+                        trivia.Add(new SyntaxTrivia(SyntaxKind.EndOfLineTrivia, token.Text));
+                        peeked = _lexer.PeekToken();
+                    } while (peeked.Kind == SyntaxKind.EndOfFileToken);
 
                     if (isTrailingTrivia)
                     {
@@ -243,5 +258,10 @@ internal class Tokenizer : ITokenizer
         }
 
         return new SyntaxTriviaList(trivia.ToArray());
+    }
+
+    private static bool IsNewLine(Token token)
+    {
+        return token.Kind == SyntaxKind.LineFeedToken || token.Kind == SyntaxKind.NewLineToken;
     }
 }

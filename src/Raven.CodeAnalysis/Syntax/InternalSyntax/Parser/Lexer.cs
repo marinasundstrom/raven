@@ -25,7 +25,7 @@ internal class Lexer : ILexer
     /// Treat the sequence CR and LF as one symbol.
     /// </summary>
     /// <value></value>
-    public bool MergeCarriageReturnAndLineFeed { get; set; } = false;
+    public bool MergeCarriageReturnAndLineFeed { get; set; } = true;
 
     public SyntaxKind LineFeedTokenKind => UseUnifiedNewLineToken ? SyntaxKind.NewLineToken : SyntaxKind.LineFeedToken;
     public SyntaxKind CarriageReturnLineFeedTokenKind => UseUnifiedNewLineToken ? SyntaxKind.NewLineToken : SyntaxKind.CarriageReturnLineFeedToken;
@@ -72,7 +72,8 @@ internal class Lexer : ILexer
         // Ensure the lookahead tokens list is populated up to the requested index
         while (_lookaheadTokens.Count <= index)
         {
-            _lookaheadTokens.Add(ReadTokenCore());
+            var token = ReadTokenCore();
+            _lookaheadTokens.Add(token);
         }
         return _lookaheadTokens[index];
     }
