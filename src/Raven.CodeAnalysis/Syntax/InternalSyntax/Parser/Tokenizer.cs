@@ -15,7 +15,7 @@ internal class Tokenizer : ITokenizer
     /// Treat newlines as tokens
     /// </summary>
     /// <value></value>
-    public bool EmitNewlinesAsTokens { get; set; } = false;
+    public bool EmitNewlinesAsTokens { get; set; } = true;
 
     /// <summary>
     /// Treat LineFeedToken, CarriageReturnToken, CarriageReturnLineFeedToken, and NewlineToken, as trivia.
@@ -80,7 +80,12 @@ internal class Tokenizer : ITokenizer
 
         token = _lexer.ReadToken();
 
-        trailingTrivia = ReadTrivia(isTrailingTrivia: true);
+        if (token.Kind != SyntaxKind.NewLineToken)
+        {
+            trailingTrivia = ReadTrivia(isTrailingTrivia: true);
+        }
+        else
+            trailingTrivia = new SyntaxTriviaList([]);
 
         return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, leadingTrivia, trailingTrivia, token.GetDiagnostics());
     }

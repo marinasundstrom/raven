@@ -184,7 +184,7 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 
     public partial SyntaxToken CloseBraceToken { get; }
 
-    public partial SyntaxToken? SemicolonToken { get; }
+    public partial SyntaxToken? TerminationToken { get; }
 
     public NamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
         : base(greenNode, parent, position)

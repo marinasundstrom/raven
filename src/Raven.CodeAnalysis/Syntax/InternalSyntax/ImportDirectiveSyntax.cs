@@ -6,14 +6,14 @@ internal partial class ImportDirectiveSyntax : SyntaxNode
     public ImportDirectiveSyntax(
         SyntaxToken importKeyword,
         TypeSyntax namespaceOrType,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminationToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
             SyntaxKind.ImportDirective,
             [
                 importKeyword ?? throw new ArgumentNullException(nameof(importKeyword)),
                 namespaceOrType ?? throw new ArgumentNullException(nameof(namespaceOrType)),
-                semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
+                terminationToken ?? throw new ArgumentNullException(nameof(terminationToken))
             ],
             diagnostics)
     {
@@ -25,7 +25,7 @@ internal static partial class SyntaxFactory
     public static ImportDirectiveSyntax ImportDirective(
         SyntaxToken importKeyword,
         NameSyntax @namespace,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminationToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(importKeyword, @namespace, semicolonToken, diagnostics);
+        => new(importKeyword, @namespace, terminationToken, diagnostics);
 }

@@ -5,7 +5,7 @@ internal partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDecla
     public FileScopedNamespaceDeclarationSyntax(
         SyntaxToken namespaceKeyword,
         NameSyntax name,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminationToken,
         SyntaxList imports,
         SyntaxList members,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -14,7 +14,7 @@ internal partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDecla
               [
                     namespaceKeyword ?? throw new ArgumentNullException(nameof(namespaceKeyword)),
                     name ?? throw new ArgumentNullException(nameof(name)),
-                    semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken)),
+                    terminationToken ?? throw new ArgumentNullException(nameof(terminationToken)),
                     imports ?? throw new ArgumentNullException(nameof(imports)),
                     members ?? throw new ArgumentNullException(nameof(members))
               ],
@@ -28,9 +28,9 @@ internal static partial class SyntaxFactory
     public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(
         SyntaxToken namespaceKeyword,
         NameSyntax name,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminationToken,
         SyntaxList imports,
         SyntaxList members,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(namespaceKeyword, name, semicolonToken, imports, members, diagnostics);
+        => new(namespaceKeyword, name, terminationToken, imports, members, diagnostics);
 }

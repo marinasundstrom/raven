@@ -6,7 +6,7 @@ public sealed partial class WhileExpressionSyntax : ExpressionSyntax
     public partial SyntaxToken WhileKeyword { get; }
     public partial ExpressionSyntax Condition { get; }
     public partial StatementSyntax Statement { get; }
-    public partial SyntaxToken? SemicolonToken { get; }
+    public partial SyntaxToken? TerminationToken { get; }
 
     internal WhileExpressionSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)

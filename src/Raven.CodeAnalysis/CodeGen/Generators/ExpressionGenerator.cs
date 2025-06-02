@@ -81,7 +81,10 @@ internal class ExpressionGenerator : Generator
                 break;
 
             default:
-                throw new NotSupportedException("Unsupported expression type");
+                //Console.WriteLine(expression.Parent.Parent.Kind);
+                //Console.WriteLine(expression.Parent.Parent.ToFullString());
+                //throw new NotSupportedException("Unsupported expression type");
+                break;
         }
     }
 

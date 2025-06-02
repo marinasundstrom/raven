@@ -15,7 +15,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     public ExpressionSyntax ParseExpression()
     {
-        return ParseOrExpression() ?? new ExpressionSyntax.Missing();
+        EnterExpressionContext();
+        var result = ParseOrExpression() ?? new ExpressionSyntax.Missing();
+        EnterStatementContext(); // Restore default mode afterward
+        return result;
     }
 
     public BlockSyntax? ParseBlockSyntax()
@@ -35,6 +38,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
         List<StatementSyntax> statements = new List<StatementSyntax>();
         while (!ConsumeToken(untilToken, out token))
         {
+            if (token.Kind == SyntaxKind.NewLineToken)
+            {
+                ReadToken();
+                continue;
+            }
+
             var statement = new StatementSyntaxParser(this).ParseStatement();
             statements.Add(statement);
         }
@@ -628,4 +637,13 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return WhileStatement(whileKeyword, condition!, statement!, diagnostics);
     }
 
+    protected void SkipNewlinesIfNeeded()
+    {
+        while (PeekToken().Kind == SyntaxKind.NewLineToken && CurrentNewlineMode == NewlineMode.IgnoreInsideExpression)
+        {
+            //ReadToken();
+            var newlineToken = ReadToken();
+            //lastToken = lastToken.WithTrailingTrivia(SyntaxFactory.Trivia(SyntaxKind.EndOfLineTrivia, newlineToken.Text));
+        }
+    }
 }

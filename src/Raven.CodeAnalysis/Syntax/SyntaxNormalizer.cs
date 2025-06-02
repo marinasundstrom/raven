@@ -155,7 +155,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var expression = Visit(node.Expression);
 
-        return node.Update(returnKeyword, expression, node.SemicolonToken);
+        return node.Update(returnKeyword, expression, node.TerminationToken);
     }
 
     public override SyntaxNode? VisitImportDirective(ImportDirectiveSyntax node)
@@ -164,12 +164,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var ns = (IdentifierNameSyntax)VisitType(node.NamespaceOrType)!;
 
-        var semicolonToken = node.SemicolonToken
+        var terminationToken = node.TerminationToken
             .WithTrailingTrivia(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(importKeyword, ns, semicolonToken);
+        return node.Update(importKeyword, ns, terminationToken);
     }
 
     public override SyntaxNode? VisitFileScopedNamespaceDeclaration(FileScopedNamespaceDeclarationSyntax node)
@@ -178,12 +178,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var name = (IdentifierNameSyntax)VisitName(node.Name)!;
 
-        var semicolonToken = node.SemicolonToken
+        var terminationToken = node.TerminationToken
             .WithTrailingTrivia(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(namespaceKeyword, name, semicolonToken, VisitList(node.Imports)!, VisitList(node.Members)!);
+        return node.Update(namespaceKeyword, name, terminationToken, VisitList(node.Imports)!, VisitList(node.Members)!);
     }
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)

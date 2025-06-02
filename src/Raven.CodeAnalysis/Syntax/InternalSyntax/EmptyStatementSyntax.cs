@@ -3,12 +3,12 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class EmptyStatementSyntax : StatementSyntax
 {
     public EmptyStatementSyntax(
-        SyntaxToken semicolonToken,
+        SyntaxToken terminationToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.EmptyStatement,
               [
-                      semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
+                      terminationToken ?? throw new ArgumentNullException(nameof(terminationToken))
               ],
               diagnostics)
     {
@@ -18,7 +18,7 @@ internal partial class EmptyStatementSyntax : StatementSyntax
 internal static partial class SyntaxFactory
 {
     public static EmptyStatementSyntax EmptyStatement(
-        SyntaxToken semicolonToken,
+        SyntaxToken terminationToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(semicolonToken, diagnostics);
+        => new(terminationToken, diagnostics);
 }

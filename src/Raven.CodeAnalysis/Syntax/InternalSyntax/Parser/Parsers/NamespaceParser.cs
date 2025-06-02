@@ -38,12 +38,12 @@ internal class NamespaceDeclarationParser : SyntaxParser
                     ));
             }
 
-            ConsumeTokenOrNull(SyntaxKind.SemicolonToken, out var semicolonToken);
+            ConsumeTokenOrNull(SyntaxKind.SemicolonToken, out var terminationToken);
 
             return NamespaceDeclaration(
                 namespaceKeyword, name, openBraceToken,
                 new SyntaxList(importDirectives.ToArray()), new SyntaxList(memberDeclarations.ToArray()),
-                closeBraceToken, semicolonToken, diagnostics);
+                closeBraceToken, terminationToken, diagnostics);
         }
 
         return ParseFileScopedNamespaceDeclarationCore(namespaceKeyword, name, importDirectives, memberDeclarations);
@@ -53,7 +53,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
     {
         DiagnosticInfo[]? diagnostics = null;
 
-        if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
+        if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var terminationToken))
         {
             diagnostics = [
                 DiagnosticInfo.Create(
@@ -63,7 +63,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
         }
 
         var fileScopedNamespaceDeclaration = FileScopedNamespaceDeclaration(
-            namespaceKeyword, name, semicolonToken,
+            namespaceKeyword, name, terminationToken,
             SyntaxList.Empty, SyntaxList.Empty, diagnostics);
 
         while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken))

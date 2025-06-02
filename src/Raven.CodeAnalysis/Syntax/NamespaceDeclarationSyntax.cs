@@ -14,7 +14,7 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 
     public partial SyntaxToken CloseBraceToken { get; }
 
-    public partial SyntaxToken? SemicolonToken { get; }
+    public partial SyntaxToken? TerminationToken { get; }
 
     internal NamespaceDeclarationSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0)
         : base(greenNode, parent, position)
@@ -22,8 +22,8 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
     }
 
     public NamespaceDeclarationSyntax(SyntaxToken namespaceKeyword, NameSyntax name,
-        SyntaxToken openBraceToken, SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? semicolonToken = null)
-        : this(new Syntax.InternalSyntax.NamespaceDeclarationSyntax(namespaceKeyword.Green, (InternalSyntax.NameSyntax)name.Green, openBraceToken.Green, imports.Green, members.Green, closeBraceToken.Green, semicolonToken?.Green), (SyntaxNode)null)
+        SyntaxToken openBraceToken, SyntaxList<ImportDirectiveSyntax> imports, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminationToken = null)
+        : this(new Syntax.InternalSyntax.NamespaceDeclarationSyntax(namespaceKeyword.Green, (InternalSyntax.NameSyntax)name.Green, openBraceToken.Green, imports.Green, members.Green, closeBraceToken.Green, terminationToken?.Green), (SyntaxNode)null)
     {
     }
 
@@ -36,8 +36,8 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 
 public static partial class SyntaxFactory
 {
-    public static NamespaceDeclarationSyntax NamespaceDeclaration(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken openBraceToken, SyntaxList<ImportDirectiveSyntax> importDirectives, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? semicolonToken)
-        => new NamespaceDeclarationSyntax(namespaceKeyword, name, openBraceToken, importDirectives, members, closeBraceToken, semicolonToken);
+    public static NamespaceDeclarationSyntax NamespaceDeclaration(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken openBraceToken, SyntaxList<ImportDirectiveSyntax> importDirectives, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminationToken)
+        => new NamespaceDeclarationSyntax(namespaceKeyword, name, openBraceToken, importDirectives, members, closeBraceToken, terminationToken);
 
     public static NamespaceDeclarationSyntax NamespaceDeclaration(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken openBraceToken, SyntaxList<ImportDirectiveSyntax> importDirectives, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken)
         => new NamespaceDeclarationSyntax(namespaceKeyword, name, openBraceToken, importDirectives, members, closeBraceToken, null);

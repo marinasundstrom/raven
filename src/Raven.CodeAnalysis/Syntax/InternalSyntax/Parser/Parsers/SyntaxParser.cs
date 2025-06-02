@@ -73,7 +73,7 @@ internal class SyntaxParser : ParseContext
         var missing = MissingToken(kind);
         return missing;
     }
-    
+
     /// <summary>
     /// Get the actual span of a node.
     /// </summary>
@@ -84,5 +84,53 @@ internal class SyntaxParser : ParseContext
     {
         var firstToken = node.GetFirstToken();
         return new TextSpan(start + firstToken.LeadingTrivia.Width, node.Width);
+    }
+
+    protected enum NewlineMode
+    {
+        TreatAsStatementSeparator,
+        IgnoreInsideExpression,
+        AutoDetectContinuation
+    }
+
+    protected NewlineMode CurrentNewlineMode { get; private set; } = NewlineMode.TreatAsStatementSeparator;
+
+    protected void EnterExpressionContext()
+    {
+        CurrentNewlineMode = NewlineMode.IgnoreInsideExpression;
+    }
+
+    protected void EnterStatementContext()
+    {
+        CurrentNewlineMode = NewlineMode.TreatAsStatementSeparator;
+    }
+
+    protected bool IsRealStatementTerminator()
+    {
+        var current = PeekToken();
+
+        if (current.Kind == SyntaxKind.SemicolonToken)
+            return true;
+
+        if (current.Kind == SyntaxKind.NewLineToken)
+        {
+            // Lookahead to see if it's continuation
+            var next = PeekToken(1);
+
+            if (next.Kind is SyntaxKind.DotToken or
+                               SyntaxKind.OpenParenToken or
+                               SyntaxKind.OpenBracketToken or
+                               SyntaxKind.PlusToken or
+                               SyntaxKind.MinusToken or
+                               SyntaxKind.StarToken or
+                               SyntaxKind.SlashToken)
+            {
+                return false; // it's a continuation
+            }
+
+            return true; // it's a terminator
+        }
+
+        return false;
     }
 }

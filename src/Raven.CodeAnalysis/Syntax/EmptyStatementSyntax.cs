@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public partial class EmptyStatementSyntax : StatementSyntax
 {
-    public partial SyntaxToken SemicolonToken { get; }
+    public partial SyntaxToken TerminationToken { get; }
 
     internal EmptyStatementSyntax(
         InternalSyntax.SyntaxNode greenNode,

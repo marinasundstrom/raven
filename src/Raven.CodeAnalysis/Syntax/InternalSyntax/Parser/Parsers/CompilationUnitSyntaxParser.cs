@@ -38,6 +38,10 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             memberDeclarations.Add(namespaceDeclaration);
         }
+        else if (nextToken.IsKind(SyntaxKind.NewLineToken))
+        {
+            ReadToken();
+        }
         else
         {
             // Should warn (?)

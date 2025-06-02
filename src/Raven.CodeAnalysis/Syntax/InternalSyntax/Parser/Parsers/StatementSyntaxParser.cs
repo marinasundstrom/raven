@@ -53,6 +53,25 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
+
+        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var terminationToken))
+        {
+            if (IsRealStatementTerminator())
+            {
+                terminationToken = ReadToken(); // consume newline as terminator
+            }
+            else
+            {
+                terminationToken = MissingToken(SyntaxKind.SemicolonToken);
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.SemicolonExpected,
+                        GetEndOfLastToken()
+                    ));
+            }
+        }
+
         return LocalFunctionStatement(funcKeyword, name, parameters, returnParameterAnnotation, block);
     }
 
@@ -93,19 +112,25 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
-        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
+        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var terminationToken))
         {
-            semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
+            if (IsRealStatementTerminator())
+            {
+                terminationToken = ReadToken(); // consume newline as terminator
+            }
+            else
+            {
+                terminationToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            return ReturnStatement(returnKeyword, expression, semicolonToken,
-                [DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                )]);
-
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.SemicolonExpected,
+                        GetEndOfLastToken()
+                    ));
+            }
         }
 
-        return ReturnStatement(returnKeyword, expression, semicolonToken);
+        return ReturnStatement(returnKeyword, expression, terminationToken);
     }
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()
@@ -176,26 +201,32 @@ internal class StatementSyntaxParser : SyntaxParser
 
         if (expression is IfExpressionSyntax or WhileExpressionSyntax or BlockSyntax)
         {
-            if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken2))
+            if (ConsumeToken(SyntaxKind.SemicolonToken, out var terminationToken2))
             {
-                return ExpressionStatementWithSemicolon(expression, semicolonToken2, diagnostics);
+                return ExpressionStatementWithSemicolon(expression, terminationToken2, diagnostics);
             }
             return ExpressionStatement(expression, diagnostics);
         }
 
-        // INFO: Remember
-        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
+        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var terminationToken))
         {
-            semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
+            if (IsRealStatementTerminator())
+            {
+                terminationToken = ReadToken(); // consume newline as terminator
+            }
+            else
+            {
+                terminationToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                ));
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.SemicolonExpected,
+                        GetEndOfLastToken()
+                    ));
+            }
         }
 
-        return ExpressionStatementWithSemicolon(expression, semicolonToken, diagnostics);
+        return ExpressionStatementWithSemicolon(expression, terminationToken, diagnostics);
     }
 
     public StatementSyntax? LastStatement { get; set; }
@@ -206,18 +237,25 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var declaration = ParseVariableDeclarationSyntax();
 
-        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
+        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var terminationToken))
         {
-            semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
+            if (IsRealStatementTerminator())
+            {
+                terminationToken = ReadToken(); // consume newline as terminator
+            }
+            else
+            {
+                terminationToken = MissingToken(SyntaxKind.SemicolonToken);
 
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                ));
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.SemicolonExpected,
+                        GetEndOfLastToken()
+                    ));
+            }
         }
 
-        return LocalDeclarationStatement(declaration, semicolonToken, diagnostics);
+        return LocalDeclarationStatement(declaration, terminationToken, diagnostics);
     }
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()

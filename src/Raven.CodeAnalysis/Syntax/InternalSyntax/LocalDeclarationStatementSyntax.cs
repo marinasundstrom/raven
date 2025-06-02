@@ -4,13 +4,13 @@ internal partial class LocalDeclarationStatementSyntax : StatementSyntax
 {
     public LocalDeclarationStatementSyntax(
         VariableDeclarationSyntax declaration,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminationToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.LocalDeclaration,
               [
                     declaration ?? throw new ArgumentNullException(nameof(declaration)),
-                    semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
+                    terminationToken ?? throw new ArgumentNullException(nameof(terminationToken))
               ],
               diagnostics)
     {
@@ -21,7 +21,7 @@ internal static partial class SyntaxFactory
 {
     public static LocalDeclarationStatementSyntax LocalDeclarationStatement(
         VariableDeclarationSyntax declaration,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminationToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(declaration, semicolonToken, diagnostics);
+        => new(declaration, terminationToken, diagnostics);
 }

@@ -97,8 +97,43 @@ public class TokenizerTest
     {
         var str =
             """
-            if (foo)  {
-                if(x) {}
+            import System;
+            
+            let list = [1, 3, 4];
+            
+            let w = 2
+            let x = 1 + 2
+            let y = if x > 2 { 40 + w; } else { true; }
+            
+            test(y);
+            
+            // External methods receiving: int | bool
+            TestDep.Foo.Test(y);
+            TestDep.Foo.Test(x);
+            
+            // External method returning type: int | bool
+            let v = TestDep.Foo.Test2(true);
+            
+            //Console.WriteLine(v.ToString());
+            
+            if v is int a {
+                Console.WriteLine(a);
+            }
+            else if v is bool b {
+                Console.WriteLine(b);
+            }
+            
+            func test (input : int | bool) -> void {
+                if input is int a {
+                    Console.WriteLine(a);
+                }
+                else if input is bool b {
+                    Console.WriteLine(b);
+                }
+            }
+            
+            func f () -> void {
+            
             }
             """;
 
