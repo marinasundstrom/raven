@@ -124,4 +124,11 @@ public class ChildSyntaxListItem
         node = null;
         return false;
     }
+
+    public static implicit operator SyntaxNodeOrToken(ChildSyntaxListItem childSyntaxListItem)
+    {
+        return childSyntaxListItem.IsToken
+            ? new SyntaxNodeOrToken(childSyntaxListItem.AsToken())
+            : new SyntaxNodeOrToken(childSyntaxListItem.AsNode()!);
+    }
 }

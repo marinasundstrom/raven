@@ -31,6 +31,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _thisValueIsNotMutable;
     private static DiagnosticDescriptor? _propertyOrIndexerCannotBeAssignedIsReadOnly;
     private static DiagnosticDescriptor? _cannotApplyIndexingWithToAnExpressionOfType;
+    private static DiagnosticDescriptor _numericLiteralOutOfRange;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -42,7 +43,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Identifier expected",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1002: ';' expected
@@ -54,7 +56,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "';' expected",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1003: '{0}' expected
@@ -66,7 +69,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "'{0}' expected",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1004: Duplicate '{0}' modifier
@@ -78,7 +82,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Duplicate '{0}' modifier",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1009: Unrecognized escape sequence
@@ -90,7 +95,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Unrecognized escape sequence",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1010: Newline in constant
@@ -102,7 +108,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Newline in constant",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0149: Method name expected
@@ -114,7 +121,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Method name expected",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1955: Non-invocable member '{0}' cannot be used like a method
@@ -126,7 +134,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Non-invocable member '{0}' cannot be used like a method",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0269: Use of unassigned out parameter '{0}'
@@ -138,7 +147,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Use of unassigned out parameter '{0}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0118: '{0}' is a variable but is used like a type
@@ -150,7 +160,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "'{0}' is a variable but is used like a type",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0165: Use of unassigned local variable '{0}'
@@ -162,7 +173,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Use of unassigned local variable '{0}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0117: '{0}' does not contain a definition for '{1}'
@@ -174,7 +186,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "'{0}' does not contain a definition for '{1}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0023: Operator '{0}' cannot be applied to operand of type '{1}'
@@ -186,7 +199,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Operator '{0}' cannot be applied to operand of type '{1}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     // RAV0024: Operator '{0}' cannot be applied to operands of type '{1}' and '{2}'
@@ -198,7 +212,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Operator '{0}' cannot be applied to operands of type '{1}' and '{2}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0426: The type name '{0}' does not exist in the type '{1}'
@@ -210,7 +225,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "The type name '{0}' does not exist in the type '{1}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0121: The call is ambiguous between the following methods or properties: '{0}' and '{1}'
@@ -222,7 +238,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "The call is ambiguous between the following methods or properties: '{0}' and '{1}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1503: Cannot convert from '{0}' to {1}
@@ -234,7 +251,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Cannot convert from '{0}' to '{1}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1501: No overload for method {0} takes ‘{1}’ arguments
@@ -246,7 +264,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "No overload for method '{0}' takes {1} arguments",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0234: The type or namespace name '{0}' does not exist in the namespace '{1}'
@@ -258,7 +277,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "The type or namespace name '{0}' does not exist in the namespace '{1}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV1525: Invalid expression term '{0}'
@@ -270,7 +290,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Invalid expression term '{0}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0103: The name '{0}' does not exist in the current context
@@ -282,7 +303,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "The name '{0}' does not exist in the current context",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0815: Cannot assign void to an implicitly-typed variable
@@ -294,7 +316,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Cannot assign void to an implicitly-typed variable",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0131: The left-hand side of an assignment must be a variable, property or indexer
@@ -306,7 +329,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "The left-hand side of an assignment must be a variable, property or indexer",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0191: A readonly field cannot be assigned to (except in a constructor or a variable initializer)
@@ -318,7 +342,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "A readonly field cannot be assigned to (except in a constructor or a variable initializer)",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0027: This value is not mutable
@@ -330,7 +355,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "This value is not mutable",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0200: Property or indexer '{0}' cannot be assigned to -- it is read only
@@ -342,7 +368,8 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Property or indexer '{0}' cannot be assigned to -- it is read only",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     /// <summary>
     /// RAV0021: Cannot apply indexing with [] to an expression of type 'method group'
@@ -354,8 +381,21 @@ internal class CompilerDiagnostics
         helpLinkUri: "",
         messageFormat: "Cannot apply indexing with [] to an expression of type '{0}'",
         category: "compiler",
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAVN1001: The numeric literal is out of range for its target type
+    /// </summary>
+    public static DiagnosticDescriptor NumericLiteralOutOfRange => _numericLiteralOutOfRange ??= DiagnosticDescriptor.Create(
+        id: "RAVN1001",
+        title: "Numeric literal out of range",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The numeric literal is out of range for its target type",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [

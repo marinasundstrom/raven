@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
@@ -123,13 +124,108 @@ internal class Lexer : ILexer
                 }
                 else if (char.IsDigit(ch))
                 {
+                    bool isFloat = false;
+                    bool hasDecimal = false;
+                    bool hasExponent = false;
+
+                    // Integer part
                     while (PeekChar(out ch) && char.IsDigit(ch))
                     {
                         ReadChar();
                         _stringBuilder.Append(ch);
                     }
+
+                    // Decimal point
+                    if (PeekChar(out ch) && ch == '.')
+                    {
+                        hasDecimal = true;
+                        ReadChar(); _stringBuilder.Append('.');
+                        while (PeekChar(out ch) && char.IsDigit(ch))
+                        {
+                            ReadChar();
+                            _stringBuilder.Append(ch);
+                        }
+                    }
+
+                    // Exponent part (e.g., e+10)
+                    if (PeekChar(out ch) && (ch == 'e' || ch == 'E'))
+                    {
+                        hasExponent = true;
+                        ReadChar(); _stringBuilder.Append(ch);
+
+                        if (PeekChar(out ch) && (ch == '+' || ch == '-'))
+                        {
+                            ReadChar(); _stringBuilder.Append(ch);
+                        }
+
+                        while (PeekChar(out ch) && char.IsDigit(ch))
+                        {
+                            ReadChar();
+                            _stringBuilder.Append(ch);
+                        }
+                    }
+
+                    // Suffix
+                    if (PeekChar(out ch) && (ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D'))
+                    {
+                        isFloat = true;
+                        ReadChar(); _stringBuilder.Append(ch);
+                    }
+
                     var text = _stringBuilder.ToString();
-                    return new Token(SyntaxKind.NumericLiteralToken, text, int.Parse(text), _stringBuilder.Length, diagnostics: diagnostics);
+
+                    // Float literal
+                    if (text.EndsWith("f", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var numericText = text[..^1];
+                        if (float.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatValue))
+                        {
+                            return new Token(SyntaxKind.NumericLiteralToken, text, floatValue, text.Length, diagnostics: diagnostics);
+                        }
+                        else
+                        {
+                            diagnostics.Add(DiagnosticInfo.Create(
+                                CompilerDiagnostics.NumericLiteralOutOfRange,
+                                new TextSpan(_tokenStartPosition, text.Length)
+                            ));
+                            return new Token(SyntaxKind.NumericLiteralToken, text, 0f, text.Length, diagnostics: diagnostics);
+                        }
+                    }
+
+                    // Double literal
+                    if (hasDecimal || hasExponent || text.EndsWith("d", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var numericText = text.EndsWith("d", StringComparison.OrdinalIgnoreCase)
+                            ? text[..^1]
+                            : text;
+
+                        if (double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
+                        {
+                            return new Token(SyntaxKind.NumericLiteralToken, text, doubleValue, text.Length, diagnostics: diagnostics);
+                        }
+                        else
+                        {
+                            diagnostics.Add(DiagnosticInfo.Create(
+                                CompilerDiagnostics.NumericLiteralOutOfRange,
+                                new TextSpan(_tokenStartPosition, text.Length)
+                            ));
+                            return new Token(SyntaxKind.NumericLiteralToken, text, 0d, text.Length, diagnostics: diagnostics);
+                        }
+                    }
+
+                    // Integer literal (default case)
+                    if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+                    {
+                        return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length, diagnostics: diagnostics);
+                    }
+                    else
+                    {
+                        diagnostics.Add(DiagnosticInfo.Create(
+                            CompilerDiagnostics.NumericLiteralOutOfRange,
+                            new TextSpan(_tokenStartPosition, text.Length)
+                        ));
+                        return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length, diagnostics: diagnostics);
+                    }
                 }
             }
             else

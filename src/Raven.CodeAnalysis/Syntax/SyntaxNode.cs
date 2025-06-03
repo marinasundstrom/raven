@@ -12,6 +12,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     private readonly SyntaxNode _parent;
     private bool? _isMissing = false;
     private List<Diagnostic>? _diagnostics;
+    private bool? _containsDiagnostics;
 
     public SyntaxNode Parent => _parent;
 
@@ -148,16 +149,112 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         }
     }
 
+    public IEnumerable<SyntaxNode> DescendantNodesAndSelf()
+    {
+        yield return this;
+
+        foreach (var child in ChildNodes())
+        {
+            foreach (var descendant in child.DescendantNodesAndSelf())
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    public IEnumerable<SyntaxNodeOrToken> DescendantNodesAndTokens(bool descendIntoTrivia = false)
+    {
+        foreach (var child in ChildNodesAndTokens())
+        {
+            yield return child;
+
+            if (child.IsNode)
+            {
+                foreach (var descendant in child.AsNode()!.DescendantNodesAndTokens(descendIntoTrivia))
+                {
+                    yield return descendant;
+                }
+            }
+        }
+    }
+
+    public IEnumerable<SyntaxNodeOrToken> DescendantNodesAndTokensAndSelf(bool descendIntoTrivia = false)
+    {
+        yield return new SyntaxNodeOrToken(this);
+
+        foreach (var child in ChildNodesAndTokens())
+        {
+            yield return child;
+
+            if (child.IsNode)
+            {
+                foreach (var descendant in child.AsNode()!.DescendantNodesAndTokens(descendIntoTrivia))
+                {
+                    yield return descendant;
+                }
+            }
+        }
+    }
+
+    public IEnumerable<SyntaxToken> DescendantTokens(bool descendIntoTrivia = false)
+    {
+        foreach (var child in ChildNodesAndTokens())
+        {
+            if (child.IsToken)
+            {
+                var token = child.AsToken();
+                yield return token;
+
+                if (descendIntoTrivia)
+                {
+                    foreach (var trivia in token.LeadingTrivia)
+                    {
+                        if (trivia.HasStructure)
+                        {
+                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
+                                yield return t;
+                        }
+                    }
+
+                    foreach (var trivia in token.TrailingTrivia)
+                    {
+                        if (trivia.HasStructure)
+                        {
+                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
+                                yield return t;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                var node = child.AsNode()!;
+                foreach (var token in node.DescendantTokens(descendIntoTrivia))
+                    yield return token;
+            }
+        }
+    }
+
     /// <summary>
     /// Retrieves all ancestor nodes up to the root.
     /// </summary>
-    public IEnumerable<SyntaxNode> AncestorNodes()
+    public IEnumerable<SyntaxNode> Ancestors()
     {
         var current = _parent;
         while (current != null)
         {
             yield return current;
             current = current._parent;
+        }
+    }
+
+    public IEnumerable<SyntaxNode> AncestorsAndSelf()
+    {
+        var current = this;
+        while (current is not null)
+        {
+            yield return current;
+            current = current.Parent;
         }
     }
 
@@ -352,7 +449,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return null!;
     }
 
-    public bool ContainsDiagnostics => SyntaxTree?.GetDiagnostics(this).Any() ?? false;
+    public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
 
     public IEnumerable<Diagnostic> GetDiagnostics()
     {
@@ -366,6 +463,26 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
             (_diagnostics ??= new List<Diagnostic>()).Add(d);
         }
 
+        foreach (var child in ChildNodesAndTokens())
+        {
+            if (child.IsNode)
+            {
+                foreach (var diagnostic in child.AsNode()!.GetDiagnostics())
+                {
+                    (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+                }
+            }
+            else if (child.IsToken)
+            {
+                var str = child.AsToken();
+                foreach (var diagnostic in str!.GetDiagnostics())
+                {
+                    (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+                }
+            }
+        }
+
+        /*
         foreach (var child in ChildNodes())
         {
             foreach (var diagnostic in child.GetDiagnostics())
@@ -373,6 +490,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
                 (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
             }
         }
+        */
 
         return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
@@ -407,44 +525,5 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
         // If not found (e.g., position == EndOfFile), return EOF token
         return node is CompilationUnitSyntax cu ? cu.EndOfFileToken : default;
-    }
-
-    public IEnumerable<SyntaxToken> DescendantTokens(bool descendIntoTrivia = false)
-    {
-        foreach (var child in ChildNodesAndTokens())
-        {
-            if (child.IsToken)
-            {
-                var token = child.AsToken();
-                yield return token;
-
-                if (descendIntoTrivia)
-                {
-                    foreach (var trivia in token.LeadingTrivia)
-                    {
-                        if (trivia.HasStructure)
-                        {
-                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
-                                yield return t;
-                        }
-                    }
-
-                    foreach (var trivia in token.TrailingTrivia)
-                    {
-                        if (trivia.HasStructure)
-                        {
-                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
-                                yield return t;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                var node = child.AsNode()!;
-                foreach (var token in node.DescendantTokens(descendIntoTrivia))
-                    yield return token;
-            }
-        }
     }
 }

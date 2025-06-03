@@ -46,7 +46,7 @@ public static class SyntaxNodeExtensions
     {
         yield return node;
 
-        foreach (var n in node.AncestorNodes())
+        foreach (var n in node.Ancestors())
         {
             yield return n;
         }

@@ -9,6 +9,8 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 {
     internal readonly InternalSyntax.SyntaxToken Green;
     private readonly SyntaxNode _parent;
+    private List<Diagnostic>? _diagnostics;
+    private bool? _containsDiagnostics;
 
     public string Text => Green.Text;
 
@@ -134,11 +136,21 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         return HashCode.Combine(Green, _parent);
     }
 
-    public bool ContainsDiagnostics => SyntaxTree?.GetDiagnostics(this).Any() ?? false;
+    public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
 
     public IEnumerable<Diagnostic> GetDiagnostics()
     {
-        return SyntaxTree?.GetDiagnostics(this) ?? Enumerable.Empty<Diagnostic>();
+        if (_diagnostics is not null)
+            return _diagnostics;
+
+        foreach (var diagnostic in Green.GetDiagnostics())
+        {
+            var location = SyntaxTree.GetLocation(diagnostic.Span);
+            var d = Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args);
+            (_diagnostics ??= new List<Diagnostic>()).Add(d);
+        }
+
+        return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
 
     internal SyntaxToken Accept(SyntaxRewriter syntaxRewriter)

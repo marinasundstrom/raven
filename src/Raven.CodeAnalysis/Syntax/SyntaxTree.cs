@@ -56,14 +56,23 @@ public class SyntaxTree
 
     public IEnumerable<Diagnostic> GetDiagnostics(SyntaxNodeOrToken syntaxNodeOrToken)
     {
-        TextSpan span = syntaxNodeOrToken.AsNode()?.FullSpan ?? syntaxNodeOrToken.AsToken().FullSpan;
+        return syntaxNodeOrToken.IsNode
+            ? syntaxNodeOrToken.AsNode()!.GetDiagnostics()
+            : syntaxNodeOrToken.AsToken().GetDiagnostics();
+    }
 
-        return GetDiagnostics().Where(x => x.Location.SourceSpan.Contains(span));
+    public IEnumerable<Diagnostic> GetDiagnostics(TextSpan span)
+    {
+        return GetRoot().DescendantNodesAndTokens()
+            .SelectMany(n => n.IsNode
+                ? n.AsNode()!.GetDiagnostics()
+                : n.AsToken().GetDiagnostics())
+            .Where(d => d.Location.SourceSpan.IntersectsWith(span));
     }
 
     public IEnumerable<TextChange> GetChanges(SyntaxTree oldTree)
     {
-        return oldTree.GetText().GetTextChanges(this.GetText());
+        return oldTree.GetText().GetTextChanges(GetText());
     }
 
     public static SyntaxTree Create(CompilationUnitSyntax compilationUnit, ParseOptions? options = null, Encoding? encoding = null, string? filePath = null)
