@@ -1,18 +1,18 @@
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
+internal partial class LocalFunctionStatementSyntax : StatementSyntax
 {
-    public MethodDeclarationSyntax(
+    public LocalFunctionStatementSyntax(
         SyntaxToken funcKeyword,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
         ReturnTypeAnnotationSyntax returnTypeAnnotation,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(SyntaxKind.MethodDeclaration,
+        : base(SyntaxKind.LocalFunctionStatement,
               [
-                      funcKeyword ?? throw new ArgumentNullException(nameof(name)),
+                     funcKeyword ?? throw new ArgumentNullException(nameof(name)),
                       name ?? throw new ArgumentNullException(nameof(name)),
                       parameters ?? throw new ArgumentNullException(nameof(parameters)),
                       returnTypeAnnotation ?? throw new ArgumentNullException(nameof(returnTypeAnnotation)),
@@ -25,12 +25,12 @@ internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
 
 internal static partial class SyntaxFactory
 {
-    public static MethodDeclarationSyntax MethodDeclaration(
+    public static LocalFunctionStatementSyntax LocalFunctionStatement(
         SyntaxToken funcKeyword,
         IdentifierNameSyntax name,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ReturnTypeAnnotationSyntax returnType,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(funcKeyword, name, parameters, returnTypeAnnotation, body, diagnostics);
+        => new(funcKeyword, name, parameters, returnType, body, diagnostics);
 }

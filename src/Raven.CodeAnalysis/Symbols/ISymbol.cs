@@ -202,9 +202,31 @@ public interface INamespaceSymbol : INamespaceOrTypeSymbol
 
 public interface IMethodSymbol : ISymbol
 {
+    MethodKind MethodKind { get; }
     ITypeSymbol ReturnType { get; }
     ImmutableArray<IParameterSymbol> Parameters { get; }
     bool IsConstructor { get; }
+}
+
+public enum MethodKind
+{
+    LambdaMethod,
+    Constructor,
+    Conversion,
+    Destructor,
+    EventAdd,
+    EventRaise,
+    EventRemove,
+    ExplicitInterfaceImplementation,
+    UserDefinedOperator,
+    Ordinary,
+    PropertyGet,
+    PropertySet,
+    ReducedExtension,
+    StaticConstructor,
+    BuiltinOperator,
+    LocalFunction,
+    FunctionPointerSignature
 }
 
 public interface IParameterSymbol : ISymbol

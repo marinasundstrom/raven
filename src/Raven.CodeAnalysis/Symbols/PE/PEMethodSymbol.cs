@@ -14,12 +14,87 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _methodInfo = methodInfo;
+
+        if (Name.StartsWith("op_Implicit") || Name.StartsWith("op_Explicit"))
+        {
+            MethodKind = MethodKind.Conversion;
+        }
+        else if (Name.StartsWith("op_"))
+        {
+            MethodKind = MethodKind.UserDefinedOperator;
+        }
+        else if (Name.StartsWith(".ctor"))
+        {
+            MethodKind = MethodKind.Constructor;
+        }
+        else if (Name.StartsWith(".cctor"))
+        {
+            MethodKind = MethodKind.StaticConstructor;
+        }
+        else if (Name.StartsWith("get_"))
+        {
+            MethodKind = MethodKind.PropertyGet;
+        }
+        else if (Name.StartsWith("set_"))
+        {
+            MethodKind = MethodKind.PropertySet;
+        }
+        else if (Name.StartsWith("add_"))
+        {
+            MethodKind = MethodKind.EventAdd;
+        }
+        else if (Name.StartsWith("remove_"))
+        {
+            MethodKind = MethodKind.EventRemove;
+        }
+        else
+        {
+            MethodKind = MethodKind.Ordinary;
+        }
     }
 
     public PEMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations)
     : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
     {
         _methodInfo = methodInfo;
+
+
+        if (Name.StartsWith("op_Implicit") || Name.StartsWith("op_Explicit"))
+        {
+            MethodKind = MethodKind.Conversion;
+        }
+        else if (Name.StartsWith("op_"))
+        {
+            MethodKind = MethodKind.UserDefinedOperator;
+        }
+        else if (Name.StartsWith(".ctor"))
+        {
+            MethodKind = MethodKind.Constructor;
+        }
+        else if (Name.StartsWith(".cctor"))
+        {
+            MethodKind = MethodKind.StaticConstructor;
+        }
+        else if (Name.StartsWith("get_"))
+        {
+            MethodKind = MethodKind.PropertyGet;
+        }
+        else if (Name.StartsWith("set_"))
+        {
+            MethodKind = MethodKind.PropertySet;
+        }
+        else if (Name.StartsWith("add_"))
+        {
+            MethodKind = MethodKind.EventAdd;
+        }
+        else if (Name.StartsWith("remove_"))
+        {
+            MethodKind = MethodKind.EventRemove;
+        }
+        else
+        {
+            MethodKind = MethodKind.Ordinary;
+        }
     }
 
     public override SymbolKind Kind => SymbolKind.Method;
@@ -70,6 +145,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     public override bool IsStatic => _methodInfo.IsStatic;
 
     public bool IsConstructor => _methodInfo.IsConstructor;
+
+    public MethodKind MethodKind { get; }
 
     public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
 
