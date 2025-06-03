@@ -110,8 +110,6 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()
     {
-        List<DiagnosticInfo>? diagnostics = null;
-
         var token = PeekToken();
 
         switch (token.Kind)
@@ -168,7 +166,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             if (LastStatement is null)
             {
-                return ExpressionStatement(new ExpressionSyntax.Missing(), diagnostics);
+                return ExpressionStatement(new ExpressionSyntax.Missing(), Diagnostics);
             }
 
             return null;
@@ -178,9 +176,9 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken2))
             {
-                return ExpressionStatementWithSemicolon(expression, semicolonToken2, diagnostics);
+                return ExpressionStatementWithSemicolon(expression, semicolonToken2, Diagnostics);
             }
-            return ExpressionStatement(expression, diagnostics);
+            return ExpressionStatement(expression, Diagnostics);
         }
 
         // INFO: Remember
@@ -195,15 +193,13 @@ internal class StatementSyntaxParser : SyntaxParser
                 ));
         }
 
-        return ExpressionStatementWithSemicolon(expression, semicolonToken, diagnostics);
+        return ExpressionStatementWithSemicolon(expression, semicolonToken, Diagnostics);
     }
 
     public StatementSyntax? LastStatement { get; set; }
 
     private LocalDeclarationStatementSyntax ParseLocalDeclarationStatementSyntax()
     {
-        List<DiagnosticInfo>? diagnostics = null;
-
         var declaration = ParseVariableDeclarationSyntax();
 
         if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
@@ -217,7 +213,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 ));
         }
 
-        return LocalDeclarationStatement(declaration, semicolonToken, diagnostics);
+        return LocalDeclarationStatement(declaration, semicolonToken, Diagnostics);
     }
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()

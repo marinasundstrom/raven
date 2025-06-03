@@ -290,8 +290,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax AddTrailers(int start, ExpressionSyntax expr)
     {
-        List<DiagnosticInfo>? diagnostics = null;
-
         while (true) // Loop to handle consecutive member access and invocations
         {
             var token = PeekToken();
@@ -320,7 +318,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                     ));
                     */
 
-                expr = ElementAccessExpression(expr, argumentList, diagnostics);
+                expr = ElementAccessExpression(expr, argumentList, Diagnostics);
             }
             else
             {
@@ -513,8 +511,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax ParseParenthesisExpression()
     {
-        List<DiagnosticInfo>? diagnostics = null;
-
         var openParenToken = ReadToken();
 
         var expr = new ExpressionSyntaxParser(this).ParseExpression();
@@ -528,7 +524,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 )); ;
         }
 
-        return ParenthesizedExpression(openParenToken, expr, closeParenToken, diagnostics);
+        return ParenthesizedExpression(openParenToken, expr, closeParenToken, Diagnostics);
     }
 
     private ExpressionSyntax ParseNumericLiteralExpressionSyntax()
@@ -544,8 +540,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private IfExpressionSyntax ParseIfExpressionSyntax()
     {
-        List<DiagnosticInfo>? diagnostics = null;
-
         var ifKeyword = ReadToken();
 
         var condition = new ExpressionSyntaxParser(this).ParseExpression();
@@ -582,7 +576,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             elseClause = ParseElseClauseSyntax();
         }
 
-        return IfExpression(ifKeyword, condition!, expression!, elseClause, diagnostics);
+        return IfExpression(ifKeyword, condition!, expression!, elseClause, Diagnostics);
     }
 
     private ElseClauseSyntax ParseElseClauseSyntax()
@@ -596,8 +590,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private WhileExpressionSyntax ParseWhileExpressionSyntax()
     {
-        List<DiagnosticInfo>? diagnostics = null;
-
         var whileKeyword = ReadToken();
 
         var condition = new ExpressionSyntaxParser(this).ParseExpression();
@@ -625,7 +617,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 ));
         }
 
-        return WhileStatement(whileKeyword, condition!, statement!, diagnostics);
+        return WhileStatement(whileKeyword, condition!, statement!, Diagnostics);
     }
 
 }

@@ -474,23 +474,12 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
             }
             else if (child.IsToken)
             {
-                var str = child.AsToken();
-                foreach (var diagnostic in str!.GetDiagnostics())
+                foreach (var diagnostic in child.AsToken()!.GetDiagnostics())
                 {
                     (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
                 }
             }
         }
-
-        /*
-        foreach (var child in ChildNodes())
-        {
-            foreach (var diagnostic in child.GetDiagnostics())
-            {
-                (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
-            }
-        }
-        */
 
         return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }

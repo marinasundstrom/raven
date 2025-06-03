@@ -15,8 +15,6 @@ internal class NamespaceDeclarationParser : SyntaxParser
         List<ImportDirectiveSyntax> importDirectives = [];
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
-        List<DiagnosticInfo>? diagnostics = null;
-
         var namespaceKeyword = ReadToken();
 
         var name = new NameSyntaxParser(this).ParseName();
@@ -43,7 +41,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             return NamespaceDeclaration(
                 namespaceKeyword, name, openBraceToken,
                 new SyntaxList(importDirectives.ToArray()), new SyntaxList(memberDeclarations.ToArray()),
-                closeBraceToken, semicolonToken, diagnostics);
+                closeBraceToken, semicolonToken, Diagnostics);
         }
 
         return ParseFileScopedNamespaceDeclarationCore(namespaceKeyword, name, importDirectives, memberDeclarations);
