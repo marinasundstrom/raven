@@ -272,10 +272,6 @@ public class Compilation
 
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        // INFO: Temp
-        if (destination is null)
-            return new Conversion(isImplicit: false);
-
         if (SymbolEqualityComparer.Default.Equals(source, destination))
         {
             // Identity conversion
@@ -284,21 +280,18 @@ public class Compilation
 
         if (destination is IUnionTypeSymbol unionType)
         {
-            var v = unionType.Types.FirstOrDefault(x => ClassifyConversion(source, x).Exists);
-            if (v is null)
-            {
+            var match = unionType.Types.FirstOrDefault(x => ClassifyConversion(source, x).Exists);
+            if (match is null)
                 return Conversion.None;
-            }
-            return new Conversion(isImplicit: true, isBoxing: v.IsValueType);
+
+            return new Conversion(isImplicit: true, isBoxing: source.IsValueType);
         }
 
-        /*
-                if (IsReferenceConversion(source, destination))
-                {
-                    // Reference conversion
-                    return new Conversion(isImplicit: true, isReference: true);
-                }
-                */
+        if (IsReferenceConversion(source, destination))
+        {
+            // Reference conversion
+            return new Conversion(isImplicit: true, isReference: true);
+        }
 
         if (IsBoxingConversion(source, destination))
         {
@@ -324,15 +317,49 @@ public class Compilation
             return new Conversion(isImplicit: false);
         }
 
+        // User-defined conversions
+        var sourceNamed = source as INamedTypeSymbol;
+        var destinationNamed = destination as INamedTypeSymbol;
+
+        if (sourceNamed != null || destinationNamed != null)
+        {
+            IEnumerable<IMethodSymbol> candidateConversions =
+                Enumerable.Empty<IMethodSymbol>();
+
+            if (sourceNamed != null)
+                candidateConversions = candidateConversions.Concat(sourceNamed.GetMembers().OfType<IMethodSymbol>());
+            if (destinationNamed != null && !SymbolEqualityComparer.Default.Equals(source, destination))
+                candidateConversions = candidateConversions.Concat(destinationNamed.GetMembers().OfType<IMethodSymbol>());
+
+            foreach (var method in candidateConversions)
+            {
+                if (method.MethodKind == MethodKind.Conversion &&
+                    method.Parameters.Length == 1 &&
+                    SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, source) &&
+                    SymbolEqualityComparer.Default.Equals(method.ReturnType, destination))
+                {
+                    var isImplicit = method.Name == "op_Implicit";
+                    return new Conversion(isImplicit: isImplicit, isUserDefined: true);
+                }
+            }
+        }
+
         // No valid conversion
         return Conversion.None;
     }
 
     private bool IsReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        return source is INamedTypeSymbol sourceNamed &&
-               destination is INamedTypeSymbol destNamed &&
-               this.ClassifyConversion(sourceNamed, destNamed).IsImplicit;
+        // Must both be reference types
+        if (source.IsValueType || destination.IsValueType)
+            return false;
+
+        // Identity conversion is not a reference conversion
+        if (SymbolEqualityComparer.Default.Equals(source, destination))
+            return false;
+
+        // Class-to-base, interface-implementation, etc.
+        return ClassifyConversion(source, destination).IsReference;
     }
 
     private bool IsBoxingConversion(ITypeSymbol source, ITypeSymbol destination)
