@@ -284,7 +284,7 @@ public class Compilation
             if (match is null)
                 return Conversion.None;
 
-            return new Conversion(isImplicit: true, isBoxing: source.IsValueType);
+            return new Conversion(isImplicit: true, isBoxing: source.TypeKind is TypeKind.Struct);
         }
 
         if (IsReferenceConversion(source, destination))
@@ -333,7 +333,7 @@ public class Compilation
 
             foreach (var method in candidateConversions)
             {
-                if (method.MethodKind == MethodKind.Conversion &&
+                if (method.MethodKind is MethodKind.Conversion &&
                     method.Parameters.Length == 1 &&
                     SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, source) &&
                     SymbolEqualityComparer.Default.Equals(method.ReturnType, destination))
@@ -351,7 +351,7 @@ public class Compilation
     private bool IsReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
     {
         // Must both be reference types
-        if (source.IsValueType || destination.IsValueType)
+        if (source.TypeKind is TypeKind.Struct || destination.TypeKind is TypeKind.Struct)
             return false;
 
         // Identity conversion is not a reference conversion
@@ -359,17 +359,19 @@ public class Compilation
             return false;
 
         // Class-to-base, interface-implementation, etc.
-        return ClassifyConversion(source, destination).IsReference;
+        ///return ClassifyConversion(source, destination).IsReference;
+
+        return false;
     }
 
     private bool IsBoxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        return source.IsValueType && destination.SpecialType == SpecialType.System_Object;
+        return source.TypeKind is TypeKind.Struct && destination.SpecialType is SpecialType.System_Object;
     }
 
     private bool IsUnboxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        return source.SpecialType == SpecialType.System_Object && destination.IsValueType;
+        return source.SpecialType is SpecialType.System_Object && destination.TypeKind is TypeKind.Struct;
     }
 
     private bool IsImplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)
@@ -378,8 +380,8 @@ public class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
-        return (sourceType == SpecialType.System_Int32 && destType == SpecialType.System_Int64) ||
-               (sourceType == SpecialType.System_Single && destType == SpecialType.System_Double);
+        return (sourceType is SpecialType.System_Int32 && destType is SpecialType.System_Int64) ||
+               (sourceType is SpecialType.System_Single && destType is SpecialType.System_Double);
     }
 
     private bool IsExplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)
@@ -388,8 +390,8 @@ public class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
-        return (sourceType == SpecialType.System_Double && destType == SpecialType.System_Int32) ||
-               (sourceType == SpecialType.System_Int64 && destType == SpecialType.System_Int32);
+        return (sourceType is SpecialType.System_Double && destType is SpecialType.System_Int32) ||
+               (sourceType is SpecialType.System_Int64 && destType is SpecialType.System_Int32);
     }
 
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
@@ -402,32 +404,48 @@ public class Compilation
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
     {
-        if (specialType == SpecialType.System_Void)
+        if (specialType is SpecialType.System_Void)
         {
             return GetTypeByMetadataName("System.Void");
         }
-        else if (specialType == SpecialType.System_Boolean)
+        else if (specialType is SpecialType.System_Boolean)
         {
             return GetTypeByMetadataName("System.Boolean");
         }
-        else if (specialType == SpecialType.System_Int32)
+        else if (specialType is SpecialType.System_Int32)
         {
             return GetTypeByMetadataName("System.Int32");
         }
-        else if (specialType == SpecialType.System_String)
+        else if (specialType is SpecialType.System_Int64)
+        {
+            return GetTypeByMetadataName("System.Int64");
+        }
+        else if (specialType is SpecialType.System_Single)
+        {
+            return GetTypeByMetadataName("System.Single");
+        }
+        else if (specialType is SpecialType.System_Double)
+        {
+            return GetTypeByMetadataName("System.Double");
+        }
+        else if (specialType is SpecialType.System_String)
         {
             return GetTypeByMetadataName("System.String");
         }
-        else if (specialType == SpecialType.System_Char)
+        else if (specialType is SpecialType.System_Char)
         {
             return GetTypeByMetadataName("System.Char");
         }
-        else if (specialType == SpecialType.System_Array)
+        else if (specialType is SpecialType.System_Array)
         {
             return GetTypeByMetadataName("System.Array");
         }
+        else if (specialType is SpecialType.System_Object)
+        {
+            return GetTypeByMetadataName("System.Object");
+        }
 
-        return null;
+        throw new InvalidOperationException("Special type is not supported.");
     }
 
     public ITypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)

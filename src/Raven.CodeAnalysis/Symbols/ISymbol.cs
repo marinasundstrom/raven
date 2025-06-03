@@ -206,6 +206,7 @@ public interface IMethodSymbol : ISymbol
     ITypeSymbol ReturnType { get; }
     ImmutableArray<IParameterSymbol> Parameters { get; }
     bool IsConstructor { get; }
+    IMethodSymbol? OriginalDefinition { get; }
 }
 
 public enum MethodKind
@@ -255,12 +256,29 @@ public interface IPropertySymbol : ISymbol
 public interface ITypeSymbol : INamespaceOrTypeSymbol
 {
     INamedTypeSymbol? BaseType { get; }
+    ITypeSymbol? OriginalDefinition { get; }
+
     SpecialType SpecialType { get; }
-    bool IsValueType { get; }
-    bool IsArray { get; }
-    bool IsUnion { get; }
+
+    public TypeKind TypeKind { get; }
 
     public string ToFullyQualifiedMetadataName() => ContainingNamespace is null ? Name : $"{ContainingNamespace.ToMetadataName()}.{Name}";
+}
+
+public enum TypeKind
+{
+    Unknown,
+    Array,
+    Class,
+    Delegate,
+    Enum,
+    Error,
+    Interface,
+    Pointer,
+    Struct,
+    TypeParameter,
+    FunctionPointer,
+    Union
 }
 
 public interface INamedTypeSymbol : ITypeSymbol

@@ -21,6 +21,7 @@ sealed class BoundBinaryOperator
     public static BoundBinaryOperator? Lookup(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right)
     {
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var int64 = compilation.GetSpecialType(SpecialType.System_Int64);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
@@ -31,6 +32,22 @@ sealed class BoundBinaryOperator
             new BoundBinaryOperator(SyntaxKind.MinusToken, intType, intType, intType),
             new BoundBinaryOperator(SyntaxKind.StarToken, intType, intType, intType),
             new BoundBinaryOperator(SyntaxKind.SlashToken, intType, intType, intType),
+
+            new BoundBinaryOperator(SyntaxKind.PlusToken, intType, int64, int64),
+            new BoundBinaryOperator(SyntaxKind.MinusToken, intType, int64, int64),
+            new BoundBinaryOperator(SyntaxKind.StarToken, intType, int64, int64),
+            new BoundBinaryOperator(SyntaxKind.SlashToken, intType, int64, int64),
+
+            new BoundBinaryOperator(SyntaxKind.PlusToken, int64, int64, int64),
+            new BoundBinaryOperator(SyntaxKind.MinusToken, int64, int64, int64),
+            new BoundBinaryOperator(SyntaxKind.StarToken, int64, int64, int64),
+            new BoundBinaryOperator(SyntaxKind.SlashToken, int64, int64, int64),
+
+            new BoundBinaryOperator(SyntaxKind.PlusToken, int64, intType, int64),
+            new BoundBinaryOperator(SyntaxKind.MinusToken, int64, intType, int64),
+            new BoundBinaryOperator(SyntaxKind.StarToken, int64, intType, int64),
+            new BoundBinaryOperator(SyntaxKind.SlashToken, int64, intType, int64),
+
             new BoundBinaryOperator(SyntaxKind.PlusToken, stringType, stringType, stringType),
 
             new BoundBinaryOperator(SyntaxKind.GreaterThanToken, intType, intType, boolType),

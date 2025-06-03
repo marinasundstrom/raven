@@ -10,6 +10,8 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
         BaseType = baseType;
         ElementType = elementType;
         Rank = rank;
+
+        TypeKind = TypeKind.Array;
     }
 
     public override string Name => $"{ElementType}[]";
@@ -20,8 +22,6 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 
     public SpecialType SpecialType => SpecialType.System_Array;
 
-    public bool IsValueType => false;
-
     public bool IsNamespace => false;
 
     public bool IsType => true;
@@ -30,9 +30,9 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 
     public INamedTypeSymbol? BaseType { get; }
 
-    public bool IsArray => true;
+    public TypeKind TypeKind { get; }
 
-    public bool IsUnion => false;
+    public ITypeSymbol? OriginalDefinition { get; }
 
     public ImmutableArray<ISymbol> GetMembers()
     {

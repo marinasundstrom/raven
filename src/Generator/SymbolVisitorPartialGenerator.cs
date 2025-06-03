@@ -67,7 +67,7 @@ public partial class SymbolVisitorPartialGenerator : IIncrementalGenerator
     private static bool ImplementsISymbol(ITypeSymbol interfaceSymbol)
     {
         // Check if the interface itself is ISymbol
-        if (interfaceSymbol.TypeKind == TypeKind.Interface &&
+        if (interfaceSymbol.TypeKind is TypeKind.Interface &&
             interfaceSymbol.Name == "ISymbol" &&
             interfaceSymbol.ContainingNamespace.ToDisplayString() == "Raven.CodeAnalysis")
         {

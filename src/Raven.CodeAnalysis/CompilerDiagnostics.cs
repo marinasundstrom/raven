@@ -32,6 +32,8 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _propertyOrIndexerCannotBeAssignedIsReadOnly;
     private static DiagnosticDescriptor? _cannotApplyIndexingWithToAnExpressionOfType;
     private static DiagnosticDescriptor _numericLiteralOutOfRange;
+    private static DiagnosticDescriptor? _unterminatedCharacterLiteral;
+    private static DiagnosticDescriptor? _invalidEscapeSequence;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -385,14 +387,35 @@ internal class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// RAVN1001: The numeric literal is out of range for its target type
+    /// RAV2001: The numeric literal is out of range for its target type
     /// </summary>
     public static DiagnosticDescriptor NumericLiteralOutOfRange => _numericLiteralOutOfRange ??= DiagnosticDescriptor.Create(
-        id: "RAVN1001",
+        id: "RAV2001",
         title: "Numeric literal out of range",
         description: "",
         helpLinkUri: "",
         messageFormat: "The numeric literal is out of range for its target type",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+
+    public static DiagnosticDescriptor UnterminatedCharacterLiteral => _unterminatedCharacterLiteral ??= DiagnosticDescriptor.Create(
+        id: "RAV2002",
+        title: "Unterminated character literal",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Unterminated character literal",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static DiagnosticDescriptor InvalidEscapeSequence => _invalidEscapeSequence ??= DiagnosticDescriptor.Create(
+        id: "RAV2003",
+        title: "Invalid escape sequence",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Invalid escape sequence in character literal",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -424,7 +447,10 @@ internal class CompilerDiagnostics
         ReadOnlyFieldCannotBeAssignedTo,
         ThisValueIsNotMutable,
         PropertyOrIndexerCannotBeAssignedIsReadOnly,
-        CannotApplyIndexingWithToAnExpressionOfType
+        CannotApplyIndexingWithToAnExpressionOfType,
+        NumericLiteralOutOfRange,
+        UnterminatedCharacterLiteral,
+        InvalidEscapeSequence
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -457,6 +483,9 @@ internal class CompilerDiagnostics
             "RAV0027" => ThisValueIsNotMutable,
             "RAV0200" => PropertyOrIndexerCannotBeAssignedIsReadOnly,
             "RAV0021" => CannotApplyIndexingWithToAnExpressionOfType,
+            "RAV2001" => NumericLiteralOutOfRange,
+            "RAV2002" => UnterminatedCharacterLiteral,
+            "RAV2003" => InvalidEscapeSequence,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

@@ -148,6 +148,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public MethodKind MethodKind { get; }
 
+    public IMethodSymbol? OriginalDefinition { get; }
+
     public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
 
     public ConstructorInfo GetConstructorInfo() => (ConstructorInfo)_methodInfo;

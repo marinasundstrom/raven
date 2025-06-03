@@ -20,4 +20,36 @@ public static partial class SymbolExtensions
 
         return symbol as ITypeSymbol;
     }
+
+    public static INamedTypeSymbol? GetAbsoluteBaseType(this ITypeSymbol symbol)
+    {
+        INamedTypeSymbol? baseType = symbol.BaseType;
+
+        if (baseType is null) return (INamedTypeSymbol?)symbol;
+
+        while (baseType?.BaseType is not null)
+        {
+            baseType = baseType.BaseType;
+        }
+
+        return baseType;
+    }
+
+    public static IEnumerable<ISymbol> ResolveMembers(this ITypeSymbol symbol, string name)
+    {
+        for (ITypeSymbol? current = symbol; current is not null; current = current.BaseType)
+        {
+            var members = current.GetMembers();
+            if (members.Length > 0)
+            {
+                foreach (var member in members)
+                {
+                    if (member.Name == name)
+                    {
+                        yield return member;
+                    }
+                }
+            }
+        }
+    }
 }

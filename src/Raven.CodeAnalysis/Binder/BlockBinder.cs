@@ -308,7 +308,7 @@ class BlockBinder : Binder
         }
 
         // Instance member access (for objects)
-        if (receiver.Type?.SpecialType == SpecialType.System_Void)
+        if (receiver.Type?.SpecialType is SpecialType.System_Void)
         {
             _diagnostics.ReportMemberAccessOnVoid(memberName, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
@@ -400,7 +400,11 @@ class BlockBinder : Binder
         ITypeSymbol type = value switch
         {
             int => Compilation.GetSpecialType(SpecialType.System_Int32),
+            long => Compilation.GetSpecialType(SpecialType.System_Int64),
+            float => Compilation.GetSpecialType(SpecialType.System_Single),
+            double => Compilation.GetSpecialType(SpecialType.System_Double),
             bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
+            char => Compilation.GetSpecialType(SpecialType.System_Char),
             string => Compilation.GetSpecialType(SpecialType.System_String),
             _ => throw new Exception("Unsupported literal type")
         };
@@ -464,7 +468,7 @@ class BlockBinder : Binder
             if (receiver is BoundErrorExpression)
                 return receiver;
 
-            if (receiver.Type?.SpecialType == SpecialType.System_Void)
+            if (receiver.Type?.SpecialType is SpecialType.System_Void)
             {
                 _diagnostics.ReportMemberAccessOnVoid(memberAccess.Name.Identifier.Text, memberAccess.Name.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
@@ -501,7 +505,7 @@ class BlockBinder : Binder
         IEnumerable<IMethodSymbol> candidates;
         if (receiver != null)
         {
-            candidates = receiver.Type.GetMembers(methodName).OfType<IMethodSymbol>();
+            candidates = receiver.Type.ResolveMembers(methodName).OfType<IMethodSymbol>();
         }
         else
         {
@@ -640,7 +644,7 @@ class BlockBinder : Binder
                 BoundExpressionReason.NotFound);
         }
 
-        if (receiverType.IsArray)
+        if (receiverType.TypeKind is TypeKind.Array)
         {
             return new BoundArrayAccessExpression(receiver, argumentExprs, ((IArrayTypeSymbol)receiverType).ElementType);
         }
@@ -675,7 +679,7 @@ class BlockBinder : Binder
             var receiver = BindExpression(elementAccess.Expression);
             var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
 
-            if (receiver.Type?.IsArray == true)
+            if (receiver.Type?.TypeKind is TypeKind.Array)
             {
                 return new BoundArrayAssignmentExpression(
                     new BoundArrayAccessExpression(receiver, args, receiver.Type),

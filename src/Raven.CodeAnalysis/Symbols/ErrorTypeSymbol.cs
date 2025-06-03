@@ -11,6 +11,8 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
         : base(SymbolKind.ErrorType, name, containingSymbol, null, null, locations, declaringSyntaxReferences)
     {
         _compilation = compilation;
+
+        TypeKind = TypeKind.Error;
     }
 
     public ImmutableArray<IMethodSymbol> Constructors => [];
@@ -23,17 +25,15 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 
     public SpecialType SpecialType => SpecialType.None;
 
-    public bool IsValueType => false;
-
     public bool IsNamespace => false;
 
     public bool IsType => false;
 
     public INamedTypeSymbol? BaseType => throw new NotImplementedException();
 
-    public bool IsArray => false;
+    public TypeKind TypeKind { get; }
 
-    public bool IsUnion => false;
+    public ITypeSymbol? OriginalDefinition { get; }
 
     public ImmutableArray<ISymbol> GetMembers() => [];
 

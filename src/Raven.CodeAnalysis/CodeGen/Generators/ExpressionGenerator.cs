@@ -105,7 +105,7 @@ internal class ExpressionGenerator : Generator
             var patternLocal = GetLocal(declarationPattern.Designation);
 
             // [expr]
-            if (typeSymbol.IsValueType)
+            if (typeSymbol.TypeKind is TypeKind.Struct)
             {
                 // Reference types can use isinst + cgt.un directly.
                 var labelFail = ILGenerator.DefineLabel();
@@ -242,7 +242,7 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldc_I4, index);
                 GenerateExpression(element.Expression);
 
-                if (!arrayTypeSymbol.ElementType.IsValueType)
+                if (arrayTypeSymbol.ElementType.TypeKind is not TypeKind.Struct)
                 {
                     ILGenerator.Emit(OpCodes.Stelem_Ref);
                 }
@@ -270,7 +270,7 @@ internal class ExpressionGenerator : Generator
                 GenerateExpression(argument.Expression);
             }
 
-            if (!arrayTypeSymbol.ElementType.IsValueType)
+            if (arrayTypeSymbol.ElementType.TypeKind is not TypeKind.Struct)
             {
                 ILGenerator.Emit(OpCodes.Ldelem_Ref);
             }
@@ -289,7 +289,7 @@ internal class ExpressionGenerator : Generator
                 GenerateExpression(argument.Expression);
             }
 
-            if (!arrayTypeSymbol2.ElementType.IsValueType)
+            if (arrayTypeSymbol2.ElementType.TypeKind is not TypeKind.Struct)
             {
                 ILGenerator.Emit(OpCodes.Ldelem_Ref);
             }
@@ -348,7 +348,7 @@ internal class ExpressionGenerator : Generator
 
             var type = symbol2.UnwrapType() as IArrayTypeSymbol;
 
-            if (!type.ElementType.IsValueType)
+            if (type.ElementType.TypeKind is not TypeKind.Struct)
             {
                 ILGenerator.Emit(OpCodes.Stelem_Ref);
             }
@@ -367,7 +367,7 @@ internal class ExpressionGenerator : Generator
 
                 var localBuilder = GetLocal(localSymbol);
 
-                if (s.IsValueType && localSymbol.Type.SpecialType == SpecialType.System_Object)
+                if (s.TypeKind is TypeKind.Struct && localSymbol.Type.SpecialType is SpecialType.System_Object)
                 {
                     ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
                 }
@@ -382,7 +382,7 @@ internal class ExpressionGenerator : Generator
 
                 var s = GetTypeInfo(assignmentExpression.RightHandSide).Type;
 
-                if (s.IsValueType && parameterSymbol.Type.SpecialType == SpecialType.System_Object)
+                if (s.TypeKind is TypeKind.Struct && parameterSymbol.Type.SpecialType is SpecialType.System_Object)
                 {
                     ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
                 }
@@ -449,7 +449,7 @@ internal class ExpressionGenerator : Generator
             // First load the target expression (e.g., the array object)
             GenerateExpression(memberAccessExpression.Expression);
 
-            if (propertySymbol.ContainingType!.SpecialType == SpecialType.System_Array && propertySymbol.Name == "Length")
+            if (propertySymbol.ContainingType!.SpecialType is SpecialType.System_Array && propertySymbol.Name == "Length")
             {
                 ILGenerator.Emit(OpCodes.Ldlen);
                 ILGenerator.Emit(OpCodes.Conv_I4);
@@ -463,7 +463,7 @@ internal class ExpressionGenerator : Generator
                     throw new Exception($"Cannot resolve getter for property {propertySymbol.Name}");
 
                 // Value types need address loading
-                if (!propertySymbol.IsStatic && propertySymbol.ContainingType.IsValueType)
+                if (!propertySymbol.IsStatic && propertySymbol.ContainingType.TypeKind is TypeKind.Struct)
                 {
                     var clrType = propertySymbol.ContainingType.GetClrType(Compilation);
                     var tmp = ILGenerator.DeclareLocal(clrType);
@@ -506,7 +506,7 @@ internal class ExpressionGenerator : Generator
 
                 var localBuilder = GetLocal(localSymbol);
 
-                if (localSymbol.Type.IsValueType)
+                if (localSymbol.Type.TypeKind is TypeKind.Struct)
                 {
                     // Loading the address of the value to the instance.
 
@@ -525,7 +525,7 @@ internal class ExpressionGenerator : Generator
 
                 GenerateExpression(expr);
 
-                if (target.ContainingType.IsValueType)
+                if (target.ContainingType.TypeKind is TypeKind.Struct)
                 {
                     var clrType = target.ContainingType.GetClrType(Compilation);
                     var builder = ILGenerator.DeclareLocal(clrType);
@@ -548,7 +548,7 @@ internal class ExpressionGenerator : Generator
 
             GenerateExpression(argument.Expression);
 
-            if (argType is { IsValueType: true } && paramType is { IsValueType: false })
+            if (argType is { TypeKind: TypeKind.Struct } && paramType is { TypeKind: not TypeKind.Struct })
             {
                 // Box value type before passing it to reference type parameter
                 ILGenerator.Emit(OpCodes.Box, argType.GetClrType(Compilation));
@@ -563,7 +563,7 @@ internal class ExpressionGenerator : Generator
         }
         else
         {
-            if (target.ContainingType.IsValueType)
+            if (target.ContainingType.TypeKind is TypeKind.Struct)
             {
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
             }
@@ -606,7 +606,7 @@ internal class ExpressionGenerator : Generator
 
             if (fieldSymbol.IsLiteral)
             {
-                if (fieldSymbol.Type.SpecialType == SpecialType.System_Int32)
+                if (fieldSymbol.Type.SpecialType is SpecialType.System_Int32)
                 {
                     ILGenerator.Emit(OpCodes.Ldc_I4, (int)metadataFieldSymbol.GetConstantValue()!);
                 }
@@ -629,7 +629,7 @@ internal class ExpressionGenerator : Generator
         }
         else if (symbol is IPropertySymbol propertySymbol)
         {
-            if (propertySymbol.ContainingType!.Name == "Array") //.SpecialType == SpecialType.System_Array)
+            if (propertySymbol.ContainingType!.Name == "Array") //.SpecialType is SpecialType.System_Array)
             {
                 if (propertySymbol.Name == "Length")
                 {
@@ -643,7 +643,7 @@ internal class ExpressionGenerator : Generator
                 var getMethod = metadataPropertySymbol.GetMethod as PEMethodSymbol;
 
                 if (!propertySymbol.IsStatic
-                    && propertySymbol.ContainingType.IsValueType)
+                    && propertySymbol.ContainingType.TypeKind is TypeKind.Struct)
                 {
                     var clrType = propertySymbol.ContainingType.GetClrType(Compilation);
                     var builder = ILGenerator.DeclareLocal(clrType);
@@ -664,7 +664,22 @@ internal class ExpressionGenerator : Generator
         {
             case SyntaxKind.NumericLiteralExpression:
                 {
-                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)literalExpression.Token.Value);
+                    if (literalExpression.Token.Value is int)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldc_I4, (int)literalExpression.Token.Value);
+                    }
+                    else if (literalExpression.Token.Value is long)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldc_I8, (long)literalExpression.Token.Value);
+                    }
+                    else if (literalExpression.Token.Value is float)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldc_R4, (float)literalExpression.Token.Value);
+                    }
+                    else if (literalExpression.Token.Value is double)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldc_R8, (double)literalExpression.Token.Value);
+                    }
                     break;
                 }
 
@@ -714,7 +729,9 @@ internal class ExpressionGenerator : Generator
         var scope = new Scope(this);
         new ExpressionGenerator(scope, ifStatementSyntax.Expression).Generate();
 
-        if (isAssigned && ifStatementType.Type.IsUnion && thenType.Type.IsValueType)
+        if (isAssigned
+            && ifStatementType.Type.TypeKind is TypeKind.Union
+            && thenType.Type.TypeKind is TypeKind.Struct)
         {
             ILGenerator.Emit(OpCodes.Box, thenType.Type.GetClrType(Compilation));
         }
@@ -736,7 +753,9 @@ internal class ExpressionGenerator : Generator
             var scope2 = new Scope(this);
             new ExpressionGenerator(scope2, elseClause.Expression).Generate();
 
-            if (isAssigned && ifStatementType.Type.IsUnion && elsType.Type.IsValueType)
+            if (isAssigned
+                && ifStatementType.Type.TypeKind is TypeKind.Union
+                && elsType.Type.TypeKind is TypeKind.Struct)
             {
                 ILGenerator.Emit(OpCodes.Box, elsType.Type.GetClrType(Compilation));
             }

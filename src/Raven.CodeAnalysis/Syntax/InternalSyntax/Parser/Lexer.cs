@@ -218,6 +218,11 @@ internal class Lexer : ILexer
                     {
                         return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length, diagnostics: diagnostics);
                     }
+                    // Long literal
+                    else if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
+                    {
+                        return new Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length, diagnostics: diagnostics);
+                    }
                     else
                     {
                         diagnostics.Add(DiagnosticInfo.Create(
@@ -265,19 +270,6 @@ internal class Lexer : ILexer
 
                     case ';':
                         return new Token(SyntaxKind.SemicolonToken, chStr);
-
-                    /*
-                    
-                   case '"':
-                       return new Token(SyntaxKind.DoublequoteToken, chStr);
-
-                   case '\'':
-                       return new Token(SyntaxKind.SinglequoteToken, chStr);
-
-                   case '`':
-                       return new Token(SyntaxKind.BackquoteToken, chStr);
-
-                   */
 
                     case '(':
                         return new Token(SyntaxKind.OpenParenToken, chStr);
@@ -343,34 +335,99 @@ internal class Lexer : ILexer
 
 
                     case '\'':
-                        _stringBuilder.Append(ch);
-
-                        while (PeekChar(out ch2))
                         {
-                            _stringBuilder.Append(ch2);
-                            ReadChar();
+                            _stringBuilder.Append(ch); // opening quote
 
-                            if (IsEndOfFile)
+                            if (!ReadChar(out ch))
                             {
-                                diagnostics.Add(
-                                    DiagnosticInfo.Create(
-                                        CompilerDiagnostics.NewlineInConstant,
-                                        GetTokenStartPositionSpan()
-                                    ));
-
-                                break;
+                                diagnostics.Add(DiagnosticInfo.Create(
+                                    CompilerDiagnostics.UnterminatedCharacterLiteral,
+                                    GetTokenStartPositionSpan()));
+                                return new Token(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
                             }
 
-                            if (PeekChar(out ch2) && ch2 == '\'')
+                            char character;
+
+                            if (ch == '\\')
                             {
-                                ReadChar();
-                                _stringBuilder.Append(ch2);
-                                break;
+                                _stringBuilder.Append(ch); // backslash
+
+                                if (!ReadChar(out ch))
+                                {
+                                    diagnostics.Add(DiagnosticInfo.Create(
+                                        CompilerDiagnostics.UnterminatedCharacterLiteral,
+                                        GetTokenStartPositionSpan()));
+                                    return new Token(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
+                                }
+
+                                _stringBuilder.Append(ch); // escaped char
+
+                                switch (ch)
+                                {
+                                    case '\'':
+                                        character = '\'';
+                                        break;
+                                    case '\"':
+                                        character = '\"';
+                                        break;
+                                    case '\\':
+                                        character = '\\';
+                                        break;
+                                    case '0':
+                                        character = '\0';
+                                        break;
+                                    case 'a':
+                                        character = '\a';
+                                        break;
+                                    case 'b':
+                                        character = '\b';
+                                        break;
+                                    case 'f':
+                                        character = '\f';
+                                        break;
+                                    case 'n':
+                                        character = '\n';
+                                        break;
+                                    case 'r':
+                                        character = '\r';
+                                        break;
+                                    case 't':
+                                        character = '\t';
+                                        break;
+                                    case 'v':
+                                        character = '\v';
+                                        break;
+                                    default:
+                                        diagnostics.Add(DiagnosticInfo.Create(
+                                            CompilerDiagnostics.InvalidEscapeSequence,
+                                            GetTokenStartPositionSpan()));
+                                        character = '?';
+                                        break;
+                                }
                             }
+                            else
+                            {
+                                _stringBuilder.Append(ch);
+                                character = ch;
+                            }
+
+                            if (!ReadChar(out ch) || ch != '\'')
+                            {
+                                diagnostics.Add(DiagnosticInfo.Create(
+                                    CompilerDiagnostics.UnterminatedCharacterLiteral,
+                                    GetTokenStartPositionSpan()));
+                                return new Token(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
+                            }
+
+                            _stringBuilder.Append(ch); // closing quote
+
+                            return new Token(
+                                SyntaxKind.CharacterLiteralToken,
+                                _stringBuilder.ToString(),
+                                character,
+                                _stringBuilder.Length,
+                                diagnostics: diagnostics);
                         }
-
-                        return new Token(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
-
 
                     case '\"':
                         _stringBuilder.Append(ch); // Append opening quote
@@ -402,6 +459,13 @@ internal class Lexer : ILexer
                         var str = _stringBuilder.ToString();
 
                         return new Token(SyntaxKind.StringLiteralToken, str, str[1..^1], diagnostics: diagnostics);
+
+                    /*
+
+                    case '`':
+                        return new Token(SyntaxKind.BackquoteToken, chStr);
+
+                    */
 
                     case '\t':
                         return new Token(SyntaxKind.TabToken, "\t");

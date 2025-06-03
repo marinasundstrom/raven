@@ -14,6 +14,31 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _typeInfo = typeInfo;
+
+        if (typeInfo.BaseType == typeof(Delegate))
+        {
+            TypeKind = TypeKind.Delegate;
+        }
+        else if (typeInfo.BaseType == typeof(Enum))
+        {
+            TypeKind = TypeKind.Enum;
+        }
+        else if (typeInfo.BaseType == typeof(ValueType))
+        {
+            TypeKind = TypeKind.Struct;
+        }
+        else if (typeInfo.IsInterface)
+        {
+            TypeKind = TypeKind.Interface;
+        }
+        else if (typeInfo.IsPointer)
+        {
+            TypeKind = TypeKind.Interface;
+        }
+        else
+        {
+            TypeKind = TypeKind.Class;
+        }
     }
 
     public override SymbolKind Kind => SymbolKind.Type;
@@ -79,13 +104,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         }
     }
 
-    public bool IsValueType => _typeInfo.IsValueType;
-
     public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)PEContainingModule.GetType(_typeInfo.BaseType) : null);
 
-    public bool IsArray => false;
+    public TypeKind TypeKind { get; }
 
-    public bool IsUnion => false;
+    public ITypeSymbol? OriginalDefinition { get; }
 
     public ImmutableArray<ISymbol> GetMembers()
     {

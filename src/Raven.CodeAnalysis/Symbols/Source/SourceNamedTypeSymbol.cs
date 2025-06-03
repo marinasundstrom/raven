@@ -10,6 +10,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object");
+
+        TypeKind = TypeKind.Class;
     }
 
     public bool IsNamespace { get; } = false;
@@ -22,13 +24,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public SpecialType SpecialType => SpecialType.None;
 
-    public bool IsValueType => false;
-
     public virtual INamedTypeSymbol? BaseType { get; }
 
-    public bool IsArray => false;
+    public TypeKind TypeKind { get; }
 
-    public bool IsUnion => false;
+    public ITypeSymbol? OriginalDefinition { get; }
 
     public ImmutableArray<ISymbol> GetMembers()
     {

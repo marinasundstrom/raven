@@ -54,7 +54,7 @@ internal class StatementGenerator : Generator
 
         // TODO: Handle the case that Pop is required. If not Void, and not assigned anywhere.
 
-        if (symbol is not null && symbol?.UnwrapType()?.SpecialType != SpecialType.System_Void)
+        if (symbol is not null && symbol?.UnwrapType()?.SpecialType is not SpecialType.System_Void)
         {
             // The value is not used, pop it from the stack.
 
@@ -82,7 +82,7 @@ internal class StatementGenerator : Generator
 
             var s = GetTypeInfo(declarator.Initializer.Value).Type;
 
-            if (s.IsValueType && (localSymbol.Type.SpecialType == SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            if (s.TypeKind is TypeKind.Struct && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
             {
                 ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
             }

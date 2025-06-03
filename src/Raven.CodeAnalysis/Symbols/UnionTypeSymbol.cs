@@ -8,6 +8,9 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
         : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
     {
         Types = types;
+        BaseType = types.First().GetAbsoluteBaseType();
+
+        TypeKind = TypeKind.Union;
     }
 
     public override string Name => string.Join(" | ", Types.Select(x => x.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat)));
@@ -16,17 +19,15 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
 
     public SpecialType SpecialType => SpecialType.None;
 
-    public bool IsValueType => false;
-
     public bool IsNamespace => false;
 
     public bool IsType => true;
 
     public INamedTypeSymbol? BaseType { get; }
 
-    public bool IsArray => false;
+    public TypeKind TypeKind { get; }
 
-    public bool IsUnion => true;
+    public ITypeSymbol? OriginalDefinition { get; }
 
     public ImmutableArray<ISymbol> GetMembers()
     {

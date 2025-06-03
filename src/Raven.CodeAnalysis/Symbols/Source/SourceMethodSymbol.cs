@@ -31,5 +31,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public MethodKind MethodKind { get; }
 
+    public IMethodSymbol? OriginalDefinition { get; }
+
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 }

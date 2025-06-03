@@ -38,7 +38,7 @@ internal class MethodGenerator
         {
             var methodBuilder = MethodBuilder.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
 
-            if (parameterSymbol.Type.IsUnion)
+            if (parameterSymbol.Type.TypeKind is TypeKind.Union)
             {
                 var types = (parameterSymbol.Type as IUnionTypeSymbol).Types.Select(x => x.GetClrType(Compilation)).ToArray();
                 var construtor = TypeGenerator.CodeGen.TypeUnionAttributeType.GetConstructor(new[] { typeof(Type[]) });

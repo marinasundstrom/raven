@@ -24,7 +24,7 @@ public static class TypeSymbolExtensions
         }
 
         // Handle special types (e.g., int, string, etc.)
-        if (typeSymbol.SpecialType != SpecialType.None)
+        if (typeSymbol.SpecialType is not SpecialType.None)
         {
             return GetFrameworkType(typeSymbol.SpecialType, compilation);
         }
