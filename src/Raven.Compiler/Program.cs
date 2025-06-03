@@ -76,7 +76,7 @@ using (var stream = File.OpenWrite($"{outputPath}"))
 
 Console.WriteLine();
 
-bool IsProjectFolder(string path)
+static bool IsProjectFolder(string path)
 {
     return Directory.EnumerateFiles(path, "*.csproj", SearchOption.TopDirectoryOnly).Any();
 }
