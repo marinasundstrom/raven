@@ -30,7 +30,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor IncompatibleReturnTypeRule = new DiagnosticDescriptor(
         id: "TU003",
         title: "Return value does not match TypeUnion",
-        messageFormat: "Return value must be one of {1}, but was '{2}'",
+        messageFormat: "Return value must be compatible with one of types {1}, but was '{2}'",
         category: "TypeChecking",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
