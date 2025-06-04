@@ -100,4 +100,8 @@ public static class DiagnosticBagExtensions
 
     public static void ReportUndefinedBinaryOperator(this DiagnosticBag diagnostics, string operatorToken, ITypeSymbol operandType1, ITypeSymbol operandType2, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes, location, operatorToken, operandType1, operandType2));
+
+    internal static void ReportMemberAccessRequiresTargetType(this DiagnosticBag diagnostics, string memberName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MemberAccessRequiresTargetType, location, memberName));
+
 }

@@ -34,6 +34,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor _numericLiteralOutOfRange;
     private static DiagnosticDescriptor? _unterminatedCharacterLiteral;
     private static DiagnosticDescriptor? _invalidEscapeSequence;
+    private static DiagnosticDescriptor? _memberAccessRequiresTargetType;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -420,6 +421,20 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+
+    /// <summary>
+    /// RAV2010: Cannot resolve member '.{0}' without a known target type
+    /// </summary>
+    public static DiagnosticDescriptor MemberAccessRequiresTargetType => _memberAccessRequiresTargetType ??= DiagnosticDescriptor.Create(
+        id: "RAV2010",
+        title: "Target-typed member access requires a known type",
+        description: "Target-typed member access (like '.Test') requires a type context to resolve the member.",
+        helpLinkUri: "",
+        messageFormat: "Cannot resolve member '.{0}' without a known target type",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -450,7 +465,8 @@ internal class CompilerDiagnostics
         CannotApplyIndexingWithToAnExpressionOfType,
         NumericLiteralOutOfRange,
         UnterminatedCharacterLiteral,
-        InvalidEscapeSequence
+        InvalidEscapeSequence,
+        MemberAccessRequiresTargetType
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -486,6 +502,7 @@ internal class CompilerDiagnostics
             "RAV2001" => NumericLiteralOutOfRange,
             "RAV2002" => UnterminatedCharacterLiteral,
             "RAV2003" => InvalidEscapeSequence,
+            "RAV2010" => MemberAccessRequiresTargetType,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

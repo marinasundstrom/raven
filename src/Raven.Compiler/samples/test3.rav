@@ -1,4 +1,5 @@
-let foo : Flags = Flags.A;
+var foo : Flags = .B;
+foo = .C;
 
 System.Console.WriteLine(foo);
 

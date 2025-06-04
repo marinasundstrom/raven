@@ -448,7 +448,15 @@ internal class ExpressionGenerator : Generator
         if (symbol is IPropertySymbol propertySymbol)
         {
             // First load the target expression (e.g., the array object)
-            GenerateExpression(memberAccessExpression.Expression);
+
+            if (memberAccessExpression.Expression is null)
+            {
+                // Target type: Static member
+            }
+            else
+            {
+                GenerateExpression(memberAccessExpression.Expression);
+            }
 
             if (propertySymbol.ContainingType!.SpecialType is SpecialType.System_Array && propertySymbol.Name == "Length")
             {
@@ -478,7 +486,15 @@ internal class ExpressionGenerator : Generator
         else if (symbol is IFieldSymbol fieldSymbol)
         {
             // First load the target expression (e.g., the array object)
-            GenerateExpression(memberAccessExpression.Expression);
+
+            if (memberAccessExpression.Expression is null)
+            {
+                // Target type: Static member
+            }
+            else
+            {
+                GenerateExpression(memberAccessExpression.Expression);
+            }
 
             // Value types need address loading
             if (!fieldSymbol.IsStatic && fieldSymbol.ContainingType.TypeKind is TypeKind.Struct)
@@ -491,7 +507,21 @@ internal class ExpressionGenerator : Generator
 
             if (fieldSymbol.IsLiteral)
             {
-                ILGenerator.Emit(OpCodes.Ldc_I4, (int)fieldSymbol.GetConstantValue());
+                var constant = fieldSymbol.GetConstantValue();
+                switch (constant)
+                {
+                    case int i:
+                        ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                        break;
+                    case bool b:
+                        ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                        break;
+                    case null:
+                        ILGenerator.Emit(OpCodes.Ldnull);
+                        break;
+                    default:
+                        throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
+                }
             }
             else
             {
@@ -660,20 +690,41 @@ internal class ExpressionGenerator : Generator
 
             if (fieldSymbol.IsLiteral)
             {
-                if (fieldSymbol.Type.SpecialType is SpecialType.System_Int32)
+                var constant = fieldSymbol.GetConstantValue();
+                switch (constant)
                 {
-                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)metadataFieldSymbol.GetConstantValue()!);
-                }
-                else
-                {
-                    throw new Exception("Unsupported constant type");
+                    case int i:
+                        ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                        break;
+                    case bool b:
+                        ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                        break;
+                    case null:
+                        ILGenerator.Emit(OpCodes.Ldnull);
+                        break;
+                    default:
+                        throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
                 }
             }
             else
             {
                 if (fieldSymbol.IsLiteral)
                 {
-                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)metadataFieldSymbol.GetConstantValue());
+                    var constant = fieldSymbol.GetConstantValue();
+                    switch (constant)
+                    {
+                        case int i:
+                            ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                            break;
+                        case bool b:
+                            ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                            break;
+                        case null:
+                            ILGenerator.Emit(OpCodes.Ldnull);
+                            break;
+                        default:
+                            throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
+                    }
                 }
                 else
                 {

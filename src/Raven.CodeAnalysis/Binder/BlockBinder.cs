@@ -270,18 +270,43 @@ class BlockBinder : Binder
 
     private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)
     {
+        // 🆕 Handle target-typed access: `.Test`
+        if (memberAccess.Expression is null)
+        {
+            var memberName = memberAccess.Name.Identifier.Text;
+
+            // Try to resolve based on the target type context (e.g., assignment or parameter)
+            var expectedType = GetTargetType(memberAccess); // <- You need to implement this based on current binder state
+
+            if (expectedType is not null)
+            {
+                var member = expectedType.GetMembers(memberName).FirstOrDefault();
+
+                if (member is null)
+                {
+                    _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                }
+
+                return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
+            }
+
+            // If we can't determine the target type, report it
+            _diagnostics.ReportMemberAccessRequiresTargetType(memberName, memberAccess.Name.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
+        // 🔽 Existing binding for explicit receiver
         var receiver = BindExpression(memberAccess.Expression);
 
-        // If receiver is already an error, short-circuit
         if (receiver is BoundErrorExpression)
             return receiver;
 
-        var memberName = memberAccess.Name.Identifier.Text;
+        var name = memberAccess.Name.Identifier.Text;
 
-        // Namespace access
         if (receiver is BoundNamespaceExpression nsExpr)
         {
-            var member = nsExpr.Namespace.GetMembers(memberName).FirstOrDefault();
+            var member = nsExpr.Namespace.GetMembers(name).FirstOrDefault();
 
             if (member is INamespaceSymbol ns2)
                 return new BoundNamespaceExpression(ns2);
@@ -289,40 +314,80 @@ class BlockBinder : Binder
             if (member is ITypeSymbol type)
                 return new BoundTypeExpression(type);
 
-            _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
+            _diagnostics.ReportUndefinedName(name, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
-        // Static type access
         if (receiver is BoundTypeExpression typeExpr)
         {
-            var member = typeExpr.Type.GetMembers(memberName).FirstOrDefault();
+            var member = typeExpr.Type.GetMembers(name).FirstOrDefault();
 
             if (member is null)
             {
-                _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
+                _diagnostics.ReportUndefinedName(name, memberAccess.Name.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
             return new BoundMemberAccessExpression(typeExpr, member);
         }
 
-        // Instance member access (for objects)
-        if (receiver.Type?.SpecialType is SpecialType.System_Void)
+        if (receiver.Type?.SpecialType == SpecialType.System_Void)
         {
-            _diagnostics.ReportMemberAccessOnVoid(memberName, memberAccess.Name.GetLocation());
+            _diagnostics.ReportMemberAccessOnVoid(name, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
-        var instanceMember = receiver.Type?.ResolveMembers(memberName).FirstOrDefault();
+        var instanceMember = receiver.Type?.ResolveMembers(name).FirstOrDefault();
 
         if (instanceMember == null)
         {
-            _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
+            _diagnostics.ReportUndefinedName(name, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
         return new BoundMemberAccessExpression(receiver, instanceMember);
+    }
+
+    private ITypeSymbol? GetTargetType(SyntaxNode node)
+    {
+        var current = node.Parent;
+
+        while (current != null)
+        {
+            switch (current)
+            {
+                case VariableDeclaratorSyntax vds:
+                    if (vds.TypeAnnotation != null)
+                        return ResolveType(vds.TypeAnnotation.Type);
+                    break;
+
+                case AssignmentExpressionSyntax assign when assign.RightHandSide == node:
+                    var left = BindExpression(assign.LeftHandSide);
+                    return left.Type;
+
+                case ReturnStatementSyntax returnStmt:
+                    return _containingSymbol switch
+                    {
+                        IMethodSymbol method => method.ReturnType,
+                        _ => null
+                    };
+
+                case ArgumentSyntax arg:
+                    // Handle parameter context later
+                    return null;
+
+                case ExpressionStatementSyntax:
+                    return null;
+
+                default:
+                    current = current.Parent;
+                    continue;
+            }
+
+            break;
+        }
+
+        return null;
     }
 
     private BoundExpression BindTypeSyntax(TypeSyntax syntax)
