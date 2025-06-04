@@ -12,8 +12,7 @@ let x : string = .Empty;
 Console.WriteLine(foo);
 Console.WriteLine(foo.GetType());
 
-if(foo == .C) 
-{
+if foo == .C {
     Console.WriteLine("Foo");
 }
 
