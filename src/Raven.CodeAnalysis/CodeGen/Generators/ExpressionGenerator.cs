@@ -367,7 +367,8 @@ internal class ExpressionGenerator : Generator
 
                 var localBuilder = GetLocal(localSymbol);
 
-                if (s.TypeKind is TypeKind.Struct && localSymbol.Type.SpecialType is SpecialType.System_Object)
+                if (s.TypeKind is TypeKind.Struct
+                    && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type.TypeKind is TypeKind.Union))
                 {
                     ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
                 }
