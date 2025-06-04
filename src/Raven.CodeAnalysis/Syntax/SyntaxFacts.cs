@@ -25,6 +25,7 @@ public static class SyntaxFacts
         { "and", SyntaxKind.AndKeyword },
         { "or", SyntaxKind.OrKeyword },
         { "func", SyntaxKind.FuncKeyword },
+        { "enum", SyntaxKind.EnumKeyword },
     };
 
     public static string? GetSyntaxTokenText(this SyntaxKind kind)
@@ -66,6 +67,7 @@ public static class SyntaxFacts
             SyntaxKind.ElseKeyword => "else ",
             //SyntaxKind.Var" => "var",
             SyntaxKind.LetKeyword => "let",
+            SyntaxKind.EnumKeyword => "enum",
             _ => null
         };
     }

@@ -12,7 +12,7 @@ internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.MethodDeclaration,
               [
-                      funcKeyword ?? throw new ArgumentNullException(nameof(name)),
+                      funcKeyword ?? throw new ArgumentNullException(nameof(funcKeyword)),
                       name ?? throw new ArgumentNullException(nameof(name)),
                       parameters ?? throw new ArgumentNullException(nameof(parameters)),
                       returnTypeAnnotation ?? throw new ArgumentNullException(nameof(returnTypeAnnotation)),

@@ -98,7 +98,7 @@ internal class ExpressionGenerator : Generator
         {
             var typeInfo = GetTypeInfo(declarationPattern.Type);
             var typeSymbol = typeInfo.Type;
-            var clrType = typeSymbol.GetClrType(Compilation);
+            var clrType = ResolveClrType(typeSymbol);
 
             GenerateDesignation(declarationPattern.Designation);
 
@@ -219,7 +219,7 @@ internal class ExpressionGenerator : Generator
         {
             var symbol = GetDeclaredSymbol<ILocalSymbol>(single);
 
-            var local = ILGenerator.DeclareLocal(symbol.Type.GetClrType(Compilation)); // resolve type
+            var local = ILGenerator.DeclareLocal(ResolveClrType(symbol.Type)); // resolve type
             local.SetLocalSymInfo(single.Identifier.Text);
 
             AddLocal(symbol, local);
@@ -233,7 +233,7 @@ internal class ExpressionGenerator : Generator
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
             ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count);
-            ILGenerator.Emit(OpCodes.Newarr, arrayTypeSymbol.ElementType.GetClrType(Compilation));
+            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
 
             int index = 0;
             foreach (var element in collectionExpression.Elements)
@@ -370,7 +370,7 @@ internal class ExpressionGenerator : Generator
                 if (s.TypeKind is TypeKind.Struct
                     && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type.TypeKind is TypeKind.Union))
                 {
-                    ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(s));
                 }
 
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);
@@ -385,7 +385,7 @@ internal class ExpressionGenerator : Generator
 
                 if (s.TypeKind is TypeKind.Struct && parameterSymbol.Type.SpecialType is SpecialType.System_Object)
                 {
-                    ILGenerator.Emit(OpCodes.Box, s.GetClrType(Compilation));
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(s));
                 }
 
                 int position = parameterBuilder.Position;
@@ -466,13 +466,45 @@ internal class ExpressionGenerator : Generator
                 // Value types need address loading
                 if (!propertySymbol.IsStatic && propertySymbol.ContainingType.TypeKind is TypeKind.Struct)
                 {
-                    var clrType = propertySymbol.ContainingType.GetClrType(Compilation);
+                    var clrType = ResolveClrType(propertySymbol.ContainingType);
                     var tmp = ILGenerator.DeclareLocal(clrType);
                     ILGenerator.Emit(OpCodes.Stloc, tmp);
                     ILGenerator.Emit(OpCodes.Ldloca, tmp);
                 }
 
                 ILGenerator.Emit(OpCodes.Callvirt, getMethod.GetMethodInfo());
+            }
+        }
+        else if (symbol is IFieldSymbol fieldSymbol)
+        {
+            // First load the target expression (e.g., the array object)
+            GenerateExpression(memberAccessExpression.Expression);
+
+            // Value types need address loading
+            if (!fieldSymbol.IsStatic && fieldSymbol.ContainingType.TypeKind is TypeKind.Struct)
+            {
+                var clrType = ResolveClrType(fieldSymbol.ContainingType);
+                var tmp = ILGenerator.DeclareLocal(clrType);
+                ILGenerator.Emit(OpCodes.Stloc, tmp);
+                ILGenerator.Emit(OpCodes.Ldloca, tmp);
+            }
+
+            if (fieldSymbol.IsLiteral)
+            {
+                ILGenerator.Emit(OpCodes.Ldc_I4, (int)fieldSymbol.GetConstantValue());
+            }
+            else
+            {
+                var opCode = fieldSymbol.IsStatic ? OpCodes.Ldsfld : OpCodes.Ldfld;
+
+                if (fieldSymbol is PEFieldSymbol peFieldSymbol)
+                {
+                    ILGenerator.Emit(opCode, peFieldSymbol.GetFieldInfo());
+                }
+                else if (fieldSymbol is SourceFieldSymbol sourceFieldSymbol)
+                {
+                    ILGenerator.Emit(opCode, (FieldInfo)GetMemberBuilder(sourceFieldSymbol)!);
+                }
             }
         }
         else
@@ -541,7 +573,7 @@ internal class ExpressionGenerator : Generator
 
                 if (target.ContainingType.TypeKind is TypeKind.Struct)
                 {
-                    var clrType = target.ContainingType.GetClrType(Compilation);
+                    var clrType = ResolveClrType(target.ContainingType);
                     var builder = ILGenerator.DeclareLocal(clrType);
                     //_localBuilders[target] = builder;
 
@@ -562,10 +594,10 @@ internal class ExpressionGenerator : Generator
 
             GenerateExpression(argument.Expression);
 
-            if (argType is { TypeKind: TypeKind.Struct } && paramType is { TypeKind: not TypeKind.Struct })
+            if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } && paramType is { TypeKind: not TypeKind.Struct })
             {
                 // Box value type before passing it to reference type parameter
-                ILGenerator.Emit(OpCodes.Box, argType.GetClrType(Compilation));
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(argType));
             }
 
             pi++;
@@ -592,7 +624,7 @@ internal class ExpressionGenerator : Generator
                 .First(x => x.Name == "System.Runtime")
                 .GetTypeByMetadataName("System.Reflection.MemberInfo");
 
-            ILGenerator.Emit(OpCodes.Castclass, x.GetClrType(Compilation));
+            ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(x));
         }
     }
 
@@ -639,13 +671,20 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                if (metadataFieldSymbol.IsStatic)
+                if (fieldSymbol.IsLiteral)
                 {
-                    ILGenerator.Emit(OpCodes.Ldsfld, metadataFieldSymbol.GetFieldInfo());
+                    ILGenerator.Emit(OpCodes.Ldc_I4, (int)metadataFieldSymbol.GetConstantValue());
                 }
                 else
                 {
-                    ILGenerator.Emit(OpCodes.Ldfld, metadataFieldSymbol.GetFieldInfo());
+                    if (metadataFieldSymbol.IsStatic)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldsfld, metadataFieldSymbol.GetFieldInfo());
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ldfld, metadataFieldSymbol.GetFieldInfo());
+                    }
                 }
             }
         }
@@ -667,7 +706,7 @@ internal class ExpressionGenerator : Generator
                 if (!propertySymbol.IsStatic
                     && propertySymbol.ContainingType.TypeKind is TypeKind.Struct)
                 {
-                    var clrType = propertySymbol.ContainingType.GetClrType(Compilation);
+                    var clrType = ResolveClrType(propertySymbol.ContainingType);
                     var builder = ILGenerator.DeclareLocal(clrType);
                     //_localBuilders[symbol] = builder;
 
@@ -755,7 +794,7 @@ internal class ExpressionGenerator : Generator
             && ifStatementType.Type.TypeKind is TypeKind.Union
             && thenType.Type.TypeKind is TypeKind.Struct)
         {
-            ILGenerator.Emit(OpCodes.Box, thenType.Type.GetClrType(Compilation));
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType.Type));
         }
 
         if (ifStatementSyntax.ElseClause is ElseClauseSyntax elseClause)
@@ -779,7 +818,7 @@ internal class ExpressionGenerator : Generator
                 && ifStatementType.Type.TypeKind is TypeKind.Union
                 && elsType.Type.TypeKind is TypeKind.Struct)
             {
-                ILGenerator.Emit(OpCodes.Box, elsType.Type.GetClrType(Compilation));
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(elsType.Type));
             }
 
             // Mark the end of the 'if' statement

@@ -2,6 +2,8 @@
 using System.Reflection;
 using System.Reflection.Emit;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal class MethodGenerator
@@ -23,9 +25,9 @@ internal class MethodGenerator
 
     internal void DefineMethodBuilder()
     {
-        var returnType = MethodSymbol.ReturnType.GetClrType(Compilation);
+        var returnType = ResolveClrType(MethodSymbol.ReturnType);
 
-        var parameterTypes = MethodSymbol.Parameters.Select(p => p.Type.GetClrType(Compilation));
+        var parameterTypes = MethodSymbol.Parameters.Select(p => ResolveClrType(p.Type));
 
         MethodBuilder = TypeGenerator.TypeBuilder!
             .DefineMethod(MethodSymbol.Name,
@@ -40,7 +42,7 @@ internal class MethodGenerator
 
             if (parameterSymbol.Type.TypeKind is TypeKind.Union)
             {
-                var types = (parameterSymbol.Type as IUnionTypeSymbol).Types.Select(x => x.GetClrType(Compilation)).ToArray();
+                var types = (parameterSymbol.Type as IUnionTypeSymbol).Types.Select(x => ResolveClrType(x)).ToArray();
                 var construtor = TypeGenerator.CodeGen.TypeUnionAttributeType.GetConstructor(new[] { typeof(Type[]) });
                 CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(construtor, [types]);
                 methodBuilder.SetCustomAttribute(customAttributeBuilder);
@@ -64,5 +66,20 @@ internal class MethodGenerator
     {
         var bodyGenerator = new MethodBodyGenerator(this);
         bodyGenerator.Generate();
+    }
+
+    public Type ResolveClrType(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is SourceNamedTypeSymbol sourceType)
+        {
+            // This is a user-defined type, still being built
+            return TypeGenerator.CodeGen.GetTypeBuilder(sourceType); // TypeBuilder
+        }
+        else
+        {
+            return typeSymbol.GetClrType(Compilation); // Already resolved System.Type
+        }
+
+        throw new InvalidOperationException($"Unsupported type symbol: {typeSymbol}");
     }
 }

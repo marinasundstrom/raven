@@ -1,7 +1,5 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-using System;
-
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class StatementSyntaxParser : SyntaxParser
@@ -119,14 +117,14 @@ internal class StatementSyntaxParser : SyntaxParser
                 return ParseLocalDeclarationStatementSyntax();
 
                 /*
-                            case SyntaxKind.IfKeyword:
-                                var ifExpr = ParseIfExpressionSyntax();
-                                return new ExpressionStatement1Syntax(ifExpr, diagnostics);
+                                case SyntaxKind.IfKeyword:
+                                    var ifExpr = ParseIfExpressionSyntax();
+                                    return new ExpressionStatement1Syntax(ifExpr, diagnostics);
 
-                            case SyntaxKind.WhileKeyword:
-                                var whileExpr = ParseWhileExpressionSyntax();
-                                return new ExpressionStatement1Syntax(whileExpr, diagnostics);
-                                */
+                                case SyntaxKind.WhileKeyword:
+                                    var whileExpr = ParseWhileExpressionSyntax();
+                                    return new ExpressionStatement1Syntax(whileExpr, diagnostics);
+                                    */
         }
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();

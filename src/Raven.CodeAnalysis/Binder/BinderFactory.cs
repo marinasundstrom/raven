@@ -58,25 +58,6 @@ class BinderFactory
         return newBinder;
     }
 
-    /*
-    private Binder CreateCompilationUnitBinder(CompilationUnitSyntax cu, Binder parent)
-    {
-        // For now, treat it like a global namespace binder
-        var globalNs = _compilation.GlobalNamespace;
-        var binder = new NamespaceBinder(parent, globalNs, _compilation);
-
-        // Register all `using` directives from the compilation unit
-        foreach (var import in cu.Imports)
-        {
-            var importSymbol = _compilation.GetNamespaceSymbol(import.NamespaceOrType.ToString());
-            if (importSymbol is NamespaceSymbol ns)
-                binder.AddUsingDirective(ns);
-        }
-
-        return binder;
-    }
-    */
-
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, Binder parentBinder)
     {
         // Determine if there's a file-scoped namespace
@@ -110,6 +91,23 @@ class BinderFactory
         var mainMethodSymbol = new SynthesizedMainMethodSymbol(programClassSymbol, [cu.GetLocation()], [cu.GetReference()]);
 
         var topLevelBinder = new TopLevelBinder(importBinder, mainMethodSymbol);
+
+        foreach (var member in cu.Members.OfType<BaseTypeDeclarationSyntax>())
+        {
+            if (member is EnumDeclarationSyntax enumDeclaration)
+            {
+                var enumType = new SourceNamedTypeSymbol(enumDeclaration.Identifier.Text, _compilation.GetTypeByMetadataName("System.Enum"), TypeKind.Enum, targetNamespace.AsSourceNamespace(), null, targetNamespace.AsSourceNamespace(),
+                    [enumDeclaration.GetLocation()], [enumDeclaration.GetReference()]);
+
+                int value = 0;
+                foreach (var enumMember in enumDeclaration.Members)
+                {
+                    new SourceFieldSymbol(enumMember.Identifier.Text, enumType, true, true, value, enumType, enumType, targetNamespace.AsSourceNamespace(),
+                         [enumMember.GetLocation()], [enumMember.GetReference()]);
+                    value++;
+                }
+            }
+        }
 
         // 🟢 Step 1: Predeclare all local functions
         foreach (var stmt in cu.Members.OfType<GlobalStatementSyntax>())

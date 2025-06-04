@@ -45,7 +45,7 @@ internal class MethodBodyGenerator
             {
                 var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
 
-                var clrType = localSymbol.Type.GetClrType(_compilation);
+                var clrType = ResolveClrType(localSymbol.Type);
                 var builder = ILGenerator.DeclareLocal(clrType);
                 builder.SetLocalSymInfo(localSymbol.Name);
 
@@ -126,5 +126,20 @@ internal class MethodBodyGenerator
         return Compilation
                         .GetSemanticModel(syntaxNode.SyntaxTree)
                         .GetDeclaredSymbol(syntaxNode) as TNode;
+    }
+
+    public Type ResolveClrType(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is SourceNamedTypeSymbol sourceType)
+        {
+            // This is a user-defined type, still being built
+            return MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(sourceType); // TypeBuilder
+        }
+        else
+        {
+            return typeSymbol.GetClrType(Compilation); // Already resolved System.Type
+        }
+
+        throw new InvalidOperationException($"Unsupported type symbol: {typeSymbol}");
     }
 }

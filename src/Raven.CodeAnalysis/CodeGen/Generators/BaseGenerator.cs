@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal class BaseGenerator : Generator

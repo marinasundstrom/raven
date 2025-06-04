@@ -1,5 +1,7 @@
+using System.Reflection;
 using System.Reflection.Emit;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -59,4 +61,21 @@ internal abstract class Generator
                         .GetSemanticModel(expression.SyntaxTree)
                         .GetTypeInfo(expression);
     }
+
+    public Type ResolveClrType(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is SourceNamedTypeSymbol sourceType)
+        {
+            // This is a user-defined type, still being built
+            return MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(sourceType); // TypeBuilder
+        }
+        else
+        {
+            return typeSymbol.GetClrType(Compilation); // Already resolved System.Type
+        }
+
+        throw new InvalidOperationException($"Unsupported type symbol: {typeSymbol}");
+    }
+
+    public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);
 }

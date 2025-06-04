@@ -12,6 +12,11 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal class CodeGenerator
 {
     readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
+    readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
+
+    public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
+
+    public MemberInfo? GetMemberBuilder(SourceSymbol symbol) => _mappings[symbol];
 
     private readonly Compilation _compilation;
 
@@ -27,6 +32,13 @@ internal class CodeGenerator
     public CodeGenerator(Compilation compilation)
     {
         _compilation = compilation;
+    }
+
+    public Type? GetTypeBuilder(INamedTypeSymbol namedTypeSymbol)
+    {
+        var e = _typeGenerators[namedTypeSymbol];
+
+        return e.Type ?? e?.TypeBuilder;
     }
 
     public void Generate(Stream peStream, Stream? pdbStream)
@@ -48,6 +60,8 @@ internal class CodeGenerator
         CreateTypeUnionAttribute();
 
         DefineTypeBuilders();
+
+        DefineMemberBuilders();
 
         GenerateMemberILBodies();
 
@@ -163,11 +177,11 @@ internal class CodeGenerator
         }
     }
 
-    private void GenerateMemberILBodies()
+    private void DefineMemberBuilders()
     {
         foreach (var typeGenerator in _typeGenerators.Values)
         {
-            typeGenerator.GenerateMemberILBodies();
+            typeGenerator.DefineMemberBuilders();
         }
     }
 
@@ -176,6 +190,14 @@ internal class CodeGenerator
         foreach (var typeGenerator in _typeGenerators.Values)
         {
             typeGenerator.CreateType();
+        }
+    }
+
+    private void GenerateMemberILBodies()
+    {
+        foreach (var typeGenerator in _typeGenerators.Values)
+        {
+            typeGenerator.GenerateMemberILBodies();
         }
     }
 

@@ -30,6 +30,9 @@ public enum SyntaxKind
     NamespaceDeclaration,
     FileScopedNamespaceDeclaration,
 
+    EnumDeclaration,
+    EnumMemberDeclaration,
+
     MethodDeclaration,
     ReturnTypeAnnotation,
     ParameterList,
@@ -123,6 +126,7 @@ public enum SyntaxKind
     AndKeyword,
     OrKeyword,
     FuncKeyword,
+    EnumKeyword,
 
 
     OrToken,
@@ -177,6 +181,5 @@ public enum SyntaxKind
     CarriageReturnLineFeedToken, // \r\n
     NewLineToken, // Used for all line sequences represented as one token
 
-    EndOfFileToken,
-
+    EndOfFileToken
 }

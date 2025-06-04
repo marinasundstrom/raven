@@ -19,7 +19,8 @@ internal static partial class SyntaxFactory
     public static readonly SyntaxToken ImportKeyword = new SyntaxToken(SyntaxKind.ImportKeyword, "import");
     public static readonly SyntaxToken NamespaceKeyword = new SyntaxToken(SyntaxKind.NamespaceKeyword, "namespace");
     public static readonly SyntaxToken LetKeyword = new SyntaxToken(SyntaxKind.LetKeyword, "let");
-    public static readonly SyntaxToken VArKeyword = new SyntaxToken(SyntaxKind.VarKeyword, "var");
+    public static readonly SyntaxToken EnumKeyword = new SyntaxToken(SyntaxKind.EnumKeyword, "enum");
+    public static readonly SyntaxToken VarKeyword = new SyntaxToken(SyntaxKind.VarKeyword, "var");
     public static readonly SyntaxToken IfKeyword = new SyntaxToken(SyntaxKind.IfKeyword, "if");
     public static readonly SyntaxToken ElseKeyword = new SyntaxToken(SyntaxKind.ElseKeyword, "else");
     public static readonly SyntaxToken WhileKeyword = new SyntaxToken(SyntaxKind.WhileKeyword, "while");

@@ -14,6 +14,14 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         TypeKind = TypeKind.Class;
     }
 
+    public SourceNamedTypeSymbol(string name, INamedTypeSymbol baseType, TypeKind typeKind, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+    : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+    {
+        BaseType = baseType;
+
+        TypeKind = typeKind;
+    }
+
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
 

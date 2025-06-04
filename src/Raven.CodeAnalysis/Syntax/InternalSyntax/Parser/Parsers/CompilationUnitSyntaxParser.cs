@@ -1,5 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using System;
+
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class CompilationUnitSyntaxParser : SyntaxParser
@@ -37,6 +39,12 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
             memberDeclarations.Add(namespaceDeclaration);
+        }
+        else if (nextToken.IsKind(SyntaxKind.EnumKeyword))
+        {
+            var enumDeclaration = new EnumDeclarationParser(this).Parse();
+
+            memberDeclarations.Add(enumDeclaration);
         }
         else
         {
