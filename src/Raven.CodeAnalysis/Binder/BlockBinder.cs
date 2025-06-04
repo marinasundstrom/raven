@@ -314,7 +314,7 @@ class BlockBinder : Binder
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
-        var instanceMember = receiver.Type?.GetMembers(memberName).FirstOrDefault();
+        var instanceMember = receiver.Type?.ResolveMembers(memberName).FirstOrDefault();
 
         if (instanceMember == null)
         {

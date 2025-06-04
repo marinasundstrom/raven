@@ -471,7 +471,7 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldloca, tmp);
                 }
 
-                ILGenerator.Emit(OpCodes.Call, getMethod.GetMethodInfo());
+                ILGenerator.Emit(OpCodes.Callvirt, getMethod.GetMethodInfo());
             }
         }
         else
@@ -508,15 +508,28 @@ internal class ExpressionGenerator : Generator
 
                 if (localSymbol.Type.TypeKind is TypeKind.Struct)
                 {
-                    // Loading the address of the value to the instance.
+                    if (target.IsVirtual || target.ContainingType.TypeKind == TypeKind.Interface)
+                    {
+                        // Loading the address of the value to the instance.
 
-                    ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
+                        ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                        ILGenerator.Emit(OpCodes.Box, localBuilder.LocalType);
+                    }
                 }
                 else
                 {
                     // Since it's a reference type, the address is stored in the local.
 
                     ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+
+                    if (localBuilder.LocalType.IsValueType)
+                    {
+                        ILGenerator.Emit(OpCodes.Box, localBuilder.LocalType);
+                    }
                 }
             }
             else
@@ -563,14 +576,25 @@ internal class ExpressionGenerator : Generator
         }
         else
         {
-            if (target.ContainingType.TypeKind is TypeKind.Struct)
-            {
-                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
-            }
-            else
+            if (target.IsVirtual || target.ContainingType.TypeKind == TypeKind.Interface)
             {
                 ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(target));
             }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
+            }
+        }
+
+        if (target.Name == "GetType"
+            && target.ContainingType.Name == "Object"
+            && target.ContainingNamespace.Name == "System")
+        {
+            var x = Compilation.ReferencedAssemblySymbols
+                .First(x => x.Name == "System.Runtime")
+                .GetTypeByMetadataName("System.Reflection.MemberInfo");
+
+            ILGenerator.Emit(OpCodes.Castclass, x.GetClrType(Compilation));
         }
     }
 
@@ -653,7 +677,7 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldloca, builder);
                 }
 
-                ILGenerator.Emit(OpCodes.Call, getMethod.GetMethodInfo());
+                ILGenerator.Emit(OpCodes.Callvirt, getMethod.GetMethodInfo());
             }
         }
     }
