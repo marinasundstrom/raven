@@ -1,6 +1,9 @@
+import System;
+
 var foo : Flags = .B;
 foo = .C;
 
-System.Console.WriteLine(foo);
+Console.WriteLine(foo);
+Console.WriteLine(foo.GetType());
 
 enum Flags { A, B, C };
