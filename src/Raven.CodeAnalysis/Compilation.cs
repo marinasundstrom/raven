@@ -278,6 +278,19 @@ public class Compilation
             return new Conversion(isImplicit: true, isIdentity: true);
         }
 
+        var objType = GetSpecialType(SpecialType.System_Object);
+
+        if (destination.Equals(objType, SymbolEqualityComparer.Default))
+        {
+            if (source.Equals(objType, SymbolEqualityComparer.Default))
+            {
+                return Conversion.None;
+            }
+
+            // Assigning to
+            return new Conversion(isImplicit: true, isBoxing: source.TypeKind is TypeKind.Struct);
+        }
+
         if (destination is IUnionTypeSymbol unionType)
         {
             var match = unionType.Types.FirstOrDefault(x => ClassifyConversion(source, x).Exists);

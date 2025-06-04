@@ -574,16 +574,13 @@ internal class ExpressionGenerator : Generator
         {
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
+        else if (target.IsVirtual || target.ContainingType.TypeKind == TypeKind.Interface)
+        {
+            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(target));
+        }
         else
         {
-            if (target.IsVirtual || target.ContainingType.TypeKind == TypeKind.Interface)
-            {
-                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(target));
-            }
-            else
-            {
-                ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
-            }
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
 
         if (target.Name == "GetType"
