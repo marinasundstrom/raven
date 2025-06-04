@@ -17,3 +17,7 @@ if foo == .C {
 }
 
 enum Flags { A, B, C };
+
+func f () -> Flags {
+    return .B;
+}

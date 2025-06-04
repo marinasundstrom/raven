@@ -33,7 +33,7 @@ See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
 
 ### Sample
 
-Here’s a sample of the Raven syntax, taken from [this file](src/Raven.Compiler/test.rav):
+Here’s a sample of the Raven syntax, taken from [this file](src/Raven.Compiler/general.rav):
 
 ```raven
 import System;
