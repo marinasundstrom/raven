@@ -1,3 +1,7 @@
+/*
+ *
+ * * * */
+
 import System;
 
 var foo : Flags = .B;

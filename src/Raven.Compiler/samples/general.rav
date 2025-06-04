@@ -1,3 +1,7 @@
+/*
+ * Declarations, control flow, and usage of framework types
+ * * * */
+
 import System;
 import System.Text;
 

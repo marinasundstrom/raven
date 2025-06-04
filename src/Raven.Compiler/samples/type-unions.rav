@@ -1,6 +1,8 @@
-import System;
+/*
+ *  Demonstrates type unions, patterns, and support for assembly references
+ * * * */
 
-let list = [1, 3, 4];
+import System;
 
 let w = 352342342;
 
