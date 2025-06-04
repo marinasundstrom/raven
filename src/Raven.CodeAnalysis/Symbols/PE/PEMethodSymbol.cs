@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -149,6 +150,37 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     public MethodKind MethodKind { get; }
 
     public IMethodSymbol? OriginalDefinition { get; }
+
+    public bool IsAbstract => _methodInfo.IsAbstract;
+
+    public bool IsAsync =>
+        (_methodInfo as MethodInfo)?.ReturnType == typeof(Task) ||
+        (_methodInfo as MethodInfo)?.ReturnType.IsGenericType == true &&
+        (_methodInfo as MethodInfo)?.ReturnType.GetGenericTypeDefinition() == typeof(Task<>);
+
+    public bool IsCheckedBuiltin => false; // No metadata indicator; default to false or customize
+
+    public bool IsDefinition => true; // Metadata methods are always definitions
+
+    public bool IsExtensionMethod =>
+        _methodInfo?.GetCustomAttribute<ExtensionAttribute>() is not null;
+
+    public bool IsExtern => _methodInfo.IsAbstract || (_methodInfo.Attributes & MethodAttributes.PinvokeImpl) != 0;
+
+    public bool IsGenericMethod => _methodInfo.IsGenericMethod;
+
+    public bool IsOverride =>
+        (_methodInfo as MethodInfo)?.GetBaseDefinition()?.DeclaringType != _methodInfo.DeclaringType;
+
+    public bool IsReadOnly =>
+        (_methodInfo as MethodInfo)?.ReturnParameter?.GetRequiredCustomModifiers()
+            .Contains(typeof(IsReadOnlyAttribute)) == true;
+
+    public bool IsSealed =>
+        (_methodInfo as MethodInfo)?.IsFinal == true &&
+        (_methodInfo as MethodInfo)?.IsVirtual == true;
+
+    public bool IsVirtual => _methodInfo.IsVirtual;
 
     public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
 

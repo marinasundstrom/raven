@@ -207,6 +207,19 @@ public interface IMethodSymbol : ISymbol
     ImmutableArray<IParameterSymbol> Parameters { get; }
     bool IsConstructor { get; }
     IMethodSymbol? OriginalDefinition { get; }
+
+    bool IsAbstract { get; }
+    bool IsAsync { get; }
+    bool IsCheckedBuiltin { get; }
+    bool IsDefinition { get; }
+    bool IsExtensionMethod { get; }
+    bool IsExtern { get; }
+    bool IsGenericMethod { get; }
+    bool IsOverride { get; }
+    bool IsReadOnly { get; }
+    bool IsSealed { get; }
+    bool IsVirtual { get; }
+
 }
 
 public enum MethodKind

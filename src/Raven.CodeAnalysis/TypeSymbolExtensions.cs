@@ -34,7 +34,7 @@ public static class TypeSymbolExtensions
         {
             // Attempt to resolve the fully qualified name
             var fullyQualifiedName = namedTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            return Type.GetType(fullyQualifiedName, throwOnError: false)!;
+            return compilation.CoreAssembly.GetType(fullyQualifiedName, throwOnError: false)!;
         }
 
         // Handle dynamic type
@@ -90,6 +90,7 @@ public static class TypeSymbolExtensions
             SpecialType.System_SByte => FromCoreAssembly(compilation, "System.SByte"),
             SpecialType.System_DateTime => FromCoreAssembly(compilation, "System.DateTime"),
             SpecialType.System_Array => FromCoreAssembly(compilation, "System.Array"),
+            SpecialType.System_Type => FromCoreAssembly(compilation, "System.Type"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
     }

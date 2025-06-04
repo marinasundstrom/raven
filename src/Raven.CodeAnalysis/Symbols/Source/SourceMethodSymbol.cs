@@ -33,5 +33,27 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public IMethodSymbol? OriginalDefinition { get; }
 
+    public bool IsAbstract { get; }
+
+    public bool IsAsync { get; }
+
+    public bool IsCheckedBuiltin { get; }
+
+    public bool IsDefinition { get; }
+
+    public bool IsExtensionMethod { get; }
+
+    public bool IsExtern { get; }
+
+    public bool IsGenericMethod { get; }
+
+    public bool IsOverride { get; }
+
+    public bool IsReadOnly { get; }
+
+    public bool IsSealed { get; }
+
+    public bool IsVirtual { get; }
+
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 }
