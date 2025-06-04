@@ -126,27 +126,31 @@ internal class Tokenizer : ITokenizer
                 {
                     _stringBuilder.Append(token.Text);
                     _stringBuilder.Append(token2.Text);
-
                     _lexer.ReadAndDiscardTokens(2);
 
-                    Token peeked = _lexer.PeekToken(0);
-                    Token peeked2 = _lexer.PeekToken(1);
-                    while (peeked.Kind != SyntaxKind.StarToken && peeked2.Kind != SyntaxKind.SlashToken && peeked.Kind != SyntaxKind.EndOfFileToken)
+                    while (true)
                     {
-                        _lexer.ReadToken();
+                        var current = _lexer.PeekToken(0);
+                        var next = _lexer.PeekToken(1);
 
-                        _stringBuilder.Append(peeked.Text);
-
-                        peeked = _lexer.PeekToken(0);
-                        peeked2 = _lexer.PeekToken(1);
-
-                        if (peeked.Kind == SyntaxKind.StarToken && peeked2.Kind == SyntaxKind.SlashToken)
+                        if (current.Kind == SyntaxKind.StarToken && next.Kind == SyntaxKind.SlashToken)
                         {
                             _lexer.ReadAndDiscardTokens(2);
-
-                            _stringBuilder.Append(peeked.Text);
-                            _stringBuilder.Append(peeked2.Text);
+                            _stringBuilder.Append(current.Text);
+                            _stringBuilder.Append(next.Text);
+                            break;
                         }
+
+                        if (current.Kind == SyntaxKind.EndOfFileToken)
+                        {
+                            // Unterminated block comment
+                            _lexer.ReadToken();
+                            _stringBuilder.Append(current.Text);
+                            break;
+                        }
+
+                        _lexer.ReadToken();
+                        _stringBuilder.Append(current.Text);
                     }
 
                     trivia.Add(new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, _stringBuilder.ToString()));
