@@ -19,6 +19,17 @@ public class Foo
     [return: TypeUnion(typeof(int), typeof(bool))]
     public static object Test2(bool flag)
     {
-        return false ? 42 : false;
+        return flag ? 42 : false;
+    }
+
+    [return: TypeUnion(typeof(int), typeof(bool))]
+    public static object Test3(bool flag)
+    {
+        if (flag)
+        {
+            return 1;
+        }
+
+        return 2;
     }
 }
