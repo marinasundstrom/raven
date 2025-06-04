@@ -15,15 +15,21 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     {
         _typeInfo = typeInfo;
 
-        if (typeInfo.BaseType == typeof(Delegate))
+        if (typeInfo?.Name == "Object" || typeInfo.BaseType?.Name == "Object")
+        {
+            TypeKind = TypeKind.Class;
+            return;
+        }
+
+        if (typeInfo.BaseType?.Name == "Delegate")
         {
             TypeKind = TypeKind.Delegate;
         }
-        else if (typeInfo.BaseType == typeof(Enum))
+        else if (typeInfo.BaseType?.Name == "Enum")
         {
             TypeKind = TypeKind.Enum;
         }
-        else if (typeInfo.BaseType == typeof(ValueType))
+        else if (typeInfo.BaseType?.Name == "ValueType")
         {
             TypeKind = TypeKind.Struct;
         }
