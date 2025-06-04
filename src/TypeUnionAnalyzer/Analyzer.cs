@@ -58,6 +58,8 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeInvocationExpressionForTU001, SyntaxKind.InvocationExpression);
         context.RegisterSyntaxNodeAction(AnalyzeReturnStatement, SyntaxKind.ReturnStatement);
         context.RegisterSyntaxNodeAction(AnalyzeIsPattern, SyntaxKind.IsPatternExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeSwitchStatement, SyntaxKind.SwitchStatement);
+        context.RegisterSyntaxNodeAction(AnalyzeSwitchExpression, SyntaxKind.SwitchExpression);
     }
 
     private void AnalyzeParameter(SyntaxNodeAnalysisContext context)
@@ -414,6 +416,79 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 targetType.ToDisplayString()
             );
             context.ReportDiagnostic(diagnostic);
+        }
+    }
+
+    private void AnalyzeSwitchStatement(SyntaxNodeAnalysisContext context)
+    {
+        var switchStmt = (SwitchStatementSyntax)context.Node;
+        var exprSymbol = context.SemanticModel.GetSymbolInfo(switchStmt.Expression).Symbol;
+
+        if (exprSymbol is not IParameterSymbol paramSymbol)
+            return;
+
+        var attr = paramSymbol.GetAttributes()
+            .FirstOrDefault(a => IsTypeUnion(a, out _));
+
+        if (attr == null || !IsTypeUnion(attr, out var allowedTypes))
+            return;
+
+        var compilation = context.SemanticModel.Compilation;
+
+        foreach (var section in switchStmt.Sections)
+        {
+            foreach (var label in section.Labels.OfType<CasePatternSwitchLabelSyntax>())
+            {
+                if (label.Pattern is DeclarationPatternSyntax declarationPattern)
+                {
+                    var patternType = context.SemanticModel.GetTypeInfo(declarationPattern.Type).Type;
+                    if (patternType != null && !IsAnyImplicit(patternType, allowedTypes, compilation))
+                    {
+                        var diagnostic = Diagnostic.Create(
+                            InvalidPatternRule,
+                            declarationPattern.Type.GetLocation(),
+                            paramSymbol.Name,
+                            patternType.ToDisplayString()
+                        );
+                        context.ReportDiagnostic(diagnostic);
+                    }
+                }
+            }
+        }
+    }
+
+    private void AnalyzeSwitchExpression(SyntaxNodeAnalysisContext context)
+    {
+        var switchExpr = (SwitchExpressionSyntax)context.Node;
+        var exprSymbol = context.SemanticModel.GetSymbolInfo(switchExpr.GoverningExpression).Symbol;
+
+        if (exprSymbol is not IParameterSymbol paramSymbol)
+            return;
+
+        var attr = paramSymbol.GetAttributes()
+            .FirstOrDefault(a => IsTypeUnion(a, out _));
+
+        if (attr == null || !IsTypeUnion(attr, out var allowedTypes))
+            return;
+
+        var compilation = context.SemanticModel.Compilation;
+
+        foreach (var arm in switchExpr.Arms)
+        {
+            if (arm.Pattern is DeclarationPatternSyntax declarationPattern)
+            {
+                var patternType = context.SemanticModel.GetTypeInfo(declarationPattern.Type).Type;
+                if (patternType != null && !IsAnyImplicit(patternType, allowedTypes, compilation))
+                {
+                    var diagnostic = Diagnostic.Create(
+                        InvalidPatternRule,
+                        declarationPattern.Type.GetLocation(),
+                        paramSymbol.Name,
+                        patternType.ToDisplayString()
+                    );
+                    context.ReportDiagnostic(diagnostic);
+                }
+            }
         }
     }
 
