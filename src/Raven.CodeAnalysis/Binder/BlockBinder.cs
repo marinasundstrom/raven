@@ -35,7 +35,7 @@ class BlockBinder : Binder
         var declaration = singleVariableDesignation.Parent as DeclarationPatternSyntax;
         var name = singleVariableDesignation.Identifier.Text;
         var type = ResolveType(declaration.Type);
-        return CreateLocalSymbol(singleVariableDesignation, name, false, type);
+        return CreateLocalSymbol(singleVariableDesignation, name, true, type);
     }
 
     public override SymbolInfo BindReferencedSymbol(SyntaxNode node)
@@ -99,7 +99,7 @@ class BlockBinder : Binder
         var name = variableDeclarator.Name.Identifier.Text;
 
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
-        var isReadOnly = decl!.LetOrVarKeyword.IsKind(SyntaxKind.LetKeyword);
+        var isMutable = decl!.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
 
         ITypeSymbol type = Compilation.ErrorTypeSymbol;
 
@@ -122,15 +122,15 @@ class BlockBinder : Binder
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
         }
 
-        return CreateLocalSymbol(variableDeclarator, name, isReadOnly, type);
+        return CreateLocalSymbol(variableDeclarator, name, isMutable, type);
     }
 
-    private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isReadOnly, ITypeSymbol type)
+    private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type)
     {
         var symbol = new SourceLocalSymbol(
             name,
             type,
-            isReadOnly,
+            isMutable,
             _containingSymbol,
             _containingSymbol.ContainingType as INamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
@@ -702,7 +702,7 @@ class BlockBinder : Binder
         var left = BindExpression(syntax.LeftHandSide);
         var localSymbol = (ILocalSymbol)left.Symbol!;
 
-        if (localSymbol.IsReadOnly)
+        if (!localSymbol.IsMutable)
         {
             _diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);

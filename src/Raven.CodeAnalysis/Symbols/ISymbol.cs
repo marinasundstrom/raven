@@ -322,7 +322,7 @@ public interface ILocalSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
 
-    bool IsReadOnly { get; }
+    bool IsMutable { get; }
 }
 
 public interface IErrorTypeSymbol : INamedTypeSymbol
