@@ -366,14 +366,16 @@ class BlockBinder : Binder
                     return left.Type;
 
                 case ReturnStatementSyntax returnStmt:
-                    return _containingSymbol switch
-                    {
-                        IMethodSymbol method => method.ReturnType,
-                        _ => null
-                    };
+                    return _containingSymbol is IMethodSymbol method ? method.ReturnType : null;
+
+                case BinaryExpressionSyntax binary when binary.LeftHandSide == node:
+                    return BindExpression(binary.RightHandSide).Type;
+
+                case BinaryExpressionSyntax binary when binary.RightHandSide == node:
+                    return BindExpression(binary.LeftHandSide).Type;
 
                 case ArgumentSyntax arg:
-                    // Handle parameter context later
+                    // TODO: support inference from parameter types
                     return null;
 
                 case ExpressionStatementSyntax:

@@ -290,6 +290,11 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.CloseBracketToken, chStr);
 
                     case '=':
+                        if (PeekChar(out ch2) && ch2 == '=')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.EqualsEqualsToken, "==");
+                        }
                         return new Token(SyntaxKind.EqualsToken, chStr);
 
                     case '|':

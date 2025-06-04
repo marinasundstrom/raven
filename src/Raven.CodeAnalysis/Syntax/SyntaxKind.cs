@@ -146,6 +146,7 @@ public enum SyntaxKind
 
     CommaToken,
     EqualsToken,
+    EqualsEqualsToken,
     NotEqualsToken,
     PlusToken,
     MinusToken,

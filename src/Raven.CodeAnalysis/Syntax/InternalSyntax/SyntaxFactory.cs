@@ -50,6 +50,7 @@ internal static partial class SyntaxFactory
     public static readonly SyntaxToken LessThanEqualsToken = new SyntaxToken(SyntaxKind.LessThanEqualsToken, "<=");
 
     public static readonly SyntaxToken EqualsToken = new SyntaxToken(SyntaxKind.EqualsToken, "=");
+    public static readonly SyntaxToken EqualsEqualsToken = new SyntaxToken(SyntaxKind.EqualsEqualsToken, "==");
     public static readonly SyntaxToken NotEqualsToken = new SyntaxToken(SyntaxKind.NotEqualsToken, "!=");
     public static readonly SyntaxToken PlusToken = new SyntaxToken(SyntaxKind.PlusToken, "+");
     public static readonly SyntaxToken MinusToken = new SyntaxToken(SyntaxKind.MinusToken, "-");

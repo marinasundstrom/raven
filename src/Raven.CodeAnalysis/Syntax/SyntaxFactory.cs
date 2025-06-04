@@ -47,6 +47,7 @@ public static partial class SyntaxFactory
     public static readonly SyntaxToken LessThanEqualsToken = (SyntaxToken)InternalSyntax.SyntaxFactory.LessThanEqualsToken;
 
     public static readonly SyntaxToken EqualsToken = (SyntaxToken)InternalSyntax.SyntaxFactory.EqualsToken;
+    public static readonly SyntaxToken EqualsEqualsToken = (SyntaxToken)InternalSyntax.SyntaxFactory.EqualsEqualsToken;
     public static readonly SyntaxToken NotEqualsToken = (SyntaxToken)InternalSyntax.SyntaxFactory.NotEqualsToken;
     public static readonly SyntaxToken PlusToken = (SyntaxToken)InternalSyntax.SyntaxFactory.PlusToken;
     public static readonly SyntaxToken MinusToken = (SyntaxToken)InternalSyntax.SyntaxFactory.MinusToken;

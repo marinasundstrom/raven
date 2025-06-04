@@ -26,6 +26,14 @@ sealed class BoundBinaryOperator
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
 
+        if (left.TypeKind == TypeKind.Enum && right.TypeKind == TypeKind.Enum)
+        {
+            if (kind == SyntaxKind.EqualsEqualsToken || kind == SyntaxKind.NotEqualsToken)
+            {
+                return new BoundBinaryOperator(kind, left, right, boolType);
+            }
+        }
+
         var candidates = new[]
         {
             new BoundBinaryOperator(SyntaxKind.PlusToken, intType, intType, intType),

@@ -72,7 +72,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.PercentToken:
                 return SyntaxKind.ModuloExpression;
 
-            case SyntaxKind.EqualsToken:
+            case SyntaxKind.EqualsEqualsToken:
                 return SyntaxKind.EqualsExpression;
 
             case SyntaxKind.NotEqualsToken:
@@ -143,7 +143,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 case SyntaxKind.LessThanToken:
                 case SyntaxKind.GreaterOrEqualsToken:
                 case SyntaxKind.LessThanEqualsToken:
-                case SyntaxKind.EqualsToken:
+                case SyntaxKind.EqualsEqualsToken:
                 case SyntaxKind.NotEqualsToken:
                     ReadToken();
                     break;

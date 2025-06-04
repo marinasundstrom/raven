@@ -449,11 +449,7 @@ internal class ExpressionGenerator : Generator
         {
             // First load the target expression (e.g., the array object)
 
-            if (memberAccessExpression.Expression is null)
-            {
-                // Target type: Static member
-            }
-            else
+            if (memberAccessExpression.Expression is not null)
             {
                 GenerateExpression(memberAccessExpression.Expression);
             }
@@ -487,11 +483,7 @@ internal class ExpressionGenerator : Generator
         {
             // First load the target expression (e.g., the array object)
 
-            if (memberAccessExpression.Expression is null)
-            {
-                // Target type: Static member
-            }
-            else
+            if (memberAccessExpression.Expression is not null)
             {
                 GenerateExpression(memberAccessExpression.Expression);
             }
@@ -827,8 +819,6 @@ internal class ExpressionGenerator : Generator
 
     private void GenerateIfExpression(IfExpressionSyntax ifStatementSyntax)
     {
-        GenerateExpression(ifStatementSyntax.Condition);
-
         var elseLabel = ILGenerator.DefineLabel();
 
         GenerateBranchOpForCondition(ifStatementSyntax.Condition, elseLabel);
@@ -889,8 +879,6 @@ internal class ExpressionGenerator : Generator
 
         ILGenerator.MarkLabel(beginLabel);
 
-        GenerateExpression(whileStatementSyntax.Condition);
-
         GenerateBranchOpForCondition(whileStatementSyntax.Condition, endLabel);
 
         var scope = new Scope(this);
@@ -902,7 +890,6 @@ internal class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(endLabel);
     }
 
-
     private void GenerateBranchOpForCondition(ExpressionSyntax expression, Label end)
     {
         if (expression is ParenthesizedExpressionSyntax parenthesizedExpression)
@@ -913,44 +900,66 @@ internal class ExpressionGenerator : Generator
 
         if (expression is BinaryExpressionSyntax binaryExpression)
         {
+            GenerateExpression(binaryExpression.LeftHandSide);
+            GenerateExpression(binaryExpression.RightHandSide);
+
             switch (binaryExpression.Kind)
             {
                 case SyntaxKind.EqualsExpression:
+                    ILGenerator.Emit(OpCodes.Ceq); // compare
                     ILGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
                 case SyntaxKind.NotEqualsExpression:
-                    ILGenerator.Emit(OpCodes.Neg);
+                    ILGenerator.Emit(OpCodes.Ceq);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                    ILGenerator.Emit(OpCodes.Ceq); // logical NOT
                     ILGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
                 case SyntaxKind.GreaterThanExpression:
-                    ILGenerator.Emit(OpCodes.Ble_S, end);
+                    ILGenerator.Emit(OpCodes.Cgt);
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
                 case SyntaxKind.LessThanExpression:
-                    ILGenerator.Emit(OpCodes.Bge_S, end);
+                    ILGenerator.Emit(OpCodes.Clt);
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
+
+                case SyntaxKind.GreaterThanOrEqualExpression:
+                    ILGenerator.Emit(OpCodes.Clt);
+                    ILGenerator.Emit(OpCodes.Brtrue_S, end);
+                    break;
+
+                case SyntaxKind.LessThanOrEqualExpression:
+                    ILGenerator.Emit(OpCodes.Cgt);
+                    ILGenerator.Emit(OpCodes.Brtrue_S, end);
+                    break;
+
+                default:
+                    throw new NotSupportedException($"Unsupported binary condition: {binaryExpression.Kind}");
             }
         }
         else if (expression is LiteralExpressionSyntax literalExpression)
         {
             if (literalExpression.Kind == SyntaxKind.TrueLiteralExpression)
             {
-                ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                // If true, do nothing; execution continues
             }
             else if (literalExpression.Kind == SyntaxKind.FalseLiteralExpression)
             {
-                ILGenerator.Emit(OpCodes.Neg);
-                ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                ILGenerator.Emit(OpCodes.Br_S, end);
             }
         }
-        else if (expression is IdentifierNameSyntax identifierName)
+        else if (expression is IdentifierNameSyntax or MemberAccessExpressionSyntax)
         {
+            GenerateExpression(expression);
             ILGenerator.Emit(OpCodes.Brfalse_S, end);
         }
         else
         {
+            GenerateExpression(expression);
             ILGenerator.Emit(OpCodes.Brfalse_S, end);
         }
     }

@@ -3,7 +3,14 @@ import System;
 var foo : Flags = .B;
 foo = .C;
 
+let x : string = .Empty;
+
 Console.WriteLine(foo);
 Console.WriteLine(foo.GetType());
+
+if(foo == .C) 
+{
+    Console.WriteLine("Foo");
+}
 
 enum Flags { A, B, C };
