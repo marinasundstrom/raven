@@ -10,7 +10,7 @@ using static Raven.AppHostBuilder;
 // ravc test.rav [-o test.exe]
 // dotnet run -- test.rav [-o test.exe]
 
-var filePath = args.Length > 0 ? args[0] : "../../../samples/test.rav";
+var filePath = args.Length > 0 ? args[0] : "../../../samples/test3.rav";
 var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : null;
 
 filePath = Path.GetFullPath(filePath);
@@ -46,7 +46,7 @@ var semanticModel = compilation.GetSemanticModel(syntaxTree);
 var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
 var typeSymbol = methodSymbol?.ContainingType;
 
-//var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
+var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First()) as ILocalSymbol;
 
 /*
 var result1 = semanticModel.AnalyzeControlFlow(root.DescendantNodes().OfType<ExpressionStatementSyntax>().ElementAt(2));

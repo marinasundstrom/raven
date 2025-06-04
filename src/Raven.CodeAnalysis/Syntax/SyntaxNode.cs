@@ -259,7 +259,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     }
 
     protected virtual string GetDebuggerDisplay()
-         => $"{Kind}: {ToFullString()?.Replace("\n", "\\n").Replace("\r", "")}";
+         => $"{Kind}: {ToString()?.Replace("\n", "\\n").Replace("\r", "")}";
 
     internal virtual SyntaxNode? GetNodeSlot(int index) { return null; }
 

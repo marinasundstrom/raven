@@ -88,7 +88,7 @@ public static partial class SymbolExtensions
         if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
         {
             // Assume `Namespace` and `ContainingType` are properties of the symbol
-            if (symbol.ContainingNamespace.ContainingNamespace is not null)
+            if (symbol.ContainingNamespace?.ContainingNamespace is not null)
             {
                 var ns = GetFullNamespace(symbol);
                 result.Append(ns).Append(".");
