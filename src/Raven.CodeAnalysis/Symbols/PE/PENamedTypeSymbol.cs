@@ -9,6 +9,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
+    private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
 
     public PENamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -56,7 +57,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters ??= _typeInfo.GenericTypeParameters.Select(x => (ITypeParameterSymbol)new PETypeParameterSymbol(x, this, this, this.ContainingNamespace, [])).ToImmutableArray();
     public ITypeSymbol ConstructedFrom { get; }
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;

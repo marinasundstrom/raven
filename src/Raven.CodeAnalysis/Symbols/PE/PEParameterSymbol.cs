@@ -21,6 +21,12 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         {
             if (_type is not null) return _type;
 
+            if (_parameterInfo.ParameterType.IsGenericTypeParameter)
+            {
+                _type = new PETypeParameterSymbol(_parameterInfo.ParameterType, this, ContainingType, ContainingNamespace, []);
+                return _type;
+            }
+
             _type = PEContainingModule.GetType(_parameterInfo.ParameterType);
 
             var unionAttribute = _parameterInfo.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");

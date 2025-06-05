@@ -114,6 +114,12 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
                 {
                     var returnParam = ((MethodInfo)_methodInfo).ReturnParameter;
 
+                    if (returnParam.ParameterType.IsGenericTypeParameter)
+                    {
+                        _returnType = new PETypeParameterSymbol(returnParam.ParameterType, this, ContainingType, ContainingNamespace, []);
+                        return _returnType;
+                    }
+
                     _returnType = PEContainingModule.GetType(returnParam.ParameterType);
 
                     var unionAttribute = returnParam.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");

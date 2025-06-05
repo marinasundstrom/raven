@@ -39,6 +39,9 @@ internal abstract class Symbol : ISymbol
         if (this is IParameterSymbol)
             return;
 
+        if (this is ITypeParameterSymbol)
+            return;
+
         if (this is ITypeSymbol or INamespaceSymbol)
         {
             if (containingNamespace is SourceNamespaceSymbol ns)

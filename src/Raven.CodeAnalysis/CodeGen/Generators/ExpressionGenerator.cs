@@ -81,6 +81,12 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case LambdaExpressionSyntax lambdaExpression:
+                var info = GetTypeInfo(lambdaExpression);
+                var x = info.Type.GetMembers().OfType<IMethodSymbol>().First();
+                var z = x.Parameters.First();
+                var t = z.Type;
+
+                var y = ResolveClrType(info.Type);
                 break;
 
             default:

@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.CodeGen;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
@@ -13,6 +14,11 @@ public static class TypeSymbolExtensionsForCodeGen
             throw new ArgumentNullException(nameof(typeSymbol));
         if (codeGen == null)
             throw new ArgumentNullException(nameof(codeGen));
+
+        if (typeSymbol is PENamedTypeSymbol namedTypeSymbol)
+        {
+            return namedTypeSymbol.GetTypeInfo();
+        }
 
         var compilation = codeGen.Compilation;
 

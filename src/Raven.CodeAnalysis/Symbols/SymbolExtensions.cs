@@ -108,7 +108,7 @@ public static partial class SymbolExtensions
         {
             // Handle generics
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
-                typeSymbol.TypeParameters != null)
+                typeSymbol.TypeParameters != null && !typeSymbol.TypeParameters.IsEmpty)
             {
                 result.Append("<");
                 result.Append(string.Join(", ",

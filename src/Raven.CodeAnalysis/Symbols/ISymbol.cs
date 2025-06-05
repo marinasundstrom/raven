@@ -16,7 +16,8 @@ public enum SymbolKind
     Local,
     Property,
     Field,
-    ErrorType
+    ErrorType,
+    TypeParameter
 }
 
 /// <summary>
@@ -340,7 +341,7 @@ public interface IUnionTypeSymbol : ITypeSymbol
     IEnumerable<ITypeSymbol> Types { get; }
 }
 
-public interface ITypeParameterSymbol : ISymbol
+public interface ITypeParameterSymbol : ITypeSymbol
 {
 }
 
