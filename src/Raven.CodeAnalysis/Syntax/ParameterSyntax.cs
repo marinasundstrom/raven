@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public partial class ParameterSyntax : SyntaxNode
 {
-    public partial IdentifierNameSyntax Name { get; }
+    public partial SyntaxToken Identifier { get; }
 
     public partial TypeAnnotationSyntax? TypeAnnotation { get; }
 
@@ -12,9 +12,9 @@ public partial class ParameterSyntax : SyntaxNode
     }
 
     public ParameterSyntax(
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         TypeAnnotationSyntax? typeAnnotation)
-        : this(new InternalSyntax.ParameterSyntax((InternalSyntax.IdentifierNameSyntax)name.Green, (InternalSyntax.TypeAnnotationSyntax?)typeAnnotation?.Green), (SyntaxNode)null, 0)
+        : this(new InternalSyntax.ParameterSyntax(identifier.Green, (InternalSyntax.TypeAnnotationSyntax?)typeAnnotation?.Green), (SyntaxNode)null, 0)
     {
 
     }
@@ -22,9 +22,9 @@ public partial class ParameterSyntax : SyntaxNode
 
 public static partial class SyntaxFactory
 {
-    public static ParameterSyntax Parameter(IdentifierNameSyntax name)
-        => new ParameterSyntax(name, null);
+    public static ParameterSyntax Parameter(SyntaxToken identifier)
+        => new ParameterSyntax(identifier, null);
 
-    public static ParameterSyntax Parameter(IdentifierNameSyntax name, TypeAnnotationSyntax? typeAnnotation)
-        => new ParameterSyntax(name, typeAnnotation);
+    public static ParameterSyntax Parameter(SyntaxToken identifier, TypeAnnotationSyntax? typeAnnotation)
+        => new ParameterSyntax(identifier, typeAnnotation);
 }

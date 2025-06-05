@@ -137,7 +137,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
-        return node.Update(node.Name
+        return node.Update(node.Identifier
             .WithTrailingTrivia(SyntaxFactory.Space), (TypeAnnotationSyntax)VisitTypeAnnotation(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
     }
 
@@ -240,7 +240,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode? VisitParameter(ParameterSyntax node)
     {
-        var name = node.Name.WithTrailingTrivia(SyntaxFactory.Space);
+        var name = node.Identifier.WithTrailingTrivia(SyntaxFactory.Space);
 
         return node.Update(name,
             node.TypeAnnotation is not null ? (TypeAnnotationSyntax?)VisitTypeAnnotation(node.TypeAnnotation) : null);

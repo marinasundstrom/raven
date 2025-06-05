@@ -36,7 +36,7 @@ class LocalFunctionBinder : Binder
         var returnType = ResolveType(_syntax.ReturnType.Type);
 
         _methodSymbol = new SourceMethodSymbol(
-            _syntax.Name.Identifier.Text,
+            _syntax.Identifier.Text,
             returnType,
             [],
             container,
@@ -48,7 +48,7 @@ class LocalFunctionBinder : Binder
 
         var parameters = _syntax.ParameterList.Parameters
             .Select(p => new SourceParameterSymbol(
-                p.Name.Identifier.Text,
+                p.Identifier.Text,
                 ResolveType(p.TypeAnnotation.Type),
                 _methodSymbol,
                 container.ContainingType,

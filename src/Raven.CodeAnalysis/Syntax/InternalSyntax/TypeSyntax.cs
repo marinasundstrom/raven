@@ -28,11 +28,11 @@ internal abstract partial class SimpleNameSyntax : NameSyntax
 
 internal partial class IdentifierNameSyntax : SimpleNameSyntax
 {
-    public IdentifierNameSyntax(SyntaxToken nameToken,
+    public IdentifierNameSyntax(SyntaxToken identifier,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.IdentifierName,
         [
-            nameToken ?? throw new ArgumentNullException(nameof(nameToken))
+            identifier ?? throw new ArgumentNullException(nameof(identifier))
         ],
         diagnostics)
     {
@@ -41,11 +41,11 @@ internal partial class IdentifierNameSyntax : SimpleNameSyntax
 
 internal partial class GenericNameSyntax : SimpleNameSyntax
 {
-    public GenericNameSyntax(SyntaxToken nameToken, TypeArgumentListSyntax typeArgumentList,
+    public GenericNameSyntax(SyntaxToken identifier, TypeArgumentListSyntax typeArgumentList,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.GenericName,
         [
-            nameToken ?? throw new ArgumentNullException(nameof(nameToken)),
+            identifier ?? throw new ArgumentNullException(nameof(identifier)),
             typeArgumentList  ?? throw new ArgumentNullException(nameof(typeArgumentList))
         ],
      diagnostics)

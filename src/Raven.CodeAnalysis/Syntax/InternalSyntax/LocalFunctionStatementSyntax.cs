@@ -5,15 +5,15 @@ internal partial class LocalFunctionStatementSyntax : StatementSyntax
 {
     public LocalFunctionStatementSyntax(
         SyntaxToken funcKeyword,
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         ParameterListSyntax parameters,
         ReturnTypeAnnotationSyntax returnTypeAnnotation,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.LocalFunctionStatement,
               [
-                     funcKeyword ?? throw new ArgumentNullException(nameof(name)),
-                      name ?? throw new ArgumentNullException(nameof(name)),
+                     funcKeyword ?? throw new ArgumentNullException(nameof(funcKeyword)),
+                      identifier ?? throw new ArgumentNullException(nameof(identifier)),
                       parameters ?? throw new ArgumentNullException(nameof(parameters)),
                       returnTypeAnnotation ?? throw new ArgumentNullException(nameof(returnTypeAnnotation)),
                       body ?? throw new ArgumentNullException(nameof(body)),
@@ -27,10 +27,10 @@ internal static partial class SyntaxFactory
 {
     public static LocalFunctionStatementSyntax LocalFunctionStatement(
         SyntaxToken funcKeyword,
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         ParameterListSyntax parameters,
         ReturnTypeAnnotationSyntax returnType,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(funcKeyword, name, parameters, returnType, body, diagnostics);
+        => new(funcKeyword, identifier, parameters, returnType, body, diagnostics);
 }

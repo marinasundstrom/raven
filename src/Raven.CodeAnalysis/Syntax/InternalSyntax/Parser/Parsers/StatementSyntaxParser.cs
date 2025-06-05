@@ -43,7 +43,10 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var funcKeyword = ReadToken();
 
-        var name = new NameSyntaxParser(this).ParseSimpleName();
+        if (!ConsumeToken(SyntaxKind.IdentifierToken, out var identifier))
+        {
+
+        }
 
         var parameterList = ParseParameterList();
 
@@ -51,7 +54,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
-        return LocalFunctionStatement(funcKeyword, name, parameterList, returnParameterAnnotation, block);
+        return LocalFunctionStatement(funcKeyword, identifier, parameterList, returnParameterAnnotation, block);
     }
 
     public ParameterListSyntax ParseParameterList()
@@ -67,7 +70,11 @@ internal class StatementSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
-            var name = new NameSyntaxParser(this).ParseSimpleName();
+            if (!ConsumeToken(SyntaxKind.IdentifierToken, out var name))
+            {
+
+            }
+
             var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
 
             parameterList.Add(Parameter(name, typeAnnotation));
@@ -218,7 +225,10 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var letOrVarKeyword = ReadToken();
 
-        var name = new NameSyntaxParser(this).ParseSimpleName();
+        if (!ConsumeToken(SyntaxKind.IdentifierToken, out var identifier))
+        {
+
+        }
 
         EqualsValueClauseSyntax? initializer = null;
 
@@ -230,7 +240,7 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         var declarators = new SyntaxList(
-            [VariableDeclarator(name, typeAnnotation, initializer)]);
+            [VariableDeclarator(identifier, typeAnnotation, initializer)]);
 
         return new VariableDeclarationSyntax(letOrVarKeyword, declarators);
     }

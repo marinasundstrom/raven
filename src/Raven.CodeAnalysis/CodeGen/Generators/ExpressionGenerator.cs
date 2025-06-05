@@ -316,9 +316,16 @@ internal class ExpressionGenerator : Generator
             GenerateExpression(argument.Expression);
         }
 
-        var target = GetSymbolInfo(objectCreationExpression).Symbol as PEMethodSymbol;
+        var t = GetSymbolInfo(objectCreationExpression);
 
-        ILGenerator.Emit(OpCodes.Newobj, target.GetConstructorInfo());
+        var target = t.Symbol switch
+        {
+            PEMethodSymbol a => a.GetConstructorInfo(),
+            SubstitutedMethodSymbol m => m.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
+            _ => throw new Exception()
+        };
+
+        ILGenerator.Emit(OpCodes.Newobj, target);
     }
 
     private void GenerateAssignmentExpression(AssignmentExpressionSyntax assignmentExpression)
@@ -470,10 +477,14 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                var metadataPropertySymbol = propertySymbol as PEPropertySymbol;
-                var getMethod = metadataPropertySymbol?.GetMethod as PEMethodSymbol;
+                var property = propertySymbol switch
+                {
+                    PEPropertySymbol pEProperty => pEProperty.GetPropertyInfo(),
+                    SubstitutedPropertySymbol substitutedProperty => substitutedProperty.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
+                    _ => null
+                };
 
-                if (getMethod is null)
+                if (property?.GetMethod is null)
                     throw new Exception($"Cannot resolve getter for property {propertySymbol.Name}");
 
                 // Value types need address loading
@@ -485,7 +496,7 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldloca, tmp);
                 }
 
-                ILGenerator.Emit(OpCodes.Callvirt, getMethod.GetMethodInfo());
+                ILGenerator.Emit(OpCodes.Callvirt, property?.GetMethod!);
             }
         }
         else if (symbol is IFieldSymbol fieldSymbol)
@@ -990,6 +1001,9 @@ internal class ExpressionGenerator : Generator
     {
         if (methodSymbol is PEMethodSymbol pEMethodSymbol)
             return pEMethodSymbol.GetMethodInfo();
+
+        if (methodSymbol is SubstitutedMethodSymbol substitutedMethod)
+            return substitutedMethod.GetMethodInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
         if (methodSymbol is SourceMethodSymbol sourceMethodSymbol)
             return MethodGenerator.TypeGenerator.MethodGenerators.First(x => x.MethodSymbol == sourceMethodSymbol).MethodBuilder;

@@ -99,14 +99,14 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
                 this,
                 [new MetadataLocation(ContainingModule!)]);
 
-            AddMember(typeSymbol);
+            //AddMember(typeSymbol);
         }
 
         foreach (var nsName in FindNestedNamespaces(assemblyInfo))
         {
             var childName = nsName.Split('.').Last(); // e.g., for "System.IO", take "IO"
             var nestedNamespace = new PENamespaceSymbol(_module, childName, this, this);
-            AddMember(nestedNamespace);
+            //AddMember(nestedNamespace);
         }
     }
 

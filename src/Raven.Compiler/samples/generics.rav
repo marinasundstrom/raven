@@ -1,0 +1,7 @@
+import System;
+import System.Collections.Generic;
+
+let list = new List<int>();
+list.Add(2);
+
+Console.WriteLine(list.Count);

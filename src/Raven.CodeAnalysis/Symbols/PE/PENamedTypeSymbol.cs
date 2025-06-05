@@ -10,6 +10,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
+    private string _name;
 
     public PENamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -49,7 +50,13 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     }
 
     public override SymbolKind Kind => SymbolKind.Type;
-    public override string Name => _typeInfo.Name;
+    public override string Name => _name ??= _typeInfo.IsGenericType ? StripArity(_typeInfo.Name) : _typeInfo.Name;
+
+    string StripArity(string name)
+    {
+        var index = name.IndexOf('`');
+        return index >= 0 ? name.Substring(0, index) : name;
+    }
 
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;

@@ -1,5 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using System;
+
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class NameSyntaxParser : SyntaxParser
@@ -75,10 +77,51 @@ internal class NameSyntaxParser : SyntaxParser
         return left;
     }
 
-    public IdentifierNameSyntax ParseSimpleName()
+    public SimpleNameSyntax ParseSimpleName()
     {
-        var token = ReadToken();
-        return IdentifierName(token);
+        var name = ReadToken();
+
+        var token2 = PeekToken();
+
+        if (token2.IsKind(SyntaxKind.LessThanToken))
+        {
+            var typeArgList = ParseTypeArgumentList();
+            return GenericName(name, typeArgList);
+        }
+
+        return IdentifierName(name);
+    }
+
+    private TypeArgumentListSyntax ParseTypeArgumentList()
+    {
+        var lessThanToken = ReadToken();
+
+        List<GreenNode> argumentList = new List<GreenNode>();
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.IsKind(SyntaxKind.GreaterThanToken))
+                break;
+
+            var typeName = new NameSyntaxParser(this).ParseTypeName();
+            if (typeName is null)
+                break;
+
+            argumentList.Add(TypeArgument(typeName));
+
+            var commaToken = PeekToken();
+            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            {
+                ReadToken();
+                argumentList.Add(commaToken);
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
+
+        return TypeArgumentList(lessThanToken, List(argumentList.ToArray()), greaterThanToken);
     }
 
     private bool IsPredefinedTypeKeyword(SyntaxToken token)

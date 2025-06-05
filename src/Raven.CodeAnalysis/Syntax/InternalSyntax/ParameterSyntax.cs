@@ -3,12 +3,12 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class ParameterSyntax : SyntaxNode
 {
     public ParameterSyntax(
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         TypeAnnotationSyntax? typeAnnotation,
         IEnumerable<DiagnosticInfo>? diagnostics = null
     )
         : base(SyntaxKind.Parameter, [
-            name ?? throw new ArgumentNullException(nameof(name)),
+            identifier ?? throw new ArgumentNullException(nameof(identifier)),
             typeAnnotation
         ],
         diagnostics)
@@ -19,8 +19,8 @@ internal partial class ParameterSyntax : SyntaxNode
 internal static partial class SyntaxFactory
 {
     public static ParameterSyntax Parameter(
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         TypeAnnotationSyntax? typeAnnotation,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(name, typeAnnotation, diagnostics);
+        => new(identifier, typeAnnotation, diagnostics);
 }

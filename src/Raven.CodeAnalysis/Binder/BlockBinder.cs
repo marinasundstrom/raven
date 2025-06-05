@@ -94,10 +94,10 @@ class BlockBinder : Binder
 
     private ILocalSymbol BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
-        if (_locals.TryGetValue(variableDeclarator.Name.Identifier.Text, out var existingSymbol))
+        if (_locals.TryGetValue(variableDeclarator.Identifier.Text, out var existingSymbol))
             return existingSymbol;
 
-        var name = variableDeclarator.Name.Identifier.Text;
+        var name = variableDeclarator.Identifier.Text;
 
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
         var isMutable = decl!.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
@@ -223,7 +223,7 @@ class BlockBinder : Binder
         {
             var type = ResolveType(p.TypeAnnotation.Type);
             var symbol = new SourceParameterSymbol(
-                p.Name.Identifier.Text,
+                p.Identifier.Text,
                 type,
                 _containingSymbol,
                 _containingSymbol.ContainingType as INamedTypeSymbol,
@@ -469,70 +469,120 @@ class BlockBinder : Binder
 
     private BoundExpression BindTypeSyntax(TypeSyntax syntax)
     {
-        if (syntax is IdentifierNameSyntax id)
-        {
-            var symbol = LookupSymbol(id.Identifier.Text);
-
-            return symbol switch
-            {
-                INamespaceSymbol ns => new BoundNamespaceExpression(ns),
-                ITypeSymbol type => new BoundTypeExpression(type),
-                _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
-                /*
-                _ =>
-                {
-                    _diagnostics.ReportUndefinedName(id.Identifier.Text, id.Identifier.GetLocation());
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-                }
-                */
-            };
-        }
-        else if (syntax is PredefinedTypeSyntax predefinedType)
+        if (syntax is PredefinedTypeSyntax predefinedType)
         {
             var type = Compilation.ResolvePredefinedType(predefinedType);
             return new BoundTypeExpression(type);
         }
-        else if (syntax is QualifiedNameSyntax qualified)
+
+        if (syntax is IdentifierNameSyntax id)
+        {
+            return BindTypeName(id.Identifier.Text, id.GetLocation(), []);
+        }
+
+        if (syntax is GenericNameSyntax generic)
+        {
+            var typeArgs = generic.TypeArgumentList.Arguments
+                .Select(arg => BindTypeSyntax(arg.Type))
+                .OfType<BoundTypeExpression>()
+                .Select(b => b.Type)
+                .ToImmutableArray();
+
+            if (typeArgs.Length != generic.TypeArgumentList.Arguments.Count)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+            return BindTypeName(generic.Identifier.Text, generic.GetLocation(), typeArgs);
+        }
+
+        if (syntax is QualifiedNameSyntax qualified)
         {
             var left = BindTypeSyntax(qualified.Left);
 
-            if (left is BoundNamespaceExpression nsExpr)
-            {
-                var member = nsExpr.Namespace.GetMembers(qualified.Right.Identifier.Text)
-                                             .FirstOrDefault(m => m is INamespaceSymbol || m is ITypeSymbol);
-
-                return member switch
-                {
-                    INamespaceSymbol ns => new BoundNamespaceExpression(ns),
-                    ITypeSymbol type => new BoundTypeExpression(type),
-                    _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
-                    /*_ =>
-                        {
-                    _diagnostics.ReportUndefinedName(qualified.Right.Identifier.Text, qualified.Right.GetLocation());
-                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-                }*/
-                };
-            }
-            else if (left is BoundTypeExpression typeExpr)
-            {
-                var member = typeExpr.Type.GetMembers(qualified.Right.Identifier.Text)
-                                          .OfType<INamedTypeSymbol>()
-                                          .FirstOrDefault();
-
-                if (member != null)
-                    return new BoundTypeExpression(member);
-
-                _diagnostics.ReportUndefinedName(qualified.Right.Identifier.Text, qualified.Right.GetLocation());
+            if (left is not BoundNamespaceExpression ns && left is not BoundTypeExpression leftType)
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+
+            string name;
+            ImmutableArray<ITypeSymbol> typeArgs = [];
+
+            if (qualified.Right is IdentifierNameSyntax id2)
+            {
+                name = id2.Identifier.Text;
+            }
+            else if (qualified.Right is GenericNameSyntax generic2)
+            {
+                name = generic2.Identifier.Text;
+                typeArgs = generic2.TypeArgumentList.Arguments
+                    .Select(arg => BindTypeSyntax(arg.Type))
+                    .OfType<BoundTypeExpression>()
+                    .Select(b => b.Type)
+                    .ToImmutableArray();
+
+                if (typeArgs.Length != generic2.TypeArgumentList.Arguments.Count)
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+                // Why does this fall down to:
+                // ISymbol? member = left switch
+                // The type is resolved, not?
             }
             else
             {
-                //_diagnostics.ReportInvalidQualifiedName(qualified.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
+
+            ISymbol? member = left switch
+            {
+                BoundNamespaceExpression nsExpr => nsExpr.Namespace.GetMembers(name)
+                    .FirstOrDefault(s => s is INamespaceSymbol || s is INamedTypeSymbol),
+                BoundTypeExpression typeExpr => typeExpr.Type.GetMembers(name)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault(m => m.Arity == typeArgs.Length),
+                _ => null
+            };
+
+            if (member is INamespaceSymbol nsResult)
+                return new BoundNamespaceExpression(nsResult);
+
+            if (member is INamedTypeSymbol namedType)
+            {
+                if (namedType.Arity != typeArgs.Length)
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+                var constructed = typeArgs.IsEmpty
+                    ? namedType
+                    : Compilation.ConstructGenericType(namedType, typeArgs.ToArray());
+
+                return new BoundTypeExpression(constructed);
+            }
+
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
-        //_diagnostics.ReportInvalidTypeSyntax(syntax.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments)
+    {
+        var symbol = LookupSymbol(name);
+
+        if (symbol is ITypeSymbol type && type is INamedTypeSymbol named)
+        {
+            if (named.Arity != typeArguments.Length)
+            {
+                //_diagnostics.ReportTypeArityMismatch(name, named.Arity, typeArguments.Length, location);
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            var constructed = typeArguments.IsEmpty
+                ? named
+                : Compilation.ConstructGenericType(named, typeArguments.ToArray());
+
+            return new BoundTypeExpression(constructed);
+        }
+
+        if (symbol is INamespaceSymbol ns)
+            return new BoundNamespaceExpression(ns);
+
+        _diagnostics.ReportUndefinedName(name, location);
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 

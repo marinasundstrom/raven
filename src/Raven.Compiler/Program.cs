@@ -10,7 +10,7 @@ using static Raven.AppHostBuilder;
 // ravc test.rav [-o test.exe]
 // dotnet run -- test.rav [-o test.exe]
 
-var filePath = args.Length > 0 ? args[0] : "../../../samples/lambda.rav";
+var filePath = args.Length > 0 ? args[0] : "../../../samples/generics.rav";
 var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : null;
 
 filePath = Path.GetFullPath(filePath);
@@ -37,6 +37,7 @@ var compilation = Compilation.Create(assemblyName, new CompilationOptions(Output
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
         MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+        MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Collections.dll")),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
         MetadataReference.CreateFromFile(IsProjectFolder(Environment.CurrentDirectory) ? "TestDep.dll" : "../../../TestDep.dll")
     ]);

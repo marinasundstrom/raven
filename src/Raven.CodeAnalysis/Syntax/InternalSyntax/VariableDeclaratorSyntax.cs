@@ -3,12 +3,12 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class VariableDeclaratorSyntax : StatementSyntax
 {
     public VariableDeclaratorSyntax(
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.VariableDeclarator,
               [
-                  name ?? throw new ArgumentNullException(nameof(name)),
+                  identifier ?? throw new ArgumentNullException(nameof(identifier)),
                     null,
                     null,
               ],
@@ -17,13 +17,13 @@ internal partial class VariableDeclaratorSyntax : StatementSyntax
     }
 
     public VariableDeclaratorSyntax(
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         TypeAnnotationSyntax typeAnnotation,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.VariableDeclarator,
               [
-                name ?? throw new ArgumentNullException(nameof(name)),
+                identifier ?? throw new ArgumentNullException(nameof(identifier)),
                 typeAnnotation ?? throw new ArgumentNullException(nameof(typeAnnotation)),
                 null,
               ],
@@ -32,13 +32,13 @@ internal partial class VariableDeclaratorSyntax : StatementSyntax
     }
 
     public VariableDeclaratorSyntax(
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         EqualsValueClauseSyntax equalsValueClause,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.VariableDeclarator,
               [
-                    name,
+                    identifier,
                     null,
                     equalsValueClause
               ], diagnostics)
@@ -46,14 +46,14 @@ internal partial class VariableDeclaratorSyntax : StatementSyntax
     }
 
     public VariableDeclaratorSyntax(
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         TypeAnnotationSyntax typeAnnotation,
         EqualsValueClauseSyntax equalsValueClause,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.VariableDeclarator,
               [
-                    name,
+                    identifier,
                     typeAnnotation,
                     equalsValueClause,
               ],
@@ -65,9 +65,9 @@ internal partial class VariableDeclaratorSyntax : StatementSyntax
 internal static partial class SyntaxFactory
 {
     public static VariableDeclaratorSyntax VariableDeclarator(
-          IdentifierNameSyntax name,
+          SyntaxToken identifier,
           TypeAnnotationSyntax typeAnnotation,
           EqualsValueClauseSyntax equalsValueClause,
           IEnumerable<DiagnosticInfo>? diagnostics = null)
-      => new(name, typeAnnotation, equalsValueClause, diagnostics);
+      => new(identifier, typeAnnotation, equalsValueClause, diagnostics);
 }

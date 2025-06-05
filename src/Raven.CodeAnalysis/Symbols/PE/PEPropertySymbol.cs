@@ -26,4 +26,9 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     public override bool IsStatic => (_propertyInfo.GetMethod?.IsStatic ?? false) || (_propertyInfo.SetMethod?.IsStatic ?? false);
 
     public bool IsIndexer => _propertyInfo.GetIndexParameters().Length > 0;
+
+    public PropertyInfo GetPropertyInfo()
+    {
+        return _propertyInfo;
+    }
 }

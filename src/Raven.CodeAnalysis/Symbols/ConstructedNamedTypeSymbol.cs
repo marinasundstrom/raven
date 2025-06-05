@@ -1,5 +1,9 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Reflection;
+using System.Reflection.Emit;
+
+using Raven.CodeAnalysis.CodeGen;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -80,8 +84,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public ITypeSymbol ConstructedFrom { get; }
     public bool IsGenericType => true;
     public bool IsUnboundGenericType => false;
-    public ImmutableArray<IMethodSymbol> Constructors => _originalDefinition.Constructors;
-    public IMethodSymbol? StaticConstructor => _originalDefinition.StaticConstructor;
+    public ImmutableArray<IMethodSymbol> Constructors => GetMembers().OfType<IMethodSymbol>().Where(x => !x.IsStatic && x.IsConstructor).ToImmutableArray();
+    public IMethodSymbol? StaticConstructor => GetMembers().OfType<IMethodSymbol>().Where(x => x.IsStatic && x.IsConstructor).FirstOrDefault();
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitNamedType(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);
@@ -97,6 +101,17 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
         throw new NotImplementedException();
+    }
+
+    internal System.Reflection.TypeInfo GetTypeInfo(CodeGenerator codeGen)
+    {
+        if (_originalDefinition is PENamedTypeSymbol pen)
+        {
+            var genericTypeDef = pen.GetClrType(codeGen);
+            return genericTypeDef.MakeGenericType(TypeArguments.Select(x => x.GetClrType(codeGen)).ToArray()).GetTypeInfo();
+        }
+
+        throw new InvalidOperationException("ConstructedNamedTypeSymbol is not based on a PE symbol.");
     }
 }
 
@@ -160,6 +175,53 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     public bool Equals(ISymbol? other) =>
         SymbolEqualityComparer.Default.Equals(this, other);
+
+    internal ConstructorInfo GetConstructorInfo(CodeGenerator codeGen)
+    {
+        if (_original is PEMethodSymbol peMethod)
+        {
+            var baseCtor = peMethod.GetConstructorInfo();
+
+            if (baseCtor.DeclaringType.IsGenericType)
+            {
+                var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
+                var parameters = baseCtor.GetParameters().Select(p => p.ParameterType).ToArray();
+                return constructedType.GetConstructor(parameters)!;
+            }
+
+            return baseCtor;
+        }
+
+        throw new Exception("Unexpected method kind");
+    }
+
+    internal MethodInfo GetMethodInfo(CodeGenerator codeGen)
+    {
+        if (_original is PEMethodSymbol peMethod)
+        {
+            var baseMethod = peMethod.GetMethodInfo();
+
+            // Resolve the constructed runtime type
+            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
+
+            // Use metadata name and parameter types to resolve the method on the constructed type
+            var parameterTypes = this.Parameters.Select(x => x.Type.GetClrType(codeGen)).ToArray(); //baseMethod.GetParameters().Select(p => p.ParameterType).ToArray();
+            var method = constructedType.GetMethod(
+                baseMethod.Name,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static,
+                null,
+                parameterTypes,
+                null
+            );
+
+            if (method != null)
+                return method;
+
+            throw new MissingMethodException($"Method '{baseMethod.Name}' with specified parameters not found on constructed type '{constructedType}'.");
+        }
+
+        throw new InvalidOperationException("Expected PEMethodSymbol.");
+    }
 }
 
 internal sealed class SubstitutedFieldSymbol : IFieldSymbol
@@ -196,6 +258,18 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
     public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
 
     public object? GetConstantValue() => _original.GetConstantValue();
+
+    internal FieldInfo GetFieldInfo(CodeGenerator codeGen)
+    {
+        if (_original is PEFieldSymbol peField)
+        {
+            var field = peField.GetFieldInfo();
+            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
+            return constructedType.GetField(field.Name)!;
+        }
+
+        throw new Exception("Not a PE field.");
+    }
 }
 
 internal sealed class SubstitutedPropertySymbol : IPropertySymbol
@@ -232,6 +306,18 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitProperty(this);
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
     public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
+
+    internal PropertyInfo GetPropertyInfo(CodeGenerator codeGen)
+    {
+        if (_original is PEPropertySymbol peProperty)
+        {
+            var property = peProperty.GetPropertyInfo();
+            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
+            return constructedType.GetProperty(property.Name)!;
+        }
+
+        throw new Exception("Not a PE property.");
+    }
 }
 
 internal sealed class SubstitutedParameterSymbol : IParameterSymbol

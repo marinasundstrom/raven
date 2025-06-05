@@ -609,4 +609,9 @@ public class Compilation
         // Construct the generic Func<> or Action<> with type arguments
         return delegateType.Construct(allTypes.ToArray());
     }
+
+    public ITypeSymbol ConstructGenericType(INamedTypeSymbol genericDefinition, ITypeSymbol[] typeArgs)
+    {
+        return genericDefinition.Construct(typeArgs);
+    }
 }

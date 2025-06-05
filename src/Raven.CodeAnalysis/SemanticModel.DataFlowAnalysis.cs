@@ -158,7 +158,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
         var binder = Compilation.GetBinder(node);
-        var symbol = binder.LookupLocalSymbol(node.Name.Identifier.Text);
+        var symbol = binder.LookupLocalSymbol(node.Identifier.Text);
         if (symbol != null)
             _variablesDeclared.Add(symbol);
 
@@ -335,7 +335,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
         var binder = _semanticModel.Compilation.GetBinder(node);
-        var symbol = binder.LookupLocalSymbol(node.Name.Identifier.Text);
+        var symbol = binder.LookupLocalSymbol(node.Identifier.Text);
         if (symbol != null)
             Written.Add(symbol);
 
@@ -350,7 +350,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
         foreach (var declarator in node.Declaration.Declarators)
         {
             var binder = _semanticModel.Compilation.GetBinder(declarator);
-            var symbol = binder.LookupLocalSymbol(declarator.Name.Identifier.Text);
+            var symbol = binder.LookupLocalSymbol(declarator.Identifier.Text);
             if (symbol != null)
                 Written.Add(symbol);
         }
