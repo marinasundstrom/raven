@@ -40,8 +40,8 @@ internal class MethodBodyGenerator
         var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
 
         foreach (var localDeclStmt in syntax.DescendantNodes()
-            .OfType<GlobalStatementSyntax>()
-            .Select(x => x.Statement)
+            //.OfType<GlobalStatementSyntax>()
+            //.Select(x => x.Statement)
             .OfType<LocalDeclarationStatementSyntax>())
         {
             foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
