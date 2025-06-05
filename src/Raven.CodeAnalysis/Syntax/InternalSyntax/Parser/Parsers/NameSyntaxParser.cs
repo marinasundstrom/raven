@@ -81,9 +81,9 @@ internal class NameSyntaxParser : SyntaxParser
     {
         var name = ReadToken();
 
-        var token2 = PeekToken();
-
-        if (token2.IsKind(SyntaxKind.LessThanToken))
+        if (name.IsKind(SyntaxKind.IdentifierToken) &&
+            PeekToken().IsKind(SyntaxKind.LessThanToken) &&
+            LooksLikeTypeArgumentList())
         {
             var typeArgList = ParseTypeArgumentList();
             return GenericName(name, typeArgList);
@@ -122,6 +122,44 @@ internal class NameSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
 
         return TypeArgumentList(lessThanToken, List(argumentList.ToArray()), greaterThanToken);
+    }
+
+    private bool LooksLikeTypeArgumentList()
+    {
+        int depth = 0;
+        int i = 0;
+
+        while (true)
+        {
+            var token = PeekToken(i++);
+
+            if (token.IsKind(SyntaxKind.LessThanToken))
+            {
+                depth++;
+            }
+            else if (token.IsKind(SyntaxKind.GreaterThanToken))
+            {
+                depth--;
+                if (depth == 0)
+                    return true;
+            }
+            else if (token.IsKind(SyntaxKind.EndOfFileToken) ||
+                     token.IsKind(SyntaxKind.SemicolonToken))
+            {
+                return false;
+            }
+            else if (token.IsMissing)
+            {
+                return false;
+            }
+            else if (depth == 0)
+            {
+                return false; // Not inside <...>
+            }
+
+            if (i > 20)
+                return false; // bail out
+        }
     }
 
     private bool IsPredefinedTypeKeyword(SyntaxToken token)
