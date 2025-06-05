@@ -89,6 +89,17 @@ public interface ISymbol : IEquatable<ISymbol?>
     /// </summary>
     bool IsStatic { get; }
 
+    bool CanBeReferencedByName => this switch
+    {
+        INamespaceOrTypeSymbol => true,
+        IMethodSymbol => true,
+        IPropertySymbol => true,
+        IFieldSymbol => true,
+        IParameterSymbol => true,
+        ILocalSymbol => true,
+        _ => false
+    };
+
     /// <summary>
     /// Determines whether this symbol is equal to another symbol using the specified symbol equality comparer.
     /// </summary>
@@ -200,6 +211,11 @@ public interface INamespaceSymbol : INamespaceOrTypeSymbol
     string? ToMetadataName();
 }
 
+public interface ILambdaSymbol : IMethodSymbol
+{
+    ITypeSymbol? DelegateType { get; }
+}
+
 public interface IMethodSymbol : ISymbol
 {
     MethodKind MethodKind { get; }
@@ -273,9 +289,13 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     SpecialType SpecialType { get; }
 
-    public TypeKind TypeKind { get; }
+    TypeKind TypeKind { get; }
 
     public string ToFullyQualifiedMetadataName() => ContainingNamespace is null ? Name : $"{ContainingNamespace.ToMetadataName()}.{Name}";
+
+    bool IsTupleType => false;
+
+    bool IsUnion => TypeKind == TypeKind.Union;
 }
 
 public enum TypeKind
@@ -296,10 +316,16 @@ public enum TypeKind
 
 public interface INamedTypeSymbol : ITypeSymbol
 {
+    int Arity { get; }
     ImmutableArray<IMethodSymbol> Constructors { get; }
     IMethodSymbol? StaticConstructor { get; }
     ImmutableArray<ITypeSymbol> TypeArguments { get; }
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+    ITypeSymbol ConstructedFrom { get; }
+    bool IsGenericType { get; }
+    bool IsUnboundGenericType { get; }
+
+    ITypeSymbol Construct(ITypeSymbol[] typeArguments);
 }
 
 public interface IArrayTypeSymbol : ITypeSymbol

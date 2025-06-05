@@ -127,6 +127,8 @@ internal abstract class Symbol : ISymbol
 
     public virtual bool IsStatic => false;
 
+    public virtual bool CanBeReferencedByName { get; } = false;
+
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
     {
         return comparer.Equals(this, other);

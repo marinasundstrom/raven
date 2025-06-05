@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection.Metadata;
 using System.Security.Cryptography.X509Certificates;
 
 using Raven.CodeAnalysis.Symbols;
@@ -201,9 +202,83 @@ class BlockBinder : Binder
         WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
         BlockSyntax block => BindBlock(block),
         IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
+        LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
         ExpressionSyntax.Missing missing => BindMissingExpression(missing),
         _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
     };
+
+    private BoundExpression BindLambdaExpression(LambdaExpressionSyntax syntax)
+    {
+        // 1. Extract parameter syntax
+        var parameterSyntaxes = syntax switch
+        {
+            SimpleLambdaExpressionSyntax s => new[] { s.Parameter },
+            ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters.ToArray(),
+            _ => throw new NotSupportedException("Unknown lambda syntax")
+        };
+
+        // 2. Create parameter symbols
+        var parameterSymbols = new List<IParameterSymbol>();
+        foreach (var p in parameterSyntaxes)
+        {
+            var type = ResolveType(p.TypeAnnotation.Type);
+            var symbol = new SourceParameterSymbol(
+                p.Name.Identifier.Text,
+                type,
+                _containingSymbol,
+                _containingSymbol.ContainingType as INamedTypeSymbol,
+                _containingSymbol.ContainingNamespace,
+                [p.GetLocation()],
+                [p.GetReference()]
+            );
+
+            parameterSymbols.Add(symbol);
+        }
+
+        // 3. Resolve explicit return type (if any)
+        TypeSyntax? returnTypeSyntax = syntax switch
+        {
+            SimpleLambdaExpressionSyntax s => s.ReturnType.Type,
+            ParenthesizedLambdaExpressionSyntax p => p.ReturnType.Type,
+            _ => null
+        };
+
+        // 4. Create symbol for the lambda
+        var inferredReturnType = returnTypeSyntax is not null
+            ? ResolveType(returnTypeSyntax)
+            : Compilation.ErrorTypeSymbol; // Temporary fallback; real type inferred below
+
+        var lambdaSymbol = new SourceLambdaSymbol(parameterSymbols, inferredReturnType, _containingSymbol);
+
+        // 5. Bind the body using a new binder scope
+        var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
+        foreach (var param in parameterSymbols)
+            lambdaBinder.DeclareParameter(param);
+
+        var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody);
+
+        // 6. Infer return type if not explicitly given
+        var returnType = returnTypeSyntax is not null
+            ? inferredReturnType
+            : bodyExpr.Type ?? Compilation.ErrorTypeSymbol;
+
+
+        // 7. Construct delegate type (e.g., Func<...> or custom delegate)
+        var delegateType = Compilation.CreateFunctionTypeSymbol(
+            parameterSymbols.Select(p => p.Type).ToArray(),
+            returnType
+        );
+
+        // 7. Update lambda symbol if needed
+        if (lambdaSymbol is SourceLambdaSymbol mutable)
+        {
+            mutable.SetReturnType(returnType);
+            mutable.SetDelegateType(delegateType);
+        }
+
+        // 8. Return a fully bound lambda expression
+        return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, lambdaSymbol.DelegateType);
+    }
 
     private BoundExpression BindIsPatternExpression(IsPatternExpressionSyntax isPatternExpression)
     {

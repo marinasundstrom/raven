@@ -23,6 +23,9 @@ public enum SyntaxKind
     StringLiteralExpression,
     NullLiteralExpression,
 
+    SimpleLambdaExpression,
+    ParenthesizedLambdaExpression,
+
     CompilationUnit,
 
     ImportDirective,

@@ -130,16 +130,6 @@ internal class TypeGenerator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        if (typeSymbol is SourceNamedTypeSymbol sourceType)
-        {
-            // This is a user-defined type, still being built
-            return CodeGen.GetTypeBuilder(sourceType); // TypeBuilder
-        }
-        else
-        {
-            return typeSymbol.GetClrType(Compilation); // Already resolved System.Type
-        }
-
-        throw new InvalidOperationException($"Unsupported type symbol: {typeSymbol}");
+        return typeSymbol.GetClrType(CodeGen);
     }
 }

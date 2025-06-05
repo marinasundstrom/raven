@@ -80,6 +80,9 @@ internal class ExpressionGenerator : Generator
                 GenerateIsPatternExpression(isPatternExpression);
                 break;
 
+            case LambdaExpressionSyntax lambdaExpression:
+                break;
+
             default:
                 throw new NotSupportedException("Unsupported expression type");
         }
@@ -368,7 +371,7 @@ internal class ExpressionGenerator : Generator
                 var localBuilder = GetLocal(localSymbol);
 
                 if (s.TypeKind is TypeKind.Struct
-                    && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type.TypeKind is TypeKind.Union))
+                    && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type.IsUnion))
                 {
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(s));
                 }
@@ -832,7 +835,7 @@ internal class ExpressionGenerator : Generator
         new ExpressionGenerator(scope, ifStatementSyntax.Expression).Generate();
 
         if (isAssigned
-            && ifStatementType.Type.TypeKind is TypeKind.Union
+            && ifStatementType.Type.IsUnion
             && thenType.Type.TypeKind is TypeKind.Struct)
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType.Type));
@@ -856,7 +859,7 @@ internal class ExpressionGenerator : Generator
             new ExpressionGenerator(scope2, elseClause.Expression).Generate();
 
             if (isAssigned
-                && ifStatementType.Type.TypeKind is TypeKind.Union
+                && ifStatementType.Type.IsUnion
                 && elsType.Type.TypeKind is TypeKind.Struct)
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(elsType.Type));

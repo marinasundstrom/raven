@@ -64,17 +64,7 @@ internal abstract class Generator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        if (typeSymbol is SourceNamedTypeSymbol sourceType)
-        {
-            // This is a user-defined type, still being built
-            return MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(sourceType); // TypeBuilder
-        }
-        else
-        {
-            return typeSymbol.GetClrType(Compilation); // Already resolved System.Type
-        }
-
-        throw new InvalidOperationException($"Unsupported type symbol: {typeSymbol}");
+        return typeSymbol.GetClrType(MethodGenerator.TypeGenerator.CodeGen);
     }
 
     public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);

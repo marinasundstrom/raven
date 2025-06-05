@@ -572,8 +572,41 @@ public class Compilation
         return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, []);
     }
 
+    /*
+    internal object CreateDelegateTypeSymbol(List<ITypeSymbol> parameterTypes, ITypeSymbol returnType)
+    {
+        var ns = GlobalNamespace.LookupNamespace("System");
+        return new DelegateTypeSymbol(GetSpecialType(SpecialType.System_Delegate), returnType, parameterTypes, ns, null, ns, []);
+    }
+    */
+
     internal Binder GetBinder(SyntaxNode node)
     {
         return BinderFactory.GetBinder(node);
+    }
+
+    public ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType)
+    {
+        var systemNamespace = GlobalNamespace.LookupNamespace("System");
+
+        var allTypes = parameterTypes.ToList();
+        bool isAction = returnType.SpecialType == SpecialType.System_Void;
+
+        if (!isAction)
+            allTypes.Add(returnType);
+
+        string delegateName = isAction
+            ? (allTypes.Count == 0 ? "Action" : $"Action`{allTypes.Count}")
+            : $"Func`{allTypes.Count}";
+
+        var delegateType = systemNamespace?.GetMembers(delegateName)
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault(t => t.Arity == allTypes.Count);
+
+        if (delegateType is null)
+            return ErrorTypeSymbol;
+
+        // Construct the generic Func<> or Action<> with type arguments
+        return delegateType.Construct(allTypes.ToArray());
     }
 }

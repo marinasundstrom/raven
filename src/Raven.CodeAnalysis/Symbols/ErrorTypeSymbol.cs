@@ -22,6 +22,9 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments => [];
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
+    public ITypeSymbol ConstructedFrom { get; }
+    public bool IsGenericType { get; }
+    public bool IsUnboundGenericType { get; }
 
     public SpecialType SpecialType => SpecialType.None;
 
@@ -35,6 +38,8 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 
     public ITypeSymbol? OriginalDefinition { get; }
 
+    public int Arity => throw new NotImplementedException();
+
     public ImmutableArray<ISymbol> GetMembers() => [];
 
     public ImmutableArray<ISymbol> GetMembers(string name) => [];
@@ -47,5 +52,10 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
         throw new NotSupportedException();
+    }
+
+    public ITypeSymbol Construct(ITypeSymbol[] typeArguments)
+    {
+        throw new NotImplementedException();
     }
 }

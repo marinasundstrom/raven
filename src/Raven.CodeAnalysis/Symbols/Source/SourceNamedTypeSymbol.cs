@@ -29,6 +29,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+    public ITypeSymbol ConstructedFrom { get; }
+    public bool IsGenericType { get; }
+    public bool IsUnboundGenericType { get; }
 
     public SpecialType SpecialType => SpecialType.None;
 
@@ -37,6 +40,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public TypeKind TypeKind { get; }
 
     public ITypeSymbol? OriginalDefinition { get; }
+
+    public int Arity { get; } = 0;
 
     public ImmutableArray<ISymbol> GetMembers()
     {
@@ -62,5 +67,10 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         symbol = _members.FirstOrDefault(m => m.Name == name);
         return symbol is not null;
+    }
+
+    public ITypeSymbol Construct(ITypeSymbol[] typeArguments)
+    {
+        throw new NotImplementedException();
     }
 }

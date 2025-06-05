@@ -1,0 +1,12 @@
+/*
+ *  Lambda expressions
+ * * * */
+
+let i = 2;
+
+let f = func (a : int, b : int) -> int -> a + b + i;
+
+let f2 = func (a: int, b: int) -> int -> {
+let sum = a + b;
+    return sum + i;
+};

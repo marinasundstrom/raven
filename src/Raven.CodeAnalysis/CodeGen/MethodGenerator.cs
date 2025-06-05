@@ -40,7 +40,7 @@ internal class MethodGenerator
         {
             var methodBuilder = MethodBuilder.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
 
-            if (parameterSymbol.Type.TypeKind is TypeKind.Union)
+            if (parameterSymbol.Type.IsUnion)
             {
                 var types = (parameterSymbol.Type as IUnionTypeSymbol).Types.Select(x => ResolveClrType(x)).ToArray();
                 var construtor = TypeGenerator.CodeGen.TypeUnionAttributeType.GetConstructor(new[] { typeof(Type[]) });
@@ -70,16 +70,6 @@ internal class MethodGenerator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        if (typeSymbol is SourceNamedTypeSymbol sourceType)
-        {
-            // This is a user-defined type, still being built
-            return TypeGenerator.CodeGen.GetTypeBuilder(sourceType); // TypeBuilder
-        }
-        else
-        {
-            return typeSymbol.GetClrType(Compilation); // Already resolved System.Type
-        }
-
-        throw new InvalidOperationException($"Unsupported type symbol: {typeSymbol}");
+        return typeSymbol.GetClrType(TypeGenerator.CodeGen);
     }
 }

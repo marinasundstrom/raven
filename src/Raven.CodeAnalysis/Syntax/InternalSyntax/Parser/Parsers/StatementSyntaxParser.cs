@@ -45,16 +45,16 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var name = new NameSyntaxParser(this).ParseSimpleName();
 
-        var parameters = ParseParameterList();
+        var parameterList = ParseParameterList();
 
         var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
-        return LocalFunctionStatement(funcKeyword, name, parameters, returnParameterAnnotation, block);
+        return LocalFunctionStatement(funcKeyword, name, parameterList, returnParameterAnnotation, block);
     }
 
-    private ParameterListSyntax ParseParameterList()
+    public ParameterListSyntax ParseParameterList()
     {
         var openParenToken = ReadToken();
 

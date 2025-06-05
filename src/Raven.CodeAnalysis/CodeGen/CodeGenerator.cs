@@ -218,4 +218,16 @@ internal class CodeGenerator
         // debugDirectoryBuilder.AddEmbeddedPortablePdbEntry(portablePdbBlob, portablePdbBuilder.FormatVersion);
         return debugDirectoryBuilder;
     }
+
+    public bool TryGetRuntimeTypeForSymbol(INamedTypeSymbol symbol, out Type type)
+    {
+        if (_typeGenerators.TryGetValue(symbol, out var builder))
+        {
+            type = builder.TypeBuilder!; //.CreateType();
+            return true;
+        }
+
+        type = null!;
+        return false;
+    }
 }

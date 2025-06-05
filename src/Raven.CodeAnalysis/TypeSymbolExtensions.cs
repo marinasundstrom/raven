@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 public static class TypeSymbolExtensions
@@ -27,6 +29,21 @@ public static class TypeSymbolExtensions
         if (typeSymbol.SpecialType is not SpecialType.None)
         {
             return GetFrameworkType(typeSymbol.SpecialType, compilation);
+        }
+
+        // Handle constructed type
+        if (typeSymbol is ConstructedNamedTypeSymbol constructedNamedType)
+        {
+            var baseType = constructedNamedType.ConstructedFrom.GetClrType(compilation);
+
+            List<Type> typeArguments = new List<Type>();
+
+            foreach (var a in constructedNamedType.TypeArguments)
+            {
+                typeArguments.Add(a.GetClrType(compilation));
+            }
+
+            return baseType.MakeGenericType(typeArguments.ToArray());
         }
 
         // Handle named types (classes, structs, enums, etc.)

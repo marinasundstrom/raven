@@ -260,11 +260,39 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseBlockSyntax();
                 break;
 
+            case SyntaxKind.FuncKeyword:
+                expr = ParseLambdaExpression();
+                break;
+
             default:
                 return ParsePowerExpression();
         }
 
         return expr;
+    }
+
+    private LambdaExpressionSyntax ParseLambdaExpression()
+    {
+        var funcKeyword = ReadToken();
+
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList();
+
+        var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
+
+        if (!ConsumeToken(SyntaxKind.ArrowToken, out var fatArrowToken))
+        {
+
+        }
+
+        var body = new ExpressionSyntaxParser(this).ParseExpression();
+
+        return ParenthesizedLambdaExpression(
+            funcKeyword,
+            parameterList,
+            returnParameterAnnotation,
+            fatArrowToken,
+            body
+        );
     }
 
     /// <summary>

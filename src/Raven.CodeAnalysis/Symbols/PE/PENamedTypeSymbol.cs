@@ -57,6 +57,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+    public ITypeSymbol ConstructedFrom { get; }
+    public bool IsGenericType => _typeInfo.IsGenericType;
+    public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;
 
     public SpecialType SpecialType
     {
@@ -115,6 +118,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public TypeKind TypeKind { get; }
 
     public ITypeSymbol? OriginalDefinition { get; }
+
+    public int Arity => _typeInfo.GenericTypeParameters.Length;
 
     public ImmutableArray<ISymbol> GetMembers()
     {
@@ -220,4 +225,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public System.Reflection.TypeInfo GetTypeInfo() => _typeInfo;
 
+    public ITypeSymbol Construct(ITypeSymbol[] typeArguments)
+    {
+        if (typeArguments.Length != Arity)
+            throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");
+
+        return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
+    }
 }

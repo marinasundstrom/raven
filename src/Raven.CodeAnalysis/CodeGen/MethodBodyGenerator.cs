@@ -39,7 +39,10 @@ internal class MethodBodyGenerator
 
         var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
 
-        foreach (var localDeclStmt in syntax.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
+        foreach (var localDeclStmt in syntax.DescendantNodes()
+            .OfType<GlobalStatementSyntax>()
+            .Select(x => x.Statement)
+            .OfType<LocalDeclarationStatementSyntax>())
         {
             foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
             {
@@ -130,16 +133,6 @@ internal class MethodBodyGenerator
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
-        if (typeSymbol is SourceNamedTypeSymbol sourceType)
-        {
-            // This is a user-defined type, still being built
-            return MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(sourceType); // TypeBuilder
-        }
-        else
-        {
-            return typeSymbol.GetClrType(Compilation); // Already resolved System.Type
-        }
-
-        throw new InvalidOperationException($"Unsupported type symbol: {typeSymbol}");
+        return typeSymbol.GetClrType(MethodGenerator.TypeGenerator.CodeGen);
     }
 }
