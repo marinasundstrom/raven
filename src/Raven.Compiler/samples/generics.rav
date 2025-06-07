@@ -1,3 +1,8 @@
+/*
+ *  Generics... working for referenced types... not defined ones.
+ *  Issue is with the MetadataContextLoader not working with System.Reflection.Emit.
+ * * * */
+
 import System;
 import System.Collections.Generic;
 
