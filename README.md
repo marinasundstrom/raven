@@ -65,7 +65,7 @@ Demonstrated here:
 
 ## API
 
-The compiler API is detailed [here](docs/compiler/api.md).
+The compiler API is detailed [here](docs/compiler/api).
 
 The [Raven.Compiler project](src/Raven.Compiler/Program.cs) demonstrates how to utilize the API in practice.
 
