@@ -797,28 +797,40 @@ class BlockBinder : Binder
 
     private IMethodSymbol? ResolveOverload(IEnumerable<IMethodSymbol> methods, BoundExpression[] arguments)
     {
+        IMethodSymbol? bestMatch = null;
+        int bestScore = int.MaxValue;
+
         foreach (var method in methods)
         {
             var parameters = method.Parameters;
-
             if (parameters.Length != arguments.Length)
                 continue;
 
+            int score = 0;
             bool allMatch = true;
+
             for (int i = 0; i < arguments.Length; i++)
             {
-                if (!Compilation.ClassifyConversion(arguments[i].Type, parameters[i].Type).IsImplicit)
+                var conversion = Compilation.ClassifyConversion(arguments[i].Type, parameters[i].Type);
+
+                if (!conversion.IsImplicit)
                 {
                     allMatch = false;
                     break;
                 }
+
+                // Prefer exact matches over implicit conversions
+                score += conversion.IsIdentity ? 0 : 1;
             }
 
-            if (allMatch)
-                return method;
+            if (allMatch && score < bestScore)
+            {
+                bestScore = score;
+                bestMatch = method;
+            }
         }
 
-        return null; // No matching overload
+        return bestMatch;
     }
 
     private BoundExpression BindElementAccessExpression(ElementAccessExpressionSyntax syntax)
