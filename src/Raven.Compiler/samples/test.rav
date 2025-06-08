@@ -1,0 +1,15 @@
+import System;
+
+var total = 0;
+
+while true {
+    Console.Write("Write number: ");
+    let inputStr = Console.ReadLine();
+    let number = int.Parse(inputStr);
+    total = total + number;
+    Console.Write("The total is: ");
+    Console.WriteLine(total);
+    if total >= 42 {
+        Console.WriteLine("Yay!");
+    }
+}
