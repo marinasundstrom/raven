@@ -1,6 +1,5 @@
 /*
- * Generics... working for referenced types... not defined ones.
- * Issue is with the MetadataContextLoader not working with System.Reflection.Emit.
+ * Generics - instantiation of generic type and accessing members
  * * * */
 
 import System;
@@ -16,6 +15,6 @@ var i = 0;
 
 while i < list.Count {
     let item = list[i];
-    Console.WriteLine(item.ToString()); // ToString is temp due to not boxing
+    Console.WriteLine(item);
     i = i + 1;
 }

@@ -942,18 +942,24 @@ internal class ExpressionGenerator : Generator
     private void GenerateWhileExpression(WhileExpressionSyntax whileStatementSyntax)
     {
         var beginLabel = ILGenerator.DefineLabel();
-        var endLabel = ILGenerator.DefineLabel();
+        var conditionLabel = ILGenerator.DefineLabel();
+        var endLabel = ILGenerator.DefineLabel(); // NEW
+
+        // Jump to condition check first
+        ILGenerator.Emit(OpCodes.Br_S, conditionLabel);
 
         ILGenerator.MarkLabel(beginLabel);
-
-        GenerateBranchOpForCondition(whileStatementSyntax.Condition, endLabel);
+        ILGenerator.Emit(OpCodes.Nop);
 
         var scope = new Scope(this);
         new StatementGenerator(scope, whileStatementSyntax.Statement).Generate();
 
+        ILGenerator.MarkLabel(conditionLabel);
+        GenerateBranchOpForCondition(whileStatementSyntax.Condition, endLabel); // ✅ jump out if false
+
+        // If true, loop again
         ILGenerator.Emit(OpCodes.Br_S, beginLabel);
 
-        //End
         ILGenerator.MarkLabel(endLabel);
     }
 
