@@ -4,7 +4,7 @@
 
 import System;
 
-var foo : Flags = .B;
+var foo : Grades = .B;
 foo = .C;
 
 let x : string = .Empty;
@@ -16,8 +16,8 @@ if foo == .C {
     Console.WriteLine("Foo");
 }
 
-enum Flags { A, B, C };
+enum Grades { A, B, C };
 
-func f () -> Flags {
+func f () -> Grades {
     return .B;
 }

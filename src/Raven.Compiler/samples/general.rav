@@ -14,7 +14,8 @@ while i < list.Length {
     let x = list[i];
     stringBuilder.AppendLine(x.ToString());
     if x > 3 {
-        Console.WriteLine("Hello, World!");   
+        Console.WriteLine("Hello, World!");
+        list[i] = 42;
     }
     i = { i + 1; };;
 }
