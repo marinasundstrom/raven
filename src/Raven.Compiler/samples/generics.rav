@@ -8,5 +8,14 @@ import System.Collections.Generic;
 
 let list = new List<int>();
 list.Add(2);
+list.Add(3);
 
 Console.WriteLine(list.Count);
+
+var i = 0; 
+
+while i < list.Count {
+    let item = list[i];
+    Console.WriteLine(item.ToString()); // ToString is temp due to not boxing
+    i = i + 1;
+}

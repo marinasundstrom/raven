@@ -267,45 +267,71 @@ internal class ExpressionGenerator : Generator
 
     private void GenerateElementAccessExpression(ElementAccessExpressionSyntax elementAccessExpression)
     {
-        var target = GetSymbolInfo(elementAccessExpression.Expression).Symbol;
+        var symbol = GetSymbolInfo(elementAccessExpression).Symbol;
 
-        if (target is ILocalSymbol localSymbol
-            && localSymbol.Type is IArrayTypeSymbol arrayTypeSymbol)
+        // Handle arrays (as before)
+        if (symbol is ILocalSymbol localSymbol && localSymbol.Type is IArrayTypeSymbol arrayTypeSymbol)
         {
             GenerateExpression(elementAccessExpression.Expression);
 
-            foreach (var argument in elementAccessExpression.ArgumentList.Arguments.Reverse())
+            foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
             {
                 GenerateExpression(argument.Expression);
             }
 
-            if (arrayTypeSymbol.ElementType.TypeKind is not TypeKind.Struct)
-            {
-                ILGenerator.Emit(OpCodes.Ldelem_Ref);
-            }
-            else
-            {
-                ILGenerator.Emit(OpCodes.Ldelem_I4);
-            }
+            EmitLoadElement(arrayTypeSymbol.ElementType);
+            return;
         }
-        else if (target is IParameterSymbol parameterSymbol
-                 && parameterSymbol.Type is IArrayTypeSymbol arrayTypeSymbol2)
+
+        if (symbol is IParameterSymbol parameterSymbol && parameterSymbol.Type is IArrayTypeSymbol arrayTypeSymbol2)
         {
             GenerateExpression(elementAccessExpression.Expression);
 
-            foreach (var argument in elementAccessExpression.ArgumentList.Arguments.Reverse())
+            foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
             {
                 GenerateExpression(argument.Expression);
             }
 
-            if (arrayTypeSymbol2.ElementType.TypeKind is not TypeKind.Struct)
+            EmitLoadElement(arrayTypeSymbol2.ElementType);
+            return;
+        }
+
+        // ✅ Handle indexer property access (e.g., List<T>[int])
+        if (symbol is IPropertySymbol indexerProperty && indexerProperty.IsIndexer)
+        {
+            // Load the instance
+            GenerateExpression(elementAccessExpression.Expression);
+
+            // Load arguments (in order)
+            foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
             {
-                ILGenerator.Emit(OpCodes.Ldelem_Ref);
+                GenerateExpression(argument.Expression);
             }
-            else
+
+            MethodInfo getter = indexerProperty switch
             {
-                ILGenerator.Emit(OpCodes.Ldelem_I4);
-            }
+                PEPropertySymbol pe => pe.GetPropertyInfo().GetMethod!,
+                SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).GetMethod!,
+                _ => throw new NotSupportedException("Unsupported indexer property")
+            };
+
+            ILGenerator.Emit(OpCodes.Callvirt, getter);
+            return;
+        }
+
+        throw new NotSupportedException("Unsupported element access target");
+    }
+
+    private void EmitLoadElement(ITypeSymbol elementType)
+    {
+        if (elementType.TypeKind != TypeKind.Struct)
+        {
+            ILGenerator.Emit(OpCodes.Ldelem_Ref);
+        }
+        else
+        {
+            // Fallback: treat all structs as int for now
+            ILGenerator.Emit(OpCodes.Ldelem_I4);
         }
     }
 
@@ -336,42 +362,63 @@ internal class ExpressionGenerator : Generator
         {
             var symbol2 = GetSymbolInfo(elementAccessExpression.Expression).Symbol;
 
-            if (symbol2 is ILocalSymbol localSymbol)
+            // Handle array access (local)
+            if (symbol2 is ILocalSymbol localSymbol && localSymbol.Type is IArrayTypeSymbol arrayType)
             {
-                var localBuilder = GetLocal(localSymbol);
-                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                ILGenerator.Emit(OpCodes.Ldloc, GetLocal(localSymbol));
+
+                foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
+                    GenerateExpression(argument.Expression);
+
+                GenerateExpression(assignmentExpression.RightHandSide);
+
+                EmitStoreElement(arrayType.ElementType);
             }
-            else if (symbol2 is IParameterSymbol parameterSymbol)
+            // Handle array access (parameter)
+            else if (symbol2 is IParameterSymbol parameterSymbol && parameterSymbol.Type is IArrayTypeSymbol arrayType2)
             {
-                var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
-
-                int position = parameterBuilder.Position;
-
+                int position = MethodGenerator.GetParameterBuilder(parameterSymbol).Position;
                 if (MethodSymbol.IsStatic)
-                {
                     position -= 1;
-                }
 
                 ILGenerator.Emit(OpCodes.Ldarg, position);
+
+                foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
+                    GenerateExpression(argument.Expression);
+
+                GenerateExpression(assignmentExpression.RightHandSide);
+
+                EmitStoreElement(arrayType2.ElementType);
             }
-
-            foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
+            // ✅ Handle indexer assignment
+            else if (symbol is IPropertySymbol indexer && indexer.IsIndexer)
             {
-                GenerateExpression(argument.Expression);
-            }
+                // Load instance
+                GenerateExpression(elementAccessExpression.Expression);
 
-            GenerateExpression(assignmentExpression.RightHandSide);
+                // Load index arguments
+                foreach (var arg in elementAccessExpression.ArgumentList.Arguments)
+                    GenerateExpression(arg.Expression);
 
-            var type = symbol2.UnwrapType() as IArrayTypeSymbol;
+                // Load value to set
+                GenerateExpression(assignmentExpression.RightHandSide);
 
-            if (type.ElementType.TypeKind is not TypeKind.Struct)
-            {
-                ILGenerator.Emit(OpCodes.Stelem_Ref);
+                // Call setter
+                var setter = indexer switch
+                {
+                    PEPropertySymbol pe => pe.GetPropertyInfo().SetMethod!,
+                    SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).SetMethod!,
+                    _ => throw new NotSupportedException("Unsupported indexer property")
+                };
+
+                ILGenerator.Emit(OpCodes.Callvirt, setter);
             }
             else
             {
-                ILGenerator.Emit(OpCodes.Stelem_I4);
+                throw new NotSupportedException("Unsupported element access assignment target");
             }
+
+            return;
         }
         else
         {
@@ -413,6 +460,19 @@ internal class ExpressionGenerator : Generator
 
                 ILGenerator.Emit(OpCodes.Starg, position);
             }
+        }
+    }
+
+    private void EmitStoreElement(ITypeSymbol elementType)
+    {
+        if (elementType.TypeKind != TypeKind.Struct)
+        {
+            ILGenerator.Emit(OpCodes.Stelem_Ref);
+        }
+        else
+        {
+            // Default fallback: assume int-like
+            ILGenerator.Emit(OpCodes.Stelem_I4);
         }
     }
 

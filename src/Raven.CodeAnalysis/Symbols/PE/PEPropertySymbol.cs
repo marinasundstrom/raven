@@ -17,7 +17,19 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
     public override SymbolKind Kind => SymbolKind.Property;
     public override string Name => _propertyInfo.Name;
 
-    public ITypeSymbol Type => _type ??= PEContainingModule.GetType(_propertyInfo.PropertyType);
+    public ITypeSymbol Type
+    {
+        get
+        {
+            if (_propertyInfo.PropertyType.IsGenericParameter)
+            {
+                return _type ??= new PETypeParameterSymbol(_propertyInfo.PropertyType, this, ContainingType, ContainingNamespace, []);
+            }
+
+            return _type ??= PEContainingModule.GetType(_propertyInfo.PropertyType);
+        }
+    }
+
     public IMethodSymbol? GetMethod { get; set; }
     public IMethodSymbol? SetMethod { get; set; }
 
