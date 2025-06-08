@@ -1,5 +1,5 @@
 /*
- *  Demonstrates type unions, patterns, and support for assembly references
+ * Demonstrates type unions, patterns, and support for assembly references
  * * * */
 
 import System;
