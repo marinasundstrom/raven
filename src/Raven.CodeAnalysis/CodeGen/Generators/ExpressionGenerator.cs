@@ -350,7 +350,7 @@ internal class ExpressionGenerator : Generator
             var symbol2 = GetSymbolInfo(elementAccessExpression.Expression).Symbol;
 
             // Handle array access (local)
-            if (exprType is IArrayTypeSymbol arrayType)
+            if (symbol2 is ILocalSymbol localSymbol && localSymbol.Type is IArrayTypeSymbol arrayType)
             {
                 ILGenerator.Emit(OpCodes.Ldloc, GetLocal(localSymbol));
 
