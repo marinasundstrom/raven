@@ -267,10 +267,11 @@ internal class ExpressionGenerator : Generator
 
     private void GenerateElementAccessExpression(ElementAccessExpressionSyntax elementAccessExpression)
     {
+        var exprType = GetTypeInfo(elementAccessExpression.Expression).Type;
         var symbol = GetSymbolInfo(elementAccessExpression).Symbol;
 
-        // Handle arrays (as before)
-        if (symbol is ILocalSymbol localSymbol && localSymbol.Type is IArrayTypeSymbol arrayTypeSymbol)
+        // Handle arrays
+        if (exprType is IArrayTypeSymbol arrayType)
         {
             GenerateExpression(elementAccessExpression.Expression);
 
@@ -279,40 +280,25 @@ internal class ExpressionGenerator : Generator
                 GenerateExpression(argument.Expression);
             }
 
-            EmitLoadElement(arrayTypeSymbol.ElementType);
+            EmitLoadElement(arrayType.ElementType);
             return;
         }
 
-        if (symbol is IParameterSymbol parameterSymbol && parameterSymbol.Type is IArrayTypeSymbol arrayTypeSymbol2)
-        {
-            GenerateExpression(elementAccessExpression.Expression);
-
-            foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
-            {
-                GenerateExpression(argument.Expression);
-            }
-
-            EmitLoadElement(arrayTypeSymbol2.ElementType);
-            return;
-        }
-
-        // ✅ Handle indexer property access (e.g., List<T>[int])
+        // Handle indexer property
         if (symbol is IPropertySymbol indexerProperty && indexerProperty.IsIndexer)
         {
-            // Load the instance
             GenerateExpression(elementAccessExpression.Expression);
 
-            // Load arguments (in order)
             foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
             {
                 GenerateExpression(argument.Expression);
             }
 
-            MethodInfo getter = indexerProperty switch
+            var getter = indexerProperty switch
             {
                 PEPropertySymbol pe => pe.GetPropertyInfo().GetMethod!,
                 SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).GetMethod!,
-                _ => throw new NotSupportedException("Unsupported indexer property")
+                _ => throw new NotSupportedException("Unsupported indexer")
             };
 
             ILGenerator.Emit(OpCodes.Callvirt, getter);
@@ -360,10 +346,11 @@ internal class ExpressionGenerator : Generator
 
         if (assignmentExpression.LeftHandSide is ElementAccessExpressionSyntax elementAccessExpression)
         {
+            var exprType = GetTypeInfo(elementAccessExpression.Expression).Type;
             var symbol2 = GetSymbolInfo(elementAccessExpression.Expression).Symbol;
 
             // Handle array access (local)
-            if (symbol2 is ILocalSymbol localSymbol && localSymbol.Type is IArrayTypeSymbol arrayType)
+            if (exprType is IArrayTypeSymbol arrayType)
             {
                 ILGenerator.Emit(OpCodes.Ldloc, GetLocal(localSymbol));
 
