@@ -1,9 +1,11 @@
 namespace Raven.CodeAnalysis;
 
-internal class BoundPropertyExpression : BoundExpression
+internal class BoundPropertyAccess : BoundExpression
 {
-    public BoundPropertyExpression(IPropertySymbol property, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(property.Type, property, candidateReason)
+    public BoundPropertyAccess(IPropertySymbol property, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(property.Type, property, candidateReason)
     {
-
+        Property = property;
     }
+
+    public IPropertySymbol Property { get; }
 }

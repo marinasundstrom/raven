@@ -104,7 +104,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
     private ExpressionSyntax ParseAndExpression()
     {
-        ExpressionSyntax ret = ParseNotExpression();
+        ExpressionSyntax ret = ParseLogicalNotExpression();
         SyntaxToken token;
         while (ConsumeToken(SyntaxKind.AndToken, out token))
         {
@@ -113,11 +113,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return ret;
     }
 
-    private ExpressionSyntax ParseNotExpression()
+    private ExpressionSyntax ParseLogicalNotExpression()
     {
-        if (ConsumeToken(SyntaxKind.NotKeyword, out var token))
+        if (ConsumeToken(SyntaxKind.ExclamationToken, out var token))
         {
-            ExpressionSyntax ret = UnaryExpression(SyntaxKind.NotExpression, token, ParseNotExpression());
+            ExpressionSyntax ret = UnaryExpression(SyntaxKind.LogicalNotExpression, token, ParseLogicalNotExpression());
             return ret;
         }
         else

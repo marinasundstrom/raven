@@ -25,7 +25,6 @@ public enum SyntaxKind
 
     UnaryPlusExpression,
     UnaryMinusExpression,
-    NotExpression,
     AddressOfExpression,
 
     SimpleLambdaExpression,
@@ -90,8 +89,10 @@ public enum SyntaxKind
     GreaterThanExpression,
     LessThanOrEqualExpression,
     GreaterThanOrEqualExpression,
+
     LogicalAndExpression,
     LogicalOrExpression,
+    LogicalNotExpression,
 
     IsPatternExpression,
     DeclarationPattern, // Pattern

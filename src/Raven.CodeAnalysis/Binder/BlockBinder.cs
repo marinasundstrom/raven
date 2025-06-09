@@ -149,7 +149,7 @@ class BlockBinder : Binder
 
         var boundNode = statement switch
         {
-            LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindLocalDeclaration(localDeclaration.Declaration.Declarators[0])),
+            LocalDeclarationStatementSyntax localDeclaration => new BoundLocalAccess(BindLocalDeclaration(localDeclaration.Declaration.Declarators[0])),
             ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
             LocalFunctionStatementSyntax localFunction => BindLocalFunction(localFunction),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
@@ -242,9 +242,9 @@ class BlockBinder : Binder
 
         return unaryExpression.Kind switch
         {
+            SyntaxKind.LogicalNotExpression => operand,
             SyntaxKind.UnaryMinusExpression => operand,
             SyntaxKind.UnaryPlusExpression => operand,
-            SyntaxKind.NotExpression => operand,
 
             SyntaxKind.AddressOfExpression => BindAddressOfExpression(operand, unaryExpression),
 
@@ -254,7 +254,7 @@ class BlockBinder : Binder
 
     private BoundExpression BindAddressOfExpression(BoundExpression operand, UnaryExpressionSyntax syntax)
     {
-        if (operand is BoundLocalExpression or BoundParameterExpression)
+        if (operand is BoundLocalAccess or BoundParameterAccess)
         {
             return new BoundAddressOfExpression(operand.Symbol!, operand.Type!);
         }
@@ -674,9 +674,9 @@ class BlockBinder : Binder
         {
             INamespaceSymbol ns => new BoundNamespaceExpression(ns),
             ITypeSymbol type => new BoundTypeExpression(type),
-            ILocalSymbol local => new BoundLocalExpression(local),
-            IParameterSymbol param => new BoundParameterExpression(param),
-            IPropertySymbol prop => new BoundPropertyExpression(prop),
+            ILocalSymbol local => new BoundLocalAccess(local),
+            IParameterSymbol param => new BoundParameterAccess(param),
+            IPropertySymbol prop => new BoundPropertyAccess(prop),
             _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
         };
     }

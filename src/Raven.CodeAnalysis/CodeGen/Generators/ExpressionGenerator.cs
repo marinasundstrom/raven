@@ -117,12 +117,13 @@ internal class ExpressionGenerator : Generator
                     break;
                 }
 
-            /*
-            case SyntaxKind.NegateExpression: // -x
+            case SyntaxKind.LogicalNotExpression: // -x
                 GenerateExpression(operand);
-                ILGenerator.Emit(OpCodes.Neg);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
                 break;
 
+            /*
             case SyntaxKind.BitwiseNotExpression: // ~x
                 GenerateExpression(operand);
                 ILGenerator.Emit(OpCodes.Not);
@@ -819,7 +820,7 @@ internal class ExpressionGenerator : Generator
                         GenerateAddressOfExpression(addressOf);
                         break;
 
-                    case BoundLocalExpression { Symbol: ILocalSymbol local }:
+                    case BoundLocalAccess { Symbol: ILocalSymbol local }:
                         ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                         break;
 
@@ -880,31 +881,59 @@ internal class ExpressionGenerator : Generator
         // Resolve target identifier or access
         // If local, property, or field, then load
 
-        var symbol = GetSymbolInfo(identifierName).Symbol;
+        var bound = GetBoundNode(identifierName);
 
-        if (symbol is ILocalSymbol localSymbol)
+        switch (bound)
         {
-            var localBuilder = GetLocal(localSymbol);
+            case BoundLocalAccess localExpr:
+                var localBuilder = GetLocal(localExpr.Local);
+                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                break;
 
-            ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+            case BoundParameterAccess paramExpr:
+                var parameterBuilder = MethodGenerator.GetParameterBuilder(paramExpr.Parameter);
+                var index = MethodSymbol.IsStatic ? parameterBuilder.Position - 1 : parameterBuilder.Position;
+                ILGenerator.Emit(OpCodes.Ldarg, index);
+                break;
+
+            case BoundFieldAccess fieldAccess:
+                GenerateFieldAccess(fieldAccess);
+                break;
+
+            case BoundPropertyAccess propertyAccess:
+                GeneratePropertyAccess(propertyAccess);
+                break;
+
+            default:
+                throw new NotSupportedException($"Unsupported bound node in name expression: {bound.GetType().Name}");
         }
-        else if (symbol is IParameterSymbol parameterSymbol)
+    }
+
+    private void GenerateFieldAccess(BoundFieldAccess fieldAccess)
+    {
+        var fieldSymbol = fieldAccess.Field;
+        var metadataFieldSymbol = fieldAccess.Field as PEFieldSymbol;
+
+        if (fieldSymbol.IsLiteral)
         {
-            var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
-
-            int position = parameterBuilder.Position;
-
-            if (MethodSymbol.IsStatic)
+            var constant = fieldSymbol.GetConstantValue();
+            switch (constant)
             {
-                position -= 1;
+                case int i:
+                    ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                    break;
+                case bool b:
+                    ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                    break;
+                case null:
+                    ILGenerator.Emit(OpCodes.Ldnull);
+                    break;
+                default:
+                    throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
             }
-
-            ILGenerator.Emit(OpCodes.Ldarg, position);
         }
-        else if (symbol is IFieldSymbol fieldSymbol)
+        else
         {
-            var metadataFieldSymbol = fieldSymbol as PEFieldSymbol;
-
             if (fieldSymbol.IsLiteral)
             {
                 var constant = fieldSymbol.GetConstantValue();
@@ -925,65 +954,47 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                if (fieldSymbol.IsLiteral)
+                if (metadataFieldSymbol.IsStatic)
                 {
-                    var constant = fieldSymbol.GetConstantValue();
-                    switch (constant)
-                    {
-                        case int i:
-                            ILGenerator.Emit(OpCodes.Ldc_I4, i);
-                            break;
-                        case bool b:
-                            ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
-                            break;
-                        case null:
-                            ILGenerator.Emit(OpCodes.Ldnull);
-                            break;
-                        default:
-                            throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
-                    }
+                    ILGenerator.Emit(OpCodes.Ldsfld, metadataFieldSymbol.GetFieldInfo());
                 }
                 else
                 {
-                    if (metadataFieldSymbol.IsStatic)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldsfld, metadataFieldSymbol.GetFieldInfo());
-                    }
-                    else
-                    {
-                        ILGenerator.Emit(OpCodes.Ldfld, metadataFieldSymbol.GetFieldInfo());
-                    }
+                    ILGenerator.Emit(OpCodes.Ldfld, metadataFieldSymbol.GetFieldInfo());
                 }
             }
         }
-        else if (symbol is IPropertySymbol propertySymbol)
+    }
+
+    private void GeneratePropertyAccess(BoundPropertyAccess propertyAccess)
+    {
+        var propertySymbol = propertyAccess.Property;
+
+        if (propertySymbol.ContainingType!.Name == "Array") //.SpecialType is SpecialType.System_Array)
         {
-            if (propertySymbol.ContainingType!.Name == "Array") //.SpecialType is SpecialType.System_Array)
+            if (propertySymbol.Name == "Length")
             {
-                if (propertySymbol.Name == "Length")
-                {
-                    ILGenerator.Emit(OpCodes.Ldlen);
-                    ILGenerator.Emit(OpCodes.Conv_I4);
-                }
+                ILGenerator.Emit(OpCodes.Ldlen);
+                ILGenerator.Emit(OpCodes.Conv_I4);
             }
-            else
+        }
+        else
+        {
+            var metadataPropertySymbol = propertySymbol as PEPropertySymbol;
+            var getMethod = metadataPropertySymbol.GetMethod as PEMethodSymbol;
+
+            if (!propertySymbol.IsStatic
+                && propertySymbol.ContainingType.TypeKind is TypeKind.Struct)
             {
-                var metadataPropertySymbol = propertySymbol as PEPropertySymbol;
-                var getMethod = metadataPropertySymbol.GetMethod as PEMethodSymbol;
+                var clrType = ResolveClrType(propertySymbol.ContainingType);
+                var builder = ILGenerator.DeclareLocal(clrType);
+                //_localBuilders[symbol] = builder;
 
-                if (!propertySymbol.IsStatic
-                    && propertySymbol.ContainingType.TypeKind is TypeKind.Struct)
-                {
-                    var clrType = ResolveClrType(propertySymbol.ContainingType);
-                    var builder = ILGenerator.DeclareLocal(clrType);
-                    //_localBuilders[symbol] = builder;
-
-                    ILGenerator.Emit(OpCodes.Stloc, builder);
-                    ILGenerator.Emit(OpCodes.Ldloca, builder);
-                }
-
-                ILGenerator.Emit(OpCodes.Callvirt, getMethod.GetMethodInfo());
+                ILGenerator.Emit(OpCodes.Stloc, builder);
+                ILGenerator.Emit(OpCodes.Ldloca, builder);
             }
+
+            ILGenerator.Emit(OpCodes.Callvirt, getMethod.GetMethodInfo());
         }
     }
 

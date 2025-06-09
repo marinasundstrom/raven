@@ -99,7 +99,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
 
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode(node) as BoundLocalExpression;
+        var bound = _semanticModel.GetBoundNode(node) as BoundLocalAccess;
         if (bound?.Symbol is ILocalSymbol local)
             Written.Add(local);
 
@@ -113,7 +113,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
     {
         foreach (var declarator in node.Declaration.Declarators)
         {
-            var bound = _semanticModel.GetBoundNode(declarator) as BoundLocalExpression;
+            var bound = _semanticModel.GetBoundNode(declarator) as BoundLocalAccess;
             if (bound?.Symbol is ILocalSymbol local)
                 Written.Add(local);
         }
@@ -158,7 +158,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode(node) as BoundLocalExpression;
+        var bound = _semanticModel.GetBoundNode(node) as BoundLocalAccess;
         if (bound?.Symbol is ILocalSymbol symbol)
             _variablesDeclared.Add(symbol);
 

@@ -1,12 +1,19 @@
 import System;
 
+let arg = if args.Length > 0 { args[0]; } else { "0"; };
+
 var total = 0;
+
+if !int.TryParse(arg, &total) {
+    Console.WriteLine("Expected number");
+}
 
 while true {
     Console.Write("Write number: ");
     let inputStr = Console.ReadLine();
     
     var number = 0;
+
     if int.TryParse(inputStr, &number) {
         total = total + number;
 
