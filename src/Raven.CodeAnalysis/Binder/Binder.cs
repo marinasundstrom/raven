@@ -104,16 +104,28 @@ internal abstract class Binder
         return SymbolTable.TryGetValue(name, out var symbol) ? symbol : ParentBinder?.LookupSymbol(name);
     }
 
-    public virtual BoundExpression BindStatement(StatementSyntax statement)
-    {
-        return ParentBinder?.BindStatement(statement)
-             ?? throw new NotImplementedException("BindStatement not implemented in root binder.");
-    }
-
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)
     {
-        return ParentBinder?.BindExpression(expression)
-               ?? throw new NotImplementedException("BindExpression not implemented in root binder.");
+        if (_boundNodeCache.TryGetValue(expression, out var cached))
+            return (BoundExpression)cached;
+
+        var result = ParentBinder?.BindExpression(expression)
+                     ?? throw new NotImplementedException("BindExpression not implemented in root binder.");
+
+        _boundNodeCache[expression] = result;
+        return result;
+    }
+
+    public virtual BoundExpression BindStatement(StatementSyntax statement)
+    {
+        if (_boundNodeCache.TryGetValue(statement, out var cached))
+            return (BoundExpression)cached;
+
+        var result = ParentBinder?.BindStatement(statement)
+                     ?? throw new NotImplementedException("BindStatement not implemented in root binder.");
+
+        _boundNodeCache[statement] = result;
+        return result;
     }
 
     public virtual ITypeSymbol ResolveType(TypeSyntax typeSyntax)
@@ -159,5 +171,24 @@ internal abstract class Binder
     {
         return ParentBinder?.BindLocalFunction(localFunction)
              ?? throw new NotImplementedException("BindLocalFunction not implemented in root binder.");
+    }
+
+    private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
+
+    protected BoundNode? TryGetCachedBoundNode(SyntaxNode node)
+        => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
+
+    protected void CacheBoundNode(SyntaxNode node, BoundNode bound)
+        => _boundNodeCache[node] = bound;
+
+    public virtual BoundNode GetOrBind(SyntaxNode node)
+    {
+        var result = node switch
+        {
+            ExpressionSyntax expr => BindExpression(expr),
+            StatementSyntax stmt => BindStatement(stmt),
+            _ => throw new NotSupportedException($"Unsupported node kind: {node.Kind}")
+        };
+        return result;
     }
 }

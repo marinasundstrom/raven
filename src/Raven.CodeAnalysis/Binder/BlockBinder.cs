@@ -144,7 +144,10 @@ class BlockBinder : Binder
 
     public override BoundExpression BindStatement(StatementSyntax statement)
     {
-        return statement switch
+        if (TryGetCachedBoundNode(statement) is BoundExpression cached)
+            return cached;
+
+        var boundNode = statement switch
         {
             LocalDeclarationStatementSyntax localDeclaration => new BoundLocalExpression(BindLocalDeclaration(localDeclaration.Declaration.Declarators[0])),
             ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
@@ -153,6 +156,10 @@ class BlockBinder : Binder
             EmptyStatementSyntax emptyStatement => new BoundVoidExpression(Compilation),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
+
+        CacheBoundNode(statement, boundNode);
+
+        return boundNode;
     }
 
     private BoundExpression BindReturnStatement(ReturnStatementSyntax returnStatement)
@@ -165,6 +172,9 @@ class BlockBinder : Binder
 
     private BoundExpression BindBlock(BlockSyntax block)
     {
+        if (TryGetCachedBoundNode(block) is BoundExpression cached)
+            return cached;
+
         // Step 1: Pre-declare all local functions
         foreach (var stmt in block.Statements)
         {
@@ -179,34 +189,60 @@ class BlockBinder : Binder
             }
         }
 
-        // Step 2: Bind all statements
-        var boundStatements = block.Statements.Select(BindStatement).ToArray();
+        // Step 2: Bind and cache all statements
+        var boundStatements = new List<BoundExpression>(block.Statements.Count);
+        foreach (var stmt in block.Statements)
+        {
+            if (TryGetCachedBoundNode(stmt) is BoundExpression cachedStmt)
+            {
+                boundStatements.Add(cachedStmt);
+            }
+            else
+            {
+                var bound = BindStatement(stmt);
+                CacheBoundNode(stmt, bound);
+                boundStatements.Add(bound);
+            }
+        }
 
-        return new BoundBlockExpression(boundStatements);
+        // Step 3: Create and cache the block
+        var blockExpr = new BoundBlockExpression(boundStatements.ToArray());
+        CacheBoundNode(block, blockExpr);
+        return blockExpr;
     }
 
-    public override BoundExpression BindExpression(ExpressionSyntax syntax) => syntax switch
+    public override BoundExpression BindExpression(ExpressionSyntax syntax)
     {
-        LiteralExpressionSyntax literal => BindLiteralExpression(literal),
-        IdentifierNameSyntax identifier => BindIdentifierName(identifier),
-        TypeSyntax type => BindTypeSyntax(type),
-        BinaryExpressionSyntax binary => BindBinaryExpression(binary),
-        InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
-        ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
-        MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
-        ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
-        AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
-        CollectionExpressionSyntax collection => BindCollectionExpression(collection),
-        ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
-        IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
-        WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
-        BlockSyntax block => BindBlock(block),
-        IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
-        LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
-        UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
-        ExpressionSyntax.Missing missing => BindMissingExpression(missing),
-        _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
-    };
+        if (TryGetCachedBoundNode(syntax) is BoundExpression cached)
+            return cached;
+
+        var boundNode = syntax switch
+        {
+            LiteralExpressionSyntax literal => BindLiteralExpression(literal),
+            IdentifierNameSyntax identifier => BindIdentifierName(identifier),
+            TypeSyntax type => BindTypeSyntax(type),
+            BinaryExpressionSyntax binary => BindBinaryExpression(binary),
+            InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
+            ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
+            MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
+            ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
+            AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
+            CollectionExpressionSyntax collection => BindCollectionExpression(collection),
+            ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
+            IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
+            WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
+            BlockSyntax block => BindBlock(block),
+            IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
+            LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
+            UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
+            ExpressionSyntax.Missing missing => BindMissingExpression(missing),
+            _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
+        };
+
+        CacheBoundNode(syntax, boundNode);
+
+        return boundNode;
+    }
 
     private BoundExpression BindUnaryExpression(UnaryExpressionSyntax unaryExpression)
     {

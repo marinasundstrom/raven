@@ -88,21 +88,7 @@ public partial class SemanticModel
 
     internal BoundNode GetBoundNode(SyntaxNode node)
     {
-        if (_boundNodes.TryGetValue(node, out var bound))
-            return bound;
-
         var binder = Compilation.BinderFactory.GetBinder(node);
-
-        var result = node switch
-        {
-            ExpressionSyntax expr => binder.BindExpression(expr),
-            StatementSyntax stmt => binder.BindStatement(stmt),
-            //PatternSyntax pat => binder.BindPattern(pat),
-            //VariableDesignationSyntax designation => binder.BindDesignation(designation),
-            _ => throw new NotSupportedException($"Binding not supported for syntax node of type {node.GetType().Name}")
-        };
-
-        _boundNodes[node] = result;
-        return result;
+        return binder.GetOrBind(node);
     }
 }

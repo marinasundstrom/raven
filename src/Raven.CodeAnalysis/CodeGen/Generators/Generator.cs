@@ -40,6 +40,13 @@ internal abstract class Generator
         return Parent?.GetLocal(localSymbol);
     }
 
+    protected BoundNode GetBoundNode(SyntaxNode syntaxNode)
+    {
+        return Compilation
+                        .GetSemanticModel(syntaxNode.SyntaxTree)
+                        .GetBoundNode(syntaxNode);
+    }
+
     protected SymbolInfo GetSymbolInfo(SyntaxNode syntaxNode)
     {
         return Compilation
