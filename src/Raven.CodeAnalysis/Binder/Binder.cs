@@ -191,8 +191,6 @@ internal abstract class Binder
              ?? throw new NotImplementedException("BindLocalFunction not implemented in root binder.");
     }
 
-    private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
-
     protected BoundNode? TryGetCachedBoundNode(SyntaxNode node)
         => SemanticModel.TryGetCachedBoundNode(node);
 

@@ -97,7 +97,7 @@ public partial class SemanticModel
         return GetBoundNode(node) as T;
     }
 
-    private Binder GetBinder(SyntaxNode node, Binder? parentBinder = null)
+    internal Binder GetBinder(SyntaxNode node, Binder? parentBinder = null)
     {
         if (_binderCache.TryGetValue(node, out var existingBinder))
             return existingBinder;

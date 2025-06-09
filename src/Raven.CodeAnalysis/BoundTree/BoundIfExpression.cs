@@ -19,7 +19,7 @@ internal class BoundIfExpression : BoundExpression
 
     private static ITypeSymbol Handle(BoundExpression thenBranch, BoundExpression? elseBranch)
     {
-        if (!elseBranch?.Type.Equals(thenBranch.Type, SymbolEqualityComparer.Default) ?? false)
+        if (!elseBranch?.Type?.Equals(thenBranch.Type, SymbolEqualityComparer.Default) ?? false)
         {
             return new UnionTypeSymbol([thenBranch.Type, elseBranch.Type], null, null, null, []);
         }

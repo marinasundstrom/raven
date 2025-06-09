@@ -19,7 +19,7 @@ class TopLevelBinder : BlockBinder
     {
         if (stmt.Statement is LocalFunctionStatementSyntax localFunction)
         {
-            var localFuncBinder = Compilation.BinderFactory.GetBinder(localFunction, this);
+            var localFuncBinder = SemanticModel.GetBinder(localFunction, this);
             if (localFuncBinder is LocalFunctionBinder lfBinder)
             {
                 var symbol = lfBinder.GetMethodSymbol();

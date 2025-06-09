@@ -180,7 +180,7 @@ class BlockBinder : Binder
         {
             if (stmt is LocalFunctionStatementSyntax localFunc)
             {
-                var localFuncBinder = Compilation.BinderFactory.GetBinder(localFunc, this);
+                var localFuncBinder = SemanticModel.GetBinder(localFunc, this);
                 if (localFuncBinder is LocalFunctionBinder lfBinder)
                 {
                     var symbol = lfBinder.GetMethodSymbol();
@@ -193,16 +193,8 @@ class BlockBinder : Binder
         var boundStatements = new List<BoundExpression>(block.Statements.Count);
         foreach (var stmt in block.Statements)
         {
-            if (TryGetCachedBoundNode(stmt) is BoundExpression cachedStmt)
-            {
-                boundStatements.Add(cachedStmt);
-            }
-            else
-            {
-                var bound = BindStatement(stmt);
-                CacheBoundNode(stmt, bound);
-                boundStatements.Add(bound);
-            }
+            var bound = BindStatement(stmt);
+            boundStatements.Add(bound);
         }
 
         // Step 3: Create and cache the block
@@ -384,13 +376,13 @@ class BlockBinder : Binder
     {
         var condition = BindExpression(ifExpression.Condition);
 
-        var thenBinder = Compilation.BinderFactory.GetBinder(ifExpression, this);
+        var thenBinder = SemanticModel.GetBinder(ifExpression, this);
         var thenExpr = thenBinder.BindExpression(ifExpression.Expression);
 
         BoundExpression? elseExpr = null;
         if (ifExpression.ElseClause != null)
         {
-            var elseBinder = Compilation.BinderFactory.GetBinder(ifExpression.ElseClause, this);
+            var elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
             elseExpr = elseBinder.BindExpression(ifExpression.ElseClause.Expression);
         }
 
@@ -401,7 +393,7 @@ class BlockBinder : Binder
     {
         var condition = BindExpression(whileExpression.Condition);
 
-        var expressionBinder = Compilation.BinderFactory.GetBinder(whileExpression, this);
+        var expressionBinder = SemanticModel.GetBinder(whileExpression, this);
         var expression = expressionBinder.BindStatement(whileExpression.Statement);
 
         return new BoundWhileExpression(condition, expression);
@@ -1130,7 +1122,7 @@ class BlockBinder : Binder
     public override BoundExpression BindLocalFunction(LocalFunctionStatementSyntax localFunction)
     {
         // Get the binder from the factory
-        var binder = Compilation.BinderFactory.GetBinder(localFunction, this);
+        var binder = SemanticModel.GetBinder(localFunction, this);
 
         if (binder is not LocalFunctionBinder localFunctionBinder)
             throw new InvalidOperationException("Expected LocalFunctionBinder");
@@ -1140,7 +1132,7 @@ class BlockBinder : Binder
 
         // Bind the body with method binder
         var methodBinder = localFunctionBinder.GetMethodBodyBinder();
-        var blockBinder = Compilation.BinderFactory.GetBinder(localFunction.Body, methodBinder);
+        var blockBinder = SemanticModel.GetBinder(localFunction.Body, methodBinder);
         var body = blockBinder.BindExpression(localFunction.Body);
 
         return new BoundLocalFunctionExpression(symbol); // Possibly include body here if needed

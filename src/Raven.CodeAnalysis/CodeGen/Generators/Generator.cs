@@ -8,6 +8,8 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal abstract class Generator
 {
+    static readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
+
     public Generator(Generator? parent = null)
     {
         Parent = parent;
@@ -42,38 +44,38 @@ internal abstract class Generator
 
     protected BoundNode GetBoundNode(SyntaxNode syntaxNode)
     {
-        return Compilation
-                        .GetSemanticModel(syntaxNode.SyntaxTree!)
-                        .GetBoundNode(syntaxNode);
+        SemanticModel semanticModel = ResolveSemanticModel(syntaxNode);
+
+        return semanticModel.GetBoundNode(syntaxNode);
     }
 
-    protected BoundExpression GetBoundNode(ExpressionSyntax syntaxNode)
+    protected BoundExpression GetBoundNode(ExpressionSyntax expression)
     {
-        return Compilation
-                        .GetSemanticModel(syntaxNode.SyntaxTree!)
-                        .GetBoundNode<BoundExpression>(syntaxNode) ?? throw new InvalidCastException("Cannot cast {0} to {2}.");
+        SemanticModel semanticModel = ResolveSemanticModel(expression);
+
+        return semanticModel.GetBoundNode<BoundExpression>(expression) ?? throw new InvalidCastException("Cannot cast {0} to {2}.");
     }
 
     protected SymbolInfo GetSymbolInfo(SyntaxNode syntaxNode)
     {
-        return Compilation
-                        .GetSemanticModel(syntaxNode.SyntaxTree)
-                        .GetSymbolInfo(syntaxNode);
+        SemanticModel semanticModel = ResolveSemanticModel(syntaxNode);
+
+        return semanticModel.GetSymbolInfo(syntaxNode);
     }
 
-    protected TNode? GetDeclaredSymbol<TNode>(SyntaxNode syntaxNode)
-        where TNode : class, ISymbol
+    protected T? GetDeclaredSymbol<T>(SyntaxNode syntaxNode)
+        where T : class, ISymbol
     {
-        return Compilation
-                        .GetSemanticModel(syntaxNode.SyntaxTree)
-                        .GetDeclaredSymbol(syntaxNode) as TNode;
+        SemanticModel semanticModel = ResolveSemanticModel(syntaxNode);
+
+        return semanticModel.GetDeclaredSymbol(syntaxNode) as T;
     }
 
     protected TypeInfo GetTypeInfo(ExpressionSyntax expression)
     {
-        return Compilation
-                        .GetSemanticModel(expression.SyntaxTree)
-                        .GetTypeInfo(expression);
+        SemanticModel semanticModel = ResolveSemanticModel(expression);
+
+        return semanticModel.GetTypeInfo(expression);
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
@@ -82,4 +84,17 @@ internal abstract class Generator
     }
 
     public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);
+
+    private SemanticModel ResolveSemanticModel(SyntaxNode syntaxNode)
+    {
+        var syntaxTree = syntaxNode.SyntaxTree!;
+
+        if (!_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
+        {
+            semanticModel = Compilation.GetSemanticModel(syntaxTree);
+            _semanticModels[syntaxTree] = semanticModel;
+        }
+
+        return semanticModel;
+    }
 }

@@ -14,18 +14,18 @@ class BinderFactory
         _compilation = compilation;
     }
 
-    public Binder GetBinder(SyntaxNode node, Binder parentBinder = null)
+    public Binder? GetBinder(SyntaxNode node, Binder? parentBinder = null)
     {
         // Now safely construct this node's binder with a guaranteed parent
-        Binder newBinder = node switch
+        Binder? newBinder = node switch
         {
-            NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder),
-            MethodDeclarationSyntax => new MethodBinder(parentBinder),
-            BlockSyntax => parentBinder is MethodBinder ? new BlockBinder((parentBinder?.ParentBinder as LocalFunctionBinder)?.GetMethodSymbol()!, parentBinder) : new LocalScopeBinder(parentBinder),
-            IfExpressionSyntax expr => new LocalScopeBinder(parentBinder),
-            ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder),
-            WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder),
-            LocalFunctionStatementSyntax localFunc => new LocalFunctionBinder(parentBinder, localFunc),
+            NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
+            MethodDeclarationSyntax => new MethodBinder(parentBinder!),
+            BlockSyntax => parentBinder is MethodBinder ? new BlockBinder((parentBinder?.ParentBinder as LocalFunctionBinder)?.GetMethodSymbol()!, parentBinder!) : new LocalScopeBinder(parentBinder!),
+            IfExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
+            ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
+            WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
+            LocalFunctionStatementSyntax localFunc => new LocalFunctionBinder(parentBinder!, localFunc),
             _ => parentBinder
         };
 
