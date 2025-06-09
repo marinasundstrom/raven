@@ -43,8 +43,15 @@ internal abstract class Generator
     protected BoundNode GetBoundNode(SyntaxNode syntaxNode)
     {
         return Compilation
-                        .GetSemanticModel(syntaxNode.SyntaxTree)
+                        .GetSemanticModel(syntaxNode.SyntaxTree!)
                         .GetBoundNode(syntaxNode);
+    }
+
+    protected BoundExpression GetBoundNode(ExpressionSyntax syntaxNode)
+    {
+        return Compilation
+                        .GetSemanticModel(syntaxNode.SyntaxTree!)
+                        .GetBoundNode<BoundExpression>(syntaxNode) ?? throw new InvalidCastException("Cannot cast {0} to {2}.");
     }
 
     protected SymbolInfo GetSymbolInfo(SyntaxNode syntaxNode)

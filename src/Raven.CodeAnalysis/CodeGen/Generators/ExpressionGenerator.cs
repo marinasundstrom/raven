@@ -424,9 +424,7 @@ internal class ExpressionGenerator : Generator
 
             if (param.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
-                var boundArg = Compilation
-                    .GetSemanticModel(argument.SyntaxTree)
-                    .GetBoundNode(argument.Expression);
+                var boundArg = GetBoundNode(argument.Expression);
 
                 switch (boundArg)
                 {
@@ -811,9 +809,7 @@ internal class ExpressionGenerator : Generator
 
             if (paramSymbol.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
-                var boundArg = Compilation
-                    .GetSemanticModel(argument.SyntaxTree)
-                    .GetBoundNode(argument.Expression);
+                var boundArg = GetBoundNode(argument.Expression);
 
                 switch (boundArg)
                 {

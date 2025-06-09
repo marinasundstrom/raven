@@ -174,7 +174,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode<BoundExpression>(node);
+        var bound = _semanticModel.GetBoundNode(node);
         var symbol = bound?.GetSymbolInfo().Symbol;
 
         if (symbol is ILocalSymbol local)
@@ -199,7 +199,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitIdentifierName(IdentifierNameSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode<BoundExpression>(node);
+        var bound = _semanticModel.GetBoundNode(node);
         var symbol = bound?.GetSymbolInfo().Symbol;
 
         if (symbol is ILocalSymbol local)
