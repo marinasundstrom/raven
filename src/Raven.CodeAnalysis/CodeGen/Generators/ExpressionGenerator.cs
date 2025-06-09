@@ -736,7 +736,7 @@ internal class ExpressionGenerator : Generator
 
         var node = GetBoundNode(invocationExpression) as BoundInvocationExpression;
 
-        var target = node.Symbol as IMethodSymbol;
+        var target = node.Method;
 
         if (!target?.IsStatic ?? false)
         {
