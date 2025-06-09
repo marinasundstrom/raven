@@ -45,21 +45,18 @@ internal abstract class Generator
     protected BoundNode GetBoundNode(SyntaxNode syntaxNode)
     {
         SemanticModel semanticModel = ResolveSemanticModel(syntaxNode);
-
         return semanticModel.GetBoundNode(syntaxNode);
     }
 
     protected BoundExpression GetBoundNode(ExpressionSyntax expression)
     {
         SemanticModel semanticModel = ResolveSemanticModel(expression);
-
-        return semanticModel.GetBoundNode<BoundExpression>(expression) ?? throw new InvalidCastException("Cannot cast {0} to {2}.");
+        return semanticModel.GetBoundNode(expression) ?? throw new InvalidCastException("Cannot cast {0} to {2}.");
     }
 
     protected SymbolInfo GetSymbolInfo(SyntaxNode syntaxNode)
     {
         SemanticModel semanticModel = ResolveSemanticModel(syntaxNode);
-
         return semanticModel.GetSymbolInfo(syntaxNode);
     }
 
@@ -67,14 +64,12 @@ internal abstract class Generator
         where T : class, ISymbol
     {
         SemanticModel semanticModel = ResolveSemanticModel(syntaxNode);
-
         return semanticModel.GetDeclaredSymbol(syntaxNode) as T;
     }
 
     protected TypeInfo GetTypeInfo(ExpressionSyntax expression)
     {
         SemanticModel semanticModel = ResolveSemanticModel(expression);
-
         return semanticModel.GetTypeInfo(expression);
     }
 

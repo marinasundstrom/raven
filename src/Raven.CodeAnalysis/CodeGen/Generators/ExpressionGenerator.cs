@@ -734,7 +734,9 @@ internal class ExpressionGenerator : Generator
         // Resolve target identifier or access
         // If method or delegate, then invoke
 
-        var target = GetSymbolInfo(invocationExpression).Symbol as IMethodSymbol;
+        var node = GetBoundNode(invocationExpression) as BoundInvocationExpression;
+
+        var target = node.Symbol as IMethodSymbol;
 
         if (!target?.IsStatic ?? false)
         {

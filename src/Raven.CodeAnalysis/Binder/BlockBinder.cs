@@ -795,7 +795,7 @@ class BlockBinder : Binder
             );
         }
 
-        return new BoundCallExpression(method, boundArguments.ToArray(), receiver);
+        return new BoundInvocationExpression(method, boundArguments.ToArray(), receiver);
     }
 
     private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
