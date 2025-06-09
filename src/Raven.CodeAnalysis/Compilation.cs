@@ -583,11 +583,6 @@ public class Compilation
     }
     */
 
-    internal Binder GetBinder(SyntaxNode node)
-    {
-        return BinderFactory.GetBinder(node);
-    }
-
     public ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType)
     {
         var systemNamespace = GlobalNamespace.LookupNamespace("System");

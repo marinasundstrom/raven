@@ -6,7 +6,7 @@ public static class CompletionProvider
 {
     public static IEnumerable<CompletionItem> GetCompletions(SyntaxToken token, SemanticModel model, int position)
     {
-        var binder = model.Compilation.GetBinder(token.Parent);
+        var binder = model.GetBinder(token.Parent);
         var completions = new List<CompletionItem>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
@@ -43,7 +43,7 @@ public static class CompletionProvider
                             ITypeSymbol => insertText.Length - 1,
                             _ => (int?)null
                         };
-                        
+
                         if (seen.Add(member.Name))
                         {
                             completions.Add(new CompletionItem(
@@ -96,14 +96,14 @@ public static class CompletionProvider
                     continue;
 
                 var insertText = symbol is IMethodSymbol ? symbol.Name + "()" : symbol.Name;
-                
+
                 var cursorOffset = symbol switch
                 {
                     IMethodSymbol => insertText.Length - 1,
                     ITypeSymbol => insertText.Length - 1,
                     _ => (int?)null
                 };
-                
+
                 if (seen.Add(symbol.Name))
                 {
                     completions.Add(new CompletionItem(
