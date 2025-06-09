@@ -91,4 +91,11 @@ public partial class SemanticModel
         var binder = Compilation.BinderFactory.GetBinder(node);
         return binder.GetOrBind(node);
     }
+
+    internal T? GetBoundNode<T>(SyntaxNode node)
+        where T : BoundNode
+    {
+        var binder = Compilation.BinderFactory.GetBinder(node);
+        return binder.GetOrBind(node) as T;
+    }
 }
