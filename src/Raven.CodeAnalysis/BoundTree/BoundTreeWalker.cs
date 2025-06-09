@@ -33,8 +33,14 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundInvocationExpression call:
                 VisitInvocationExpression(call);
                 break;
+            case BoundReturnExpression ret:
+                VisitReturnExpression(ret);
+                break;
             case BoundLambdaExpression lambda:
                 VisitLambdaExpression(lambda);
+                break;
+            case BoundBlockExpression block:
+                VisitBlockExpression(block);
                 break;
             // Add others as needed
             default:
@@ -48,11 +54,17 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitLocalAccess(BoundLocalAccess node) { }
     public override void VisitParameterAccess(BoundParameterAccess node) { }
 
+    public override void VisitReturnExpression(BoundReturnExpression node)
+    {
+        VisitExpression(node.Expression);
+    }
+
     public override void VisitBinaryExpression(BoundBinaryExpression node)
     {
         VisitExpression(node.Left);
         VisitExpression(node.Right);
     }
+
     public override void VisitInvocationExpression(BoundInvocationExpression node)
     {
         if (node.Receiver is not null)
@@ -60,8 +72,17 @@ internal class BoundTreeWalker : BoundTreeVisitor
         foreach (var arg in node.Arguments)
             VisitExpression(arg);
     }
+
     public override void VisitLambdaExpression(BoundLambdaExpression node)
     {
         VisitExpression(node.Body);
+    }
+
+    public override void VisitBlockExpression(BoundBlockExpression node)
+    {
+        foreach (var s in node.Statements)
+        {
+            VisitExpression(s);
+        }
     }
 }

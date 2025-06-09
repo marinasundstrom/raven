@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public enum BoundExpressionReason
+enum BoundExpressionReason
 {
     None,                   // Successfully bound, no issues.
     NotFound,               // Symbol or member could not be found.

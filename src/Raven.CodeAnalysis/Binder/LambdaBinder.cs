@@ -31,9 +31,16 @@ class LambdaBinder : BlockBinder
 
     public bool IsDeclaredInLambda(ISymbol symbol)
     {
-        // Compare by reference if possible
-        return _parameters.Values.Contains(symbol);
-        //|| _locals.Values.Contains(symbol);
+        if (_parameters.Values.Contains(symbol))
+            return true;
+
+        foreach (var local in _locals)
+        {
+            if (ReferenceEquals(local.Value, symbol))
+                return true;
+        }
+
+        return false;
     }
 
     private BoundExpression? _lambdaBody;

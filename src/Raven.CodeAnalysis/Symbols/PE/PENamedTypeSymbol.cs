@@ -58,6 +58,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         return index >= 0 ? name.Substring(0, index) : name;
     }
 
+    public override string MetadataName => _typeInfo.Name;
+
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
 

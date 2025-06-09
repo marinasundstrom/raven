@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis;
 class BlockBinder : Binder
 {
     private readonly ISymbol _containingSymbol;
-    private readonly Dictionary<string, ILocalSymbol> _locals = new();
+    protected readonly Dictionary<string, ILocalSymbol> _locals = new();
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
@@ -165,7 +165,7 @@ class BlockBinder : Binder
     private BoundExpression BindReturnStatement(ReturnStatementSyntax returnStatement)
     {
         var expr = BindExpression(returnStatement.Expression);
-        return new BoundReturnExpression(expr.Type);
+        return new BoundReturnExpression(expr);
     }
 
     public Dictionary<string, IMethodSymbol> _localFunctions = new();

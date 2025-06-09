@@ -598,9 +598,7 @@ public class Compilation
         if (!isAction)
             allTypes.Add(returnType);
 
-        string delegateName = isAction
-            ? (allTypes.Count == 0 ? "Action" : $"Action`{allTypes.Count}")
-            : $"Func`{allTypes.Count}";
+        string delegateName = isAction ? "Action" : "Func";
 
         var delegateType = systemNamespace?.GetMembers(delegateName)
             .OfType<INamedTypeSymbol>()
