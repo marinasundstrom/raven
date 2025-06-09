@@ -9,7 +9,7 @@ public partial class SemanticModel
 {
     private readonly Dictionary<SyntaxNode, Binder> _binderCache = new();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
-    private readonly Dictionary<SyntaxNode, BoundNode> _boundNodes = new();
+    private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
 
     public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
     {
@@ -160,7 +160,9 @@ public partial class SemanticModel
 
         var mainMethodSymbol = new SynthesizedMainMethodSymbol(programClassSymbol, [cu.GetLocation()], [cu.GetReference()]);
 
-        var topLevelBinder = new TopLevelBinder(importBinder, mainMethodSymbol);
+        var semanticModel = this;
+
+        var topLevelBinder = new TopLevelBinder(importBinder, semanticModel, mainMethodSymbol);
 
         foreach (var member in cu.Members.OfType<BaseTypeDeclarationSyntax>())
         {
@@ -201,4 +203,10 @@ public partial class SemanticModel
 
         return topLevelBinder;
     }
+
+    internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
+    => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
+
+    internal void CacheBoundNode(SyntaxNode node, BoundNode bound)
+        => _boundNodeCache[node] = bound;
 }

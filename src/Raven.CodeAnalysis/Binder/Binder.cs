@@ -37,6 +37,22 @@ internal abstract class Binder
         }
     }
 
+    public virtual SemanticModel SemanticModel
+    {
+        get
+        {
+            if (ParentBinder is null)
+                return null!;
+
+            if (this is TopLevelBinder topLevelBinder)
+            {
+                return topLevelBinder.SemanticModel;
+            }
+
+            return ParentBinder.SemanticModel;
+        }
+    }
+
     public virtual INamespaceSymbol? CurrentNamespace => ParentBinder?.CurrentNamespace;
 
     public virtual ISymbol? BindDeclaredSymbol(SyntaxNode node) => ParentBinder?.BindDeclaredSymbol(node);
@@ -106,25 +122,27 @@ internal abstract class Binder
 
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)
     {
-        if (_boundNodeCache.TryGetValue(expression, out var cached))
-            return (BoundExpression)cached;
+        if (TryGetCachedBoundNode(expression) is BoundExpression cached)
+            return cached;
 
         var result = ParentBinder?.BindExpression(expression)
                      ?? throw new NotImplementedException("BindExpression not implemented in root binder.");
 
-        _boundNodeCache[expression] = result;
+        CacheBoundNode(expression, result);
+
         return result;
     }
 
     public virtual BoundExpression BindStatement(StatementSyntax statement)
     {
-        if (_boundNodeCache.TryGetValue(statement, out var cached))
-            return (BoundExpression)cached;
+        if (TryGetCachedBoundNode(statement) is BoundExpression cached)
+            return cached;
 
         var result = ParentBinder?.BindStatement(statement)
                      ?? throw new NotImplementedException("BindStatement not implemented in root binder.");
 
-        _boundNodeCache[statement] = result;
+        CacheBoundNode(statement, result);
+
         return result;
     }
 
@@ -176,10 +194,10 @@ internal abstract class Binder
     private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
 
     protected BoundNode? TryGetCachedBoundNode(SyntaxNode node)
-        => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
+        => SemanticModel.TryGetCachedBoundNode(node);
 
     protected void CacheBoundNode(SyntaxNode node, BoundNode bound)
-        => _boundNodeCache[node] = bound;
+        => SemanticModel.CacheBoundNode(node, bound);
 
     public virtual BoundNode GetOrBind(SyntaxNode node)
     {

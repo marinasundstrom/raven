@@ -6,7 +6,12 @@ namespace Raven.CodeAnalysis;
 
 class TopLevelBinder : BlockBinder
 {
-    public TopLevelBinder(Binder parent, IMethodSymbol methodSymbol) : base(methodSymbol, parent) { }
+    public TopLevelBinder(Binder parent, SemanticModel semanticModel, IMethodSymbol methodSymbol) : base(methodSymbol, parent)
+    {
+        SemanticModel = semanticModel;
+    }
+
+    public override SemanticModel SemanticModel { get; }
 
     public IMethodSymbol MainMethod => (IMethodSymbol)ContainingSymbol;
 
