@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-class BoundVariableExpression : BoundExpression
+internal partial class BoundVariableExpression : BoundExpression
 {
     public ILocalSymbol Variable { get; }
 

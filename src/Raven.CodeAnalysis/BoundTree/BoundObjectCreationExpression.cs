@@ -1,7 +1,7 @@
 
 namespace Raven.CodeAnalysis;
 
-sealed class BoundObjectCreationExpression : BoundExpression
+internal partial class BoundObjectCreationExpression : BoundExpression
 {
     public IMethodSymbol Constructor { get; }
     public BoundExpression[] Arguments { get; }

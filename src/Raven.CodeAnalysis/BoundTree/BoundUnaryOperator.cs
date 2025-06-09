@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-class BoundUnaryOperator
+internal partial class BoundUnaryOperator
 {
     public ITypeSymbol ResultType { get; internal set; }
 }

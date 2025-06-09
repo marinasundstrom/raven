@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis;
 
-sealed class BoundInvocationExpression : BoundExpression
+internal partial class BoundInvocationExpression : BoundExpression
 {
     public IMethodSymbol Method { get; }
     public BoundExpression[] Arguments { get; }

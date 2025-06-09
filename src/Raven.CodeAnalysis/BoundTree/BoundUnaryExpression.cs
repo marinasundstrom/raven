@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-class BoundUnaryExpression : BoundExpression
+internal partial class BoundUnaryExpression : BoundExpression
 {
     public BoundUnaryOperator Operator { get; }
     public BoundExpression Operand { get; }

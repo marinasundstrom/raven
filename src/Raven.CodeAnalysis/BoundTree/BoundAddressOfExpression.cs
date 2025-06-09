@@ -2,7 +2,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal sealed class BoundAddressOfExpression : BoundExpression
+internal sealed partial class BoundAddressOfExpression : BoundExpression
 {
     public BoundAddressOfExpression(ISymbol symbol, ITypeSymbol valueType)
         : base(new ByRefTypeSymbol(valueType), symbol)

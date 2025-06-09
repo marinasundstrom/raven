@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal class BoundParenthesizedExpression : BoundExpression
+internal partial class BoundParenthesizedExpression : BoundExpression
 {
     public BoundExpression Expression { get; }
 

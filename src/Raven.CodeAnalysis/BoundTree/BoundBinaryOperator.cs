@@ -3,7 +3,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-sealed class BoundBinaryOperator
+internal partial class BoundBinaryOperator
 {
     public SyntaxKind SyntaxKind { get; }
     public ITypeSymbol LeftType { get; }

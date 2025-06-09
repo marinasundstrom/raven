@@ -308,16 +308,20 @@ class BlockBinder : Binder
 
         // 5. Bind the body using a new binder scope
         var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
+
         foreach (var param in parameterSymbols)
             lambdaBinder.DeclareParameter(param);
 
         var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody);
 
+        lambdaBinder.SetLambdaBody(bodyExpr);
+
+        var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
+
         // 6. Infer return type if not explicitly given
         var returnType = returnTypeSyntax is not null
             ? inferredReturnType
             : bodyExpr.Type ?? Compilation.ErrorTypeSymbol;
-
 
         // 7. Construct delegate type (e.g., Func<...> or custom delegate)
         var delegateType = Compilation.CreateFunctionTypeSymbol(
@@ -333,7 +337,7 @@ class BlockBinder : Binder
         }
 
         // 8. Return a fully bound lambda expression
-        return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, lambdaSymbol.DelegateType);
+        return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, lambdaSymbol.DelegateType, capturedVariables);
     }
 
     private BoundExpression BindIsPatternExpression(IsPatternExpressionSyntax isPatternExpression)

@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-sealed class BoundIndexerAccessExpression : BoundExpression
+internal partial class BoundIndexerAccessExpression : BoundExpression
 {
     public BoundExpression Receiver { get; }
     public BoundExpression[] Arguments { get; }

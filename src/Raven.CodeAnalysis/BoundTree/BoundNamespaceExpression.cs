@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-sealed class BoundNamespaceExpression : BoundExpression
+internal partial class BoundNamespaceExpression : BoundExpression
 {
     public INamespaceSymbol Namespace { get; }
 

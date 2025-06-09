@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-sealed class BoundCollectionExpression : BoundExpression
+internal partial class BoundCollectionExpression : BoundExpression
 {
     public BoundCollectionExpression(
         ITypeSymbol type,
@@ -15,7 +15,7 @@ sealed class BoundCollectionExpression : BoundExpression
     public BoundExpression[] Elements { get; }
 }
 
-sealed class BoundEmptyCollectionExpression : BoundExpression
+internal partial class BoundEmptyCollectionExpression : BoundExpression
 {
     public BoundEmptyCollectionExpression(
         ITypeSymbol? type = null,

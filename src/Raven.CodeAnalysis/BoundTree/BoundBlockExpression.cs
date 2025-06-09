@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-class BoundBlockExpression : BoundExpression
+internal partial class BoundBlockExpression : BoundExpression
 {
     public BoundBlockExpression(IReadOnlyList<BoundExpression> statements)
         : base(statements.LastOrDefault()?.Type, null, BoundExpressionReason.None)

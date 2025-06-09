@@ -3,7 +3,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal class BoundIfExpression : BoundExpression
+internal partial class BoundIfExpression : BoundExpression
 {
     public BoundExpression Condition { get; }
     public BoundExpression ThenBranch { get; }

@@ -11,7 +11,7 @@ abstract class BoundAssignmentExpression : BoundExpression
     }
 }
 
-sealed class BoundLocalAssignmentExpression : BoundAssignmentExpression
+internal partial class BoundLocalAssignmentExpression : BoundAssignmentExpression
 {
     public ILocalSymbol Local { get; }
 
@@ -22,7 +22,7 @@ sealed class BoundLocalAssignmentExpression : BoundAssignmentExpression
     }
 }
 
-sealed class BoundArrayAssignmentExpression : BoundAssignmentExpression
+internal partial class BoundArrayAssignmentExpression : BoundAssignmentExpression
 {
     public BoundArrayAccessExpression Left { get; }
 
@@ -33,7 +33,7 @@ sealed class BoundArrayAssignmentExpression : BoundAssignmentExpression
     }
 }
 
-sealed class BoundIndexerAssignmentExpression : BoundAssignmentExpression
+internal partial class BoundIndexerAssignmentExpression : BoundAssignmentExpression
 {
     public BoundIndexerAccessExpression Left { get; }
 
@@ -44,7 +44,7 @@ sealed class BoundIndexerAssignmentExpression : BoundAssignmentExpression
     }
 }
 
-sealed class BoundMemberAssignmentExpression : BoundAssignmentExpression
+internal partial class BoundMemberAssignmentExpression : BoundAssignmentExpression
 {
     public ISymbol Member { get; }
     public BoundExpression Receiver { get; }

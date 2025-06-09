@@ -7,7 +7,7 @@ namespace Generator;
 
 public static class AcceptMethodGenerator
 {
-    public static IEnumerable<MethodDeclarationSyntax> GenerateAcceptMethods(string nodeClassName, bool makeInternal = false, string suffix = "Syntax")
+    public static IEnumerable<MethodDeclarationSyntax> GenerateAcceptMethods(string nodeClassName, bool makeInternal = false, string suffix = "Syntax", string? visitorClassName = null)
     {
         var str = suffix == "Syntax" ? "TNode" : "TResult";
 
@@ -39,7 +39,7 @@ public static class AcceptMethodGenerator
                         Parameter(
                             Identifier("visitor"))
                         .WithType(
-                            IdentifierName($"{(suffix == "Syntax" ? "" : "CodeAnalysis.")}{suffix}Visitor")))))
+                            IdentifierName($"{(suffix == "Syntax" ? "" : "CodeAnalysis.")}{(visitorClassName is not null ? visitorClassName : suffix)}Visitor")))))
             .WithBody(
                 Block(
                     SingletonList<StatementSyntax>(
@@ -74,7 +74,7 @@ public static class AcceptMethodGenerator
                             Identifier("visitor"))
                         .WithType(
                             GenericName(
-                                Identifier($"{(suffix == "Syntax" ? "" : "CodeAnalysis.")}{suffix}Visitor"))
+                                Identifier($"{(suffix == "Syntax" ? "" : "CodeAnalysis.")}{(visitorClassName is not null ? visitorClassName : suffix)}Visitor"))
                             .WithTypeArgumentList(
                                 TypeArgumentList(
                                     SingletonSeparatedList<TypeSyntax>(

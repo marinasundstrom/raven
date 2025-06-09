@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-class BoundLiteralExpression : BoundExpression
+internal partial class BoundLiteralExpression : BoundExpression
 {
     public object Value { get; }
 
