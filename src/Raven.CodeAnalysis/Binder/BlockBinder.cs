@@ -203,9 +203,37 @@ class BlockBinder : Binder
         BlockSyntax block => BindBlock(block),
         IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
         LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
+        UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
         ExpressionSyntax.Missing missing => BindMissingExpression(missing),
         _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
     };
+
+    private BoundExpression BindUnaryExpression(UnaryExpressionSyntax unaryExpression)
+    {
+        var operand = BindExpression(unaryExpression.Expression);
+
+        return unaryExpression.Kind switch
+        {
+            SyntaxKind.UnaryMinusExpression => operand,
+            SyntaxKind.UnaryPlusExpression => operand,
+            SyntaxKind.NotExpression => operand,
+
+            SyntaxKind.AddressOfExpression => BindAddressOfExpression(operand, unaryExpression),
+
+            _ => throw new NotSupportedException("Unsupported unary expression")
+        };
+    }
+
+    private BoundExpression BindAddressOfExpression(BoundExpression operand, UnaryExpressionSyntax syntax)
+    {
+        if (operand is BoundLocalExpression or BoundParameterExpression)
+        {
+            return new BoundAddressOfExpression(operand.Symbol!, operand.Type!);
+        }
+
+        //_diagnostics.ReportInvalidAddressOf(syntax.Expression.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed /*,.InvalidAddressOfTarget */);
+    }
 
     private BoundExpression BindLambdaExpression(LambdaExpressionSyntax syntax)
     {
@@ -811,22 +839,51 @@ class BlockBinder : Binder
 
             for (int i = 0; i < arguments.Length; i++)
             {
-                var conversion = Compilation.ClassifyConversion(arguments[i].Type, parameters[i].Type);
+                var param = parameters[i];
+                var arg = arguments[i];
 
+                // Handle ref/in/out matching
+                if (param.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+                {
+                    if (arg is not BoundAddressOfExpression)
+                    {
+                        allMatch = false;
+                        break;
+                    }
+
+                    // Must match the expected type exactly for ref/out
+                    if (!SymbolEqualityComparer.Default.Equals(arg.Type, param.Type))
+                    {
+                        allMatch = false;
+                        break;
+                    }
+
+                    // Favor exact match
+                    continue;
+                }
+                else if (arg is BoundAddressOfExpression)
+                {
+                    // AddressOf used but parameter is not by-ref
+                    allMatch = false;
+                    break;
+                }
+
+                // Normal conversion
+                var conversion = Compilation.ClassifyConversion(arg.Type, param.Type);
                 if (!conversion.IsImplicit)
                 {
                     allMatch = false;
                     break;
                 }
 
-                // Prefer exact matches over implicit conversions
+                // Implicit conversion score
                 score += conversion.IsIdentity ? 0 : 1;
             }
 
             if (allMatch && score < bestScore)
             {
-                bestScore = score;
                 bestMatch = method;
+                bestScore = score;
             }
         }
 

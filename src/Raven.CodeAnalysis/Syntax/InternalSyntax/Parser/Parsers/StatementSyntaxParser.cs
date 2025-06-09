@@ -70,6 +70,14 @@ internal class StatementSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
+            SyntaxList modifiers = SyntaxList.Empty;
+
+            SyntaxToken modifier;
+            if (ConsumeToken(SyntaxKind.RefKeyword, out modifier) || ConsumeToken(SyntaxKind.OutKeyword, out modifier) || ConsumeToken(SyntaxKind.InKeyword, out modifier))
+            {
+                modifiers = modifiers.Add(modifier);
+            }
+
             if (!ConsumeToken(SyntaxKind.IdentifierToken, out var name))
             {
 
@@ -77,7 +85,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
 
-            parameterList.Add(Parameter(name, typeAnnotation));
+            parameterList.Add(Parameter(modifiers, name, typeAnnotation));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

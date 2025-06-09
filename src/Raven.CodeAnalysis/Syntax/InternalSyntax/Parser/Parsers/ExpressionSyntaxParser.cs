@@ -117,7 +117,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         if (ConsumeToken(SyntaxKind.NotKeyword, out var token))
         {
-            ExpressionSyntax ret = UnaryExpression(token, ParseNotExpression());
+            ExpressionSyntax ret = UnaryExpression(SyntaxKind.NotExpression, token, ParseNotExpression());
             return ret;
         }
         else
@@ -239,13 +239,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.PlusToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(token, expr);
+                expr = UnaryExpression(SyntaxKind.UnaryPlusExpression, token, expr);
                 break;
 
             case SyntaxKind.MinusToken:
                 ReadToken();
                 expr = ParseFactorExpression();
-                expr = UnaryExpression(token, expr);
+                expr = UnaryExpression(SyntaxKind.UnaryMinusExpression, token, expr);
+                break;
+
+            case SyntaxKind.AmpersandToken:
+                ReadToken();
+                expr = ParseFactorExpression();
+                expr = UnaryExpression(SyntaxKind.AddressOfExpression, token, expr);
                 break;
 
             case SyntaxKind.IfKeyword:

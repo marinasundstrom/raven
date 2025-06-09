@@ -346,6 +346,8 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => false;
+    public bool IsParams => _original.IsParams;
+    public RefKind RefKind => _original.RefKind;
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitParameter(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitParameter(this);

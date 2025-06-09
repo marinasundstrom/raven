@@ -263,6 +263,21 @@ public enum MethodKind
 public interface IParameterSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
+
+    bool IsParams { get; }
+
+    RefKind RefKind { get; }
+}
+
+
+public enum RefKind
+{
+    None,
+    Ref,
+    Out,
+    In,
+    RefReadOnly,
+    RefReadOnlyParameter
 }
 
 

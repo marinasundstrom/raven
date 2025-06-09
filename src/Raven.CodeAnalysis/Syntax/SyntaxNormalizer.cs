@@ -242,7 +242,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     {
         var name = node.Identifier.WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(name,
+        return node.Update(node.Modifiers, name,
             node.TypeAnnotation is not null ? (TypeAnnotationSyntax?)VisitTypeAnnotation(node.TypeAnnotation) : null);
     }
 

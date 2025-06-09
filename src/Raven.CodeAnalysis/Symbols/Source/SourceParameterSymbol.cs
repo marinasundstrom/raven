@@ -9,4 +9,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
     }
 
     public ITypeSymbol Type { get; }
+
+    public bool IsParams => throw new NotImplementedException();
+
+    public RefKind RefKind => throw new NotImplementedException();
 }

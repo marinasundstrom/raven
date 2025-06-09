@@ -2,6 +2,8 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public partial class UnaryExpressionSyntax : ExpressionSyntax
 {
+    public override partial SyntaxKind Kind { get; }
+
     public partial SyntaxToken OperatorToken { get; }
 
     public partial ExpressionSyntax Expression { get; }
@@ -14,9 +16,9 @@ public partial class UnaryExpressionSyntax : ExpressionSyntax
     {
     }
 
-    public UnaryExpressionSyntax(SyntaxToken operatorToken, ExpressionSyntax expression)
+    public UnaryExpressionSyntax(SyntaxKind kind, SyntaxToken operatorToken, ExpressionSyntax expression)
           : this(
-                new InternalSyntax.UnaryExpressionSyntax(operatorToken.Green, (InternalSyntax.ExpressionSyntax)expression.Green), null)
+                new InternalSyntax.UnaryExpressionSyntax(kind, operatorToken.Green, (InternalSyntax.ExpressionSyntax)expression.Green), null)
     {
 
     }
@@ -24,6 +26,6 @@ public partial class UnaryExpressionSyntax : ExpressionSyntax
 
 public static partial class SyntaxFactory
 {
-    public static UnaryExpressionSyntax UnaryExpression(SyntaxToken operatorToken, ExpressionSyntax expression)
-        => new UnaryExpressionSyntax(operatorToken, expression);
+    public static UnaryExpressionSyntax UnaryExpression(SyntaxKind kind, SyntaxToken operatorToken, ExpressionSyntax expression)
+        => new UnaryExpressionSyntax(kind, operatorToken, expression);
 }

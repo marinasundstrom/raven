@@ -23,6 +23,11 @@ public enum SyntaxKind
     StringLiteralExpression,
     NullLiteralExpression,
 
+    UnaryPlusExpression,
+    UnaryMinusExpression,
+    NotExpression,
+    AddressOfExpression,
+
     SimpleLambdaExpression,
     ParenthesizedLambdaExpression,
 
@@ -40,6 +45,10 @@ public enum SyntaxKind
     ReturnTypeAnnotation,
     ParameterList,
     Parameter,
+
+    RefKeyword,
+    OutKeyword,
+    InKeyword,
 
     GlobalStatement,
 
@@ -161,6 +170,7 @@ public enum SyntaxKind
     BarToken,
     ExclamationToken,
     QuestionToken,
+    AmpersandToken,
 
     ColonToken,
     SemicolonToken,

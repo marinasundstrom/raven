@@ -40,5 +40,19 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         }
     }
 
+
+    public bool IsParams => _parameterInfo.GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0;
+
+    public RefKind RefKind
+    {
+        get
+        {
+            if (_parameterInfo.IsIn) return RefKind.In;
+            if (_parameterInfo.IsOut) return RefKind.Out;
+            if (_parameterInfo.ParameterType.IsByRef) return RefKind.Ref;
+            return RefKind.None;
+        }
+    }
+
     public ParameterInfo GetParameterInfo() => _parameterInfo;
 }

@@ -28,6 +28,10 @@ internal class ExpressionGenerator : Generator
                 GenerateBinaryExpression(binaryExpression);
                 break;
 
+            case UnaryExpressionSyntax unaryExpression:
+                GenerateUnaryExpression(unaryExpression);
+                break;
+
             case MemberAccessExpressionSyntax memberAccessExpression:
                 GenerateMemberAccessExpression(memberAccessExpression);
                 break;
@@ -91,6 +95,84 @@ internal class ExpressionGenerator : Generator
 
             default:
                 throw new NotSupportedException("Unsupported expression type");
+        }
+    }
+
+    private void GenerateUnaryExpression(UnaryExpressionSyntax node)
+    {
+        var operand = node.Expression;
+
+        switch (node.Kind)
+        {
+            case SyntaxKind.AddressOfExpression: // &x
+                {
+                    var symbol = GetSymbolInfo(operand).Symbol;
+
+                    if (symbol is null)
+                        throw new NotSupportedException("Cannot take address of unknown symbol.");
+
+                    var type = GetTypeInfo(operand).Type;
+                    var address = new BoundAddressOfExpression(symbol, type);
+                    GenerateAddressOfExpression(address);
+                    break;
+                }
+
+            /*
+            case SyntaxKind.NegateExpression: // -x
+                GenerateExpression(operand);
+                ILGenerator.Emit(OpCodes.Neg);
+                break;
+
+            case SyntaxKind.BitwiseNotExpression: // ~x
+                GenerateExpression(operand);
+                ILGenerator.Emit(OpCodes.Not);
+                break;
+
+            case SyntaxKind.LogicalNotExpression: // !x
+                GenerateExpression(operand);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
+            case SyntaxKind.UnaryPlusExpression: // +x
+                GenerateExpression(operand); // no-op
+                break;
+                */
+
+            default:
+                throw new NotSupportedException($"Unsupported unary operator: {node.Kind}");
+        }
+    }
+
+    private void GenerateAddressOfExpression(BoundAddressOfExpression addressOf)
+    {
+        switch (addressOf.Symbol)
+        {
+            case ILocalSymbol local:
+                ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                break;
+
+            case IParameterSymbol param:
+                int pos = MethodGenerator.GetParameterBuilder(param).Position;
+                if (MethodSymbol.IsStatic)
+                    pos -= 1;
+
+                ILGenerator.Emit(OpCodes.Ldarga, pos);
+                break;
+
+            case IFieldSymbol field when !field.IsStatic:
+                if (field.ContainingType.TypeKind is TypeKind.Struct)
+                {
+                    throw new NotSupportedException("Taking address of a field inside struct requires more handling (like loading enclosing struct by ref).");
+                }
+
+                // Assume it's on `this`
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldflda, ((PEFieldSymbol)field).GetFieldInfo());
+                break;
+
+            default:
+                throw new NotSupportedException($"Cannot take address of: {addressOf.Symbol}");
         }
     }
 
@@ -323,21 +405,68 @@ internal class ExpressionGenerator : Generator
 
     private void GenerateObjectCreationExpression(ObjectCreationExpressionSyntax objectCreationExpression)
     {
-        foreach (var argument in objectCreationExpression.ArgumentList.Arguments.Reverse())
+        var symbol = GetSymbolInfo(objectCreationExpression).Symbol;
+
+        IMethodSymbol constructorSymbol = symbol switch
         {
-            GenerateExpression(argument.Expression);
+            PEMethodSymbol a => a,
+            SubstitutedMethodSymbol b => b,
+            _ => throw new Exception("Unsupported constructor symbol")
+        };
+
+        var parameters = constructorSymbol.Parameters.ToArray();
+        var arguments = objectCreationExpression.ArgumentList.Arguments.ToArray();
+
+        for (int i = 0; i < arguments.Length; i++)
+        {
+            var param = parameters[i];
+            var argument = arguments[i];
+
+            if (param.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+            {
+                var boundArg = Compilation
+                    .GetSemanticModel(argument.SyntaxTree)
+                    .GetBoundNode(argument.Expression);
+
+                switch (boundArg)
+                {
+                    case BoundAddressOfExpression addr:
+                        GenerateAddressOfExpression(addr);
+                        break;
+
+                    //case BoundLocal { Symbol: ILocalSymbol local }:
+                    //    ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                    //    break;
+
+                    //case BoundParameter { Symbol: IParameterSymbol parameter }:
+                    //    ILGenerator.Emit(OpCodes.Ldarga, MethodGenerator.GetParameterBuilder(parameter).Position);
+                    //    break;
+
+                    default:
+                        throw new NotSupportedException("Invalid argument for ref/out constructor parameter");
+                }
+            }
+            else
+            {
+                GenerateExpression(argument.Expression);
+
+                var argType = GetTypeInfo(argument.Expression)?.Type;
+                if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } &&
+                    param.Type.TypeKind != TypeKind.Struct)
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(argType));
+                }
+            }
         }
 
-        var t = GetSymbolInfo(objectCreationExpression);
-
-        var target = t.Symbol switch
+        var constructorInfo = symbol switch
         {
             PEMethodSymbol a => a.GetConstructorInfo(),
             SubstitutedMethodSymbol m => m.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
             _ => throw new Exception()
         };
 
-        ILGenerator.Emit(OpCodes.Newobj, target);
+        ILGenerator.Emit(OpCodes.Newobj, constructorInfo);
     }
 
     private void GenerateAssignmentExpression(AssignmentExpressionSyntax assignmentExpression)
@@ -672,24 +801,55 @@ internal class ExpressionGenerator : Generator
             }
         }
 
-        var paramSymbols = target.Parameters.Reverse().ToArray();
-        int pi = 0;
+        var paramSymbols = target.Parameters.ToArray();
+        var args = invocationExpression.ArgumentList.Arguments.ToArray();
 
-        foreach (var argument in invocationExpression.ArgumentList.Arguments.Reverse())
+        for (int i = 0; i < args.Length; i++) // Left to right!
         {
-            var paramSymbol = paramSymbols[pi];
-            var argType = GetTypeInfo(argument.Expression)?.Type;
-            var paramType = paramSymbol.Type;
+            var paramSymbol = paramSymbols[i];
+            var argument = args[i];
 
-            GenerateExpression(argument.Expression);
-
-            if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } && paramType is { TypeKind: not TypeKind.Struct })
+            if (paramSymbol.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
-                // Box value type before passing it to reference type parameter
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(argType));
-            }
+                var boundArg = Compilation
+                    .GetSemanticModel(argument.SyntaxTree)
+                    .GetBoundNode(argument.Expression);
 
-            pi++;
+                switch (boundArg)
+                {
+                    case BoundAddressOfExpression addressOf:
+                        GenerateAddressOfExpression(addressOf);
+                        break;
+
+                    case BoundLocalExpression { Symbol: ILocalSymbol local }:
+                        ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                        break;
+
+                    //case BoundParameterExpression { Symbol: IParameterSymbol parameter }:
+                    //    ILGenerator.Emit(OpCodes.Ldarga, GetParameterIndex(parameter));
+                    //  break;
+
+                    //case BoundFieldAccess { FieldSymbol: IFieldSymbol field }:
+                    //    // TODO: Handle field address (e.g. load `this`, then `ldflda`)
+                    //    break;
+
+                    default:
+                        throw new NotSupportedException($"Unsupported ref/out argument expression: {boundArg?.GetType().Name}");
+                }
+            }
+            else
+            {
+                GenerateExpression(argument.Expression);
+
+                var argType = GetTypeInfo(argument.Expression)?.Type;
+                var paramType = paramSymbol.Type;
+
+                if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } &&
+                    paramType.TypeKind != TypeKind.Struct)
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(argType));
+                }
+            }
         }
 
         if (target?.IsStatic ?? false)

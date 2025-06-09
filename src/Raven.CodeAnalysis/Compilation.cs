@@ -272,6 +272,9 @@ public class Compilation
 
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)
     {
+        // Temporary
+        if (destination is null) return Conversion.None;
+
         if (SymbolEqualityComparer.Default.Equals(source, destination))
         {
             // Identity conversion

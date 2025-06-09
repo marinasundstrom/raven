@@ -2,6 +2,8 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public readonly struct SyntaxTokenList : IEnumerable<SyntaxToken>
 {
+    public static readonly SyntaxTokenList Empty = new SyntaxTokenList();
+
     internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;
     private readonly int _position;
@@ -25,6 +27,11 @@ public readonly struct SyntaxTokenList : IEnumerable<SyntaxToken>
 
             return new Syntax.SyntaxToken(childGreenNode, parent, position);
         }
+    }
+
+    public SyntaxTokenList Add(SyntaxToken syntaxToken)
+    {
+        return new SyntaxTokenList(this.Green.Add(syntaxToken.Green), null, 0);
     }
 
     public IEnumerator<SyntaxToken> GetEnumerator()
