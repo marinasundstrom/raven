@@ -58,6 +58,9 @@ internal partial class BoundBinaryOperator
 
             new BoundBinaryOperator(SyntaxKind.PlusToken, stringType, stringType, stringType),
 
+            new BoundBinaryOperator(SyntaxKind.EqualsEqualsToken, intType, intType, boolType),
+            new BoundBinaryOperator(SyntaxKind.NotEqualsToken, intType, intType, boolType),
+
             new BoundBinaryOperator(SyntaxKind.GreaterThanToken, intType, intType, boolType),
             new BoundBinaryOperator(SyntaxKind.LessThanToken, intType, intType, boolType),
             new BoundBinaryOperator(SyntaxKind.GreaterOrEqualsToken, intType, intType, boolType),

@@ -640,7 +640,7 @@ internal class ExpressionGenerator : Generator
         {
             // First load the target expression (e.g., the array object)
 
-            if (memberAccessExpression.Expression is not null)
+            if (memberAccessExpression.Expression is not null && !symbol.IsStatic)
             {
                 GenerateExpression(memberAccessExpression.Expression);
             }
@@ -671,7 +671,14 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldloca, tmp);
                 }
 
-                ILGenerator.Emit(OpCodes.Callvirt, property?.GetMethod!);
+                if (propertySymbol.IsStatic)
+                {
+                    ILGenerator.Emit(OpCodes.Call, property?.GetMethod!);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Callvirt, property?.GetMethod!);
+                }
             }
         }
         else if (symbol is IFieldSymbol fieldSymbol)

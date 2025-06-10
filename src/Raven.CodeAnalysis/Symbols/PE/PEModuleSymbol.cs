@@ -129,6 +129,17 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
         var typeInfo = type.GetTypeInfo();
 
+        if (typeInfo.IsArray)
+        {
+            var typeSymbol2 = new PEArrayTypeSymbol(
+                typeInfo, ns, null, ns,
+                [new MetadataLocation(ns.ContainingModule!)]);
+
+            _typeSymbolTypeInfoMapping[typeInfo] = typeSymbol2;
+
+            return typeSymbol2;
+        }
+
         var typeSymbol = new PENamedTypeSymbol(
             typeInfo, ns, null, ns,
             [new MetadataLocation(ns.ContainingModule!)]);

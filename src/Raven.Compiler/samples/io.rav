@@ -1,0 +1,24 @@
+import System;
+import System.Collections.Generic;
+import System.IO;
+
+let fileList = new List<string>();
+
+if args.Length != 1 {
+    Console.WriteLine("Expected 1 argument");
+} else {
+    let files = Directory.GetFiles(args[0]);
+
+    var i = 0;
+
+    while i < files.Length {
+        let file = files[i];
+        let path = Path.GetRelativePath(Environment.CurrentDirectory, file);
+        Console.WriteLine(path);
+        fileList.Add(file);
+        i = i + 1;
+    }
+}
+
+Console.Write("Number of files: ");
+Console.WriteLine(fileList.Count);

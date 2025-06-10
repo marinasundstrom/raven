@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
-    private readonly System.Reflection.TypeInfo _typeInfo;
+    protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
@@ -42,6 +42,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         else if (typeInfo.IsPointer)
         {
             TypeKind = TypeKind.Interface;
+        }
+        else if (typeInfo.IsArray)
+        {
+            TypeKind = TypeKind.Array;
         }
         else
         {
