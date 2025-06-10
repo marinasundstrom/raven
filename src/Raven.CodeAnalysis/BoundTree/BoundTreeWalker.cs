@@ -33,9 +33,6 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundInvocationExpression call:
                 VisitInvocationExpression(call);
                 break;
-            case BoundReturnExpression ret:
-                VisitReturnExpression(ret);
-                break;
             case BoundLambdaExpression lambda:
                 VisitLambdaExpression(lambda);
                 break;
@@ -54,9 +51,29 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitLocalAccess(BoundLocalAccess node) { }
     public override void VisitParameterAccess(BoundParameterAccess node) { }
 
-    public override void VisitReturnExpression(BoundReturnExpression node)
+    public virtual void VisitStatement(BoundStatement statement)
     {
-        VisitExpression(node.Expression);
+        switch (statement)
+        {
+            case BoundLocalFunctionStatement localFunctionStatement:
+                VisitLocalFunctionStatement(localFunctionStatement);
+                break;
+            case BoundExpressionStatement expressionStatement:
+                VisitExpressionStatement(expressionStatement);
+                break;
+            case BoundLocalDeclarationStatement localDeclaration:
+                VisitLocalDeclarationStatement(localDeclaration);
+                break;
+            case BoundReturnStatement ret:
+                VisitReturnStatement(ret);
+                break;
+        }
+    }
+
+    public override void VisitReturnStatement(BoundReturnStatement node)
+    {
+        if(node.Expression is not null)
+            VisitExpression(node.Expression);
     }
 
     public override void VisitBinaryExpression(BoundBinaryExpression node)
@@ -82,7 +99,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         foreach (var s in node.Statements)
         {
-            VisitExpression(s);
+            VisitStatement(s);
         }
     }
 }

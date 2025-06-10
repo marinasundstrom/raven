@@ -2,15 +2,14 @@ using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Symbols;
-using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
 internal class ExpressionGenerator : Generator
 {
-    private readonly ExpressionSyntax _expression;
+    private readonly BoundExpression _expression;
 
-    public ExpressionGenerator(Generator parent, ExpressionSyntax expression) : base(parent)
+    public ExpressionGenerator(Generator parent, BoundExpression expression) : base(parent)
     {
         _expression = expression;
     }
@@ -20,128 +19,148 @@ internal class ExpressionGenerator : Generator
         GenerateExpression(_expression);
     }
 
-    private void GenerateExpression(ExpressionSyntax expression)
+    private void GenerateExpression(BoundExpression expression)
     {
         switch (expression)
         {
-            case BinaryExpressionSyntax binaryExpression:
+            case BoundBinaryExpression binaryExpression:
                 GenerateBinaryExpression(binaryExpression);
                 break;
 
-            case UnaryExpressionSyntax unaryExpression:
+            case BoundUnaryExpression unaryExpression:
                 GenerateUnaryExpression(unaryExpression);
                 break;
 
-            case MemberAccessExpressionSyntax memberAccessExpression:
+            case BoundAddressOfExpression addressOfExpression:
+                GenerateAddressOfExpression(addressOfExpression);
+                break;
+
+            case BoundParameterAccess parameterAccess:
+                GenerateParameterAccess(parameterAccess);
+                break;
+
+            case BoundLocalAccess localAccess:
+                GenerateLocalAccess(localAccess);
+                break;
+
+            case BoundPropertyAccess propertyAccess:
+                GeneratePropertyAccess(propertyAccess);
+                break;
+
+            case BoundMemberAccessExpression memberAccessExpression:
                 GenerateMemberAccessExpression(memberAccessExpression);
                 break;
 
-            case InvocationExpressionSyntax invocationExpression:
+            case BoundInvocationExpression invocationExpression:
                 GenerateInvocationExpression(invocationExpression);
                 break;
 
-            case IdentifierNameSyntax identifierName:
-                GenerateNameExpression(identifierName);
-                break;
-
-            case LiteralExpressionSyntax literalExpression:
+            case BoundLiteralExpression literalExpression:
                 GenerateLiteralExpression(literalExpression);
                 break;
 
-            case ParenthesizedExpressionSyntax parenthesized:
+            case BoundParenthesizedExpression parenthesized:
                 GenerateExpression(parenthesized.Expression);
                 break;
 
-            case IfExpressionSyntax ifStatementSyntax:
-                GenerateIfExpression(ifStatementSyntax);
+            case BoundIfExpression ifStatement:
+                GenerateIfExpression(ifStatement);
                 break;
 
-            case WhileExpressionSyntax whileStatement:
+            case BoundWhileExpression whileStatement:
                 GenerateWhileExpression(whileStatement);
                 break;
 
-            case BlockSyntax block:
+            case BoundBlockExpression block:
                 GenerateBlock(block);
                 break;
 
-            case AssignmentExpressionSyntax assignmentExpression:
+            case BoundAssignmentExpression assignmentExpression:
                 GenerateAssignmentExpression(assignmentExpression);
                 break;
 
-            case ObjectCreationExpressionSyntax objectCreationExpression:
+            case BoundObjectCreationExpression objectCreationExpression:
                 GenerateObjectCreationExpression(objectCreationExpression);
                 break;
 
-            case CollectionExpressionSyntax collectionExpression:
+            case BoundCollectionExpression collectionExpression:
                 GenerateCollectionExpression(collectionExpression);
                 break;
 
-            case ElementAccessExpressionSyntax elementAccessExpression:
-                GenerateElementAccessExpression(elementAccessExpression);
+            case BoundArrayAccessExpression boundArrayAccessExpression:
+                GenerateArrayAccessExpression(boundArrayAccessExpression);
                 break;
 
-            case IsPatternExpressionSyntax isPatternExpression:
+            case BoundIndexerAccessExpression boundIndexerAccessExpression:
+                GenerateIndexerAccessExpression(boundIndexerAccessExpression);
+                break;
+
+            case BoundIsPatternExpression isPatternExpression:
                 GenerateIsPatternExpression(isPatternExpression);
                 break;
 
-            case LambdaExpressionSyntax lambdaExpression:
-                var info = GetTypeInfo(lambdaExpression);
-                var x = info.Type.GetMembers().OfType<IMethodSymbol>().First();
+            case BoundTypeExpression:
+                break;
+
+            case BoundVoidExpression:
+                break;
+
+            case BoundLambdaExpression lambdaExpression:
+                var x = lambdaExpression.Type.GetMembers().OfType<IMethodSymbol>().First();
                 var z = x.Parameters.First();
                 var t = z.Type;
 
-                var y = ResolveClrType(info.Type);
+                var y = ResolveClrType(lambdaExpression.Type);
                 break;
 
             default:
-                throw new NotSupportedException("Unsupported expression type");
+                throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
         }
     }
 
-    private void GenerateUnaryExpression(UnaryExpressionSyntax node)
+    private void GenerateLocalAccess(BoundLocalAccess localAccess)
     {
-        var operand = node.Expression;
+        ILGenerator.Emit(OpCodes.Ldloc, GetLocal(localAccess.Local));
+    }
 
-        switch (node.Kind)
+    private void GenerateParameterAccess(BoundParameterAccess parameterAccess)
+    {
+        int position = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter).Position;
+        if (MethodSymbol.IsStatic)
+            position -= 1;
+
+        ILGenerator.Emit(OpCodes.Ldarg, position);
+    }
+
+    private void GenerateUnaryExpression(BoundUnaryExpression node)
+    {
+        var operand = node.Operand;
+        var op = node.Operator;
+
+        switch (op.OperatorKind)
         {
-            case SyntaxKind.AddressOfExpression: // &x
-                {
-                    var symbol = GetSymbolInfo(operand).Symbol;
+            case BoundUnaryOperatorKind.UnaryMinus: // -x
+                GenerateExpression(operand);
+                ILGenerator.Emit(OpCodes.Neg);
+                break;
 
-                    if (symbol is null)
-                        throw new NotSupportedException("Cannot take address of unknown symbol.");
+            case BoundUnaryOperatorKind.UnaryPlus: // +x
+                GenerateExpression(operand); // no-op
+                break;
 
-                    var type = GetTypeInfo(operand).Type;
-                    var address = new BoundAddressOfExpression(symbol, type);
-                    GenerateAddressOfExpression(address);
-                    break;
-                }
-
-            case SyntaxKind.LogicalNotExpression: // -x
+            case BoundUnaryOperatorKind.LogicalNot: // !x
                 GenerateExpression(operand);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
 
-            /*
-            case SyntaxKind.BitwiseNotExpression: // ~x
+            case BoundUnaryOperatorKind.BitwiseNot: // ~x
                 GenerateExpression(operand);
                 ILGenerator.Emit(OpCodes.Not);
                 break;
 
-            case SyntaxKind.LogicalNotExpression: // !x
-                GenerateExpression(operand);
-                ILGenerator.Emit(OpCodes.Ldc_I4_0);
-                ILGenerator.Emit(OpCodes.Ceq);
-                break;
-
-            case SyntaxKind.UnaryPlusExpression: // +x
-                GenerateExpression(operand); // no-op
-                break;
-                */
-
             default:
-                throw new NotSupportedException($"Unsupported unary operator: {node.Kind}");
+                throw new NotSupportedException($"Unsupported unary operator");
         }
     }
 
@@ -177,24 +196,23 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateIsPatternExpression(IsPatternExpressionSyntax isPatternExpression)
+    private void GenerateIsPatternExpression(BoundIsPatternExpression isPatternExpression)
     {
         GenerateExpression(isPatternExpression.Expression); // Push the value of the expression onto the stack
 
         GeneratePattern(isPatternExpression.Pattern);       // Evaluate the pattern; leaves a boolean on the stack
     }
 
-    private void GeneratePattern(PatternSyntax pattern)
+    private void GeneratePattern(BoundPattern pattern)
     {
-        if (pattern is DeclarationPatternSyntax declarationPattern)
+        if (pattern is BoundDeclarationPattern declarationPattern)
         {
-            var typeInfo = GetTypeInfo(declarationPattern.Type);
-            var typeSymbol = typeInfo.Type;
+            var typeSymbol = declarationPattern.Type;
             var clrType = ResolveClrType(typeSymbol);
 
-            GenerateDesignation(declarationPattern.Designation);
+            GenerateDesignation(declarationPattern.Designator);
 
-            var patternLocal = GetLocal(declarationPattern.Designation);
+            var patternLocal = GetLocal(declarationPattern.Designator);
 
             // [expr]
             if (typeSymbol.TypeKind is TypeKind.Struct)
@@ -228,11 +246,11 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Cgt_Un);                  // bool: not-null
             }
         }
-        else if (pattern is UnaryPatternSyntax unaryPatternSyntax)
+        else if (pattern is BoundUnaryPattern unaryPattern)
         {
-            GeneratePattern(unaryPatternSyntax.Pattern);
+            GeneratePattern(unaryPattern.Pattern);
 
-            if (unaryPatternSyntax.IsKind(SyntaxKind.NotPattern))
+            if (unaryPattern.Kind == BoundUnaryPatternKind.Not)
             {
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq); // logical NOT
@@ -242,12 +260,12 @@ internal class ExpressionGenerator : Generator
                 throw new NotSupportedException("Unsupported unary pattern kind");
             }
         }
-        else if (pattern is BinaryPatternSyntax binaryPattern)
+        else if (pattern is BoundBinaryPattern binaryPattern)
         {
             var labelFail = ILGenerator.DefineLabel();
             var labelDone = ILGenerator.DefineLabel();
 
-            if (binaryPattern.IsKind(SyntaxKind.AndPattern))
+            if (binaryPattern.Kind == BoundPatternKind.And)
             {
                 GeneratePattern(binaryPattern.Left);
                 ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
@@ -263,7 +281,7 @@ internal class ExpressionGenerator : Generator
 
                 ILGenerator.MarkLabel(labelDone);
             }
-            else if (binaryPattern.IsKind(SyntaxKind.OrPattern))
+            else if (binaryPattern.Kind == BoundPatternKind.Or)
             {
                 var labelTrue = ILGenerator.DefineLabel();
 
@@ -292,39 +310,37 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private LocalBuilder GetLocal(VariableDesignationSyntax designation)
+    private LocalBuilder GetLocal(BoundDesignator designation)
     {
         // Create or retrieve a LocalBuilder for the variable name
-        if (designation is SingleVariableDesignationSyntax single)
+        if (designation is BoundSingleVariableDesignator single)
         {
-            var symbol = GetDeclaredSymbol<ILocalSymbol>(single);
-
-            return GetLocal(symbol); // assuming `locals` is a dictionary
+            return GetLocal(single.Local); // assuming `locals` is a dictionary
         }
 
         throw new NotSupportedException("Unsupported designation");
     }
 
-    private void GenerateDesignation(VariableDesignationSyntax designation)
+    private void GenerateDesignation(BoundDesignator designation)
     {
-        if (designation is SingleVariableDesignationSyntax single)
+        if (designation is BoundSingleVariableDesignator single)
         {
-            var symbol = GetDeclaredSymbol<ILocalSymbol>(single);
+            var symbol = single.Local;
 
             var local = ILGenerator.DeclareLocal(ResolveClrType(symbol.Type)); // resolve type
-            local.SetLocalSymInfo(single.Identifier.Text);
+            local.SetLocalSymInfo(single.Local.Name);
 
-            AddLocal(symbol, local);
+            base.AddLocal(symbol, local);
         }
     }
 
-    private void GenerateCollectionExpression(CollectionExpressionSyntax collectionExpression)
+    private void GenerateCollectionExpression(BoundCollectionExpression collectionExpression)
     {
-        var target = GetSymbolInfo(collectionExpression).Symbol;
+        var target = collectionExpression.Type;
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
-            ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count);
+            ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Length);
             ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
 
             int index = 0;
@@ -332,7 +348,8 @@ internal class ExpressionGenerator : Generator
             {
                 ILGenerator.Emit(OpCodes.Dup);
                 ILGenerator.Emit(OpCodes.Ldc_I4, index);
-                GenerateExpression(element.Expression);
+
+                GenerateExpression(element);
 
                 if (arrayTypeSymbol.ElementType.TypeKind is not TypeKind.Struct)
                 {
@@ -348,47 +365,39 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateElementAccessExpression(ElementAccessExpressionSyntax elementAccessExpression)
+    private void GenerateArrayAccessExpression(BoundArrayAccessExpression boundArrayAccessExpression)
     {
-        var exprType = GetTypeInfo(elementAccessExpression.Expression).Type;
-        var symbol = GetSymbolInfo(elementAccessExpression).Symbol;
+        var arrayType = boundArrayAccessExpression.Receiver.Type as IArrayTypeSymbol;
 
-        // Handle arrays
-        if (exprType is IArrayTypeSymbol arrayType)
+        GenerateExpression(boundArrayAccessExpression.Receiver);
+
+        foreach (var argument in boundArrayAccessExpression.Indices)
         {
-            GenerateExpression(elementAccessExpression.Expression);
-
-            foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
-            {
-                GenerateExpression(argument.Expression);
-            }
-
-            EmitLoadElement(arrayType.ElementType);
-            return;
+            GenerateExpression(argument);
         }
 
-        // Handle indexer property
-        if (symbol is IPropertySymbol indexerProperty && indexerProperty.IsIndexer)
+        EmitLoadElement(arrayType.ElementType);
+    }
+
+    private void GenerateIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)
+    {
+        var indexerProperty = boundIndexerAccessExpression.Symbol as IPropertySymbol;
+
+        GenerateExpression(boundIndexerAccessExpression.Receiver);
+
+        foreach (var argument in boundIndexerAccessExpression.Arguments)
         {
-            GenerateExpression(elementAccessExpression.Expression);
-
-            foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
-            {
-                GenerateExpression(argument.Expression);
-            }
-
-            var getter = indexerProperty switch
-            {
-                PEPropertySymbol pe => pe.GetPropertyInfo().GetMethod!,
-                SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).GetMethod!,
-                _ => throw new NotSupportedException("Unsupported indexer")
-            };
-
-            ILGenerator.Emit(OpCodes.Callvirt, getter);
-            return;
+            GenerateExpression(argument);
         }
 
-        throw new NotSupportedException("Unsupported element access target");
+        var getter = indexerProperty switch
+        {
+            PEPropertySymbol pe => pe.GetPropertyInfo().GetMethod!,
+            SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).GetMethod!,
+            _ => throw new NotSupportedException("Unsupported indexer")
+        };
+
+        ILGenerator.Emit(OpCodes.Callvirt, getter);
     }
 
     private void EmitLoadElement(ITypeSymbol elementType)
@@ -404,9 +413,9 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateObjectCreationExpression(ObjectCreationExpressionSyntax objectCreationExpression)
+    private void GenerateObjectCreationExpression(BoundObjectCreationExpression objectCreationExpression)
     {
-        var symbol = GetSymbolInfo(objectCreationExpression).Symbol;
+        var symbol = objectCreationExpression.Symbol;
 
         IMethodSymbol constructorSymbol = symbol switch
         {
@@ -416,7 +425,7 @@ internal class ExpressionGenerator : Generator
         };
 
         var parameters = constructorSymbol.Parameters.ToArray();
-        var arguments = objectCreationExpression.ArgumentList.Arguments.ToArray();
+        var arguments = objectCreationExpression.Arguments.ToArray();
 
         for (int i = 0; i < arguments.Length; i++)
         {
@@ -425,9 +434,7 @@ internal class ExpressionGenerator : Generator
 
             if (param.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
-                var boundArg = GetBoundNode(argument.Expression);
-
-                switch (boundArg)
+                switch (argument)
                 {
                     case BoundAddressOfExpression addr:
                         GenerateAddressOfExpression(addr);
@@ -447,9 +454,9 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                GenerateExpression(argument.Expression);
+                GenerateExpression(argument);
 
-                var argType = GetTypeInfo(argument.Expression)?.Type;
+                var argType = argument.Type;
                 if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } &&
                     param.Type.TypeKind != TypeKind.Struct)
                 {
@@ -468,58 +475,41 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, constructorInfo);
     }
 
-    private void GenerateAssignmentExpression(AssignmentExpressionSyntax assignmentExpression)
+    private void GenerateAssignmentExpression(BoundAssignmentExpression node)
     {
-        var symbol = GetSymbolInfo(assignmentExpression.LeftHandSide).Symbol;
-
-        if (assignmentExpression.LeftHandSide is ElementAccessExpressionSyntax elementAccessExpression)
+        switch (node)
         {
-            var exprType = GetTypeInfo(elementAccessExpression.Expression).Type;
-            var symbol2 = GetSymbolInfo(elementAccessExpression.Expression).Symbol;
+            case BoundLocalAssignmentExpression localExpression:
+                GenerateExpression(localExpression.Right);
 
-            // Handle array access (local)
-            if (symbol2 is ILocalSymbol localSymbol && localSymbol.Type is IArrayTypeSymbol arrayType)
-            {
-                ILGenerator.Emit(OpCodes.Ldloc, GetLocal(localSymbol));
+                if (localExpression.Right.Type.TypeKind is TypeKind.Struct && localExpression.Type.SpecialType is SpecialType.System_Object)
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(localExpression.Right.Type));
+                }
 
-                foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
-                    GenerateExpression(argument.Expression);
+                ILGenerator.Emit(OpCodes.Stloc, GetLocal(localExpression.Local));
+                break;
 
-                GenerateExpression(assignmentExpression.RightHandSide);
+            case BoundArrayAssignmentExpression array:
+                GenerateExpression(array.Left.Receiver);
 
-                EmitStoreElement(arrayType.ElementType);
-            }
-            // Handle array access (parameter)
-            else if (symbol2 is IParameterSymbol parameterSymbol && parameterSymbol.Type is IArrayTypeSymbol arrayType2)
-            {
-                int position = MethodGenerator.GetParameterBuilder(parameterSymbol).Position;
-                if (MethodSymbol.IsStatic)
-                    position -= 1;
+                foreach (var index in array.Left.Indices)
+                    GenerateExpression(index);
 
-                ILGenerator.Emit(OpCodes.Ldarg, position);
+                GenerateExpression(array.Right);
 
-                foreach (var argument in elementAccessExpression.ArgumentList.Arguments)
-                    GenerateExpression(argument.Expression);
+                EmitStoreElement(((IArrayTypeSymbol)array.Left.Type).ElementType);
+                break;
 
-                GenerateExpression(assignmentExpression.RightHandSide);
+            case BoundIndexerAssignmentExpression indexer:
+                GenerateExpression(indexer.Left.Receiver);
 
-                EmitStoreElement(arrayType2.ElementType);
-            }
-            // ✅ Handle indexer assignment
-            else if (symbol is IPropertySymbol indexer && indexer.IsIndexer)
-            {
-                // Load instance
-                GenerateExpression(elementAccessExpression.Expression);
+                foreach (var arg in indexer.Left.Arguments)
+                    GenerateExpression(arg);
 
-                // Load index arguments
-                foreach (var arg in elementAccessExpression.ArgumentList.Arguments)
-                    GenerateExpression(arg.Expression);
+                GenerateExpression(indexer.Right);
 
-                // Load value to set
-                GenerateExpression(assignmentExpression.RightHandSide);
-
-                // Call setter
-                var setter = indexer switch
+                var setter = ((IPropertySymbol)indexer.Left.Symbol!) switch
                 {
                     PEPropertySymbol pe => pe.GetPropertyInfo().SetMethod!,
                     SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).SetMethod!,
@@ -527,55 +517,43 @@ internal class ExpressionGenerator : Generator
                 };
 
                 ILGenerator.Emit(OpCodes.Callvirt, setter);
-            }
-            else
-            {
-                throw new NotSupportedException("Unsupported element access assignment target");
-            }
+                break;
 
-            return;
+            case BoundMemberAssignmentExpression member:
+                GenerateExpression(member.Receiver);
+                GenerateExpression(member.Right);
+
+                switch (member.Member)
+                {
+                    case IFieldSymbol field:
+                        ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(field));
+                        break;
+                    case IPropertySymbol prop:
+                        var setterMethod = ((IPropertySymbol)member.Member) switch
+                        {
+                            PEPropertySymbol pe => pe.GetPropertyInfo().SetMethod!,
+                            SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).SetMethod!,
+                            _ => throw new NotSupportedException("Unsupported member property")
+                        };
+                        ILGenerator.Emit(OpCodes.Callvirt, setterMethod);
+                        break;
+                    default:
+                        throw new NotSupportedException("Unsupported member assignment target");
+                }
+                break;
+
+            default:
+                throw new NotSupportedException($"Unknown BoundAssignmentExpression: {node.GetType().Name}");
         }
-        else
+    }
+
+    private FieldInfo GetField(IFieldSymbol fieldSymbol)
+    {
+        return fieldSymbol switch
         {
-            if (symbol is ILocalSymbol localSymbol)
-            {
-                GenerateExpression(assignmentExpression.RightHandSide);
-
-                var s = GetTypeInfo(assignmentExpression.RightHandSide).Type;
-
-                var localBuilder = GetLocal(localSymbol);
-
-                if (s.TypeKind is TypeKind.Struct
-                    && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type.IsUnion))
-                {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(s));
-                }
-
-                ILGenerator.Emit(OpCodes.Stloc, localBuilder);
-            }
-            else if (symbol is IParameterSymbol parameterSymbol)
-            {
-                GenerateExpression(assignmentExpression.RightHandSide);
-
-                var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
-
-                var s = GetTypeInfo(assignmentExpression.RightHandSide).Type;
-
-                if (s.TypeKind is TypeKind.Struct && parameterSymbol.Type.SpecialType is SpecialType.System_Object)
-                {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(s));
-                }
-
-                int position = parameterBuilder.Position;
-
-                if (MethodSymbol.IsStatic)
-                {
-                    position -= 1;
-                }
-
-                ILGenerator.Emit(OpCodes.Starg, position);
-            }
-        }
+            PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(),
+            _ => throw new Exception("Unsupported field symbol")
+        };
     }
 
     private void EmitStoreElement(ITypeSymbol elementType)
@@ -591,58 +569,53 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateBinaryExpression(BinaryExpressionSyntax binaryExpression)
+    private void GenerateBinaryExpression(BoundBinaryExpression binaryExpression)
     {
-        GenerateExpression(binaryExpression.LeftHandSide);
-        GenerateExpression(binaryExpression.RightHandSide);
+        GenerateExpression(binaryExpression.Left);
+        GenerateExpression(binaryExpression.Right);
 
-        var semanticModel = Compilation.GetSemanticModel(binaryExpression.SyntaxTree!);
+        var op = binaryExpression.Operator;
 
-        var methodSymbol = semanticModel.GetSymbolInfo(binaryExpression).Symbol as IMethodSymbol;
-
-        if (methodSymbol is not null)
+        switch (op.OperatorKind)
         {
-            var concatMethod = methodSymbol as PEMethodSymbol;
-
-            ILGenerator.Emit(OpCodes.Call, concatMethod.GetMethodInfo());
-            return;
-        }
-
-        switch (binaryExpression.Kind)
-        {
-            case SyntaxKind.AddExpression:
+            case BinaryOperatorKind.Addition:
                 ILGenerator.Emit(OpCodes.Add);
                 break;
 
-            case SyntaxKind.SubtractExpression:
+            case BinaryOperatorKind.Subtraction:
                 ILGenerator.Emit(OpCodes.Sub);
                 break;
 
-            case SyntaxKind.MultiplyExpression:
+            case BinaryOperatorKind.Multiplication:
                 ILGenerator.Emit(OpCodes.Mul);
                 break;
 
-            case SyntaxKind.DivideExpression:
+            case BinaryOperatorKind.Division:
                 ILGenerator.Emit(OpCodes.Div);
                 break;
 
-            case SyntaxKind.ModuloExpression:
-                ILGenerator.Emit(OpCodes.Rem);
-                break;
+            //case BinaryOperatorKind.Modulo:
+            //    ILGenerator.Emit(OpCodes.Rem);
+            //    break;
+
+            default:
+                throw new InvalidOperationException("Invalid operator kind");
         }
     }
 
-    private void GenerateMemberAccessExpression(MemberAccessExpressionSyntax memberAccessExpression)
+    private void GenerateMemberAccessExpression(BoundMemberAccessExpression memberAccessExpression)
     {
-        var symbol = GetSymbolInfo(memberAccessExpression).Symbol;
+        var symbol = memberAccessExpression.Symbol;
 
         if (symbol is IPropertySymbol propertySymbol)
         {
             // First load the target expression (e.g., the array object)
 
-            if (memberAccessExpression.Expression is not null && !symbol.IsStatic)
+            var receiver = memberAccessExpression.Receiver;
+
+            if (receiver is not null && !symbol.IsStatic)
             {
-                GenerateExpression(memberAccessExpression.Expression);
+                GenerateExpression(receiver);
             }
 
             if (propertySymbol.ContainingType!.SpecialType is SpecialType.System_Array && propertySymbol.Name == "Length")
@@ -685,9 +658,11 @@ internal class ExpressionGenerator : Generator
         {
             // First load the target expression (e.g., the array object)
 
-            if (memberAccessExpression.Expression is not null)
+            var receiver = memberAccessExpression.Receiver;
+
+            if (receiver is not null)
             {
-                GenerateExpression(memberAccessExpression.Expression);
+                GenerateExpression(receiver);
             }
 
             // Value types need address loading
@@ -737,54 +712,40 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateInvocationExpression(InvocationExpressionSyntax invocationExpression)
+    private void GenerateInvocationExpression(BoundInvocationExpression invocationExpression)
     {
-        // Resolve target identifier or access
-        // If method or delegate, then invoke
+        var target = invocationExpression.Method;
+        var receiver = invocationExpression.Receiver;
 
-        var node = GetBoundNode(invocationExpression) as BoundInvocationExpression;
-
-        var target = node.Method;
-
-        if (!target?.IsStatic ?? false)
+        // Emit receiver (for instance methods)
+        if (!target.IsStatic)
         {
-            // Instance member invocation
-
-            var expr = invocationExpression.Expression;
-            if (invocationExpression.Expression is MemberAccessExpressionSyntax e)
+            if (receiver is BoundLocalAccess { Symbol: ILocalSymbol localSymbol })
             {
-                // Get the target Expression. Ignores the Name, which is the method.
-                expr = e.Expression;
-            }
-
-            var localSymbol = GetSymbolInfo(expr).Symbol as ILocalSymbol;
-
-            if (localSymbol is not null)
-            {
-                // A local
-
                 var localBuilder = GetLocal(localSymbol);
 
                 if (localSymbol.Type.TypeKind is TypeKind.Struct)
                 {
-                    if (target.IsVirtual || target.ContainingType.TypeKind == TypeKind.Interface)
-                    {
-                        // Loading the address of the value to the instance.
+                    var isGetType = target.Name == "GetType"
+                        && target.ContainingType.Name == "Object"
+                        && target.ContainingNamespace.Name == "System";
 
-                        ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
-                    }
-                    else
+                    if (isGetType)
                     {
                         ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
                         ILGenerator.Emit(OpCodes.Box, localBuilder.LocalType);
                     }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
+                    }
                 }
                 else
                 {
-                    // Since it's a reference type, the address is stored in the local.
-
+                    // For reference types, just load the value
                     ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
 
+                    // Box if the runtime type is a value type (e.g. captured as object)
                     if (localBuilder.LocalType.IsValueType)
                     {
                         ILGenerator.Emit(OpCodes.Box, localBuilder.LocalType);
@@ -793,35 +754,46 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                // It's an expression.
-
-                GenerateExpression(expr);
+                // General case: evaluate the receiver expression
+                GenerateExpression(receiver);
 
                 if (target.ContainingType.TypeKind is TypeKind.Struct)
                 {
-                    var clrType = ResolveClrType(target.ContainingType);
-                    var builder = ILGenerator.DeclareLocal(clrType);
-                    //_localBuilders[target] = builder;
+                    var isGetType = target.Name == "GetType"
+                        && target.ContainingType.Name == "Object"
+                        && target.ContainingNamespace.Name == "System";
 
-                    ILGenerator.Emit(OpCodes.Stloc, builder);
-                    ILGenerator.Emit(OpCodes.Ldloca, builder);
+                    if (isGetType)
+                    {
+                        var clrType = ResolveClrType(target.ContainingType);
+                        var temp = ILGenerator.DeclareLocal(clrType);
+                        ILGenerator.Emit(OpCodes.Stloc, temp);
+                        ILGenerator.Emit(OpCodes.Ldloc, temp);
+                        ILGenerator.Emit(OpCodes.Box, clrType);
+                    }
+                    else
+                    {
+                        var clrType = ResolveClrType(target.ContainingType);
+                        var temp = ILGenerator.DeclareLocal(clrType);
+                        ILGenerator.Emit(OpCodes.Stloc, temp);
+                        ILGenerator.Emit(OpCodes.Ldloca, temp);
+                    }
                 }
             }
         }
 
+        // Emit arguments (in left-to-right order)
         var paramSymbols = target.Parameters.ToArray();
-        var args = invocationExpression.ArgumentList.Arguments.ToArray();
+        var args = invocationExpression.Arguments.ToArray();
 
-        for (int i = 0; i < args.Length; i++) // Left to right!
+        for (int i = 0; i < args.Length; i++)
         {
             var paramSymbol = paramSymbols[i];
             var argument = args[i];
 
             if (paramSymbol.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
-                var boundArg = GetBoundNode(argument.Expression);
-
-                switch (boundArg)
+                switch (argument)
                 {
                     case BoundAddressOfExpression addressOf:
                         GenerateAddressOfExpression(addressOf);
@@ -831,23 +803,15 @@ internal class ExpressionGenerator : Generator
                         ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                         break;
 
-                    //case BoundParameterExpression { Symbol: IParameterSymbol parameter }:
-                    //    ILGenerator.Emit(OpCodes.Ldarga, GetParameterIndex(parameter));
-                    //  break;
-
-                    //case BoundFieldAccess { FieldSymbol: IFieldSymbol field }:
-                    //    // TODO: Handle field address (e.g. load `this`, then `ldflda`)
-                    //    break;
-
                     default:
-                        throw new NotSupportedException($"Unsupported ref/out argument expression: {boundArg?.GetType().Name}");
+                        throw new NotSupportedException($"Unsupported ref/out argument expression: {argument?.GetType().Name}");
                 }
             }
             else
             {
-                GenerateExpression(argument.Expression);
+                GenerateExpression(argument);
 
-                var argType = GetTypeInfo(argument.Expression)?.Type;
+                var argType = argument?.Type;
                 var paramType = paramSymbol.Type;
 
                 if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } &&
@@ -858,11 +822,15 @@ internal class ExpressionGenerator : Generator
             }
         }
 
-        if (target?.IsStatic ?? false)
+        // Determine correct call opcode
+        var isValueType = target.ContainingType?.TypeKind is TypeKind.Struct or TypeKind.Enum;
+        var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
+
+        if (target.IsStatic)
         {
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
-        else if (target.IsVirtual || target.ContainingType.TypeKind == TypeKind.Interface)
+        else if (!isValueType && (target.IsVirtual || isInterfaceCall))
         {
             ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(target));
         }
@@ -871,48 +839,16 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
 
+        // Special cast for Object.GetType() to System.Reflection.MemberInfo
         if (target.Name == "GetType"
             && target.ContainingType.Name == "Object"
             && target.ContainingNamespace.Name == "System")
         {
-            var x = Compilation.ReferencedAssemblySymbols
+            var memberInfo = Compilation.ReferencedAssemblySymbols
                 .First(x => x.Name == "System.Runtime")
                 .GetTypeByMetadataName("System.Reflection.MemberInfo");
 
-            ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(x));
-        }
-    }
-
-    private void GenerateNameExpression(IdentifierNameSyntax identifierName)
-    {
-        // Resolve target identifier or access
-        // If local, property, or field, then load
-
-        var bound = GetBoundNode(identifierName);
-
-        switch (bound)
-        {
-            case BoundLocalAccess localExpr:
-                var localBuilder = GetLocal(localExpr.Local);
-                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-                break;
-
-            case BoundParameterAccess paramExpr:
-                var parameterBuilder = MethodGenerator.GetParameterBuilder(paramExpr.Parameter);
-                var index = MethodSymbol.IsStatic ? parameterBuilder.Position - 1 : parameterBuilder.Position;
-                ILGenerator.Emit(OpCodes.Ldarg, index);
-                break;
-
-            case BoundFieldAccess fieldAccess:
-                GenerateFieldAccess(fieldAccess);
-                break;
-
-            case BoundPropertyAccess propertyAccess:
-                GeneratePropertyAccess(propertyAccess);
-                break;
-
-            default:
-                throw new NotSupportedException($"Unsupported bound node in name expression: {bound.GetType().Name}");
+            ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
         }
     }
 
@@ -1005,51 +941,51 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateLiteralExpression(LiteralExpressionSyntax literalExpression)
+    private void GenerateLiteralExpression(BoundLiteralExpression literalExpression)
     {
         switch (literalExpression.Kind)
         {
-            case SyntaxKind.NumericLiteralExpression:
+            case BoundLiteralExpressionKind.NumericLiteral:
                 {
-                    if (literalExpression.Token.Value is int)
+                    if (literalExpression.Value is int)
                     {
-                        ILGenerator.Emit(OpCodes.Ldc_I4, (int)literalExpression.Token.Value);
+                        ILGenerator.Emit(OpCodes.Ldc_I4, (int)literalExpression.Value);
                     }
-                    else if (literalExpression.Token.Value is long)
+                    else if (literalExpression.Value is long)
                     {
-                        ILGenerator.Emit(OpCodes.Ldc_I8, (long)literalExpression.Token.Value);
+                        ILGenerator.Emit(OpCodes.Ldc_I8, (long)literalExpression.Value);
                     }
-                    else if (literalExpression.Token.Value is float)
+                    else if (literalExpression.Value is float)
                     {
-                        ILGenerator.Emit(OpCodes.Ldc_R4, (float)literalExpression.Token.Value);
+                        ILGenerator.Emit(OpCodes.Ldc_R4, (float)literalExpression.Value);
                     }
-                    else if (literalExpression.Token.Value is double)
+                    else if (literalExpression.Value is double)
                     {
-                        ILGenerator.Emit(OpCodes.Ldc_R8, (double)literalExpression.Token.Value);
+                        ILGenerator.Emit(OpCodes.Ldc_R8, (double)literalExpression.Value);
                     }
                     break;
                 }
 
-            case SyntaxKind.StringLiteralExpression:
+            case BoundLiteralExpressionKind.StringLiteral:
                 {
-                    var v = literalExpression.Token.Value;
+                    var v = literalExpression.Value;
                     ILGenerator.Emit(OpCodes.Ldstr, (string)v);
                     break;
                 }
 
-            case SyntaxKind.TrueLiteralExpression:
+            case BoundLiteralExpressionKind.TrueLiteral:
                 {
                     ILGenerator.Emit(OpCodes.Ldc_I4_1);
                     break;
                 }
 
-            case SyntaxKind.FalseLiteralExpression:
+            case BoundLiteralExpressionKind.FalseLiteral:
                 {
                     ILGenerator.Emit(OpCodes.Ldc_I4_0);
                     break;
                 }
 
-            case SyntaxKind.NullLiteralExpression:
+            case BoundLiteralExpressionKind.NullLiteral:
                 {
                     ILGenerator.Emit(OpCodes.Ldnull);
                     break;
@@ -1060,28 +996,24 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateIfExpression(IfExpressionSyntax ifStatementSyntax)
+    private void GenerateIfExpression(BoundIfExpression ifStatement)
     {
         var elseLabel = ILGenerator.DefineLabel();
 
-        GenerateBranchOpForCondition(ifStatementSyntax.Condition, elseLabel);
-
-        bool isAssigned = ifStatementSyntax.Parent is ExpressionSyntax or EqualsValueClauseSyntax;
-
-        var ifStatementType = GetTypeInfo(ifStatementSyntax);
-        var thenType = GetTypeInfo(ifStatementSyntax.Expression);
+        GenerateBranchOpForCondition(ifStatement.Condition, elseLabel);
 
         var scope = new Scope(this);
-        new ExpressionGenerator(scope, ifStatementSyntax.Expression).Generate();
+        new ExpressionGenerator(scope, ifStatement.ThenBranch).Generate();
 
-        if (isAssigned
-            && ifStatementType.Type.IsUnion
-            && thenType.Type.TypeKind is TypeKind.Struct)
+        var thenType = ifStatement.ThenBranch.Type;
+
+        if (ifStatement.Type.IsUnion
+            && thenType.TypeKind is TypeKind.Struct)
         {
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType.Type));
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType));
         }
 
-        if (ifStatementSyntax.ElseClause is ElseClauseSyntax elseClause)
+        if (ifStatement.ElseBranch is not null)
         {
             // Define a label for the end of the 'if' statement
             var endIfLabel = ILGenerator.DefineLabel();
@@ -1092,17 +1024,16 @@ internal class ExpressionGenerator : Generator
             // Mark the 'else' label
             ILGenerator.MarkLabel(elseLabel);
 
-            var elsType = GetTypeInfo(ifStatementSyntax.ElseClause.Expression);
-
             // Generate the 'else' block
             var scope2 = new Scope(this);
-            new ExpressionGenerator(scope2, elseClause.Expression).Generate();
+            new ExpressionGenerator(scope2, ifStatement.ElseBranch).Generate();
 
-            if (isAssigned
-                && ifStatementType.Type.IsUnion
-                && elsType.Type.TypeKind is TypeKind.Struct)
+            var elseType = ifStatement.ElseBranch.Type;
+
+            if (ifStatement.Type.IsUnion
+                && elseType.TypeKind is TypeKind.Struct)
             {
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(elsType.Type));
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(elseType));
             }
 
             // Mark the end of the 'if' statement
@@ -1115,7 +1046,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateWhileExpression(WhileExpressionSyntax whileStatementSyntax)
+    private void GenerateWhileExpression(BoundWhileExpression whileStatement)
     {
         var beginLabel = ILGenerator.DefineLabel();
         var conditionLabel = ILGenerator.DefineLabel();
@@ -1128,10 +1059,10 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Nop);
 
         var scope = new Scope(this);
-        new StatementGenerator(scope, whileStatementSyntax.Statement).Generate();
+        new ExpressionGenerator(scope, whileStatement.Body).Generate();
 
         ILGenerator.MarkLabel(conditionLabel);
-        GenerateBranchOpForCondition(whileStatementSyntax.Condition, endLabel); // ✅ jump out if false
+        GenerateBranchOpForCondition(whileStatement.Condition, endLabel); // ✅ jump out if false
 
         // If true, loop again
         ILGenerator.Emit(OpCodes.Br_S, beginLabel);
@@ -1139,81 +1070,78 @@ internal class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(endLabel);
     }
 
-    private void GenerateBranchOpForCondition(ExpressionSyntax expression, Label end)
+    private void GenerateBranchOpForCondition(BoundExpression expression, Label end)
     {
-        if (expression is ParenthesizedExpressionSyntax parenthesizedExpression)
+        if (expression is BoundParenthesizedExpression parenthesizedExpression)
         {
             GenerateBranchOpForCondition(parenthesizedExpression.Expression, end);
             return;
         }
 
-        if (expression is BinaryExpressionSyntax binaryExpression)
+        if (expression is BoundBinaryExpression binaryExpression)
         {
-            GenerateExpression(binaryExpression.LeftHandSide);
-            GenerateExpression(binaryExpression.RightHandSide);
+            GenerateExpression(binaryExpression.Left);
+            GenerateExpression(binaryExpression.Right);
 
-            switch (binaryExpression.Kind)
+            switch (binaryExpression.Operator.OperatorKind)
             {
-                case SyntaxKind.EqualsExpression:
+                case BinaryOperatorKind.Equality:
                     ILGenerator.Emit(OpCodes.Ceq); // compare
                     ILGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
-                case SyntaxKind.NotEqualsExpression:
+                case BinaryOperatorKind.Inequality:
                     ILGenerator.Emit(OpCodes.Ceq);
                     ILGenerator.Emit(OpCodes.Ldc_I4_0);
                     ILGenerator.Emit(OpCodes.Ceq); // logical NOT
                     ILGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
-                case SyntaxKind.GreaterThanExpression:
+                case BinaryOperatorKind.GreaterThan:
                     ILGenerator.Emit(OpCodes.Cgt);
                     ILGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
-                case SyntaxKind.LessThanExpression:
+                case BinaryOperatorKind.LessThan:
                     ILGenerator.Emit(OpCodes.Clt);
                     ILGenerator.Emit(OpCodes.Brfalse_S, end);
                     break;
 
-                case SyntaxKind.GreaterThanOrEqualExpression:
+                case BinaryOperatorKind.GreaterThanOrEqual:
                     ILGenerator.Emit(OpCodes.Clt);
                     ILGenerator.Emit(OpCodes.Brtrue_S, end);
                     break;
 
-                case SyntaxKind.LessThanOrEqualExpression:
+                case BinaryOperatorKind.LessThanOrEqual:
                     ILGenerator.Emit(OpCodes.Cgt);
                     ILGenerator.Emit(OpCodes.Brtrue_S, end);
                     break;
 
                 default:
-                    throw new NotSupportedException($"Unsupported binary condition: {binaryExpression.Kind}");
+                    throw new NotSupportedException($"Unsupported binary condition");
             }
         }
-        else if (expression is LiteralExpressionSyntax literalExpression)
+        else if (expression is BoundLiteralExpression literalExpression)
         {
-            if (literalExpression.Kind == SyntaxKind.TrueLiteralExpression)
+            if (literalExpression.Kind == BoundLiteralExpressionKind.TrueLiteral)
             {
                 // If true, do nothing; execution continues
             }
-            else if (literalExpression.Kind == SyntaxKind.FalseLiteralExpression)
+            else if (literalExpression.Kind == BoundLiteralExpressionKind.FalseLiteral)
             {
                 ILGenerator.Emit(OpCodes.Br_S, end);
             }
         }
-        else if (expression is IdentifierNameSyntax or MemberAccessExpressionSyntax)
-        {
-            GenerateExpression(expression);
-            ILGenerator.Emit(OpCodes.Brfalse_S, end);
-        }
         else
         {
+            // Other kinds of expressions... member access etc.
+
             GenerateExpression(expression);
             ILGenerator.Emit(OpCodes.Brfalse_S, end);
         }
     }
 
-    private void GenerateBlock(BlockSyntax block)
+    private void GenerateBlock(BoundBlockExpression block)
     {
         foreach (var s in block.Statements)
         {
@@ -1221,7 +1149,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateStatement(StatementSyntax statement)
+    private void GenerateStatement(BoundStatement statement)
     {
         new StatementGenerator(this, statement).Generate();
     }

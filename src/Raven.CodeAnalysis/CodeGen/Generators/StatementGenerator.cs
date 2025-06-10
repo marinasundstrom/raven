@@ -6,9 +6,9 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal class StatementGenerator : Generator
 {
-    private readonly StatementSyntax _statement;
+    private readonly BoundStatement _statement;
 
-    public StatementGenerator(Generator parent, StatementSyntax statement) : base(parent)
+    public StatementGenerator(Generator parent, BoundStatement statement) : base(parent)
     {
         _statement = statement;
     }
@@ -17,39 +17,38 @@ internal class StatementGenerator : Generator
     {
         switch (_statement)
         {
-            case ReturnStatementSyntax returnStatement:
+            case BoundReturnStatement returnStatement:
                 GenerateReturnStatement(returnStatement);
                 break;
 
-            case ExpressionStatementSyntax expressionStatement:
+            case BoundExpressionStatement expressionStatement:
                 GenerateExpressionStatement(expressionStatement);
                 break;
 
-            case LocalDeclarationStatementSyntax localDeclarationStatement:
+            case BoundLocalDeclarationStatement localDeclarationStatement:
                 GenerateDeclarationStatement(localDeclarationStatement);
                 break;
         }
     }
 
-    private void GenerateReturnStatement(ReturnStatementSyntax returnStatement)
+    private void GenerateReturnStatement(BoundReturnStatement returnStatement)
     {
-        if (returnStatement.Expression is ExpressionSyntax expression)
-        {
-            new ExpressionGenerator(this, expression).Generate();
-        }
+        new ExpressionGenerator(this, returnStatement.Expression).Generate();
 
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private void GenerateExpressionStatement(ExpressionStatementSyntax expressionStatement)
+    private void GenerateExpressionStatement(BoundExpressionStatement expressionStatement)
     {
-        new ExpressionGenerator(this, expressionStatement.Expression).Generate();
+        var expression = expressionStatement.Expression;
 
-        var symbol = GetSymbolInfo(expressionStatement.Expression).Symbol;
+        new ExpressionGenerator(this, expression).Generate();
 
-        if (expressionStatement.Expression is InvocationExpressionSyntax invocationExpression)
+        ISymbol? symbol = expressionStatement.Symbol;
+
+        if (expressionStatement.Expression is BoundInvocationExpression invocationExpression)
         {
-            symbol = ((IMethodSymbol)symbol).ReturnType;
+            symbol = ((IMethodSymbol)expressionStatement.Symbol).ReturnType;
         }
 
         // TODO: Handle the case that Pop is required. If not Void, and not assigned anywhere.
@@ -62,25 +61,25 @@ internal class StatementGenerator : Generator
         }
     }
 
-    private void GenerateDeclarationStatement(LocalDeclarationStatementSyntax localDeclarationStatement)
+    private void GenerateDeclarationStatement(BoundLocalDeclarationStatement localDeclarationStatement)
     {
-        foreach (var declarator in localDeclarationStatement.Declaration.Declarators)
+        foreach (var declarator in localDeclarationStatement.Declarators)
         {
             GenerateDeclarator(localDeclarationStatement, declarator);
         }
     }
 
-    private void GenerateDeclarator(LocalDeclarationStatementSyntax localDeclarationStatement, VariableDeclaratorSyntax declarator)
+    private void GenerateDeclarator(BoundLocalDeclarationStatement localDeclarationStatement, BoundVariableDeclarator declarator)
     {
         if (declarator.Initializer is not null)
         {
-            var localSymbol = GetDeclaredSymbol<ILocalSymbol>(declarator);
+            new ExpressionGenerator(this, declarator.Initializer).Generate();
 
-            new ExpressionGenerator(this, declarator.Initializer.Value).Generate();
+            var localBuilder = GetLocal(declarator.Local);
 
-            var localBuilder = GetLocal(localSymbol);
+            var s = declarator.Initializer.Type;
 
-            var s = GetTypeInfo(declarator.Initializer.Value).Type;
+            var localSymbol = declarator.Local;
 
             if (s.TypeKind is TypeKind.Struct && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
             {

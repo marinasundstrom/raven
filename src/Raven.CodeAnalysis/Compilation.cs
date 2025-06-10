@@ -460,6 +460,10 @@ public class Compilation
         {
             return GetTypeByMetadataName("System.Object");
         }
+        else if (specialType is SpecialType.System_Nullable_T)
+        {
+            return GetTypeByMetadataName("System.Nullable");
+        }
 
         throw new InvalidOperationException("Special type is not supported.");
     }

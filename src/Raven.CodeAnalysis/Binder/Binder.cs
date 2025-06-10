@@ -133,9 +133,9 @@ internal abstract class Binder
         return result;
     }
 
-    public virtual BoundExpression BindStatement(StatementSyntax statement)
+    public virtual BoundStatement BindStatement(StatementSyntax statement)
     {
-        if (TryGetCachedBoundNode(statement) is BoundExpression cached)
+        if (TryGetCachedBoundNode(statement) is BoundStatement cached)
             return cached;
 
         var result = ParentBinder?.BindStatement(statement)
@@ -185,7 +185,7 @@ internal abstract class Binder
         return LookupSymbol(name);
     }
 
-    public virtual BoundExpression BindLocalFunction(LocalFunctionStatementSyntax localFunction)
+    public virtual BoundLocalFunctionStatement BindLocalFunction(LocalFunctionStatementSyntax localFunction)
     {
         return ParentBinder?.BindLocalFunction(localFunction)
              ?? throw new NotImplementedException("BindLocalFunction not implemented in root binder.");
@@ -199,7 +199,7 @@ internal abstract class Binder
 
     public virtual BoundNode GetOrBind(SyntaxNode node)
     {
-        var result = node switch
+        BoundNode result = node switch
         {
             ExpressionSyntax expr => BindExpression(expr),
             StatementSyntax stmt => BindStatement(stmt),

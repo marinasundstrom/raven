@@ -23,10 +23,10 @@ partial class BlockBinder : Binder
     {
         return node switch
         {
-            VariableDeclaratorSyntax v => BindLocalDeclaration(v),
+            VariableDeclaratorSyntax v => BindLocalDeclaration(v).Symbol,
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
-            SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation),
-            LocalFunctionStatementSyntax localFunctionStatement => BindLocalFunction(localFunctionStatement).Symbol,
+            SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation).Local,
+            LocalFunctionStatementSyntax localFunctionStatement => BindLocalFunction(localFunctionStatement).Method,
             _ => base.BindDeclaredSymbol(node)
         };
     }
@@ -84,10 +84,10 @@ partial class BlockBinder : Binder
         return new SymbolInfo(Compilation.SourceGlobalNamespace);
     }
 
-    private ILocalSymbol BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
+    private BoundLocalDeclarationStatement BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
-        if (_locals.TryGetValue(variableDeclarator.Identifier.Text, out var existingSymbol))
-            return existingSymbol;
+        //if (_locals.TryGetValue(variableDeclarator.Identifier.Text, out var existingSymbol))
+        //    return existingSymbol;
 
         var name = variableDeclarator.Identifier.Text;
 
@@ -96,13 +96,15 @@ partial class BlockBinder : Binder
 
         ITypeSymbol type = Compilation.ErrorTypeSymbol;
 
+        BoundExpression? boundInitializer = null;
+
         if (variableDeclarator.TypeAnnotation is null)
         {
             var initializer = variableDeclarator.Initializer;
             if (initializer is not null)
             {
                 var initializerExpr = initializer.Value;
-                var boundInitializer = BindExpression(initializerExpr);
+                boundInitializer = BindExpression(initializerExpr);
                 type = boundInitializer.Type!;
             }
             else
@@ -115,7 +117,9 @@ partial class BlockBinder : Binder
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
         }
 
-        return CreateLocalSymbol(variableDeclarator, name, isMutable, type);
+        var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer!);
+
+        return new BoundLocalDeclarationStatement([declarator]);
     }
 
     private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type)
@@ -134,18 +138,18 @@ partial class BlockBinder : Binder
         return symbol;
     }
 
-    public override BoundExpression BindStatement(StatementSyntax statement)
+    public override BoundStatement BindStatement(StatementSyntax statement)
     {
-        if (TryGetCachedBoundNode(statement) is BoundExpression cached)
+        if (TryGetCachedBoundNode(statement) is BoundStatement cached)
             return cached;
 
-        var boundNode = statement switch
+        BoundStatement boundNode = statement switch
         {
-            LocalDeclarationStatementSyntax localDeclaration => new BoundLocalAccess(BindLocalDeclaration(localDeclaration.Declaration.Declarators[0])),
-            ExpressionStatementSyntax expressionStmt => BindExpression(expressionStmt.Expression),
+            LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclaration(localDeclaration.Declaration.Declarators[0]),
+            ExpressionStatementSyntax expressionStmt => new BoundExpressionStatement(BindExpression(expressionStmt.Expression)),
             LocalFunctionStatementSyntax localFunction => BindLocalFunction(localFunction),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
-            EmptyStatementSyntax emptyStatement => new BoundVoidExpression(Compilation),
+            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundVoidExpression(Compilation)),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
 
@@ -154,10 +158,10 @@ partial class BlockBinder : Binder
         return boundNode;
     }
 
-    private BoundExpression BindReturnStatement(ReturnStatementSyntax returnStatement)
+    private BoundStatement BindReturnStatement(ReturnStatementSyntax returnStatement)
     {
         var expr = BindExpression(returnStatement.Expression);
-        return new BoundReturnExpression(expr);
+        return new BoundReturnStatement(expr);
     }
 
     public Dictionary<string, IMethodSymbol> _localFunctions = new();
@@ -182,7 +186,7 @@ partial class BlockBinder : Binder
         }
 
         // Step 2: Bind and cache all statements
-        var boundStatements = new List<BoundExpression>(block.Statements.Count);
+        var boundStatements = new List<BoundStatement>(block.Statements.Count);
         foreach (var stmt in block.Statements)
         {
             var bound = BindStatement(stmt);
@@ -369,9 +373,9 @@ partial class BlockBinder : Binder
         var condition = BindExpression(whileExpression.Condition);
 
         var expressionBinder = SemanticModel.GetBinder(whileExpression, this);
-        var expression = expressionBinder.BindStatement(whileExpression.Statement);
+        var statement = expressionBinder.BindStatement(whileExpression.Statement) as BoundExpressionStatement;
 
-        return new BoundWhileExpression(condition, expression);
+        return new BoundWhileExpression(condition, statement.Expression!);
     }
 
     private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)
@@ -632,7 +636,19 @@ partial class BlockBinder : Binder
             _ => throw new Exception("Unsupported literal type")
         };
 
-        return new BoundLiteralExpression(value, type);
+        BoundLiteralExpressionKind kind = syntax.Kind switch
+        {
+            SyntaxKind.NumericLiteralExpression => BoundLiteralExpressionKind.NumericLiteral,
+            SyntaxKind.StringLiteralExpression => BoundLiteralExpressionKind.StringLiteral,
+            SyntaxKind.CharacterLiteralExpression => BoundLiteralExpressionKind.CharLiteral,
+            SyntaxKind.TrueLiteralExpression => BoundLiteralExpressionKind.TrueLiteral,
+            SyntaxKind.FalseLiteralExpression => BoundLiteralExpressionKind.FalseLiteral,
+            SyntaxKind.NullKeyword => BoundLiteralExpressionKind.NullLiteral,
+
+            _ => throw new Exception("Unsupported literal type")
+        };
+
+        return new BoundLiteralExpression(kind, value, type);
     }
 
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax)
@@ -1157,7 +1173,7 @@ partial class BlockBinder : Binder
         }
     }
 
-    public override BoundExpression BindLocalFunction(LocalFunctionStatementSyntax localFunction)
+    public override BoundLocalFunctionStatement BindLocalFunction(LocalFunctionStatementSyntax localFunction)
     {
         // Get the binder from the factory
         var binder = SemanticModel.GetBinder(localFunction, this);
@@ -1173,6 +1189,6 @@ partial class BlockBinder : Binder
         var blockBinder = SemanticModel.GetBinder(localFunction.Body, methodBinder);
         var body = blockBinder.BindExpression(localFunction.Body);
 
-        return new BoundLocalFunctionExpression(symbol); // Possibly include body here if needed
+        return new BoundLocalFunctionStatement(symbol); // Possibly include body here if needed
     }
 }

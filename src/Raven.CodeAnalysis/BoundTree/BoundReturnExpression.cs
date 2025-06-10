@@ -2,9 +2,9 @@ using System.Linq.Expressions;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundReturnExpression : BoundExpression
+internal partial class BoundReturnStatement : BoundStatement
 {
-    public BoundReturnExpression(BoundExpression? expression, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(expression.Type, null, candidateReason)
+    public BoundReturnStatement(BoundExpression? expression, BoundExpressionReason candidateReason = BoundExpressionReason.None)
     {
         Expression = expression;
     }

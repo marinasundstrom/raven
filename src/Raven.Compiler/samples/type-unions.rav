@@ -38,6 +38,6 @@ func test (input : int | bool) -> void {
     }
 }
 
-func f () -> void {
+/*func f () -> void {
 
-}
+}*/

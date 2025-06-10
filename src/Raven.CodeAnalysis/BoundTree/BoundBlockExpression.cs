@@ -2,11 +2,11 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundBlockExpression : BoundExpression
 {
-    public BoundBlockExpression(IReadOnlyList<BoundExpression> statements)
+    public BoundBlockExpression(IReadOnlyList<BoundStatement> statements)
         : base(statements.LastOrDefault()?.Type, null, BoundExpressionReason.None)
     {
         Statements = statements;
     }
 
-    public IReadOnlyList<BoundExpression> Statements { get; }
+    public IReadOnlyList<BoundStatement> Statements { get; }
 }

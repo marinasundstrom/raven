@@ -1,9 +1,11 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundLocalFunctionExpression : BoundExpression
+internal partial class BoundLocalFunctionStatement : BoundStatement
 {
-    public BoundLocalFunctionExpression(IMethodSymbol methodSymbol, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(methodSymbol.ReturnType, methodSymbol, candidateReason)
+    public BoundLocalFunctionStatement(IMethodSymbol methodSymbol, BoundExpressionReason candidateReason = BoundExpressionReason.None)
     {
-
+        Method = methodSymbol;
     }
+
+    public IMethodSymbol Method { get; }
 }

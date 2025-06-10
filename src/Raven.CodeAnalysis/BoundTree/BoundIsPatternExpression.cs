@@ -25,37 +25,69 @@ internal abstract class BoundPattern : BoundExpression
     public virtual IEnumerable<BoundDesignator> GetDesignators() => [];
 }
 
-internal sealed partial class BoundNotPattern : BoundPattern
+internal abstract class BoundUnaryPattern : BoundPattern
 {
     public BoundPattern Pattern { get; }
 
-    public BoundNotPattern(BoundPattern pattern)
+    public BoundUnaryPatternKind Kind { get; }
+
+    public BoundUnaryPattern(BoundUnaryPatternKind kind, BoundPattern pattern)
         : base(pattern.Type)
     {
+        Kind = kind;
         Pattern = pattern;
     }
 }
 
-internal sealed partial class BoundAndPattern : BoundPattern
+public enum BoundUnaryPatternKind
 {
-    public BoundPattern Left { get; }
-    public BoundPattern Right { get; }
+    Not
+}
 
+internal sealed partial class BoundNotPattern : BoundUnaryPattern
+{
+    public BoundNotPattern(BoundPattern pattern)
+        : base(BoundUnaryPatternKind.Not, pattern)
+    {
+
+    }
+}
+
+internal abstract class BoundBinaryPattern : BoundPattern
+{
+    public BoundBinaryPattern(BoundPatternKind kind, BoundPattern left, BoundPattern right)
+    : base(left.Type) // Typval kan justeras
+    {
+        Kind = kind;
+        Left = left;
+        Right = right;
+    }
+
+    public BoundPatternKind Kind { get; set; }
+    public BoundPattern Left { get; set; }
+    public BoundPattern Right { get; set; }
+}
+
+public enum BoundPatternKind
+{
+    And,
+    Or
+}
+
+internal sealed partial class BoundAndPattern : BoundBinaryPattern
+{
     public BoundAndPattern(BoundPattern left, BoundPattern right)
-        : base(left.Type) // Typval kan justeras
+        : base(BoundPatternKind.And, left, right) // Typval kan justeras
     {
         Left = left;
         Right = right;
     }
 }
 
-internal sealed partial class BoundOrPattern : BoundPattern
+internal sealed partial class BoundOrPattern : BoundBinaryPattern
 {
-    public BoundPattern Left { get; }
-    public BoundPattern Right { get; }
-
     public BoundOrPattern(BoundPattern left, BoundPattern right)
-        : base(left.Type) // Typval kan justeras
+        : base(BoundPatternKind.Or, left, right) // Typval kan justeras
     {
         Left = left;
         Right = right;
@@ -80,12 +112,22 @@ internal partial class BoundDeclarationPattern : BoundPattern
     public override IEnumerable<BoundDesignator> GetDesignators() => [Designator];
 }
 
-internal partial class BoundDesignator : BoundExpression
+internal abstract class BoundDesignator : BoundExpression
 {
-    public BoundDesignator(ILocalSymbol local, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(local.Type, local, candidateReason)
+    protected BoundDesignator(ITypeSymbol type, ISymbol? symbol = null, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, symbol, reason)
     {
-
     }
+}
+
+internal partial class BoundSingleVariableDesignator : BoundDesignator
+{
+    public BoundSingleVariableDesignator(ILocalSymbol local, BoundExpressionReason candidateReason = BoundExpressionReason.None)
+        : base(local.Type, local, candidateReason)
+    {
+        Local = local;
+    }
+
+    public ILocalSymbol Local { get; set; }
 }
 
 internal partial class BlockBinder
@@ -104,8 +146,8 @@ internal partial class BlockBinder
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)
     {
         var type = BindTypeSyntax(syntax.Type);
-        var local = BindSingleVariableDesignation((SingleVariableDesignationSyntax)syntax.Designation);
-        return new BoundDeclarationPattern(type.Type, new BoundDesignator(local));
+        var designation = BindSingleVariableDesignation((SingleVariableDesignationSyntax)syntax.Designation);
+        return new BoundDeclarationPattern(type.Type, designation);
     }
 
     private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax)
@@ -142,11 +184,14 @@ internal partial class BlockBinder
         return new BoundIsPatternExpression(expression, pattern);
     }
 
-    private ILocalSymbol? BindSingleVariableDesignation(SingleVariableDesignationSyntax singleVariableDesignation)
+    private BoundSingleVariableDesignator? BindSingleVariableDesignation(SingleVariableDesignationSyntax singleVariableDesignation)
     {
         var declaration = singleVariableDesignation.Parent as DeclarationPatternSyntax;
         var name = singleVariableDesignation.Identifier.Text;
         var type = ResolveType(declaration.Type);
-        return CreateLocalSymbol(singleVariableDesignation, name, true, type);
+
+        var local = CreateLocalSymbol(singleVariableDesignation, name, true, type);
+
+        return new BoundSingleVariableDesignator(local);
     }
 }

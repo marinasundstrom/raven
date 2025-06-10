@@ -102,16 +102,23 @@ internal class MethodBodyGenerator
 
     private void GenerateIL(IEnumerable<StatementSyntax> statements)
     {
-        foreach (var statement in statements)
+        if (!statements.Any())
+            return;
+
+        var semanticModel = Compilation.GetSemanticModel(statements.First().SyntaxTree);
+
+        foreach (var statement in statements.ToArray())
         {
-            GenerateStatement(statement);
+            var boundNode = semanticModel.GetBoundNode(statement) as BoundStatement;
+
+            GenerateStatement(boundNode);
         }
 
         ILGenerator.Emit(OpCodes.Nop);
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private void GenerateStatement(StatementSyntax statement)
+    private void GenerateStatement(BoundStatement statement)
     {
         new StatementGenerator(scope, statement).Generate();
     }

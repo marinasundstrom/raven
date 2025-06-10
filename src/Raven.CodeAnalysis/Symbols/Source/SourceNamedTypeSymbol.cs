@@ -69,7 +69,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         return symbol is not null;
     }
 
-    public ITypeSymbol Construct(ITypeSymbol[] typeArguments)
+    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
     {
         throw new NotImplementedException();
     }

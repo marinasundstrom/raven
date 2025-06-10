@@ -341,7 +341,7 @@ public interface INamedTypeSymbol : ITypeSymbol
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
 
-    ITypeSymbol Construct(ITypeSymbol[] typeArguments);
+    ITypeSymbol Construct(params ITypeSymbol[] typeArguments);
 }
 
 public interface IArrayTypeSymbol : ITypeSymbol

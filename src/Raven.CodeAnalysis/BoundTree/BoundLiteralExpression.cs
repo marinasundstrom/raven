@@ -4,9 +4,22 @@ internal partial class BoundLiteralExpression : BoundExpression
 {
     public object Value { get; }
 
-    public BoundLiteralExpression(object value, ITypeSymbol type)
+    public BoundLiteralExpression(BoundLiteralExpressionKind kind, object value, ITypeSymbol type)
         : base(type, null, BoundExpressionReason.None)
     {
+        Kind = kind;
         Value = value;
     }
+
+    public BoundLiteralExpressionKind Kind { get; }
+}
+
+public enum BoundLiteralExpressionKind
+{
+    NumericLiteral,
+    StringLiteral,
+    CharLiteral,
+    TrueLiteral,
+    FalseLiteral,
+    NullLiteral
 }
