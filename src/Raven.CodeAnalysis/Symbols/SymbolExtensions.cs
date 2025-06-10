@@ -64,7 +64,8 @@ public static partial class SymbolExtensions
         {
             if (format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType))
             {
-                var localType = localSymbol.Type.ToDisplayStringKeywordAware(format);
+                var typeFormat = WithoutTypeAccessibility(format);
+                var localType = localSymbol.Type.ToDisplayStringKeywordAware(typeFormat);
                 result.Append($"{localType} ");
             }
 
@@ -76,7 +77,8 @@ public static partial class SymbolExtensions
         {
             if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))
             {
-                var localType = parameterSymbol.Type.ToDisplayStringKeywordAware(format);
+                var typeFormat = WithoutTypeAccessibility(format);
+                var localType = parameterSymbol.Type.ToDisplayStringKeywordAware(typeFormat);
                 result.Append($"{localType} ");
             }
 
@@ -155,6 +157,11 @@ public static partial class SymbolExtensions
         }
 
         return result.ToString();
+    }
+
+    private static SymbolDisplayFormat WithoutTypeAccessibility(SymbolDisplayFormat format)
+    {
+        return format.WithMemberOptions(format.MemberOptions & ~SymbolDisplayMemberOptions.IncludeAccessibility);
     }
 
     // Helper method to format a parameter
