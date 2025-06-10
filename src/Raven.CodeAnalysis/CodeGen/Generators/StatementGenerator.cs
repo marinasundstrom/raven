@@ -33,7 +33,10 @@ internal class StatementGenerator : Generator
 
     private void EmitReturnStatement(BoundReturnStatement returnStatement)
     {
-        new ExpressionGenerator(this, returnStatement.Expression).Emit();
+        if (returnStatement.Expression is not null)
+        {
+            new ExpressionGenerator(this, returnStatement.Expression).Emit();
+        }
 
         ILGenerator.Emit(OpCodes.Ret);
     }
