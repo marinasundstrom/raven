@@ -45,6 +45,12 @@ public partial class SemanticModel
         }
     }
 
+    /// <summary>
+    /// Gets symbol information about a syntax node
+    /// </summary>
+    /// <param name="node">The syntax node</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>The symbol info</returns>
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
         if (_symbolMappings.TryGetValue(node, out var symbolInfo))
@@ -56,18 +62,22 @@ public partial class SemanticModel
         return info;
     }
 
+    /// <summary>
+    /// Given a syntax node that declares a method, property, or member accessor, get the corresponding symbol.
+    /// </summary>
+    /// <param name="node"></param>
+    /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
         var binder = GetBinder(node);
         return binder.BindDeclaredSymbol(node);
     }
 
-    public ImmutableArray<ISymbol> LookupSymbols(int position,
-        INamespaceOrTypeSymbol container, string name, bool includeReducedExtensionMethods)
-    {
-        throw new NotImplementedException();
-    }
-
+    /// <summary>
+    /// Gets type information about an expression.
+    /// </summary>
+    /// <param name="expr">The expression syntax node</param>
+    /// <returns>The type info</returns>
     public TypeInfo GetTypeInfo(ExpressionSyntax expr)
     {
         var binder = GetBinder(expr);
@@ -80,23 +90,35 @@ public partial class SemanticModel
         return new TypeInfo(boundExpr.Type, boundExpr.GetConvertedType());
     }
 
+    /// <summary>
+    /// Get the bound node for a specific syntax node.
+    /// </summary>
+    /// <param name="node">The syntax node</param>
+    /// <returns>The bound node</returns>
     internal BoundNode GetBoundNode(SyntaxNode node)
     {
         var binder = GetBinder(node);
         return binder.GetOrBind(node);
     }
 
-    internal BoundExpression GetBoundNode(ExpressionSyntax node)
+    /// <summary>
+    /// Get the bound expression for a specific expression syntax node.
+    /// </summary>
+    /// <param name="expression">The expression syntax node</param>
+    /// <returns>The bound expression</returns>
+    /// <remarks>Convenience overload</remarks>
+    internal BoundExpression GetBoundNode(ExpressionSyntax expression)
     {
-        return (BoundExpression)GetBoundNode((SyntaxNode)node);
+        return (BoundExpression)GetBoundNode((SyntaxNode)expression);
     }
 
-    internal T? GetBoundNode<T>(SyntaxNode node)
-        where T : BoundNode
-    {
-        return GetBoundNode(node) as T;
-    }
-
+    /// <summary>
+    /// Resolves the binder for a specific syntax node.
+    /// </summary>
+    /// <param name="node">The syntax node</param>
+    /// <param name="parentBinder">Be careful</param>
+    /// <returns>The binder for the specified syntax node</returns>
+    /// <remarks>Might return a cached binder</remarks>
     internal Binder GetBinder(SyntaxNode node, Binder? parentBinder = null)
     {
         if (_binderCache.TryGetValue(node, out var existingBinder))
