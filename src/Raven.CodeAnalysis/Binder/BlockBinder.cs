@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-class BlockBinder : Binder
+partial class BlockBinder : Binder
 {
     private readonly ISymbol _containingSymbol;
     protected readonly Dictionary<string, ILocalSymbol> _locals = new();
@@ -29,14 +29,6 @@ class BlockBinder : Binder
             LocalFunctionStatementSyntax localFunctionStatement => BindLocalFunction(localFunctionStatement).Symbol,
             _ => base.BindDeclaredSymbol(node)
         };
-    }
-
-    private ISymbol? BindSingleVariableDesignation(SingleVariableDesignationSyntax singleVariableDesignation)
-    {
-        var declaration = singleVariableDesignation.Parent as DeclarationPatternSyntax;
-        var name = singleVariableDesignation.Identifier.Text;
-        var type = ResolveType(declaration.Type);
-        return CreateLocalSymbol(singleVariableDesignation, name, true, type);
     }
 
     public override SymbolInfo BindReferencedSymbol(SyntaxNode node)
@@ -338,27 +330,6 @@ class BlockBinder : Binder
 
         // 8. Return a fully bound lambda expression
         return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, lambdaSymbol.DelegateType, capturedVariables);
-    }
-
-    private BoundExpression BindIsPatternExpression(IsPatternExpressionSyntax isPatternExpression)
-    {
-        var expression = BindExpression(isPatternExpression.Expression);
-
-        if (expression is BoundErrorExpression boundErrorExpression)
-            return boundErrorExpression;
-
-        if (isPatternExpression.Pattern is DeclarationPatternSyntax declarationPattern && declarationPattern.Designation is SingleVariableDesignationSyntax singleVariableDesignation)
-        {
-            var type = ResolveType(declarationPattern.Type);
-
-            var isCompatible = Compilation.ClassifyConversion(expression.Type, type);
-
-            var symbol = BindDeclaredSymbol(singleVariableDesignation) as ILocalSymbol;
-            return new BoundIsPatternExpression(symbol, BoundExpressionReason.None);
-
-        }
-
-        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindMissingExpression(ExpressionSyntax.Missing missing)
@@ -691,21 +662,84 @@ class BlockBinder : Binder
         var right = BindExpression(syntax.RightHandSide);
 
         var opKind = syntax.OperatorToken.Kind;
-        var op = BoundBinaryOperator.Lookup(Compilation, opKind, left.Type, right.Type);
 
-        if (op is null)
+        // 1. Specialfall: string + any → string.Concat(...)
+        if (opKind == SyntaxKind.PlusToken &&
+            (left.Type.SpecialType == SpecialType.System_String || right.Type.SpecialType == SpecialType.System_String))
         {
-            _diagnostics.ReportUndefinedBinaryOperator(opKind.ToString(), left.Type, right.Type, syntax.OperatorToken.GetLocation());
-
-            return new BoundErrorExpression(
-                Compilation.ErrorTypeSymbol,
-                null,
-                BoundExpressionReason.NotFound
-            );
+            var concatMethod = ResolveStringConcatMethod(left, right);
+            return new BoundInvocationExpression(concatMethod, [left, right]);
         }
 
-        return new BoundBinaryExpression(left, op, right);
+        // 2. Överlagrade operatorer
+        var userDefinedOperator = ResolveUserDefinedOperator(opKind, left.Type, right.Type);
+        if (userDefinedOperator is not null)
+        {
+            return new BoundInvocationExpression(userDefinedOperator, [left, right]);
+        }
+
+        // 3. Inbyggda operatorer
+        var op = BoundBinaryOperator.Lookup(Compilation, opKind, left.Type, right.Type);
+        if (op is not null)
+        {
+            return new BoundBinaryExpression(left, op, right);
+        }
+
+        // 4. Fel
+        _diagnostics.ReportUndefinedBinaryOperator(opKind.ToString(), left.Type, right.Type, syntax.OperatorToken.GetLocation());
+
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
+
+    private IMethodSymbol ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
+    {
+        var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+        var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
+
+        var candidate = ResolveOverload(candidates, [left, right]);
+
+        if (candidate is null)
+            throw new InvalidOperationException("No matching Concat method found.");
+
+        return candidate;
+    }
+
+    private IMethodSymbol? ResolveUserDefinedOperator(SyntaxKind opKind, ITypeSymbol leftType, ITypeSymbol rightType)
+    {
+        var opName = GetOperatorMethodName(opKind); // e.g. "op_Addition" for +
+        if (opName is null)
+            return null;
+
+        foreach (var type in new[] { leftType, rightType })
+        {
+            var candidates = type.GetMembers(opName).OfType<IMethodSymbol>();
+
+            foreach (var method in candidates)
+            {
+                if (!method.IsStatic || method.Parameters.Length != 2)
+                    continue;
+
+                if (Compilation.ClassifyConversion(leftType, method.Parameters[0].Type).IsImplicit &&
+                    Compilation.ClassifyConversion(rightType, method.Parameters[1].Type).IsImplicit)
+                {
+                    return method;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? GetOperatorMethodName(SyntaxKind kind) => kind switch
+    {
+        SyntaxKind.PlusToken => "op_Addition",
+        SyntaxKind.MinusToken => "op_Subtraction",
+        SyntaxKind.StarToken => "op_Multiply",
+        SyntaxKind.SlashToken => "op_Division",
+        SyntaxKind.EqualsEqualsToken => "op_Equality",
+        SyntaxKind.NotEqualsExpression => "op_Inequality",
+        _ => null
+    };
 
     private BoundExpression BindInvocationExpression(InvocationExpressionSyntax syntax)
     {
