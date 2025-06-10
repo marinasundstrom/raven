@@ -33,7 +33,7 @@ See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
 
 ### Sample
 
-Here’s a sample of the Raven syntax, taken from [this file](src/Raven.Compiler/general.rav):
+Here’s a sample of the Raven syntax, taken from [this file](src/Raven.Compiler/samples/general.rav):
 
 ```raven
 import System;
@@ -58,8 +58,14 @@ Console.WriteLine(stringBuilder.ToString());
 
 Demonstrated here:
 
-* Control flow constructs as expressions, with `if`.
+* Control flow constructs as expressions, with `if` and `while`.
+* `let` and `var` bindings (immutable vs mutable)
 * Implicit return from block (no `return` needed)
+* Array and index accessing
+* Consuming classes from the .NET class library
+
+
+More [samples](src/Raven.Compiler/samples/).
 
 ---
 
