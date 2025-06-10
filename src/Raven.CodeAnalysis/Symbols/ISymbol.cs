@@ -338,6 +338,7 @@ public interface INamedTypeSymbol : ITypeSymbol
     ImmutableArray<ITypeSymbol> TypeArguments { get; }
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
     ITypeSymbol ConstructedFrom { get; }
+    bool IsAbstract { get; }
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
 

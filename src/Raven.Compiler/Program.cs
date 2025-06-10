@@ -10,7 +10,7 @@ using static Raven.AppHostBuilder;
 // ravc test.rav [-o test.exe]
 // dotnet run -- test.rav [-o test.exe]
 
-var filePath = args.Length > 0 ? args[0] : "../../../samples/type-unions.rav";
+var filePath = args.Length > 0 ? args[0] : "../../../samples/io.rav";
 var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : "test.dll"; //: null;
 
 filePath = Path.GetFullPath(filePath);
@@ -54,6 +54,10 @@ var result1 = semanticModel.AnalyzeControlFlow(root.DescendantNodes().OfType<Exp
 var result2 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<BlockSyntax>().First());
 var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<AssignmentExpressionSyntax>().Last());
 */
+
+var service = new CompletionService();
+
+var items = service.GetCompletions(compilation, syntaxTree, 28);
 
 ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 

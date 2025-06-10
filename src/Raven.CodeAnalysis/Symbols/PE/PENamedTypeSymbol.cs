@@ -72,6 +72,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters ??= _typeInfo.GenericTypeParameters.Select(x => (ITypeParameterSymbol)new PETypeParameterSymbol(x, this, this, this.ContainingNamespace, [])).ToImmutableArray();
     public ITypeSymbol ConstructedFrom { get; }
+    public bool IsAbstract => _typeInfo.IsAbstract;
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;
 

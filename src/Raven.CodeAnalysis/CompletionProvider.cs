@@ -13,6 +13,86 @@ public static class CompletionProvider
         var tokenText = token.Text;
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
 
+        if (token.IsKind(SyntaxKind.NewKeyword))
+        {
+            foreach (var symbol in binder.LookupAvailableSymbols())
+            {
+                if (symbol is INamedTypeSymbol type &&
+                    !type.IsAbstract &&
+                    type.Constructors.Any(c => c.DeclaredAccessibility == Accessibility.Public))
+                {
+                    if (seen.Add(type.Name))
+                    {
+                        completions.Add(new CompletionItem(
+                            DisplayText: type.Name,
+                            InsertionText: type.Name,
+                            ReplacementSpan: replacementSpan,
+                            CursorOffset: type.Name.Length,
+                            Description: type.ToDisplayString(),
+                            Symbol: type
+                        ));
+                    }
+                }
+            }
+        }
+
+        /*
+        var objectInitializer = token.GetAncestor<InitializerExpressionSyntax>();
+        if (objectInitializer is not null && objectInitializer.Parent is ObjectCreationExpressionSyntax objectCreation)
+        {
+            var symbolInfo = model.GetSymbolInfo(objectCreation.Type);
+            if (symbolInfo.Symbol is INamedTypeSymbol type)
+            {
+                foreach (var member in type.GetMembers()
+                    .OfType<IPropertySymbol>()
+                    .Where(p => p.SetMethod is not null && p.SetMethod.DeclaredAccessibility == Accessibility.Public))
+                {
+                    if (seen.Add(member.Name))
+                    {
+                        completions.Add(new CompletionItem(
+                            DisplayText: member.Name,
+                            InsertionText: member.Name,
+                            ReplacementSpan: replacementSpan,
+                            CursorOffset: member.Name.Length,
+                            Description: member.ToDisplayString(),
+                            Symbol: member
+                        ));
+                    }
+                }
+            }
+        }
+        */
+
+        /*
+        if (token.Parent is AttributeSyntax attribute && attribute.Name is IdentifierNameSyntax attrName)
+        {
+            foreach (var symbol in binder.LookupAvailableSymbols())
+            {
+                if (symbol is INamedTypeSymbol { IsAttribute: true } attrType)
+                {
+                    var name = attrType.Name;
+                    if (name.EndsWith("Attribute") && name.Length > "Attribute".Length)
+                        name = name[..^"Attribute".Length];
+
+                    if (string.IsNullOrEmpty(tokenText) || name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (seen.Add(name))
+                        {
+                            completions.Add(new CompletionItem(
+                                DisplayText: name,
+                                InsertionText: name,
+                                ReplacementSpan: replacementSpan,
+                                CursorOffset: name.Length,
+                                Description: attrType.ToDisplayString(),
+                                Symbol: attrType
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        */
+
         // Member access: Console.Wri
         var memberAccess = token.GetAncestor<MemberAccessExpressionSyntax>();
         if (memberAccess is not null)
@@ -29,7 +109,7 @@ public static class CompletionProvider
 
                     foreach (var member in typeSymbol.GetMembers()
                                  .Where(x => x.DeclaredAccessibility == Accessibility.Public)
-                                 .Where(m => m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                                 .Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                     {
                         if (member is IMethodSymbol method && method.ContainingSymbol is IPropertySymbol)
                             continue;
@@ -62,9 +142,36 @@ public static class CompletionProvider
             }
         }
 
+        var qualifiedName = token.GetAncestor<QualifiedNameSyntax>();
+        if (qualifiedName is not null)
+        {
+            var symbolInfo = model.GetSymbolInfo(qualifiedName.Left);
+            if (symbolInfo.Symbol is INamespaceOrTypeSymbol nsOrType)
+            {
+                var prefix = qualifiedName.Right.Identifier.Text;
+                var nameSpan = qualifiedName.Right.Identifier.Span;
+
+                foreach (var member in nsOrType.GetMembers()
+                    .Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (seen.Add(member.Name))
+                    {
+                        completions.Add(new CompletionItem(
+                            DisplayText: member.Name,
+                            InsertionText: member.Name,
+                            ReplacementSpan: nameSpan,
+                            CursorOffset: member is ITypeSymbol ? member.Name.Length : (int?)null,
+                            Description: member.ToDisplayString(),
+                            Symbol: member
+                        ));
+                    }
+                }
+            }
+        }
+
         // Language keywords
         var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "new", "true", "false", "null" };
-        foreach (var keyword in keywords.Where(m => m.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)))
+        foreach (var keyword in keywords.Where(k => string.IsNullOrEmpty(tokenText) || k.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)))
         {
             if (seen.Add(keyword))
             {
@@ -77,7 +184,7 @@ public static class CompletionProvider
         }
 
         // Visible symbols (locals, globals, etc.)
-        if (token.Parent is IdentifierNameSyntax { Parent: BlockSyntax or ExpressionStatementSyntax })
+        if (token.Parent is IdentifierNameSyntax { Parent: BlockSyntax or ExpressionStatementSyntax } || token.IsKind(SyntaxKind.IdentifierToken))
         {
             foreach (var symbol in binder.LookupAvailableSymbols())
             {
@@ -91,7 +198,7 @@ public static class CompletionProvider
                 if (symbol is IMethodSymbol && symbol.ContainingSymbol is IPropertySymbol)
                     continue;
 
-                if (!token.IsKind(SyntaxKind.DotToken) &&
+                if (!string.IsNullOrEmpty(tokenText) &&
                     !symbol.Name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase))
                     continue;
 

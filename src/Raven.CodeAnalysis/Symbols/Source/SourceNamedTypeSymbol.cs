@@ -30,6 +30,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
     public ITypeSymbol ConstructedFrom { get; }
+    public bool IsAbstract { get; } = false;
     public bool IsGenericType { get; }
     public bool IsUnboundGenericType { get; }
 

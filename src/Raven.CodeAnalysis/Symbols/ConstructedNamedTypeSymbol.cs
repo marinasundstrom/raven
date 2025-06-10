@@ -82,6 +82,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public INamedTypeSymbol? BaseType => _originalDefinition.BaseType;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _originalDefinition.TypeParameters;
     public ITypeSymbol ConstructedFrom { get; }
+    public bool IsAbstract => _originalDefinition.IsAbstract;
     public bool IsGenericType => true;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers().OfType<IMethodSymbol>().Where(x => !x.IsStatic && x.IsConstructor).ToImmutableArray();
