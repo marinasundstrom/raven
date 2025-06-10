@@ -111,7 +111,7 @@ public class Compilation
             return new EmitResult(false, diagnostics);
         }
 
-        new CodeGenerator(this).Generate(peStream, pdbStream);
+        new CodeGenerator(this).Emit(peStream, pdbStream);
 
         return new EmitResult(true, diagnostics);
     }

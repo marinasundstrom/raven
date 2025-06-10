@@ -14,89 +14,89 @@ internal class ExpressionGenerator : Generator
         _expression = expression;
     }
 
-    public override void Generate()
+    public override void Emit()
     {
-        GenerateExpression(_expression);
+        EmitExpression(_expression);
     }
 
-    private void GenerateExpression(BoundExpression expression)
+    private void EmitExpression(BoundExpression expression)
     {
         switch (expression)
         {
             case BoundBinaryExpression binaryExpression:
-                GenerateBinaryExpression(binaryExpression);
+                EmitBinaryExpression(binaryExpression);
                 break;
 
             case BoundUnaryExpression unaryExpression:
-                GenerateUnaryExpression(unaryExpression);
+                EmitUnaryExpression(unaryExpression);
                 break;
 
             case BoundAddressOfExpression addressOfExpression:
-                GenerateAddressOfExpression(addressOfExpression);
+                EmitAddressOfExpression(addressOfExpression);
                 break;
 
             case BoundParameterAccess parameterAccess:
-                GenerateParameterAccess(parameterAccess);
+                EmitParameterAccess(parameterAccess);
                 break;
 
             case BoundLocalAccess localAccess:
-                GenerateLocalAccess(localAccess);
+                EmitLocalAccess(localAccess);
                 break;
 
             case BoundPropertyAccess propertyAccess:
-                GeneratePropertyAccess(propertyAccess);
+                EmitPropertyAccess(propertyAccess);
                 break;
 
             case BoundMemberAccessExpression memberAccessExpression:
-                GenerateMemberAccessExpression(memberAccessExpression);
+                EmitMemberAccessExpression(memberAccessExpression);
                 break;
 
             case BoundInvocationExpression invocationExpression:
-                GenerateInvocationExpression(invocationExpression);
+                EmitInvocationExpression(invocationExpression);
                 break;
 
             case BoundLiteralExpression literalExpression:
-                GenerateLiteralExpression(literalExpression);
+                EmitLiteralExpression(literalExpression);
                 break;
 
             case BoundParenthesizedExpression parenthesized:
-                GenerateExpression(parenthesized.Expression);
+                EmitExpression(parenthesized.Expression);
                 break;
 
             case BoundIfExpression ifStatement:
-                GenerateIfExpression(ifStatement);
+                EmitIfExpression(ifStatement);
                 break;
 
             case BoundWhileExpression whileStatement:
-                GenerateWhileExpression(whileStatement);
+                EmitWhileExpression(whileStatement);
                 break;
 
             case BoundBlockExpression block:
-                GenerateBlock(block);
+                EmitBlock(block);
                 break;
 
             case BoundAssignmentExpression assignmentExpression:
-                GenerateAssignmentExpression(assignmentExpression);
+                EmitAssignmentExpression(assignmentExpression);
                 break;
 
             case BoundObjectCreationExpression objectCreationExpression:
-                GenerateObjectCreationExpression(objectCreationExpression);
+                EmitObjectCreationExpression(objectCreationExpression);
                 break;
 
             case BoundCollectionExpression collectionExpression:
-                GenerateCollectionExpression(collectionExpression);
+                EmitCollectionExpression(collectionExpression);
                 break;
 
             case BoundArrayAccessExpression boundArrayAccessExpression:
-                GenerateArrayAccessExpression(boundArrayAccessExpression);
+                EmitArrayAccessExpression(boundArrayAccessExpression);
                 break;
 
             case BoundIndexerAccessExpression boundIndexerAccessExpression:
-                GenerateIndexerAccessExpression(boundIndexerAccessExpression);
+                EmitIndexerAccessExpression(boundIndexerAccessExpression);
                 break;
 
             case BoundIsPatternExpression isPatternExpression:
-                GenerateIsPatternExpression(isPatternExpression);
+                EmitIsPatternExpression(isPatternExpression);
                 break;
 
             case BoundTypeExpression:
@@ -118,12 +118,12 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateLocalAccess(BoundLocalAccess localAccess)
+    private void EmitLocalAccess(BoundLocalAccess localAccess)
     {
         ILGenerator.Emit(OpCodes.Ldloc, GetLocal(localAccess.Local));
     }
 
-    private void GenerateParameterAccess(BoundParameterAccess parameterAccess)
+    private void EmitParameterAccess(BoundParameterAccess parameterAccess)
     {
         int position = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter).Position;
         if (MethodSymbol.IsStatic)
@@ -132,7 +132,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldarg, position);
     }
 
-    private void GenerateUnaryExpression(BoundUnaryExpression node)
+    private void EmitUnaryExpression(BoundUnaryExpression node)
     {
         var operand = node.Operand;
         var op = node.Operator;
@@ -140,22 +140,22 @@ internal class ExpressionGenerator : Generator
         switch (op.OperatorKind)
         {
             case BoundUnaryOperatorKind.UnaryMinus: // -x
-                GenerateExpression(operand);
+                EmitExpression(operand);
                 ILGenerator.Emit(OpCodes.Neg);
                 break;
 
             case BoundUnaryOperatorKind.UnaryPlus: // +x
-                GenerateExpression(operand); // no-op
+                EmitExpression(operand); // no-op
                 break;
 
             case BoundUnaryOperatorKind.LogicalNot: // !x
-                GenerateExpression(operand);
+                EmitExpression(operand);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
 
             case BoundUnaryOperatorKind.BitwiseNot: // ~x
-                GenerateExpression(operand);
+                EmitExpression(operand);
                 ILGenerator.Emit(OpCodes.Not);
                 break;
 
@@ -164,7 +164,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateAddressOfExpression(BoundAddressOfExpression addressOf)
+    private void EmitAddressOfExpression(BoundAddressOfExpression addressOf)
     {
         switch (addressOf.Symbol)
         {
@@ -196,21 +196,21 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateIsPatternExpression(BoundIsPatternExpression isPatternExpression)
+    private void EmitIsPatternExpression(BoundIsPatternExpression isPatternExpression)
     {
-        GenerateExpression(isPatternExpression.Expression); // Push the value of the expression onto the stack
+        EmitExpression(isPatternExpression.Expression); // Push the value of the expression onto the stack
 
-        GeneratePattern(isPatternExpression.Pattern);       // Evaluate the pattern; leaves a boolean on the stack
+        EmitPattern(isPatternExpression.Pattern);       // Evaluate the pattern; leaves a boolean on the stack
     }
 
-    private void GeneratePattern(BoundPattern pattern)
+    private void EmitPattern(BoundPattern pattern)
     {
         if (pattern is BoundDeclarationPattern declarationPattern)
         {
             var typeSymbol = declarationPattern.Type;
             var clrType = ResolveClrType(typeSymbol);
 
-            GenerateDesignation(declarationPattern.Designator);
+            EmitDesignation(declarationPattern.Designator);
 
             var patternLocal = GetLocal(declarationPattern.Designator);
 
@@ -248,7 +248,7 @@ internal class ExpressionGenerator : Generator
         }
         else if (pattern is BoundUnaryPattern unaryPattern)
         {
-            GeneratePattern(unaryPattern.Pattern);
+            EmitPattern(unaryPattern.Pattern);
 
             if (unaryPattern.Kind == BoundUnaryPatternKind.Not)
             {
@@ -267,10 +267,10 @@ internal class ExpressionGenerator : Generator
 
             if (binaryPattern.Kind == BoundPatternKind.And)
             {
-                GeneratePattern(binaryPattern.Left);
+                EmitPattern(binaryPattern.Left);
                 ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
 
-                GeneratePattern(binaryPattern.Right);
+                EmitPattern(binaryPattern.Right);
                 ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -285,10 +285,10 @@ internal class ExpressionGenerator : Generator
             {
                 var labelTrue = ILGenerator.DefineLabel();
 
-                GeneratePattern(binaryPattern.Left);
+                EmitPattern(binaryPattern.Left);
                 ILGenerator.Emit(OpCodes.Brtrue_S, labelTrue);
 
-                GeneratePattern(binaryPattern.Right);
+                EmitPattern(binaryPattern.Right);
                 ILGenerator.Emit(OpCodes.Brtrue_S, labelTrue);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
@@ -321,7 +321,7 @@ internal class ExpressionGenerator : Generator
         throw new NotSupportedException("Unsupported designation");
     }
 
-    private void GenerateDesignation(BoundDesignator designation)
+    private void EmitDesignation(BoundDesignator designation)
     {
         if (designation is BoundSingleVariableDesignator single)
         {
@@ -334,7 +334,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateCollectionExpression(BoundCollectionExpression collectionExpression)
+    private void EmitCollectionExpression(BoundCollectionExpression collectionExpression)
     {
         var target = collectionExpression.Type;
 
@@ -349,7 +349,7 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Dup);
                 ILGenerator.Emit(OpCodes.Ldc_I4, index);
 
-                GenerateExpression(element);
+                EmitExpression(element);
 
                 if (arrayTypeSymbol.ElementType.TypeKind is not TypeKind.Struct)
                 {
@@ -365,29 +365,29 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateArrayAccessExpression(BoundArrayAccessExpression boundArrayAccessExpression)
+    private void EmitArrayAccessExpression(BoundArrayAccessExpression boundArrayAccessExpression)
     {
         var arrayType = boundArrayAccessExpression.Receiver.Type as IArrayTypeSymbol;
 
-        GenerateExpression(boundArrayAccessExpression.Receiver);
+        EmitExpression(boundArrayAccessExpression.Receiver);
 
         foreach (var argument in boundArrayAccessExpression.Indices)
         {
-            GenerateExpression(argument);
+            EmitExpression(argument);
         }
 
         EmitLoadElement(arrayType.ElementType);
     }
 
-    private void GenerateIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)
+    private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)
     {
         var indexerProperty = boundIndexerAccessExpression.Symbol as IPropertySymbol;
 
-        GenerateExpression(boundIndexerAccessExpression.Receiver);
+        EmitExpression(boundIndexerAccessExpression.Receiver);
 
         foreach (var argument in boundIndexerAccessExpression.Arguments)
         {
-            GenerateExpression(argument);
+            EmitExpression(argument);
         }
 
         var getter = indexerProperty switch
@@ -413,7 +413,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateObjectCreationExpression(BoundObjectCreationExpression objectCreationExpression)
+    private void EmitObjectCreationExpression(BoundObjectCreationExpression objectCreationExpression)
     {
         var symbol = objectCreationExpression.Symbol;
 
@@ -437,7 +437,7 @@ internal class ExpressionGenerator : Generator
                 switch (argument)
                 {
                     case BoundAddressOfExpression addr:
-                        GenerateAddressOfExpression(addr);
+                        EmitAddressOfExpression(addr);
                         break;
 
                     //case BoundLocal { Symbol: ILocalSymbol local }:
@@ -454,7 +454,7 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                GenerateExpression(argument);
+                EmitExpression(argument);
 
                 var argType = argument.Type;
                 if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } &&
@@ -475,12 +475,12 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, constructorInfo);
     }
 
-    private void GenerateAssignmentExpression(BoundAssignmentExpression node)
+    private void EmitAssignmentExpression(BoundAssignmentExpression node)
     {
         switch (node)
         {
             case BoundLocalAssignmentExpression localExpression:
-                GenerateExpression(localExpression.Right);
+                EmitExpression(localExpression.Right);
 
                 if (localExpression.Right.Type.TypeKind is TypeKind.Struct && localExpression.Type.SpecialType is SpecialType.System_Object)
                 {
@@ -491,23 +491,23 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case BoundArrayAssignmentExpression array:
-                GenerateExpression(array.Left.Receiver);
+                EmitExpression(array.Left.Receiver);
 
                 foreach (var index in array.Left.Indices)
-                    GenerateExpression(index);
+                    EmitExpression(index);
 
-                GenerateExpression(array.Right);
+                EmitExpression(array.Right);
 
                 EmitStoreElement(((IArrayTypeSymbol)array.Left.Type).ElementType);
                 break;
 
             case BoundIndexerAssignmentExpression indexer:
-                GenerateExpression(indexer.Left.Receiver);
+                EmitExpression(indexer.Left.Receiver);
 
                 foreach (var arg in indexer.Left.Arguments)
-                    GenerateExpression(arg);
+                    EmitExpression(arg);
 
-                GenerateExpression(indexer.Right);
+                EmitExpression(indexer.Right);
 
                 var setter = ((IPropertySymbol)indexer.Left.Symbol!) switch
                 {
@@ -520,8 +520,8 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case BoundMemberAssignmentExpression member:
-                GenerateExpression(member.Receiver);
-                GenerateExpression(member.Right);
+                EmitExpression(member.Receiver);
+                EmitExpression(member.Right);
 
                 switch (member.Member)
                 {
@@ -569,10 +569,10 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateBinaryExpression(BoundBinaryExpression binaryExpression)
+    private void EmitBinaryExpression(BoundBinaryExpression binaryExpression)
     {
-        GenerateExpression(binaryExpression.Left);
-        GenerateExpression(binaryExpression.Right);
+        EmitExpression(binaryExpression.Left);
+        EmitExpression(binaryExpression.Right);
 
         var op = binaryExpression.Operator;
 
@@ -603,7 +603,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateMemberAccessExpression(BoundMemberAccessExpression memberAccessExpression)
+    private void EmitMemberAccessExpression(BoundMemberAccessExpression memberAccessExpression)
     {
         var symbol = memberAccessExpression.Symbol;
 
@@ -615,7 +615,7 @@ internal class ExpressionGenerator : Generator
 
             if (receiver is not null && !symbol.IsStatic)
             {
-                GenerateExpression(receiver);
+                EmitExpression(receiver);
             }
 
             if (propertySymbol.ContainingType!.SpecialType is SpecialType.System_Array && propertySymbol.Name == "Length")
@@ -662,7 +662,7 @@ internal class ExpressionGenerator : Generator
 
             if (receiver is not null)
             {
-                GenerateExpression(receiver);
+                EmitExpression(receiver);
             }
 
             // Value types need address loading
@@ -712,7 +712,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateInvocationExpression(BoundInvocationExpression invocationExpression)
+    private void EmitInvocationExpression(BoundInvocationExpression invocationExpression)
     {
         var target = invocationExpression.Method;
         var receiver = invocationExpression.Receiver;
@@ -755,7 +755,7 @@ internal class ExpressionGenerator : Generator
             else
             {
                 // General case: evaluate the receiver expression
-                GenerateExpression(receiver);
+                EmitExpression(receiver);
 
                 if (target.ContainingType.TypeKind is TypeKind.Struct)
                 {
@@ -796,7 +796,7 @@ internal class ExpressionGenerator : Generator
                 switch (argument)
                 {
                     case BoundAddressOfExpression addressOf:
-                        GenerateAddressOfExpression(addressOf);
+                        EmitAddressOfExpression(addressOf);
                         break;
 
                     case BoundLocalAccess { Symbol: ILocalSymbol local }:
@@ -809,7 +809,7 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                GenerateExpression(argument);
+                EmitExpression(argument);
 
                 var argType = argument?.Type;
                 var paramType = paramSymbol.Type;
@@ -852,7 +852,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateFieldAccess(BoundFieldAccess fieldAccess)
+    private void EmitFieldAccess(BoundFieldAccess fieldAccess)
     {
         var fieldSymbol = fieldAccess.Field;
         var metadataFieldSymbol = fieldAccess.Field as PEFieldSymbol;
@@ -909,7 +909,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GeneratePropertyAccess(BoundPropertyAccess propertyAccess)
+    private void EmitPropertyAccess(BoundPropertyAccess propertyAccess)
     {
         var propertySymbol = propertyAccess.Property;
 
@@ -941,7 +941,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateLiteralExpression(BoundLiteralExpression literalExpression)
+    private void EmitLiteralExpression(BoundLiteralExpression literalExpression)
     {
         switch (literalExpression.Kind)
         {
@@ -996,14 +996,14 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateIfExpression(BoundIfExpression ifStatement)
+    private void EmitIfExpression(BoundIfExpression ifStatement)
     {
         var elseLabel = ILGenerator.DefineLabel();
 
-        GenerateBranchOpForCondition(ifStatement.Condition, elseLabel);
+        EmitBranchOpForCondition(ifStatement.Condition, elseLabel);
 
         var scope = new Scope(this);
-        new ExpressionGenerator(scope, ifStatement.ThenBranch).Generate();
+        new ExpressionGenerator(scope, ifStatement.ThenBranch).Emit();
 
         var thenType = ifStatement.ThenBranch.Type;
 
@@ -1024,9 +1024,9 @@ internal class ExpressionGenerator : Generator
             // Mark the 'else' label
             ILGenerator.MarkLabel(elseLabel);
 
-            // Generate the 'else' block
+            // Emit the 'else' block
             var scope2 = new Scope(this);
-            new ExpressionGenerator(scope2, ifStatement.ElseBranch).Generate();
+            new ExpressionGenerator(scope2, ifStatement.ElseBranch).Emit();
 
             var elseType = ifStatement.ElseBranch.Type;
 
@@ -1046,7 +1046,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void GenerateWhileExpression(BoundWhileExpression whileStatement)
+    private void EmitWhileExpression(BoundWhileExpression whileStatement)
     {
         var beginLabel = ILGenerator.DefineLabel();
         var conditionLabel = ILGenerator.DefineLabel();
@@ -1059,10 +1059,10 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Nop);
 
         var scope = new Scope(this);
-        new ExpressionGenerator(scope, whileStatement.Body).Generate();
+        new ExpressionGenerator(scope, whileStatement.Body).Emit();
 
         ILGenerator.MarkLabel(conditionLabel);
-        GenerateBranchOpForCondition(whileStatement.Condition, endLabel); // ✅ jump out if false
+        EmitBranchOpForCondition(whileStatement.Condition, endLabel); // ✅ jump out if false
 
         // If true, loop again
         ILGenerator.Emit(OpCodes.Br_S, beginLabel);
@@ -1070,18 +1070,18 @@ internal class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(endLabel);
     }
 
-    private void GenerateBranchOpForCondition(BoundExpression expression, Label end)
+    private void EmitBranchOpForCondition(BoundExpression expression, Label end)
     {
         if (expression is BoundParenthesizedExpression parenthesizedExpression)
         {
-            GenerateBranchOpForCondition(parenthesizedExpression.Expression, end);
+            EmitBranchOpForCondition(parenthesizedExpression.Expression, end);
             return;
         }
 
         if (expression is BoundBinaryExpression binaryExpression)
         {
-            GenerateExpression(binaryExpression.Left);
-            GenerateExpression(binaryExpression.Right);
+            EmitExpression(binaryExpression.Left);
+            EmitExpression(binaryExpression.Right);
 
             switch (binaryExpression.Operator.OperatorKind)
             {
@@ -1136,22 +1136,22 @@ internal class ExpressionGenerator : Generator
         {
             // Other kinds of expressions... member access etc.
 
-            GenerateExpression(expression);
+            EmitExpression(expression);
             ILGenerator.Emit(OpCodes.Brfalse_S, end);
         }
     }
 
-    private void GenerateBlock(BoundBlockExpression block)
+    private void EmitBlock(BoundBlockExpression block)
     {
         foreach (var s in block.Statements)
         {
-            GenerateStatement(s);
+            EmitStatement(s);
         }
     }
 
-    private void GenerateStatement(BoundStatement statement)
+    private void EmitStatement(BoundStatement statement)
     {
-        new StatementGenerator(this, statement).Generate();
+        new StatementGenerator(this, statement).Emit();
     }
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)

@@ -113,11 +113,11 @@ internal class TypeGenerator
         }
     }
 
-    public void GenerateMemberILBodies()
+    public void EmitMemberILBodies()
     {
         foreach (var methodGenerators in _methodGenerators.Values.ToList())
         {
-            methodGenerators.GenerateBody();
+            methodGenerators.EmitBody();
         }
     }
 

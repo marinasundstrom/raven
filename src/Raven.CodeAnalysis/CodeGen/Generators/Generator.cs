@@ -27,7 +27,7 @@ internal abstract class Generator
 
     public ILGenerator ILGenerator => MethodBodyGenerator.ILGenerator;
 
-    public virtual void Generate()
+    public virtual void Emit()
     {
 
     }

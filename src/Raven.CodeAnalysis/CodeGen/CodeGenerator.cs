@@ -41,7 +41,7 @@ internal class CodeGenerator
         return e.Type ?? e?.TypeBuilder;
     }
 
-    public void Generate(Stream peStream, Stream? pdbStream)
+    public void Emit(Stream peStream, Stream? pdbStream)
     {
         var assemblyName = new AssemblyName(_compilation.AssemblyName);
         assemblyName.Version = new Version(1, 0, 0, 0);
@@ -63,7 +63,7 @@ internal class CodeGenerator
 
         DefineMemberBuilders();
 
-        GenerateMemberILBodies();
+        EmitMemberILBodies();
 
         CreateTypes();
 
@@ -74,7 +74,7 @@ internal class CodeGenerator
 
         MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
         MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken);
-        DebugDirectoryBuilder debugDirectoryBuilder = GeneratePdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
+        DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
 
         Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
         {
@@ -148,7 +148,7 @@ internal class CodeGenerator
         var paramArrayAttr = new CustomAttributeBuilder(paramArrayAttrCtor, Array.Empty<object>());
         paramBuilder.SetCustomAttribute(paramArrayAttr);
 
-        // Generate constructor body
+        // Emit constructor body
         var ilCtor = ctorBuilder.GetILGenerator();
         var attributeCtor = typeof(Attribute).GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
         if (attributeCtor is null)
@@ -193,15 +193,15 @@ internal class CodeGenerator
         }
     }
 
-    private void GenerateMemberILBodies()
+    private void EmitMemberILBodies()
     {
         foreach (var typeGenerator in _typeGenerators.Values)
         {
-            typeGenerator.GenerateMemberILBodies();
+            typeGenerator.EmitMemberILBodies();
         }
     }
 
-    static DebugDirectoryBuilder GeneratePdb(MetadataBuilder pdbBuilder, ImmutableArray<int> rowCounts, MethodDefinitionHandle entryPointHandle)
+    static DebugDirectoryBuilder EmitPdb(MetadataBuilder pdbBuilder, ImmutableArray<int> rowCounts, MethodDefinitionHandle entryPointHandle)
     {
         BlobBuilder portablePdbBlob = new BlobBuilder();
         PortablePdbBuilder portablePdbBuilder = new PortablePdbBuilder(pdbBuilder, rowCounts, entryPointHandle);

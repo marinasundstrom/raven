@@ -28,7 +28,7 @@ internal class MethodBodyGenerator
 
     public ILGenerator ILGenerator { get; private set; }
 
-    public void Generate()
+    public void Emit()
     {
         baseGenerator = new BaseGenerator(this);
         scope = new Scope(baseGenerator);
@@ -61,24 +61,24 @@ internal class MethodBodyGenerator
             case CompilationUnitSyntax compilationUnit:
                 foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
                 {
-                    GenerateLocalFunction(localFunctionStmt);
+                    EmitLocalFunction(localFunctionStmt);
                 }
 
                 var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
                     .Select(x => x.Statement);
-                GenerateIL(statements);
+                EmitIL(statements);
                 break;
 
             case LocalFunctionStatementSyntax localFunctionStatement:
                 if (localFunctionStatement.Body != null)
-                    GenerateIL(localFunctionStatement.Body.Statements.ToList());
+                    EmitIL(localFunctionStatement.Body.Statements.ToList());
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             case MethodDeclarationSyntax methodDeclaration:
                 if (methodDeclaration.Body != null)
-                    GenerateIL(methodDeclaration.Body.Statements.ToList());
+                    EmitIL(methodDeclaration.Body.Statements.ToList());
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
@@ -88,7 +88,7 @@ internal class MethodBodyGenerator
         }
     }
 
-    private void GenerateLocalFunction(LocalFunctionStatementSyntax localFunctionStmt)
+    private void EmitLocalFunction(LocalFunctionStatementSyntax localFunctionStmt)
     {
         var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
         if (methodSymbol is null)
@@ -97,10 +97,10 @@ internal class MethodBodyGenerator
         var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol);
         MethodGenerator.TypeGenerator.Add(methodSymbol, methodGenerator);
         methodGenerator.DefineMethodBuilder();
-        methodGenerator.GenerateBody();
+        methodGenerator.EmitBody();
     }
 
-    private void GenerateIL(IEnumerable<StatementSyntax> statements)
+    private void EmitIL(IEnumerable<StatementSyntax> statements)
     {
         if (!statements.Any())
             return;
@@ -111,16 +111,16 @@ internal class MethodBodyGenerator
         {
             var boundNode = semanticModel.GetBoundNode(statement) as BoundStatement;
 
-            GenerateStatement(boundNode);
+            EmitStatement(boundNode);
         }
 
         ILGenerator.Emit(OpCodes.Nop);
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private void GenerateStatement(BoundStatement statement)
+    private void EmitStatement(BoundStatement statement)
     {
-        new StatementGenerator(scope, statement).Generate();
+        new StatementGenerator(scope, statement).Emit();
     }
 
     protected SymbolInfo GetSymbolInfo(SyntaxNode syntaxNode)

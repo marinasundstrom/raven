@@ -62,10 +62,10 @@ internal class MethodGenerator
 
     public ParameterBuilder GetParameterBuilder(IParameterSymbol parameterSymbol) => _parameterBuilders[parameterSymbol];
 
-    public void GenerateBody()
+    public void EmitBody()
     {
         var bodyGenerator = new MethodBodyGenerator(this);
-        bodyGenerator.Generate();
+        bodyGenerator.Emit();
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)

@@ -13,36 +13,36 @@ internal class StatementGenerator : Generator
         _statement = statement;
     }
 
-    public override void Generate()
+    public override void Emit()
     {
         switch (_statement)
         {
             case BoundReturnStatement returnStatement:
-                GenerateReturnStatement(returnStatement);
+                EmitReturnStatement(returnStatement);
                 break;
 
             case BoundExpressionStatement expressionStatement:
-                GenerateExpressionStatement(expressionStatement);
+                EmitExpressionStatement(expressionStatement);
                 break;
 
             case BoundLocalDeclarationStatement localDeclarationStatement:
-                GenerateDeclarationStatement(localDeclarationStatement);
+                EmitDeclarationStatement(localDeclarationStatement);
                 break;
         }
     }
 
-    private void GenerateReturnStatement(BoundReturnStatement returnStatement)
+    private void EmitReturnStatement(BoundReturnStatement returnStatement)
     {
-        new ExpressionGenerator(this, returnStatement.Expression).Generate();
+        new ExpressionGenerator(this, returnStatement.Expression).Emit();
 
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private void GenerateExpressionStatement(BoundExpressionStatement expressionStatement)
+    private void EmitExpressionStatement(BoundExpressionStatement expressionStatement)
     {
         var expression = expressionStatement.Expression;
 
-        new ExpressionGenerator(this, expression).Generate();
+        new ExpressionGenerator(this, expression).Emit();
 
         ISymbol? symbol = expressionStatement.Symbol;
 
@@ -61,19 +61,19 @@ internal class StatementGenerator : Generator
         }
     }
 
-    private void GenerateDeclarationStatement(BoundLocalDeclarationStatement localDeclarationStatement)
+    private void EmitDeclarationStatement(BoundLocalDeclarationStatement localDeclarationStatement)
     {
         foreach (var declarator in localDeclarationStatement.Declarators)
         {
-            GenerateDeclarator(localDeclarationStatement, declarator);
+            EmitDeclarator(localDeclarationStatement, declarator);
         }
     }
 
-    private void GenerateDeclarator(BoundLocalDeclarationStatement localDeclarationStatement, BoundVariableDeclarator declarator)
+    private void EmitDeclarator(BoundLocalDeclarationStatement localDeclarationStatement, BoundVariableDeclarator declarator)
     {
         if (declarator.Initializer is not null)
         {
-            new ExpressionGenerator(this, declarator.Initializer).Generate();
+            new ExpressionGenerator(this, declarator.Initializer).Emit();
 
             var localBuilder = GetLocal(declarator.Local);
 
