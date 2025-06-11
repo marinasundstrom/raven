@@ -38,11 +38,6 @@ var sourceText = SourceText.From(file);
 var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
 var root = syntaxTree.GetRoot();
 
-if (shouldPrintSyntaxTree)
-{
-    root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true });
-}
-
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
 var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir("9.0.0", "net9.0");
@@ -72,15 +67,6 @@ var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<Assign
 //var service = new CompletionService();
 //var items = service.GetCompletions(compilation, syntaxTree, 28);
 
-if (shouldDumpSyntax)
-{
-    ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
-
-    Console.WriteLine(root.WriteNodeToText(compilation));
-
-    Console.WriteLine();
-}
-
 outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
 
@@ -94,6 +80,20 @@ using (var stream = File.OpenWrite($"{outputPath}"))
 }
 
 stopwatch.Stop();
+
+if (shouldPrintSyntaxTree)
+{
+    root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true });
+}
+
+if (shouldDumpSyntax)
+{
+    ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+
+    Console.WriteLine(root.WriteNodeToText(compilation));
+
+    Console.WriteLine();
+}
 
 // Check the result
 if (!result.Success)
@@ -118,7 +118,6 @@ else
         Succeeded(stopwatch.Elapsed);
     }
 }
-
 
 //CreateAppHost(compilation);
 
