@@ -14,8 +14,15 @@ var stopwatch = Stopwatch.StartNew();
 // ravc test.rav [-o test.exe]
 // dotnet run -- test.rav [-o test.exe]
 
+// Options:
+// -s - display the syntax tree
+// -d - dump syntax (highlighted)
+
 var filePath = args.Length > 0 ? args[0] : "../../../samples/io.rav";
 var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : "test.dll"; //: null;
+
+var shouldPrintSyntaxTree = args.Contains("-s");
+var shouldDumpSyntax = args.Contains("-d");
 
 filePath = Path.GetFullPath(filePath);
 
@@ -31,7 +38,10 @@ var sourceText = SourceText.From(file);
 var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
 var root = syntaxTree.GetRoot();
 
-root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true });
+if (shouldPrintSyntaxTree)
+{
+    root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true });
+}
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
@@ -46,10 +56,10 @@ var compilation = Compilation.Create(assemblyName, new CompilationOptions(Output
         MetadataReference.CreateFromFile(IsProjectFolder(Environment.CurrentDirectory) ? "TestDep.dll" : "../../../TestDep.dll")
     ]);
 
-var semanticModel = compilation.GetSemanticModel(syntaxTree);
+//var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
-var typeSymbol = methodSymbol?.ContainingType;
+//var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
+//var typeSymbol = methodSymbol?.ContainingType;
 
 //var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First()) as ILocalSymbol;
 
@@ -62,11 +72,14 @@ var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<Assign
 //var service = new CompletionService();
 //var items = service.GetCompletions(compilation, syntaxTree, 28);
 
-ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+if (shouldDumpSyntax)
+{
+    ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
-Console.WriteLine(root.WriteNodeToText(compilation));
+    Console.WriteLine(root.WriteNodeToText(compilation));
 
-Console.WriteLine();
+    Console.WriteLine();
+}
 
 outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
@@ -110,8 +123,6 @@ else
 //CreateAppHost(compilation);
 
 //Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
-
-Console.WriteLine();
 
 static bool IsProjectFolder(string path)
 {
