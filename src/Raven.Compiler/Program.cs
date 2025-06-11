@@ -55,13 +55,12 @@ var result2 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<BlockS
 var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<AssignmentExpressionSyntax>().Last());
 */
 
-var service = new CompletionService();
-
-var items = service.GetCompletions(compilation, syntaxTree, 28);
+//var service = new CompletionService();
+//var items = service.GetCompletions(compilation, syntaxTree, 28);
 
 ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
-//Console.WriteLine(root.WriteNodeToText(compilation));
+Console.WriteLine(root.WriteNodeToText(compilation));
 
 Console.WriteLine();
 

@@ -4,24 +4,18 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Text;
 
-
-
-
 public class ColorScheme
 {
     public AnsiColor Default { get; internal set; }
-
     public AnsiColor Method { get; internal set; }
-
     public AnsiColor Namespace { get; internal set; }
-
     public AnsiColor Type { get; internal set; }
-
     public AnsiColor Keyword { get; internal set; }
-
     public AnsiColor StringLiteral { get; internal set; }
-
+    public AnsiColor NumericLiteral { get; internal set; }
     public AnsiColor Comment { get; internal set; }
+    public AnsiColor Field { get; internal set; }
+    public AnsiColor Parameter { get; internal set; }
 
     public static ColorScheme Light { get; } = new ColorScheme()
     {
@@ -31,7 +25,10 @@ public class ColorScheme
         Type = AnsiColor.Magenta,
         Keyword = AnsiColor.BrightBlue,
         StringLiteral = AnsiColor.BrightYellow,
-        Comment = AnsiColor.Green
+        NumericLiteral = AnsiColor.Yellow,
+        Comment = AnsiColor.Green,
+        Field = AnsiColor.Cyan,
+        Parameter = AnsiColor.Blue
     };
 
     public static ColorScheme Dark { get; } = new ColorScheme()
@@ -42,7 +39,10 @@ public class ColorScheme
         Type = AnsiColor.BrightMagenta,
         Keyword = AnsiColor.BrightBlue,
         StringLiteral = AnsiColor.BrightRed,
-        Comment = AnsiColor.BrightGreen
+        NumericLiteral = AnsiColor.Red,
+        Comment = AnsiColor.BrightGreen,
+        Field = AnsiColor.Cyan,
+        Parameter = AnsiColor.Blue
     };
 }
 
@@ -54,13 +54,16 @@ public static class ConsoleSyntaxHighlighter
     public static SemanticModel SemanticModel { get; private set; }
 
     private static Dictionary<SyntaxToken, SemanticClassification> _classificationMap;
+    private static Dictionary<SyntaxTrivia, SemanticClassification> _triviaClassificationMap;
 
     public static string WriteNodeToText(this SyntaxNode node, Compilation compilation)
     {
         Compilation = compilation;
         SemanticModel = compilation.GetSemanticModel(node.SyntaxTree);
 
-        _classificationMap = SemanticClassifier.Classify(node, SemanticModel);
+        var result = SemanticClassifier.Classify(node, SemanticModel);
+        _classificationMap = result.Tokens;
+        _triviaClassificationMap = result.Trivia;
 
         var sb = new StringBuilder();
         WriteNode(node, sb);
@@ -72,13 +75,9 @@ public static class ConsoleSyntaxHighlighter
         foreach (var child in node.ChildNodesAndTokens())
         {
             if (child.IsToken)
-            {
                 WriteToken(child.AsToken(), sb);
-            }
             else
-            {
                 WriteNode(child.AsNode()!, sb);
-            }
         }
     }
 
@@ -114,28 +113,13 @@ public static class ConsoleSyntaxHighlighter
 
     private static void WriteStructuredTrivia(SyntaxNode structure, StringBuilder sb)
     {
-        // Structured trivia are mini trees (e.g. documentation comments, directives)
         foreach (var child in structure.ChildNodesAndTokens())
         {
             if (child.IsToken)
-            {
                 WriteToken(child.AsToken(), sb);
-            }
             else
-            {
                 WriteStructuredTrivia(child.AsNode()!, sb);
-            }
         }
-    }
-
-    private static AnsiColor GetColorForTrivia(SyntaxTrivia trivia)
-    {
-        return trivia.Kind switch
-        {
-            SyntaxKind.SingleLineCommentTrivia => ColorScheme.Comment,
-            SyntaxKind.MultiLineCommentTrivia => ColorScheme.Comment,
-            _ => ColorScheme.Default
-        };
     }
 
     private static AnsiColor GetColorForToken(SyntaxToken token)
@@ -147,12 +131,29 @@ public static class ConsoleSyntaxHighlighter
         {
             SemanticClassification.Keyword => ColorScheme.Keyword,
             SemanticClassification.StringLiteral => ColorScheme.StringLiteral,
+            SemanticClassification.NumericLiteral => ColorScheme.NumericLiteral,
             SemanticClassification.Comment => ColorScheme.Comment,
             SemanticClassification.Method => ColorScheme.Method,
             SemanticClassification.Type => ColorScheme.Type,
             SemanticClassification.Namespace => ColorScheme.Namespace,
+            SemanticClassification.Field => ColorScheme.Field,
+            SemanticClassification.Parameter => ColorScheme.Parameter,
             _ => ColorScheme.Default
         };
+    }
+
+    private static AnsiColor GetColorForTrivia(SyntaxTrivia trivia)
+    {
+        if (_triviaClassificationMap.TryGetValue(trivia, out var classification))
+        {
+            return classification switch
+            {
+                SemanticClassification.Comment => ColorScheme.Comment,
+                _ => ColorScheme.Default
+            };
+        }
+
+        return ColorScheme.Default;
     }
 
     private static void AppendAnsiColor(StringBuilder sb, AnsiColor color)
