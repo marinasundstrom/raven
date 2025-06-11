@@ -49,7 +49,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateAcceptMethods(INamedTypeSymbol classSymbol)
     {
-        return AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name);
+        return AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name, nodeBaseClass: "SyntaxNode");
     }
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateWithMethods(INamedTypeSymbol classSymbol)

@@ -126,7 +126,7 @@ public static class VisitorPartialGenerator
         return generatedClass;
     }
 
-    public static ClassDeclarationSyntax GenerateVisitMethodForRewriter(SourceProductionContext context, INamedTypeSymbol? classSymbol, bool isInternal = false, string suffix = "Syntax", string? visitorClassName = null, string resultType = "SyntaxNode")
+    public static ClassDeclarationSyntax GenerateVisitMethodForRewriter(SourceProductionContext context, INamedTypeSymbol? classSymbol, bool isInternal = false, bool implement = true, string suffix = "Syntax", string? visitorClassName = null, string resultType = "SyntaxNode")
     {
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
         var className = classSymbol.Name;
@@ -144,87 +144,96 @@ public static class VisitorPartialGenerator
             nodeName = "symbol";
         }
 
+
         var methodName = $"Visit{sv.Replace(suffix, string.Empty)}";
 
-        var properties = classSymbol.GetMembers()
+        ExpressionSyntax? expr;
+
+        if (implement)
+        {
+            var properties = classSymbol.GetMembers()
             .OfType<IPropertySymbol>()
             .Where(property => property.IsPartial());
 
-        var args = properties.Select(property =>
+            var args = properties.Select(property =>
+            {
+                var propertyType = ParseTypeName(property.Type.ToDisplayString());
+
+                var childPropertyTypeNae = propertyType.DescendantNodes()
+                    .OfType<IdentifierNameSyntax>()
+                    .Last();
+
+                string childPropertyName = property.Name;
+
+                var accessNodeChild = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                        IdentifierName(nodeName),
+                        Token(SyntaxKind.DotToken),
+                        IdentifierName(childPropertyName));
+
+                if (property.Name == "Kind")
+                {
+                    return Argument(accessNodeChild);
+                }
+
+                var isList = propertyType.ToString().Contains("SyntaxList");
+
+                var updateMethodNameStr = isList
+                    ? "VisitList" : $"Visit{childPropertyTypeNae.ToString().Replace("Syntax", string.Empty)}";
+
+                NameSyntax updateMethodName = IdentifierName(updateMethodNameStr);
+
+                if (isList)
+                {
+                    var paramType2 = propertyType.DescendantNodes().OfType<GenericNameSyntax>().Last();
+
+                    updateMethodName = GenericName(updateMethodNameStr).WithTypeArgumentList(
+                            TypeArgumentList(
+                                SingletonSeparatedList(
+                                    paramType2.TypeArgumentList.Arguments.First())));
+                }
+
+                var updateInvocation = InvocationExpression(updateMethodName, ArgumentList([
+                    Argument(accessNodeChild)
+                ]));
+
+                var castingResult = CastExpression(propertyType, updateInvocation);
+
+                return Argument(castingResult);
+            }).ToList();
+
+            expr = InvocationExpression(
+                ConditionalAccessExpression(IdentifierName(nodeName), MemberBindingExpression(IdentifierName("Update"))))
+            .WithArgumentList(
+                ArgumentList(
+                    SeparatedList(
+                        args)));
+        }
+        else
         {
-            var propertyType = ParseTypeName(property.Type.ToDisplayString());
-
-            var childPropertyTypeNae = propertyType.DescendantNodes()
-                .OfType<IdentifierNameSyntax>()
-                .Last();
-
-            string childPropertyName = property.Name;
-
-            var accessNodeChild = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                    IdentifierName(nodeName),
-                    Token(SyntaxKind.DotToken),
-                    IdentifierName(childPropertyName));
-
-            if (property.Name == "Kind")
-            {
-                return Argument(accessNodeChild);
-            }
-
-            var isList = propertyType.ToString().Contains("SyntaxList");
-
-            var updateMethodNameStr = isList
-                ? "VisitList" : $"Visit{childPropertyTypeNae.ToString().Replace("Syntax", string.Empty)}";
-
-            NameSyntax updateMethodName = IdentifierName(updateMethodNameStr);
-
-            if (isList)
-            {
-                var paramType2 = propertyType.DescendantNodes().OfType<GenericNameSyntax>().Last();
-
-                updateMethodName = GenericName(updateMethodNameStr).WithTypeArgumentList(
-                        TypeArgumentList(
-                            SingletonSeparatedList(
-                                paramType2.TypeArgumentList.Arguments.First())));
-            }
-
-            var updateInvocation = InvocationExpression(updateMethodName, ArgumentList([
-                Argument(accessNodeChild)
-            ]));
-
-            var castingResult = CastExpression(propertyType, updateInvocation);
-
-            return Argument(castingResult);
-        }).ToList();
-
-        var expr = InvocationExpression(
-            ConditionalAccessExpression(IdentifierName(nodeName), MemberBindingExpression(IdentifierName("Update"))))
-        .WithArgumentList(
-            ArgumentList(
-                SeparatedList(
-                    args)));
+            expr = IdentifierName(Identifier(nodeName));
+        }
 
         methods.Add(MethodDeclaration(
-            NullableType(IdentifierName(resultType)),
-                        Identifier(methodName))
-                        .WithModifiers(
-                            TokenList(
-                                [
-                                    Token(SyntaxKind.PublicKeyword),
+                NullableType(IdentifierName(resultType)),
+                            Identifier(methodName))
+                            .WithModifiers(
+                                TokenList(
+                                    [
+                                        Token(SyntaxKind.PublicKeyword),
                         Token(SyntaxKind.OverrideKeyword)]))
-                                    .WithParameterList(
-                                        ParameterList(
-                                            SingletonSeparatedList(
-                                                Parameter(
-                                                    Identifier(nodeName))
-                                                .WithType(
-                                                    IdentifierName(className)))))
-                                  .WithExpressionBody(ArrowExpressionClause(expr))
-                                .WithSemicolonToken(
-                                    Token(SyntaxKind.SemicolonToken)));
-
+                                        .WithParameterList(
+                                            ParameterList(
+                                                SingletonSeparatedList(
+                                                    Parameter(
+                                                        Identifier(nodeName))
+                                                    .WithType(
+                                                        IdentifierName(className)))))
+                                      .WithExpressionBody(ArrowExpressionClause(expr))
+                                    .WithSemicolonToken(
+                                        Token(SyntaxKind.SemicolonToken)));
 
         // Generate the partial class
-        var generatedClass = ClassDeclaration($"{suffix}Rewriter")
+        var generatedClass = ClassDeclaration($"{(visitorClassName is not null ? visitorClassName : suffix)}Rewriter")
             .WithBaseList(BaseList(
                 SingletonSeparatedList<BaseTypeSyntax>(
                     SimpleBaseType(

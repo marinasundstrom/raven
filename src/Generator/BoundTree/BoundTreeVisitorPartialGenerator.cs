@@ -83,13 +83,14 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
 
         var visitorGenericPartialClass = GenerateVisitorGenericPartialClass(context, classSymbol);
 
-        //var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
+        var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
 
         // Wrap it in a namespace
         var namespaceDeclaration = NamespaceDeclaration(ParseName(namespaceName))
             .AddMembers(
                 visitorPartialClass,
-                visitorGenericPartialClass);
+                visitorGenericPartialClass,
+                rewriterGenericPartialClass);
 
         // Convert to source text and add to the compilation
         var syntaxTree = CompilationUnit()

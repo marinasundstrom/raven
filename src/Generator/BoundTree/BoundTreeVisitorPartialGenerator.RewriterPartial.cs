@@ -10,6 +10,6 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
 {
     private static ClassDeclarationSyntax GenerateRewriterPartialClass(SourceProductionContext context, INamedTypeSymbol? classSymbol)
     {
-        return VisitorPartialGenerator.GenerateVisitMethodForRewriter(context, classSymbol, suffix: "BoundTree", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true);
+        return VisitorPartialGenerator.GenerateVisitMethodForRewriter(context, classSymbol, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true, implement: false);
     }
 }

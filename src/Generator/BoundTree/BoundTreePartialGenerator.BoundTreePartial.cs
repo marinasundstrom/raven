@@ -33,6 +33,6 @@ public partial class BoundNodePartialGenerator : IIncrementalGenerator
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateAcceptMethods(INamedTypeSymbol classSymbol)
     {
-        return AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name, suffix: "Bound", makeInternal: false, visitorClassName: "BoundTree");
+        return AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name, suffix: "Bound", makeInternal: false, visitorClassName: "BoundTree", nodeBaseClass: "BoundNode");
     }
 }
