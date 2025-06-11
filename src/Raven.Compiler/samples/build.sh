@@ -1,3 +1,5 @@
+# Run command from Raven.Compiler directory
+
 dotnet run -- samples/arrays.rav -o output/arrays.dll
 dotnet run -- samples/enums.rav -o output/enums.dll
 dotnet run -- samples/general.rav -o output/general.dll
