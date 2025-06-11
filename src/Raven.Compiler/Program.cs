@@ -1,11 +1,15 @@
-﻿using Raven;
+﻿using System.Diagnostics;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 using Spectre.Console;
 
+using static Raven.ConsoleEx;
 using static Raven.AppHostBuilder;
+
+var stopwatch = Stopwatch.StartNew();
 
 // ravc test.rav [-o test.exe]
 // dotnet run -- test.rav [-o test.exe]
@@ -68,11 +72,40 @@ outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.Assemb
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
 
 // INFO: The sample will compile, but not all constructs are supported yet.
+
+EmitResult? result = null;
+
 using (var stream = File.OpenWrite($"{outputPath}"))
 {
-    var result = compilation.Emit(stream);
-    result.WriteToConsole();
+    result = compilation.Emit(stream);
 }
+
+stopwatch.Stop();
+
+// Check the result
+if (!result.Success)
+{
+    PrintDiagnostics(result.Diagnostics);
+
+    Console.WriteLine();
+
+    Failed(result);
+}
+else
+{
+    var warningsCount = result.Diagnostics
+        .Count(x => x.Descriptor.DefaultSeverity == DiagnosticSeverity.Warning);
+
+    if (warningsCount > 0)
+    {
+        SucceededWithWarnings(warningsCount, stopwatch.Elapsed);
+    }
+    else
+    {
+        Succeeded(stopwatch.Elapsed);
+    }
+}
+
 
 //CreateAppHost(compilation);
 

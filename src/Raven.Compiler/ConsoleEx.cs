@@ -6,14 +6,14 @@ namespace Raven;
 
 static class ConsoleEx
 {
-    public static void SucceededWithWarnings(int warningsCount)
+    public static void SucceededWithWarnings(int warningsCount, TimeSpan elapsed)
     {
-        AnsiConsole.MarkupLine($"Build [yellow]succeeded with {warningsCount} warning(s)[/]");
+        AnsiConsole.MarkupLine($"Build [yellow]succeeded with {warningsCount} warning(s)[/] in {elapsed.TotalSeconds:F1}s");
     }
 
-    public static void Succeeded()
+    public static void Succeeded(TimeSpan elapsed)
     {
-        AnsiConsole.MarkupLine($"Build [green]succeeded[/]");
+        AnsiConsole.MarkupLine($"Build [green]succeeded[/] in {elapsed.TotalSeconds:F1}s");
     }
 
     public static void Failed(EmitResult result)
