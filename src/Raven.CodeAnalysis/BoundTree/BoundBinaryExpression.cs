@@ -6,11 +6,11 @@ internal partial class BoundBinaryExpression : BoundExpression
     public BoundBinaryOperator Operator { get; }
     public BoundExpression Right { get; }
 
-    public BoundBinaryExpression(BoundExpression left, BoundBinaryOperator op, BoundExpression right)
-        : base(op.ResultType, null, BoundExpressionReason.None)
+    public BoundBinaryExpression(BoundExpression left, BoundBinaryOperator @operator, BoundExpression right)
+        : base(@operator.ResultType, null, BoundExpressionReason.None)
     {
         Left = left;
-        Operator = op;
+        Operator = @operator;
         Right = right;
     }
 }

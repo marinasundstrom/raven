@@ -18,9 +18,9 @@ sealed partial class BoundVariableDeclarator : BoundNode
     public ILocalSymbol Local { get; }
     public BoundExpression? Initializer { get; }
 
-    public BoundVariableDeclarator(ILocalSymbol symbol, BoundExpression? initializer)
+    public BoundVariableDeclarator(ILocalSymbol local, BoundExpression? initializer)
     {
-        Local = symbol;
+        Local = local;
         Initializer = initializer;
     }
 

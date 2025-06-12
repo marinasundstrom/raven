@@ -12,7 +12,7 @@ internal partial class BoundLambdaExpression : BoundExpression
         IReadOnlyList<IParameterSymbol> parameters,
         ITypeSymbol returnType,
         BoundExpression body,
-        IMethodSymbol symbol,
+        ISymbol symbol,
         ITypeSymbol delegateType,
         IReadOnlyList<ISymbol> capturedVariables)
         : base(delegateType, symbol, BoundExpressionReason.None)

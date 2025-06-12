@@ -78,4 +78,24 @@ public static class SymbolExtensions
 
         return false;
     }
+
+    public static bool IsImplementingISymbol(this ITypeSymbol? classSymbol)
+    {
+        if (classSymbol is null)
+            return false;
+
+        foreach (var iface in classSymbol.AllInterfaces)
+        {
+            if (iface.Name == "ISymbol" &&
+                SymbolEqualityComparer.Default.Equals(iface.ContainingNamespace,
+                    iface.ContainingNamespace.ContainingCompilation?.GlobalNamespace
+                        .GetNamespaceMembers().FirstOrDefault(ns => ns.Name == "Raven")?
+                        .GetNamespaceMembers().FirstOrDefault(ns => ns.Name == "CodeAnalysis")))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

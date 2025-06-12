@@ -5,10 +5,10 @@ internal partial class BoundUnaryExpression : BoundExpression
     public BoundUnaryOperator Operator { get; }
     public BoundExpression Operand { get; }
 
-    public BoundUnaryExpression(BoundUnaryOperator op, BoundExpression operand)
-        : base(op.ResultType, null, BoundExpressionReason.None)
+    public BoundUnaryExpression(BoundUnaryOperator @operator, BoundExpression operand)
+        : base(@operator.ResultType, null, BoundExpressionReason.None)
     {
-        Operator = op;
+        Operator = @operator;
         Operand = operand;
     }
 }

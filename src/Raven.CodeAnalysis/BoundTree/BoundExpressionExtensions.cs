@@ -16,9 +16,9 @@ static class BoundExpressionExtensions
         return new SymbolInfo(statement.Symbol);
     }
 
-    private static CandidateReason Convert(BoundExpressionReason candidateReason)
+    private static CandidateReason Convert(BoundExpressionReason reason)
     {
-        return candidateReason switch
+        return reason switch
         {
             BoundExpressionReason.None => CandidateReason.None,
             BoundExpressionReason.NotFound => CandidateReason.NotFound,
@@ -26,7 +26,7 @@ static class BoundExpressionExtensions
             BoundExpressionReason.Inaccessible => CandidateReason.Inaccessible,
             BoundExpressionReason.WrongArity => CandidateReason.WrongArity,
             BoundExpressionReason.OverloadResolutionFailed => CandidateReason.OverloadResolutionFailure,
-            _ => throw new ArgumentOutOfRangeException(nameof(candidateReason), candidateReason, null)
+            _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null)
         };
     }
 }

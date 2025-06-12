@@ -17,7 +17,7 @@ internal partial class BoundIsPatternExpression : BoundExpression
 
 internal abstract class BoundPattern : BoundExpression
 {
-    public BoundPattern(ITypeSymbol type, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(type, null, candidateReason)
+    public BoundPattern(ITypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, null, reason)
     {
 
     }
@@ -102,8 +102,8 @@ internal partial class BoundDeclarationPattern : BoundPattern
     public BoundDeclarationPattern(
         ITypeSymbol declaredType,
         BoundDesignator designator,
-        BoundExpressionReason candidateReason = BoundExpressionReason.None)
-        : base(declaredType, candidateReason)
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(declaredType, reason)
     {
         DeclaredType = declaredType;
         Designator = designator;
@@ -121,8 +121,8 @@ internal abstract class BoundDesignator : BoundExpression
 
 internal partial class BoundSingleVariableDesignator : BoundDesignator
 {
-    public BoundSingleVariableDesignator(ILocalSymbol local, BoundExpressionReason candidateReason = BoundExpressionReason.None)
-        : base(local.Type, local, candidateReason)
+    public BoundSingleVariableDesignator(ILocalSymbol local, BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(local.Type, local, reason)
     {
         Local = local;
     }

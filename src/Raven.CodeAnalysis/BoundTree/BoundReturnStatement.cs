@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundReturnStatement : BoundStatement
 {
-    public BoundReturnStatement(BoundExpression? expression, BoundExpressionReason candidateReason = BoundExpressionReason.None)
+    public BoundReturnStatement(BoundExpression? expression)
     {
         Expression = expression;
     }

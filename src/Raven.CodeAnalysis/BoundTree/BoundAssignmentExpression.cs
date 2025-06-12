@@ -15,10 +15,10 @@ internal partial class BoundLocalAssignmentExpression : BoundAssignmentExpressio
 {
     public ILocalSymbol Local { get; }
 
-    public BoundLocalAssignmentExpression(ILocalSymbol variable, BoundExpression right)
-        : base(variable.Type, right)
+    public BoundLocalAssignmentExpression(ILocalSymbol local, BoundExpression right)
+        : base(local.Type, right)
     {
-        Local = variable;
+        Local = local;
     }
 }
 

@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundLocalAccess : BoundExpression
 {
-    public BoundLocalAccess(ILocalSymbol local, BoundExpressionReason candidateReason = BoundExpressionReason.None) : base(local.Type, local, candidateReason)
+    public BoundLocalAccess(ILocalSymbol local, BoundExpressionReason reason = BoundExpressionReason.None) : base(local.Type, local, reason)
     {
         Local = local;
     }

@@ -46,6 +46,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
     }
 
     // Override these in your tree walker
+
     public override void VisitLiteralExpression(BoundLiteralExpression node) { }
     public override void VisitVariableExpression(BoundVariableExpression node) { }
     public override void VisitLocalAccess(BoundLocalAccess node) { }

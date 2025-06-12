@@ -67,7 +67,7 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
 
         var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(classSymbol, nodeTypeNamePrefix: "Bound", visitorClassNamePrefix: "BoundTree", resultType: "BoundNode", isInternal: true));
 
-        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(new RewriterPartialGeneratorOptions(classSymbol, GenerateBoundTreeUpdateMethodImpl, nodeTypeNamePrefix: "Bound", rewriterClassNamePrefix: "BoundTree", resultType: "BoundNode", isInternal: true, implement: false));
+        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(new RewriterPartialGeneratorOptions(classSymbol, GenerateBoundTreeUpdateMethodImpl, nodeTypeNamePrefix: "Bound", rewriterClassNamePrefix: "BoundTree", resultType: "BoundNode", isInternal: true));
 
         // Wrap it in a namespace
         var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))
@@ -89,67 +89,93 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
 
     private static ExpressionSyntax GenerateBoundTreeUpdateMethodImpl(RewriterPartialGeneratorOptions options)
     {
-        /*
         ExpressionSyntax expr;
-        var properties = options.TypeSymbol.GetMembers()
-        .OfType<IPropertySymbol>()
-        .Where(property => property.IsPartial());
 
-        var args = properties.Select(property =>
+        var parameters = options.TypeSymbol.Constructors.First().Parameters
+            //.Where(x => x.Type.InheritsFromBoundNode() || x.Type.IsImplementingISymbol())
+            .Select(x => new PropOrParamType(x.Name, x.Type.ToDisplayString(), FormatName(x), x.Type));
+
+        var args = parameters.Select(property =>
         {
-            var propertyType = ParseTypeName(property.Type.ToDisplayString());
+            var accessExpr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName(options.NodeParamName),
+                    Token(SyntaxKind.DotToken),
+                    IdentifierName(property.TargetName));
+
+            if (!property.TypeSymbol.InheritsFromBoundNode() && !property.TypeSymbol.IsImplementingISymbol())
+            {
+                return Argument(accessExpr);
+            }
+
+            var isList = property.Type.Contains("[]") ||
+                         property.Type.Contains("List") ||
+                         property.Type.Contains("IEnumerable") ||
+                         property.Type.Contains("ImmutableArray");
+
+            var propertyType = ParseTypeName(property.Type);
+
+            string? t = null;
 
             var childPropertyTypeNae = propertyType.DescendantNodes()
                 .OfType<IdentifierNameSyntax>()
-                .Last();
+                .LastOrDefault();
 
-            string childPropertyName = property.Name;
+            t = childPropertyTypeNae?.Identifier.Text;
 
-            var accessNodeChild = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                    IdentifierName(options.NodeParamName),
-                    Token(SyntaxKind.DotToken),
-                    IdentifierName(childPropertyName));
+            //return Argument(IdentifierName(t?.ToString() ?? "Foo"));
 
-            if (property.Name == "Kind")
-            {
-                return Argument(accessNodeChild);
-            }
+            if (t is null) return Argument(IdentifierName(property.TargetName));
 
-            var isList = propertyType.ToString().Contains("SyntaxList");
-
-            var updateMethodNameStr = isList
-                ? "VisitList" : $"Visit{childPropertyTypeNae.ToString().Replace("Syntax", string.Empty)}";
-
-            NameSyntax updateMethodName = IdentifierName(updateMethodNameStr);
+            string updateMethodNameStr = null!;
 
             if (isList)
             {
-                var paramType2 = propertyType.DescendantNodes().OfType<GenericNameSyntax>().Last();
-
-                updateMethodName = GenericName(updateMethodNameStr).WithTypeArgumentList(
-                        TypeArgumentList(
-                            SingletonSeparatedList(
-                                paramType2.TypeArgumentList.Arguments.First())));
+                updateMethodNameStr = $"VisitList";
+            }
+            else if (t.Contains("Bound"))
+            {
+                updateMethodNameStr = $"Visit{t.Replace("Bound", string.Empty)}";
+            }
+            else
+            {
+                updateMethodNameStr = t switch
+                {
+                    "INamespaceSymbol" => "VisitNamespace",
+                    "ITypeSymbol" => "VisitType",
+                    "IMethodSymbol" => "VisitMethod",
+                    "IPropertySymbol" => "VisitProperty",
+                    "IFieldSymbol" => "VisitField",
+                    "ILocalSymbol" => "VisitLocal",
+                    "ISymbol" => "VisitSymbol",
+                    _ => t
+                };
             }
 
+            NameSyntax updateMethodName = IdentifierName(updateMethodNameStr);
+
             var updateInvocation = InvocationExpression(updateMethodName, ArgumentList([
-                Argument(accessNodeChild)
+                Argument(accessExpr)
             ]));
 
-            var castingResult = CastExpression(propertyType, updateInvocation);
+            var castingResult = CastExpression(ParseTypeName(property.Type), updateInvocation);
 
             return Argument(castingResult);
         }).ToList();
 
         expr = InvocationExpression(
             ConditionalAccessExpression(IdentifierName(options.NodeParamName), MemberBindingExpression(IdentifierName("Update"))))
-        .WithArgumentList(
-            ArgumentList(
-                SeparatedList(
-                    args)));
+                    .WithArgumentList(
+                        ArgumentList(
+                            SeparatedList(
+                                args)));
 
-        */
+        return expr;
 
-        return IdentifierName(Identifier(options.NodeParamName));
+        //return IdentifierName(options.NodeParamName);
+    }
+
+    private static string FormatName(IParameterSymbol x)
+    {
+        return char.ToUpper(x.Name[0]) + x.Name.Substring(1);
     }
 }

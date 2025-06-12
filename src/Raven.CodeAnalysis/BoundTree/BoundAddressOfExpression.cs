@@ -10,4 +10,6 @@ internal sealed partial class BoundAddressOfExpression : BoundExpression
     }
 
     public ITypeSymbol ReferencedType => ((ByRefTypeSymbol)Type).ElementType;
+
+    public ITypeSymbol ValueType => ReferencedType;
 }

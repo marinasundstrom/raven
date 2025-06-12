@@ -41,18 +41,15 @@ public partial class BoundNodePartialGenerator : IIncrementalGenerator
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateUpdateMethod(INamedTypeSymbol classSymbol)
     {
-        var parameters = classSymbol.GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(property => property.IsPartial())
-            .Select(x => new PropOrParamType(x.Name, x.Type.ToDisplayString()));
+        var parameters = classSymbol.Constructors.First().Parameters
+            //.Where(x => x.Type.InheritsFromBoundNode() || x.Type.IsImplementingISymbol())
+            .Select(x => new PropOrParamType(FormatName(x), x.Type.ToDisplayString()));
 
-        //return [UpdateMethodGenerator.GenerateUpdateMethod(classSymbol.Name, parameters)];
-
-        return [MethodDeclaration(ParseTypeName(classSymbol.Name), "Update")
-             .WithModifiers([Token(SyntaxKind.PublicKeyword)])
-             .WithBody(
-                 Block(
-                     ReturnStatement(ThisExpression()))) ];
+        return [UpdateMethodGenerator.GenerateUpdateMethod(classSymbol.Name, parameters)];
     }
 
+    private static string FormatName(IParameterSymbol x)
+    {
+        return char.ToUpper(x.Name[0]) + x.Name.Substring(1);
+    }
 }

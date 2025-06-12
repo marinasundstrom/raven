@@ -4,9 +4,9 @@ namespace Raven.CodeAnalysis;
 
 abstract class BoundExpression : BoundNode
 {
-    public ITypeSymbol Type { get; }
-    public ISymbol? Symbol { get; }
-    public BoundExpressionReason Reason { get; }
+    public virtual ITypeSymbol Type { get; }
+    public virtual ISymbol? Symbol { get; }
+    public virtual BoundExpressionReason Reason { get; }
 
     protected BoundExpression(ITypeSymbol type, ISymbol? symbol = null, BoundExpressionReason reason = BoundExpressionReason.None)
     {

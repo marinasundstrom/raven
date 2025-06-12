@@ -149,7 +149,7 @@ partial class BlockBinder : Binder
             ExpressionStatementSyntax expressionStmt => new BoundExpressionStatement(BindExpression(expressionStmt.Expression)),
             LocalFunctionStatementSyntax localFunction => BindLocalFunction(localFunction),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
-            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundVoidExpression(Compilation)),
+            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundVoidExpression(Compilation.GetSpecialType(SpecialType.System_Void))),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
 

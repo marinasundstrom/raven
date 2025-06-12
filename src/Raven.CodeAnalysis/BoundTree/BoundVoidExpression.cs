@@ -2,9 +2,11 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundVoidExpression : BoundExpression
 {
-    public BoundVoidExpression(Compilation compilation, BoundExpressionReason candidateReason = BoundExpressionReason.None)
-        : base(compilation.GetSpecialType(SpecialType.System_Void), null, candidateReason)
+    public BoundVoidExpression(ITypeSymbol voidType, BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(voidType, null, reason)
     {
 
     }
+
+    public ITypeSymbol VoidType => Type;
 }
