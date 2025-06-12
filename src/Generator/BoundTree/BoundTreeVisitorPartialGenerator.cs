@@ -86,7 +86,7 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
         var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
 
         // Wrap it in a namespace
-        var namespaceDeclaration = NamespaceDeclaration(ParseName(namespaceName))
+        var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))
             .AddMembers(
                 visitorPartialClass,
                 visitorGenericPartialClass,

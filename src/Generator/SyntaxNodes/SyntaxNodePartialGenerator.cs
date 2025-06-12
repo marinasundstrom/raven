@@ -82,7 +82,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
 
         // Wrap it in a namespace
-        var namespaceDeclaration = NamespaceDeclaration(ParseName(namespaceName))
+        var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))
             .AddMembers(
                 syntaxNodePartialClass, visitorPartialClass,
                 visitorGenericPartialClass, rewriterGenericPartialClass);

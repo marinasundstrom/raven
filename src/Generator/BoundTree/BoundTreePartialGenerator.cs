@@ -76,7 +76,7 @@ public partial class BoundNodePartialGenerator : IIncrementalGenerator
         var symbolPartialClass = GeneratePartialClass(context, classSymbol);
 
         // Wrap it in a namespace
-        var namespaceDeclaration = NamespaceDeclaration(ParseName(namespaceName))
+        var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))
             .AddMembers(
                 symbolPartialClass);
 
