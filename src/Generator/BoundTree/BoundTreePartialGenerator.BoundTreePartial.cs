@@ -23,6 +23,9 @@ public partial class BoundNodePartialGenerator : IIncrementalGenerator
         members.AddRange(
             GenerateAcceptMethods(classSymbol));
 
+        members.AddRange(
+            GenerateUpdateMethod(classSymbol));
+
         // Generate the partial class
         var generatedClass = ClassDeclaration(className)
             .WithModifiers(TokenList(accessModifier, Token(SyntaxKind.PartialKeyword)))
@@ -35,4 +38,21 @@ public partial class BoundNodePartialGenerator : IIncrementalGenerator
     {
         return AcceptMethodGenerator.GenerateAcceptMethods(new AcceptMethodGeneratorOptions(classSymbol.Name, suffix: "Bound", makeInternal: false, visitorClassName: "BoundTree", nodeBaseClass: "BoundNode"));
     }
+
+    private static IEnumerable<MemberDeclarationSyntax> GenerateUpdateMethod(INamedTypeSymbol classSymbol)
+    {
+        var parameters = classSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(property => property.IsPartial())
+            .Select(x => new PropOrParamType(x.Name, x.Type.ToDisplayString()));
+
+        //return [UpdateMethodGenerator.GenerateUpdateMethod(classSymbol.Name, parameters)];
+
+        return [MethodDeclaration(ParseTypeName(classSymbol.Name), "Update")
+             .WithModifiers([Token(SyntaxKind.PublicKeyword)])
+             .WithBody(
+                 Block(
+                     ReturnStatement(ThisExpression()))) ];
+    }
+
 }
