@@ -17,10 +17,42 @@ public class VisitorPartialGeneratorOptions(string nodeClassName, bool isInterna
     public string ResultType { get; } = resultType;
 
     public string VisitorName => $"{(VisitorClassName is not null ? VisitorClassName : Suffix)}Visitor";
+
+    public string NodeParamName
+    {
+        get
+        {
+            string nodeParamName = "node";
+
+            if (Suffix == "Symbol")
+            {
+                nodeParamName = "symbol";
+            }
+
+            return nodeParamName;
+        }
+    }
+
+    public string MethodName
+    {
+        get
+        {
+            string sv = NodeClassName;
+
+            if (Suffix == "Symbol")
+            {
+                sv = sv.Substring(1);
+            }
+
+            return $"Visit{sv.Replace(Suffix, string.Empty)}";
+        }
+    }
 }
 
-public class RewriterPartialGeneratorOptions(bool isInternal = false, string suffix = "Syntax", string? rewriterClassName = null, string resultType = "SyntaxNode", bool implement = true)
+public class RewriterPartialGeneratorOptions(INamedTypeSymbol typeSymbol, bool isInternal = false, string suffix = "Syntax", string? rewriterClassName = null, string resultType = "SyntaxNode", bool implement = true)
 {
+    public string NodeClassName => typeSymbol.Name;
+    public INamedTypeSymbol TypeSymbol { get; } = typeSymbol;
     public bool IsInternal { get; } = isInternal;
     public string Suffix { get; } = suffix;
     public string? RewriterClassName { get; } = rewriterClassName;
@@ -31,6 +63,36 @@ public class RewriterPartialGeneratorOptions(bool isInternal = false, string suf
 
     public string VisitorName => $"{(RewriterClassName is not null ? RewriterClassName : Suffix)}Visitor";
 
+
+    public string NodeParamName
+    {
+        get
+        {
+            string nodeParamName = "node";
+
+            if (Suffix == "Symbol")
+            {
+                nodeParamName = "symbol";
+            }
+
+            return nodeParamName;
+        }
+    }
+
+    public string MethodName
+    {
+        get
+        {
+            string sv = NodeClassName;
+
+            if (Suffix == "Symbol")
+            {
+                sv = sv.Substring(1);
+            }
+
+            return $"Visit{sv.Replace(Suffix, string.Empty)}";
+        }
+    }
 }
 
 public static class VisitorPartialGenerator
@@ -39,18 +101,7 @@ public static class VisitorPartialGenerator
     {
         List<MethodDeclarationSyntax> methods = [];
 
-        string nodeName = options.NodeClassName;
-
-        string nodeParamName = "node";
-
-        if (options.Suffix == "Symbol")
-        {
-            nodeName = nodeName.Substring(1);
-
-            nodeParamName = "symbol";
-        }
-
-        var methodName = $"Visit{nodeName.Replace(options.Suffix, string.Empty)}";
+        var methodName = options.MethodName;
 
         methods.Add(MethodDeclaration(
         PredefinedType(
@@ -65,7 +116,7 @@ public static class VisitorPartialGenerator
                                 ParameterList(
                                     SingletonSeparatedList(
                                         Parameter(
-                                            Identifier(nodeParamName))
+                                            Identifier(options.NodeParamName))
                                         .WithType(
                                             IdentifierName(options.NodeClassName)))))
                             .WithBody(
@@ -78,7 +129,7 @@ public static class VisitorPartialGenerator
                                                 ArgumentList(
                                                     SingletonSeparatedList(
                                                         Argument(
-                                                            IdentifierName(nodeParamName))))))))));
+                                                            IdentifierName(options.NodeParamName))))))))));
 
 
         // Generate the partial class
@@ -96,46 +147,9 @@ public static class VisitorPartialGenerator
     {
         List<MethodDeclarationSyntax> methods = [];
 
-        string sv = options.NodeClassName;
+        var methodName = options.MethodName;
 
-        string nodeName = "node";
-
-        if (options.Suffix == "Symbol")
-        {
-            sv = sv.Substring(1);
-
-            nodeName = "symbol";
-        }
-
-        var methodName = $"Visit{sv.Replace(options.Suffix, string.Empty)}";
-
-        methods.Add(MethodDeclaration(
-            IdentifierName("TResult"),
-            Identifier(methodName))
-            .WithModifiers(
-                TokenList(
-                    [
-                            Token(SyntaxKind.PublicKeyword),
-                                Token(SyntaxKind.VirtualKeyword)]))
-                            .WithParameterList(
-                                ParameterList(
-                                    SingletonSeparatedList(
-                                        Parameter(
-                                            Identifier(nodeName))
-                                        .WithType(
-                                            IdentifierName(options.NodeClassName)))))
-                            .WithBody(
-                                Block(
-                                    SingletonList<StatementSyntax>(
-                                        ReturnStatement(
-                                            InvocationExpression(
-                                                IdentifierName("DefaultVisit"))
-                                            .WithArgumentList(
-                                                ArgumentList(
-                                                    SingletonSeparatedList(
-                                                        Argument(
-                                                            IdentifierName(nodeName))))))))));
-
+        methods.Add(CreateVisitMethod(options));
 
         // Generate the partial class
         var generatedClass = ClassDeclaration(options.VisitorName)
@@ -151,6 +165,42 @@ public static class VisitorPartialGenerator
         return generatedClass;
     }
 
+    private static MethodDeclarationSyntax CreateVisitMethod(VisitorPartialGeneratorOptions options)
+    {
+        return MethodDeclaration(
+                    IdentifierName("TResult"),
+                    Identifier(options.MethodName))
+                    .WithModifiers(
+                        TokenList(
+                            [
+                                    Token(SyntaxKind.PublicKeyword),
+                                Token(SyntaxKind.VirtualKeyword)]))
+                                    .WithParameterList(
+                                        ParameterList(
+                                            SingletonSeparatedList(
+                                                Parameter(
+                                                    Identifier(options.NodeParamName))
+                                                .WithType(
+                                                    IdentifierName(options.NodeClassName)))))
+                                    .WithBody(
+                                        CreateDefaultBody(options.NodeParamName));
+    }
+
+    private static BlockSyntax? CreateDefaultBody(string nodeName)
+    {
+        return
+                                Block(
+                                    SingletonList<StatementSyntax>(
+                                        ReturnStatement(
+                                            InvocationExpression(
+                                                IdentifierName("DefaultVisit"))
+                                            .WithArgumentList(
+                                                ArgumentList(
+                                                    SingletonSeparatedList(
+                                                        Argument(
+                                                            IdentifierName(nodeName))))))));
+    }
+
     public static ClassDeclarationSyntax GenerateVisitMethodForRewriter(INamedTypeSymbol? classSymbol, RewriterPartialGeneratorOptions options)
     {
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
@@ -158,19 +208,7 @@ public static class VisitorPartialGenerator
 
         List<MethodDeclarationSyntax> methods = [];
 
-        string sv = className;
-
-        string nodeName = "node";
-
-        if (options.Suffix == "Symbol")
-        {
-            sv = sv.Substring(1);
-
-            nodeName = "symbol";
-        }
-
-
-        var methodName = $"Visit{sv.Replace(options.Suffix, string.Empty)}";
+        var methodName = options.MethodName;
 
         ExpressionSyntax? expr;
 
@@ -191,7 +229,7 @@ public static class VisitorPartialGenerator
                 string childPropertyName = property.Name;
 
                 var accessNodeChild = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                        IdentifierName(nodeName),
+                        IdentifierName(options.NodeParamName),
                         Token(SyntaxKind.DotToken),
                         IdentifierName(childPropertyName));
 
@@ -227,7 +265,7 @@ public static class VisitorPartialGenerator
             }).ToList();
 
             expr = InvocationExpression(
-                ConditionalAccessExpression(IdentifierName(nodeName), MemberBindingExpression(IdentifierName("Update"))))
+                ConditionalAccessExpression(IdentifierName(options.NodeParamName), MemberBindingExpression(IdentifierName("Update"))))
             .WithArgumentList(
                 ArgumentList(
                     SeparatedList(
@@ -235,7 +273,7 @@ public static class VisitorPartialGenerator
         }
         else
         {
-            expr = IdentifierName(Identifier(nodeName));
+            expr = IdentifierName(Identifier(options.NodeParamName));
         }
 
         methods.Add(MethodDeclaration(
@@ -250,7 +288,7 @@ public static class VisitorPartialGenerator
                                             ParameterList(
                                                 SingletonSeparatedList(
                                                     Parameter(
-                                                        Identifier(nodeName))
+                                                        Identifier(options.NodeParamName))
                                                     .WithType(
                                                         IdentifierName(className)))))
                                       .WithExpressionBody(ArrowExpressionClause(expr))

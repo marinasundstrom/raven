@@ -63,7 +63,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
         var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(className));
 
-        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(classSymbol, new RewriterPartialGeneratorOptions());
+        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(classSymbol, new RewriterPartialGeneratorOptions(classSymbol));
 
         // Wrap it in a namespace
         var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))

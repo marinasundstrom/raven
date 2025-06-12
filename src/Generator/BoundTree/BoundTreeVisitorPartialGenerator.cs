@@ -83,7 +83,7 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
 
         var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(className, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true));
 
-        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(classSymbol, new RewriterPartialGeneratorOptions(suffix: "Bound", rewriterClassName: "BoundTree", resultType: "BoundNode", isInternal: true, implement: false));
+        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(classSymbol, new RewriterPartialGeneratorOptions(classSymbol, suffix: "Bound", rewriterClassName: "BoundTree", resultType: "BoundNode", isInternal: true, implement: false));
 
         // Wrap it in a namespace
         var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))
