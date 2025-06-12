@@ -95,11 +95,11 @@ public partial class SymbolVisitorPartialGenerator : IIncrementalGenerator
         var namespaceName = interfaceSymbol.ContainingNamespace.ToDisplayString();
         var interfaceName = interfaceSymbol.Name;
 
-        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(context, namespaceName, interfaceName, suffix: "Symbol", resultType: "ISymbol");
+        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(interfaceName, suffix: "Symbol", resultType: "ISymbol"));
 
-        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(context, namespaceName, interfaceName, suffix: "Symbol", resultType: "ISymbol");
+        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(interfaceName, suffix: "Symbol", resultType: "ISymbol"));
 
-        //var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(context, interfaceName, suffix: "Symbol", resultType: "ISymbol");
+        //var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(suffix: "Symbol", resultType: "ISymbol");
 
         // Wrap it in a namespace
         var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))

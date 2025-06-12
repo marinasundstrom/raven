@@ -79,11 +79,11 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
         var className = classSymbol.Name;
 
-        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(context, namespaceName, className, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true);
+        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(className, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true));
 
-        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(context, namespaceName, className, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true);
+        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(className, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true));
 
-        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(context, classSymbol, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true, implement: false);
+        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(classSymbol, new RewriterPartialGeneratorOptions(suffix: "Bound", rewriterClassName: "BoundTree", resultType: "BoundNode", isInternal: true, implement: false));
 
         // Wrap it in a namespace
         var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))

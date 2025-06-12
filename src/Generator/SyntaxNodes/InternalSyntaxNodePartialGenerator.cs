@@ -166,9 +166,9 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
 
         var acceptMethods = AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name, true, nodeBaseClass: "SyntaxNode");
 
-        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(context, namespaceName, classSymbol.Name, true);
+        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(classSymbol.Name, true));
 
-        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(context, namespaceName, classSymbol.Name, true);
+        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(classSymbol.Name, true));
 
         //var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
 
