@@ -39,7 +39,7 @@ internal abstract class BoundUnaryPattern : BoundPattern
     }
 }
 
-public enum BoundUnaryPatternKind
+enum BoundUnaryPatternKind
 {
     Not
 }
@@ -68,7 +68,7 @@ internal abstract class BoundBinaryPattern : BoundPattern
     public BoundPattern Right { get; set; }
 }
 
-public enum BoundPatternKind
+enum BoundPatternKind
 {
     And,
     Or

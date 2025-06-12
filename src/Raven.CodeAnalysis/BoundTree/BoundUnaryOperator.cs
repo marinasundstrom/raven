@@ -8,7 +8,7 @@ internal partial class BoundUnaryOperator
     public BoundUnaryOperatorKind OperatorKind { get; internal set; }
 }
 
-public enum BoundUnaryOperatorKind
+enum BoundUnaryOperatorKind
 {
     LogicalNot,
     UnaryPlus,

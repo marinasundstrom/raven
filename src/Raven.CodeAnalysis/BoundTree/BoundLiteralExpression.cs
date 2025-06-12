@@ -14,7 +14,7 @@ internal partial class BoundLiteralExpression : BoundExpression
     public BoundLiteralExpressionKind Kind { get; }
 }
 
-public enum BoundLiteralExpressionKind
+enum BoundLiteralExpressionKind
 {
     NumericLiteral,
     StringLiteral,
