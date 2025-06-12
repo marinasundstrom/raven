@@ -92,75 +92,73 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
         ExpressionSyntax expr;
 
         var parameters = options.TypeSymbol.Constructors.First().Parameters
-            //.Where(x => x.Type.InheritsFromBoundNode() || x.Type.IsImplementingISymbol())
             .Select(x => new PropOrParamType(x.Name, x.Type.ToDisplayString(), FormatName(x), x.Type));
 
         var args = parameters.Select(property =>
-        {
-            var accessExpr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                    IdentifierName(options.NodeParamName),
-                    Token(SyntaxKind.DotToken),
-                    IdentifierName(property.TargetName));
+ {
+     var accessExpr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+         IdentifierName(options.NodeParamName),
+         IdentifierName(property.TargetName));
 
-            if (!property.TypeSymbol.InheritsFromBoundNode() && !property.TypeSymbol.IsImplementingISymbol())
-            {
-                return Argument(accessExpr);
-            }
+     var typeSymbol = property.TypeSymbol;
+     var elementType = typeSymbol.GetElementType();
+     var isArray = typeSymbol is IArrayTypeSymbol;
 
-            var isList = property.Type.Contains("[]") ||
-                         property.Type.Contains("List") ||
-                         property.Type.Contains("IEnumerable") ||
-                         property.Type.Contains("ImmutableArray");
+     // Determine collection type
+     var isCollection = elementType is not null;
 
-            var propertyType = ParseTypeName(property.Type);
+     // If elementType is BoundNode-derived
+     if (elementType is { } et && et.InheritsFromBoundNode())
+     {
+         var visitListInvocation = InvocationExpression(
+             IdentifierName("VisitList"),
+             ArgumentList(SingletonSeparatedList(Argument(accessExpr)))
+         );
 
-            string? t = null;
+         return Argument(visitListInvocation);
+     }
 
-            var childPropertyTypeNae = propertyType.DescendantNodes()
-                .OfType<IdentifierNameSyntax>()
-                .LastOrDefault();
+     // If elementType is ISymbol or implements it
+     if (elementType is { } symType && (symType.IsISymbol() || symType.IsImplementingISymbol()))
+     {
+         var visitSymbolListInvocation = InvocationExpression(
+             GenericName("VisitSymbolList")
+                 .WithTypeArgumentList(TypeArgumentList(
+                     SingletonSeparatedList(ParseTypeName(symType.Name)))),
+             ArgumentList(SingletonSeparatedList(Argument(accessExpr)))
+         );
 
-            t = childPropertyTypeNae?.Identifier.Text;
+         return Argument(visitSymbolListInvocation);
+     }
 
-            //return Argument(IdentifierName(t?.ToString() ?? "Foo"));
+     // Handle single bound node
+     if (typeSymbol.InheritsFromBoundNode())
+     {
+         var methodName = $"Visit{typeSymbol.Name.Replace("Bound", "")}";
+         var invocation = InvocationExpression(
+             IdentifierName(methodName),
+             ArgumentList(SingletonSeparatedList(Argument(accessExpr)))
+         );
 
-            if (t is null) return Argument(IdentifierName(property.TargetName));
+         var cast = CastExpression(ParseTypeName(property.Type), invocation);
+         return Argument(cast);
+     }
 
-            string updateMethodNameStr = null!;
+     // Handle ISymbol scalar
+     if (typeSymbol.IsISymbol() || typeSymbol.IsImplementingISymbol())
+     {
+         var invocation = InvocationExpression(
+             IdentifierName("VisitSymbol"),
+             ArgumentList(SingletonSeparatedList(Argument(accessExpr)))
+         );
 
-            if (isList)
-            {
-                updateMethodNameStr = $"VisitList";
-            }
-            else if (t.Contains("Bound"))
-            {
-                updateMethodNameStr = $"Visit{t.Replace("Bound", string.Empty)}";
-            }
-            else
-            {
-                updateMethodNameStr = t switch
-                {
-                    "INamespaceSymbol" => "VisitNamespace",
-                    "ITypeSymbol" => "VisitType",
-                    "IMethodSymbol" => "VisitMethod",
-                    "IPropertySymbol" => "VisitProperty",
-                    "IFieldSymbol" => "VisitField",
-                    "ILocalSymbol" => "VisitLocal",
-                    "ISymbol" => "VisitSymbol",
-                    _ => t
-                };
-            }
+         var cast = CastExpression(ParseTypeName(property.Type), invocation);
+         return Argument(cast);
+     }
 
-            NameSyntax updateMethodName = IdentifierName(updateMethodNameStr);
-
-            var updateInvocation = InvocationExpression(updateMethodName, ArgumentList([
-                Argument(accessExpr)
-            ]));
-
-            var castingResult = CastExpression(ParseTypeName(property.Type), updateInvocation);
-
-            return Argument(castingResult);
-        }).ToList();
+     // Fall back to raw property
+     return Argument(accessExpr);
+ }).ToList();
 
         expr = InvocationExpression(
             ConditionalAccessExpression(IdentifierName(options.NodeParamName), MemberBindingExpression(IdentifierName("Update"))))

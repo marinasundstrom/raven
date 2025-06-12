@@ -4,10 +4,10 @@ namespace Raven.CodeAnalysis;
 internal partial class BoundObjectCreationExpression : BoundExpression
 {
     public IMethodSymbol Constructor { get; }
-    public BoundExpression[] Arguments { get; }
+    public IEnumerable<BoundExpression> Arguments { get; }
     public BoundExpression? Receiver { get; }
 
-    public BoundObjectCreationExpression(IMethodSymbol constructor, BoundExpression[] arguments, BoundExpression? receiver = null)
+    public BoundObjectCreationExpression(IMethodSymbol constructor, IEnumerable<BoundExpression> arguments, BoundExpression? receiver = null)
            : base(constructor.ContainingType!, constructor, BoundExpressionReason.None)
     {
         Constructor = constructor;

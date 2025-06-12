@@ -16,6 +16,13 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             yield return (T)node.Accept(this)!;
     }
 
+    public virtual IEnumerable<ISymbol> VisitSymbolList<T>(IEnumerable<ISymbol> symbols)
+        where T : ISymbol
+    {
+        foreach (var symbol in symbols)
+            yield return VisitSymbol(symbol)!;
+    }
+
     public virtual BoundExpression VisitExpression(BoundExpression node)
     {
         switch (node)
@@ -46,14 +53,23 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
         throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}");
     }
 
-    public virtual INamedTypeSymbol VisitNamespace(INamedTypeSymbol @namespace)
+    public virtual INamespaceSymbol VisitNamespace(INamespaceSymbol @namespace)
     {
         return @namespace;
     }
 
     public virtual ISymbol VisitSymbol(ISymbol symbol)
     {
-        return symbol;
+        return symbol switch
+        {
+            INamespaceSymbol ns => VisitNamespace(ns),
+            ITypeSymbol type => VisitType(type),
+            IMethodSymbol method => VisitMethod(method),
+            IPropertySymbol prop => VisitProperty(prop),
+            IFieldSymbol field => VisitField(field),
+            ILocalSymbol local => VisitLocal(local),
+            _ => symbol
+        };
     }
 
     public virtual ITypeSymbol VisitType(ITypeSymbol type)

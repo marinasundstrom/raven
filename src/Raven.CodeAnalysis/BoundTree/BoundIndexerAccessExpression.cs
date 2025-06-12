@@ -3,10 +3,10 @@ namespace Raven.CodeAnalysis;
 internal partial class BoundIndexerAccessExpression : BoundExpression
 {
     public BoundExpression Receiver { get; }
-    public BoundExpression[] Arguments { get; }
+    public IEnumerable<BoundExpression> Arguments { get; }
     public IPropertySymbol Indexer { get; }
 
-    public BoundIndexerAccessExpression(BoundExpression receiver, BoundExpression[] arguments, IPropertySymbol indexer)
+    public BoundIndexerAccessExpression(BoundExpression receiver, IEnumerable<BoundExpression> arguments, IPropertySymbol indexer)
         : base(indexer.Type, indexer, BoundExpressionReason.None)
     {
         Receiver = receiver;

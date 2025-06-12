@@ -2,9 +2,9 @@ namespace Raven.CodeAnalysis;
 
 sealed partial class BoundLocalDeclarationStatement : BoundStatement
 {
-    public IReadOnlyList<BoundVariableDeclarator> Declarators { get; }
+    public IEnumerable<BoundVariableDeclarator> Declarators { get; }
 
-    public BoundLocalDeclarationStatement(IReadOnlyList<BoundVariableDeclarator> declarators)
+    public BoundLocalDeclarationStatement(IEnumerable<BoundVariableDeclarator> declarators)
     {
         Declarators = declarators;
     }

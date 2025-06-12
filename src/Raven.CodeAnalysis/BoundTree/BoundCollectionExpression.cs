@@ -4,7 +4,7 @@ internal partial class BoundCollectionExpression : BoundExpression
 {
     public BoundCollectionExpression(
         ITypeSymbol type,
-        BoundExpression[] elements,
+        IEnumerable<BoundExpression> elements,
         ISymbol? collectionSymbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type, type, reason)
@@ -13,7 +13,7 @@ internal partial class BoundCollectionExpression : BoundExpression
         CollectionSymbol = collectionSymbol;
     }
 
-    public BoundExpression[] Elements { get; }
+    public IEnumerable<BoundExpression> Elements { get; }
 
     public ISymbol? CollectionSymbol { get; }
 }

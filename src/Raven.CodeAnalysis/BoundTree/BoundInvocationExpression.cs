@@ -5,10 +5,10 @@ namespace Raven.CodeAnalysis;
 internal partial class BoundInvocationExpression : BoundExpression
 {
     public IMethodSymbol Method { get; }
-    public BoundExpression[] Arguments { get; }
+    public IEnumerable<BoundExpression> Arguments { get; }
     public BoundExpression? Receiver { get; }
 
-    public BoundInvocationExpression(IMethodSymbol method, BoundExpression[] arguments, BoundExpression? receiver = null)
+    public BoundInvocationExpression(IMethodSymbol method, IEnumerable<BoundExpression> arguments, BoundExpression? receiver = null)
            : base(method.ReturnType, method, BoundExpressionReason.None)
     {
         Method = method;

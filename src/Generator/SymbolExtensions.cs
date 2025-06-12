@@ -98,4 +98,25 @@ public static class SymbolExtensions
 
         return false;
     }
+
+    public static bool IsISymbol(this ITypeSymbol? classSymbol)
+    {
+        return classSymbol.Name == "ISymbol";
+    }
+
+    public static ITypeSymbol? GetElementType(this ITypeSymbol type)
+    {
+        return type switch
+        {
+            IArrayTypeSymbol array => array.ElementType,
+            INamedTypeSymbol named when named.IsGenericType =>
+                named.TypeArguments.Length == 1 ? named.TypeArguments[0] : null,
+            _ => null
+        };
+    }
+
+    public static bool IsArrayType(this ITypeSymbol typeSymbol)
+    {
+        return typeSymbol is IArrayTypeSymbol;
+    }
 }

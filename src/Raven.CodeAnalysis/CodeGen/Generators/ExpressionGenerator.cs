@@ -340,7 +340,7 @@ internal class ExpressionGenerator : Generator
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
-            ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Length);
+            ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count());
             ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
 
             int index = 0;
