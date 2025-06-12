@@ -31,6 +31,22 @@ public static class SymbolExtensions
         return false;
     }
 
+    public static bool InheritsFromInternalSyntaxNode(this ITypeSymbol classSymbol)
+    {
+        // Traverse the inheritance hierarchy to check if the type derives from SyntaxNode
+        var baseType = classSymbol.BaseType;
+        while (baseType != null)
+        {
+            if (baseType.Name == "SyntaxNode" && baseType.ContainingNamespace.ToDisplayString() == "Raven.CodeAnalysis.Syntax.InternalSyntax")
+            {
+                return true;
+            }
+            baseType = baseType.BaseType;
+        }
+
+        return false;
+    }
+
     public static bool InheritsFromBoundNode(this ITypeSymbol classSymbol)
     {
         // Traverse the inheritance hierarchy to check if the type derives from SyntaxNode

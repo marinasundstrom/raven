@@ -21,7 +21,7 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
             .CreateSyntaxProvider(
                 predicate: IsPotentialPartialClass,
                 transform: GetClassSymbol)
-            .Where(symbol => symbol is not null && InheritsFromSyntaxNode(symbol) && IsNotReserved(symbol));
+            .Where(symbol => symbol is not null && symbol.InheritsFromBoundNode() && IsNotReserved(symbol));
 
         // Generate source for each identified class
         context.RegisterSourceOutput(partialClasses, ProcessBoundNodeClass);
@@ -41,22 +41,6 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
             return !classDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)) &&
              classDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
         }
-        return false;
-    }
-
-    private static bool InheritsFromSyntaxNode(ITypeSymbol classSymbol)
-    {
-        // Traverse the inheritance hierarchy to check if the type derives from SyntaxNode
-        var baseType = classSymbol.BaseType;
-        while (baseType != null)
-        {
-            if (baseType.Name == "BoundNode" && baseType.ContainingNamespace.ToDisplayString() == "Raven.CodeAnalysis")
-            {
-                return true;
-            }
-            baseType = baseType.BaseType;
-        }
-
         return false;
     }
 

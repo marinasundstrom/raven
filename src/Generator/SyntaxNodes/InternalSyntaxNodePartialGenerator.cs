@@ -23,7 +23,7 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
             .CreateSyntaxProvider(
                 predicate: IsPotentialPartialClass,
                 transform: GetClassSymbol)
-            .Where(symbol => symbol is not null && InheritsFromSyntaxNode(symbol));
+            .Where(symbol => symbol is not null && symbol.InheritsFromInternalSyntaxNode());
 
         // Generate source for each identified class
         context.RegisterSourceOutput(partialClasses, ProcessSyntaxNodeClass);
@@ -248,21 +248,5 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
         }
 
         return null;
-    }
-
-    private static bool InheritsFromSyntaxNode(ITypeSymbol classSymbol)
-    {
-        // Traverse the inheritance hierarchy to check if the type derives from SyntaxNode
-        var baseType = classSymbol.BaseType;
-        while (baseType != null)
-        {
-            if (baseType.Name == "SyntaxNode" && baseType.ContainingNamespace.ToDisplayString() == "Raven.CodeAnalysis.Syntax.InternalSyntax")
-            {
-                return true;
-            }
-            baseType = baseType.BaseType;
-        }
-
-        return false;
     }
 }

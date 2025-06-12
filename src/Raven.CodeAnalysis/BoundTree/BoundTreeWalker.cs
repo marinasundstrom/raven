@@ -72,7 +72,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitReturnStatement(BoundReturnStatement node)
     {
-        if(node.Expression is not null)
+        if (node.Expression is not null)
             VisitExpression(node.Expression);
     }
 
