@@ -16,7 +16,7 @@ internal interface ILexer
 
 internal struct Token
 {
-    private IEnumerable<DiagnosticInfo>? _diagnostics;
+    private readonly IEnumerable<DiagnosticInfo>? _diagnostics;
 
     public Token(SyntaxKind kind, string text, IEnumerable<DiagnosticInfo>? diagnostics = null)
     {

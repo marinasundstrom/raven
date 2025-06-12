@@ -82,7 +82,7 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
     private readonly List<SyntaxNode> _unreachableStatements = new();
     private readonly List<SyntaxNode> _entryPoints = new();
     private readonly List<SyntaxNode> _exitPoints = new();
-    private bool _isReachable = true;
+    private readonly bool _isReachable = true;
     private bool _startVisited = false;
 
     public ControlFlowWalker(SemanticModel semanticModel, ControlFlowRegion? region = null)

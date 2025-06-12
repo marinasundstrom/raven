@@ -5,8 +5,8 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
 {
-    private SourceAssemblySymbol _containingAssembly;
-    private ImmutableArray<IAssemblySymbol> _referencedAssemblySymbols;
+    private readonly SourceAssemblySymbol _containingAssembly;
+    private readonly ImmutableArray<IAssemblySymbol> _referencedAssemblySymbols;
     private SourceNamespaceSymbol _globalNamespace;
 
     public SourceModuleSymbol(string name, SourceAssemblySymbol containingAssembly, IEnumerable<IAssemblySymbol> referencedAssemblySymbols, Location[] locations)

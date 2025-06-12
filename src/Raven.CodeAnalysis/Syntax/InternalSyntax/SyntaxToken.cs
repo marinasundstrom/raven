@@ -2,7 +2,7 @@
 
 internal class SyntaxToken : GreenNode
 {
-    private string _text;
+    private readonly string _text;
     private readonly object? _value;
     private bool _isMissing;
 

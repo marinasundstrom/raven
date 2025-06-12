@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-internal class EqualsValueClauseSyntaxParser: SyntaxParser
+internal class EqualsValueClauseSyntaxParser : SyntaxParser
 {
     public EqualsValueClauseSyntaxParser(ParseContext context) : base(context)
     {

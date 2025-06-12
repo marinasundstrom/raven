@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
 {
-    private List<SourceModuleSymbol> _modules = new List<SourceModuleSymbol>();
+    private readonly List<SourceModuleSymbol> _modules = new List<SourceModuleSymbol>();
     private INamespaceSymbol _globalNamespace;
 
     public SourceAssemblySymbol(string name, Location[] locations)

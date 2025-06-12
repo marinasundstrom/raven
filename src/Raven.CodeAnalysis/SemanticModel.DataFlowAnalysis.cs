@@ -134,7 +134,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
     private readonly HashSet<ISymbol> _captured = new();
 
     private HashSet<ISymbol> _writtenInside = new();
-    private HashSet<ISymbol> _dataFlowsIn = new();
+    private readonly HashSet<ISymbol> _dataFlowsIn = new();
     private HashSet<ISymbol> _definitelyAssignedOnEntry = new();
     private HashSet<ISymbol> _definitelyAssignedOnExit = new();
     private HashSet<ISymbol> _assignedOnEntry = new();

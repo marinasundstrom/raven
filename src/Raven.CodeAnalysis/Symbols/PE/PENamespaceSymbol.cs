@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 {
-    private PEModuleSymbol _module = default!;
+    private readonly PEModuleSymbol _module = default!;
     private readonly List<ISymbol> _members = new();
     private readonly string _name;
     private bool _membersLoaded;

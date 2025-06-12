@@ -1,8 +1,8 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
-
 using System;
+
+using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class ExpressionSyntaxParser : SyntaxParser
 {

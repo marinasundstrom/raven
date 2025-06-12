@@ -29,19 +29,19 @@ public static partial class SyntaxFactory
         SyntaxTokenList modifiers,
         SyntaxToken identifier)
         => new ParameterSyntax(modifiers, identifier, null);
-    
+
     public static ParameterSyntax Parameter(
         SyntaxToken identifier)
         => new ParameterSyntax(SyntaxTokenList.Empty, identifier, null);
 
     public static ParameterSyntax Parameter(
         SyntaxTokenList modifiers,
-        SyntaxToken identifier, 
+        SyntaxToken identifier,
         TypeAnnotationSyntax? typeAnnotation)
         => new ParameterSyntax(modifiers, identifier, typeAnnotation);
-    
+
     public static ParameterSyntax Parameter(
-        SyntaxToken identifier, 
+        SyntaxToken identifier,
         TypeAnnotationSyntax? typeAnnotation)
         => new ParameterSyntax(SyntaxTokenList.Empty, identifier, typeAnnotation);
 }

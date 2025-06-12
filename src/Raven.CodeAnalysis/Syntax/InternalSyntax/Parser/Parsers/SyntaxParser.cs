@@ -73,7 +73,7 @@ internal class SyntaxParser : ParseContext
         var missing = MissingToken(kind);
         return missing;
     }
-    
+
     /// <summary>
     /// Get the actual span of a node.
     /// </summary>

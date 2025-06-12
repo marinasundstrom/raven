@@ -10,7 +10,7 @@ static class BoundExpressionExtensions
 
         return new SymbolInfo(Convert(expression.Reason), expression.Symbol is not null ? [expression.Symbol] : []);
     }
-    
+
     public static SymbolInfo GetSymbolInfo(this BoundStatement statement)
     {
         return new SymbolInfo(statement.Symbol);
