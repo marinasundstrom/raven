@@ -59,9 +59,9 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
         var syntaxNodePartialClass = SyntaxNodePartialClassGenerator.GeneratePartialClass(context, classSymbol);
 
-        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(className));
+        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(classSymbol));
 
-        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(className));
+        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(classSymbol));
 
         var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(classSymbol, new RewriterPartialGeneratorOptions(classSymbol));
 

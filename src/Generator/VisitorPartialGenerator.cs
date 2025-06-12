@@ -8,9 +8,11 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Generator;
 
-public class VisitorPartialGeneratorOptions(string nodeClassName, bool isInternal = false, string suffix = "Syntax", string? visitorClassName = null, string resultType = "SyntaxNode")
+public class VisitorPartialGeneratorOptions(INamedTypeSymbol typeSymbol, bool isInternal = false, string suffix = "Syntax", string? visitorClassName = null, string resultType = "SyntaxNode")
 {
-    public string NodeClassName { get; } = nodeClassName;
+    public INamedTypeSymbol TypeSymbol { get; } = typeSymbol;
+    public string NodeClassName => TypeSymbol.Name;
+    public string Namespace => TypeSymbol.ContainingNamespace.ToDisplayString();
     public bool IsInternal { get; } = isInternal;
     public string Suffix { get; } = suffix;
     public string? VisitorClassName { get; } = visitorClassName;
@@ -52,6 +54,7 @@ public class VisitorPartialGeneratorOptions(string nodeClassName, bool isInterna
 public class RewriterPartialGeneratorOptions(INamedTypeSymbol typeSymbol, bool isInternal = false, string suffix = "Syntax", string? rewriterClassName = null, string resultType = "SyntaxNode", bool implement = true)
 {
     public string NodeClassName => typeSymbol.Name;
+    public string Namespace => typeSymbol.ContainingNamespace.ToDisplayString();
     public INamedTypeSymbol TypeSymbol { get; } = typeSymbol;
     public bool IsInternal { get; } = isInternal;
     public string Suffix { get; } = suffix;
@@ -101,12 +104,10 @@ public static class VisitorPartialGenerator
     {
         List<MethodDeclarationSyntax> methods = [];
 
-        var methodName = options.MethodName;
-
         methods.Add(MethodDeclaration(
         PredefinedType(
             Token(SyntaxKind.VoidKeyword)),
-            Identifier(methodName))
+            Identifier(options.MethodName))
             .WithModifiers(
                 TokenList(
                     [
@@ -146,8 +147,6 @@ public static class VisitorPartialGenerator
     public static ClassDeclarationSyntax GeneratePartialClassWithVisitMethodForGenericVisitor(VisitorPartialGeneratorOptions options)
     {
         List<MethodDeclarationSyntax> methods = [];
-
-        var methodName = options.MethodName;
 
         methods.Add(CreateVisitMethod(options));
 
@@ -203,17 +202,14 @@ public static class VisitorPartialGenerator
 
     public static ClassDeclarationSyntax GenerateVisitMethodForRewriter(INamedTypeSymbol? classSymbol, RewriterPartialGeneratorOptions options)
     {
-        var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
-        var className = classSymbol.Name;
-
         List<MethodDeclarationSyntax> methods = [];
-
-        var methodName = options.MethodName;
 
         ExpressionSyntax? expr;
 
         if (options.Implement)
         {
+            // The implementation used of SyntaxNodes. Need a way to implement for Symbols later.
+
             var properties = classSymbol.GetMembers()
             .OfType<IPropertySymbol>()
             .Where(property => property.IsPartial());
@@ -273,12 +269,14 @@ public static class VisitorPartialGenerator
         }
         else
         {
+            // Just return the node
+
             expr = IdentifierName(Identifier(options.NodeParamName));
         }
 
         methods.Add(MethodDeclaration(
                 NullableType(IdentifierName(options.ResultType)),
-                            Identifier(methodName))
+                            Identifier(options.MethodName))
                             .WithModifiers(
                                 TokenList(
                                     [
@@ -290,7 +288,7 @@ public static class VisitorPartialGenerator
                                                     Parameter(
                                                         Identifier(options.NodeParamName))
                                                     .WithType(
-                                                        IdentifierName(className)))))
+                                                        IdentifierName(options.NodeClassName)))))
                                       .WithExpressionBody(ArrowExpressionClause(expr))
                                     .WithSemicolonToken(
                                         Token(SyntaxKind.SemicolonToken)));
