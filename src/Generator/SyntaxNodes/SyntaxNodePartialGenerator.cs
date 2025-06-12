@@ -75,11 +75,11 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
         var syntaxNodePartialClass = GeneratePartialClass(context, classSymbol);
 
-        var visitorPartialClass = GenerateVisitorPartialClass(context, classSymbol);
+        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(context, namespaceName, className);
 
-        var visitorGenericPartialClass = GenerateVisitorGenericPartialClass(context, classSymbol);
+        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(context, namespaceName, className);
 
-        var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
+        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(context, classSymbol);
 
         // Wrap it in a namespace
         var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))

@@ -79,11 +79,11 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
         var className = classSymbol.Name;
 
-        var visitorPartialClass = GenerateVisitorPartialClass(context, classSymbol);
+        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(context, namespaceName, className, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true);
 
-        var visitorGenericPartialClass = GenerateVisitorGenericPartialClass(context, classSymbol);
+        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(context, namespaceName, className, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true);
 
-        var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
+        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(context, classSymbol, suffix: "Bound", visitorClassName: "BoundTree", resultType: "BoundNode", isInternal: true, implement: false);
 
         // Wrap it in a namespace
         var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))
