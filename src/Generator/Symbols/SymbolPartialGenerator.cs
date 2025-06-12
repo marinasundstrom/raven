@@ -22,7 +22,7 @@ public partial class SymbolPartialGenerator : IIncrementalGenerator
             .CreateSyntaxProvider(
                 predicate: IsPotentialPartialClass,
                 transform: GetClassSymbol)
-            .Where(symbol => symbol is not null && InheritsFromSymbol(symbol) && !symbol.Name.Contains("Synthesized"));
+            .Where(symbol => symbol is not null && symbol.InheritsFromSymbol() && !symbol.Name.Contains("Synthesized"));
 
         // Generate source for each identified class
         context.RegisterSourceOutput(partialClasses, ProcessSymbolClass);
@@ -47,22 +47,6 @@ public partial class SymbolPartialGenerator : IIncrementalGenerator
         }
 
         return null;
-    }
-
-    private static bool InheritsFromSymbol(ITypeSymbol classSymbol)
-    {
-        // Traverse the inheritance hierarchy to check if the type derives from SyntaxNode
-        var baseType = classSymbol.BaseType;
-        while (baseType != null)
-        {
-            if (baseType.Name == "Symbol" && baseType.ContainingNamespace.ToDisplayString() == "Raven.CodeAnalysis.Symbols")
-            {
-                return true;
-            }
-            baseType = baseType.BaseType;
-        }
-
-        return false;
     }
 
     private static void ProcessSymbolClass(SourceProductionContext context, INamedTypeSymbol? classSymbol)

@@ -8,7 +8,7 @@ namespace Generator;
 
 public static class UpdateMethodGenerator
 {
-    private static string FixName(PropOrParamType property)
+    private static string FixIdentifier(PropOrParamType property)
     {
         var name = property.Name.ToCamelCase();
 
@@ -27,7 +27,7 @@ public static class UpdateMethodGenerator
             var propertyType = ParseTypeName(property.Type);
             var propertyName = Identifier(property.Name);
 
-            return Parameter(Identifier(FixName(property)))
+            return Parameter(Identifier(FixIdentifier(property)))
                             .WithType(propertyType);
         }).ToList();
 
@@ -38,7 +38,7 @@ public static class UpdateMethodGenerator
         foreach (var p in parameters)
         {
             var expr1 = BinaryExpression(SyntaxKind.NotEqualsExpression,
-                IdentifierName(p.Name), IdentifierName(FixName(p)));
+                IdentifierName(p.Name), IdentifierName(FixIdentifier(p)));
 
             if (condition is null)
             {
