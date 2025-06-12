@@ -104,7 +104,7 @@ public class SyntaxNodePartialClassGenerator
                 {
                     var paramType = ParseTypeName(param.Type.ToDisplayString());
 
-                    string paramName = param.Name == property.Name ? FixIdentifier(param) : param.Name;
+                    string paramName = param.Name == property.Name ? HelperExtensions.FixIdentifier(param.Name) : param.Name;
 
                     return Parameter(Identifier(paramName))
                                     .WithType(paramType);
@@ -124,7 +124,7 @@ public class SyntaxNodePartialClassGenerator
                 .WithParameterList(
                     ParameterList(
                         SeparatedList([
-                            Parameter(Identifier(FixIdentifier(property)))
+                            Parameter(Identifier(HelperExtensions.FixIdentifier(property.Name)))
                             .WithType(propertyType)
                 ])))
                 .WithExpressionBody(ArrowExpressionClause(expr))
@@ -133,18 +133,6 @@ public class SyntaxNodePartialClassGenerator
             });
 
         return withMethodDeclarations;
-    }
-
-    private static string FixIdentifier(IPropertySymbol property)
-    {
-        var name = property.Name.ToCamelCase();
-
-        var x = SyntaxFacts.IsKeywordKind(SyntaxFacts.GetKeywordKind(name));
-        if (x)
-        {
-            return $"@{name}";
-        }
-        return name;
     }
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateUpdateMethod(INamedTypeSymbol classSymbol)

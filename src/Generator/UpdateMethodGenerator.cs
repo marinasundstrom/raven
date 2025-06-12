@@ -8,18 +8,6 @@ namespace Generator;
 
 public static class UpdateMethodGenerator
 {
-    private static string FixIdentifier(PropOrParamType property)
-    {
-        var name = property.Name.ToCamelCase();
-
-        var x = SyntaxFacts.IsKeywordKind(SyntaxFacts.GetKeywordKind(name));
-        if (x)
-        {
-            return $"@{name}";
-        }
-        return name;
-    }
-
     public static MethodDeclarationSyntax GenerateUpdateMethod(string className, IEnumerable<PropOrParamType> parameters)
     {
         var paramDef = parameters.Select(property =>
@@ -27,18 +15,18 @@ public static class UpdateMethodGenerator
             var propertyType = ParseTypeName(property.Type);
             var propertyName = Identifier(property.Name);
 
-            return Parameter(Identifier(FixIdentifier(property)))
+            return Parameter(Identifier(HelperExtensions.FixIdentifier(property.Name)))
                             .WithType(propertyType);
         }).ToList();
 
-        var typeName = ParseTypeName(className);
+        var nodeTypeName = ParseTypeName(className);
 
         ExpressionSyntax condition = null!;
 
         foreach (var p in parameters)
         {
             var expr1 = BinaryExpression(SyntaxKind.NotEqualsExpression,
-                IdentifierName(p.Name), IdentifierName(FixIdentifier(p)));
+                IdentifierName(p.Name), IdentifierName(Identifier(HelperExtensions.FixIdentifier(p.Name))));
 
             if (condition is null)
             {
@@ -52,7 +40,7 @@ public static class UpdateMethodGenerator
         }
 
         var expr = ObjectCreationExpression(
-                    typeName)
+                    nodeTypeName)
                 .WithArgumentList(
                     ArgumentList(
                         SeparatedList(
@@ -61,7 +49,7 @@ public static class UpdateMethodGenerator
                                 return Argument(IdentifierName(p.Identifier));
                             }))));
 
-        var updateMethodDeclaration = MethodDeclaration(typeName, "Update")
+        var updateMethodDeclaration = MethodDeclaration(nodeTypeName, "Update")
                 .WithModifiers([Token(SyntaxKind.PublicKeyword)])
                 .WithParameterList(
                     ParameterList(

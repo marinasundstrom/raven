@@ -39,18 +39,18 @@ public static class VisitorPartialGenerator
     {
         List<MethodDeclarationSyntax> methods = [];
 
-        string sv = options.NodeClassName;
+        string nodeName = options.NodeClassName;
 
-        string nodeName = "node";
+        string nodeParamName = "node";
 
         if (options.Suffix == "Symbol")
         {
-            sv = sv.Substring(1);
+            nodeName = nodeName.Substring(1);
 
-            nodeName = "symbol";
+            nodeParamName = "symbol";
         }
 
-        var methodName = $"Visit{sv.Replace(options.Suffix, string.Empty)}";
+        var methodName = $"Visit{nodeName.Replace(options.Suffix, string.Empty)}";
 
         methods.Add(MethodDeclaration(
         PredefinedType(
@@ -65,7 +65,7 @@ public static class VisitorPartialGenerator
                                 ParameterList(
                                     SingletonSeparatedList(
                                         Parameter(
-                                            Identifier(nodeName))
+                                            Identifier(nodeParamName))
                                         .WithType(
                                             IdentifierName(options.NodeClassName)))))
                             .WithBody(
@@ -78,7 +78,7 @@ public static class VisitorPartialGenerator
                                                 ArgumentList(
                                                     SingletonSeparatedList(
                                                         Argument(
-                                                            IdentifierName(nodeName))))))))));
+                                                            IdentifierName(nodeParamName))))))))));
 
 
         // Generate the partial class

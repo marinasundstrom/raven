@@ -19,19 +19,11 @@ public static class AcceptMethodGenerator
 {
     public static IEnumerable<MethodDeclarationSyntax> GenerateAcceptMethods(AcceptMethodGeneratorOptions options)
     {
-        var str = options.Suffix == "Syntax" ? "TNode" : "TResult";
+        var typeParamName = options.Suffix == "Syntax" ? "TNode" : "TResult";
 
-        string name = options.NodeClassName.Replace(options.Suffix, string.Empty);
+        string nodeName = CreateNodeNameFromConvention(options);
 
-        if (options.Suffix == "Symbol")
-        {
-            name = name
-                .Replace("PE", string.Empty)
-                .Replace("Source", string.Empty)
-                .Replace("Merged", string.Empty);
-        }
-
-        var methodName = $"Visit{name}";
+        var methodName = $"Visit{nodeName}";
 
         return [
             MethodDeclaration(
@@ -65,7 +57,7 @@ public static class AcceptMethodGenerator
                                         Argument(
                                             ThisExpression())))))))),
             MethodDeclaration(
-                IdentifierName(str),
+                IdentifierName(typeParamName),
                 Identifier("Accept"))
             .WithModifiers(
                 TokenList(
@@ -76,7 +68,7 @@ public static class AcceptMethodGenerator
                 TypeParameterList(
                     SingletonSeparatedList(
                         TypeParameter(
-                            Identifier(str)))))
+                            Identifier(typeParamName)))))
             .WithParameterList(
                 ParameterList(
                     SingletonSeparatedList(
@@ -88,7 +80,7 @@ public static class AcceptMethodGenerator
                             .WithTypeArgumentList(
                                 TypeArgumentList(
                                     SingletonSeparatedList<TypeSyntax>(
-                                        IdentifierName(str))))))))
+                                        IdentifierName(typeParamName))))))))
         /*.WithConstraintClauses(
             SingletonList(
                 TypeParameterConstraintClause(
@@ -111,5 +103,20 @@ public static class AcceptMethodGenerator
                                     SingletonSeparatedList(
                                         Argument(
                                             ThisExpression()))))))))];
+    }
+
+    private static string CreateNodeNameFromConvention(AcceptMethodGeneratorOptions options)
+    {
+        string nodeName = options.NodeClassName.Replace(options.Suffix, string.Empty);
+
+        if (options.Suffix == "Symbol")
+        {
+            nodeName = nodeName
+                .Replace("PE", string.Empty)
+                .Replace("Source", string.Empty)
+                .Replace("Merged", string.Empty);
+        }
+
+        return nodeName;
     }
 }
