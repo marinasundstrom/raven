@@ -65,11 +65,11 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             INamespaceSymbol ns => VisitNamespace(ns),
             ITypeSymbol type => VisitType(type),
             IMethodSymbol method => VisitMethod(method),
-            IParameterSymbol param => VisitParameter(param),
+            IParameterSymbol parameter => VisitParameter(parameter),
             IPropertySymbol prop => VisitProperty(prop),
             IFieldSymbol field => VisitField(field),
             ILocalSymbol local => VisitLocal(local),
-            _ => symbol
+            _ => throw new Exception($"Unhandled symbol type: {symbol.GetType()}")
         };
     }
 
