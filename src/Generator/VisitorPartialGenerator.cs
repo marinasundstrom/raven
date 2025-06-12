@@ -14,7 +14,15 @@ public class VisitorPartialGeneratorOptions(INamedTypeSymbol typeSymbol, bool is
     public string NodeClassName => TypeSymbol.Name;
     public string Namespace => TypeSymbol.ContainingNamespace.ToDisplayString();
     public bool IsInternal { get; } = isInternal;
+
+    /// <summary>
+    /// Suffix to trim from the name
+    /// </summary>
     public string Suffix { get; } = suffix;
+
+    /// <summary>
+    /// The prefix component of the visitor
+    /// </summary>
     public string? VisitorClassName { get; } = visitorClassName;
     public string ResultType { get; } = resultType;
 
@@ -43,6 +51,7 @@ public class VisitorPartialGeneratorOptions(INamedTypeSymbol typeSymbol, bool is
 
             if (Suffix == "Symbol")
             {
+                // Trim the I from the start of the name
                 sv = sv.Substring(1);
             }
 
@@ -57,15 +66,21 @@ public class RewriterPartialGeneratorOptions(INamedTypeSymbol typeSymbol, bool i
     public string Namespace => typeSymbol.ContainingNamespace.ToDisplayString();
     public INamedTypeSymbol TypeSymbol { get; } = typeSymbol;
     public bool IsInternal { get; } = isInternal;
+
+    /// <summary>
+    /// Suffix to trim from the name
+    /// </summary>
     public string Suffix { get; } = suffix;
+
+    /// <summary>
+    /// The prefix component of the rewriter (visitor)
+    /// </summary>
     public string? RewriterClassName { get; } = rewriterClassName;
     public string ResultType { get; } = resultType;
     public bool Implement { get; } = implement;
 
     public string RewriterName => $"{(RewriterClassName is not null ? RewriterClassName : Suffix)}Rewriter";
-
-    public string VisitorName => $"{(RewriterClassName is not null ? RewriterClassName : Suffix)}Visitor";
-
+    public string BaseVisitorName => $"{(RewriterClassName is not null ? RewriterClassName : Suffix)}Visitor";
 
     public string NodeParamName
     {
@@ -90,6 +105,7 @@ public class RewriterPartialGeneratorOptions(INamedTypeSymbol typeSymbol, bool i
 
             if (Suffix == "Symbol")
             {
+                // Trim the I from the start of the name
                 sv = sv.Substring(1);
             }
 
@@ -299,7 +315,7 @@ public static class VisitorPartialGenerator
                 SingletonSeparatedList<BaseTypeSyntax>(
                     SimpleBaseType(
                         GenericName(
-                            Identifier(options.VisitorName))
+                            Identifier(options.BaseVisitorName))
                         .WithTypeArgumentList(
                             TypeArgumentList(
                                 SingletonSeparatedList<TypeSyntax>(
