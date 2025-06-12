@@ -55,7 +55,7 @@ public static class UpdateMethodGenerator
                     typeName)
                 .WithArgumentList(
                     ArgumentList(
-                        SeparatedList<ArgumentSyntax>(
+                        SeparatedList(
                             paramDef.Select(p =>
                             {
                                 return Argument(IdentifierName(p.Identifier));

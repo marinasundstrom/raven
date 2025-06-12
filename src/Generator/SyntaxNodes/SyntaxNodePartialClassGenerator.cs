@@ -81,7 +81,7 @@ public class SyntaxNodePartialClassGenerator
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateAcceptMethods(INamedTypeSymbol classSymbol)
     {
-        return AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name, nodeBaseClass: "SyntaxNode");
+        return AcceptMethodGenerator.GenerateAcceptMethods(new AcceptMethodGeneratorOptions(classSymbol.Name, nodeBaseClass: "SyntaxNode"));
     }
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateWithMethods(INamedTypeSymbol classSymbol)

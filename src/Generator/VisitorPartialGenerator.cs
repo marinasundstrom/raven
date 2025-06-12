@@ -63,7 +63,7 @@ public static class VisitorPartialGenerator
                                 Token(SyntaxKind.VirtualKeyword)]))
                             .WithParameterList(
                                 ParameterList(
-                                    SingletonSeparatedList<ParameterSyntax>(
+                                    SingletonSeparatedList(
                                         Parameter(
                                             Identifier(nodeName))
                                         .WithType(
@@ -132,7 +132,7 @@ public static class VisitorPartialGenerator
                                                 IdentifierName("DefaultVisit"))
                                             .WithArgumentList(
                                                 ArgumentList(
-                                                    SingletonSeparatedList<ArgumentSyntax>(
+                                                    SingletonSeparatedList(
                                                         Argument(
                                                             IdentifierName(nodeName))))))))));
 
@@ -141,7 +141,7 @@ public static class VisitorPartialGenerator
         var generatedClass = ClassDeclaration(options.VisitorName)
             .WithTypeParameterList(
                 TypeParameterList(
-                    SeparatedList<TypeParameterSyntax>([TypeParameter("TResult")])))
+                    SeparatedList([TypeParameter("TResult")])))
             .WithModifiers(TokenList(
                 Token(options.IsInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword),
                 Token(SyntaxKind.AbstractKeyword),

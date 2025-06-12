@@ -5,15 +5,25 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Generator;
 
+public class AcceptMethodGeneratorOptions(string nodeClassName, bool makeInternal = false, string suffix = "Syntax", string? visitorClassName = null, string? nodeBaseClass = "")
+{
+    public string NodeClassName { get; } = nodeClassName;
+    public bool MakeInternal { get; } = makeInternal;
+    public string Suffix { get; } = suffix;
+    public string? VisitorClassName { get; } = visitorClassName;
+    public string? NodeBaseClass { get; } = nodeBaseClass;
+    public string VisitorName => VisitorClassName is not null ? VisitorClassName : suffix;
+}
+
 public static class AcceptMethodGenerator
 {
-    public static IEnumerable<MethodDeclarationSyntax> GenerateAcceptMethods(string nodeClassName, bool makeInternal = false, string suffix = "Syntax", string? visitorClassName = null, string? nodeBaseClass = "")
+    public static IEnumerable<MethodDeclarationSyntax> GenerateAcceptMethods(AcceptMethodGeneratorOptions options)
     {
-        var str = suffix == "Syntax" ? "TNode" : "TResult";
+        var str = options.Suffix == "Syntax" ? "TNode" : "TResult";
 
-        string name = nodeClassName.Replace(suffix, string.Empty);
+        string name = options.NodeClassName.Replace(options.Suffix, string.Empty);
 
-        if (suffix == "Symbol")
+        if (options.Suffix == "Symbol")
         {
             name = name
                 .Replace("PE", string.Empty)
@@ -31,7 +41,7 @@ public static class AcceptMethodGenerator
             .WithModifiers(
                 TokenList(
                     [
-                        Token(makeInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword),
+                        Token(options.MakeInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword),
                         Token(SyntaxKind.OverrideKeyword)]))
             .WithParameterList(
                 ParameterList(
@@ -39,7 +49,7 @@ public static class AcceptMethodGenerator
                         Parameter(
                             Identifier("visitor"))
                         .WithType(
-                            IdentifierName($"{(suffix == "Syntax" ? "" : "CodeAnalysis.")}{(visitorClassName is not null ? visitorClassName : suffix)}Visitor")))))
+                            IdentifierName($"{(options.Suffix == "Syntax" ? "" : "CodeAnalysis.")}{options.VisitorName}Visitor")))))
             .WithBody(
                 Block(
                     SingletonList<StatementSyntax>(
@@ -60,7 +70,7 @@ public static class AcceptMethodGenerator
             .WithModifiers(
                 TokenList(
                     [
-                        Token(makeInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword),
+                        Token(options.MakeInternal ? SyntaxKind.InternalKeyword : SyntaxKind.PublicKeyword),
                         Token(SyntaxKind.OverrideKeyword)]))
             .WithTypeParameterList(
                 TypeParameterList(
@@ -74,7 +84,7 @@ public static class AcceptMethodGenerator
                             Identifier("visitor"))
                         .WithType(
                             GenericName(
-                                Identifier($"{(suffix == "Syntax" ? "" : "CodeAnalysis.")}{(visitorClassName is not null ? visitorClassName : suffix)}Visitor"))
+                                Identifier($"{(options.Suffix == "Syntax" ? "" : "CodeAnalysis.")}{options.VisitorName}Visitor"))
                             .WithTypeArgumentList(
                                 TypeArgumentList(
                                     SingletonSeparatedList<TypeSyntax>(

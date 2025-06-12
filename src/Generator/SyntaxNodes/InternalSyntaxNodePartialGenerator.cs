@@ -164,7 +164,7 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
 
         List<MemberDeclarationSyntax> members = [constructor];
 
-        var acceptMethods = AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name, true, nodeBaseClass: "SyntaxNode");
+        var acceptMethods = AcceptMethodGenerator.GenerateAcceptMethods(new AcceptMethodGeneratorOptions(classSymbol.Name, true, nodeBaseClass: "SyntaxNode"));
 
         var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(classSymbol.Name, true));
 

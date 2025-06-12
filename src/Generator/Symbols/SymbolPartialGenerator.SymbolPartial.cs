@@ -33,6 +33,6 @@ public partial class SymbolPartialGenerator : IIncrementalGenerator
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateAcceptMethods(INamedTypeSymbol classSymbol)
     {
-        return AcceptMethodGenerator.GenerateAcceptMethods(classSymbol.Name, suffix: "Symbol", makeInternal: false, nodeBaseClass: "ISymbol");
+        return AcceptMethodGenerator.GenerateAcceptMethods(new AcceptMethodGeneratorOptions(classSymbol.Name, suffix: "Symbol", makeInternal: false, nodeBaseClass: "ISymbol"));
     }
 }
