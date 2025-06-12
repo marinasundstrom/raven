@@ -65,6 +65,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             INamespaceSymbol ns => VisitNamespace(ns),
             ITypeSymbol type => VisitType(type),
             IMethodSymbol method => VisitMethod(method),
+            IParameterSymbol param => VisitParameter(param),
             IPropertySymbol prop => VisitProperty(prop),
             IFieldSymbol field => VisitField(field),
             ILocalSymbol local => VisitLocal(local),
@@ -80,6 +81,11 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     public virtual IMethodSymbol VisitMethod(IMethodSymbol method)
     {
         return method;
+    }
+
+    public virtual IParameterSymbol VisitParameter(IParameterSymbol param)
+    {
+        return param;
     }
 
     public virtual IPropertySymbol VisitProperty(IPropertySymbol property)
