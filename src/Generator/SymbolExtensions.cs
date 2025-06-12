@@ -87,10 +87,7 @@ public static class SymbolExtensions
         foreach (var iface in classSymbol.AllInterfaces)
         {
             if (iface.Name == "ISymbol" &&
-                SymbolEqualityComparer.Default.Equals(iface.ContainingNamespace,
-                    iface.ContainingNamespace.ContainingCompilation?.GlobalNamespace
-                        .GetNamespaceMembers().FirstOrDefault(ns => ns.Name == "Raven")?
-                        .GetNamespaceMembers().FirstOrDefault(ns => ns.Name == "CodeAnalysis")))
+                iface.ToDisplayString() == "Raven.CodeAnalysis.ISymbol")
             {
                 return true;
             }

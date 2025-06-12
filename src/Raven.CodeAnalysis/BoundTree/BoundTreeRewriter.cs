@@ -16,11 +16,11 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             yield return (T)node.Accept(this)!;
     }
 
-    public virtual IEnumerable<ISymbol> VisitSymbolList<T>(IEnumerable<ISymbol> symbols)
+    public virtual IEnumerable<T> VisitSymbolList<T>(IEnumerable<ISymbol> symbols)
         where T : ISymbol
     {
         foreach (var symbol in symbols)
-            yield return VisitSymbol(symbol)!;
+            yield return (T)VisitSymbol(symbol)!;
     }
 
     public virtual BoundExpression VisitExpression(BoundExpression node)
