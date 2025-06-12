@@ -97,13 +97,13 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
         return local;
     }
 
-    public virtual BoundPattern VisitPattern(BoundPattern pattern)
+    public virtual BoundNode VisitPattern(BoundPattern pattern)
     {
-        return pattern;
+        return pattern.Accept(this);
     }
 
-    public virtual BoundDesignator VisitDesignator(BoundDesignator designator)
+    public virtual BoundNode VisitDesignator(BoundDesignator designator)
     {
-        return designator;
+        return designator.Accept(this);
     }
 }
