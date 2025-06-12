@@ -1,7 +1,4 @@
-﻿namespace Generator;
-
-using System;
-using System.Linq;
+namespace Generator;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -9,9 +6,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
+public class SyntaxNodePartialClassGenerator
 {
-    private static ClassDeclarationSyntax GeneratePartialClass(SourceProductionContext context, INamedTypeSymbol? classSymbol)
+    public static ClassDeclarationSyntax GeneratePartialClass(SourceProductionContext context, INamedTypeSymbol? classSymbol)
     {
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
         var className = classSymbol.Name;
@@ -45,6 +42,41 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
             .AddMembers(members.ToArray());
 
         return generatedClass;
+    }
+
+    private static MemberDeclarationSyntax[] GenerateFields(INamedTypeSymbol classSymbol)
+    {
+        // Identify all partial properties in the class
+        var fieldDeclarations = classSymbol.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(property => property.IsPartial() && !IsSyntaxToken(property.Type) && !IsSyntaxList(property.Type))
+            .Select(property =>
+            {
+                var propertyType = ParseTypeName(property.Type.ToDisplayString());
+                var propertyName = Identifier(property.Name);
+
+                return FieldDeclaration(
+                        VariableDeclaration(propertyType)
+                        .WithVariables(
+                            SingletonSeparatedList(
+                                VariableDeclarator(
+                                    Identifier("_" + property.Name.ToCamelCase())))))
+                        .WithModifiers(TokenList(Token(SyntaxKind.InternalKeyword)));
+            })
+            .ToArray();
+
+        if (fieldDeclarations.Any())
+        {
+            var last = fieldDeclarations[fieldDeclarations.Length - 1];
+
+            var newTrailingTrivia = last.GetTrailingTrivia()
+                .Add(CarriageReturnLineFeed) // Line break
+                .Add(CarriageReturnLineFeed);
+
+            fieldDeclarations[fieldDeclarations.Length - 1] = last.WithTrailingTrivia(newTrailingTrivia);
+        }
+
+        return fieldDeclarations;
     }
 
     private static IEnumerable<MemberDeclarationSyntax> GenerateAcceptMethods(INamedTypeSymbol classSymbol)
@@ -219,41 +251,6 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
                     );
     }
 
-    private static MemberDeclarationSyntax[] GenerateFields(INamedTypeSymbol classSymbol)
-    {
-        // Identify all partial properties in the class
-        var fieldDeclarations = classSymbol.GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(property => property.IsPartial() && !IsSyntaxToken(property.Type) && !IsSyntaxList(property.Type))
-            .Select(property =>
-            {
-                var propertyType = ParseTypeName(property.Type.ToDisplayString());
-                var propertyName = Identifier(property.Name);
-
-                return FieldDeclaration(
-                        VariableDeclaration(propertyType)
-                        .WithVariables(
-                            SingletonSeparatedList(
-                                VariableDeclarator(
-                                    Identifier("_" + property.Name.ToCamelCase())))))
-                        .WithModifiers(TokenList(Token(SyntaxKind.InternalKeyword)));
-            })
-            .ToArray();
-
-        if (fieldDeclarations.Any())
-        {
-            var last = fieldDeclarations[fieldDeclarations.Length - 1];
-
-            var newTrailingTrivia = last.GetTrailingTrivia()
-                .Add(CarriageReturnLineFeed) // Line break
-                .Add(CarriageReturnLineFeed);
-
-            fieldDeclarations[fieldDeclarations.Length - 1] = last.WithTrailingTrivia(newTrailingTrivia);
-        }
-
-        return fieldDeclarations;
-    }
-
     private static MemberDeclarationSyntax[] ImplementPartialProperties(INamedTypeSymbol classSymbol)
     {
         int index = 0;
@@ -294,7 +291,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         {
             return true;
         }
-        return InheritsFromSyntaxNode(typeSymbol);
+        return typeSymbol.InheritsFromSyntaxNode();
     }
 
     private static bool IsSyntaxToken(ITypeSymbol typeSymbol)

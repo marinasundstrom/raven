@@ -14,4 +14,20 @@ public static class SymbolExtensions
             syntaxRef.GetSyntax() is PropertyDeclarationSyntax propertySyntax &&
             propertySyntax.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PartialKeyword)));
     }
+
+    public static bool InheritsFromSyntaxNode(this ITypeSymbol classSymbol)
+    {
+        // Traverse the inheritance hierarchy to check if the type derives from SyntaxNode
+        var baseType = classSymbol.BaseType;
+        while (baseType != null)
+        {
+            if (baseType.Name == "SyntaxNode" && baseType.ContainingNamespace.ToDisplayString() == "Raven.CodeAnalysis.Syntax")
+            {
+                return true;
+            }
+            baseType = baseType.BaseType;
+        }
+
+        return false;
+    }
 }

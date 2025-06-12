@@ -22,7 +22,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
             .CreateSyntaxProvider(
                 predicate: IsPotentialPartialClass,
                 transform: GetClassSymbol)
-            .Where(symbol => symbol is not null && InheritsFromSyntaxNode(symbol));
+            .Where(symbol => symbol is not null && symbol.InheritsFromSyntaxNode());
 
         // Generate source for each identified class
         context.RegisterSourceOutput(partialClasses, ProcessSyntaxNodeClass);
@@ -49,22 +49,6 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static bool InheritsFromSyntaxNode(ITypeSymbol classSymbol)
-    {
-        // Traverse the inheritance hierarchy to check if the type derives from SyntaxNode
-        var baseType = classSymbol.BaseType;
-        while (baseType != null)
-        {
-            if (baseType.Name == "SyntaxNode" && baseType.ContainingNamespace.ToDisplayString() == "Raven.CodeAnalysis.Syntax")
-            {
-                return true;
-            }
-            baseType = baseType.BaseType;
-        }
-
-        return false;
-    }
-
     private static void ProcessSyntaxNodeClass(SourceProductionContext context, INamedTypeSymbol? classSymbol)
     {
         if (classSymbol is null)
@@ -73,7 +57,7 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
         var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
         var className = classSymbol.Name;
 
-        var syntaxNodePartialClass = GeneratePartialClass(context, classSymbol);
+        var syntaxNodePartialClass = SyntaxNodePartialClassGenerator.GeneratePartialClass(context, classSymbol);
 
         var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(context, namespaceName, className);
 
