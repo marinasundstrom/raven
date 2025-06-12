@@ -27,7 +27,7 @@ public partial class BoundNodeVisitorPartialGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(partialClasses, ProcessBoundNodeClass);
     }
 
-    string[] reservedNames = [];
+    readonly string[] reservedNames = [];
 
     private bool IsNotReserved(INamedTypeSymbol symbol)
     {

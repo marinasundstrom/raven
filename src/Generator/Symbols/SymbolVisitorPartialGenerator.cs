@@ -32,7 +32,7 @@ public partial class SymbolVisitorPartialGenerator : IIncrementalGenerator
         return symbol.Name != "ISymbol";
     }
 
-    string[] reservedNames = new[]
+    readonly string[] reservedNames = new[]
     {
         "INamespaceOrTypeSymbol",
         "ITypeSymbol",
