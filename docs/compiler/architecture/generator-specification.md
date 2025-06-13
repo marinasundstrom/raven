@@ -1,8 +1,8 @@
 # Generator specification
 
-Details below.
-
 The generators scan for matching type declarations, and create partial declarations that merge with the original definition, adding members and implementation.
+
+Details below.
 
 ## Overview
 
@@ -195,6 +195,87 @@ public EnumDeclarationSyntax Update(SyntaxToken enumKeyword, SyntaxToken identif
 ```
 
 ### Rewriter `Visit` method
+
+The rewriter method for `EnumDeclarationSyntax` looks like this:
+
+```csharp
+    public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
+    {
+        public override SyntaxNode? VisitEnumDeclaration(EnumDeclarationSyntax node) => node?.Update((Raven.CodeAnalysis.Syntax.SyntaxToken)VisitToken(node.EnumKeyword), (Raven.CodeAnalysis.Syntax.SyntaxToken)VisitToken(node.Identifier), (Raven.CodeAnalysis.Syntax.SyntaxToken)VisitToken(node.OpenBraceToken), (Raven.CodeAnalysis.Syntax.SeparatedSyntaxList<Raven.CodeAnalysis.Syntax.EnumMemberDeclarationSyntax>)VisitList<Raven.CodeAnalysis.Syntax.EnumMemberDeclarationSyntax>(node.Members), (Raven.CodeAnalysis.Syntax.SyntaxToken)VisitToken(node.CloseBraceToken), (Raven.CodeAnalysis.Syntax.SyntaxToken? )VisitToken(node.SemicolonToken));
+    }
+```
+
+## Internal Syntax Tree (Green)
+
+For the defined internal node:
+
+```csharp
+internal partial class ArgumentListSyntax : SyntaxNode
+{
+    public ArgumentListSyntax(
+        SyntaxToken openParenToken,
+        SyntaxList arguments,
+        SyntaxToken closeParenToken,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        : base(
+              SyntaxKind.ArgumentList,
+              [
+                      openParenToken ?? throw new ArgumentNullException(nameof(openParenToken)),
+                      arguments ?? throw new ArgumentNullException(nameof(arguments)),
+                      closeParenToken ?? throw new ArgumentNullException(nameof(closeParenToken))
+              ],
+              diagnostics)
+    {
+    }
+}
+```
+
+This is being generated:
+
+```csharp
+internal partial class ArgumentListSyntax
+{
+    private ArgumentListSyntax(SyntaxKind kind, GreenNode[] slots) : base(kind, slots)
+    {
+    }
+
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
+    {
+        return new Syntax.ArgumentListSyntax(this, parent, position);
+    }
+
+    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    {
+        return new ArgumentListSyntax(Kind, newChildren);
+    }
+
+    internal override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitArgumentList(this);
+    }
+
+    internal override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
+    {
+        return visitor.VisitArgumentList(this);
+    }
+}
+
+internal abstract partial class SyntaxVisitor
+{
+    public virtual void VisitArgumentList(ArgumentListSyntax node)
+    {
+        DefaultVisit(node);
+    }
+}
+
+internal abstract partial class SyntaxVisitor<TResult>
+{
+    public virtual TResult VisitArgumentList(ArgumentListSyntax node)
+    {
+        return DefaultVisit(node);
+    }
+}
+```
 
 ## BoundTree
 

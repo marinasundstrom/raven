@@ -1,5 +1,11 @@
 # Source generation
 
+---
+
+**Note:** For a more in-depth specification about the implementation of the source generator, look [here](/docs/compiler/architecture/generator-specification.md).
+
+---
+
 Some parts of the implementation is quite repetitive for all the nodes in the "Red" tree. That is why we use source generators to implement that. 
 
 With the help of partial classes and partial properties we can add code to existing class definitions.
