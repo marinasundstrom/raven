@@ -6,6 +6,19 @@ internal partial class ArgumentSyntax : SyntaxNode
         ExpressionSyntax expression,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.Argument, [
+            null,
+            expression ?? throw new ArgumentNullException(nameof(expression))
+    ],
+    diagnostics)
+    {
+    }
+
+    public ArgumentSyntax(
+        NameColonSyntax? nameColon,
+        ExpressionSyntax expression,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        : base(SyntaxKind.Argument, [
+            nameColon!,
             expression ?? throw new ArgumentNullException(nameof(expression))
         ],
         diagnostics)
@@ -19,4 +32,10 @@ internal static partial class SyntaxFactory
         ExpressionSyntax expression,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(expression, diagnostics);
+
+    public static ArgumentSyntax Argument(
+        NameColonSyntax? nameColon,
+        ExpressionSyntax expression,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        => new(nameColon, expression, diagnostics);
 }

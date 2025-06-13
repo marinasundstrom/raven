@@ -75,6 +75,10 @@ internal class ExpressionGenerator : Generator
                 EmitBlock(block);
                 break;
 
+            case BoundTupleExpression tupleExpression:
+                EmitBoundTupleExpression(tupleExpression);
+                break;
+
             case BoundAssignmentExpression assignmentExpression:
                 EmitAssignmentExpression(assignmentExpression);
                 break;
@@ -118,6 +122,41 @@ internal class ExpressionGenerator : Generator
         }
     }
 
+    private void EmitBoundTupleExpression(BoundTupleExpression tupleExpression)
+    {
+        var elements = tupleExpression.Elements;
+        var elementTypes = elements.Select(e => e.Type!).ToArray();
+
+        for (int i = 0; i < elements.Count(); i++)
+        {
+            EmitExpression(elements.ElementAt(i));
+
+            if (elementTypes[i].IsValueType == false)
+                continue;
+
+            var clrType = ResolveClrType(elementTypes[i]);
+
+            // Box if needed (e.g. to match generic type constraints in ValueTuple.Create<T>)
+            /*if (clrType.IsValueType && clrType.IsGenericType == false)
+            {
+                ILGenerator.Emit(OpCodes.Box, clrType);
+            }*/
+        }
+
+        var valueTupleType = Compilation.GetTypeByMetadataName($"System.ValueTuple");
+
+        var createMethod = valueTupleType
+            .GetMembers("Create")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m =>
+                m.IsStatic &&
+                m.Parameters.Length == elements.Count());
+
+        if (createMethod is null)
+            throw new InvalidOperationException($"Could not resolve ValueTuple.Create({elements.Count()} args)");
+
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createMethod).MakeGenericMethod(elements.Select(x => ResolveClrType(x.Type)).ToArray()));
+    }
     private void EmitLocalAccess(BoundLocalAccess localAccess)
     {
         ILGenerator.Emit(OpCodes.Ldloc, GetLocal(localAccess.Local));

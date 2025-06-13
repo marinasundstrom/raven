@@ -217,6 +217,7 @@ partial class BlockBinder : Binder
             AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
+            TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
             BlockSyntax block => BindBlock(block),
@@ -230,6 +231,36 @@ partial class BlockBinder : Binder
         CacheBoundNode(syntax, boundNode);
 
         return boundNode;
+    }
+
+    private BoundExpression BindTupleExpression(TupleExpressionSyntax tupleExpression)
+    {
+        var elements = new List<BoundExpression>(tupleExpression.Arguments.Count);
+        var elementTypes = new List<ITypeSymbol>();
+        var elementNames = new List<string?>();
+
+        foreach (var node in tupleExpression.Arguments)
+        {
+            if (node is ArgumentSyntax arg)
+            {
+                var boundExpr = BindExpression(arg.Expression);
+                elements.Add(boundExpr);
+                elementTypes.Add(boundExpr.Type ?? Compilation.ErrorTypeSymbol);
+
+                string? name = arg.NameColon?.Name.ToString(); // might be null
+                elementNames.Add(name);
+            }
+        }
+
+        var tupleType = Compilation.CreateTupleTypeSymbol(
+            elementTypes.ToArray()
+        );
+
+        return new BoundTupleExpression(
+            elements.ToImmutableArray(),
+            tupleType,
+            elementNames.ToImmutableArray()
+        );
     }
 
     private BoundExpression BindUnaryExpression(UnaryExpressionSyntax unaryExpression)

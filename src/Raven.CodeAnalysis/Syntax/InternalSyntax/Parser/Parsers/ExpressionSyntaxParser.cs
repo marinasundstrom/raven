@@ -1,6 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
@@ -369,6 +370,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var openParenToken = ReadToken();
 
         List<GreenNode> argumentList = new List<GreenNode>();
+        var seenNames = new HashSet<string>();
 
         while (true)
         {
@@ -377,11 +379,22 @@ internal class ExpressionSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
-            var expression = new ExpressionSyntaxParser(this).ParseExpression();
-            if (expression is null)
+            var arg = new ExpressionSyntaxParser(this).ParseArgument();
+            if (arg is null)
                 break;
 
-            argumentList.Add(Argument(expression));
+            if (arg.GetSlot(0) is { } nameColon)
+            {
+                var name = nameColon.GetSlot(0).GetSlot(0).GetValueText();
+                if (!seenNames.Add(name))
+                {
+                    //AddDiagnostic(DiagnosticInfo.Create(
+                    //    CompilerDiagnostics.DuplicateNamedArgument,
+                    //    nameColon.Name.GetLocation()));
+                }
+            }
+
+            argumentList.Add(arg);
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -394,6 +407,23 @@ internal class ExpressionSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
         return ArgumentList(openParenToken, List(argumentList.ToArray()), closeParenToken);
+    }
+
+    public ArgumentSyntax ParseArgument()
+    {
+        NameColonSyntax? nameColon = null;
+
+        // Try to parse optional name:
+        if (PeekToken(1).IsKind(SyntaxKind.ColonToken)
+            && PeekToken().IsKind(SyntaxKind.IdentifierToken))
+        {
+            var name = ReadToken(); // identifier
+            var colon = ReadToken(); // colon
+            nameColon = NameColon(IdentifierName(name), colon);
+        }
+
+        var expr = ParseExpression();
+        return Argument(nameColon, expr);
     }
 
     private BracketedArgumentListSyntax ParseBracketedArgumentListSyntax()
@@ -426,6 +456,38 @@ internal class ExpressionSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
 
         return BracketedArgumentList(openBracketToken, List(argumentList.ToArray()), closeBracketToken);
+    }
+
+    private TupleExpressionSyntax ParseTupleExpressionSyntax()
+    {
+        var openParenToken = ReadToken();
+
+        List<GreenNode> argumentList = new List<GreenNode>();
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.IsKind(SyntaxKind.CloseParenToken))
+                break;
+
+            var expression = new ExpressionSyntaxParser(this).ParseExpression();
+            if (expression is null)
+                break;
+
+            argumentList.Add(Argument(expression));
+
+            var commaToken = PeekToken();
+            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            {
+                ReadToken();
+                argumentList.Add(commaToken);
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return TupleExpression(openParenToken, List(argumentList.ToArray()), closeParenToken);
     }
 
     /// <summary>
@@ -481,7 +543,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 break;
 
             case SyntaxKind.OpenParenToken:
-                expr = ParseParenthesisExpression();
+                expr = ParseParenthesisOrTupleExpression();
                 break;
 
             case SyntaxKind.NewKeyword:
@@ -494,6 +556,39 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
 
         return expr;
+    }
+
+    private ExpressionSyntax ParseParenthesisOrTupleExpression()
+    {
+        var openParenToken = ReadToken(); // Consumes '('
+
+        var expressions = new List<GreenNode>();
+
+        var firstExpr = new ExpressionSyntaxParser(this).ParseArgument();
+        expressions.Add(firstExpr);
+
+        bool sawComma = false;
+
+        while (PeekToken().IsKind(SyntaxKind.CommaToken))
+        {
+            sawComma = true;
+            expressions.Add(ReadToken()); // Consume comma
+            var arg = new ExpressionSyntaxParser(this).ParseArgument();
+            expressions.Add(arg);
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        if (sawComma)
+        {
+            // This was a tuple
+            return TupleExpression(openParenToken, List(expressions.ToArray()), closeParenToken);
+        }
+        else
+        {
+            // Just a parenthesized expression
+            return ParenthesizedExpression(openParenToken, (ExpressionSyntax)firstExpr.GetSlot(1), closeParenToken, Diagnostics);
+        }
     }
 
     private ExpressionSyntax ParseCollectionExpression()

@@ -46,6 +46,7 @@ public enum SyntaxKind
     ElseClause = 61,
     WhileExpression = 62,
     Block = 63,
+    TupleExpression = 64,
 
     // === Core Expressions ===
     ObjectCreationExpression = 70,
@@ -109,6 +110,7 @@ public enum SyntaxKind
     UnaryMinusExpression = 144,
     AddressOfExpression = 145,
     EqualsValueClause = 146,
+    NameColon = 147,
 
     // === Tokens — Operators, Keywords, Identifiers ===
 

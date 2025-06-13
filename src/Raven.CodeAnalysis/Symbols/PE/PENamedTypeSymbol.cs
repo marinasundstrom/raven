@@ -66,6 +66,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
+    public bool IsValueType => _typeInfo.IsValueType;
 
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
     public IMethodSymbol? StaticConstructor { get; }

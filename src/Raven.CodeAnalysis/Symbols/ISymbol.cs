@@ -309,7 +309,9 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     public string ToFullyQualifiedMetadataName() => ContainingNamespace is null ? Name : $"{ContainingNamespace.ToMetadataName()}.{Name}";
 
-    bool IsTupleType => false;
+    bool IsValueType => false;
+
+    bool IsTupleType => Name.Contains("ValueTuple");
 
     bool IsUnion => TypeKind == TypeKind.Union;
 }

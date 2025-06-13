@@ -21,7 +21,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         {
             if (_type is not null) return _type;
 
-            if (_parameterInfo.ParameterType.IsGenericTypeParameter)
+            if (_parameterInfo.ParameterType.IsGenericTypeParameter || _parameterInfo.ParameterType.IsGenericMethodParameter)
             {
                 _type = new PETypeParameterSymbol(_parameterInfo.ParameterType, this, ContainingType, ContainingNamespace, []);
                 return _type;
