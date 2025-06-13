@@ -42,7 +42,7 @@ Standard visitor:
 ```csharp
 public override void Accept(SyntaxVisitor visitor)
 {
-	visitor.VisitNamespaceDeclaration(this);
+    visitor.VisitNamespaceDeclaration(this);
 }
 ```
 
@@ -51,7 +51,7 @@ Generic version - mainly used by rewriters.
 ```csharp
 public override TNode Accept<TNode>(SyntaxVisitor<TNode> visitor)
 {
-	return visitor.VisitNamespaceDeclaration(this);
+    return visitor.VisitNamespaceDeclaration(this);
 }
 ```
 
@@ -62,7 +62,7 @@ In `Visitor`:
 ```csharp
 public virtual void VisitNamespaceDeclaration(NamespaceDeclarationSyntax node)
 {
-	DefaultVisit(node);
+    DefaultVisit(node);
 }
 ```
 
@@ -71,7 +71,7 @@ Generic version in `Visitor<T>` - mainly used as a based by rewriters.
 ```csharp
 public virtual TResult VisitNamespaceDeclaration(NamespaceDeclarationSyntax node)
 {
-	return DefaultVisit(node);
+    return DefaultVisit(node);
 }
 ```
 
@@ -150,15 +150,15 @@ Implemented as:
 
 public override SyntaxList<MemberDeclarationSyntax> Members
 {
-	get
-	{
-		GreenNode green = Green.GetSlot(4);
-		if (green == null)
-		{
-			return default(SyntaxList<MemberDeclarationSyntax>);
-		}
-		return new SyntaxList<MemberDeclarationSyntax>(green as SyntaxList, this, base.Position + Green.GetChildStartPosition(4));
-	}
+    get
+    {
+        GreenNode green = Green.GetSlot(4);
+        if (green == null)
+        {
+            return default(SyntaxList<MemberDeclarationSyntax>);
+        }
+        return new SyntaxList<MemberDeclarationSyntax>(green as SyntaxList, this, base.Position + Green.GetChildStartPosition(4));
+    }
 }
 ```
 
@@ -173,7 +173,7 @@ Example: `EnumDeclarationSyntax`
 ```csharp
 public EnumDeclarationSyntax WithIdentifier(SyntaxToken identifier)
 {
-	return Update(EnumKeyword, identifier, OpenBraceToken, Members, CloseBraceToken, SemicolonToken);
+    return Update(EnumKeyword, identifier, OpenBraceToken, Members, CloseBraceToken, SemicolonToken);
 }
 ```
 
@@ -186,11 +186,11 @@ Example: `EnumDeclarationSyntax`
 ```csharp
 public EnumDeclarationSyntax Update(SyntaxToken enumKeyword, SyntaxToken identifier, SyntaxToken openBraceToken, SeparatedSyntaxList<EnumMemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? semicolonToken)
 {
-	if (EnumKeyword != enumKeyword || Identifier != identifier || OpenBraceToken != openBraceToken || Members != (SeparatedSyntaxList<EnumMemberDeclarationSyntax>?)members || CloseBraceToken != closeBraceToken || SemicolonToken != semicolonToken)
-	{
-		return new EnumDeclarationSyntax(enumKeyword, identifier, openBraceToken, members, closeBraceToken, semicolonToken);
-	}
-	return this;
+    if (EnumKeyword != enumKeyword || Identifier != identifier || OpenBraceToken != openBraceToken || Members != (SeparatedSyntaxList<EnumMemberDeclarationSyntax>?)members || CloseBraceToken != closeBraceToken || SemicolonToken != semicolonToken)
+    {
+        return new EnumDeclarationSyntax(enumKeyword, identifier, openBraceToken, members, closeBraceToken, semicolonToken);
+    }
+    return this;
 }
 ```
 
@@ -205,11 +205,11 @@ Parameters to `Update` are based on the constructor parameters for a specific co
 ```csharp
 public BoundIndexerAccessExpression Update(BoundExpression receiver, System.Collections.Generic.IEnumerable<BoundExpression> arguments, IPropertySymbol indexer, BoundExpressionReason reason)
 {
-	if (Receiver != receiver || Arguments != arguments || Indexer != indexer || Reason != reson)
-	{
-		return new BoundIndexerAccessExpression(receiver, arguments, indexer, reason);
-	}
-	return this;
+    if (Receiver != receiver || Arguments != arguments || Indexer != indexer || Reason != reson)
+    {
+        return new BoundIndexerAccessExpression(receiver, arguments, indexer, reason);
+    }
+    return this;
 }
 ```
 
@@ -220,6 +220,6 @@ In each `Visit` method, calls to `Update`, `Visit` (or `VisitList`) calls are em
 ```csharp
 public override BoundNode? VisitIndexerAccessExpression(BoundIndexerAccessExpression node)
 {
-	return node?.Update(VisitExpression(node.Receiver), VisitList(node.Arguments), (IPropertySymbol)VisitSymbol(node.Indexer), node.Reason);
+    return node?.Update(VisitExpression(node.Receiver), VisitList(node.Arguments), (IPropertySymbol)VisitSymbol(node.Indexer), node.Reason);
 }
 ```
