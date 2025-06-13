@@ -127,6 +127,10 @@ public partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 
 #### SyntaxNode property
 
+```csharp
+public override partial NameSyntax Name { get; }
+```
+
 Implemented as:
 
 ```csharp
@@ -135,19 +139,25 @@ public override NameSyntax Name => (NameSyntax)GetNodeSlot(1);
 
 #### SyntaxToken property
 
+```csharp
+public partial SyntaxToken OpenBraceToken { get; }
+```
+
 Implemented as:
 
 ```csharp
-
 public SyntaxToken OpenBraceToken => new SyntaxToken(Green.GetSlot(2) as Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken, this, base.Position + Green.GetChildStartPosition(2));
 ```
 
 #### SyntaxList property
 
+```csharp
+public override partial SyntaxList<MemberDeclarationSyntax> Members { get; }
+```
+
 Implemented as:
 
 ```csharp
-
 public override SyntaxList<MemberDeclarationSyntax> Members
 {
     get
