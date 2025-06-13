@@ -76,7 +76,7 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case BoundTupleExpression tupleExpression:
-                EmitBoundTupleExpression(tupleExpression);
+                EmitTupleExpression(tupleExpression);
                 break;
 
             case BoundAssignmentExpression assignmentExpression:
@@ -122,7 +122,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBoundTupleExpression(BoundTupleExpression tupleExpression)
+    private void EmitTupleExpression(BoundTupleExpression tupleExpression)
     {
         var elements = tupleExpression.Elements;
         var elementTypes = elements.Select(e => e.Type!).ToArray();

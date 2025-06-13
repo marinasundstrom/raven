@@ -614,15 +614,4 @@ public class Compilation
     {
         return genericDefinition.Construct(typeArgs);
     }
-
-    internal ITypeSymbol CreateTupleTypeSymbol(ITypeSymbol[] typeArgs)
-    {
-        var systemNamespace = GlobalNamespace.LookupNamespace("System");
-
-        var delegateType = systemNamespace?.GetMembers("ValueTuple")
-            .OfType<INamedTypeSymbol>()
-            .FirstOrDefault(t => t.Arity == typeArgs.Length);
-
-        return delegateType.Construct(typeArgs);
-    }
 }

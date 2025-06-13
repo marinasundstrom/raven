@@ -1,0 +1,93 @@
+using System.Collections.Immutable;
+
+namespace Raven.CodeAnalysis.Symbols;
+
+internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
+{
+
+    public TupleTypeSymbol(
+        INamedTypeSymbol underlyingTupleType,
+        IEnumerable<IFieldSymbol> tupleElements,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations)
+        : base(containingSymbol, containingType, containingNamespace, locations)
+    {
+        UnderlyingTupleType = underlyingTupleType;
+        TupleElements = tupleElements.ToImmutableArray();
+
+        TypeKind = TypeKind.Tuple;
+    }
+
+    public override string Name => "ValueTuple";
+
+    public override string MetadataName => UnderlyingTupleType.MetadataName;
+
+    public override SymbolKind Kind => SymbolKind.Type;
+
+    public SpecialType SpecialType => SpecialType.None;
+
+    public bool IsNamespace => false;
+
+    public bool IsType => true;
+
+    public int Rank { get; }
+
+    public INamedTypeSymbol? BaseType { get; }
+
+    public TypeKind TypeKind { get; }
+
+    public ITypeSymbol? OriginalDefinition { get; }
+
+    public int Arity { get; } = 0;
+
+    public ImmutableArray<IMethodSymbol> Constructors { get; } = [];
+
+    public IMethodSymbol? StaticConstructor { get; } = null;
+
+    public INamedTypeSymbol UnderlyingTupleType { get; }
+
+    public ImmutableArray<IFieldSymbol> TupleElements { get; }
+
+    public ImmutableArray<ITypeSymbol> TypeArguments =>
+        TupleElements.Select(e => e.Type).ToImmutableArray();
+
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; } = [];
+
+    public ITypeSymbol? ConstructedFrom { get; } = null;
+
+    public bool IsAbstract => false;
+
+    public bool IsGenericType => false;
+
+    public bool IsUnboundGenericType => false;
+
+    public ImmutableArray<ISymbol> GetMembers()
+        => TupleElements.CastArray<ISymbol>();
+
+    public ImmutableArray<ISymbol> GetMembers(string name)
+        => TupleElements.Where(f => f.Name == name).Cast<ISymbol>().ToImmutableArray();
+
+    public ITypeSymbol? LookupType(string name)
+    {
+        throw new NotImplementedException();
+    }
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    {
+        throw new NotSupportedException();
+    }
+
+    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override string ToString()
+    {
+        var parts = TupleElements
+            .Select(e => string.IsNullOrEmpty(e.Name) ? e.Type.ToString() : $"{e.Name}: {e.Type}");
+        return $"({string.Join(", ", parts)})";
+    }
+}

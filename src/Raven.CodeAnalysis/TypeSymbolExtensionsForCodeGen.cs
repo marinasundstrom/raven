@@ -29,6 +29,12 @@ public static class TypeSymbolExtensionsForCodeGen
             return elementClrType.MakeArrayType(); // TODO: support Rank > 1
         }
 
+        // Handle arrays
+        if (typeSymbol is ITupleTypeSymbol tupleSymbol)
+        {
+            return tupleSymbol.UnderlyingTupleType.GetClrType(codeGen);
+        }
+
         /*
         // Handle pointer types
         if (typeSymbol is IPointerTypeSymbol pointerType)

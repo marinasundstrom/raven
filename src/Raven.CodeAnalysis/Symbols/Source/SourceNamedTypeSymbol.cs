@@ -29,7 +29,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
-    public ITypeSymbol ConstructedFrom { get; }
+    public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract { get; } = false;
     public bool IsGenericType { get; }
     public bool IsUnboundGenericType { get; }
@@ -43,6 +43,10 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public ITypeSymbol? OriginalDefinition { get; }
 
     public int Arity { get; } = 0;
+
+    public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
+
+    public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
 
     public ImmutableArray<ISymbol> GetMembers()
     {

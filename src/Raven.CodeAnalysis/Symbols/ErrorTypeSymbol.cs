@@ -22,7 +22,7 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments => [];
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
-    public ITypeSymbol ConstructedFrom { get; }
+    public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract { get; }
     public bool IsGenericType { get; }
     public bool IsUnboundGenericType { get; }
@@ -40,6 +40,10 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
     public ITypeSymbol? OriginalDefinition { get; }
 
     public int Arity => throw new NotImplementedException();
+
+    public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
+
+    public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
 
     public ImmutableArray<ISymbol> GetMembers() => [];
 

@@ -72,7 +72,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters ??= _typeInfo.GenericTypeParameters.Select(x => (ITypeParameterSymbol)new PETypeParameterSymbol(x, this, this, this.ContainingNamespace, [])).ToImmutableArray();
-    public ITypeSymbol ConstructedFrom { get; }
+    public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract => _typeInfo.IsAbstract;
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;
@@ -136,6 +136,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public ITypeSymbol? OriginalDefinition { get; }
 
     public int Arity => _typeInfo.GenericTypeParameters.Length;
+
+    public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
+
+    public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
 
     public ImmutableArray<ISymbol> GetMembers()
     {

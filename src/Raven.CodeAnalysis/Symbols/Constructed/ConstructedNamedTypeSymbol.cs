@@ -81,12 +81,16 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public ITypeSymbol? OriginalDefinition => _originalDefinition;
     public INamedTypeSymbol? BaseType => _originalDefinition.BaseType;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _originalDefinition.TypeParameters;
-    public ITypeSymbol ConstructedFrom { get; }
+    public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract => _originalDefinition.IsAbstract;
     public bool IsGenericType => true;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers().OfType<IMethodSymbol>().Where(x => !x.IsStatic && x.IsConstructor).ToImmutableArray();
     public IMethodSymbol? StaticConstructor => GetMembers().OfType<IMethodSymbol>().Where(x => x.IsStatic && x.IsConstructor).FirstOrDefault();
+
+    public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
+
+    public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitNamedType(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);

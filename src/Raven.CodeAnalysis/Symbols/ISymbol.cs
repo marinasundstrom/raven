@@ -329,7 +329,8 @@ public enum TypeKind
     Struct,
     TypeParameter,
     FunctionPointer,
-    Union
+    Union,
+    Tuple
 }
 
 public interface INamedTypeSymbol : ITypeSymbol
@@ -337,9 +338,11 @@ public interface INamedTypeSymbol : ITypeSymbol
     int Arity { get; }
     ImmutableArray<IMethodSymbol> Constructors { get; }
     IMethodSymbol? StaticConstructor { get; }
+    INamedTypeSymbol UnderlyingTupleType { get; }
+    ImmutableArray<IFieldSymbol> TupleElements { get; }
     ImmutableArray<ITypeSymbol> TypeArguments { get; }
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
-    ITypeSymbol ConstructedFrom { get; }
+    ITypeSymbol? ConstructedFrom { get; }
     bool IsAbstract { get; }
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
@@ -352,6 +355,11 @@ public interface IArrayTypeSymbol : ITypeSymbol
     ITypeSymbol ElementType { get; }
 
     public int Rank { get; }
+}
+
+public interface ITupleTypeSymbol : INamedTypeSymbol
+{
+
 }
 
 public interface IUnionTypeSymbol : ITypeSymbol
