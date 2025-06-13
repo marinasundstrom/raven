@@ -13,7 +13,9 @@ The generators scan for matching type declarations, and create partial declarati
 * Visitor and Rewriter
 
 **Internal SyntaxNodes** (Green)
-* `With` and `Update` methods
+* "Default" constructor (private)
+* `CreateRed`
+* `WithUpdatedChildren` method
 * `Accept` methods
 * Visitor and Rewriter
 
