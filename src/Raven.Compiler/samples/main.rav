@@ -1,0 +1,38 @@
+import System
+import System.Text
+
+enum Status { Ok, Warning, Error }
+
+func getStatus(i: int) -> Status {
+    if i < 10 {
+        return .Ok
+    }
+    else if i < 50 {
+        return .Warning
+    }
+    return .Error
+}
+
+//func main() {
+    let data = [3, 27, 51]
+    let builder = new StringBuilder()
+
+    for value in data {
+        let status = getStatus(value)
+        builder.AppendLine("Value: " + value.ToString() + ", Status: " + status.ToString())
+
+        if status == .Error {
+            Console.WriteLine("Critical value: " + value.ToString())
+        }
+    }
+
+    Console.WriteLine(builder.ToString())
+
+    let name : string = .Empty
+    Console.WriteLine("Name: " + name)
+
+    let tuple = (id: 42, name: "Test")
+    Console.WriteLine("Tuple: " + tuple.id.ToString() + ", " + tuple.name)
+
+    Console.WriteLine(status.GetType())  // Enum boxing test
+//}

@@ -6,7 +6,7 @@ public partial class LocalDeclarationStatementSyntax : StatementSyntax
 {
     public partial VariableDeclarationSyntax Declaration { get; }
 
-    public partial SyntaxToken SemicolonToken { get; }
+    public partial SyntaxToken TerminatorToken { get; }
 
     internal LocalDeclarationStatementSyntax(
         InternalSyntax.SyntaxNode greenNode,
@@ -16,9 +16,9 @@ public partial class LocalDeclarationStatementSyntax : StatementSyntax
     {
     }
 
-    public LocalDeclarationStatementSyntax(VariableDeclarationSyntax declaration, SyntaxToken semicolonToken)
+    public LocalDeclarationStatementSyntax(VariableDeclarationSyntax declaration, SyntaxToken terminatorToken)
       : this(
-            new InternalSyntax.LocalDeclarationStatementSyntax((InternalSyntax.VariableDeclarationSyntax)declaration.Green, semicolonToken.Green))
+            new InternalSyntax.LocalDeclarationStatementSyntax((InternalSyntax.VariableDeclarationSyntax)declaration.Green, terminatorToken.Green))
     {
 
     }
@@ -26,8 +26,8 @@ public partial class LocalDeclarationStatementSyntax : StatementSyntax
 
 public static partial class SyntaxFactory
 {
-    public static LocalDeclarationStatementSyntax LocalDeclarationStatement(VariableDeclarationSyntax declaration, SyntaxToken semicolonToken)
-        => new LocalDeclarationStatementSyntax(declaration, semicolonToken);
+    public static LocalDeclarationStatementSyntax LocalDeclarationStatement(VariableDeclarationSyntax declaration, SyntaxToken terminatorToken)
+        => new LocalDeclarationStatementSyntax(declaration, terminatorToken);
 
     public static LocalDeclarationStatementSyntax LocalDeclarationStatement(VariableDeclarationSyntax declaration)
         => LocalDeclarationStatement(declaration, SemicolonToken);

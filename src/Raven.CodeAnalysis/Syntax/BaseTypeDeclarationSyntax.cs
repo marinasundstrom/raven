@@ -12,5 +12,5 @@ public abstract partial class BaseTypeDeclarationSyntax : MemberDeclarationSynta
 
     public abstract SyntaxToken CloseBraceToken { get; }
 
-    public abstract SyntaxToken? SemicolonToken { get; }
+    public abstract SyntaxToken? TerminatorToken { get; }
 }

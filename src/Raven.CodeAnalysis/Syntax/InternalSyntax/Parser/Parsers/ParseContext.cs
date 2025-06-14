@@ -22,7 +22,7 @@ internal abstract class ParseContext
 
     public virtual int Position => Parent?.Position ?? throw new InvalidOperationException("No parent set");
 
-    public virtual SyntaxToken LastToken => Parent?.LastToken ?? throw new InvalidOperationException("No parent set");
+    public virtual SyntaxToken? LastToken => Parent?.LastToken ?? throw new InvalidOperationException("No parent set");
 
     public virtual SyntaxToken PeekToken(int index = 0) => Parent?.PeekToken(index) ?? throw new InvalidOperationException("No parent set");
 

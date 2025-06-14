@@ -24,7 +24,7 @@ public partial class ExpressionStatement1Syntax : ExpressionStatementSyntax
     {
     }
 
-    public ExpressionStatement1Syntax(ExpressionSyntax expression, SyntaxToken semicolonToken)
+    public ExpressionStatement1Syntax(ExpressionSyntax expression, SyntaxToken terminatorToken)
         : this(new InternalSyntax.ExpressionStatement1Syntax((InternalSyntax.ExpressionSyntax)expression.Green))
     {
     }
@@ -35,7 +35,7 @@ public partial class ExpressionStatement2Syntax : ExpressionStatementSyntax
 {
     public override partial ExpressionSyntax Expression { get; }
 
-    public partial SyntaxToken SemicolonToken { get; }
+    public partial SyntaxToken TerminatorToken { get; }
 
     internal ExpressionStatement2Syntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)
@@ -47,8 +47,8 @@ public partial class ExpressionStatement2Syntax : ExpressionStatementSyntax
     {
     }
 
-    public ExpressionStatement2Syntax(ExpressionSyntax expression, SyntaxToken semicolonToken)
-        : this(new InternalSyntax.ExpressionStatement2Syntax((InternalSyntax.ExpressionSyntax)expression.Green, semicolonToken.Green))
+    public ExpressionStatement2Syntax(ExpressionSyntax expression, SyntaxToken terminatorToken)
+        : this(new InternalSyntax.ExpressionStatement2Syntax((InternalSyntax.ExpressionSyntax)expression.Green, terminatorToken.Green))
     {
     }
 }
@@ -58,6 +58,6 @@ public static partial class SyntaxFactory
     public static ExpressionStatementSyntax ExpressionStatement(ExpressionSyntax expression)
         => new ExpressionStatement1Syntax(expression);
 
-    public static ExpressionStatementSyntax ExpressionStatementWithSemicolon(ExpressionSyntax expression, SyntaxToken semicolonToken)
-        => new ExpressionStatement2Syntax(expression, semicolonToken);
+    public static ExpressionStatementSyntax ExpressionStatementWithSemicolon(ExpressionSyntax expression, SyntaxToken terminatorToken)
+        => new ExpressionStatement2Syntax(expression, terminatorToken);
 }

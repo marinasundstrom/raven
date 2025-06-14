@@ -9,7 +9,7 @@ internal partial class EnumDeclarationSyntax : BaseTypeDeclarationSyntax
         SyntaxToken openBraceToken,
         SyntaxList members,
         SyntaxToken closeBraceToken,
-        SyntaxToken? semicolonToken,
+        SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.EnumDeclaration,
               [
@@ -18,7 +18,7 @@ internal partial class EnumDeclarationSyntax : BaseTypeDeclarationSyntax
                       openBraceToken ?? throw new ArgumentNullException(nameof(openBraceToken)),
                       members ?? throw new ArgumentNullException(nameof(members)),
                       closeBraceToken ?? throw new ArgumentNullException(nameof(closeBraceToken)),
-                      semicolonToken!,
+                      terminatorToken!,
               ],
               diagnostics)
     {
@@ -33,7 +33,7 @@ internal static partial class SyntaxFactory
         SyntaxToken openBraceToken,
         SyntaxList members,
         SyntaxToken closeBraceToken,
-        SyntaxToken? semicolonToken,
+        SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(enumKeyword, identifier, openBraceToken, members, closeBraceToken, semicolonToken, diagnostics);
+        => new(enumKeyword, identifier, openBraceToken, members, closeBraceToken, terminatorToken, diagnostics);
 }
