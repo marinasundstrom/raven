@@ -1,1 +1,7 @@
-let x = (a: 1, b: 2);
+let tuple = (a: 42, b: 2);
+
+System.Console.WriteLine(tuple);
+
+let foo = tuple.a;
+
+System.Console.WriteLine(tuple.a);

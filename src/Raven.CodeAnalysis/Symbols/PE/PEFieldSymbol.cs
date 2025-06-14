@@ -16,13 +16,26 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
 
     public override SymbolKind Kind => SymbolKind.Field;
     public override string Name => _fieldInfo.Name;
-    public ITypeSymbol Type => _type ??= PEContainingModule.GetType(_fieldInfo.FieldType);
+    
+    public virtual ITypeSymbol Type
+    {
+        get
+        {
+            if (_fieldInfo.FieldType.IsGenericParameter)
+            {
+                return _type ??= new PETypeParameterSymbol(_fieldInfo.FieldType, this, ContainingType, ContainingNamespace, []);
+            }
+
+            return _type ??= PEContainingModule.GetType(_fieldInfo.FieldType);
+        }
+    }
 
     public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_fieldInfo);
 
     public override bool IsStatic => _fieldInfo.IsStatic;
-    public bool IsLiteral => _fieldInfo.IsLiteral;
+    public virtual bool IsLiteral => _fieldInfo.IsLiteral;
+    
     public object? GetConstantValue() => _fieldInfo.GetRawConstantValue();
 
-    public FieldInfo GetFieldInfo() => _fieldInfo;
+    public virtual FieldInfo GetFieldInfo() => _fieldInfo;
 }

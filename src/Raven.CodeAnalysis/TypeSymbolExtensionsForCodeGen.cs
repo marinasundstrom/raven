@@ -32,7 +32,8 @@ public static class TypeSymbolExtensionsForCodeGen
         // Handle arrays
         if (typeSymbol is ITupleTypeSymbol tupleSymbol)
         {
-            return tupleSymbol.UnderlyingTupleType.GetClrType(codeGen);
+            var tupleClrType = tupleSymbol.UnderlyingTupleType.GetClrType(codeGen);
+            return tupleClrType.MakeGenericType(tupleSymbol.TupleElements.Select(e => e.Type.GetClrType(codeGen)).ToArray());
         }
 
         /*
@@ -110,6 +111,8 @@ public static class TypeSymbolExtensionsForCodeGen
             SpecialType.System_DateTime => FromCoreAssembly(compilation, "System.DateTime"),
             SpecialType.System_Array => FromCoreAssembly(compilation, "System.Array"),
             SpecialType.System_Type => FromCoreAssembly(compilation, "System.Type"),
+            SpecialType.System_ValueTuple_T1 => FromCoreAssembly(compilation, "System.ValueTuple`1"),
+            SpecialType.System_ValueTuple_T2 => FromCoreAssembly(compilation, "System.ValueTuple`2"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
     }

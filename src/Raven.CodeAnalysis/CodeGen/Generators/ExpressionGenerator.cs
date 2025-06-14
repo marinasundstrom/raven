@@ -220,7 +220,7 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case IFieldSymbol field when !field.IsStatic:
-                if (field.ContainingType.TypeKind is TypeKind.Struct)
+                if (field.ContainingType.IsValueType)
                 {
                     throw new NotSupportedException("Taking address of a field inside struct requires more handling (like loading enclosing struct by ref).");
                 }
@@ -254,7 +254,7 @@ internal class ExpressionGenerator : Generator
             var patternLocal = GetLocal(declarationPattern.Designator);
 
             // [expr]
-            if (typeSymbol.TypeKind is TypeKind.Struct)
+            if (typeSymbol.IsValueType)
             {
                 // Reference types can use isinst + cgt.un directly.
                 var labelFail = ILGenerator.DefineLabel();
@@ -390,7 +390,7 @@ internal class ExpressionGenerator : Generator
 
                 EmitExpression(element);
 
-                if (arrayTypeSymbol.ElementType.TypeKind is not TypeKind.Struct)
+                if (!arrayTypeSymbol.ElementType.IsValueType)
                 {
                     ILGenerator.Emit(OpCodes.Stelem_Ref);
                 }
@@ -441,7 +441,7 @@ internal class ExpressionGenerator : Generator
 
     private void EmitLoadElement(ITypeSymbol elementType)
     {
-        if (elementType.TypeKind != TypeKind.Struct)
+        if (!elementType.IsValueType)
         {
             ILGenerator.Emit(OpCodes.Ldelem_Ref);
         }
@@ -496,8 +496,8 @@ internal class ExpressionGenerator : Generator
                 EmitExpression(argument);
 
                 var argType = argument.Type;
-                if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } &&
-                    param.Type.TypeKind != TypeKind.Struct)
+                if (argType is { IsValueType: true } &&
+                    !param.Type.IsValueType)
                 {
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(argType));
                 }
@@ -521,7 +521,7 @@ internal class ExpressionGenerator : Generator
             case BoundLocalAssignmentExpression localExpression:
                 EmitExpression(localExpression.Right);
 
-                if (localExpression.Right.Type.TypeKind is TypeKind.Struct && localExpression.Type.SpecialType is SpecialType.System_Object)
+                if (localExpression.Right.Type.IsValueType && localExpression.Type.SpecialType is SpecialType.System_Object)
                 {
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(localExpression.Right.Type));
                 }
@@ -590,14 +590,14 @@ internal class ExpressionGenerator : Generator
     {
         return fieldSymbol switch
         {
-            PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(),
+            PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
             _ => throw new Exception("Unsupported field symbol")
         };
     }
 
     private void EmitStoreElement(ITypeSymbol elementType)
     {
-        if (elementType.TypeKind != TypeKind.Struct)
+        if (!elementType.IsValueType)
         {
             ILGenerator.Emit(OpCodes.Stelem_Ref);
         }
@@ -675,7 +675,7 @@ internal class ExpressionGenerator : Generator
                     throw new Exception($"Cannot resolve getter for property {propertySymbol.Name}");
 
                 // Value types need address loading
-                if (!propertySymbol.IsStatic && propertySymbol.ContainingType.TypeKind is TypeKind.Struct)
+                if (!propertySymbol.IsStatic && propertySymbol.ContainingType.IsValueType)
                 {
                     var clrType = ResolveClrType(propertySymbol.ContainingType);
                     var tmp = ILGenerator.DeclareLocal(clrType);
@@ -705,7 +705,7 @@ internal class ExpressionGenerator : Generator
             }
 
             // Value types need address loading
-            if (!fieldSymbol.IsStatic && fieldSymbol.ContainingType.TypeKind is TypeKind.Struct)
+            if (!fieldSymbol.IsStatic && fieldSymbol.ContainingType.IsValueType)
             {
                 var clrType = ResolveClrType(fieldSymbol.ContainingType);
                 var tmp = ILGenerator.DeclareLocal(clrType);
@@ -735,13 +735,13 @@ internal class ExpressionGenerator : Generator
             {
                 var opCode = fieldSymbol.IsStatic ? OpCodes.Ldsfld : OpCodes.Ldfld;
 
-                if (fieldSymbol is PEFieldSymbol peFieldSymbol)
-                {
-                    ILGenerator.Emit(opCode, peFieldSymbol.GetFieldInfo());
-                }
-                else if (fieldSymbol is SourceFieldSymbol sourceFieldSymbol)
+                if (fieldSymbol is SourceFieldSymbol sourceFieldSymbol)
                 {
                     ILGenerator.Emit(opCode, (FieldInfo)GetMemberBuilder(sourceFieldSymbol)!);
+                }
+                else
+                {
+                    ILGenerator.Emit(opCode, fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen));
                 }
             }
         }
@@ -763,7 +763,7 @@ internal class ExpressionGenerator : Generator
             {
                 var localBuilder = GetLocal(localSymbol);
 
-                if (localSymbol.Type.TypeKind is TypeKind.Struct)
+                if (localSymbol.Type.IsValueType)
                 {
                     var isGetType = target.Name == "GetType"
                         && target.ContainingType.Name == "Object"
@@ -796,7 +796,7 @@ internal class ExpressionGenerator : Generator
                 // General case: evaluate the receiver expression
                 EmitExpression(receiver);
 
-                if (target.ContainingType.TypeKind is TypeKind.Struct)
+                if (target.ContainingType.IsValueType)
                 {
                     var isGetType = target.Name == "GetType"
                         && target.ContainingType.Name == "Object"
@@ -853,8 +853,8 @@ internal class ExpressionGenerator : Generator
                 var argType = argument?.Type;
                 var paramType = paramSymbol.Type;
 
-                if (argType is { TypeKind: TypeKind.Struct or TypeKind.Enum } &&
-                    paramType.TypeKind != TypeKind.Struct)
+                if (argType is { IsValueType: true } &&
+                    !paramType.IsValueType)
                 {
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(argType));
                 }
@@ -862,7 +862,7 @@ internal class ExpressionGenerator : Generator
         }
 
         // Determine correct call opcode
-        var isValueType = target.ContainingType?.TypeKind is TypeKind.Struct or TypeKind.Enum;
+        var isValueType = target.ContainingType?.IsValueType ?? false;
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
 
         if (target.IsStatic)
@@ -966,7 +966,7 @@ internal class ExpressionGenerator : Generator
             var getMethod = metadataPropertySymbol.GetMethod as PEMethodSymbol;
 
             if (!propertySymbol.IsStatic
-                && propertySymbol.ContainingType.TypeKind is TypeKind.Struct)
+                && propertySymbol.ContainingType.IsValueType)
             {
                 var clrType = ResolveClrType(propertySymbol.ContainingType);
                 var builder = ILGenerator.DeclareLocal(clrType);
@@ -1047,7 +1047,7 @@ internal class ExpressionGenerator : Generator
         var thenType = ifStatement.ThenBranch.Type;
 
         if (ifStatement.Type.IsUnion
-            && thenType.TypeKind is TypeKind.Struct)
+            && thenType.IsValueType)
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType));
         }
@@ -1070,7 +1070,7 @@ internal class ExpressionGenerator : Generator
             var elseType = ifStatement.ElseBranch.Type;
 
             if (ifStatement.Type.IsUnion
-                && elseType.TypeKind is TypeKind.Struct)
+                && elseType.IsValueType)
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(elseType));
             }

@@ -278,9 +278,20 @@ partial class BlockBinder : Binder
 
         var tupleType = (INamedTypeSymbol)delegateType.Construct(typeArgs.Select(x => x.Item2).ToArray());
 
-        var elements = typeArgs.Select(x => new SourceFieldSymbol(x.Item1, x.Item2, false, false, false, null, null, null, [], []));
+        var tuple = new TupleTypeSymbol(tupleType, null, null, null, []);
 
-        return new TupleTypeSymbol(tupleType, elements, null, null, null, []);
+        List<IFieldSymbol> elements = new List<IFieldSymbol>();
+
+        int i = 0;
+        foreach (var tupleField in tupleType.GetMembers().OfType<SubstitutedFieldSymbol>())
+        {
+            elements.Add(new TupleFieldSymbol(typeArgs.ElementAt(i).Item1, tupleField, tupleType, []));
+            i++;
+        }
+
+        tuple.SetTupleElements(elements);
+
+        return tuple;
     }
 
     private BoundExpression BindUnaryExpression(UnaryExpressionSyntax unaryExpression)

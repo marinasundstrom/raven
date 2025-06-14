@@ -1,13 +1,14 @@
 using System.Collections.Immutable;
+using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
 {
+    private ImmutableArray<IFieldSymbol> _tupleElements;
 
     public TupleTypeSymbol(
         INamedTypeSymbol underlyingTupleType,
-        IEnumerable<IFieldSymbol> tupleElements,
         ISymbol containingSymbol,
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
@@ -15,9 +16,13 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         UnderlyingTupleType = underlyingTupleType;
-        TupleElements = tupleElements.ToImmutableArray();
 
         TypeKind = TypeKind.Tuple;
+    }
+
+    public void SetTupleElements(IEnumerable<IFieldSymbol> fieldSymbols)
+    {
+        _tupleElements = fieldSymbols.ToImmutableArray();
     }
 
     public override string Name => "ValueTuple";
@@ -26,11 +31,13 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
 
     public override SymbolKind Kind => SymbolKind.Type;
 
-    public SpecialType SpecialType => SpecialType.None;
+    public SpecialType SpecialType => UnderlyingTupleType.SpecialType;
 
     public bool IsNamespace => false;
 
     public bool IsType => true;
+
+    public bool IsValueType => true;
 
     public int Rank { get; }
 
@@ -48,7 +55,7 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
 
     public INamedTypeSymbol UnderlyingTupleType { get; }
 
-    public ImmutableArray<IFieldSymbol> TupleElements { get; }
+    public ImmutableArray<IFieldSymbol> TupleElements => _tupleElements;
 
     public ImmutableArray<ITypeSymbol> TypeArguments =>
         TupleElements.Select(e => e.Type).ToImmutableArray();

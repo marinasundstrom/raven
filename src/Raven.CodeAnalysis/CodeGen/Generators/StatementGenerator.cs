@@ -84,7 +84,7 @@ internal class StatementGenerator : Generator
 
             var localSymbol = declarator.Local;
 
-            if (s.TypeKind is TypeKind.Struct && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            if (s.IsValueType && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(s));
             }

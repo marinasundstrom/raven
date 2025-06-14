@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Net.NetworkInformation;
 using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -23,34 +24,20 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             return;
         }
 
-        if (typeInfo.BaseType?.Name == "Delegate")
-        {
-            TypeKind = TypeKind.Delegate;
-        }
-        else if (typeInfo.BaseType?.Name == "Enum")
-        {
+        if (typeInfo.IsEnum)
             TypeKind = TypeKind.Enum;
-        }
-        else if (typeInfo.BaseType?.Name == "ValueType")
-        {
+        else if (typeof(MulticastDelegate).IsAssignableFrom(typeInfo))
+            TypeKind = TypeKind.Delegate;
+        else if (typeInfo.IsValueType)
             TypeKind = TypeKind.Struct;
-        }
         else if (typeInfo.IsInterface)
-        {
             TypeKind = TypeKind.Interface;
-        }
         else if (typeInfo.IsPointer)
-        {
-            TypeKind = TypeKind.Interface;
-        }
+            TypeKind = TypeKind.Pointer;
         else if (typeInfo.IsArray)
-        {
             TypeKind = TypeKind.Array;
-        }
         else
-        {
             TypeKind = TypeKind.Class;
-        }
     }
 
     public override SymbolKind Kind => SymbolKind.Type;
@@ -67,6 +54,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
     public bool IsValueType => _typeInfo.IsValueType;
+
+    //public bool IsInterface => _typeInfo.IsInterface;
 
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
     public IMethodSymbol? StaticConstructor { get; }
@@ -121,6 +110,21 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 return SpecialType.System_IntPtr;
             if (type == typeof(UIntPtr))
                 return SpecialType.System_UIntPtr;
+
+            if (type.Namespace == "System" && type.Name.StartsWith("ValueTuple`"))
+            {
+                return type.GetGenericArguments().Length switch
+                {
+                    1 => SpecialType.System_ValueTuple_T1,
+                    2 => SpecialType.System_ValueTuple_T2,
+                    3 => SpecialType.System_ValueTuple_T3,
+                    4 => SpecialType.System_ValueTuple_T4,
+                    5 => SpecialType.System_ValueTuple_T5,
+                    6 => SpecialType.System_ValueTuple_T6,
+                    7 => SpecialType.System_ValueTuple_T7,
+                    _ => SpecialType.None
+                };
+            }
 
             if (type.FullName == "System.Array" || type.IsArray)
                 return SpecialType.System_Array;

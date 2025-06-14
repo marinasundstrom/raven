@@ -291,7 +291,7 @@ public class Compilation
             }
 
             // Assigning to
-            return new Conversion(isImplicit: true, isBoxing: source.TypeKind is TypeKind.Struct);
+            return new Conversion(isImplicit: true, isBoxing: source.IsValueType);
         }
 
         if (destination is IUnionTypeSymbol unionType)
@@ -300,7 +300,7 @@ public class Compilation
             if (match is null)
                 return Conversion.None;
 
-            return new Conversion(isImplicit: true, isBoxing: source.TypeKind is TypeKind.Struct);
+            return new Conversion(isImplicit: true, isBoxing: source.IsValueType);
         }
 
         if (IsReferenceConversion(source, destination))
@@ -367,7 +367,7 @@ public class Compilation
     private bool IsReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
     {
         // Must both be reference types
-        if (source.TypeKind is TypeKind.Struct || destination.TypeKind is TypeKind.Struct)
+        if (source.IsValueType || destination.IsValueType)
             return false;
 
         // Identity conversion is not a reference conversion
@@ -382,12 +382,12 @@ public class Compilation
 
     private bool IsBoxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        return source.TypeKind is TypeKind.Struct && destination.SpecialType is SpecialType.System_Object;
+        return source.IsValueType && destination.SpecialType is SpecialType.System_Object;
     }
 
     private bool IsUnboxingConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        return source.SpecialType is SpecialType.System_Object && destination.TypeKind is TypeKind.Struct;
+        return source.SpecialType is SpecialType.System_Object && destination.IsValueType;
     }
 
     private bool IsImplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)

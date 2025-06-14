@@ -34,6 +34,14 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public bool IsGenericType { get; }
     public bool IsUnboundGenericType { get; }
 
+    public bool IsValueType => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum;
+
+    public bool IsReferenceType =>
+        TypeKind == TypeKind.Class ||
+        TypeKind == TypeKind.Interface ||
+        TypeKind == TypeKind.Delegate ||
+        TypeKind == TypeKind.Array;
+
     public SpecialType SpecialType => SpecialType.None;
 
     public virtual INamedTypeSymbol? BaseType { get; }
