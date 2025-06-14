@@ -645,109 +645,97 @@ internal class ExpressionGenerator : Generator
     private void EmitMemberAccessExpression(BoundMemberAccessExpression memberAccessExpression)
     {
         var symbol = memberAccessExpression.Symbol;
+        var receiver = memberAccessExpression.Receiver;
 
-        if (symbol is IPropertySymbol propertySymbol)
+        switch (symbol)
         {
-            // First load the target expression (e.g., the array object)
+            case IPropertySymbol propertySymbol:
+                EmitReceiverIfNeeded(receiver, propertySymbol);
 
-            var receiver = memberAccessExpression.Receiver;
-
-            if (receiver is not null && !symbol.IsStatic)
-            {
-                EmitExpression(receiver);
-            }
-
-            if (propertySymbol.ContainingType!.SpecialType is SpecialType.System_Array && propertySymbol.Name == "Length")
-            {
-                ILGenerator.Emit(OpCodes.Ldlen);
-                ILGenerator.Emit(OpCodes.Conv_I4);
-            }
-            else
-            {
-                var property = propertySymbol switch
+                if (propertySymbol.ContainingType?.SpecialType == SpecialType.System_Array &&
+                    propertySymbol.Name == "Length")
                 {
-                    PEPropertySymbol pEProperty => pEProperty.GetPropertyInfo(),
-                    SubstitutedPropertySymbol substitutedProperty => substitutedProperty.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-                    _ => null
+                    ILGenerator.Emit(OpCodes.Ldlen);
+                    ILGenerator.Emit(OpCodes.Conv_I4);
+                    return;
+                }
+
+                var propertyInfo = propertySymbol switch
+                {
+                    PEPropertySymbol pe => pe.GetPropertyInfo(),
+                    SubstitutedPropertySymbol sp => sp.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
+                    _ => throw new NotSupportedException($"Unsupported property symbol type: {symbol.GetType()}")
                 };
 
-                if (property?.GetMethod is null)
+                if (propertyInfo.GetMethod is null)
                     throw new Exception($"Cannot resolve getter for property {propertySymbol.Name}");
 
-                // Value types need address loading
-                if (!propertySymbol.IsStatic && propertySymbol.ContainingType.IsValueType)
+                if (!propertySymbol.IsStatic)
+                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType!);
+
+                ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, propertyInfo.GetMethod);
+                break;
+
+            case IFieldSymbol fieldSymbol:
+                EmitReceiverIfNeeded(receiver, fieldSymbol);
+
+                if (!fieldSymbol.IsStatic)
+                    EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType!);
+
+                if (fieldSymbol.IsLiteral)
                 {
-                    var clrType = ResolveClrType(propertySymbol.ContainingType);
-                    var tmp = ILGenerator.DeclareLocal(clrType);
-                    ILGenerator.Emit(OpCodes.Stloc, tmp);
-                    ILGenerator.Emit(OpCodes.Ldloca, tmp);
-                }
-
-                if (propertySymbol.IsStatic)
-                {
-                    ILGenerator.Emit(OpCodes.Call, property?.GetMethod!);
-                }
-                else
-                {
-                    ILGenerator.Emit(OpCodes.Callvirt, property?.GetMethod!);
-                }
-            }
-        }
-        else if (symbol is IFieldSymbol fieldSymbol)
-        {
-            // First load the target expression (e.g., the array object)
-
-            var receiver = memberAccessExpression.Receiver;
-
-            if (receiver is not null)
-            {
-                EmitExpression(receiver);
-            }
-
-            // Value types need address loading
-            if (!fieldSymbol.IsStatic && fieldSymbol.ContainingType.IsValueType)
-            {
-                var clrType = ResolveClrType(fieldSymbol.ContainingType);
-                var tmp = ILGenerator.DeclareLocal(clrType);
-                ILGenerator.Emit(OpCodes.Stloc, tmp);
-                ILGenerator.Emit(OpCodes.Ldloca, tmp);
-            }
-
-            if (fieldSymbol.IsLiteral)
-            {
-                var constant = fieldSymbol.GetConstantValue();
-                switch (constant)
-                {
-                    case int i:
-                        ILGenerator.Emit(OpCodes.Ldc_I4, i);
-                        break;
-                    case bool b:
-                        ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
-                        break;
-                    case null:
-                        ILGenerator.Emit(OpCodes.Ldnull);
-                        break;
-                    default:
-                        throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
-                }
-            }
-            else
-            {
-                var opCode = fieldSymbol.IsStatic ? OpCodes.Ldsfld : OpCodes.Ldfld;
-
-                if (fieldSymbol is SourceFieldSymbol sourceFieldSymbol)
-                {
-                    ILGenerator.Emit(opCode, (FieldInfo)GetMemberBuilder(sourceFieldSymbol)!);
+                    EmitLiteral(fieldSymbol.GetConstantValue());
                 }
                 else
                 {
-                    ILGenerator.Emit(opCode, fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen));
+                    var opCode = fieldSymbol.IsStatic ? OpCodes.Ldsfld : OpCodes.Ldfld;
+                    var fieldInfo = fieldSymbol switch
+                    {
+                        SourceFieldSymbol sfs => (FieldInfo)GetMemberBuilder(sfs)!,
+                        _ => fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen)
+                    };
+
+                    ILGenerator.Emit(opCode, fieldInfo);
                 }
-            }
+                break;
+
+            default:
+                throw new Exception($"Unsupported member access: {memberAccessExpression}");
         }
-        else
+    }
+
+    private void EmitReceiverIfNeeded(BoundExpression? receiver, ISymbol symbol)
+    {
+        if (receiver is not null && !symbol.IsStatic)
+            EmitExpression(receiver);
+    }
+
+    private void EmitValueTypeAddressIfNeeded(ITypeSymbol type)
+    {
+        if (type.IsValueType)
         {
-            throw new Exception($"Unsupported member access: {memberAccessExpression}");
+            var clrType = ResolveClrType(type);
+            var tmp = ILGenerator.DeclareLocal(clrType);
+            ILGenerator.Emit(OpCodes.Stloc, tmp);
+            ILGenerator.Emit(OpCodes.Ldloca, tmp);
+        }
+    }
+
+    private void EmitLiteral(object? constant)
+    {
+        switch (constant)
+        {
+            case int i:
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                break;
+            case bool b:
+                ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                break;
+            case null:
+                ILGenerator.Emit(OpCodes.Ldnull);
+                break;
+            default:
+                throw new NotSupportedException($"Literal value type not supported: {constant?.GetType()}");
         }
     }
 
