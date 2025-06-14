@@ -9,15 +9,14 @@ let w = 352342342;
 Console.WriteLine(w.GetType().Name);
 
 let x = 1 + 2;
+
 let y = if x > 2 { 40 + w; } else { true; };
 
 test(y);
 
-// External methods receiving: int | bool
 TestDep.Foo.Test(y);
 TestDep.Foo.Test(x);
 
-// External method returning type: int | bool
 let v = TestDep.Foo.Test2(true);
 
 Console.WriteLine(v.ToString());

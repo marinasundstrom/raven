@@ -769,15 +769,27 @@ internal class ExpressionGenerator : Generator
         // Emit receiver (for instance methods)
         if (!target.IsStatic)
         {
+            var isGetType = target.Name == "GetType"
+                && target.ContainingType?.Name == "Object"
+                && target.ContainingNamespace?.Name == "System";
+
             EmitExpression(receiver);
 
-            if (receiver?.Type is { } receiverType && receiverType.IsValueType)
+            if (receiver?.Type?.IsValueType == true)
             {
-                var clrType = ResolveClrType(receiverType);
-                var temp = ILGenerator.DeclareLocal(clrType);
-                ILGenerator.Emit(OpCodes.Stloc, temp);
-                ILGenerator.Emit(OpCodes.Ldloc, temp);
-                EmitBoxIfNeeded(receiverType, target);
+                var clrType = ResolveClrType(receiver.Type);
+
+                if (isGetType)
+                {
+                    // Ensure boxing before GetType
+                    ILGenerator.Emit(OpCodes.Box, clrType);
+                }
+                else
+                {
+                    var temp = ILGenerator.DeclareLocal(clrType);
+                    ILGenerator.Emit(OpCodes.Stloc, temp);
+                    ILGenerator.Emit(OpCodes.Ldloca, temp);
+                }
             }
         }
 
@@ -797,38 +809,33 @@ internal class ExpressionGenerator : Generator
                     case BoundAddressOfExpression addressOf:
                         EmitAddressOfExpression(addressOf);
                         break;
-
                     case BoundLocalAccess { Symbol: ILocalSymbol local }:
                         ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                         break;
-
                     default:
-                        throw new NotSupportedException($"Unsupported ref/out argument expression: {argument?.GetType().Name}");
+                        throw new NotSupportedException($"Unsupported ref/out argument: {argument?.GetType().Name}");
                 }
             }
             else
             {
                 EmitExpression(argument);
 
-                var argType = argument?.Type;
-                var paramType = paramSymbol.Type;
-
-                if (argType is { IsValueType: true } && !paramType.IsValueType)
+                if (argument?.Type is { IsValueType: true } &&
+                    !paramSymbol.Type.IsValueType)
                 {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(argType));
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(argument.Type));
                 }
             }
         }
 
-        // Emit call instruction
-        var isValueType = target.ContainingType?.IsValueType ?? false;
+        // Emit the actual call
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
 
         if (target.IsStatic)
         {
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
-        else if (!isValueType && (target.IsVirtual || isInterfaceCall))
+        else if (!target.ContainingType!.IsValueType && (target.IsVirtual || isInterfaceCall))
         {
             ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(target));
         }
@@ -837,7 +844,7 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
 
-        // Special cast for Object.GetType() to System.Reflection.MemberInfo
+        // Special cast for Object.GetType() to MemberInfo
         if (target.Name == "GetType"
             && target.ContainingType.Name == "Object"
             && target.ContainingNamespace.Name == "System")
@@ -847,20 +854,6 @@ internal class ExpressionGenerator : Generator
                 .GetTypeByMetadataName("System.Reflection.MemberInfo");
 
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
-        }
-    }
-
-    private void EmitBoxIfNeeded(ITypeSymbol receiverType, IMethodSymbol target)
-    {
-        if (!receiverType.IsValueType)
-            return;
-
-        var needsBox = target.ContainingType.Name == "Object"
-            && target.ContainingType.ContainingNamespace?.Name == "System";
-
-        if (needsBox)
-        {
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(receiverType));
         }
     }
 
