@@ -70,8 +70,6 @@ var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<Assign
 outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
 
-// INFO: The sample will compile, but not all constructs are supported yet.
-
 EmitResult? result = null;
 
 using (var stream = File.OpenWrite($"{outputPath}"))
