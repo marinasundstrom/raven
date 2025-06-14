@@ -12,6 +12,8 @@ let x : string = .Empty;
 Console.WriteLine(foo);
 Console.WriteLine(foo.GetType());
 
+Console.WriteLine(Grades.B.GetType());
+
 if foo == .C {
     Console.WriteLine("Foo");
 }

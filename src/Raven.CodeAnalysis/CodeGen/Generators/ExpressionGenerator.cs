@@ -671,7 +671,12 @@ internal class ExpressionGenerator : Generator
                     throw new Exception($"Cannot resolve getter for property {propertySymbol.Name}");
 
                 if (!propertySymbol.IsStatic)
+                {
+                    // Before calling the method, we may need to box the value type if calling System.Object methods
                     EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType!);
+
+                    EmitBoxIfNeeded(propertySymbol.ContainingType!, propertyInfo.GetMethod!);
+                }
 
                 ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, propertyInfo.GetMethod);
                 break;
@@ -708,6 +713,14 @@ internal class ExpressionGenerator : Generator
     {
         if (receiver is not null && !symbol.IsStatic)
             EmitExpression(receiver);
+    }
+
+    private void EmitBoxIfNeeded(ITypeSymbol type, MethodInfo method)
+    {
+        if (type.IsValueType && method.DeclaringType == typeof(object))
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(type));
+        }
     }
 
     private void EmitValueTypeAddressIfNeeded(ITypeSymbol type)
@@ -747,65 +760,15 @@ internal class ExpressionGenerator : Generator
         // Emit receiver (for instance methods)
         if (!target.IsStatic)
         {
-            if (receiver is BoundLocalAccess { Symbol: ILocalSymbol localSymbol })
+            EmitExpression(receiver);
+
+            if (receiver?.Type is { } receiverType && receiverType.IsValueType)
             {
-                var localBuilder = GetLocal(localSymbol);
-
-                if (localSymbol.Type.IsValueType)
-                {
-                    var isGetType = target.Name == "GetType"
-                        && target.ContainingType.Name == "Object"
-                        && target.ContainingNamespace.Name == "System";
-
-                    if (isGetType)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-                        ILGenerator.Emit(OpCodes.Box, localBuilder.LocalType);
-                    }
-                    else
-                    {
-                        ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
-                    }
-                }
-                else
-                {
-                    // For reference types, just load the value
-                    ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-
-                    // Box if the runtime type is a value type (e.g. captured as object)
-                    if (localBuilder.LocalType.IsValueType)
-                    {
-                        ILGenerator.Emit(OpCodes.Box, localBuilder.LocalType);
-                    }
-                }
-            }
-            else
-            {
-                // General case: evaluate the receiver expression
-                EmitExpression(receiver);
-
-                if (target.ContainingType.IsValueType)
-                {
-                    var isGetType = target.Name == "GetType"
-                        && target.ContainingType.Name == "Object"
-                        && target.ContainingNamespace.Name == "System";
-
-                    if (isGetType)
-                    {
-                        var clrType = ResolveClrType(target.ContainingType);
-                        var temp = ILGenerator.DeclareLocal(clrType);
-                        ILGenerator.Emit(OpCodes.Stloc, temp);
-                        ILGenerator.Emit(OpCodes.Ldloc, temp);
-                        ILGenerator.Emit(OpCodes.Box, clrType);
-                    }
-                    else
-                    {
-                        var clrType = ResolveClrType(target.ContainingType);
-                        var temp = ILGenerator.DeclareLocal(clrType);
-                        ILGenerator.Emit(OpCodes.Stloc, temp);
-                        ILGenerator.Emit(OpCodes.Ldloca, temp);
-                    }
-                }
+                var clrType = ResolveClrType(receiverType);
+                var temp = ILGenerator.DeclareLocal(clrType);
+                ILGenerator.Emit(OpCodes.Stloc, temp);
+                ILGenerator.Emit(OpCodes.Ldloc, temp);
+                EmitBoxIfNeeded(receiverType, target);
             }
         }
 
@@ -841,15 +804,14 @@ internal class ExpressionGenerator : Generator
                 var argType = argument?.Type;
                 var paramType = paramSymbol.Type;
 
-                if (argType is { IsValueType: true } &&
-                    !paramType.IsValueType)
+                if (argType is { IsValueType: true } && !paramType.IsValueType)
                 {
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(argType));
                 }
             }
         }
 
-        // Determine correct call opcode
+        // Emit call instruction
         var isValueType = target.ContainingType?.IsValueType ?? false;
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
 
@@ -876,6 +838,20 @@ internal class ExpressionGenerator : Generator
                 .GetTypeByMetadataName("System.Reflection.MemberInfo");
 
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
+        }
+    }
+
+    private void EmitBoxIfNeeded(ITypeSymbol receiverType, IMethodSymbol target)
+    {
+        if (!receiverType.IsValueType)
+            return;
+
+        var needsBox = target.ContainingType.Name == "Object"
+            && target.ContainingType.ContainingNamespace?.Name == "System";
+
+        if (needsBox)
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(receiverType));
         }
     }
 

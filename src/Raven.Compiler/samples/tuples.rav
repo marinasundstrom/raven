@@ -7,3 +7,6 @@ let foo = tuple.a;
 System.Console.WriteLine(tuple.a);
 
 System.Console.WriteLine(tuple.Item1);
+
+// "GetType" needs to be synthesized 
+//System.Console.WriteLine(tuple.GetType());
