@@ -5,3 +5,5 @@ System.Console.WriteLine(tuple);
 let foo = tuple.a;
 
 System.Console.WriteLine(tuple.a);
+
+System.Console.WriteLine(tuple.Item1);

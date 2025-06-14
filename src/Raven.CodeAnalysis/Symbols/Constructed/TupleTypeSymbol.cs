@@ -71,10 +71,16 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
     public bool IsUnboundGenericType => false;
 
     public ImmutableArray<ISymbol> GetMembers()
-        => TupleElements.CastArray<ISymbol>();
+    {
+        IEnumerable<ISymbol> symbols = UnderlyingTupleType.GetMembers();
+        return symbols.Concat(TupleElements.CastArray<ISymbol>()).ToImmutableArray();
+    }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
-        => TupleElements.Where(f => f.Name == name).Cast<ISymbol>().ToImmutableArray();
+    {
+        IEnumerable<ISymbol> symbols = UnderlyingTupleType.GetMembers(name);
+        return symbols.Concat(TupleElements.Where(f => f.Name == name).Cast<ISymbol>()).ToImmutableArray();
+    }
 
     public ITypeSymbol? LookupType(string name)
     {
