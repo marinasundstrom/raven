@@ -16,6 +16,7 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         UnderlyingTupleType = underlyingTupleType;
+        BaseType = underlyingTupleType.BaseType;
 
         TypeKind = TypeKind.Tuple;
     }
