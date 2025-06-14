@@ -741,6 +741,15 @@ internal class ExpressionGenerator : Generator
             case int i:
                 ILGenerator.Emit(OpCodes.Ldc_I4, i);
                 break;
+            case long i:
+                ILGenerator.Emit(OpCodes.Ldc_I8, i);
+                break;
+            case float i:
+                ILGenerator.Emit(OpCodes.Ldc_R4, i);
+                break;
+            case double i:
+                ILGenerator.Emit(OpCodes.Ldc_R8, i);
+                break;
             case bool b:
                 ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                 break;
