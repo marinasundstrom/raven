@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 internal class LanguageParser
 {
     private readonly string _filePath;
-    private Tokenizer _tokenizer;
+    private ILexer _lexer;
 
     private int Position { get; set; }
 
@@ -27,10 +27,9 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader();
 
-        _tokenizer = new Tokenizer(textReader);
-
-        _tokenizer = new Tokenizer(textReader);
-        var parseContext = new BaseParseContext(_tokenizer);
+        _lexer = new Lexer(textReader);
+        
+        var parseContext = new BaseParseContext(_lexer);
         return new CompilationUnitSyntaxParser(parseContext).Parse();
     }
 
@@ -38,8 +37,8 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader(position);
 
-        _tokenizer = new Tokenizer(textReader);
-        var parseContext = new BaseParseContext(_tokenizer, position);
+        _lexer = new Lexer(textReader);
+        var parseContext = new BaseParseContext(_lexer, position);
 
         return ParseRequestedType(parseContext, requestedSyntaxType);
     }
@@ -78,8 +77,8 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader();
 
-        var tokenizer = new Tokenizer(textReader);
-        var parseContext = new BaseParseContext(_tokenizer, offset);
+        var lexer = new Lexer(textReader);
+        var parseContext = new BaseParseContext(lexer, offset);
 
         return new StatementSyntaxParser(parseContext).ParseStatement();
     }

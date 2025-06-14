@@ -6,7 +6,7 @@ public partial class ReturnStatementSyntax : StatementSyntax
 
     public partial ExpressionSyntax? Expression { get; }
 
-    public partial SyntaxToken SemicolonToken { get; }
+    public partial SyntaxToken TerminatorToken { get; }
 
     internal ReturnStatementSyntax(
         InternalSyntax.SyntaxNode greenNode,
@@ -16,9 +16,9 @@ public partial class ReturnStatementSyntax : StatementSyntax
     {
     }
 
-    public ReturnStatementSyntax(SyntaxToken returnKeyword, ExpressionSyntax? expression, SyntaxToken semicolonToken)
+    public ReturnStatementSyntax(SyntaxToken returnKeyword, ExpressionSyntax? expression, SyntaxToken terminatorToken)
       : this(
-            new InternalSyntax.ReturnStatementSyntax(returnKeyword.Green, (InternalSyntax.ExpressionSyntax)expression?.Green, semicolonToken.Green))
+            new InternalSyntax.ReturnStatementSyntax(returnKeyword.Green, (InternalSyntax.ExpressionSyntax)expression?.Green, terminatorToken.Green))
     {
 
     }
@@ -38,9 +38,9 @@ public static partial class SyntaxFactory
     public static ReturnStatementSyntax ReturnStatement(ExpressionSyntax expression)
         => new ReturnStatementSyntax(expression);
 
-    public static ReturnStatementSyntax ReturnStatement(SyntaxToken returnKeyword, ExpressionSyntax? expression, SyntaxToken semicolonToken)
-        => new ReturnStatementSyntax(returnKeyword, expression, semicolonToken);
+    public static ReturnStatementSyntax ReturnStatement(SyntaxToken returnKeyword, ExpressionSyntax? expression, SyntaxToken terminatorToken)
+        => new ReturnStatementSyntax(returnKeyword, expression, terminatorToken);
 
-    public static ReturnStatementSyntax ReturnStatement(SyntaxToken returnKeyword, SyntaxToken semicolonToken)
-        => new ReturnStatementSyntax(returnKeyword, null, semicolonToken);
+    public static ReturnStatementSyntax ReturnStatement(SyntaxToken returnKeyword, SyntaxToken terminatorToken)
+        => new ReturnStatementSyntax(returnKeyword, null, terminatorToken);
 }

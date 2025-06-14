@@ -25,12 +25,12 @@ internal partial class ExpressionStatement2Syntax : ExpressionStatementSyntax
 {
     public ExpressionStatement2Syntax(
         ExpressionSyntax expression,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.ExpressionStatement,
               [
                     expression ?? throw new ArgumentNullException(nameof(expression)),
-                    semicolonToken
+                    terminatorToken
               ],
               diagnostics)
     {
@@ -45,7 +45,7 @@ internal static partial class SyntaxFactory
         => new ExpressionStatement1Syntax(expression, diagnostics);
 
     public static ExpressionStatementSyntax ExpressionStatementWithSemicolon(
-        ExpressionSyntax expression, SyntaxToken semicolonToken,
+        ExpressionSyntax expression, SyntaxToken terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new ExpressionStatement2Syntax(expression, semicolonToken, diagnostics);
+        => new ExpressionStatement2Syntax(expression, terminatorToken, diagnostics);
 }

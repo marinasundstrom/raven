@@ -9,7 +9,7 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
         SyntaxList imports,
         SyntaxList members,
         SyntaxToken closeBraceToken,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
               SyntaxKind.NamespaceDeclaration,
@@ -20,7 +20,7 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
                     imports ?? throw new ArgumentNullException(nameof(imports)),
                     members ?? throw new ArgumentNullException(nameof(members)),
                     closeBraceToken ?? throw new ArgumentNullException(nameof(closeBraceToken)),
-                    semicolonToken ?? throw new ArgumentNullException(nameof(semicolonToken))
+                    terminatorToken ?? throw new ArgumentNullException(nameof(terminatorToken))
               ],
               diagnostics)
     {
@@ -36,7 +36,7 @@ internal static partial class SyntaxFactory
         SyntaxList imports,
         SyntaxList members,
         SyntaxToken closeBraceToken,
-        SyntaxToken semicolonToken,
+        SyntaxToken terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(namespaceKeyword, name, openBraceToken, imports, members, closeBraceToken, semicolonToken, diagnostics);
+        => new(namespaceKeyword, name, openBraceToken, imports, members, closeBraceToken, terminatorToken, diagnostics);
 }

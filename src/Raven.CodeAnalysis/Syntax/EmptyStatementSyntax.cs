@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public partial class EmptyStatementSyntax : StatementSyntax
 {
-    public partial SyntaxToken SemicolonToken { get; }
+    public partial SyntaxToken TerminatorToken { get; }
 
     internal EmptyStatementSyntax(
         InternalSyntax.SyntaxNode greenNode,
@@ -12,9 +12,9 @@ public partial class EmptyStatementSyntax : StatementSyntax
     {
     }
 
-    public EmptyStatementSyntax(SyntaxToken semicolonToken)
+    public EmptyStatementSyntax(SyntaxToken terminatorToken)
       : this(
-            new InternalSyntax.EmptyStatementSyntax(semicolonToken.Green))
+            new InternalSyntax.EmptyStatementSyntax(terminatorToken.Green))
     {
 
     }
@@ -31,6 +31,6 @@ public static partial class SyntaxFactory
     public static EmptyStatementSyntax EmptyStatement()
         => new EmptyStatementSyntax();
 
-    public static EmptyStatementSyntax EmptyStatement(SyntaxToken semicolonToken)
-        => new EmptyStatementSyntax(semicolonToken);
+    public static EmptyStatementSyntax EmptyStatement(SyntaxToken terminatorToken)
+        => new EmptyStatementSyntax(terminatorToken);
 }
