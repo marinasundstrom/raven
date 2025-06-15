@@ -11,6 +11,12 @@ internal class SyntaxParser : ParseContext
 
     }
 
+    private int _parenDepth = 0;
+
+    public void EnterParens() => _parenDepth++;
+    public void ExitParens() => _parenDepth--;
+    public bool IsInsideParens => _parenDepth > 0;
+
     public bool IsNextToken(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
     {
         token = PeekToken();
@@ -84,5 +90,56 @@ internal class SyntaxParser : ParseContext
     {
         var firstToken = node.GetFirstToken();
         return new TextSpan(start + firstToken.LeadingTrivia.Width, node.Width);
+    }
+
+    protected bool TryConsumeTerminator(out SyntaxToken token)
+    {
+        // Allow optional semicolon
+        if (ConsumeToken(SyntaxKind.SemicolonToken, out token))
+            return true;
+
+        // If newlines are tokens, check if it's a valid terminator
+        if (TreatNewlinesAsTokens && IsNewLineToken(PeekToken()))
+        {
+            var previous = LastToken!;
+
+            if (!IsInsideParens && !IsLineContinuable(previous))
+            {
+                token = ReadToken(); // consume newline as terminator
+                return true;
+            }
+        }
+
+        token = null!;
+        return false;
+    }
+
+
+    private bool IsLineContinuable(SyntaxToken token)
+    {
+        return token.Kind switch
+        {
+            SyntaxKind.PlusToken or
+            SyntaxKind.MinusToken or
+            SyntaxKind.StarToken or
+            SyntaxKind.SlashToken or
+            SyntaxKind.DotToken or
+            SyntaxKind.QuestionToken or
+            SyntaxKind.AmpersandToken or
+            //SyntaxKind.PipeToken or
+            SyntaxKind.EqualsToken or
+            SyntaxKind.OpenParenToken or
+            SyntaxKind.OpenBracketToken => true,
+            _ => false
+        };
+    }
+
+    private static bool IsNewLineToken(SyntaxToken token)
+    {
+        return token.Kind is
+            SyntaxKind.LineFeedToken or
+            SyntaxKind.CarriageReturnToken or
+            SyntaxKind.CarriageReturnLineFeedToken or
+            SyntaxKind.NewLineToken;
     }
 }

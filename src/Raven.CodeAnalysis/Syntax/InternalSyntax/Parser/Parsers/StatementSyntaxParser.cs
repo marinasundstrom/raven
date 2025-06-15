@@ -18,7 +18,7 @@ internal class StatementSyntaxParser : SyntaxParser
         switch (token.Kind)
         {
             case SyntaxKind.FuncKeyword:
-                statement = ParseFunctionSyntax();
+                statement = ParseLocalFunctionSyntax();
                 break;
 
             case SyntaxKind.ReturnKeyword:
@@ -39,7 +39,7 @@ internal class StatementSyntaxParser : SyntaxParser
         return statement;
     }
 
-    private StatementSyntax? ParseFunctionSyntax()
+    private StatementSyntax? ParseLocalFunctionSyntax()
     {
         var funcKeyword = ReadToken();
 
@@ -106,19 +106,15 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
-        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
+        if (!TryConsumeTerminator(out var terminatorToken))
         {
-            semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
-
-            return ReturnStatement(returnKeyword, expression, semicolonToken,
-                [DiagnosticInfo.Create(
+            AddDiagnostic(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                )]);
-
+                    GetEndOfLastToken()));
         }
 
-        return ReturnStatement(returnKeyword, expression, semicolonToken);
+        return ReturnStatement(returnKeyword, expression, terminatorToken);
     }
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()
@@ -187,26 +183,31 @@ internal class StatementSyntaxParser : SyntaxParser
 
         if (expression is IfExpressionSyntax or WhileExpressionSyntax or BlockSyntax)
         {
-            if (ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken2))
+            SetTreatNewlinesAsTokens(true);
+
+            if (!TryConsumeTerminator(out var terminatorToken2))
             {
-                return ExpressionStatementWithSemicolon(expression, semicolonToken2, Diagnostics);
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.SemicolonExpected,
+                        GetEndOfLastToken()));
             }
-            return ExpressionStatement(expression, Diagnostics);
+
+            return ExpressionStatementWithSemicolon(expression, terminatorToken2, Diagnostics);
         }
 
-        // INFO: Remember
-        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
-        {
-            semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
 
+        SetTreatNewlinesAsTokens(true);
+
+        if (!TryConsumeTerminator(out var terminatorToken))
+        {
             AddDiagnostic(
                 DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                ));
+                    GetEndOfLastToken()));
         }
 
-        return ExpressionStatementWithSemicolon(expression, semicolonToken, Diagnostics);
+        return ExpressionStatementWithSemicolon(expression, terminatorToken, Diagnostics);
     }
 
     public StatementSyntax? LastStatement { get; set; }
@@ -215,18 +216,17 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var declaration = ParseVariableDeclarationSyntax();
 
-        if (!ConsumeToken(SyntaxKind.SemicolonToken, out var semicolonToken))
-        {
-            semicolonToken = MissingToken(SyntaxKind.SemicolonToken);
+        SetTreatNewlinesAsTokens(true);
 
+        if (!TryConsumeTerminator(out var terminatorToken))
+        {
             AddDiagnostic(
                 DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                ));
+                    GetEndOfLastToken()));
         }
 
-        return LocalDeclarationStatement(declaration, semicolonToken, Diagnostics);
+        return LocalDeclarationStatement(declaration, terminatorToken, Diagnostics);
     }
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()

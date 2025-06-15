@@ -9,7 +9,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 {
     public ExpressionSyntaxParser(ParseContext parent) : base(parent)
     {
-
+        SetTreatNewlinesAsTokens(false);
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -19,16 +19,24 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return ParseOrExpression() ?? new ExpressionSyntax.Missing();
     }
 
-    public BlockSyntax? ParseBlockSyntax()
+    public BlockSyntax ParseBlockSyntax()
     {
-        if (ConsumeToken(SyntaxKind.OpenBraceToken, out var openBraceToken))
+        var openBrace = ExpectToken(SyntaxKind.OpenBraceToken);
+
+        EnterParens(); // Treat block as a nesting construct
+        var statements = new List<StatementSyntax>();
+
+        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
         {
-            var statements = ParseStatementsList(SyntaxKind.CloseBraceToken, out var closeBraceToken);
-
-            return Block(openBraceToken, statements, closeBraceToken);
+            var stmt = new StatementSyntaxParser(this).ParseStatement();
+            if (stmt is not null)
+                statements.Add(stmt);
         }
+        ExitParens();
 
-        return null;
+        var closeBrace = ExpectToken(SyntaxKind.CloseBraceToken);
+
+        return Block(openBrace, List(statements), closeBrace);
     }
 
     private SyntaxList ParseStatementsList(SyntaxKind untilToken, out SyntaxToken token)

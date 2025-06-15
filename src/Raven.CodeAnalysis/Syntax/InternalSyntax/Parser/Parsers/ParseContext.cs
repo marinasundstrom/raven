@@ -20,15 +20,19 @@ internal abstract class ParseContext
 
     public ParseContext? Parent { get; protected set; }
 
-    public virtual int Position => Parent?.Position ?? throw new InvalidOperationException("No parent set");
+    public virtual int Position => Parent?.Position ?? throw new InvalidOperationException("No base or parent set");
 
-    public virtual SyntaxToken? LastToken => Parent?.LastToken ?? throw new InvalidOperationException("No parent set");
+    public virtual SyntaxToken? LastToken => Parent?.LastToken ?? throw new InvalidOperationException("No base or parent set");
 
-    public virtual SyntaxToken PeekToken(int index = 0) => Parent?.PeekToken(index) ?? throw new InvalidOperationException("No parent set");
+    public virtual SyntaxToken PeekToken(int index = 0) => Parent?.PeekToken(index) ?? throw new InvalidOperationException("No base or parent set");
 
-    public virtual SyntaxToken ReadToken() => Parent?.ReadToken() ?? throw new InvalidOperationException("No parent set");
+    public virtual SyntaxToken ReadToken() => Parent?.ReadToken() ?? throw new InvalidOperationException("No base or parent set");
 
-    public virtual TextSpan GetStartOfLastToken() => Parent?.GetStartOfLastToken() ?? throw new InvalidOperationException("No parent set");
+    public virtual TextSpan GetStartOfLastToken() => Parent?.GetStartOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
 
-    public virtual TextSpan GetEndOfLastToken() => Parent?.GetEndOfLastToken() ?? throw new InvalidOperationException("No parent set");
+    public virtual TextSpan GetEndOfLastToken() => Parent?.GetEndOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
+
+    public virtual bool TreatNewlinesAsTokens => Parent?.TreatNewlinesAsTokens ?? throw new InvalidOperationException("No base or parent set");
+
+    public virtual void SetTreatNewlinesAsTokens(bool value) => Parent?.SetTreatNewlinesAsTokens(value);
 }

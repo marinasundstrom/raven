@@ -16,15 +16,16 @@ internal class ImportDirectiveSyntaxParser : SyntaxParser
 
         var namespaceName = new NameSyntaxParser(this).ParseName();
 
-        if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var semicolonToken))
+        SetTreatNewlinesAsTokens(true);
+
+        if (!TryConsumeTerminator(out var terminatorToken))
         {
-            return ImportDirective(importKeyword, namespaceName, semicolonToken,
-                [DiagnosticInfo.Create(
+            AddDiagnostic(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                )]);
+                    GetEndOfLastToken()));
         }
 
-        return ImportDirective(importKeyword, namespaceName, semicolonToken);
+        return ImportDirective(importKeyword, namespaceName, terminatorToken);
     }
 }

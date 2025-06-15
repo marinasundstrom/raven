@@ -39,6 +39,14 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         var newTrivias = _trivias.Concat(new[] { trivia }).ToArray();
         return new SyntaxTriviaList(newTrivias);
     }
+    
+    public SyntaxTriviaList AddRange(SyntaxTriviaList readTriviaForSkippedNewlines)
+    {
+        if (readTriviaForSkippedNewlines == null) throw new ArgumentNullException(nameof(readTriviaForSkippedNewlines));
+
+        var newTrivias = _trivias.Concat(readTriviaForSkippedNewlines).ToArray();
+        return new SyntaxTriviaList(newTrivias);    
+    }
 
     /// <summary>
     /// Creates a new SyntaxTriviaList with the specified trivia removed.

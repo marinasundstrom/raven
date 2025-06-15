@@ -10,6 +10,7 @@ internal class BaseParseContext : ParseContext
     private SyntaxToken? _lastToken;
     private readonly ILexer _lexer;
     private int _position;
+    private bool _treatNewlinesAsTokens;
     private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
     private readonly StringBuilder _stringBuilder = new StringBuilder();
 
@@ -43,19 +44,21 @@ internal class BaseParseContext : ParseContext
     /// Treat newlines as tokens
     /// </summary>
     /// <value></value>
-    public bool EmitNewlinesAsTokens { get; set; } = false;
+    public override bool TreatNewlinesAsTokens => _treatNewlinesAsTokens;
+
+    public override void SetTreatNewlinesAsTokens(bool value) => _treatNewlinesAsTokens = value;
 
     /// <summary>
     /// Treat LineFeedToken, CarriageReturnToken, CarriageReturnLineFeedToken, and NewlineToken, as trivia.
     /// </summary>
     /// <value></value>
-    public bool TreatNewlineSequencesAsTrivia => !EmitNewlinesAsTokens;
+    public bool TreatNewlineSequencesAsTrivia => !TreatNewlinesAsTokens;
 
     /// <summary>
     /// Use EndOfLineTrivia - instead of LineFeedTrivia, CarriageReturnTrivia, and CarriageReturnLineFeedTrivia.
     /// </summary>
     /// <value></value>
-    public bool UseEndOfLineTrivia { get; set; } = false;
+    public bool UseEndOfLineTrivia { get; set; } = true;
 
     public SyntaxKind LineFeedTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.LineFeedTrivia;
     public SyntaxKind CarriageReturnTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.CarriageReturnTrivia;

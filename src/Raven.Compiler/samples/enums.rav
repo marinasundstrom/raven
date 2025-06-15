@@ -1,7 +1,3 @@
-/*
- * Enums and target-type member access
- * * * */
-
 import System;
 
 var foo : Grades = .B;

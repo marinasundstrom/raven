@@ -20,7 +20,7 @@ internal class Lexer : ILexer
     /// NewLineToken for CR and LF
     /// </summary>
     /// <value></value>
-    public bool UseUnifiedNewLineToken { get; set; } = false;
+    public bool UseUnifiedNewLineToken { get; set; } = true;
 
     /// <summary>
     /// Treat the sequence CR and LF as one symbol.
