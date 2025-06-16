@@ -1105,28 +1105,78 @@ partial class BlockBinder : Binder
 
         // Fall back to normal variable/property assignment
         var left = BindExpression(syntax.LeftHandSide);
-        var localSymbol = (ILocalSymbol)left.Symbol!;
 
-        if (!localSymbol.IsMutable)
+        if (left.Symbol is ILocalSymbol localSymbol)
         {
-            _diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            if (!localSymbol.IsMutable)
+            {
+                _diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            }
+
+            var right2 = BindExpression(syntax.RightHandSide);
+
+            if (right2 is BoundEmptyCollectionExpression)
+            {
+                return new BoundLocalAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
+            }
+
+            if (!IsAssignable(localSymbol.Type, right2.Type!))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(right2.Type!, localSymbol.Type, syntax.RightHandSide.GetLocation());
+                return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            return new BoundLocalAssignmentExpression(localSymbol, right2);
+        }
+        else if (left.Symbol is IFieldSymbol fieldSymbol)
+        {
+            /* if (propertySymbol. is null)
+            {
+                //_diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            } */
+
+            var right2 = BindExpression(syntax.RightHandSide);
+
+            if (right2 is BoundEmptyCollectionExpression)
+            {
+                return new BoundFieldAssignmentExpression(right2, fieldSymbol, new BoundEmptyCollectionExpression(fieldSymbol.Type));
+            }
+
+            if (!IsAssignable(fieldSymbol.Type, right2.Type!))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(right2.Type!, fieldSymbol.Type, syntax.RightHandSide.GetLocation());
+                return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            return new BoundFieldAssignmentExpression(right2, fieldSymbol, right2);
+        }
+        else if (left.Symbol is IPropertySymbol propertySymbol)
+        {
+            if (propertySymbol.SetMethod is null)
+            {
+                //_diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            }
+
+            var right2 = BindExpression(syntax.RightHandSide);
+
+            if (right2 is BoundEmptyCollectionExpression)
+            {
+                return new BoundPropertyAssignmentExpression(right2, propertySymbol, new BoundEmptyCollectionExpression(propertySymbol.Type));
+            }
+
+            if (!IsAssignable(propertySymbol.Type, right2.Type!))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(right2.Type!, propertySymbol.Type, syntax.RightHandSide.GetLocation());
+                return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            return new BoundPropertyAssignmentExpression(right2, propertySymbol, right2);
         }
 
-        var right2 = BindExpression(syntax.RightHandSide);
-
-        if (right2 is BoundEmptyCollectionExpression)
-        {
-            return new BoundLocalAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
-        }
-
-        if (!IsAssignable(localSymbol.Type, right2.Type!))
-        {
-            _diagnostics.ReportCannotConvertFromTypeToType(right2.Type!, localSymbol.Type, syntax.RightHandSide.GetLocation());
-            return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
-        }
-
-        return new BoundLocalAssignmentExpression(localSymbol, right2);
+        throw new Exception();
     }
 
     private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)

@@ -26,7 +26,16 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
                 return _type ??= new PETypeParameterSymbol(_propertyInfo.PropertyType, this, ContainingType, ContainingNamespace, []);
             }
 
-            return _type ??= PEContainingModule.GetType(_propertyInfo.PropertyType);
+            _type ??= PEContainingModule.GetType(_propertyInfo.PropertyType);
+
+            var unionAttribute = _propertyInfo.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
+            if (unionAttribute is not null)
+            {
+                var types = ((IEnumerable<CustomAttributeTypedArgument>)unionAttribute.ConstructorArguments.First().Value).Select(x => (Type)x.Value);
+                _type = new UnionTypeSymbol(types.Select(x => PEContainingModule.GetType(x)!).ToArray(), null, null, null, []);
+            }
+
+            return _type;
         }
     }
 

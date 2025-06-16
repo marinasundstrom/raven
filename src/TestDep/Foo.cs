@@ -16,6 +16,9 @@ public class Foo
         }
     }
 
+    [TypeUnion(typeof(string), typeof(int))]
+    public static object TestProp { get; set; }
+
     [return: TypeUnion(typeof(int), typeof(bool))]
     public static object Test2(bool flag)
     {

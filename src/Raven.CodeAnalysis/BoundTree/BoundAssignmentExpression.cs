@@ -22,6 +22,32 @@ internal partial class BoundLocalAssignmentExpression : BoundAssignmentExpressio
     }
 }
 
+internal partial class BoundPropertyAssignmentExpression : BoundAssignmentExpression
+{
+    public BoundExpression? Receiver { get; }
+    public IPropertySymbol Property { get; }
+
+    public BoundPropertyAssignmentExpression(BoundExpression? receiver, IPropertySymbol property, BoundExpression right)
+        : base(property.Type, right)
+    {
+        Receiver = receiver;
+        Property = property;
+    }
+}
+
+internal partial class BoundFieldAssignmentExpression : BoundAssignmentExpression
+{
+    public BoundExpression? Receiver { get; }
+    public IFieldSymbol Field { get; }
+
+    public BoundFieldAssignmentExpression(BoundExpression? receiver, IFieldSymbol field, BoundExpression right)
+        : base(field.Type, right)
+    {
+        Receiver = receiver;
+        Field = field;
+    }
+}
+
 internal partial class BoundArrayAssignmentExpression : BoundAssignmentExpression
 {
     public BoundArrayAccessExpression Left { get; }

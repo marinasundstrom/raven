@@ -16,7 +16,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
 
     public override SymbolKind Kind => SymbolKind.Field;
     public override string Name => _fieldInfo.Name;
-    
+
     public virtual ITypeSymbol Type
     {
         get
@@ -26,7 +26,16 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
                 return _type ??= new PETypeParameterSymbol(_fieldInfo.FieldType, this, ContainingType, ContainingNamespace, []);
             }
 
-            return _type ??= PEContainingModule.GetType(_fieldInfo.FieldType);
+            _type ??= PEContainingModule.GetType(_fieldInfo.FieldType);
+
+            var unionAttribute = _fieldInfo.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
+            if (unionAttribute is not null)
+            {
+                var types = ((IEnumerable<CustomAttributeTypedArgument>)unionAttribute.ConstructorArguments.First().Value).Select(x => (Type)x.Value);
+                _type = new UnionTypeSymbol(types.Select(x => PEContainingModule.GetType(x)!).ToArray(), null, null, null, []);
+            }
+
+            return _type;
         }
     }
 
@@ -34,7 +43,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
 
     public override bool IsStatic => _fieldInfo.IsStatic;
     public virtual bool IsLiteral => _fieldInfo.IsLiteral;
-    
+
     public object? GetConstantValue() => _fieldInfo.GetRawConstantValue();
 
     public virtual FieldInfo GetFieldInfo() => _fieldInfo;

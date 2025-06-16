@@ -518,16 +518,87 @@ internal class ExpressionGenerator : Generator
     {
         switch (node)
         {
-            case BoundLocalAssignmentExpression localExpression:
-                EmitExpression(localExpression.Right);
+            case BoundLocalAssignmentExpression localAssignmentExpression:
+                EmitExpression(localAssignmentExpression.Right);
 
-                if (localExpression.Right.Type.IsValueType && localExpression.Type.SpecialType is SpecialType.System_Object)
+                if (localAssignmentExpression.Right.Type.IsValueType && localAssignmentExpression.Type.SpecialType is SpecialType.System_Object)
                 {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(localExpression.Right.Type));
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(localAssignmentExpression.Right.Type));
                 }
 
-                ILGenerator.Emit(OpCodes.Stloc, GetLocal(localExpression.Local));
+                ILGenerator.Emit(OpCodes.Stloc, GetLocal(localAssignmentExpression.Local));
                 break;
+
+            case BoundFieldAssignmentExpression fieldAssignmentExpression:
+                {
+                    var fieldSymbol = fieldAssignmentExpression.Field;
+                    var right = fieldAssignmentExpression.Right;
+                    var receiver = fieldAssignmentExpression.Receiver;
+
+                    // Load receiver (unless static)
+                    if (!fieldSymbol.IsStatic && receiver is not null)
+                    {
+                        EmitExpression(receiver);
+
+                        if (fieldSymbol.ContainingType!.IsValueType)
+                        {
+                            EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
+                        }
+                    }
+
+                    // Emit RHS value
+                    EmitExpression(right);
+
+                    // Box if assigning value type to reference type
+                    if (right.Type is { IsValueType: true } && !fieldSymbol.Type.IsValueType)
+                    {
+                        ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
+                    }
+
+                    ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
+                    break;
+                }
+
+            case BoundPropertyAssignmentExpression propertyAssignmentExpression:
+                {
+                    var propertySymbol = (IPropertySymbol)propertyAssignmentExpression.Property;
+                    var right = propertyAssignmentExpression.Right;
+                    var receiver = propertyAssignmentExpression.Receiver;
+
+                    // Load receiver (unless static)
+                    if (!propertySymbol.IsStatic && receiver is not null)
+                    {
+                        EmitExpression(receiver);
+
+                        if (propertySymbol.ContainingType!.IsValueType)
+                        {
+                            EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                        }
+                    }
+
+                    // Emit RHS value
+                    EmitExpression(right);
+
+                    // Box if assigning value type to reference type
+                    if (right.Type is { IsValueType: true } && !propertySymbol.Type.IsValueType)
+                    {
+                        ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
+                    }
+
+                    // Resolve setter
+                    var setter = propertySymbol switch
+                    {
+                        PEPropertySymbol pe => pe.GetPropertyInfo().SetMethod!,
+                        SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).SetMethod!,
+                        _ => throw new NotSupportedException("Unsupported property symbol")
+                    };
+
+                    if (setter is null)
+                        throw new InvalidOperationException($"Property {propertySymbol.Name} does not have a setter");
+
+                    ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, setter);
+                    break;
+                }
 
             case BoundArrayAssignmentExpression array:
                 EmitExpression(array.Left.Receiver);
@@ -548,37 +619,14 @@ internal class ExpressionGenerator : Generator
 
                 EmitExpression(indexer.Right);
 
-                var setter = ((IPropertySymbol)indexer.Left.Symbol!) switch
+                var setter2 = (IPropertySymbol)indexer.Left.Symbol! switch
                 {
                     PEPropertySymbol pe => pe.GetPropertyInfo().SetMethod!,
                     SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).SetMethod!,
                     _ => throw new NotSupportedException("Unsupported indexer property")
                 };
 
-                ILGenerator.Emit(OpCodes.Callvirt, setter);
-                break;
-
-            case BoundMemberAssignmentExpression member:
-                EmitExpression(member.Receiver);
-                EmitExpression(member.Right);
-
-                switch (member.Member)
-                {
-                    case IFieldSymbol field:
-                        ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(field));
-                        break;
-                    case IPropertySymbol prop:
-                        var setterMethod = ((IPropertySymbol)member.Member) switch
-                        {
-                            PEPropertySymbol pe => pe.GetPropertyInfo().SetMethod!,
-                            SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).SetMethod!,
-                            _ => throw new NotSupportedException("Unsupported member property")
-                        };
-                        ILGenerator.Emit(OpCodes.Callvirt, setterMethod);
-                        break;
-                    default:
-                        throw new NotSupportedException("Unsupported member assignment target");
-                }
+                ILGenerator.Emit(OpCodes.Callvirt, setter2);
                 break;
 
             default:

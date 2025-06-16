@@ -17,6 +17,11 @@ test(y);
 TestDep.Foo.Test(y);
 TestDep.Foo.Test(x);
 
+var prop = TestDep.Foo.TestProp;
+
+TestDep.Foo.TestProp = 2;
+//TestDep.Foo.TestProp = true;
+
 let v = TestDep.Foo.Test2(true);
 
 Console.WriteLine(v.ToString());

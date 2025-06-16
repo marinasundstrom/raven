@@ -48,7 +48,7 @@ public static class DiagnosticBagExtensions
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CallIsAmbiguous, location, method1, method2));
 
     public static void ReportCannotConvertFromTypeToType(this DiagnosticBag diagnostics, ITypeSymbol fromType, ITypeSymbol toType, Location location)
-        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotConvertFromTypeToType, location, fromType, toType));
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotConvertFromTypeToType, location, fromType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat), toType));
 
     public static void ReportNoOverloadForMethod(this DiagnosticBag diagnostics, string method, int count, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NoOverloadForMethod, location, method, count));
