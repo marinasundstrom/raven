@@ -7,6 +7,8 @@ class Test
         Foo.Test(true);
 
         var x = Foo.Test2(true);
+
+        Foo.TestProp = 2;
     }
 
     public static void World()

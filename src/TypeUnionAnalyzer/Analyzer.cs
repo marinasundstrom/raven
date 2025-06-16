@@ -60,6 +60,9 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeIsPattern, SyntaxKind.IsPatternExpression);
         context.RegisterSyntaxNodeAction(AnalyzeSwitchStatement, SyntaxKind.SwitchStatement);
         context.RegisterSyntaxNodeAction(AnalyzeSwitchExpression, SyntaxKind.SwitchExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeFieldDeclaration, SyntaxKind.FieldDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzePropertyDeclaration, SyntaxKind.PropertyDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeAssignmentExpression, SyntaxKind.SimpleAssignmentExpression);
     }
 
     private void AnalyzeParameter(SyntaxNodeAnalysisContext context)
@@ -83,7 +86,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                     var diagnostic = Diagnostic.Create(
                         Rule,
                         parameterSyntax.Identifier.GetLocation(),
-                        $"Parameter \'{parameterSymbol.Name}\' allows",
+                        $"Parameter \'{parameterSymbol.Name}\' expects",
                         typeList
                     );
 
@@ -215,7 +218,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 var diagnostic = Diagnostic.Create(
                     Rule,
                     location,
-                    $"Symbol {symbol.Name}",
+                    $"{(symbol is IPropertySymbol ? "Property" : "Field")} \'{symbol.Name}\' is",
                     typeList
                 );
                 context.ReportDiagnostic(diagnostic);
@@ -260,7 +263,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                         var diagnostic = Diagnostic.Create(
                             Rule,
                             GetExpression(invocation.Expression).GetLocation(),
-                            $"Parameter \'{param.Name}\' allows",
+                            $"Parameter \'{param.Name}\' expects",
                             typeList
                         );
 
@@ -488,6 +491,93 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                     );
                     context.ReportDiagnostic(diagnostic);
                 }
+            }
+        }
+    }
+
+    private void AnalyzeFieldDeclaration(SyntaxNodeAnalysisContext context)
+    {
+        var fieldDecl = (FieldDeclarationSyntax)context.Node;
+        var typeLocation = fieldDecl.Declaration.Type.GetLocation();
+
+        foreach (var variable in fieldDecl.Declaration.Variables)
+        {
+            var symbol = context.SemanticModel.GetDeclaredSymbol(variable) as IFieldSymbol;
+            if (symbol != null)
+            {
+                foreach (var attr in symbol.GetAttributes())
+                {
+                    if (IsTypeUnion(attr, out var typeArgs))
+                    {
+                        var typeList = FormatTypeList(typeArgs);
+                        var diagnostic = Diagnostic.Create(
+                            Rule,
+                            typeLocation,
+                            $"Field '{symbol.Name}' expects",
+                            typeList
+                        );
+                        context.ReportDiagnostic(diagnostic);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void AnalyzePropertyDeclaration(SyntaxNodeAnalysisContext context)
+    {
+        var propDecl = (PropertyDeclarationSyntax)context.Node;
+        var symbol = context.SemanticModel.GetDeclaredSymbol(propDecl) as IPropertySymbol;
+        var typeLocation = propDecl.Type.GetLocation();
+
+        if (symbol != null)
+        {
+            foreach (var attr in symbol.GetAttributes())
+            {
+                if (IsTypeUnion(attr, out var typeArgs))
+                {
+                    var typeList = FormatTypeList(typeArgs);
+                    var diagnostic = Diagnostic.Create(
+                        Rule,
+                        typeLocation,
+                        $"Property '{symbol.Name}' is",
+                        typeList
+                    );
+                    context.ReportDiagnostic(diagnostic);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void AnalyzeAssignmentExpression(SyntaxNodeAnalysisContext context)
+    {
+        var assignment = (AssignmentExpressionSyntax)context.Node;
+        var leftSymbol = context.SemanticModel.GetSymbolInfo(assignment.Left).Symbol;
+
+        if (leftSymbol is IFieldSymbol or IPropertySymbol)
+        {
+            var targetSymbol = leftSymbol!;
+
+            var attr = targetSymbol.GetAttributes()
+                .FirstOrDefault(a => IsTypeUnion(a, out _));
+            if (attr == null || !IsTypeUnion(attr, out var allowedTypes))
+                return;
+
+            var rightType = context.SemanticModel.GetTypeInfo(assignment.Right).Type;
+            if (rightType == null)
+                return;
+
+            if (!IsAnyImplicit(rightType, allowedTypes, context.SemanticModel.Compilation))
+            {
+                var diagnostic = Diagnostic.Create(
+                    IncompatibleTypeRule,
+                    assignment.Right.GetLocation(),
+                    targetSymbol.Name,
+                    FormatTypeList(allowedTypes),
+                    rightType.ToDisplayString()
+                );
+                context.ReportDiagnostic(diagnostic);
             }
         }
     }
