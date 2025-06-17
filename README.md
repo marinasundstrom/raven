@@ -36,24 +36,24 @@ See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
 Here’s a sample of the Raven syntax, taken from [this file](src/Raven.Compiler/samples/general.rav):
 
 ```raven
-import System;
-import System.Text;
+import System
+import System.Text
 
-let list = [1, 42, 3];
-var i = 0; 
+let list = [1, 42, 3]
+var i = 0
 
-let stringBuilder = new StringBuilder();
+let stringBuilder = new StringBuilder()
 
 while i < list.Length {
-    let x = list[i];
-    stringBuilder.AppendLine(x.ToString());
+    let x = list[i]
+    stringBuilder.AppendLine(x.ToString())
     if x > 3 {
-        Console.WriteLine("Hello, World!");   
+        Console.WriteLine("Hello, World!")
     }
-    i = i + 1;
+    i = i + 1
 }
 
-Console.WriteLine(stringBuilder.ToString());
+Console.WriteLine(stringBuilder.ToString())
 ```
 
 Demonstrated here:
