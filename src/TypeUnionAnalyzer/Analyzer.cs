@@ -21,7 +21,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor IncompatibleTypeRule = new DiagnosticDescriptor(
         id: "TU002",
         title: "Type does not match TypeUnion",
-        messageFormat: "Argument must be compatible with one of types {1}, but was '{2}'",
+        messageFormat: "Value must be compatible with one of types {1}",
         category: "TypeChecking",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -30,7 +30,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor IncompatibleReturnTypeRule = new DiagnosticDescriptor(
         id: "TU003",
         title: "Return value does not match TypeUnion",
-        messageFormat: "Return value must be compatible with one of types {1}, but was '{2}'",
+        messageFormat: "Return value must be compatible with one of types {1}",
         category: "TypeChecking",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -45,8 +45,18 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true
     );
 
+    private static readonly DiagnosticDescriptor MustBeObjectTypeRule = new DiagnosticDescriptor(
+        id: "TU005",
+        title: "TypeUnion must be declared with object type",
+        messageFormat: "{0} must be declared with type 'object' when using [TypeUnion]",
+        category: "TypeChecking",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        [Rule, IncompatibleTypeRule, IncompatibleReturnTypeRule, InvalidPatternRule];
+        [Rule, IncompatibleTypeRule, IncompatibleReturnTypeRule, InvalidPatternRule, MustBeObjectTypeRule];
+
     public override void Initialize(AnalysisContext context)
     {
         context.EnableConcurrentExecution();
@@ -75,9 +85,18 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
 
         foreach (var attributeData in parameterSymbol.GetAttributes())
         {
-            if (attributeData.AttributeClass?.Name == "TypeUnionAttribute" ||
-                attributeData.AttributeClass?.ToDisplayString() == "TypeUnionAttribute")
+            if (IsTypeUnionAttribute(attributeData))
             {
+                if (IsNotUnionCompatibleType(parameterSymbol.Type, context.Compilation))
+                {
+                    var diag = Diagnostic.Create(
+                        MustBeObjectTypeRule,
+                        parameterSyntax.Type?.GetLocation() ?? parameterSyntax.GetLocation(),
+                        $"Parameter '{parameterSymbol.Name}'"
+                    );
+                    context.ReportDiagnostic(diag);
+                }
+
                 var typeArgs = attributeData.ConstructorArguments.FirstOrDefault();
                 if (typeArgs.Kind == TypedConstantKind.Array && typeArgs.Values is { Length: > 0 })
                 {
@@ -105,9 +124,18 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
 
         foreach (var attribute in methodSymbol.GetReturnTypeAttributes())
         {
-            if (attribute.AttributeClass?.Name == "TypeUnionAttribute" ||
-                attribute.AttributeClass?.ToDisplayString() == "TypeUnionAttribute")
+            if (IsTypeUnionAttribute(attribute))
             {
+                if (IsNotUnionCompatibleType(methodSymbol.ReturnType, context.Compilation))
+                {
+                    var diag = Diagnostic.Create(
+                        MustBeObjectTypeRule,
+                        methodSyntax.ReturnType.GetLocation(),
+                        $"Return type of method '{methodSymbol.Name}'"
+                    );
+                    context.ReportDiagnostic(diag);
+                }
+
                 var typeArgs = attribute.ConstructorArguments.FirstOrDefault();
                 if (typeArgs.Kind == TypedConstantKind.Array && typeArgs.Values is { Length: > 0 })
                 {
@@ -116,7 +144,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                     var diagnostic = Diagnostic.Create(
                         Rule,
                         methodSyntax.ReturnType.GetLocation(),
-                        "Method returns",
+                        "Method returns value of types",
                         typeList
                     );
 
@@ -200,7 +228,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                     var diagnostic = Diagnostic.Create(
                         Rule,
                         location,
-                        "Returns value",
+                        "Returns value of type",
                         typeList
                     );
                     context.ReportDiagnostic(diagnostic);
@@ -509,6 +537,16 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 {
                     if (IsTypeUnion(attr, out var typeArgs))
                     {
+                        if (IsNotUnionCompatibleType(symbol.Type, context.Compilation))
+                        {
+                            var diag = Diagnostic.Create(
+                                MustBeObjectTypeRule,
+                                fieldDecl.Declaration.Type.GetLocation(),
+                                $"Field '{symbol.Name}'"
+                            );
+                            context.ReportDiagnostic(diag);
+                        }
+
                         var typeList = FormatTypeList(typeArgs);
                         var diagnostic = Diagnostic.Create(
                             Rule,
@@ -536,6 +574,16 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             {
                 if (IsTypeUnion(attr, out var typeArgs))
                 {
+                    if (IsNotUnionCompatibleType(symbol.Type, context.Compilation))
+                    {
+                        var diag = Diagnostic.Create(
+                            MustBeObjectTypeRule,
+                            propDecl.Type.GetLocation(),
+                            $"Property '{symbol.Name}'"
+                        );
+                        context.ReportDiagnostic(diag);
+                    }
+
                     var typeList = FormatTypeList(typeArgs);
                     var diagnostic = Diagnostic.Create(
                         Rule,
@@ -586,4 +634,13 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     {
         return string.Join(" or ", typeArgs.Values.Select(v => v.Value is ITypeSymbol t ? $"\'{t.ToDisplayString()}\'" : "unknown"));
     }
+
+    private static bool IsNotUnionCompatibleType(ITypeSymbol type, Compilation compilation) => type.SpecialType != SpecialType.System_Object &&
+               type.TypeKind != TypeKind.Dynamic &&
+               !SymbolEqualityComparer.Default.Equals(type, compilation.GetSpecialType(SpecialType.System_Object));
+
+    private static bool IsTypeUnionAttribute(AttributeData attr) =>
+        attr.AttributeClass?.Name == "TypeUnionAttribute" ||
+        attr.AttributeClass?.ToDisplayString() == "TypeUnionAttribute" ||
+        attr.AttributeClass?.ToDisplayString().EndsWith(".TypeUnionAttribute") == true;
 }

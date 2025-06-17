@@ -23,6 +23,7 @@ public class Foo
     public static object Test2(bool flag)
     {
         return flag ? 42 : false;
+        //return flag ? 42 : "str";
     }
 
     [return: TypeUnion(typeof(int), typeof(bool))]
@@ -34,5 +35,6 @@ public class Foo
         }
 
         return true;
+        //return 2f;
     }
 }

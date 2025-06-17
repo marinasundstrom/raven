@@ -4,11 +4,13 @@ class Test
 {
     public void Hello()
     {
-        Foo.Test(true);
+        Foo.Test(1);
+        //Foo.Test("");
 
         var x = Foo.Test2(true);
 
-        Foo.TestProp = 2;
+        Foo.TestProp = 1;
+        //Foo.TestProp = false;
     }
 
     public static void World()
