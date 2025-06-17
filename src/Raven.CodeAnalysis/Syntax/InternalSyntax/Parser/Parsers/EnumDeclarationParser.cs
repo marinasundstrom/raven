@@ -45,7 +45,7 @@ internal class EnumDeclarationParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
-        ConsumeToken(SyntaxKind.SemicolonToken, out var terminatorToken);
+        TryConsumeTerminator(out var terminatorToken);
 
         return EnumDeclaration(enumKeyword, identifier, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
     }

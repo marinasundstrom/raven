@@ -81,7 +81,7 @@ stopwatch.Stop();
 
 if (shouldPrintSyntaxTree)
 {
-    root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true });
+    root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true });
 }
 
 if (shouldDumpSyntax)
