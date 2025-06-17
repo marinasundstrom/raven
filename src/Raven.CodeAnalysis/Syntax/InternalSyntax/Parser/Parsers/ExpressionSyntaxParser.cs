@@ -31,6 +31,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
             var stmt = new StatementSyntaxParser(this).ParseStatement();
             if (stmt is not null)
                 statements.Add(stmt);
+
+            SetTreatNewlinesAsTokens(false);
         }
         ExitParens();
 

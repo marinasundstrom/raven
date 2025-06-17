@@ -121,7 +121,7 @@ public static class PrettySyntaxTreePrinter
                 }
 
                 // Print token
-                sb.AppendLine($"{newIndent}{marker2}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent}{marker2}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
 
                 // Include trivia if specified
                 if (printerOptions.IncludeTrivia)
@@ -131,6 +131,13 @@ public static class PrettySyntaxTreePrinter
                 }
             }
         }
+    }
+
+    private static string GetTokenText(ref SyntaxToken token)
+    {
+        return token.Text
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n");
     }
 
     private static string Value(SyntaxNode node)
@@ -236,7 +243,8 @@ public static class PrettySyntaxTreePrinter
         if (trivia.HasStructure)
             return string.Empty;
 
-        return trivia.ToString().Replace("\r", @"\r")
+        return trivia.ToString()
+            .Replace("\r", @"\r")
             .Replace("\n", @"\n")
             .Replace("\t", @"\t")
             .Replace(" ", "␣") + " ";
