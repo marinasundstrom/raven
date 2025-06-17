@@ -1,4 +1,47 @@
+/*
+ * Demonstrates type unions, patterns, and support for assembly references
+ * * * */
+
 import System
+
 let w = 352342342
 
 Console.WriteLine(w.GetType().Name)
+
+let x = 1 + 2
+
+let y = if x > 2 { 40 + w; } else { true; }
+
+test(y)
+
+TestDep.Foo.Test(y)
+TestDep.Foo.Test(x)
+
+var prop = TestDep.Foo.TestProp
+
+TestDep.Foo.TestProp = 2
+//TestDep.Foo.TestProp = true
+
+let v = TestDep.Foo.Test2(true)
+
+Console.WriteLine(v.ToString())
+
+if v is int a {
+    Console.WriteLine(a)
+}
+else if v is bool b {
+    Console.WriteLine(b)
+}
+
+func test (input : int | bool) -> void {
+    if input is int a {
+        Console.WriteLine(a)
+    }
+    else if input is bool b {
+        Console.WriteLine(b)
+    }
+}
+
+/*func f () -> void {
+
+}*/

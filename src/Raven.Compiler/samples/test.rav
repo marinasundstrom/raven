@@ -18,7 +18,8 @@ while true {
         total = total + number
 
         Console.Write("The total is: ")
-        Console.WriteLine(total)
+        Console
+            .WriteLine(total)
 
         if total >= 42 {
             Console.WriteLine("Yay!")
