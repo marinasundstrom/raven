@@ -26,7 +26,7 @@ Console.WriteLine("Name: " + name)
 let tuple = (id: 42, name: "Test")
 Console.WriteLine("Tuple: " + tuple.id.ToString() + ", " + tuple.name)
 
-//Console.WriteLine(status.GetType())  // Enum boxing test
+Console.WriteLine(status.GetType())  // Enum boxing test
 
 enum Status { Ok, Warning, Error }
 
