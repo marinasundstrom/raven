@@ -1,6 +1,6 @@
 import System
 
-let arg = if args.Length > 0 { args[0] } else { "0" }
+let arg = if args.Length > 0 { args[0]; } else { "0"; }
 
 var total = 0
 

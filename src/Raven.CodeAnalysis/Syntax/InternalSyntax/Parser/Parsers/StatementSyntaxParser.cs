@@ -190,13 +190,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             SetTreatNewlinesAsTokens(true);
 
-            if (!TryConsumeTerminator(out var terminatorToken2))
-            {
-                AddDiagnostic(
-                    DiagnosticInfo.Create(
-                        CompilerDiagnostics.SemicolonExpected,
-                        GetEndOfLastToken()));
-            }
+            TryConsumeTerminator(out var terminatorToken2);
 
             return ExpressionStatementWithSemicolon(expression, terminatorToken2, Diagnostics);
         }

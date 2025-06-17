@@ -19,7 +19,7 @@ if args.Length != 1 {
         fileList.Add(file)
         i = i + 1
     }
-};
+}
 
 Console.Write("Number of files: ")
 Console.WriteLine(fileList.Count)
