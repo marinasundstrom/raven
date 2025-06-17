@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal class Lexer : ILexer
 {
-    private readonly TextReader _textReader;
+    private readonly SeekableTextSource _textReader;
     private readonly StringBuilder _stringBuilder = new StringBuilder();
     private readonly List<Token> _lookaheadTokens = new List<Token>();
     private int _currentPosition = 0;
@@ -13,7 +13,15 @@ internal class Lexer : ILexer
 
     public Lexer(TextReader textReader)
     {
-        _textReader = textReader;
+        _textReader = new SeekableTextSource(textReader);
+    }
+
+    public void RestorePosition(int position)
+    {
+        _lookaheadTokens.Clear();
+        _currentPosition = position;
+        _tokenStartPosition = position;
+        _textReader.Restore(position);
     }
 
     /// <summary>
@@ -488,8 +496,17 @@ internal class Lexer : ILexer
                             return new Token(CarriageReturnLineFeedTokenKind, "\r\n");
                         }
                         return new Token(SyntaxKind.CarriageReturnToken, "\r");
+
+                    case '\0':
+                        return new Token(SyntaxKind.EndOfFileToken, string.Empty);
                 }
             }
+
+            // Unknown token
+            /*diagnostics.Add(DiagnosticInfo.Create(
+                     CompilerDiagnostics.UnknownCharacter,
+                     new TextSpan(_tokenStartPosition, 1)
+                 ));*/
 
             return new Token(SyntaxKind.None, ch.ToString());
         }
@@ -547,4 +564,49 @@ internal class Lexer : ILexer
     }
 
     public bool IsEndOfFile => _textReader.Peek() == -1;
+}
+
+public sealed class SeekableTextSource
+{
+    private readonly List<char> _buffer = new();
+    private readonly TextReader _reader;
+    private int _position;
+
+    public SeekableTextSource(TextReader reader)
+    {
+        _reader = reader;
+    }
+
+    public int Position => _position;
+
+    public void Restore(int position)
+    {
+        _position = position;
+    }
+
+    public int Save() => _position;
+
+    public char Peek()
+    {
+        EnsureBuffered(_position);
+        return _position < _buffer.Count ? _buffer[_position] : '\0';
+    }
+
+    public char Read()
+    {
+        EnsureBuffered(_position);
+        return _position < _buffer.Count ? _buffer[_position++] : '\0';
+    }
+
+    private void EnsureBuffered(int position)
+    {
+        while (_buffer.Count <= position)
+        {
+            int next = _reader.Read();
+            if (next == -1)
+                break;
+
+            _buffer.Add((char)next);
+        }
+    }
 }

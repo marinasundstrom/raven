@@ -17,10 +17,14 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
         SyntaxToken nextToken;
+        
+        SetTreatNewlinesAsTokens(false);
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
             ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
+            
+            SetTreatNewlinesAsTokens(false);
         }
 
         return CompilationUnit(List(importDirectives), List(memberDeclarations), nextToken);

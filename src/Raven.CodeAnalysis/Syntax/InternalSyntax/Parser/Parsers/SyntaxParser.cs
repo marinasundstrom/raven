@@ -92,10 +92,14 @@ internal class SyntaxParser : ParseContext
         return new TextSpan(start + firstToken.LeadingTrivia.Width, node.Width);
     }
 
-    protected bool TryConsumeTerminator(out SyntaxToken token)
+    internal bool TryConsumeTerminator(out SyntaxToken token)
     {
         // Allow optional semicolon
         if (ConsumeToken(SyntaxKind.SemicolonToken, out token))
+            return true;
+        
+        // Allow End of File
+        if (ConsumeToken(SyntaxKind.EndOfFileToken, out token))
             return true;
 
         // If newlines are tokens, check if it's a valid terminator

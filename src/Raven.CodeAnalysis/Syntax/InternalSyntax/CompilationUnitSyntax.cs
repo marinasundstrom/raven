@@ -12,7 +12,7 @@ internal partial class CompilationUnitSyntax : SyntaxNode
               [
                       imports ?? throw new ArgumentNullException(nameof(imports)),
                       members ?? throw new ArgumentNullException(nameof(members)),
-                      endOfFileToken ?? throw new ArgumentNullException(nameof(endOfFileToken))
+                      //endOfFileToken ?? throw new ArgumentNullException(nameof(endOfFileToken))
               ],
               diagnostics)
     {

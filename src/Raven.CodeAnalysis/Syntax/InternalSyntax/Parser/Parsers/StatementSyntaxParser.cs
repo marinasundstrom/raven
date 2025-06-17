@@ -11,6 +11,8 @@ internal class StatementSyntaxParser : SyntaxParser
 
     public StatementSyntax ParseStatement()
     {
+        SetTreatNewlinesAsTokens(false); // treat newlines as statement terminators
+
         var token = PeekToken();
 
         StatementSyntax? statement;
@@ -33,7 +35,6 @@ internal class StatementSyntaxParser : SyntaxParser
             default:
                 statement = ParseDeclarationOrExpressionStatementSyntax();
                 break;
-
         }
 
         return statement;
@@ -104,6 +105,8 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var returnKeyword = ReadToken();
 
+        SetTreatNewlinesAsTokens(false);
+
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
         if (!TryConsumeTerminator(out var terminatorToken))
@@ -137,6 +140,8 @@ internal class StatementSyntaxParser : SyntaxParser
                                     return new ExpressionStatement1Syntax(whileExpr, diagnostics);
                                     */
         }
+
+        SetTreatNewlinesAsTokens(false);
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
@@ -195,8 +200,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             return ExpressionStatementWithSemicolon(expression, terminatorToken2, Diagnostics);
         }
-
-
+        
         SetTreatNewlinesAsTokens(true);
 
         if (!TryConsumeTerminator(out var terminatorToken))

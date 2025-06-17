@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 internal interface ILexer
 {
     bool IsEndOfFile { get; }
-
+    
     Token ReadToken();
 
     IEnumerable<Token> ReadTokens(int count);
@@ -12,6 +12,8 @@ internal interface ILexer
     void ReadAndDiscardTokens(int count);
 
     Token PeekToken(int index = 0);
+
+    void RestorePosition(int length);
 }
 
 internal struct Token

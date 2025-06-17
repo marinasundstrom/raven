@@ -9,7 +9,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 {
     public ExpressionSyntaxParser(ParseContext parent) : base(parent)
     {
-        SetTreatNewlinesAsTokens(false);
+
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -386,6 +386,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
+
+            SetTreatNewlinesAsTokens(false);
 
             var arg = new ExpressionSyntaxParser(this).ParseArgument();
             if (arg is null)

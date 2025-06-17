@@ -1,21 +1,13 @@
-import System;
+import System
 
-var foo : Grades = .B;
-foo = .C;
+var foo : Grades = .B
+foo = .C
 
-let x : string = .Empty;
+let x : string = .Empty
 
-Console.WriteLine(foo);
-Console.WriteLine(foo.GetType());
+Console.WriteLine(foo)
+Console.WriteLine(foo.GetType())
 
-Console.WriteLine(Grades.B.GetType());
+enum Grades { A, B, C }
 
-if foo == .C {
-    Console.WriteLine("Foo");
-}
-
-enum Grades { A, B, C };
-
-func f () -> Grades {
-    return .B;
-}
+Console.WriteLine(Grades.B.GetType())

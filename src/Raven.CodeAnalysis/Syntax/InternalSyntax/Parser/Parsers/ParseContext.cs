@@ -4,6 +4,12 @@ internal abstract class ParseContext
 {
     private List<DiagnosticInfo>? _diagnostics;
 
+
+    private int _parenDepth;
+    public void EnterParens() => _parenDepth++;
+    public void ExitParens() => _parenDepth--;
+    public bool IsInsideParens => _parenDepth > 0;
+
     protected ParseContext() { }
 
     protected ParseContext(ParseContext? parent)

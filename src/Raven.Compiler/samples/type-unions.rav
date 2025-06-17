@@ -1,3 +1,4 @@
 import System
-let w = 352342342
+let w = 352342342;
+
 Console.WriteLine(w.GetType().Name)

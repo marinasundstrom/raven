@@ -18,6 +18,17 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         FullWidth = CalculateFullWidth(trivias);
     }
 
+    public SyntaxTrivia this[int index] => (SyntaxTrivia)GetSlot(index);
+
+    public int Count => _trivias.Length;
+
+    public SyntaxTriviaList RemoveAt(int index)
+    {
+        var n = _trivias.ToList();
+        n.RemoveAt(index);
+        return (SyntaxTriviaList)WithUpdatedChildren(n.ToArray());
+    }
+
     public override GreenNode GetSlot(int index)
     {
         if (index < 0 || index >= SlotCount)
@@ -39,13 +50,13 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         var newTrivias = _trivias.Concat(new[] { trivia }).ToArray();
         return new SyntaxTriviaList(newTrivias);
     }
-    
+
     public SyntaxTriviaList AddRange(SyntaxTriviaList readTriviaForSkippedNewlines)
     {
         if (readTriviaForSkippedNewlines == null) throw new ArgumentNullException(nameof(readTriviaForSkippedNewlines));
 
         var newTrivias = _trivias.Concat(readTriviaForSkippedNewlines).ToArray();
-        return new SyntaxTriviaList(newTrivias);    
+        return new SyntaxTriviaList(newTrivias);
     }
 
     /// <summary>

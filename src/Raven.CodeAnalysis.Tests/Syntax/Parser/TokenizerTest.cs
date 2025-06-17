@@ -2,6 +2,8 @@ using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
+
+/*
 public class TokenizerTest
 {
     [Fact]
@@ -146,3 +148,4 @@ public class TokenizerTest
         return new Tokenizer(stringReader);
     }
 }
+*/

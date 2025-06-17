@@ -1,11 +1,11 @@
-let tuple = (a: 42, b: 2);
+let tuple = (a: 42, b: 2)
 
-System.Console.WriteLine(tuple);
+System.Console.WriteLine(tuple)
 
-let foo = tuple.a;
+let foo = tuple.a; System.Console
+    .WriteLine(
+    tuple.a)
 
-System.Console.WriteLine(tuple.a);
+System.Console.WriteLine(tuple.Item1)
 
-System.Console.WriteLine(tuple.Item1);
-
-System.Console.WriteLine(tuple.GetType());
+System.Console.WriteLine(tuple.GetType())
