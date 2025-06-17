@@ -108,6 +108,8 @@ internal class StatementSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(false);
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        
+        SetTreatNewlinesAsTokens(true);
 
         if (!TryConsumeTerminator(out var terminatorToken))
         {

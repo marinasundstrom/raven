@@ -479,14 +479,6 @@ internal class ExpressionGenerator : Generator
                         EmitAddressOfExpression(addr);
                         break;
 
-                    //case BoundLocal { Symbol: ILocalSymbol local }:
-                    //    ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
-                    //    break;
-
-                    //case BoundParameter { Symbol: IParameterSymbol parameter }:
-                    //    ILGenerator.Emit(OpCodes.Ldarga, MethodGenerator.GetParameterBuilder(parameter).Position);
-                    //    break;
-
                     default:
                         throw new NotSupportedException("Invalid argument for ref/out constructor parameter");
                 }
@@ -827,7 +819,9 @@ internal class ExpressionGenerator : Generator
             {
                 var clrType = ResolveClrType(receiver.Type);
 
-                if (isGetType)
+                ILGenerator.Emit(OpCodes.Box, clrType);
+
+                /* if (isGetType)
                 {
                     // Ensure boxing before GetType
                     ILGenerator.Emit(OpCodes.Box, clrType);
@@ -838,6 +832,7 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Stloc, temp);
                     ILGenerator.Emit(OpCodes.Ldloca, temp);
                 }
+                */
             }
         }
 
@@ -1060,8 +1055,8 @@ internal class ExpressionGenerator : Generator
 
         var thenType = ifStatement.ThenBranch.Type;
 
-        if (ifStatement.Type.IsUnion
-            && thenType.IsValueType)
+        if ((ifStatement.Type?.IsUnion ?? false)
+            && (thenType?.IsValueType ?? false))
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(thenType));
         }
@@ -1083,8 +1078,8 @@ internal class ExpressionGenerator : Generator
 
             var elseType = ifStatement.ElseBranch.Type;
 
-            if (ifStatement.Type.IsUnion
-                && elseType.IsValueType)
+            if ((ifStatement.Type?.IsUnion ?? false)
+                && (elseType?.IsValueType ?? false))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(elseType));
             }

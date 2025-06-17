@@ -1,6 +1,33 @@
 import System
 import System.Text
 
+let data = [3, 27, 51]
+let builder = new StringBuilder()
+
+var i = 0;
+while i < data.Length {
+    let value = data[i]
+
+    let status = getStatus(value)
+    builder.AppendLine("Value: " + value.ToString() + ", Status: " + status.ToString())
+
+    if status == .Error {
+        Console.WriteLine("Critical value: " + value.ToString())
+    }
+
+    i = i + 1
+}
+
+Console.WriteLine(builder.ToString())
+
+let name : string = .Empty
+Console.WriteLine("Name: " + name)
+
+let tuple = (id: 42, name: "Test")
+Console.WriteLine("Tuple: " + tuple.id.ToString() + ", " + tuple.name)
+
+//Console.WriteLine(status.GetType())  // Enum boxing test
+
 enum Status { Ok, Warning, Error }
 
 func getStatus(i: int) -> Status {
@@ -12,27 +39,3 @@ func getStatus(i: int) -> Status {
     }
     return .Error
 }
-
-//func main() {
-    let data = [3, 27, 51]
-    let builder = new StringBuilder()
-
-    for value in data {
-        let status = getStatus(value)
-        builder.AppendLine("Value: " + value.ToString() + ", Status: " + status.ToString())
-
-        if status == .Error {
-            Console.WriteLine("Critical value: " + value.ToString())
-        }
-    }
-
-    Console.WriteLine(builder.ToString())
-
-    let name : string = .Empty
-    Console.WriteLine("Name: " + name)
-
-    let tuple = (id: 42, name: "Test")
-    Console.WriteLine("Tuple: " + tuple.id.ToString() + ", " + tuple.name)
-
-    Console.WriteLine(status.GetType())  // Enum boxing test
-//}
