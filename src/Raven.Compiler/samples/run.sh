@@ -8,4 +8,5 @@ dotnet output/io.dll .
 dotnet output/test2.dll
 dotnet output/type-unions.dll
 dotnet output/tuples.dll
+dotnet output/main.dll
 # dotnet output/test.dll 15 # This will prompt for user input

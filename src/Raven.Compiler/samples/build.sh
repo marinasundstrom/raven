@@ -9,4 +9,5 @@ dotnet run -- samples/test.rav -o output/test.dll
 dotnet run -- samples/test2.rav -o output/test2.dll
 dotnet run -- samples/type-unions.rav -o output/type-unions.dll
 dotnet run -- samples/tuples.rav -o output/tuples.dll
+dotnet run -- samples/main.rav -o output/main.dll
 cp ../TestDep/bin/Debug/net9.0/TestDep.dll output/TestDep.dll
