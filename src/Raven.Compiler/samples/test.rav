@@ -1,29 +1,29 @@
-import System;
+import System
 
-let arg = if args.Length > 0 { args[0]; } else { "0"; };
+let arg = if args.Length > 0 { args[0] } else { "0" }
 
-var total = 0;
+var total = 0
 
 if !int.TryParse(arg, &total) {
-    Console.WriteLine("Expected number");
+    Console.WriteLine("Expected number")
 }
 
 while true {
-    Console.Write("Write number: ");
-    let inputStr = Console.ReadLine();
+    Console.Write("Write number: ")
+    let inputStr = Console.ReadLine()
     
-    var number = 0;
+    var number = 0
 
     if int.TryParse(inputStr, &number) {
-        total = total + number;
+        total = total + number
 
-        Console.Write("The total is: ");
-        Console.WriteLine(total);
+        Console.Write("The total is: ")
+        Console.WriteLine(total)
 
         if total >= 42 {
-            Console.WriteLine("Yay!");
+            Console.WriteLine("Yay!")
         }
     } else {
-        Console.WriteLine("Not a number");
+        Console.WriteLine("Not a number")
     }
 }
