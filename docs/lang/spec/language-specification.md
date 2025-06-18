@@ -1,5 +1,9 @@
 # Language specification
 
+## Samples
+
+You find them [here](../../../src/Raven.Compiler/samples/).
+
 ## File extension
 
 The file extension for source code files is: `.rav`.
