@@ -415,6 +415,7 @@ public class Compilation
         return _metadataReferenceSymbols
             .Select(x => x.Value)
             .Select(x => x.GetTypeByMetadataName(metadataName))
+            .Where(x => x is not null)
             .FirstOrDefault();
     }
 
