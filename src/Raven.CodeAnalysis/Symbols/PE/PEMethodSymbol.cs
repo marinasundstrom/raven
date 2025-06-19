@@ -6,14 +6,16 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 {
+    private readonly TypeResolver _typeResolver;
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
     private Accessibility? _accessibility;
 
-    public PEMethodSymbol(MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
+        _typeResolver = typeResolver;
         _methodInfo = methodInfo;
 
         if (Name.StartsWith("op_Implicit") || Name.StartsWith("op_Explicit"))
@@ -54,9 +56,10 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         }
     }
 
-    public PEMethodSymbol(MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations)
+    public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations)
     : base(containingSymbol, containingType, containingType.ContainingNamespace, locations)
     {
+        _typeResolver = typeResolver;
         _methodInfo = methodInfo;
 
 
@@ -141,6 +144,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             return _parameters ??= _methodInfo.GetParameters().Select(param =>
             {
                 return new PEParameterSymbol(
+                      _typeResolver,
                       param, this, this.ContainingType, this.ContainingNamespace,
                       [new MetadataLocation(ContainingModule!)]);
             }).OfType<IParameterSymbol>().ToImmutableArray();

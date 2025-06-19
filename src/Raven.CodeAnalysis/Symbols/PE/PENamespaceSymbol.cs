@@ -5,20 +5,23 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 {
+    private readonly TypeResolver _typeResolver;
     private readonly PEModuleSymbol _module = default!;
     private readonly List<ISymbol> _members = new();
     private readonly string _name;
     private bool _membersLoaded;
 
-    public PENamespaceSymbol(string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
+    public PENamespaceSymbol(TypeResolver typeResolver, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
         : base(containingSymbol, null, containingNamespace, [])
     {
+        _typeResolver = typeResolver;
         _name = name;
     }
 
-    public PENamespaceSymbol(PEModuleSymbol containingModule, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
+    public PENamespaceSymbol(TypeResolver typeResolver, PEModuleSymbol containingModule, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
         : base(containingSymbol, null, containingNamespace, [])
     {
+        _typeResolver = typeResolver;
         _module = containingModule;
         _name = name;
     }
@@ -93,6 +96,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
                 continue;
 
             var typeSymbol = new PENamedTypeSymbol(
+                _typeResolver,
                 type.GetTypeInfo(),
                 this,
                 null,
@@ -105,7 +109,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
         foreach (var nsName in FindNestedNamespaces(assemblyInfo))
         {
             var childName = nsName.Split('.').Last(); // e.g., for "System.IO", take "IO"
-            var nestedNamespace = new PENamespaceSymbol(_module, childName, this, this);
+            var nestedNamespace = new PENamespaceSymbol(_typeResolver, _module, childName, this, this);
             //AddMember(nestedNamespace);
         }
     }

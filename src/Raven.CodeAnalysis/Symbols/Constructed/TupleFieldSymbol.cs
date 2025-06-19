@@ -10,7 +10,7 @@ internal sealed class TupleFieldSymbol : PEFieldSymbol, IFieldSymbol
 
     public TupleFieldSymbol(string name, SubstitutedFieldSymbol underlyingField, INamedTypeSymbol? containingType,
         Location[] locations)
-        : base(null!, containingType, locations)
+        : base(null, null!, containingType, locations)
     {
         Name = name;
         _underlyingField = underlyingField;

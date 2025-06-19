@@ -4,13 +4,15 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
 {
+    private readonly TypeResolver _typeResolver;
     private readonly FieldInfo _fieldInfo;
     private ITypeSymbol? _type;
     private Accessibility? _accessibility;
 
-    public PEFieldSymbol(FieldInfo fieldInfo, INamedTypeSymbol? containingType, Location[] locations)
+    public PEFieldSymbol(TypeResolver typeResolver, FieldInfo fieldInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
+        _typeResolver = typeResolver;
         _fieldInfo = fieldInfo;
     }
 
@@ -21,21 +23,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
     {
         get
         {
-            if (_fieldInfo.FieldType.IsGenericParameter)
-            {
-                return _type ??= new PETypeParameterSymbol(_fieldInfo.FieldType, this, ContainingType, ContainingNamespace, []);
-            }
-
-            _type ??= PEContainingModule.GetType(_fieldInfo.FieldType);
-
-            var unionAttribute = _fieldInfo.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
-            if (unionAttribute is not null)
-            {
-                var types = ((IEnumerable<CustomAttributeTypedArgument>)unionAttribute.ConstructorArguments.First().Value).Select(x => (Type)x.Value);
-                _type = new UnionTypeSymbol(types.Select(x => PEContainingModule.GetType(x)!).ToArray(), null, null, null, []);
-            }
-
-            return _type;
+            return _type ??= _typeResolver.ResolveType(_fieldInfo);
         }
     }
 

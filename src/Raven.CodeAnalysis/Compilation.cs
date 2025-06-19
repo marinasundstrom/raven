@@ -187,8 +187,11 @@ public class Compilation
     private GlobalBinder _globalBinder;
     private bool setup;
     private ErrorTypeSymbol _errorTypeSymbol;
+    private TypeResolver _typeResolver;
 
-    private INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
+    internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
+
+    internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
     {
         if (ns is null)
             return GlobalNamespace;
@@ -207,7 +210,7 @@ public class Compilation
 
             if (currentNamespace == null)
             {
-                currentNamespace = new PENamespaceSymbol(part, null!, parent);
+                currentNamespace = new PENamespaceSymbol(TypeResolver, part, null!, parent);
                 return currentNamespace; // Namespace not found
             }
         }
@@ -324,13 +327,13 @@ public class Compilation
         if (IsImplicitNumericConversion(source, destination))
         {
             // Implicit numeric conversion
-            return new Conversion(isImplicit: true);
+            return new Conversion(isImplicit: true, isNumeric: true);
         }
 
         if (IsExplicitNumericConversion(source, destination))
         {
             // Explicit numeric conversion
-            return new Conversion(isImplicit: false);
+            return new Conversion(isImplicit: false, isNumeric: true);
         }
 
         // User-defined conversions
@@ -500,22 +503,7 @@ public class Compilation
 
     public ITypeSymbol? GetType(Type type)
     {
-        if (type.IsArray)
-        {
-            var elementType = GetType(type.GetElementType());
-            return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, null, null, null, []);
-        }
-
-        return GetSimpleType(type);
-    }
-
-    private ITypeSymbol? GetSimpleType(Type type)
-    {
-        var typeInfo = type.GetTypeInfo();
-
-        var ns = GetOrCreateNamespaceSymbol(type.Namespace);
-
-        return ns.GetMembers(type.Name).FirstOrDefault() as ITypeSymbol;
+        return TypeResolver.ResolveType(type);
     }
 
     public ISymbol? GetAssemblyOrModuleSymbol(MetadataReference metadataReference)
@@ -549,6 +537,7 @@ public class Compilation
 
         assemblySymbol.AddModules(
             new PEModuleSymbol(
+                TypeResolver,
                 assemblySymbol,
                 assembly.ManifestModule,
                 [],

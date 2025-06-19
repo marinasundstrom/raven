@@ -37,19 +37,33 @@ public static partial class SymbolExtensions
 
     public static IEnumerable<ISymbol> ResolveMembers(this ITypeSymbol symbol, string name)
     {
+        var seenSignatures = new HashSet<string>();
+
         for (ITypeSymbol? current = symbol; current is not null; current = current.BaseType)
         {
-            var members = current.GetMembers();
-            if (members.Length > 0)
+            foreach (var member in current.GetMembers())
             {
-                foreach (var member in members)
-                {
-                    if (member.Name == name)
-                    {
-                        yield return member;
-                    }
-                }
+                if (member.Name != name)
+                    continue;
+
+                // Vi skapar en unik signatursträng: return type + param types
+                var signature = GetSignatureKey(member);
+
+                // Har vi redan sett denna metodsignatur? Hoppa över base-definitioner.
+                if (seenSignatures.Add(signature))
+                    yield return member;
             }
         }
+    }
+
+    private static string GetSignatureKey(ISymbol symbol)
+    {
+        if (symbol is IMethodSymbol method)
+        {
+            var paramTypes = string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()));
+            return $"{method.Name}({paramTypes})";
+        }
+
+        return symbol.Name; // fallback för andra symboltyper
     }
 }

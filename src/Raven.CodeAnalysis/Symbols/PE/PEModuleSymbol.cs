@@ -7,18 +7,20 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 {
     readonly Dictionary<Type, ITypeSymbol> _typeSymbolTypeInfoMapping = new Dictionary<Type, ITypeSymbol>();
     readonly Dictionary<string, INamedTypeSymbol> _resolvedMetadataTypes = new();
-
+    private readonly TypeResolver _typeResolver;
     private readonly PEAssemblySymbol _assembly;
     private readonly Module _module;
     private INamespaceSymbol? _globalNamespace;
 
     public PEModuleSymbol(
+        TypeResolver typeResolver,
         PEAssemblySymbol assembly,
         Module module,
         Location[] locations,
         IEnumerable<IAssemblySymbol> referencedAssemblySymbols)
         : base(null!, null, null, locations)
     {
+        _typeResolver = typeResolver;
         _assembly = assembly;
         _module = module;
         ReferencedAssemblySymbols = referencedAssemblySymbols.ToImmutableArray();
@@ -31,8 +33,8 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
     public override IAssemblySymbol ContainingAssembly => _assembly;
 
     public INamespaceSymbol GlobalNamespace =>
-        _globalNamespace ??= new PENamespaceSymbol(this, string.Empty, this, null);
-
+        _globalNamespace ??= new PENamespaceSymbol(_typeResolver, this, string.Empty, this, null);
+    
     public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols { get; }
 
     public INamespaceSymbol? GetModuleNamespace(INamespaceSymbol namespaceSymbol)
@@ -117,7 +119,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             if (parentNs.IsMemberDefined(name, out var existingSymbol))
                 return existingSymbol;
 
-            return new PENamespaceSymbol(name, parentNs, parentNs);
+            return new PENamespaceSymbol(_typeResolver, name, parentNs, parentNs);
         }
 
         return null;
@@ -132,6 +134,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         if (typeInfo.IsArray)
         {
             var typeSymbol2 = new PEArrayTypeSymbol(
+                _typeResolver,
                 typeInfo, ns, null, ns,
                 [new MetadataLocation(ns.ContainingModule!)]);
 
@@ -141,6 +144,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         }
 
         var typeSymbol = new PENamedTypeSymbol(
+            _typeResolver,
             typeInfo, ns, null, ns,
             [new MetadataLocation(ns.ContainingModule!)]);
 
@@ -155,7 +159,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             return GlobalNamespace;
 
         var parts = ns.Split('.');
-        var current = GlobalNamespace;
+        var current = (INamespaceSymbol)GlobalNamespace;
 
         foreach (var part in parts)
         {
@@ -165,7 +169,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
             if (next is null)
             {
-                next = new PENamespaceSymbol(part, _assembly, current);
+                next = new PENamespaceSymbol(_typeResolver, part, _assembly, current);
             }
 
             current = next;

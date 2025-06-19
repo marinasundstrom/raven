@@ -6,6 +6,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 {
+    private readonly TypeResolver _typeResolver;
     protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private INamedTypeSymbol? _baseType;
@@ -13,9 +14,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
     private string _name;
 
-    public PENamedTypeSymbol(System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PENamedTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
+        _typeResolver = typeResolver;
         _typeInfo = typeInfo;
 
         if (typeInfo?.Name == "Object" || typeInfo.BaseType?.Name == "Object")
@@ -186,6 +188,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 continue;
 
             new PEMethodSymbol(
+                _typeResolver,
                 methodInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -194,6 +197,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         foreach (var propertyInfo in _typeInfo.DeclaredProperties)
         {
             var property = new PEPropertySymbol(
+                _typeResolver,
                 propertyInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -201,6 +205,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (propertyInfo.GetMethod is not null)
             {
                 property.GetMethod = new PEMethodSymbol(
+                    _typeResolver,
                     propertyInfo.GetMethod,
                     property,
                     this,
@@ -210,6 +215,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (propertyInfo.SetMethod is not null)
             {
                 property.SetMethod = new PEMethodSymbol(
+                    _typeResolver,
                     propertyInfo.SetMethod,
                     property,
                     this,
@@ -223,6 +229,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 continue;
 
             new PEFieldSymbol(
+                _typeResolver,
                 fieldInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -231,6 +238,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         foreach (var constructorInfo in _typeInfo.DeclaredConstructors)
         {
             new PEMethodSymbol(
+                _typeResolver,
                 constructorInfo,
                 this,
                 [new MetadataLocation(ContainingModule!)]);
@@ -239,6 +247,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
         {
             new PENamedTypeSymbol(
+                _typeResolver,
                 nestedTypeInfo,
                 this,
                 this,
