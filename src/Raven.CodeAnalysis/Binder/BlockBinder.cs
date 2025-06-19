@@ -774,7 +774,7 @@ partial class BlockBinder : Binder
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
 
-        var candidate = ResolveOverload(candidates, [left, right]);
+        var candidate = OverloadResolver.ResolveOverload(candidates, [left, right], Compilation);
 
         if (candidate is null)
             throw new InvalidOperationException("No matching Concat method found.");
@@ -900,7 +900,7 @@ partial class BlockBinder : Binder
         }
 
         // Try overload resolution
-        var method = ResolveOverload(candidates, boundArguments.ToArray());
+        var method = OverloadResolver.ResolveOverload(candidates, boundArguments.ToArray(), Compilation);
         if (method == null)
         {
             _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Count, syntax.GetLocation());
@@ -957,7 +957,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
         // Overload resolution
-        var constructor = ResolveOverload(typeSymbol.Constructors, boundArguments.ToArray());
+        var constructor = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments.ToArray(), Compilation);
         if (constructor == null)
         {
             _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Count, syntax.GetLocation());
@@ -965,73 +965,6 @@ partial class BlockBinder : Binder
         }
 
         return new BoundObjectCreationExpression(constructor, boundArguments.ToArray());
-    }
-
-    private IMethodSymbol? ResolveOverload(IEnumerable<IMethodSymbol> methods, BoundExpression[] arguments)
-    {
-        IMethodSymbol? bestMatch = null;
-        int bestScore = int.MaxValue;
-
-        foreach (var method in methods)
-        {
-            var parameters = method.Parameters;
-            if (parameters.Length != arguments.Length)
-                continue;
-
-            int score = 0;
-            bool allMatch = true;
-
-            for (int i = 0; i < arguments.Length; i++)
-            {
-                var param = parameters[i];
-                var arg = arguments[i];
-
-                // Handle ref/in/out matching
-                if (param.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
-                {
-                    if (arg is not BoundAddressOfExpression)
-                    {
-                        allMatch = false;
-                        break;
-                    }
-
-                    // Must match the expected type exactly for ref/out
-                    if (!SymbolEqualityComparer.Default.Equals(arg.Type, param.Type))
-                    {
-                        allMatch = false;
-                        break;
-                    }
-
-                    // Favor exact match
-                    continue;
-                }
-                else if (arg is BoundAddressOfExpression)
-                {
-                    // AddressOf used but parameter is not by-ref
-                    allMatch = false;
-                    break;
-                }
-
-                // Normal conversion
-                var conversion = Compilation.ClassifyConversion(arg.Type, param.Type);
-                if (!conversion.IsImplicit)
-                {
-                    allMatch = false;
-                    break;
-                }
-
-                // Implicit conversion score
-                score += conversion.IsIdentity ? 0 : 1;
-            }
-
-            if (allMatch && score < bestScore)
-            {
-                bestMatch = method;
-                bestScore = score;
-            }
-        }
-
-        return bestMatch;
     }
 
     private BoundExpression BindElementAccessExpression(ElementAccessExpressionSyntax syntax)
