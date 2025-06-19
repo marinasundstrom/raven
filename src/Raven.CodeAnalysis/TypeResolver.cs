@@ -10,7 +10,9 @@ internal class TypeResolver(Compilation compilation)
 
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
-        var unionAttribute = parameterInfo.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
+        var unionAttribute = parameterInfo.GetCustomAttributesData()
+            .FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
+
         if (unionAttribute is not null)
         {
             return CreateUnionTypeSymbol(unionAttribute);
@@ -43,7 +45,9 @@ internal class TypeResolver(Compilation compilation)
     private bool TryGetUnion(MemberInfo memberInfo, out IUnionTypeSymbol? unionType)
     {
         unionType = null;
-        var unionAttribute = memberInfo.GetCustomAttributesData().FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
+        var unionAttribute = memberInfo.GetCustomAttributesData()
+            .FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
+
         if (unionAttribute is not null)
         {
             unionType = CreateUnionTypeSymbol(unionAttribute);
@@ -53,10 +57,10 @@ internal class TypeResolver(Compilation compilation)
 
     private IUnionTypeSymbol CreateUnionTypeSymbol(CustomAttributeData unionAttribute)
     {
-        IUnionTypeSymbol? unionType;
-        var types = ((IEnumerable<CustomAttributeTypedArgument>)unionAttribute.ConstructorArguments.First().Value).Select(x => (Type)x.Value);
-        unionType = new UnionTypeSymbol(types.Select(x => ResolveType(x)!).ToArray(), null, null, null, []);
-        return unionType;
+        var types = ((IEnumerable<CustomAttributeTypedArgument>)unionAttribute
+            .ConstructorArguments.First().Value).Select(x => (Type)x.Value);
+
+        return new UnionTypeSymbol(types.Select(x => ResolveType(x)!).ToArray(), null, null, null, []);
     }
 
     public ITypeSymbol? ResolveType(Type type)
