@@ -817,22 +817,28 @@ internal class ExpressionGenerator : Generator
 
             if (receiver?.Type?.IsValueType == true)
             {
-                var clrType = ResolveClrType(receiver.Type);
+                var receiverType = receiver.Type;
+                var clrType = ResolveClrType(receiverType);
 
-                ILGenerator.Emit(OpCodes.Box, clrType);
+                var methodDeclaringType = target.ContainingType;
 
-                /* if (isGetType)
+                if (methodDeclaringType.SpecialType == SpecialType.System_Object ||
+                    methodDeclaringType.TypeKind == TypeKind.Interface)
                 {
-                    // Ensure boxing before GetType
+                    ILGenerator.Emit(OpCodes.Box, clrType);
+                }
+                else if (!receiverType.Equals(target.ContainingType, SymbolEqualityComparer.Default))
+                {
+                    // Defensive fallback: method is on a different type, box to be safe
                     ILGenerator.Emit(OpCodes.Box, clrType);
                 }
                 else
                 {
-                    var temp = ILGenerator.DeclareLocal(clrType);
-                    ILGenerator.Emit(OpCodes.Stloc, temp);
-                    ILGenerator.Emit(OpCodes.Ldloca, temp);
+                    // Method is defined directly on the value type – no boxing
+                    var tmp = ILGenerator.DeclareLocal(clrType);
+                    ILGenerator.Emit(OpCodes.Stloc, tmp);
+                    ILGenerator.Emit(OpCodes.Ldloca, tmp);
                 }
-                */
             }
         }
 
