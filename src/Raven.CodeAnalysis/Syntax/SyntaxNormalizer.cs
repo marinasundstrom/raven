@@ -183,7 +183,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(namespaceKeyword, name, terminatorToken, VisitList(node.Imports)!, VisitList(node.Members)!);
+        return node.Update(node.Modifiers, namespaceKeyword, name, terminatorToken, VisitList(node.Imports)!, VisitList(node.Members)!);
     }
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
@@ -209,7 +209,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var returnType = (ReturnTypeAnnotationSyntax)VisitReturnTypeAnnotation(node.ReturnType)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(node.FuncKeyword, name, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))
+        return node.Update(node.Modifiers, node.FuncKeyword, name, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed

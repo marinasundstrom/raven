@@ -39,6 +39,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             ConsumeTokenOrNull(SyntaxKind.SemicolonToken, out var terminatorToken);
 
             return NamespaceDeclaration(
+                SyntaxList.Empty, 
                 namespaceKeyword, name, openBraceToken,
                 new SyntaxList(importDirectives.ToArray()), new SyntaxList(memberDeclarations.ToArray()),
                 closeBraceToken, terminatorToken, Diagnostics);
@@ -61,6 +62,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
         }
 
         var fileScopedNamespaceDeclaration = FileScopedNamespaceDeclaration(
+            SyntaxList.Empty,
             namespaceKeyword, name, terminatorToken,
             SyntaxList.Empty, SyntaxList.Empty, diagnostics);
 

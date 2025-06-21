@@ -47,7 +47,7 @@ internal class EnumDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return EnumDeclaration(enumKeyword, identifier, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
+        return EnumDeclaration(SyntaxList.Empty, enumKeyword, identifier, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
     }
 
     private GreenNode ParseMember()

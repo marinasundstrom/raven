@@ -3,6 +3,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSyntax
 {
     public NamespaceDeclarationSyntax(
+        SyntaxList modifiers,
         SyntaxToken namespaceKeyword,
         NameSyntax name,
         SyntaxToken openBraceToken,
@@ -14,6 +15,7 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
         : base(
               SyntaxKind.NamespaceDeclaration,
               [
+                    modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
                     namespaceKeyword ?? throw new ArgumentNullException(nameof(namespaceKeyword)),
                     name ?? throw new ArgumentNullException(nameof(name)),
                     openBraceToken ?? throw new ArgumentNullException(nameof(openBraceToken)),
@@ -30,6 +32,7 @@ internal partial class NamespaceDeclarationSyntax : BaseNamespaceDeclarationSynt
 internal static partial class SyntaxFactory
 {
     public static NamespaceDeclarationSyntax NamespaceDeclaration(
+        SyntaxList modifiers,
         SyntaxToken namespaceKeyword,
         NameSyntax name,
         SyntaxToken openBraceToken,
@@ -38,5 +41,5 @@ internal static partial class SyntaxFactory
         SyntaxToken closeBraceToken,
         SyntaxToken terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(namespaceKeyword, name, openBraceToken, imports, members, closeBraceToken, terminatorToken, diagnostics);
+        => new(modifiers, namespaceKeyword, name, openBraceToken, imports, members, closeBraceToken, terminatorToken, diagnostics);
 }

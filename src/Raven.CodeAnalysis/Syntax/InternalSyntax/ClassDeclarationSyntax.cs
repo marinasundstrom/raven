@@ -4,8 +4,10 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class ClassDeclarationSyntax : TypeDeclarationSyntax
 {
     public ClassDeclarationSyntax(
-        SyntaxToken enumKeyword,
+        SyntaxList modifiers,
+        SyntaxToken keyword,
         SyntaxToken identifier,
+        SyntaxList parameterList,
         SyntaxToken openBraceToken,
         SyntaxList members,
         SyntaxToken closeBraceToken,
@@ -13,8 +15,10 @@ internal partial class ClassDeclarationSyntax : TypeDeclarationSyntax
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.ClassDeclaration,
               [
-                      enumKeyword ?? throw new ArgumentNullException(nameof(enumKeyword)),
+                      modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
+                      keyword ?? throw new ArgumentNullException(nameof(keyword)),
                       identifier ?? throw new ArgumentNullException(nameof(identifier)),
+                      parameterList ?? throw new ArgumentNullException(nameof(parameterList)),
                       openBraceToken ?? throw new ArgumentNullException(nameof(openBraceToken)),
                       members ?? throw new ArgumentNullException(nameof(members)),
                       closeBraceToken ?? throw new ArgumentNullException(nameof(closeBraceToken)),
@@ -28,12 +32,14 @@ internal partial class ClassDeclarationSyntax : TypeDeclarationSyntax
 internal static partial class SyntaxFactory
 {
     public static ClassDeclarationSyntax ClassDeclaration(
-        SyntaxToken enumKeyword,
+        SyntaxList modifiers,
+        SyntaxToken keyword,
         SyntaxToken identifier,
+        SyntaxList parameterList,
         SyntaxToken openBraceToken,
         SyntaxList members,
         SyntaxToken closeBraceToken,
         SyntaxToken? terminatorToken,
-        IClasserable<DiagnosticInfo>? diagnostics = null)
-        => new(enumKeyword, identifier, openBraceToken, members, closeBraceToken, terminatorToken, diagnostics);
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        => new(modifiers, keyword, identifier, parameterList, openBraceToken, members, closeBraceToken, terminatorToken, diagnostics);
 }

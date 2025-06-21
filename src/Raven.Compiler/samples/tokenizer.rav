@@ -2,7 +2,7 @@ import System
 import System.Text
 
 /*
- *. let lexer = Lexer(new TextReader(...))
+ *. let lexer = Lexer(TextReader(...))
  *  let token = lexer.ReadToken()
  */
 
@@ -29,15 +29,11 @@ public class Lexer {
     }
 }
 
-public struct Token {
-    public init(kind : SyntaxKind, value : string) {
-        self.Kind = kind
-        self.Value = value
-    }
+public struct Token(kind : SyntaxKind, value : string) {
 
-    public prop Kind : SyntaxKind { get }
+    public prop Kind : SyntaxKind { get } = kind
 
-    public prop Value : string { get }
+    public prop Value : string { get } = value
 }
 
 public enum SyntaxKind { Identifier, Numerical, Unknown }

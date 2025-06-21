@@ -12,7 +12,7 @@ public abstract partial class TypeDeclarationSyntax : BaseTypeDeclarationSyntax
 
     public abstract SyntaxToken Keyword { get; }
 
-    public abstract SyntaxList<MemberDeclarationSyntax>? Members { get; }
+    public abstract SyntaxList<MemberDeclarationSyntax> Members { get; }
 
     public abstract ParameterListSyntax ParameterList { get; }
 

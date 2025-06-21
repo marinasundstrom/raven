@@ -2,7 +2,9 @@
 
 public partial class ClassDeclarationSyntax : TypeDeclarationSyntax
 {
-    public override partial int Arity { get; }
+    public override int Arity { get; }
+
+    public override partial SyntaxTokenList Modifiers { get; }
 
     public override partial SyntaxToken Keyword { get; }
 
@@ -12,7 +14,7 @@ public partial class ClassDeclarationSyntax : TypeDeclarationSyntax
 
     public override partial SyntaxToken OpenBraceToken { get; }
 
-    public override partial SyntaxList<MemberDeclarationSyntax>? Members { get; }
+    public override partial SyntaxList<MemberDeclarationSyntax> Members { get; }
 
     public override partial SyntaxToken CloseBraceToken { get; }
 
@@ -23,14 +25,14 @@ public partial class ClassDeclarationSyntax : TypeDeclarationSyntax
     {
     }
 
-    public ClassDeclarationSyntax(SyntaxToken enumKeyword, SyntaxToken identifier, SyntaxToken openBraceToken, SeparatedSyntaxList<ClassMemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken)
-        : this(new InternalSyntax.ClassDeclarationSyntax(enumKeyword.Green, identifier.Green, openBraceToken.Green, members.Green, closeBraceToken.Green, terminatorToken?.Green, null))
+    public ClassDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken keyword, SyntaxToken identifier, ParameterListSyntax parameterList, SyntaxToken openBraceToken, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken)
+        : this(new InternalSyntax.ClassDeclarationSyntax(modifiers.Green, keyword.Green, identifier.Green, (InternalSyntax.SyntaxList)parameterList.Green, openBraceToken.Green, members.Green, closeBraceToken.Green, terminatorToken?.Green, null))
     {
     }
 }
 
 public static partial class SyntaxFactory
 {
-    public static ClassDeclarationSyntax ClassDeclaration(SyntaxToken enumKeyword, SyntaxToken identifier, SyntaxToken openBraceToken, SeparatedSyntaxList<ClassMemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken = null)
-        => new ClassDeclarationSyntax(enumKeyword, identifier, openBraceToken, members, closeBraceToken, terminatorToken);
+    public static ClassDeclarationSyntax ClassDeclaration(SyntaxTokenList modifiers, SyntaxToken keyword, SyntaxToken identifier, ParameterListSyntax parameterList, SyntaxToken openBraceToken, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken = null)
+        => new ClassDeclarationSyntax(modifiers, keyword, identifier, parameterList, openBraceToken, members, closeBraceToken, terminatorToken);
 }

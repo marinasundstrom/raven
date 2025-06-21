@@ -4,6 +4,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class EnumDeclarationSyntax : BaseTypeDeclarationSyntax
 {
     public EnumDeclarationSyntax(
+        SyntaxList modifiers,
         SyntaxToken enumKeyword,
         SyntaxToken identifier,
         SyntaxToken openBraceToken,
@@ -13,6 +14,7 @@ internal partial class EnumDeclarationSyntax : BaseTypeDeclarationSyntax
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.EnumDeclaration,
               [
+                      modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
                       enumKeyword ?? throw new ArgumentNullException(nameof(enumKeyword)),
                       identifier ?? throw new ArgumentNullException(nameof(identifier)),
                       openBraceToken ?? throw new ArgumentNullException(nameof(openBraceToken)),
@@ -28,6 +30,7 @@ internal partial class EnumDeclarationSyntax : BaseTypeDeclarationSyntax
 internal static partial class SyntaxFactory
 {
     public static EnumDeclarationSyntax EnumDeclaration(
+        SyntaxList modifiers,
         SyntaxToken enumKeyword,
         SyntaxToken identifier,
         SyntaxToken openBraceToken,
@@ -35,5 +38,5 @@ internal static partial class SyntaxFactory
         SyntaxToken closeBraceToken,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(enumKeyword, identifier, openBraceToken, members, closeBraceToken, terminatorToken, diagnostics);
+        => new(modifiers, enumKeyword, identifier, openBraceToken, members, closeBraceToken, terminatorToken, diagnostics);
 }
