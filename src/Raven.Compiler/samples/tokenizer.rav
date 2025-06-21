@@ -1,0 +1,51 @@
+import System
+import System.Text
+
+/*
+ *. let lexer = Lexer(new TextReader(...))
+ *  let token = lexer.ReadToken()
+ */
+
+public class Lexer {
+    let textReader : TextReader
+
+    public init(textReader : TextReader) {
+        self._textReader = textReader
+    }
+
+    public func ReadToken() -> Token {
+        while true {
+            let ch = _textReader.Read()
+
+            var number = -1
+
+            if int.Parse(ch.ToString(), &number) {
+                return Token(.Numerical, "test")
+            } else if char.IsLetter(ch) {
+                return Token(.Identifier, "test")
+                // return .Identifier("test")
+            }
+        }
+    }
+}
+
+public struct Token {
+    public init(kind : SyntaxKind, value : string) {
+        self.Kind = kind
+        self.Value = value
+    }
+
+    public prop Kind : SyntaxKind { get }
+
+    public prop Value : string { get }
+}
+
+public enum SyntaxKind { Identifier, Numerical, Unknown }
+
+/*
+enum Token {
+   Identifier(text: string)
+   Number(text: string)
+   Unknown
+}
+*/

@@ -28,7 +28,7 @@ internal class LanguageParser
         using var textReader = sourceText.GetTextReader();
 
         _lexer = new Lexer(textReader);
-        
+
         var parseContext = new BaseParseContext(_lexer);
         return new CompilationUnitSyntaxParser(parseContext).Parse();
     }
@@ -45,15 +45,15 @@ internal class LanguageParser
 
     private SyntaxNode? ParseRequestedType(BaseParseContext context, Type requestedSyntaxType)
     {
-        if (requestedSyntaxType == typeof(Syntax.StatementSyntax))
+        if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.StatementSyntax)))
         {
             return new StatementSyntaxParser(context).ParseStatement();
         }
-        else if (requestedSyntaxType == typeof(Syntax.ExpressionSyntax))
+        else if (requestedSyntaxType == typeof(Syntax.BlockSyntax))
         {
             return new ExpressionSyntaxParser(context).ParseExpression();
         }
-        else if (requestedSyntaxType == typeof(Syntax.BlockSyntax))
+        else if (requestedSyntaxType.IsAssignableTo(typeof(Syntax.ExpressionSyntax)))
         {
             return new ExpressionSyntaxParser(context).ParseExpression();
         }

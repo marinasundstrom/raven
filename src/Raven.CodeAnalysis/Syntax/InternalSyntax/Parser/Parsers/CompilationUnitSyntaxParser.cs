@@ -17,13 +17,13 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
         SyntaxToken nextToken;
-        
+
         SetTreatNewlinesAsTokens(false);
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
             ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
-            
+
             SetTreatNewlinesAsTokens(false);
         }
 
@@ -49,6 +49,12 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             var enumDeclaration = new EnumDeclarationParser(this).Parse();
 
             memberDeclarations.Add(enumDeclaration);
+        }
+        else if (nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword))
+        {
+            var typeDeclaration = new TypeDeclarationParser(this).Parse();
+
+            memberDeclarations.Add(typeDeclaration);
         }
         else
         {

@@ -95,11 +95,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.GreaterThanToken:
                 return SyntaxKind.GreaterThanExpression;
 
-            case SyntaxKind.LessThanEqualsToken:
-                return SyntaxKind.LessThanOrEqualExpression;
+            case SyntaxKind.LessThanOrEqualsToken:
+                return SyntaxKind.LessThanOrEqualsExpression;
 
-            case SyntaxKind.GreaterOrEqualsToken:
-                return SyntaxKind.GreaterThanOrEqualExpression;
+            case SyntaxKind.GreaterThanOrEqualsToken:
+                return SyntaxKind.GreaterThanOrEqualsExpression;
 
                 /*
                 case SyntaxKind.LogicalAndToken:
@@ -152,8 +152,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
             {
                 case SyntaxKind.GreaterThanToken:
                 case SyntaxKind.LessThanToken:
-                case SyntaxKind.GreaterOrEqualsToken:
-                case SyntaxKind.LessThanEqualsToken:
+                case SyntaxKind.GreaterThanOrEqualsToken:
+                case SyntaxKind.LessThanOrEqualsToken:
                 case SyntaxKind.EqualsEqualsToken:
                 case SyntaxKind.NotEqualsToken:
                     ReadToken();
