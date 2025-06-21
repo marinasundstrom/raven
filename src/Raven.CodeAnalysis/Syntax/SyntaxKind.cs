@@ -4,206 +4,238 @@ public enum SyntaxKind
 {
     None = 0,
 
-    // === List & Root ===
+    // === Root & List ===
     List = 1,
     CompilationUnit = 2,
 
-    // === Names & Types ===
+    // === Names & Types === (10–49)
     IdentifierName = 10,
     GenericName = 11,
     QualifiedName = 12,
     AliasQualifiedName = 13,
-    NullableType = 14,
-    UnionType = 15,
-    PredefinedType = 16,
-    TypeArgumentList = 17,
-    TypeArgument = 18,
 
-    // === Declarations ===
-    NamespaceDeclaration = 30,
-    FileScopedNamespaceDeclaration = 31,
-    ImportDirective = 32,
-    EnumDeclaration = 33,
-    EnumMemberDeclaration = 34,
-    MethodDeclaration = 35,
-    ReturnTypeAnnotation = 36,
-    ParameterList = 37,
-    Parameter = 38,
-    LocalDeclaration = 39,
-    VariableDeclaration = 40,
-    VariableDeclarator = 41,
-    TypeAnnotation = 42,
+    PredefinedType = 20,
+    NullableType = 21,
+    UnionType = 22,
 
-    // === Statements ===
-    GlobalStatement = 50,
-    ExpressionStatement = 51,
-    ReturnStatement = 52,
-    LocalFunctionStatement = 53,
-    EmptyStatement = 54,
+    TypeAnnotation = 30,
+    TypeArgumentList = 31,
+    TypeArgument = 32,
 
-    // === Control Flow Constructs ===
-    IfExpression = 60,
-    ElseClause = 61,
-    WhileExpression = 62,
-    Block = 63,
-    TupleExpression = 64,
+    // === Declarations === (50–99)
+    NamespaceDeclaration = 50,
+    FileScopedNamespaceDeclaration = 51,
+    ImportDirective = 52,
 
-    // === Core Expressions ===
-    ObjectCreationExpression = 70,
-    CollectionExpression = 71,
-    CollectionElement = 72,
-    ParenthesizedExpression = 73,
-    UnaryExpression = 74,
-    BinaryExpression = 75,
-    SimpleAssignmentExpression = 76,
-    InvocationExpression = 77,
-    SimpleMemberAccessExpression = 78,
-    ElementAccessExpression = 79,
+    EnumDeclaration = 60,
+    EnumMemberDeclaration = 61,
 
-    // === Lambda ===
-    SimpleLambdaExpression = 80,
-    ParenthesizedLambdaExpression = 81,
+    ClassDeclaration = 70,
+    StructDeclaration = 71,
+    PropertyDeclaration = 72,
+    FieldDeclaration = 73,
+    InitializerDeclaration = 74,
 
-    // === Pattern Matching ===
-    IsPatternExpression = 90,
-    DeclarationPattern = 91,
-    NotPattern = 92,
-    AndPattern = 93,
-    OrPattern = 94,
-    SingleVariableDesignation = 95,
+    MethodDeclaration = 80,
+    ReturnTypeAnnotation = 81,
+    ParameterList = 82,
+    Parameter = 83,
 
-    // === Argument Lists ===
-    ArgumentList = 100,
-    Argument = 101,
-    BracketedArgumentList = 102,
+    LocalDeclaration = 90,
+    VariableDeclaration = 91,
+    VariableDeclarator = 92,
 
-    // === Literal Expressions ===
-    NumericLiteralExpression = 110,
-    TrueLiteralExpression = 111,
-    FalseLiteralExpression = 112,
-    CharacterLiteralExpression = 113,
-    StringLiteralExpression = 114,
-    NullLiteralExpression = 115,
+    // === Statements === (100–129)
+    GlobalStatement = 100,
+    LocalFunctionStatement = 101,
+    ExpressionStatement = 102,
+    ReturnStatement = 103,
+    EmptyStatement = 104,
+    Block = 105,
 
-    // === Detailed Expression Kinds ===
+    // === Control Flow === (130–159)
+    IfExpression = 130,
+    ElseClause = 131,
+    WhileExpression = 132,
+
+    // === Expressions === (160–199)
+    ObjectCreationExpression = 160,
+    CollectionExpression = 161,
+    CollectionElement = 162,
+    ParenthesizedExpression = 163,
+    TupleExpression = 164,
+
+    UnaryExpression = 170,
+    BinaryExpression = 171,
+    SimpleAssignmentExpression = 172,
+    InvocationExpression = 173,
+    SimpleMemberAccessExpression = 174,
+    ElementAccessExpression = 175,
+    EqualsValueClause = 176,
+    AddressOfExpression = 177,
+    NameColon = 178,
+
+    // === Lambda === (200–209)
+    SimpleLambdaExpression = 200,
+    ParenthesizedLambdaExpression = 201,
+
+    // === Pattern Matching === (210–229)
+    IsPatternExpression = 210,
+    DeclarationPattern = 211,
+    NotPattern = 212,
+    AndPattern = 213,
+    OrPattern = 214,
+    SingleVariableDesignation = 215,
+
+    // === Argument Lists === (230–239)
+    ArgumentList = 230,
+    Argument = 231,
+    BracketedArgumentList = 232,
+
+    // === Literals === (240–259)
+    NumericLiteralExpression = 240,
+    TrueLiteralExpression = 241,
+    FalseLiteralExpression = 242,
+    CharacterLiteralExpression = 243,
+    StringLiteralExpression = 244,
+    NullLiteralExpression = 245,
+
+    // === Detailed Expressions === (260–299)
+
     // Arithmetic
-    AddExpression = 120,
-    SubtractExpression = 121,
-    MultiplyExpression = 122,
-    DivideExpression = 123,
-    ModuloExpression = 124,
-    PowerExpression = 125,
+    AddExpression = 260,
+    SubtractExpression = 261,
+    MultiplyExpression = 262,
+    DivideExpression = 263,
+    ModuloExpression = 264,
+    PowerExpression = 265,
 
     // Comparison
-    EqualsExpression = 130,
-    NotEqualsExpression = 131,
-    LessThanExpression = 132,
-    GreaterThanExpression = 133,
-    LessThanOrEqualExpression = 134,
-    GreaterThanOrEqualExpression = 135,
+    EqualsExpression = 270,
+    NotEqualsExpression = 271,
+    LessThanExpression = 272,
+    GreaterThanExpression = 273,
+    LessThanOrEqualsExpression = 274,
+    GreaterThanOrEqualsExpression = 275,
 
     // Logical
-    LogicalAndExpression = 140,
-    LogicalOrExpression = 141,
-    LogicalNotExpression = 142,
-    UnaryPlusExpression = 143,
-    UnaryMinusExpression = 144,
-    AddressOfExpression = 145,
-    EqualsValueClause = 146,
-    NameColon = 147,
+    LogicalAndExpression = 280,
+    LogicalOrExpression = 281,
+    LogicalNotExpression = 282,
+    UnaryPlusExpression = 283,
+    UnaryMinusExpression = 284,
 
-    // === Tokens — Operators, Keywords, Identifiers ===
+    // === Tokens === (1000–1099)
 
-    ArrowToken = 160,
+    ArrowToken = 1000,
 
     // Identifiers & Literals
-    IdentifierToken = 170,
-    NumericLiteralToken = 171,
-    CharacterLiteralToken = 172,
-    StringLiteralToken = 173,
+    IdentifierToken = 1010,
+    NumericLiteralToken = 1011,
+    CharacterLiteralToken = 1012,
+    StringLiteralToken = 1013,
 
-    // Keywords — moved to separate block to avoid overlap
-    VoidKeyword = 300,
-    NullKeyword = 301,
-    IntKeyword = 302,
-    StringKeyword = 303,
-    BoolKeyword = 304,
-    CharKeyword = 305,
-    ImportKeyword = 306,
-    NamespaceKeyword = 307,
-    LetKeyword = 308,
-    VarKeyword = 309,
-    IfKeyword = 310,
-    ElseKeyword = 311,
-    WhileKeyword = 312,
-    ReturnKeyword = 313,
-    NewKeyword = 314,
-    TrueKeyword = 315,
-    FalseKeyword = 316,
-    IsKeyword = 317,
-    NotKeyword = 318,
-    AndKeyword = 319,
-    OrKeyword = 320,
-    FuncKeyword = 321,
-    EnumKeyword = 322,
-    RefKeyword = 323,
-    OutKeyword = 324,
-    InKeyword = 325,
+    // === Keywords === (1100–1199)
 
-    // Punctuation & Operators
-    OrToken = 340,
-    AndToken = 341,
-    LessThanToken = 342,
-    GreaterThanToken = 343,
-    GreaterOrEqualsToken = 344,
-    LessThanEqualsToken = 345,
+    // Types & Literals
+    VoidKeyword = 1100,
+    NullKeyword = 1101,
+    IntKeyword = 1102,
+    StringKeyword = 1103,
+    BoolKeyword = 1104,
+    CharKeyword = 1105,
 
-    OpenParenToken = 346,
-    CloseParenToken = 347,
-    OpenBraceToken = 348,
-    CloseBraceToken = 349,
-    OpenBracketToken = 350,
-    CloseBracketToken = 351,
+    // Declarations
+    ImportKeyword = 1110,
+    NamespaceKeyword = 1111,
+    LetKeyword = 1112,
+    VarKeyword = 1113,
+    FuncKeyword = 1114,
+    EnumKeyword = 1115,
+    StructKeyword = 1116,
+    ClassKeyword = 1117,
+    PropKeyword = 1118,
+    InitKeyword = 1119,
+    SelfKeyword = 1120,
 
-    CommaToken = 352,
-    EqualsToken = 353,
-    EqualsEqualsToken = 354,
-    NotEqualsToken = 355,
+    // Control Flow
+    IfKeyword = 1130,
+    ElseKeyword = 1131,
+    WhileKeyword = 1132,
+    ReturnKeyword = 1133,
+    NewKeyword = 1134,
+    TrueKeyword = 1135,
+    FalseKeyword = 1136,
 
-    PlusToken = 356,
-    MinusToken = 357,
-    PercentToken = 358,
-    SlashToken = 359,
-    StarToken = 360,
+    // Pattern/Modifiers
+    IsKeyword = 1140,
+    NotKeyword = 1141,
+    AndKeyword = 1142,
+    OrKeyword = 1143,
+    RefKeyword = 1144,
+    OutKeyword = 1145,
+    InKeyword = 1146,
 
-    DotToken = 361,
-    CaretToken = 362,
-    BarToken = 363,
-    ExclamationToken = 364,
-    QuestionToken = 365,
-    AmpersandToken = 366,
+    // === Punctuation === (1200–1299)
 
-    ColonToken = 367,
-    SemicolonToken = 368,
+    // Binary
+    PlusToken = 1200,
+    MinusToken = 1201,
+    PercentToken = 1202,
+    SlashToken = 1203,
+    StarToken = 1204,
+    CaretToken = 1205,
 
-    // === Trivia ===
-    WhitespaceTrivia = 400,
-    TabTrivia = 401,
-    LineFeedTrivia = 402,
-    CarriageReturnTrivia = 403,
-    CarriageReturnLineFeedTrivia = 404,
-    EndOfLineTrivia = 405,
-    SingleLineCommentTrivia = 406,
-    MultiLineCommentTrivia = 407,
-    SkippedTokensTrivia = 408,
+    // Logical & Bitwise
+    OrToken = 1210,
+    AndToken = 1211,
+    BarToken = 1212,
+    AmpersandToken = 1213,
 
-    // Line Tokens
-    Whitespace = 420,
-    TabToken = 421,
-    LineFeedToken = 422,
-    CarriageReturnToken = 423,
-    CarriageReturnLineFeedToken = 424,
-    NewLineToken = 425,
+    // Comparison
+    LessThanToken = 1220,
+    GreaterThanToken = 1221,
+    GreaterThanOrEqualsToken = 1222,
+    LessThanOrEqualsToken = 1223,
+    EqualsToken = 1224,
+    EqualsEqualsToken = 1225,
+    NotEqualsToken = 1226,
+    ExclamationToken = 1227,
 
-    EndOfFileToken = 999
+    // Delimiters
+    DotToken = 1230,
+    CommaToken = 1231,
+    ColonToken = 1232,
+    SemicolonToken = 1233,
+    QuestionToken = 1234,
+
+    // Grouping
+    OpenParenToken = 1240,
+    CloseParenToken = 1241,
+    OpenBraceToken = 1242,
+    CloseBraceToken = 1243,
+    OpenBracketToken = 1244,
+    CloseBracketToken = 1245,
+
+    // === Trivia === (1300–1329)
+    WhitespaceTrivia = 1300,
+    TabTrivia = 1301,
+    LineFeedTrivia = 1302,
+    CarriageReturnTrivia = 1303,
+    CarriageReturnLineFeedTrivia = 1304,
+    EndOfLineTrivia = 1305,
+    SingleLineCommentTrivia = 1306,
+    MultiLineCommentTrivia = 1307,
+    SkippedTokensTrivia = 1308,
+
+    // === Line Tokens === (1330–1349)
+    Whitespace = 1330,
+    TabToken = 1331,
+    LineFeedToken = 1332,
+    CarriageReturnToken = 1333,
+    CarriageReturnLineFeedToken = 1334,
+    NewLineToken = 1335,
+
+    // === End ===
+    EndOfFileToken = 1999
 }

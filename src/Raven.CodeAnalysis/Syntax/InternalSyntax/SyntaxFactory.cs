@@ -46,8 +46,8 @@ internal static partial class SyntaxFactory
 
     public static readonly SyntaxToken GreaterThanToken = new SyntaxToken(SyntaxKind.GreaterThanToken, ">");
     public static readonly SyntaxToken LessThanToken = new SyntaxToken(SyntaxKind.LessThanToken, "<");
-    public static readonly SyntaxToken GreaterOrEqualsToken = new SyntaxToken(SyntaxKind.GreaterOrEqualsToken, ">=");
-    public static readonly SyntaxToken LessThanEqualsToken = new SyntaxToken(SyntaxKind.LessThanEqualsToken, "<=");
+    public static readonly SyntaxToken GreaterOrEqualsToken = new SyntaxToken(SyntaxKind.GreaterThanOrEqualsToken, ">=");
+    public static readonly SyntaxToken LessThanEqualsToken = new SyntaxToken(SyntaxKind.LessThanOrEqualsToken, "<=");
 
     public static readonly SyntaxToken EqualsToken = new SyntaxToken(SyntaxKind.EqualsToken, "=");
     public static readonly SyntaxToken EqualsEqualsToken = new SyntaxToken(SyntaxKind.EqualsEqualsToken, "==");

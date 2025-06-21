@@ -326,7 +326,7 @@ internal class Lexer : ILexer
                         if (PeekChar(out ch2) && ch2 == '=')
                         {
                             ReadChar();
-                            return new Token(SyntaxKind.LessThanEqualsToken, "<=");
+                            return new Token(SyntaxKind.LessThanOrEqualsToken, "<=");
                         }
                         return new Token(SyntaxKind.LessThanToken, chStr);
 
@@ -334,7 +334,7 @@ internal class Lexer : ILexer
                         if (PeekChar(out ch2) && ch2 == '=')
                         {
                             ReadChar();
-                            return new Token(SyntaxKind.GreaterOrEqualsToken, ">=");
+                            return new Token(SyntaxKind.GreaterThanOrEqualsToken, ">=");
                         }
                         return new Token(SyntaxKind.GreaterThanToken, chStr);
 
