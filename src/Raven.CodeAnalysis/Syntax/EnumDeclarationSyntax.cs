@@ -23,6 +23,6 @@ public partial class EnumDeclarationSyntax : BaseTypeDeclarationSyntax
 
 public static partial class SyntaxFactory
 {
-    public static EnumDeclarationSyntax EnumDeclaration(SyntaxTokenList modifiers, SyntaxToken enumKeyword, SyntaxToken identifier, SyntaxToken openBraceToken, SeparatedSyntaxList<EnumMemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken = null)
-        => new EnumDeclarationSyntax(modifiers, enumKeyword, identifier, openBraceToken, members, closeBraceToken, terminatorToken);
+    public static EnumDeclarationSyntax EnumDeclaration(SyntaxToken enumKeyword, SyntaxToken identifier, SyntaxToken openBraceToken, SeparatedSyntaxList<EnumMemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken = null)
+        => new EnumDeclarationSyntax(SyntaxTokenList.Empty, enumKeyword, identifier, openBraceToken, members, closeBraceToken, terminatorToken);
 }

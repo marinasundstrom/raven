@@ -10,7 +10,7 @@ public partial class ClassDeclarationSyntax : TypeDeclarationSyntax
 
     public override partial SyntaxToken Identifier { get; }
 
-    public override partial ParameterListSyntax ParameterList { get; }
+    public override partial ParameterListSyntax? ParameterList { get; }
 
     public override partial SyntaxToken OpenBraceToken { get; }
 
@@ -33,6 +33,9 @@ public partial class ClassDeclarationSyntax : TypeDeclarationSyntax
 
 public static partial class SyntaxFactory
 {
-    public static ClassDeclarationSyntax ClassDeclaration(SyntaxTokenList modifiers, SyntaxToken keyword, SyntaxToken identifier, ParameterListSyntax parameterList, SyntaxToken openBraceToken, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken = null)
-        => new ClassDeclarationSyntax(modifiers, keyword, identifier, parameterList, openBraceToken, members, closeBraceToken, terminatorToken);
+    public static ClassDeclarationSyntax ClassDeclaration(SyntaxToken keyword, SyntaxToken identifier, SyntaxToken openBraceToken, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken = null)
+    => new ClassDeclarationSyntax(SyntaxTokenList.Empty, keyword, identifier, null, openBraceToken, members, closeBraceToken, terminatorToken);
+
+    public static ClassDeclarationSyntax ClassDeclaration(SyntaxTokenList modifiers, SyntaxToken keyword, SyntaxToken identifier, SyntaxToken openBraceToken, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken = null)
+        => new ClassDeclarationSyntax(modifiers, keyword, identifier, null, openBraceToken, members, closeBraceToken, terminatorToken);
 }

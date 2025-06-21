@@ -14,7 +14,7 @@ public abstract partial class TypeDeclarationSyntax : BaseTypeDeclarationSyntax
 
     public abstract SyntaxList<MemberDeclarationSyntax> Members { get; }
 
-    public abstract ParameterListSyntax ParameterList { get; }
+    public abstract ParameterListSyntax? ParameterList { get; }
 
     //public abstract TypeParameterListSyntax TypeParameterList { get; }
 

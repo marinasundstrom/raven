@@ -24,7 +24,7 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
     {
     }
 
-    public FileScopedNamespaceDeclarationSyntax(SyntaxTokenList modifiers,SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken terminatorToken)
+    public FileScopedNamespaceDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken terminatorToken)
     : this(new Syntax.InternalSyntax.FileScopedNamespaceDeclarationSyntax(modifiers.Green, namespaceKeyword.Green, (InternalSyntax.IdentifierNameSyntax)name.Green, terminatorToken.Green, InternalSyntax.SyntaxList.Empty, InternalSyntax.SyntaxList.Empty), (SyntaxNode)null)
     {
     }
@@ -37,12 +37,12 @@ public partial class FileScopedNamespaceDeclarationSyntax : BaseNamespaceDeclara
 
 public static partial class SyntaxFactory
 {
-    public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(SyntaxTokenList modifiers, SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken terminatorToken)
-    => new FileScopedNamespaceDeclarationSyntax(modifiers, namespaceKeyword, name, terminatorToken);
+    public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken terminatorToken)
+    => new FileScopedNamespaceDeclarationSyntax(SyntaxTokenList.Empty, namespaceKeyword, name, terminatorToken);
 
-    public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(SyntaxTokenList modifiers, SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken terminatorToken, SyntaxList<ImportDirectiveSyntax> importDirectives, SyntaxList<MemberDeclarationSyntax> members)
-    => new FileScopedNamespaceDeclarationSyntax(modifiers, namespaceKeyword, name, terminatorToken, importDirectives, members);
+    public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(SyntaxToken namespaceKeyword, NameSyntax name, SyntaxToken terminatorToken, SyntaxList<ImportDirectiveSyntax> importDirectives, SyntaxList<MemberDeclarationSyntax> members)
+    => new FileScopedNamespaceDeclarationSyntax(SyntaxTokenList.Empty, namespaceKeyword, name, terminatorToken, importDirectives, members);
 
-    public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(SyntaxTokenList modifiers, NameSyntax name, SyntaxList<ImportDirectiveSyntax> importDirectives, SyntaxList<MemberDeclarationSyntax> members)
-        => new FileScopedNamespaceDeclarationSyntax(modifiers, name, importDirectives, members);
+    public static FileScopedNamespaceDeclarationSyntax FileScopedNamespaceDeclaration(NameSyntax name, SyntaxList<ImportDirectiveSyntax> importDirectives, SyntaxList<MemberDeclarationSyntax> members)
+        => new FileScopedNamespaceDeclarationSyntax(SyntaxTokenList.Empty, name, importDirectives, members);
 }
