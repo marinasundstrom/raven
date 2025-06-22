@@ -13,7 +13,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
     internal BaseTypeDeclarationSyntax Parse()
     {
-        var modifiers = SyntaxList.Empty;
+        var modifiers = ParseModifiers();
 
         var structOrClassKeyword = ReadToken();
 
@@ -32,6 +32,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
             if (t.IsKind(SyntaxKind.CloseBraceToken))
                 break;
+
 
             var member = ParseMember();
 
@@ -54,26 +55,59 @@ internal class TypeDeclarationParser : SyntaxParser
         return ClassDeclaration(modifiers, structOrClassKeyword, identifier, SyntaxList.Empty, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
-    private MemberDeclarationSyntax ParseMember()
+    private SyntaxList ParseModifiers()
     {
-        var keyword = PeekToken();
+        SyntaxList modifiers = SyntaxList.Empty;
 
-        if (keyword.IsKind(SyntaxKind.FuncKeyword))
+        while (true)
         {
-            return ParseFuntionDeclaration();
-        }
-        else if (keyword.IsKind(SyntaxKind.LetKeyword) || keyword.IsKind(SyntaxKind.VarKeyword))
-        {
-            return ParseFieldDeclarationSyntax();
+            var kind = PeekToken().Kind;
+
+            if (kind is SyntaxKind.PublicKeyword or
+                     SyntaxKind.PrivateKeyword or
+                     SyntaxKind.InternalKeyword or
+                     SyntaxKind.ProtectedKeyword or
+                     SyntaxKind.StaticKeyword or
+                     SyntaxKind.AbstractKeyword or
+                     SyntaxKind.SealedKeyword or
+                     SyntaxKind.OverrideKeyword)
+            {
+                modifiers = modifiers.Add(ReadToken());
+            }
+            else
+            {
+                break;
+            }
         }
 
-        return null;  //StructOrTypeMemberDeclaration(identifier);
+        return modifiers;
     }
 
-    private MemberDeclarationSyntax ParseFuntionDeclaration()
+    private MemberDeclarationSyntax ParseMember()
     {
-        var funcKeyword = ReadToken();
+        var modifiers = ParseModifiers();
 
+        var keyword = PeekToken();
+
+        if (keyword.IsKind(SyntaxKind.LetKeyword) || keyword.IsKind(SyntaxKind.VarKeyword))
+        {
+            return ParseFieldDeclarationSyntax(modifiers);
+        }
+        else
+        {
+            if (PeekToken(1).Kind == SyntaxKind.OpenParenToken)
+            {
+                return ParseMethodDeclaration(modifiers);
+            }
+            else
+            {
+                throw new Exception();
+            }
+        }
+    }
+
+    private MemberDeclarationSyntax ParseMethodDeclaration(SyntaxList modifiers)
+    {
         if (!ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier))
         {
             if (!ConsumeTokenOrMissing(SyntaxKind.InitKeyword, out identifier))
@@ -88,7 +122,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
-        return MethodDeclaration(SyntaxList.Empty, funcKeyword, identifier, parameterList, returnParameterAnnotation, block);
+        return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, block);
     }
 
     public ParameterListSyntax ParseParameterList()
@@ -134,7 +168,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return ParameterList(openParenToken, List(parameterList.ToArray()), closeParenToken);
     }
 
-    private FieldDeclarationSyntax ParseFieldDeclarationSyntax()
+    private FieldDeclarationSyntax ParseFieldDeclarationSyntax(SyntaxList modifiers)
     {
         var declaration = ParseVariableDeclarationSyntax();
 
@@ -148,7 +182,7 @@ internal class TypeDeclarationParser : SyntaxParser
                     GetEndOfLastToken()));
         }
 
-        return FieldDeclaration(SyntaxList.Empty, declaration, terminatorToken, Diagnostics);
+        return FieldDeclaration(modifiers, declaration, terminatorToken, Diagnostics);
     }
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()

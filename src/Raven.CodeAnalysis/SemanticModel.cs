@@ -201,6 +201,38 @@ public partial class SemanticModel
                     value++;
                 }
             }
+            else if (member is ClassDeclarationSyntax classDeclaration)
+            {
+                var classType = new SourceNamedTypeSymbol(classDeclaration.Identifier.Text, Compilation.GetTypeByMetadataName("System.Object"), TypeKind.Class, targetNamespace.AsSourceNamespace(), null, targetNamespace.AsSourceNamespace(),
+                    [classDeclaration.GetLocation()], [classDeclaration.GetReference()]);
+
+                int value = 0;
+                /*
+                foreach (var member2 in classDeclaration.Members.OfType<FieldDeclarationSyntax>())
+                {
+                    foreach (var decl in member2.Declaration.Declarators)
+                    {
+                        ITypeSymbol fieldSymbol = null;
+
+                        fieldSymbol = decl.TypeAnnotation is null
+                            ? GetTypeInfo(decl.Initializer.Value).Type
+                            : GetTypeInfo(decl.TypeAnnotation.Type).Type;
+
+
+                        new SourceFieldSymbol(decl.Identifier.Text, fieldSymbol, false, false, null, classType, classType, targetNamespace.AsSourceNamespace(),
+                            [member2.GetLocation()], [member2.GetReference()]);
+                    }
+                    value++;
+                } */
+
+                /*
+                foreach (var member2 in classDeclaration.Members.OfType<MethodDeclarationSyntax>())
+                {
+                    new SourceMethodSymbol(member2.Identifier.Text, returnType, parameters, classType, false, false, null, classType, classType, targetNamespace.AsSourceNamespace(),
+                        [member2.GetLocation()], [member2.GetReference()]);
+                    value++;
+                } */
+            }
         }
 
         // 🟢 Step 1: Predeclare all local functions

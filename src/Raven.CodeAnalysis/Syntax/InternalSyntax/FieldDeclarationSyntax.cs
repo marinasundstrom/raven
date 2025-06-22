@@ -8,7 +8,7 @@ internal partial class FieldDeclarationSyntax : MemberDeclarationSyntax
         VariableDeclarationSyntax variableDeclarationSyntax,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(SyntaxKind.MethodDeclaration,
+        : base(SyntaxKind.FieldDeclaration,
               [
                       modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
                       variableDeclarationSyntax ?? throw new ArgumentNullException(nameof(variableDeclarationSyntax)),

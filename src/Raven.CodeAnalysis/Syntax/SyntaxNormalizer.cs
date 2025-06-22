@@ -209,7 +209,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var returnType = (ReturnTypeAnnotationSyntax)VisitReturnTypeAnnotation(node.ReturnType)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(node.Modifiers, node.FuncKeyword, identifier, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))
+        return node.Update(node.Modifiers, identifier, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed

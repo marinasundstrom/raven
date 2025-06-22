@@ -1,16 +1,20 @@
 import System
 
-Console.WriteLine("Hello")
+Console.WriteLine("Hello"); let x = 2
+
+//let f = Foo(t: 42)
+//let x = f.Bar(arg: 2)
 
 class Foo {
     let a = 2
     var b : int = 2
 
-    func init(t : int) {
+    public init(t : int) {
         b = t
     }
 
-    func Bar(arg : int) -> int {
-        return self.x + arg
+    public Bar(arg : int) -> int {
+        return self.x 
+            + arg
     }
 }

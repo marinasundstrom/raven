@@ -281,10 +281,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseLambdaExpression();
                 break;
 
-            case SyntaxKind.SelfKeyword:
-                ReadToken();
-                return SelfExpression(token);
-
             default:
                 return ParsePowerExpression();
         }
@@ -528,6 +524,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             case SyntaxKind.IdentifierToken:
                 return new NameSyntaxParser(this).ParseSimpleName();
+
+            case SyntaxKind.SelfKeyword:
+                ReadToken();
+                return SelfExpression(token);
 
             case SyntaxKind.TrueKeyword:
                 ReadToken();

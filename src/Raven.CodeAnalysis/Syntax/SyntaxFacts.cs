@@ -34,7 +34,15 @@ public static class SyntaxFacts
         { "class", SyntaxKind.ClassKeyword },
         { "self", SyntaxKind.SelfKeyword },
         { "prop", SyntaxKind.PropKeyword },
-        { "init", SyntaxKind.InitKeyword }
+        { "init", SyntaxKind.InitKeyword },
+        { "public", SyntaxKind.PublicKeyword },
+        { "private", SyntaxKind.PrivateKeyword },
+        { "internal", SyntaxKind.InternalKeyword },
+        { "protected", SyntaxKind.ProtectedKeyword },
+        { "static", SyntaxKind.StaticKeyword },
+        { "abstract", SyntaxKind.AbstractKeyword },
+        { "sealed", SyntaxKind.SealedKeyword },
+        { "override", SyntaxKind.OverrideKeyword }
     };
 
     private static readonly HashSet<SyntaxKind> _keywordKinds =

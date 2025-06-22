@@ -176,6 +176,14 @@ public enum SyntaxKind
     RefKeyword = 1144,
     OutKeyword = 1145,
     InKeyword = 1146,
+    PublicKeyword = 1147,
+    PrivateKeyword = 1148,
+    InternalKeyword = 1149,
+    ProtectedKeyword = 1150,
+    StaticKeyword = 1151,
+    AbstractKeyword = 1152,
+    SealedKeyword = 1153,
+    OverrideKeyword = 1154,
 
     // === Punctuation === (1200–1299)
 
