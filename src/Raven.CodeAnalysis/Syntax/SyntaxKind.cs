@@ -74,6 +74,7 @@ public enum SyntaxKind
     EqualsValueClause = 176,
     AddressOfExpression = 177,
     NameColon = 178,
+    SelfExpression = 179,
 
     // === Lambda === (200–209)
     SimpleLambdaExpression = 200,

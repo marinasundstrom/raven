@@ -1,0 +1,16 @@
+import System
+
+Console.WriteLine("Hello")
+
+class Foo {
+    let a = 2
+    var b : int = 2
+
+    func init(t : int) {
+        b = t
+    }
+
+    func Bar(arg : int) -> int {
+        return self.x + arg
+    }
+}

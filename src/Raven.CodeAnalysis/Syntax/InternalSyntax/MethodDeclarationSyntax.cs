@@ -6,7 +6,7 @@ internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
     public MethodDeclarationSyntax(
         SyntaxList modifiers,
         SyntaxToken funcKeyword,
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         ParameterListSyntax parameters,
         ReturnTypeAnnotationSyntax returnTypeAnnotation,
         BlockSyntax body,
@@ -15,9 +15,9 @@ internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
               [
                       modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
                       funcKeyword ?? throw new ArgumentNullException(nameof(funcKeyword)),
-                      name ?? throw new ArgumentNullException(nameof(name)),
+                      identifier ?? throw new ArgumentNullException(nameof(identifier)),
                       parameters ?? throw new ArgumentNullException(nameof(parameters)),
-                      returnTypeAnnotation ?? throw new ArgumentNullException(nameof(returnTypeAnnotation)),
+                      returnTypeAnnotation,
                       body ?? throw new ArgumentNullException(nameof(body)),
               ],
               diagnostics)
@@ -30,10 +30,10 @@ internal static partial class SyntaxFactory
     public static MethodDeclarationSyntax MethodDeclaration(
         SyntaxList modifiers,
         SyntaxToken funcKeyword,
-        IdentifierNameSyntax name,
+        SyntaxToken identifier,
         ParameterListSyntax parameters,
         ReturnTypeAnnotationSyntax returnTypeAnnotation,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(modifiers, funcKeyword, name, parameters, returnTypeAnnotation, body, diagnostics);
+        => new(modifiers, funcKeyword, identifier, parameters, returnTypeAnnotation, body, diagnostics);
 }

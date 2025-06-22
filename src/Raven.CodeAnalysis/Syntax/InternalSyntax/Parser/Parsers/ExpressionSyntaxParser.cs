@@ -281,6 +281,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseLambdaExpression();
                 break;
 
+            case SyntaxKind.SelfKeyword:
+                ReadToken();
+                return SelfExpression(token);
+
             default:
                 return ParsePowerExpression();
         }

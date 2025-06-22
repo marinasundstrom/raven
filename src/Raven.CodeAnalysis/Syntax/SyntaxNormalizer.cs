@@ -200,7 +200,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        var name = (IdentifierNameSyntax)VisitIdentifierName(node.Name)!
+        var identifier = VisitToken(node.Identifier)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
         var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
@@ -209,7 +209,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var returnType = (ReturnTypeAnnotationSyntax)VisitReturnTypeAnnotation(node.ReturnType)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(node.Modifiers, node.FuncKeyword, name, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))
+        return node.Update(node.Modifiers, node.FuncKeyword, identifier, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed
