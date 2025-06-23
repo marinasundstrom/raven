@@ -34,7 +34,7 @@ internal class TypeGenerator
         if (TypeSymbol.BaseType.Name == "Enum")
         {
             TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                TypeSymbol.Name,
+                TypeSymbol.MetadataName,
                 TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Serializable,
                 ResolveClrType(TypeSymbol.BaseType) // bör vara System.Enum
             );
@@ -53,7 +53,8 @@ internal class TypeGenerator
         if (syntaxReference is not null)
         {
             TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                TypeSymbol.Name, typeAttributes,
+                TypeSymbol.MetadataName,
+                typeAttributes,
                 ResolveClrType(TypeSymbol.BaseType));
         }
     }

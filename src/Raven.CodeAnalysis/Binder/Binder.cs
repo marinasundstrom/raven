@@ -21,6 +21,8 @@ internal abstract class Binder
 
     public DiagnosticBag Diagnostics => _diagnostics;
 
+    public virtual ISymbol ContainingSymbol { get; }
+
     public virtual Compilation Compilation
     {
         get
