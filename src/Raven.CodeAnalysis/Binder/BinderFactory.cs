@@ -26,6 +26,8 @@ class BinderFactory
             ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             LocalFunctionStatementSyntax localFunc => new LocalFunctionBinder(parentBinder!, localFunc),
+            ClassDeclarationSyntax classDecl => new TypeDeclarationBinder(parentBinder!, null), //, GetTypeSymbolFor(classDecl)),
+            //FieldDeclarationSyntax => parent, // Fields are handled during symbol declaration
             _ => parentBinder
         };
 

@@ -9,6 +9,9 @@ using Spectre.Console;
 using static Raven.ConsoleEx;
 using static Raven.AppHostBuilder;
 
+// ONLY FOR DEVELOPMENT
+bool debug = true;
+
 var stopwatch = Stopwatch.StartNew();
 
 // ravc test.rav [-o test.exe]
@@ -72,19 +75,26 @@ outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
 
 EmitResult? result = null;
 
-using (var stream = File.OpenWrite($"{outputPath}"))
+try
 {
-    result = compilation.Emit(stream);
+    using (var stream = File.OpenWrite($"{outputPath}"))
+    {
+        result = compilation.Emit(stream);
+    }
+}
+catch (Exception e)
+{
+    Console.WriteLine("Code generation failed");
 }
 
 stopwatch.Stop();
 
-if (shouldPrintSyntaxTree)
+if (shouldPrintSyntaxTree || debug)
 {
     root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true });
 }
 
-if (shouldDumpSyntax)
+if (shouldDumpSyntax || debug)
 {
     ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
@@ -93,27 +103,36 @@ if (shouldDumpSyntax)
     Console.WriteLine();
 }
 
-// Check the result
-if (!result.Success)
+if (debug)
 {
-    PrintDiagnostics(result.Diagnostics);
-
-    Console.WriteLine();
-
-    Failed(result);
+    var semanticModel = compilation.GetSemanticModel(syntaxTree);
+    semanticModel.PrintBinderTree();
 }
-else
-{
-    var warningsCount = result.Diagnostics
-        .Count(x => x.Descriptor.DefaultSeverity == DiagnosticSeverity.Warning);
 
-    if (warningsCount > 0)
+if (result is not null)
+{
+    // Check the result
+    if (!result.Success)
     {
-        SucceededWithWarnings(warningsCount, stopwatch.Elapsed);
+        PrintDiagnostics(result.Diagnostics);
+
+        Console.WriteLine();
+
+        Failed(result);
     }
     else
     {
-        Succeeded(stopwatch.Elapsed);
+        var warningsCount = result.Diagnostics
+            .Count(x => x.Descriptor.DefaultSeverity == DiagnosticSeverity.Warning);
+
+        if (warningsCount > 0)
+        {
+            SucceededWithWarnings(warningsCount, stopwatch.Elapsed);
+        }
+        else
+        {
+            Succeeded(stopwatch.Elapsed);
+        }
     }
 }
 
