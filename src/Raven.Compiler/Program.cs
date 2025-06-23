@@ -84,7 +84,9 @@ try
 }
 catch (Exception e)
 {
-    Console.WriteLine("Code generation failed");
+    Console.WriteLine($"Code generation failed: {e}");
+
+    //return;
 }
 
 stopwatch.Stop();

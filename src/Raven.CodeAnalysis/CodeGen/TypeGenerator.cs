@@ -61,7 +61,8 @@ internal class TypeGenerator
 
     public void DefineMemberBuilders()
     {
-        if (TypeSymbol.BaseType.Name == "Enum")
+        if (TypeSymbol.BaseType.ContainingNamespace.Name == "System"
+            && TypeSymbol.BaseType.Name == "Enum")
         {
             foreach (var fieldSymbol in TypeSymbol.GetMembers().OfType<IFieldSymbol>())
             {

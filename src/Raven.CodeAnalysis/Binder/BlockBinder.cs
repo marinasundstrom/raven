@@ -17,7 +17,7 @@ partial class BlockBinder : Binder
         _containingSymbol = containingSymbol;
     }
 
-    public ISymbol ContainingSymbol => _containingSymbol;
+    public override ISymbol ContainingSymbol => _containingSymbol;
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {

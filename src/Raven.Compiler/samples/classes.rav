@@ -1,3 +1,5 @@
+//namespace Test
+
 import System
 
 Console.WriteLine("Hello"); let x = 2

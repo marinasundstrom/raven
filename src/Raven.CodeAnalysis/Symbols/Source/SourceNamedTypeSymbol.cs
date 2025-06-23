@@ -36,6 +36,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool IsValueType => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum;
 
+    public override string MetadataName => !ContainingNamespace!.IsGlobalNamespace ? ContainingNamespace.MetadataName + "." + Name : Name;
+
     public bool IsReferenceType =>
         TypeKind == TypeKind.Class ||
         TypeKind == TypeKind.Interface ||
