@@ -124,6 +124,8 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseMethodOrConstructorDeclaration(modifiers, identifier);
         }
 
+        // Remove below
+
         return ParsePropertyDeclaration(modifiers, identifier);
     }
 
@@ -133,15 +135,38 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
 
-        var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
-
         if (identifier.IsKind(SyntaxKind.InitKeyword))
         {
-            // Report type annoration
+            // Report type annotation
             // ConstructorDeclaration
         }
 
-        return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, block);
+        var token = PeekToken();
+
+        BlockSyntax? body = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+
+        if (token.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
+        }
+        else if (token.IsKind(SyntaxKind.ArrowToken))
+        {
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        if (expressionBody is not null)
+        {
+            return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, expressionBody, terminatorToken);
+        }
+        else if (body is not null)
+        {
+            return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, body, terminatorToken);
+        }
+
+        throw new Exception();
     }
 
     private PropertyDeclarationSyntax ParsePropertyDeclaration(SyntaxList modifiers, SyntaxToken identifier)
@@ -165,8 +190,10 @@ internal class TypeDeclarationParser : SyntaxParser
             //var newToken = token.WithTrailingTrivia();
             //typeAnnotation = (ReturnTypeAnnotationSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
         }
+        
+        TryConsumeTerminator(out var terminatorToken);
 
-        return PropertyDeclaration(modifiers, identifier, typeAnnotation, accessorList);
+        return PropertyDeclaration(modifiers, identifier, typeAnnotation, accessorList, terminatorToken);
     }
 
     private AccessorListSyntax ParseAccessorList()
@@ -199,16 +226,40 @@ internal class TypeDeclarationParser : SyntaxParser
 
             }
 
+            var token = PeekToken();
+
+            BlockSyntax? body = null;
+            ArrowExpressionClauseSyntax? expressionBody = null;
+
+            if (token.IsKind(SyntaxKind.OpenBraceToken))
+            {
+                body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
+            }
+            else if (token.IsKind(SyntaxKind.ArrowToken))
+            {
+                expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+            }
+
             SetTreatNewlinesAsTokens(true);
 
             TryConsumeTerminator(out var terminatorToken);
 
             SetTreatNewlinesAsTokens(false);
 
-            accessorList.Add(AccessorDeclaration(
-                name.IsKind(SyntaxKind.GetKeyword) ? SyntaxKind.GetAccessorDeclaration
-                : SyntaxKind.SetAccessorDeclaration,
-                modifiers, name, null, terminatorToken));
+            if (expressionBody is not null)
+            {
+                accessorList.Add(AccessorDeclaration(
+                    name.IsKind(SyntaxKind.GetKeyword) ? SyntaxKind.GetAccessorDeclaration
+                    : SyntaxKind.SetAccessorDeclaration,
+                    modifiers, name, expressionBody, terminatorToken));
+            }
+            else if (body is not null)
+            {
+                accessorList.Add(AccessorDeclaration(
+                    name.IsKind(SyntaxKind.GetKeyword) ? SyntaxKind.GetAccessorDeclaration
+                    : SyntaxKind.SetAccessorDeclaration,
+                    modifiers, name, body, terminatorToken));
+            }
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);

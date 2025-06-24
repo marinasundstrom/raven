@@ -21,7 +21,10 @@ class Foo {
     }
 
     public Item -> string {
-        get
-        set
+        get {
+            return item
+        }
+
+        set -> 2
     }
 }

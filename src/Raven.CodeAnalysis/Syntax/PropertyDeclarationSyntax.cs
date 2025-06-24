@@ -6,8 +6,8 @@ public partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
     {
     }
 
-    public PropertyDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken identifier, ReturnTypeAnnotationSyntax type, AccessorListSyntax? accessorList)
-        : this(new InternalSyntax.PropertyDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.ReturnTypeAnnotationSyntax)type.Green, (InternalSyntax.AccessorListSyntax)accessorList.Green), null, 0)
+    public PropertyDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken identifier, ReturnTypeAnnotationSyntax type, AccessorListSyntax? accessorList, SyntaxToken? terminatorToken)
+        : this(new InternalSyntax.PropertyDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.ReturnTypeAnnotationSyntax)type.Green, (InternalSyntax.AccessorListSyntax)accessorList.Green, terminatorToken?.Green), null, 0)
     {
 
     }
@@ -19,10 +19,12 @@ public partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
     public override partial ReturnTypeAnnotationSyntax Type { get; }
 
     public override partial AccessorListSyntax? AccessorList { get; }
+    
+    public partial SyntaxToken? TerminatorToken  { get; }
 }
 
 public static partial class SyntaxFactory
 {
-    public static PropertyDeclarationSyntax PropertyDeclaration(SyntaxTokenList modifiers, SyntaxToken identifier, ReturnTypeAnnotationSyntax type, AccessorListSyntax? accessorList)
-        => new(modifiers, identifier, type, accessorList);
+    public static PropertyDeclarationSyntax PropertyDeclaration(SyntaxTokenList modifiers, SyntaxToken identifier, ReturnTypeAnnotationSyntax type, AccessorListSyntax? accessorList, SyntaxToken? terminatorToken)
+        => new(modifiers, identifier, type, accessorList, terminatorToken);
 }

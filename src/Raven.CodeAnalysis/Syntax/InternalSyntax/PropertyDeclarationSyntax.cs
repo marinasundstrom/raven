@@ -9,6 +9,7 @@ internal partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
         SyntaxToken identifier,
         ReturnTypeAnnotationSyntax returnTypeAnnotation,
         AccessorListSyntax accessorList,
+        SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.PropertyDeclaration,
               [
@@ -16,6 +17,7 @@ internal partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
                       identifier ?? throw new ArgumentNullException(nameof(identifier)),
                       returnTypeAnnotation,
                       accessorList ?? throw new ArgumentNullException(nameof(accessorList)),
+                      terminatorToken
               ],
               diagnostics)
     {
@@ -29,6 +31,7 @@ internal static partial class SyntaxFactory
         SyntaxToken identifier,
         ReturnTypeAnnotationSyntax returnTypeAnnotation,
         AccessorListSyntax accessorList,
+        SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-      => new(modifiers, identifier, returnTypeAnnotation, accessorList, diagnostics);
+      => new(modifiers, identifier, returnTypeAnnotation, accessorList, terminatorToken, diagnostics);
 }

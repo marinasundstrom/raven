@@ -765,4 +765,14 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return WhileStatement(whileKeyword, condition!, statement!, Diagnostics);
     }
 
+    internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()
+    {
+        var arrowToken = ReadToken();
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(true);
+
+        return ArrowExpressionClause(arrowToken, expression);
+    }
 }

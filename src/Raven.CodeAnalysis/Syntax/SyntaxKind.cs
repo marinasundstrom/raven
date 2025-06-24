@@ -80,6 +80,7 @@ public enum SyntaxKind
     AddressOfExpression = 177,
     NameColon = 178,
     SelfExpression = 179,
+    ArrowExpressionClause = 180,
 
     // === Lambda === (200–209)
     SimpleLambdaExpression = 200,
