@@ -7,7 +7,7 @@ internal partial class ArrowTypeClauseSyntax : StatementSyntax
         TypeSyntax type,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
-              SyntaxKind.ArrowTypeAnnotation,
+              SyntaxKind.ArrowTypeClause,
               [
                       arrowToken ?? throw new ArgumentNullException(nameof(arrowToken)),
                       type ?? throw new ArgumentNullException(nameof(type))

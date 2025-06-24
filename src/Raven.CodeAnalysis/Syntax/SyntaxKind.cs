@@ -37,7 +37,7 @@ public enum SyntaxKind
     InitializerDeclaration = 74,
 
     MethodDeclaration = 80,
-    ArrowTypeAnnotation = 81,
+    ArrowTypeClause = 81,
     ParameterList = 82,
     Parameter = 83,
 
