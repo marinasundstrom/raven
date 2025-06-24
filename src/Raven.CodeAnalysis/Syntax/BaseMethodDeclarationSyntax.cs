@@ -8,5 +8,4 @@ public abstract partial class BaseMethodDeclarationSyntax : MemberDeclarationSyn
 
     public abstract ParameterListSyntax ParameterList { get; }
     public abstract BlockSyntax? Body { get; }
-
 }

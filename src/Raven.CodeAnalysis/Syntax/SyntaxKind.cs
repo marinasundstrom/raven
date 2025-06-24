@@ -45,6 +45,11 @@ public enum SyntaxKind
     VariableDeclaration = 91,
     VariableDeclarator = 92,
 
+    AccessorList = 93,
+    GetAccessorDeclaration = 94,
+    SetAccessorDeclaration = 95,
+    ConstructorDeclaration = 96,
+
     // === Statements === (100–129)
     GlobalStatement = 100,
     LocalFunctionStatement = 101,
@@ -184,6 +189,9 @@ public enum SyntaxKind
     AbstractKeyword = 1152,
     SealedKeyword = 1153,
     OverrideKeyword = 1154,
+
+    GetKeyword = 1155,
+    SetKeyword = 1156,
 
     // === Punctuation === (1200–1299)
 

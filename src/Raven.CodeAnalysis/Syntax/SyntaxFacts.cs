@@ -42,7 +42,9 @@ public static class SyntaxFacts
         { "static", SyntaxKind.StaticKeyword },
         { "abstract", SyntaxKind.AbstractKeyword },
         { "sealed", SyntaxKind.SealedKeyword },
-        { "override", SyntaxKind.OverrideKeyword }
+        { "override", SyntaxKind.OverrideKeyword },
+        { "get", SyntaxKind.GetKeyword },
+        { "set", SyntaxKind.SetKeyword }
     };
 
     private static readonly HashSet<SyntaxKind> _keywordKinds =
@@ -141,6 +143,9 @@ public static class SyntaxFacts
             SyntaxKind.SelfKeyword => "self",
             SyntaxKind.PropKeyword => "prop",
             SyntaxKind.InitKeyword => "init",
+
+            SyntaxKind.GetKeyword => "get",
+            SyntaxKind.SetKeyword => "set",
 
             _ => throw new Exception("Not a valid token kind")
         };

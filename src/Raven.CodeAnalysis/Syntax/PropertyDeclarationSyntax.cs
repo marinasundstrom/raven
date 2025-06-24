@@ -1,0 +1,28 @@
+namespace Raven.CodeAnalysis.Syntax;
+
+public partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
+{
+    internal PropertyDeclarationSyntax(GreenNode greenNode, SyntaxNode? parent, int position) : base(greenNode, parent, position)
+    {
+    }
+
+    public PropertyDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken identifier, ReturnTypeAnnotationSyntax type, AccessorListSyntax? accessorList)
+        : this(new InternalSyntax.PropertyDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.ReturnTypeAnnotationSyntax)type.Green, (InternalSyntax.AccessorListSyntax)accessorList.Green), null, 0)
+    {
+
+    }
+
+    public override partial SyntaxTokenList Modifiers { get; }
+
+    public override partial SyntaxToken Identifier { get; }
+
+    public override partial ReturnTypeAnnotationSyntax Type { get; }
+
+    public override partial AccessorListSyntax? AccessorList { get; }
+}
+
+public static partial class SyntaxFactory
+{
+    public static PropertyDeclarationSyntax PropertyDeclaration(SyntaxTokenList modifiers, SyntaxToken identifier, ReturnTypeAnnotationSyntax type, AccessorListSyntax? accessorList)
+        => new(modifiers, identifier, type, accessorList);
+}

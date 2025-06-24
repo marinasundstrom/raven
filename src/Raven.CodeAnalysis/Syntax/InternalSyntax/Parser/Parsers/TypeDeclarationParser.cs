@@ -87,9 +87,9 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         var modifiers = ParseModifiers();
 
-        var keyword = PeekToken();
+        var keywordOrIdentifier = PeekToken();
 
-        if (keyword.IsKind(SyntaxKind.LetKeyword) || keyword.IsKind(SyntaxKind.VarKeyword))
+        if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword))
         {
             return ParseFieldDeclarationSyntax(modifiers);
         }
@@ -97,32 +97,125 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             if (PeekToken(1).Kind == SyntaxKind.OpenParenToken)
             {
-                return ParseMethodDeclaration(modifiers);
+                return ParseMethodDeclarationOrPropertyDeclaration(modifiers);
             }
             else
             {
-                throw new Exception();
+                return ParsePropertyDeclaration(modifiers, keywordOrIdentifier);
             }
         }
     }
 
-    private MemberDeclarationSyntax ParseMethodDeclaration(SyntaxList modifiers)
+    private MemberDeclarationSyntax ParseMethodDeclarationOrPropertyDeclaration(SyntaxList modifiers)
     {
         if (!ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier))
         {
             if (!ConsumeTokenOrMissing(SyntaxKind.InitKeyword, out identifier))
             {
-
+                // Init should be a constructordeclarationbtw BTW
+                // Invalid name
             }
         }
 
+        var potentialOpenParenToken = PeekToken();
+
+        if (potentialOpenParenToken.IsKind(SyntaxKind.OpenParenToken))
+        {
+            return ParseMethodOrConstructorDeclaration(modifiers, identifier);
+        }
+
+        return ParsePropertyDeclaration(modifiers, identifier);
+    }
+
+    private MemberDeclarationSyntax ParseMethodOrConstructorDeclaration(SyntaxList modifiers, SyntaxToken identifier)
+    {
         var parameterList = ParseParameterList();
 
         var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
+        if (identifier.IsKind(SyntaxKind.InitKeyword))
+        {
+            // Report type annoration
+            // ConstructorDeclaration
+        }
+
         return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, block);
+    }
+
+    private PropertyDeclarationSyntax ParsePropertyDeclaration(SyntaxList modifiers, SyntaxToken identifier)
+    {
+        ReadToken();
+
+        var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
+
+        var token = PeekToken();
+
+        AccessorListSyntax? accessorList = null;
+        if (token.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            accessorList = ParseAccessorList();
+        }
+        else
+        {
+            // Handle skipped trivia
+
+            //var lastToken = typeAnnotation.GetLastToken();
+            //var newToken = token.WithTrailingTrivia();
+            //typeAnnotation = (ReturnTypeAnnotationSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
+        }
+
+        return PropertyDeclaration(modifiers, identifier, typeAnnotation, accessorList);
+    }
+
+    private AccessorListSyntax ParseAccessorList()
+    {
+        var openBraceToken = ReadToken();
+
+        List<GreenNode> accessorList = new List<GreenNode>();
+
+        SetTreatNewlinesAsTokens(false);
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.IsKind(SyntaxKind.CloseBraceToken))
+                break;
+
+            SyntaxList modifiers = SyntaxList.Empty;
+
+            SyntaxToken modifier;
+            if (ConsumeToken(SyntaxKind.RefKeyword, out modifier) || ConsumeToken(SyntaxKind.OutKeyword, out modifier) || ConsumeToken(SyntaxKind.InKeyword, out modifier))
+            {
+                modifiers = modifiers.Add(modifier);
+            }
+
+            SyntaxToken name;
+
+            if (!ConsumeToken(SyntaxKind.GetKeyword, out name) && !ConsumeToken(SyntaxKind.SetKeyword, out name))
+            {
+
+            }
+
+            SetTreatNewlinesAsTokens(true);
+
+            TryConsumeTerminator(out var terminatorToken);
+
+            SetTreatNewlinesAsTokens(false);
+
+            accessorList.Add(AccessorDeclaration(
+                name.IsKind(SyntaxKind.GetKeyword) ? SyntaxKind.GetAccessorDeclaration
+                : SyntaxKind.SetAccessorDeclaration,
+                modifiers, name, null, terminatorToken));
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+
+        SetTreatNewlinesAsTokens(false);
+
+        return AccessorList(openBraceToken, List(accessorList.ToArray()), closeBraceToken);
     }
 
     public ParameterListSyntax ParseParameterList()
