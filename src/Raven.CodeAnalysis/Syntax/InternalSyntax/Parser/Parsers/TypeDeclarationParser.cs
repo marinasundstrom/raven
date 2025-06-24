@@ -133,7 +133,7 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         var parameterList = ParseParameterList();
 
-        var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
+        var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
         if (identifier.IsKind(SyntaxKind.InitKeyword))
         {
@@ -173,7 +173,7 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         ReadToken();
 
-        var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
         var token = PeekToken();
 
@@ -188,9 +188,9 @@ internal class TypeDeclarationParser : SyntaxParser
 
             //var lastToken = typeAnnotation.GetLastToken();
             //var newToken = token.WithTrailingTrivia();
-            //typeAnnotation = (ReturnTypeAnnotationSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
+            //typeAnnotation = (ArrowTypeClauseSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
         }
-        
+
         TryConsumeTerminator(out var terminatorToken);
 
         return PropertyDeclaration(modifiers, identifier, typeAnnotation, accessorList, terminatorToken);
@@ -295,7 +295,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
             }
 
-            var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
+            var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
             parameterList.Add(Parameter(modifiers, name, typeAnnotation));
 
@@ -340,7 +340,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         EqualsValueClauseSyntax? initializer = null;
 
-        var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
         if (IsNextToken(SyntaxKind.EqualsToken, out var _))
         {
@@ -353,7 +353,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return new VariableDeclarationSyntax(letOrVarKeyword, declarators);
     }
 
-    private TypeAnnotationSyntax? ParseTypeAnnotationSyntax()
+    private TypeAnnotationClauseSyntax? ParseTypeAnnotationClauseSyntax()
     {
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {

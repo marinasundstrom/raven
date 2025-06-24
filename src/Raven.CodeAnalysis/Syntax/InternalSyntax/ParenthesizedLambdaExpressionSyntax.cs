@@ -9,7 +9,7 @@ internal partial class ParenthesizedLambdaExpressionSyntax : LambdaExpressionSyn
     public ParenthesizedLambdaExpressionSyntax(
         SyntaxToken funcKeyword,
         ParameterListSyntax parameterList,
-        ReturnTypeAnnotationSyntax returnType,
+        ArrowTypeClauseSyntax returnType,
         SyntaxToken arrowToken,
         ExpressionSyntax? expressionBody,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -33,7 +33,7 @@ internal static partial class SyntaxFactory
     public static ParenthesizedLambdaExpressionSyntax ParenthesizedLambdaExpression(
         SyntaxToken funcKeyword,
         ParameterListSyntax parameterList,
-        ReturnTypeAnnotationSyntax returnType,
+        ArrowTypeClauseSyntax returnType,
         SyntaxToken arrowToken,
         ExpressionSyntax? expressionBody,
         IEnumerable<DiagnosticInfo>? diagnostics = null)

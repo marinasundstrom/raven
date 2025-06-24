@@ -1,8 +1,8 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-internal partial class TypeAnnotationSyntax : StatementSyntax
+internal partial class TypeAnnotationClauseSyntax : StatementSyntax
 {
-    public TypeAnnotationSyntax(
+    public TypeAnnotationClauseSyntax(
         SyntaxToken colonToken,
         TypeSyntax type,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -18,7 +18,7 @@ internal partial class TypeAnnotationSyntax : StatementSyntax
 
 internal static partial class SyntaxFactory
 {
-    public static TypeAnnotationSyntax TypeAnnotation(
+    public static TypeAnnotationClauseSyntax TypeAnnotation(
         SyntaxToken colonToken,
         TypeSyntax type,
         IEnumerable<DiagnosticInfo>? diagnostics = null)

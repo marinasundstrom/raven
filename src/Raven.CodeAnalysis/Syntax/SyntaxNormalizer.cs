@@ -138,7 +138,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
         return node.Update(node.Identifier
-            .WithTrailingTrivia(SyntaxFactory.Space), (TypeAnnotationSyntax)VisitTypeAnnotation(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
+            .WithTrailingTrivia(SyntaxFactory.Space), (TypeAnnotationClauseSyntax)VisitTypeAnnotationClause(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
     }
 
     public override SyntaxNode? VisitEqualsValueClause(EqualsValueClauseSyntax node)
@@ -206,7 +206,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        var returnType = (ReturnTypeAnnotationSyntax)VisitReturnTypeAnnotation(node.ReturnType)!
+        var returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
         return node.Update(node.Modifiers, identifier, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body), null, node.TerminatorToken)
@@ -243,10 +243,10 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var name = node.Identifier.WithTrailingTrivia(SyntaxFactory.Space);
 
         return node.Update(node.Modifiers, name,
-            node.TypeAnnotation is not null ? (TypeAnnotationSyntax?)VisitTypeAnnotation(node.TypeAnnotation) : null);
+            node.TypeAnnotation is not null ? (TypeAnnotationClauseSyntax?)VisitTypeAnnotationClause(node.TypeAnnotation) : null);
     }
 
-    public override SyntaxNode? VisitTypeAnnotation(TypeAnnotationSyntax node)
+    public override SyntaxNode? VisitTypeAnnotationClause(TypeAnnotationClauseSyntax node)
     {
         var colonToken = node.ColonToken.WithTrailingTrivia(SyntaxFactory.Space);
 

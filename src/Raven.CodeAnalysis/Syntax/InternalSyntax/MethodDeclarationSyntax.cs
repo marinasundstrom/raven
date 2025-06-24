@@ -7,7 +7,7 @@ internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
     SyntaxList modifiers,
     SyntaxToken identifier,
     ParameterListSyntax parameters,
-    ReturnTypeAnnotationSyntax returnTypeAnnotation,
+    ArrowTypeClauseSyntax returnTypeAnnotation,
     BlockSyntax? body,
     ArrowExpressionClauseSyntax? expressionBody,
     SyntaxToken? terminatorToken,
@@ -30,7 +30,7 @@ internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
         SyntaxList modifiers,
         SyntaxToken identifier,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         BlockSyntax body,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -52,7 +52,7 @@ internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
         SyntaxList modifiers,
         SyntaxToken identifier,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         ArrowExpressionClauseSyntax expressionBody,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -77,7 +77,7 @@ internal static partial class SyntaxFactory
         SyntaxList modifiers,
         SyntaxToken identifier,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         BlockSyntax body,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -87,7 +87,7 @@ internal static partial class SyntaxFactory
         SyntaxList modifiers,
         SyntaxToken identifier,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         ArrowExpressionClauseSyntax expressionBody,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)

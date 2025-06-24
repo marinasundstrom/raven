@@ -294,7 +294,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var parameterList = new StatementSyntaxParser(this).ParseParameterList();
 
-        var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
+        var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
         if (!ConsumeToken(SyntaxKind.ArrowToken, out var fatArrowToken))
         {

@@ -51,7 +51,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var parameterList = ParseParameterList();
 
-        var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
+        var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
@@ -84,7 +84,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             }
 
-            var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
+            var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
             parameterList.Add(Parameter(modifiers, name, typeAnnotation));
 
@@ -108,7 +108,7 @@ internal class StatementSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(false);
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
-        
+
         SetTreatNewlinesAsTokens(true);
 
         if (!TryConsumeTerminator(out var terminatorToken))
@@ -196,7 +196,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             return ExpressionStatementWithSemicolon(expression, terminatorToken2, Diagnostics);
         }
-        
+
         SetTreatNewlinesAsTokens(true);
 
         if (!TryConsumeTerminator(out var terminatorToken))
@@ -240,7 +240,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         EqualsValueClauseSyntax? initializer = null;
 
-        var typeAnnotation = new TypeAnnotationSyntaxParser(this).ParseTypeAnnotation();
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
         if (IsNextToken(SyntaxKind.EqualsToken, out var _))
         {
@@ -253,7 +253,7 @@ internal class StatementSyntaxParser : SyntaxParser
         return new VariableDeclarationSyntax(letOrVarKeyword, declarators);
     }
 
-    private TypeAnnotationSyntax? ParseTypeAnnotationSyntax()
+    private TypeAnnotationClauseSyntax? ParseTypeAnnotationClauseSyntax()
     {
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {

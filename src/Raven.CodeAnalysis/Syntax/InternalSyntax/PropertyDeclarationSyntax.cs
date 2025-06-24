@@ -7,7 +7,7 @@ internal partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
     public PropertyDeclarationSyntax(
         SyntaxList modifiers,
         SyntaxToken identifier,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         AccessorListSyntax accessorList,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -29,7 +29,7 @@ internal static partial class SyntaxFactory
     public static PropertyDeclarationSyntax PropertyDeclaration(
         SyntaxList modifiers,
         SyntaxToken identifier,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         AccessorListSyntax accessorList,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
