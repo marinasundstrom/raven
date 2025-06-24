@@ -7,7 +7,7 @@ internal partial class TypeAnnotationClauseSyntax : StatementSyntax
         TypeSyntax type,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
-              SyntaxKind.TypeAnnotation,
+              SyntaxKind.TypeAnnotationClause,
               [
                       colonToken ?? throw new ArgumentNullException(nameof(colonToken)),
                       type ?? throw new ArgumentNullException(nameof(type))

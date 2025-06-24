@@ -18,7 +18,7 @@ public enum SyntaxKind
     NullableType = 21,
     UnionType = 22,
 
-    TypeAnnotation = 30,
+    TypeAnnotationClause = 30,
     TypeArgumentList = 31,
     TypeArgument = 32,
 
@@ -37,7 +37,7 @@ public enum SyntaxKind
     InitializerDeclaration = 74,
 
     MethodDeclaration = 80,
-    ReturnTypeAnnotation = 81,
+    ArrowTypeAnnotation = 81,
     ParameterList = 82,
     Parameter = 83,
 
