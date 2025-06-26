@@ -6,8 +6,8 @@ public partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
     {
     }
 
-    public PropertyDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken identifier, ArrowTypeClauseSyntax type, AccessorListSyntax? accessorList, SyntaxToken? terminatorToken)
-        : this(new InternalSyntax.PropertyDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.ArrowTypeClauseSyntax)type.Green, (InternalSyntax.AccessorListSyntax)accessorList.Green, terminatorToken?.Green), null, 0)
+    public PropertyDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken identifier, TypeAnnotationClauseSyntax type, AccessorListSyntax? accessorList, SyntaxToken? terminatorToken)
+        : this(new InternalSyntax.PropertyDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.TypeAnnotationClauseSyntax)type.Green, (InternalSyntax.AccessorListSyntax)accessorList.Green, terminatorToken?.Green), null, 0)
     {
 
     }
@@ -16,7 +16,7 @@ public partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
 
     public override partial SyntaxToken Identifier { get; }
 
-    public override partial ArrowTypeClauseSyntax Type { get; }
+    public override partial TypeAnnotationClauseSyntax Type { get; }
 
     public override partial AccessorListSyntax? AccessorList { get; }
 
@@ -25,6 +25,6 @@ public partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
 
 public static partial class SyntaxFactory
 {
-    public static PropertyDeclarationSyntax PropertyDeclaration(SyntaxTokenList modifiers, SyntaxToken identifier, ArrowTypeClauseSyntax type, AccessorListSyntax? accessorList, SyntaxToken? terminatorToken)
+    public static PropertyDeclarationSyntax PropertyDeclaration(SyntaxTokenList modifiers, SyntaxToken identifier, TypeAnnotationClauseSyntax type, AccessorListSyntax? accessorList, SyntaxToken? terminatorToken)
         => new(modifiers, identifier, type, accessorList, terminatorToken);
 }

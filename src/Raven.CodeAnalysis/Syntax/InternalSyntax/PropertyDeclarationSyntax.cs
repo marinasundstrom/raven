@@ -7,7 +7,7 @@ internal partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
     public PropertyDeclarationSyntax(
         SyntaxList modifiers,
         SyntaxToken identifier,
-        ArrowTypeClauseSyntax returnTypeAnnotation,
+        TypeAnnotationClauseSyntax typeAnnotation,
         AccessorListSyntax accessorList,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -15,7 +15,7 @@ internal partial class PropertyDeclarationSyntax : BasePropertyDeclarationSyntax
               [
                       modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
                       identifier ?? throw new ArgumentNullException(nameof(identifier)),
-                      returnTypeAnnotation,
+                      typeAnnotation ?? throw new ArgumentNullException(nameof(typeAnnotation)),
                       accessorList ?? throw new ArgumentNullException(nameof(accessorList)),
                       terminatorToken
               ],
@@ -29,9 +29,9 @@ internal static partial class SyntaxFactory
     public static PropertyDeclarationSyntax PropertyDeclaration(
         SyntaxList modifiers,
         SyntaxToken identifier,
-        ArrowTypeClauseSyntax returnTypeAnnotation,
+        TypeAnnotationClauseSyntax typeAnnotation,
         AccessorListSyntax accessorList,
         SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-      => new(modifiers, identifier, returnTypeAnnotation, accessorList, terminatorToken, diagnostics);
+      => new(modifiers, identifier, typeAnnotation, accessorList, terminatorToken, diagnostics);
 }

@@ -173,7 +173,7 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         ReadToken();
 
-        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
         var token = PeekToken();
 

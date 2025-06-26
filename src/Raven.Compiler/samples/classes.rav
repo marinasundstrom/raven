@@ -20,7 +20,7 @@ class Foo {
             + arg
     }
 
-    public Item -> string {
+    public Item : string {
         get {
             return item
         }

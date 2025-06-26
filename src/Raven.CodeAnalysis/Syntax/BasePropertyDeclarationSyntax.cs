@@ -7,6 +7,6 @@ public abstract partial class BasePropertyDeclarationSyntax : MemberDeclarationS
     }
 
     public abstract SyntaxToken Identifier { get; }
-    public abstract ArrowTypeClauseSyntax Type { get; }
+    public abstract TypeAnnotationClauseSyntax Type { get; }
     public abstract AccessorListSyntax? AccessorList { get; }
 }
