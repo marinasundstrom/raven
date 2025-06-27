@@ -30,6 +30,6 @@ public partial class ParameterListSyntax : SyntaxNode
 
 public static partial class SyntaxFactory
 {
-    public static ParameterListSyntax TypeParameterList(SeparatedSyntaxList<ParameterSyntax> parameters)
+    public static ParameterListSyntax ParameterList(SeparatedSyntaxList<ParameterSyntax> parameters)
         => new ParameterListSyntax(parameters);
 }

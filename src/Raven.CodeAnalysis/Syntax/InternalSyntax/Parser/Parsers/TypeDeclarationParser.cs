@@ -99,6 +99,10 @@ internal class TypeDeclarationParser : SyntaxParser
             {
                 return ParseMethodDeclarationOrPropertyDeclaration(modifiers);
             }
+            else if (PeekToken(1).Kind == SyntaxKind.OpenBracketToken)
+            {
+                return ParseIndexerDeclaration(modifiers, keywordOrIdentifier);
+            }
             else
             {
                 return ParsePropertyDeclaration(modifiers, keywordOrIdentifier);
@@ -112,8 +116,11 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             if (!ConsumeTokenOrMissing(SyntaxKind.InitKeyword, out identifier))
             {
-                // Init should be a constructordeclarationbtw BTW
-                // Invalid name
+                if (!ConsumeTokenOrMissing(SyntaxKind.SelfKeyword, out identifier))
+                {
+                    // Init should be a constructordeclarationbtw BTW
+                    // Invalid name
+                }
             }
         }
 
@@ -126,7 +133,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         // Remove below
 
-        return ParsePropertyDeclaration(modifiers, identifier);
+        throw new Exception();
     }
 
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclaration(SyntaxList modifiers, SyntaxToken identifier)
@@ -193,7 +200,36 @@ internal class TypeDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return PropertyDeclaration(modifiers, identifier, typeAnnotation, accessorList, terminatorToken);
+        return PropertyDeclaration(modifiers, identifier, typeAnnotation, accessorList, null, terminatorToken);
+    }
+
+    private IndexerDeclarationSyntax ParseIndexerDeclaration(SyntaxList modifiers, SyntaxToken identifier)
+    {
+        ReadToken();
+
+        var parameterList = ParseBracketedParameterList();
+
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+
+        var token = PeekToken();
+
+        AccessorListSyntax? accessorList = null;
+        if (token.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            accessorList = ParseAccessorList();
+        }
+        else
+        {
+            // Handle skipped trivia
+
+            //var lastToken = typeAnnotation.GetLastToken();
+            //var newToken = token.WithTrailingTrivia();
+            //typeAnnotation = (ArrowTypeClauseSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return IndexerDeclaration(modifiers, identifier, parameterList, typeAnnotation, accessorList, null, terminatorToken);
     }
 
     private AccessorListSyntax ParseAccessorList()
@@ -363,5 +399,48 @@ internal class TypeDeclarationParser : SyntaxParser
         }
 
         return null;
+    }
+
+    public BracketedParameterListSyntax ParseBracketedParameterList()
+    {
+        var openBracketToken = ReadToken();
+
+        List<GreenNode> parameterList = new List<GreenNode>();
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.IsKind(SyntaxKind.CloseBracketToken))
+                break;
+
+            SyntaxList modifiers = SyntaxList.Empty;
+
+            SyntaxToken modifier;
+            if (ConsumeToken(SyntaxKind.RefKeyword, out modifier) || ConsumeToken(SyntaxKind.OutKeyword, out modifier) || ConsumeToken(SyntaxKind.InKeyword, out modifier))
+            {
+                modifiers = modifiers.Add(modifier);
+            }
+
+            if (!ConsumeToken(SyntaxKind.IdentifierToken, out var name))
+            {
+
+            }
+
+            var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+
+            parameterList.Add(Parameter(modifiers, name, typeAnnotation));
+
+            var commaToken = PeekToken();
+            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            {
+                ReadToken();
+                parameterList.Add(commaToken);
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+
+        return BracketedParameterList(openBracketToken, List(parameterList.ToArray()), closeBracketToken);
     }
 }

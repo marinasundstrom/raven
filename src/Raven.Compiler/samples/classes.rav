@@ -20,11 +20,25 @@ class Foo {
             + arg
     }
 
-    public Item : string {
+    public Name : string {
+        get {
+            return name
+        }
+
+        set -> 2
+    }
+
+    // Indexer
+    public self[x: int] : string {
         get {
             return item
         }
 
         set -> 2
+    }
+
+    // Invocation operator: foo(x: int) -> string
+    public self(x: int) -> string {
+        return foo;
     }
 }
