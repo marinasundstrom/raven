@@ -95,9 +95,13 @@ internal class TypeDeclarationParser : SyntaxParser
         }
         else
         {
-            if (PeekToken(1).Kind == SyntaxKind.OpenParenToken)
+            if (keywordOrIdentifier.IsKind(SyntaxKind.InitKeyword))
             {
-                return ParseMethodDeclarationOrPropertyDeclaration(modifiers);
+                return ParseConstructorDeclaration(modifiers, keywordOrIdentifier);
+            }
+            else if (PeekToken(1).Kind == SyntaxKind.OpenParenToken)
+            {
+                return ParseMethodOrConstructorDeclarationBase(modifiers);
             }
             else if (PeekToken(1).Kind == SyntaxKind.OpenBracketToken)
             {
@@ -110,17 +114,52 @@ internal class TypeDeclarationParser : SyntaxParser
         }
     }
 
-    private MemberDeclarationSyntax ParseMethodDeclarationOrPropertyDeclaration(SyntaxList modifiers)
+    private MemberDeclarationSyntax ParseConstructorDeclaration(SyntaxList modifiers, SyntaxToken initKeyword)
+    {
+        ReadToken();
+
+        ConsumeTokenOrNull(SyntaxKind.IdentifierToken, out var identifier);
+
+        // Check is open paren
+
+        var parameterList = ParseParameterList();
+        
+        var token = PeekToken();
+
+        BlockSyntax? body = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+
+        if (token.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
+        }
+        else if (token.IsKind(SyntaxKind.ArrowToken))
+        {
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        if (expressionBody is not null)
+        {
+            return ConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, expressionBody, terminatorToken);
+        }
+        else if (body is not null)
+        {
+            return ConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, body, terminatorToken);
+        }
+
+        throw new Exception();
+    }
+
+    private MemberDeclarationSyntax ParseMethodOrConstructorDeclarationBase(SyntaxList modifiers)
     {
         if (!ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier))
         {
-            if (!ConsumeTokenOrMissing(SyntaxKind.InitKeyword, out identifier))
+            if (!ConsumeTokenOrMissing(SyntaxKind.SelfKeyword, out identifier))
             {
-                if (!ConsumeTokenOrMissing(SyntaxKind.SelfKeyword, out identifier))
-                {
-                    // Init should be a constructordeclarationbtw BTW
-                    // Invalid name
-                }
+                // Init should be a constructordeclarationbtw BTW
+                // Invalid name
             }
         }
 

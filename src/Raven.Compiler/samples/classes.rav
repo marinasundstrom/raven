@@ -4,41 +4,53 @@ import System
 
 Console.WriteLine("Hello"); let x = 2
 
-//let f = Foo(t: 42)
-//let x = f.Bar(arg: 2)
+//let user = Person(42)
+//let user = Person.WithName("John").SetAge(30).AddRole("admin")
 
-class Foo {
-    let a = 2
-    var b : int = 2
+class Person {
+    let species = "Homo sapiens"
+    var age: int = 0
+    var name: string
+    var roles: List<string> = []
 
-    public init(t : int) {
-        b = t
+    // Primary constructor
+    public init(age: int) {
+        self.age = age
     }
 
-    public Bar(arg : int) -> int {
-        return self.x 
-            + arg
+    // Named constructor
+    public init WithName(name: string) {
+        self.name = name
     }
 
-    public Name : string {
+    // Regular method
+    public AddRole(role: string) -> Person {
+        roles.Add(role)
+        return self
+    }
+
+    // Computed property
+    public Name: string {
         get {
             return name
         }
-
-        set -> 2
-    }
-
-    // Indexer
-    public self[x: int] : string {
-        get {
-            return item
+        set {
+            name = value
         }
-
-        set -> 2
     }
 
-    // Invocation operator: foo(x: int) -> string
-    public self(x: int) -> string {
-        return foo;
+    // Indexer: e.g., person[0]
+    public self[index: int]: string {
+        get {
+            return roles[index]
+        }
+        set {
+            roles[index] = value
+        }
+    }
+
+    // Invocation operator: e.g., person(2025)
+    public self(year: int) -> string {
+        return $"Name: {name}, Age in {year}: {year - (System.DateTime.Now.Year - age)}"
     }
 }

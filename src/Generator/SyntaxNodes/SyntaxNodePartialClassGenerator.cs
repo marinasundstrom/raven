@@ -284,7 +284,20 @@ public class SyntaxNodePartialClassGenerator
 
     private static bool IsSyntaxToken(ITypeSymbol typeSymbol)
     {
-        return typeSymbol.Name == "SyntaxToken"; // && typeSymbol.ContainingNamespace.ToDisplayString() == "Microsoft.CodeAnalysis";
+        var unwrapped = UnwrapNullable(typeSymbol);
+        return unwrapped.Name == "SyntaxToken";
+    }
+
+    private static ITypeSymbol UnwrapNullable(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is INamedTypeSymbol namedType &&
+            namedType.IsGenericType &&
+            namedType.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
+        {
+            return namedType.TypeArguments[0];
+        }
+
+        return typeSymbol;
     }
 
     private static bool IsSyntaxList(ITypeSymbol typeSymbol)
@@ -333,69 +346,110 @@ public class SyntaxNodePartialClassGenerator
 
     private static PropertyDeclarationSyntax GenerateSyntaxTokenProperty(int index, INamedTypeSymbol type, IPropertySymbol property, TypeSyntax propertyType, SyntaxToken propertyName)
     {
-        List<SyntaxToken> modifiers = [Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword)];
+        var modifiers = new List<SyntaxToken> { Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword) };
 
         if (property.IsOverride)
-        {
             modifiers.Insert(1, Token(SyntaxKind.OverrideKeyword));
-        }
 
-        var body = ArrowExpressionClause(
-                        ObjectCreationExpression(
-                            IdentifierName("SyntaxToken"))
+        var greenSlotAccess = InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName("Green"),
+                IdentifierName("GetSlot")))
+            .WithArgumentList(
+                ArgumentList(
+                    SingletonSeparatedList(
+                        Argument(
+                            LiteralExpression(
+                                SyntaxKind.NumericLiteralExpression,
+                                Literal(index))))));
+
+        var greenTypeName = ParseTypeName("Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken");
+
+        bool isNullable = propertyType is NullableTypeSyntax;
+
+        if (!isNullable)
+        {
+            // Expression-bodied non-nullable property
+            return PropertyDeclaration(propertyType, propertyName)
+                .AddModifiers(modifiers.ToArray())
+                .WithExpressionBody(
+                    ArrowExpressionClause(
+                        ObjectCreationExpression(IdentifierName("SyntaxToken"))
                         .WithArgumentList(
                             ArgumentList(
-                                SeparatedList<ArgumentSyntax>(
-                                    new SyntaxNodeOrToken[]{
-                                        Argument(
-                                            BinaryExpression(
-                                                SyntaxKind.AsExpression,
-                                                InvocationExpression(
-                                                    MemberAccessExpression(
-                                                        SyntaxKind.SimpleMemberAccessExpression,
-                                                        IdentifierName("Green"),
-                                                        IdentifierName("GetSlot")))
-                                                .WithArgumentList(
-                                                    ArgumentList(
-                                                        SingletonSeparatedList<ArgumentSyntax>(
-                                                            Argument(
-                                                                LiteralExpression(
-                                                                    SyntaxKind.NumericLiteralExpression,
-                                                                    Literal(index)))))),
-                                                QualifiedName(
-                                                    QualifiedName(
-                                                        QualifiedName(
-                                                            QualifiedName(
-                                                                IdentifierName("Raven"),
-                                                                IdentifierName("CodeAnalysis")),
-                                                            IdentifierName("Syntax")),
-                                                        IdentifierName("InternalSyntax")),
-                                                    IdentifierName("SyntaxToken")))),
-                                        Token(SyntaxKind.CommaToken),
-                                        Argument(
-                                            ThisExpression()),
-                                        Token(SyntaxKind.CommaToken),
-                                        Argument(
-                                            BinaryExpression(
-                                                SyntaxKind.AddExpression,
-                                                IdentifierName("Position"),
-                                                InvocationExpression(
-                                                    MemberAccessExpression(
-                                                        SyntaxKind.SimpleMemberAccessExpression,
-                                                        IdentifierName("Green"),
-                                                        IdentifierName("GetChildStartPosition")))
-                                                .WithArgumentList(
-                                                    ArgumentList(
-                                                        SingletonSeparatedList<ArgumentSyntax>(
-                                                            Argument(LiteralExpression(
-                                                                SyntaxKind.NumericLiteralExpression,
-                                                                Literal(index))))))))
-                                        }))));
+                                SeparatedList(new[]
+                                {
+                                Argument(
+                                    BinaryExpression(SyntaxKind.AsExpression, greenSlotAccess, greenTypeName)),
+                                Argument(ThisExpression()),
+                                Argument(
+                                    BinaryExpression(
+                                        SyntaxKind.AddExpression,
+                                        IdentifierName("Position"),
+                                        InvocationExpression(
+                                            MemberAccessExpression(
+                                                SyntaxKind.SimpleMemberAccessExpression,
+                                                IdentifierName("Green"),
+                                                IdentifierName("GetChildStartPosition")))
+                                        .WithArgumentList(
+                                            ArgumentList(
+                                                SingletonSeparatedList(
+                                                    Argument(
+                                                        LiteralExpression(
+                                                            SyntaxKind.NumericLiteralExpression,
+                                                            Literal(index))))))))
 
+                                })))))
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+        }
+
+        // Full-body nullable property
         return PropertyDeclaration(propertyType, propertyName)
             .AddModifiers(modifiers.ToArray())
-            .WithExpressionBody(body).WithSemicolonToken(
-                        Token(SyntaxKind.SemicolonToken));
+            .WithAccessorList(
+                AccessorList(
+                    SingletonList(
+                        AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                        .WithBody(
+                            Block(
+                                SingletonList<StatementSyntax>(
+                                    ReturnStatement(
+                                        ConditionalExpression(
+                                            BinaryExpression(
+                                                SyntaxKind.EqualsExpression,
+                                                greenSlotAccess,
+                                                LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                                            LiteralExpression(SyntaxKind.NullLiteralExpression),
+                                            ObjectCreationExpression(IdentifierName("SyntaxToken"))
+                                            .WithArgumentList(
+                                                ArgumentList(
+                                                    SeparatedList(new[]
+                                                    {
+                                                    Argument(
+                                                        BinaryExpression(
+                                                            SyntaxKind.AsExpression,
+                                                            greenSlotAccess,
+                                                            greenTypeName)),
+                                                    Argument(ThisExpression()),
+                                                    Argument(
+                                                        BinaryExpression(
+                                                            SyntaxKind.AddExpression,
+                                                            IdentifierName("Position"),
+                                                            InvocationExpression(
+                                                                MemberAccessExpression(
+                                                                    SyntaxKind.SimpleMemberAccessExpression,
+                                                                    IdentifierName("Green"),
+                                                                    IdentifierName("GetChildStartPosition")))
+                                                            .WithArgumentList(
+                                                                ArgumentList(
+                                                                    SingletonSeparatedList(
+                                                                        Argument(
+                                                                            LiteralExpression(
+                                                                                SyntaxKind.NumericLiteralExpression,
+                                                                                Literal(index))))))))
+
+                                                    })))))))))));
     }
 
     private static PropertyDeclarationSyntax GenerateSyntaxListProperty(int index, IPropertySymbol property, INamedTypeSymbol type, TypeSyntax propertyType, SyntaxToken propertyName)
