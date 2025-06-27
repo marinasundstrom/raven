@@ -123,7 +123,7 @@ internal class TypeDeclarationParser : SyntaxParser
         // Check is open paren
 
         var parameterList = ParseParameterList();
-        
+
         var token = PeekToken();
 
         BlockSyntax? body = null;
@@ -133,7 +133,7 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
         }
-        else if (token.IsKind(SyntaxKind.ArrowToken))
+        else if (token.IsKind(SyntaxKind.FatArrowToken))
         {
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
         }
@@ -196,7 +196,7 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
         }
-        else if (token.IsKind(SyntaxKind.ArrowToken))
+        else if (token.IsKind(SyntaxKind.FatArrowToken))
         {
             expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
         }
@@ -310,7 +310,7 @@ internal class TypeDeclarationParser : SyntaxParser
             {
                 body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
             }
-            else if (token.IsKind(SyntaxKind.ArrowToken))
+            else if (token.IsKind(SyntaxKind.FatArrowToken))
             {
                 expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
             }

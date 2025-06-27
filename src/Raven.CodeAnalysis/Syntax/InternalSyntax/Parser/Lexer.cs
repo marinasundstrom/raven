@@ -303,6 +303,11 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.EqualsEqualsToken, "==");
                         }
+                        else if (PeekChar(out ch2) && ch2 == '>')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.FatArrowToken, "=>");
+                        }
                         return new Token(SyntaxKind.EqualsToken, chStr);
 
                     case '|':

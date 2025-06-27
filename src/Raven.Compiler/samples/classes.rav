@@ -41,12 +41,8 @@ class Person {
 
     // Indexer: e.g., person[0]
     public self[index: int]: string {
-        get {
-            return roles[index]
-        }
-        set {
-            roles[index] = value
-        }
+        get => roles[index];
+        set => roles[index] = value
     }
 
     // Invocation operator: e.g., person(2025)

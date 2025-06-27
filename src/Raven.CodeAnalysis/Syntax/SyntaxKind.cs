@@ -135,6 +135,7 @@ public enum SyntaxKind
     // === Tokens === (1000–1099)
 
     ArrowToken = 1000,
+    FatArrowToken = 1001,
 
     // Identifiers & Literals
     IdentifierToken = 1010,
