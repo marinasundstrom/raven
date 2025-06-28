@@ -95,11 +95,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.GreaterThanToken:
                 return SyntaxKind.GreaterThanExpression;
 
-            case SyntaxKind.LessThanEqualsToken:
-                return SyntaxKind.LessThanOrEqualExpression;
+            case SyntaxKind.LessThanOrEqualsToken:
+                return SyntaxKind.LessThanOrEqualsExpression;
 
-            case SyntaxKind.GreaterOrEqualsToken:
-                return SyntaxKind.GreaterThanOrEqualExpression;
+            case SyntaxKind.GreaterThanOrEqualsToken:
+                return SyntaxKind.GreaterThanOrEqualsExpression;
 
                 /*
                 case SyntaxKind.LogicalAndToken:
@@ -152,8 +152,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
             {
                 case SyntaxKind.GreaterThanToken:
                 case SyntaxKind.LessThanToken:
-                case SyntaxKind.GreaterOrEqualsToken:
-                case SyntaxKind.LessThanEqualsToken:
+                case SyntaxKind.GreaterThanOrEqualsToken:
+                case SyntaxKind.LessThanOrEqualsToken:
                 case SyntaxKind.EqualsEqualsToken:
                 case SyntaxKind.NotEqualsToken:
                     ReadToken();
@@ -294,7 +294,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var parameterList = new StatementSyntaxParser(this).ParseParameterList();
 
-        var returnParameterAnnotation = new TypeAnnotationSyntaxParser(this).ParseReturnTypeAnnotation();
+        var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
         if (!ConsumeToken(SyntaxKind.ArrowToken, out var fatArrowToken))
         {
@@ -524,6 +524,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             case SyntaxKind.IdentifierToken:
                 return new NameSyntaxParser(this).ParseSimpleName();
+
+            case SyntaxKind.SelfKeyword:
+                ReadToken();
+                return SelfExpression(token);
 
             case SyntaxKind.TrueKeyword:
                 ReadToken();
@@ -761,4 +765,14 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return WhileStatement(whileKeyword, condition!, statement!, Diagnostics);
     }
 
+    internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()
+    {
+        var arrowToken = ReadToken();
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(true);
+
+        return ArrowExpressionClause(arrowToken, expression);
+    }
 }

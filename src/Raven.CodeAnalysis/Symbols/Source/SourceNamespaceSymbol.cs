@@ -32,6 +32,9 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;
 
+    public override string MetadataName => IsGlobalNamespace ? "" : ToMetadataName();
+
+
     internal void AddMember(ISymbol member) => _members.Add(member);
 
     public ImmutableArray<ISymbol> GetMembers() => _members.ToImmutableArray();

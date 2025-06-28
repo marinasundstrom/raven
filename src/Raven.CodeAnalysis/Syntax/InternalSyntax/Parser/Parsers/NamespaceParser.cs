@@ -39,6 +39,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             ConsumeTokenOrNull(SyntaxKind.SemicolonToken, out var terminatorToken);
 
             return NamespaceDeclaration(
+                SyntaxList.Empty,
                 namespaceKeyword, name, openBraceToken,
                 new SyntaxList(importDirectives.ToArray()), new SyntaxList(memberDeclarations.ToArray()),
                 closeBraceToken, terminatorToken, Diagnostics);
@@ -51,25 +52,23 @@ internal class NamespaceDeclarationParser : SyntaxParser
     {
         DiagnosticInfo[]? diagnostics = null;
 
-        if (!ConsumeTokenOrMissing(SyntaxKind.SemicolonToken, out var terminatorToken))
-        {
-            diagnostics = [
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()
-                ) ];
-        }
+        SetTreatNewlinesAsTokens(true);
 
-        var fileScopedNamespaceDeclaration = FileScopedNamespaceDeclaration(
-            namespaceKeyword, name, terminatorToken,
-            SyntaxList.Empty, SyntaxList.Empty, diagnostics);
+        TryConsumeTerminator(out var terminatorToken);
+
+        SetTreatNewlinesAsTokens(false);
 
         while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken))
         {
             ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
+
+            SetTreatNewlinesAsTokens(false);
         }
 
-        return fileScopedNamespaceDeclaration;
+        return FileScopedNamespaceDeclaration(
+            SyntaxList.Empty,
+            namespaceKeyword, name, terminatorToken,
+            List(importDirectives), List(memberDeclarations), diagnostics);
     }
 
     private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken, List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations)
@@ -85,6 +84,18 @@ internal class NamespaceDeclarationParser : SyntaxParser
             var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
             memberDeclarations.Add(namespaceDeclaration);
+        }
+        else if (nextToken.IsKind(SyntaxKind.EnumKeyword))
+        {
+            var enumDeclaration = new EnumDeclarationParser(this).Parse();
+
+            memberDeclarations.Add(enumDeclaration);
+        }
+        else if (nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword))
+        {
+            var typeDeclaration = new TypeDeclarationParser(this).Parse();
+
+            memberDeclarations.Add(typeDeclaration);
         }
         else
         {

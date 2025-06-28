@@ -138,7 +138,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
         return node.Update(node.Identifier
-            .WithTrailingTrivia(SyntaxFactory.Space), (TypeAnnotationSyntax)VisitTypeAnnotation(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
+            .WithTrailingTrivia(SyntaxFactory.Space), (TypeAnnotationClauseSyntax)VisitTypeAnnotationClause(node.TypeAnnotation)!, (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.Initializer!)!);
     }
 
     public override SyntaxNode? VisitEqualsValueClause(EqualsValueClauseSyntax node)
@@ -183,7 +183,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(namespaceKeyword, name, terminatorToken, VisitList(node.Imports)!, VisitList(node.Members)!);
+        return node.Update(node.Modifiers, namespaceKeyword, name, terminatorToken, VisitList(node.Imports)!, VisitList(node.Members)!);
     }
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
@@ -200,16 +200,16 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        var name = (IdentifierNameSyntax)VisitIdentifierName(node.Name)!
+        var identifier = VisitToken(node.Identifier)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
         var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        var returnType = (ReturnTypeAnnotationSyntax)VisitReturnTypeAnnotation(node.ReturnType)!
+        var returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(node.FuncKeyword, name, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body))
+        return node.Update(node.Modifiers, identifier, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body), null, node.TerminatorToken)
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed
@@ -243,10 +243,10 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var name = node.Identifier.WithTrailingTrivia(SyntaxFactory.Space);
 
         return node.Update(node.Modifiers, name,
-            node.TypeAnnotation is not null ? (TypeAnnotationSyntax?)VisitTypeAnnotation(node.TypeAnnotation) : null);
+            node.TypeAnnotation is not null ? (TypeAnnotationClauseSyntax?)VisitTypeAnnotationClause(node.TypeAnnotation) : null);
     }
 
-    public override SyntaxNode? VisitTypeAnnotation(TypeAnnotationSyntax node)
+    public override SyntaxNode? VisitTypeAnnotationClause(TypeAnnotationClauseSyntax node)
     {
         var colonToken = node.ColonToken.WithTrailingTrivia(SyntaxFactory.Space);
 

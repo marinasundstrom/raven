@@ -17,7 +17,7 @@ partial class BlockBinder : Binder
         _containingSymbol = containingSymbol;
     }
 
-    public ISymbol ContainingSymbol => _containingSymbol;
+    public override ISymbol ContainingSymbol => _containingSymbol;
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {
@@ -224,6 +224,7 @@ partial class BlockBinder : Binder
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
+            SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
@@ -231,6 +232,18 @@ partial class BlockBinder : Binder
         CacheBoundNode(syntax, boundNode);
 
         return boundNode;
+    }
+
+    private BoundExpression BindSelfExpression(SelfExpressionSyntax selfExpression)
+    {
+        if (_containingSymbol is IMethodSymbol method && !method.IsStatic)
+        {
+            var containingType = method.ContainingType;
+            return new BoundSelfExpression(containingType);
+        }
+
+        //_diagnostics.ReportSelfNotAllowed(selfExpression.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindTupleExpression(TupleExpressionSyntax tupleExpression)

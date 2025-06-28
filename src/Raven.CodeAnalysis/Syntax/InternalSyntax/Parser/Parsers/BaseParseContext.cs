@@ -12,6 +12,7 @@ internal class BaseParseContext : ParseContext
     private int _position;
     private bool _treatNewlinesAsTokens;
     private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
+    private readonly List<SyntaxTrivia> _pendingTrivia = new();
     private readonly StringBuilder _stringBuilder = new StringBuilder();
 
     public BaseParseContext(ILexer lexer, int position = 0) : base()
@@ -132,6 +133,12 @@ internal class BaseParseContext : ParseContext
         }
 
         SyntaxTriviaList trailingTrivia = ReadTrivia(isTrailingTrivia: true);
+
+        if (_pendingTrivia.Count > 0)
+        {
+            leadingTrivia = new SyntaxTriviaList(_pendingTrivia.Concat(leadingTrivia.LeadingTrivia).ToArray());
+            _pendingTrivia.Clear();
+        }
 
         return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, leadingTrivia, trailingTrivia, token.GetDiagnostics());
     }
@@ -349,5 +356,28 @@ internal class BaseParseContext : ParseContext
     private static bool IsNewLine(Token token)
     {
         return token.Kind == SyntaxKind.LineFeedToken || token.Kind == SyntaxKind.NewLineToken;
+    }
+
+    public void SkipUntil(SyntaxKind expectedKind)
+    {
+        var skippedTokens = new List<SyntaxToken>();
+
+        while (true)
+        {
+            var token = PeekToken();
+            if (token.Kind == expectedKind || token.Kind == SyntaxKind.EndOfFileToken)
+                break;
+
+            skippedTokens.Add(ReadToken());
+        }
+
+        if (skippedTokens.Count > 0)
+        {
+            var trivia = new SyntaxTrivia(
+                new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
+            );
+
+            _pendingTrivia.Add(trivia);
+        }
     }
 }

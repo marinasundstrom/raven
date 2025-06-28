@@ -9,7 +9,7 @@ internal partial class SimpleLambdaExpressionSyntax : LambdaExpressionSyntax
     public SimpleLambdaExpressionSyntax(
         SyntaxToken funcKeyword,
         ParameterSyntax parameter,
-        ReturnTypeAnnotationSyntax returnType,
+        ArrowTypeClauseSyntax returnType,
         SyntaxToken arrowToken,
         ExpressionSyntax? expressionBody,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
@@ -33,7 +33,7 @@ internal static partial class SyntaxFactory
     public static SimpleLambdaExpressionSyntax SimpleLambdaExpression(
         SyntaxToken funcKeyword,
         ParameterSyntax parameter,
-        ReturnTypeAnnotationSyntax returnType,
+        ArrowTypeClauseSyntax returnType,
         SyntaxToken arrowToken,
         ExpressionSyntax? expressionBody,
         IEnumerable<DiagnosticInfo>? diagnostics = null)

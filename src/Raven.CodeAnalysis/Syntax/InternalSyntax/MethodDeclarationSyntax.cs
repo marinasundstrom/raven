@@ -4,21 +4,69 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
 {
     public MethodDeclarationSyntax(
-        SyntaxToken funcKeyword,
-        IdentifierNameSyntax name,
+    SyntaxList modifiers,
+    SyntaxToken identifier,
+    ParameterListSyntax parameters,
+    ArrowTypeClauseSyntax returnTypeAnnotation,
+    BlockSyntax? body,
+    ArrowExpressionClauseSyntax? expressionBody,
+    SyntaxToken? terminatorToken,
+    IEnumerable<DiagnosticInfo>? diagnostics = null)
+    : base(SyntaxKind.MethodDeclaration,
+          [
+                  modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
+                      identifier ?? throw new ArgumentNullException(nameof(identifier)),
+                      parameters ?? throw new ArgumentNullException(nameof(parameters)),
+                      returnTypeAnnotation,
+                      body,
+                      expressionBody,
+                      terminatorToken
+          ],
+          diagnostics)
+    {
+    }
+
+    public MethodDeclarationSyntax(
+        SyntaxList modifiers,
+        SyntaxToken identifier,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         BlockSyntax body,
+        SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.MethodDeclaration,
               [
-                      funcKeyword ?? throw new ArgumentNullException(nameof(funcKeyword)),
-                      name ?? throw new ArgumentNullException(nameof(name)),
+                      modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
+                      identifier ?? throw new ArgumentNullException(nameof(identifier)),
                       parameters ?? throw new ArgumentNullException(nameof(parameters)),
-                      returnTypeAnnotation ?? throw new ArgumentNullException(nameof(returnTypeAnnotation)),
+                      returnTypeAnnotation,
                       body ?? throw new ArgumentNullException(nameof(body)),
+                      null,
+                      terminatorToken
               ],
               diagnostics)
+    {
+    }
+
+    public MethodDeclarationSyntax(
+        SyntaxList modifiers,
+        SyntaxToken identifier,
+        ParameterListSyntax parameters,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
+        ArrowExpressionClauseSyntax expressionBody,
+        SyntaxToken? terminatorToken,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+    : base(SyntaxKind.MethodDeclaration,
+          [
+                  modifiers ?? throw new ArgumentNullException(nameof(modifiers)),
+                      identifier ?? throw new ArgumentNullException(nameof(identifier)),
+                      parameters ?? throw new ArgumentNullException(nameof(parameters)),
+                      returnTypeAnnotation,
+                      null,
+                      expressionBody ?? throw new ArgumentNullException(nameof(expressionBody)),
+                      terminatorToken,
+          ],
+          diagnostics)
     {
     }
 }
@@ -26,11 +74,22 @@ internal partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
 internal static partial class SyntaxFactory
 {
     public static MethodDeclarationSyntax MethodDeclaration(
-        SyntaxToken funcKeyword,
-        IdentifierNameSyntax name,
+        SyntaxList modifiers,
+        SyntaxToken identifier,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         BlockSyntax body,
+        SyntaxToken? terminatorToken,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-        => new(funcKeyword, name, parameters, returnTypeAnnotation, body, diagnostics);
+        => new(modifiers, identifier, parameters, returnTypeAnnotation, body, terminatorToken, diagnostics);
+
+    public static MethodDeclarationSyntax MethodDeclaration(
+        SyntaxList modifiers,
+        SyntaxToken identifier,
+        ParameterListSyntax parameters,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
+        ArrowExpressionClauseSyntax expressionBody,
+        SyntaxToken? terminatorToken,
+        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        => new(modifiers, identifier, parameters, returnTypeAnnotation, expressionBody, terminatorToken, diagnostics);
 }

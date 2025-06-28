@@ -19,7 +19,7 @@ SymbolEqualityComparer.Default.Equals(source, destination)
 
 The representation of an array type is `ArrayTypeSymbol`.
 
-Closed generic types are `ConstrucedNamedTypeSymbols` that have "SubstituteMember" with the type parameters substituted by the type arguments.
+Closed generic types are `ConstructedNamedTypeSymbols` that have "SubstituteMember" with the type parameters substituted by the type arguments.
 
 Some type symbols are specialized, exists in the language or at semantic analysis, and thus have no equivalent in .NET speak. That include `UnionTypeSymbol` and `TupleTypeSymbol`, both implementing from `INamedTypeSymbol`.
 

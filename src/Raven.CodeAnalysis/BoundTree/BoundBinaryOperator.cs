@@ -120,8 +120,8 @@ internal partial class BoundBinaryOperator
             SyntaxKind.NotEqualsToken => operatorKind == BinaryOperatorKind.Inequality,
             SyntaxKind.GreaterThanToken => operatorKind == BinaryOperatorKind.GreaterThan,
             SyntaxKind.LessThanToken => operatorKind == BinaryOperatorKind.LessThan,
-            SyntaxKind.GreaterOrEqualsToken => operatorKind == BinaryOperatorKind.GreaterThanOrEqual,
-            SyntaxKind.LessThanEqualsToken => operatorKind == BinaryOperatorKind.LessThanOrEqual,
+            SyntaxKind.GreaterThanOrEqualsToken => operatorKind == BinaryOperatorKind.GreaterThanOrEqual,
+            SyntaxKind.LessThanOrEqualsToken => operatorKind == BinaryOperatorKind.LessThanOrEqual,
             _ => false,
         };
     }

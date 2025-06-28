@@ -1,0 +1,58 @@
+/*
+ * WIP
+ * */
+ 
+//namespace Test
+
+import System
+
+Console.WriteLine("Hello"); let x = 2
+
+//let user = Person(42)
+//let user = Person.WithName("John").SetAge(30).AddRole("admin")
+
+class Person {
+    let species = "Homo sapiens"
+    var age: int = 0
+    var name: string
+    var roles: List<string> = []
+
+    // Primary constructor
+    public init(age: int) {
+        self.age = age
+    }
+
+    // Named constructor
+    public init WithName(name: string) {
+        self.name = name
+    }
+
+    // Regular method
+    public AddRole(role: string) -> Person {
+        roles.Add(role)
+        return self
+    }
+
+    public Test() -> int => 2
+
+    // Computed property
+    public Name: string {
+        get {
+            return name
+        }
+        set {
+            name = value
+        }
+    }
+
+    // Indexer: e.g., person[0]
+    public self[index: int]: string {
+        get => roles[index];
+        set => roles[index] = value
+    }
+
+    // Invocation operator: e.g., person(2025)
+    public self(year: int) -> string {
+        return $"Name: {name}, Age in {year}: {year - (System.DateTime.Now.Year - age)}"
+    }
+}

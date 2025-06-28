@@ -7,7 +7,7 @@ internal partial class LocalFunctionStatementSyntax : StatementSyntax
         SyntaxToken funcKeyword,
         SyntaxToken identifier,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnTypeAnnotation,
+        ArrowTypeClauseSyntax returnTypeAnnotation,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(SyntaxKind.LocalFunctionStatement,
@@ -29,7 +29,7 @@ internal static partial class SyntaxFactory
         SyntaxToken funcKeyword,
         SyntaxToken identifier,
         ParameterListSyntax parameters,
-        ReturnTypeAnnotationSyntax returnType,
+        ArrowTypeClauseSyntax returnType,
         BlockSyntax body,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(funcKeyword, identifier, parameters, returnType, body, diagnostics);

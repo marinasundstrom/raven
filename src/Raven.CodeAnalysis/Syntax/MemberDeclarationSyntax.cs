@@ -7,5 +7,7 @@ public abstract class MemberDeclarationSyntax : SyntaxNode
     {
     }
 
+    public abstract SyntaxTokenList Modifiers { get; }
+
     public static implicit operator MemberDeclarationSyntax(StatementSyntax statement) => SyntaxFactory.GlobalStatement(statement);
 }

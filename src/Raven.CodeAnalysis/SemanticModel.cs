@@ -152,73 +152,57 @@ public partial class SemanticModel
 
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, Binder parentBinder)
     {
-        // Determine if there's a file-scoped namespace
-        var declaredNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
-
+        // Step 1: Resolve namespace
+        var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
         INamespaceSymbol targetNamespace;
+        NamespaceBinder namespaceBinder;
 
-        if (declaredNamespace is not null)
+        if (fileScopedNamespace != null)
         {
-            targetNamespace = Compilation.GetNamespaceSymbol(declaredNamespace.Name.ToString())
-                              ?? throw new Exception("Namespace not found");
+            targetNamespace = Compilation.GetNamespaceSymbol(fileScopedNamespace.Name.ToString())
+                             ?? throw new Exception("Namespace not found");
 
-            parentBinder = new NamespaceBinder(parentBinder, targetNamespace, Compilation);
+            namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace, Compilation, this);
+            parentBinder = namespaceBinder;
+            _binderCache[fileScopedNamespace] = namespaceBinder;
         }
         else
         {
-            targetNamespace = Compilation.GlobalNamespace;
-            parentBinder = new NamespaceBinder(parentBinder, targetNamespace, Compilation);
+            targetNamespace = Compilation.SourceGlobalNamespace;
+            namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace, Compilation, this);
+            parentBinder = namespaceBinder;
         }
 
-        // Process import/using directives
-        var imports = cu.Imports
+        // Step 2: Handle imports
+        var imports = cu.DescendantNodes().OfType<ImportDirectiveSyntax>()
             .Select(i => Compilation.GetNamespaceSymbol(i.NamespaceOrType.ToString()))
             .OfType<INamespaceSymbol>()
             .ToList();
 
-        var importBinder = new ImportBinder(parentBinder, imports);
+        var importBinder = new ImportBinder(namespaceBinder, imports);
+        parentBinder = importBinder;
 
-        var programClassSymbol = new SynthesizedProgramClassSymbol(Compilation, targetNamespace.AsSourceNamespace(), [cu.GetLocation()], [cu.GetReference()]);
+        // Step 3: Create synthesized Main
+        var programClass = new SynthesizedProgramClassSymbol(Compilation, targetNamespace.AsSourceNamespace(), [cu.GetLocation()], [cu.GetReference()]);
+        var mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()]);
+        var topLevelBinder = new TopLevelBinder(importBinder, this, mainMethod);
 
-        var mainMethodSymbol = new SynthesizedMainMethodSymbol(programClassSymbol, [cu.GetLocation()], [cu.GetReference()]);
+        _binderCache[cu] = topLevelBinder;
 
-        var semanticModel = this;
+        RegisterNamespaceMembers(cu, namespaceBinder, targetNamespace);
 
-        var topLevelBinder = new TopLevelBinder(importBinder, semanticModel, mainMethodSymbol);
-
-        foreach (var member in cu.Members.OfType<BaseTypeDeclarationSyntax>())
-        {
-            if (member is EnumDeclarationSyntax enumDeclaration)
-            {
-                var enumType = new SourceNamedTypeSymbol(enumDeclaration.Identifier.Text, Compilation.GetTypeByMetadataName("System.Enum"), TypeKind.Enum, targetNamespace.AsSourceNamespace(), null, targetNamespace.AsSourceNamespace(),
-                    [enumDeclaration.GetLocation()], [enumDeclaration.GetReference()]);
-
-                int value = 0;
-                foreach (var enumMember in enumDeclaration.Members)
-                {
-                    new SourceFieldSymbol(enumMember.Identifier.Text, enumType, true, true, value, enumType, enumType, targetNamespace.AsSourceNamespace(),
-                         [enumMember.GetLocation()], [enumMember.GetReference()]);
-                    value++;
-                }
-            }
-        }
-
-        // 🟢 Step 1: Predeclare all local functions
-        foreach (var stmt in cu.Members.OfType<GlobalStatementSyntax>())
+        // Step 5: Register and bind global statements
+        foreach (var stmt in cu.DescendantNodes().OfType<GlobalStatementSyntax>())
         {
             if (stmt.Statement is LocalFunctionStatementSyntax localFunc)
             {
                 var binder = GetBinder(localFunc, topLevelBinder);
                 if (binder is LocalFunctionBinder lfBinder)
-                {
-                    var symbol = lfBinder.GetMethodSymbol();
-                    topLevelBinder.DeclareLocalFunction(symbol);
-                }
+                    topLevelBinder.DeclareLocalFunction(lfBinder.GetMethodSymbol());
             }
         }
 
-        // 🟢 Step 2: Bind all statements
-        foreach (var stmt in cu.Members.OfType<GlobalStatementSyntax>())
+        foreach (var stmt in cu.DescendantNodes().OfType<GlobalStatementSyntax>())
         {
             topLevelBinder.BindGlobalStatement(stmt);
         }
@@ -226,9 +210,90 @@ public partial class SemanticModel
         return topLevelBinder;
     }
 
+    private void RegisterNamespaceMembers(SyntaxNode containerNode, Binder parentBinder, INamespaceSymbol parentNamespace)
+    {
+        foreach (var member in containerNode.ChildNodes())
+        {
+            switch (member)
+            {
+                case BaseNamespaceDeclarationSyntax nsDecl:
+                    {
+                        var nsSymbol = Compilation.GetNamespaceSymbol(nsDecl.Name.ToString())
+                                        ?? throw new Exception($"Namespace not found: {nsDecl.Name}");
+
+                        var nsBinder = new NamespaceBinder(parentBinder, nsSymbol, Compilation);
+                        _binderCache[nsDecl] = nsBinder;
+
+                        RegisterNamespaceMembers(nsDecl, nsBinder, nsSymbol);
+                        break;
+                    }
+
+                case ClassDeclarationSyntax classDecl:
+                    {
+                        var classSymbol = new SourceNamedTypeSymbol(
+                            classDecl.Identifier.Text,
+                            Compilation.GetTypeByMetadataName("System.Object"),
+                            TypeKind.Class,
+                            parentNamespace.AsSourceNamespace(),
+                            null,
+                            parentNamespace.AsSourceNamespace(),
+                            [classDecl.GetLocation()],
+                            [classDecl.GetReference()]
+                        );
+
+                        var classBinder = new TypeDeclarationBinder(parentBinder, classSymbol);
+                        _binderCache[classDecl] = classBinder;
+                        RegisterClassSymbol(classDecl, classSymbol);
+                        break;
+                    }
+
+                case EnumDeclarationSyntax enumDecl:
+                    {
+                        var enumSymbol = new SourceNamedTypeSymbol(
+                            enumDecl.Identifier.Text,
+                            Compilation.GetTypeByMetadataName("System.Enum"),
+                            TypeKind.Enum,
+                            parentNamespace.AsSourceNamespace(),
+                            null,
+                            parentNamespace.AsSourceNamespace(),
+                            [enumDecl.GetLocation()],
+                            [enumDecl.GetReference()]
+                        );
+
+                        int value = 0;
+                        foreach (var enumMember in enumDecl.Members)
+                        {
+                            _ = new SourceFieldSymbol(
+                                enumMember.Identifier.Text,
+                                enumSymbol,
+                                isStatic: true,
+                                isLiteral: true,
+                                constantValue: value++,
+                                enumSymbol,
+                                enumSymbol,
+                                parentNamespace.AsSourceNamespace(),
+                                [enumMember.GetLocation()],
+                                [enumMember.GetReference()]
+                            );
+                        }
+
+                        break;
+                    }
+            }
+        }
+    }
+
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
     => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
 
     internal void CacheBoundNode(SyntaxNode node, BoundNode bound)
         => _boundNodeCache[node] = bound;
+
+    private readonly Dictionary<ClassDeclarationSyntax, SourceNamedTypeSymbol> _classSymbols = new();
+
+    internal void RegisterClassSymbol(ClassDeclarationSyntax node, SourceNamedTypeSymbol symbol)
+        => _classSymbols[node] = symbol;
+
+    internal SourceNamedTypeSymbol GetClassSymbol(ClassDeclarationSyntax node)
+        => _classSymbols[node];
 }

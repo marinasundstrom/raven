@@ -12,7 +12,7 @@ internal partial class ReturnStatementSyntax : StatementSyntax
               [
                       returnKeyword ?? throw new ArgumentNullException(nameof(returnKeyword)),
                       expression,
-                      terminatorToken ?? throw new ArgumentNullException(nameof(terminatorToken))
+                      terminatorToken
               ],
               diagnostics)
     {

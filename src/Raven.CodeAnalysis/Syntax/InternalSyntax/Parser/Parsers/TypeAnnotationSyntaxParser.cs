@@ -1,12 +1,12 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-internal class TypeAnnotationSyntaxParser : SyntaxParser
+internal class TypeAnnotationClauseSyntaxParser : SyntaxParser
 {
-    public TypeAnnotationSyntaxParser(ParseContext parent) : base(parent)
+    public TypeAnnotationClauseSyntaxParser(ParseContext parent) : base(parent)
     {
     }
 
-    public TypeAnnotationSyntax? ParseTypeAnnotation()
+    public TypeAnnotationClauseSyntax? ParseTypeAnnotation()
     {
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {
@@ -18,7 +18,7 @@ internal class TypeAnnotationSyntaxParser : SyntaxParser
         return null;
     }
 
-    public ReturnTypeAnnotationSyntax? ParseReturnTypeAnnotation()
+    public ArrowTypeClauseSyntax? ParseReturnTypeAnnotation()
     {
         if (ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
         {

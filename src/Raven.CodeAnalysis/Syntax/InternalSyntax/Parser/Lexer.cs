@@ -114,7 +114,7 @@ internal class Lexer : ILexer
                         _stringBuilder.Append(ch);
                     }
 
-                    if (!SyntaxFacts.ParseReservedWord(_stringBuilder.ToString(), out syntaxKind))
+                    if (!SyntaxFacts.ParseReservedWord(GetStringBuilderValue(), out syntaxKind))
                     {
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
@@ -122,13 +122,13 @@ internal class Lexer : ILexer
                     switch (syntaxKind)
                     {
                         case SyntaxKind.TrueKeyword:
-                            return new Token(SyntaxKind.TrueKeyword, _stringBuilder.ToString(), true, _stringBuilder.Length, diagnostics: diagnostics);
+                            return new Token(SyntaxKind.TrueKeyword, GetStringBuilderValue(), true, _stringBuilder.Length, diagnostics: diagnostics);
 
                         case SyntaxKind.FalseKeyword:
-                            return new Token(SyntaxKind.FalseKeyword, _stringBuilder.ToString(), false, _stringBuilder.Length, diagnostics: diagnostics);
+                            return new Token(SyntaxKind.FalseKeyword, GetStringBuilderValue(), false, _stringBuilder.Length, diagnostics: diagnostics);
                     }
 
-                    return new Token(syntaxKind, _stringBuilder.ToString(), diagnostics: diagnostics);
+                    return new Token(syntaxKind, GetStringBuilderValue(), diagnostics: diagnostics);
                 }
                 else if (char.IsDigit(ch))
                 {
@@ -180,7 +180,7 @@ internal class Lexer : ILexer
                         ReadChar(); _stringBuilder.Append(ch);
                     }
 
-                    var text = _stringBuilder.ToString();
+                    var text = GetStringBuilderValue();
 
                     // Float literal
                     if (text.EndsWith("f", StringComparison.OrdinalIgnoreCase))
@@ -303,6 +303,11 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.EqualsEqualsToken, "==");
                         }
+                        else if (PeekChar(out ch2) && ch2 == '>')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.FatArrowToken, "=>");
+                        }
                         return new Token(SyntaxKind.EqualsToken, chStr);
 
                     case '|':
@@ -326,7 +331,7 @@ internal class Lexer : ILexer
                         if (PeekChar(out ch2) && ch2 == '=')
                         {
                             ReadChar();
-                            return new Token(SyntaxKind.LessThanEqualsToken, "<=");
+                            return new Token(SyntaxKind.LessThanOrEqualsToken, "<=");
                         }
                         return new Token(SyntaxKind.LessThanToken, chStr);
 
@@ -334,7 +339,7 @@ internal class Lexer : ILexer
                         if (PeekChar(out ch2) && ch2 == '=')
                         {
                             ReadChar();
-                            return new Token(SyntaxKind.GreaterOrEqualsToken, ">=");
+                            return new Token(SyntaxKind.GreaterThanOrEqualsToken, ">=");
                         }
                         return new Token(SyntaxKind.GreaterThanToken, chStr);
 
@@ -359,7 +364,7 @@ internal class Lexer : ILexer
                                 diagnostics.Add(DiagnosticInfo.Create(
                                     CompilerDiagnostics.UnterminatedCharacterLiteral,
                                     GetTokenStartPositionSpan()));
-                                return new Token(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
+                                return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue(), diagnostics: diagnostics);
                             }
 
                             char character;
@@ -373,7 +378,7 @@ internal class Lexer : ILexer
                                     diagnostics.Add(DiagnosticInfo.Create(
                                         CompilerDiagnostics.UnterminatedCharacterLiteral,
                                         GetTokenStartPositionSpan()));
-                                    return new Token(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
+                                    return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue(), diagnostics: diagnostics);
                                 }
 
                                 _stringBuilder.Append(ch); // escaped char
@@ -432,14 +437,14 @@ internal class Lexer : ILexer
                                 diagnostics.Add(DiagnosticInfo.Create(
                                     CompilerDiagnostics.UnterminatedCharacterLiteral,
                                     GetTokenStartPositionSpan()));
-                                return new Token(SyntaxKind.CharacterLiteralToken, _stringBuilder.ToString(), diagnostics: diagnostics);
+                                return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue(), diagnostics: diagnostics);
                             }
 
                             _stringBuilder.Append(ch); // closing quote
 
                             return new Token(
                                 SyntaxKind.CharacterLiteralToken,
-                                _stringBuilder.ToString(),
+                                GetStringBuilderValue(),
                                 character,
                                 _stringBuilder.Length,
                                 diagnostics: diagnostics);
@@ -472,9 +477,9 @@ internal class Lexer : ILexer
                             _stringBuilder.Append(ch2);
                         }
 
-                        var str = _stringBuilder.ToString();
+                        var str = GetStringBuilderValue();
 
-                        return new Token(SyntaxKind.StringLiteralToken, str, str[1..^1], diagnostics: diagnostics);
+                        return new Token(SyntaxKind.StringLiteralToken, str, string.Intern(str[1..^1]), diagnostics: diagnostics);
 
                     /*
 
@@ -484,18 +489,18 @@ internal class Lexer : ILexer
                     */
 
                     case '\t':
-                        return new Token(SyntaxKind.TabToken, "\t");
+                        return new Token(SyntaxKind.TabToken, string.Intern("\t"));
 
                     case '\n':
-                        return new Token(LineFeedTokenKind, "\n");
+                        return new Token(LineFeedTokenKind, string.Intern("\n"));
 
                     case '\r':
                         if (MergeCarriageReturnAndLineFeed && PeekChar(out ch2) && ch2 == '\n')
                         {
                             ReadChar();
-                            return new Token(CarriageReturnLineFeedTokenKind, "\r\n");
+                            return new Token(CarriageReturnLineFeedTokenKind, string.Intern("\r\n"));
                         }
-                        return new Token(SyntaxKind.CarriageReturnToken, "\r");
+                        return new Token(SyntaxKind.CarriageReturnToken, string.Intern("\r"));
 
                     case '\0':
                         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
@@ -513,6 +518,8 @@ internal class Lexer : ILexer
 
         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
     }
+
+    private string GetStringBuilderValue() => string.Intern(_stringBuilder.ToString());
 
     private TextSpan GetTokenStartPositionSpan() => new TextSpan(_tokenStartPosition, 0);
 
@@ -564,49 +571,4 @@ internal class Lexer : ILexer
     }
 
     public bool IsEndOfFile => _textReader.Peek() == -1;
-}
-
-public sealed class SeekableTextSource
-{
-    private readonly List<char> _buffer = new();
-    private readonly TextReader _reader;
-    private int _position;
-
-    public SeekableTextSource(TextReader reader)
-    {
-        _reader = reader;
-    }
-
-    public int Position => _position;
-
-    public void Restore(int position)
-    {
-        _position = position;
-    }
-
-    public int Save() => _position;
-
-    public char Peek()
-    {
-        EnsureBuffered(_position);
-        return _position < _buffer.Count ? _buffer[_position] : '\0';
-    }
-
-    public char Read()
-    {
-        EnsureBuffered(_position);
-        return _position < _buffer.Count ? _buffer[_position++] : '\0';
-    }
-
-    private void EnsureBuffered(int position)
-    {
-        while (_buffer.Count <= position)
-        {
-            int next = _reader.Read();
-            if (next == -1)
-                break;
-
-            _buffer.Add((char)next);
-        }
-    }
 }

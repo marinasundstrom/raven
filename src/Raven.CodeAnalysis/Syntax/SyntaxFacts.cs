@@ -30,11 +30,29 @@ public static class SyntaxFacts
         { "var", SyntaxKind.VarKeyword },
         { "void", SyntaxKind.VoidKeyword },
         { "while", SyntaxKind.WhileKeyword },
+        { "struct", SyntaxKind.StructKeyword },
+        { "class", SyntaxKind.ClassKeyword },
+        { "self", SyntaxKind.SelfKeyword },
+        { "prop", SyntaxKind.PropKeyword },
+        { "init", SyntaxKind.InitKeyword },
+        { "public", SyntaxKind.PublicKeyword },
+        { "private", SyntaxKind.PrivateKeyword },
+        { "internal", SyntaxKind.InternalKeyword },
+        { "protected", SyntaxKind.ProtectedKeyword },
+        { "static", SyntaxKind.StaticKeyword },
+        { "abstract", SyntaxKind.AbstractKeyword },
+        { "sealed", SyntaxKind.SealedKeyword },
+        { "override", SyntaxKind.OverrideKeyword },
+        { "get", SyntaxKind.GetKeyword },
+        { "set", SyntaxKind.SetKeyword }
     };
+
+    private static readonly HashSet<SyntaxKind> _keywordKinds =
+    [.. _keywordStrings.Values];
 
     public static bool IsKeywordKind(SyntaxKind kind)
     {
-        return kind >= SyntaxKind.VoidKeyword && kind <= SyntaxKind.InKeyword;
+        return _keywordKinds.Contains(kind);
     }
 
     public static bool ParseReservedWord(string text, out SyntaxKind kind)
@@ -46,11 +64,15 @@ public static class SyntaxFacts
     {
         return kind switch
         {
+            // === Trivia ===
             SyntaxKind.WhitespaceTrivia => " ",
             SyntaxKind.LineFeedToken => "\n",
             SyntaxKind.CarriageReturnToken => "\r",
             SyntaxKind.CarriageReturnLineFeedToken => "\r\n",
+            SyntaxKind.NewLineToken => "\n", // alternate alias
+            SyntaxKind.TabToken => "\t",
 
+            // === Grouping & Delimiters ===
             SyntaxKind.OpenParenToken => "(",
             SyntaxKind.CloseParenToken => ")",
             SyntaxKind.OpenBraceToken => "{",
@@ -58,14 +80,21 @@ public static class SyntaxFacts
             SyntaxKind.OpenBracketToken => "[",
             SyntaxKind.CloseBracketToken => "]",
 
-            SyntaxKind.LessThanToken => "<",
-            SyntaxKind.GreaterThanToken => ">",
+            SyntaxKind.CommaToken => ",",
+            SyntaxKind.DotToken => ".",
+            SyntaxKind.SemicolonToken => ";",
+            SyntaxKind.ColonToken => ":",
+            SyntaxKind.QuestionToken => "?",
+            SyntaxKind.ArrowToken => "=>",
 
+            // === Operators ===
             SyntaxKind.EqualsToken => "=",
             SyntaxKind.EqualsEqualsToken => "==",
             SyntaxKind.NotEqualsToken => "!=",
-            SyntaxKind.GreaterOrEqualsToken => ">=",
-            SyntaxKind.LessThanEqualsToken => "<=",
+            SyntaxKind.LessThanToken => "<",
+            SyntaxKind.GreaterThanToken => ">",
+            SyntaxKind.LessThanOrEqualsToken => "<=",
+            SyntaxKind.GreaterThanOrEqualsToken => ">=",
 
             SyntaxKind.PlusToken => "+",
             SyntaxKind.MinusToken => "-",
@@ -75,25 +104,21 @@ public static class SyntaxFacts
             SyntaxKind.CaretToken => "^",
             SyntaxKind.AmpersandToken => "&",
             SyntaxKind.BarToken => "|",
-            SyntaxKind.DotToken => ".",
-            SyntaxKind.QuestionToken => "?",
             SyntaxKind.ExclamationToken => "!",
 
-            SyntaxKind.ColonToken => ":",
-            SyntaxKind.SemicolonToken => ";",
-            SyntaxKind.CommaToken => ",",
-            SyntaxKind.ArrowToken => "=>",
-
+            // === Keywords ===
             SyntaxKind.VoidKeyword => "void",
             SyntaxKind.NullKeyword => "null",
             SyntaxKind.IntKeyword => "int",
             SyntaxKind.StringKeyword => "string",
             SyntaxKind.BoolKeyword => "bool",
             SyntaxKind.CharKeyword => "char",
+
             SyntaxKind.ImportKeyword => "import",
             SyntaxKind.NamespaceKeyword => "namespace",
             SyntaxKind.LetKeyword => "let",
             SyntaxKind.VarKeyword => "var",
+
             SyntaxKind.IfKeyword => "if",
             SyntaxKind.ElseKeyword => "else",
             SyntaxKind.WhileKeyword => "while",
@@ -101,17 +126,28 @@ public static class SyntaxFacts
             SyntaxKind.NewKeyword => "new",
             SyntaxKind.TrueKeyword => "true",
             SyntaxKind.FalseKeyword => "false",
+
             SyntaxKind.IsKeyword => "is",
             SyntaxKind.NotKeyword => "not",
             SyntaxKind.AndKeyword => "and",
             SyntaxKind.OrKeyword => "or",
+
             SyntaxKind.RefKeyword => "ref",
             SyntaxKind.OutKeyword => "out",
             SyntaxKind.InKeyword => "in",
+
             SyntaxKind.FuncKeyword => "func",
             SyntaxKind.EnumKeyword => "enum",
+            SyntaxKind.StructKeyword => "struct",
+            SyntaxKind.ClassKeyword => "class",
+            SyntaxKind.SelfKeyword => "self",
+            SyntaxKind.PropKeyword => "prop",
+            SyntaxKind.InitKeyword => "init",
 
-            _ => null
+            SyntaxKind.GetKeyword => "get",
+            SyntaxKind.SetKeyword => "set",
+
+            _ => throw new Exception("Not a valid token kind")
         };
     }
 
@@ -131,9 +167,9 @@ public static class SyntaxFacts
                 return true;
 
             case SyntaxKind.LessThanToken:
-            case SyntaxKind.LessThanEqualsToken:
+            case SyntaxKind.LessThanOrEqualsToken:
             case SyntaxKind.GreaterThanToken:
-            case SyntaxKind.GreaterOrEqualsToken:
+            case SyntaxKind.GreaterThanOrEqualsToken:
             case SyntaxKind.EqualsEqualsToken:
             case SyntaxKind.NotEqualsToken:
                 precedence = 3;
@@ -194,8 +230,8 @@ public static class SyntaxFacts
             case SyntaxKind.NotEqualsExpression:
             case SyntaxKind.LessThanExpression:
             case SyntaxKind.GreaterThanExpression:
-            case SyntaxKind.LessThanOrEqualExpression:
-            case SyntaxKind.GreaterThanOrEqualExpression:
+            case SyntaxKind.LessThanOrEqualsExpression:
+            case SyntaxKind.GreaterThanOrEqualsExpression:
             case SyntaxKind.LogicalAndExpression:
             case SyntaxKind.LogicalOrExpression:
             case SyntaxKind.LogicalNotExpression:

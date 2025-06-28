@@ -5,7 +5,7 @@ internal partial class ParameterSyntax : SyntaxNode
     public ParameterSyntax(
         SyntaxList modifiers,
         SyntaxToken identifier,
-        TypeAnnotationSyntax? typeAnnotation,
+        TypeAnnotationClauseSyntax? typeAnnotation,
         IEnumerable<DiagnosticInfo>? diagnostics = null
     )
         : base(SyntaxKind.Parameter, [
@@ -23,7 +23,7 @@ internal static partial class SyntaxFactory
     public static ParameterSyntax Parameter(
         SyntaxList modifiers,
         SyntaxToken identifier,
-        TypeAnnotationSyntax? typeAnnotation,
+        TypeAnnotationClauseSyntax? typeAnnotation,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         => new(modifiers, identifier, typeAnnotation, diagnostics);
 }

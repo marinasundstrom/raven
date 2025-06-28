@@ -1,15 +1,15 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
-internal partial class ReturnTypeAnnotationSyntax : StatementSyntax
+internal partial class TypeAnnotationClauseSyntax : StatementSyntax
 {
-    public ReturnTypeAnnotationSyntax(
-        SyntaxToken arrowToken,
+    public TypeAnnotationClauseSyntax(
+        SyntaxToken colonToken,
         TypeSyntax type,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
         : base(
-              SyntaxKind.ReturnTypeAnnotation,
+              SyntaxKind.TypeAnnotationClause,
               [
-                      arrowToken ?? throw new ArgumentNullException(nameof(arrowToken)),
+                      colonToken ?? throw new ArgumentNullException(nameof(colonToken)),
                       type ?? throw new ArgumentNullException(nameof(type))
               ], diagnostics)
     {
@@ -18,9 +18,9 @@ internal partial class ReturnTypeAnnotationSyntax : StatementSyntax
 
 internal static partial class SyntaxFactory
 {
-    public static ReturnTypeAnnotationSyntax ReturnTypeAnnotation(
-        SyntaxToken arrowToken,
+    public static TypeAnnotationClauseSyntax TypeAnnotation(
+        SyntaxToken colonToken,
         TypeSyntax type,
         IEnumerable<DiagnosticInfo>? diagnostics = null)
-      => new(arrowToken, type, diagnostics);
+      => new(colonToken, type, diagnostics);
 }

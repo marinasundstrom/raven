@@ -14,6 +14,8 @@ public partial class EnumMemberDeclarationSyntax : MemberDeclarationSyntax
         : this(new InternalSyntax.EnumMemberDeclarationSyntax(identifier.Green, (InternalSyntax.EqualsValueClauseSyntax?)equalsValueClauseSyntax?.Green, null))
     {
     }
+    
+    public override SyntaxTokenList Modifiers { get; } = SyntaxTokenList.Empty;
 
     public partial SyntaxToken Identifier { get; }
     public partial EqualsValueClauseSyntax? EqualsValueClauseSyntax { get; }
