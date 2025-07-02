@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-public sealed class SeekableTextSource
+internal sealed class SeekableTextSource
 {
     private readonly LinkedList<char> _buffer = new();
     private readonly TextReader _reader;
@@ -18,17 +18,29 @@ public sealed class SeekableTextSource
 
     public int Position => _position;
 
-    public void Restore(int position)
+    public void ResetPosition(int position)
     {
         if (position < _absoluteStart || position > _absoluteStart + _buffer.Count)
             throw new InvalidOperationException("Position outside of buffer bounds.");
         _position = position;
     }
 
-    public int Save()
+    public int PushPosition()
     {
         _savedPositions.Push(_position);
         return _position;
+    }
+
+    public int ResetPosition()
+    {
+        var position = _savedPositions.Pop();
+        ResetPosition(position);
+        return position;
+    }
+
+    public void ThrowAwayCheckpoint()
+    {
+        _savedPositions.Pop();
     }
 
     public char Peek()

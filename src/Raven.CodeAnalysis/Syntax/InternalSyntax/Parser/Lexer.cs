@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 internal class Lexer : ILexer
 {
-    private readonly SeekableTextSource _textReader;
+    private readonly SeekableTextSource _textSource;
     private readonly StringBuilder _stringBuilder = new StringBuilder();
     private readonly List<Token> _lookaheadTokens = new List<Token>();
     private int _currentPosition = 0;
@@ -13,15 +13,33 @@ internal class Lexer : ILexer
 
     public Lexer(TextReader textReader)
     {
-        _textReader = new SeekableTextSource(textReader);
+        _textSource = new SeekableTextSource(textReader);
     }
 
-    public void RestorePosition(int position)
+    public void ResetToPosition(int position)
     {
         _lookaheadTokens.Clear();
         _currentPosition = position;
         _tokenStartPosition = position;
-        _textReader.Restore(position);
+        _textSource.ResetPosition(position);
+    }
+
+    public void Checkpoint()
+    {
+        _textSource.PushPosition();
+    }
+
+    public void Backtrack()
+    {
+        var position = _textSource.ResetPosition();
+        _lookaheadTokens.Clear();
+        _currentPosition = position;
+        _tokenStartPosition = position;
+    }
+
+    public void ThrowAwayCheckpoint()
+    {
+        _textSource.ThrowAwayCheckpoint();
     }
 
     /// <summary>
@@ -529,7 +547,7 @@ internal class Lexer : ILexer
 
     private int ReadCore()
     {
-        var ch = _textReader.Read();
+        var ch = _textSource.Read();
         _currentPosition++;
         return ch;
     }
@@ -548,7 +566,7 @@ internal class Lexer : ILexer
 
     private bool PeekChar(out char ch)
     {
-        var value = _textReader.Peek();
+        var value = _textSource.Peek();
         if (value == -1)
         {
             ch = default;
@@ -561,14 +579,14 @@ internal class Lexer : ILexer
 
     private bool ReadWhile(char ch)
     {
-        var value = _textReader.Peek();
+        var value = _textSource.Peek();
         if (value == ch)
         {
-            _textReader.Read();
+            _textSource.Read();
             return true;
         }
         return false;
     }
 
-    public bool IsEndOfFile => _textReader.Peek() == -1;
+    public bool IsEndOfFile => _textSource.Peek() == -1;
 }

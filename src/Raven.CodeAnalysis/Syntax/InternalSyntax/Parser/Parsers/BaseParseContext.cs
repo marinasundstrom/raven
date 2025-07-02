@@ -53,8 +53,19 @@ internal class BaseParseContext : ParseContext
         {
             _treatNewlinesAsTokens = value;
             _lookaheadTokens.Clear(); // Invalidate lookahead because context changed
-            _lexer.RestorePosition(Position);
+            _lexer.ResetToPosition(Position);
         }
+    }
+
+    public void Checkpoint()
+    {
+        _lexer.Checkpoint();
+    }
+
+    public void Backtrack()
+    {
+        _lookaheadTokens.Clear();
+        _lexer.Backtrack();
     }
 
     /// <summary>
