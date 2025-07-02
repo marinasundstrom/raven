@@ -18,6 +18,9 @@ internal sealed class SeekableTextSource
 
     public int Position => _position;
 
+    /// <summary>
+    /// Reset the position to the given index
+    /// </summary>
     public void ResetPosition(int position)
     {
         if (position < _absoluteStart || position > _absoluteStart + _buffer.Count)
@@ -25,20 +28,30 @@ internal sealed class SeekableTextSource
         _position = position;
     }
 
+    /// <summary>
+    /// Push position to stack
+    /// </summary>
     public int PushPosition()
     {
         _savedPositions.Push(_position);
         return _position;
     }
 
-    public int ResetPosition()
+    /// <summary>
+    /// Pop and restore position from stack
+    /// </summary>
+    public int RestorePosition()
     {
         var position = _savedPositions.Pop();
         ResetPosition(position);
         return position;
     }
 
-    public void ThrowAwayCheckpoint()
+
+    /// <summary>
+    /// Pop position from stack, without restoring
+    /// </summary>
+    public void PopPosition()
     {
         _savedPositions.Pop();
     }

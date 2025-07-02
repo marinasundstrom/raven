@@ -57,11 +57,17 @@ internal class BaseParseContext : ParseContext
         }
     }
 
+    /// <summary>
+    /// Create a checkpoint
+    /// </summary>
     public void Checkpoint()
     {
         _lexer.Checkpoint();
     }
 
+    /// <summary>
+    /// Backtrack to the last checkpoint
+    /// </summary>
     public void Backtrack()
     {
         _lookaheadTokens.Clear();

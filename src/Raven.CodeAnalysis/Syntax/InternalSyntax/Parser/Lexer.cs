@@ -31,15 +31,15 @@ internal class Lexer : ILexer
 
     public void Backtrack()
     {
-        var position = _textSource.ResetPosition();
+        var position = _textSource.RestorePosition();
         _lookaheadTokens.Clear();
         _currentPosition = position;
         _tokenStartPosition = position;
     }
 
-    public void ThrowAwayCheckpoint()
+    public void PopCheckpoint()
     {
-        _textSource.ThrowAwayCheckpoint();
+        _textSource.PopPosition();
     }
 
     /// <summary>

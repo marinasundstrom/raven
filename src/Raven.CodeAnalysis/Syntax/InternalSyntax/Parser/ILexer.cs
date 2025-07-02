@@ -15,11 +15,21 @@ internal interface ILexer
 
     void ResetToPosition(int length);
 
+    /// <summary>
+    /// Create a checkpoint
+    /// </summary>
     void Checkpoint();
 
+    /// <summary>
+    /// Backtrack to the last checkpoint
+    /// </summary>
     void Backtrack();
 
-    void ThrowAwayCheckpoint();
+
+    /// <summary>
+    /// Pops the last checkpoint
+    /// </summary>
+    void PopCheckpoint();
 }
 
 internal struct Token
