@@ -35,7 +35,7 @@ Invoking this method that is available on every `SyntaxNode`:
 
 
 ```csharp
-root.PrintSyntaxTree(includeTrivia: true, includeSpans: true, includeLocation: true);
+root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = true, Colorize = true });
 ````
 
 Will give you this:

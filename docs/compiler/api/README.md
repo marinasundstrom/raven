@@ -58,7 +58,7 @@ if (x > 2) {
 You can print the syntax tree’s hierarchical structure to the console:
 
 ```csharp
-root.PrintSyntaxTree(includeTrivia: true, includeSpans: true, includeLocation: true);
+root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = true, Colorize = true });
 ```
 
 #### Example Syntax Tree Output

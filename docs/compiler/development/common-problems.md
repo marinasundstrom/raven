@@ -17,6 +17,6 @@ Here are listed some common problems that might occur when developing Raven:
 
     Like this:
 
-    ````
-    root.PrintSyntaxTree(includeNames: true, includeTokens: true, includeTrivia: true, includeSpans: false, includeLocation: false);
-    ```
+```csharp
+root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = false });
+``
