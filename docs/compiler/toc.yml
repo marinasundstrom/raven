@@ -1,0 +1,42 @@
+- name: Overview
+  href: index.md
+- name: Architecture
+  items:
+    - name: Overview
+      href: architecture/index.md
+    - name: Syntax tree
+      href: architecture/syntax-tree.md
+    - name: Incremental parsing
+      href: architecture/incremental-parsing.md
+    - name: Visitors and rewriters
+      href: architecture/visitors-and-rewriters.md
+    - name: Generator specification
+      href: architecture/generator-specification.md
+    - name: Semantic binding
+      href: architecture/semantic-binding.md
+- name: Design
+  items:
+    - name: Goals
+      href: design/goals.md
+    - name: Parser
+      href: design/parser.md
+    - name: Semantic analysis
+      href: design/semantic-analysis.md
+    - name: Symbols
+      href: design/symbols.md
+- name: Development
+  items:
+    - name: Adding new syntax
+      href: development/adding-new-syntax.md
+    - name: Parsing
+      href: development/parsing.md
+    - name: Common problems
+      href: development/common-problems.md
+    - name: Debugging
+      href: development/debugging.md
+    - name: Source generation
+      href: development/source-generation.md
+    - name: CIL
+      href: development/cil.md
+    - name: Resources
+      href: development/resources.md

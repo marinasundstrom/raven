@@ -403,3 +403,8 @@ ASALocalRun/
 
 # Local History for Visual Studio
 .localhistory/
+
+# DocFX output
+_site
+api
+*.log
