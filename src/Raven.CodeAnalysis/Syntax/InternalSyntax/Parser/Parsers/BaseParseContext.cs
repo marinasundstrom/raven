@@ -60,18 +60,18 @@ internal class BaseParseContext : ParseContext
     /// <summary>
     /// Create a checkpoint
     /// </summary>
-    public void Checkpoint()
+    public void CreateCheckpoint()
     {
-        _lexer.Checkpoint();
+        _lexer.CreateCheckpoint();
     }
 
     /// <summary>
-    /// Backtrack to the last checkpoint
+    /// Rewind to the last checkpoint
     /// </summary>
-    public void Backtrack()
+    public void RewindToCheckpoint()
     {
         _lookaheadTokens.Clear();
-        _lexer.Backtrack();
+        _lexer.RewindToCheckpoint();
     }
 
     /// <summary>

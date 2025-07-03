@@ -18,18 +18,18 @@ internal interface ILexer
     /// <summary>
     /// Create a checkpoint
     /// </summary>
-    void Checkpoint();
+    void CreateCheckpoint();
 
     /// <summary>
-    /// Backtrack to the last checkpoint
+    /// Rewind to the last checkpoint
     /// </summary>
-    void Backtrack();
+    void RewindToCheckpoint();
 
 
     /// <summary>
-    /// Pops the last checkpoint
+    /// Clears the last checkpoint
     /// </summary>
-    void PopCheckpoint();
+    void ClearCheckpoint();
 }
 
 internal struct Token

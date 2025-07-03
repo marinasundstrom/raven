@@ -40,7 +40,7 @@ internal sealed class SeekableTextSource
     /// <summary>
     /// Pop and restore position from stack
     /// </summary>
-    public int RestorePosition()
+    public int PopAndRestorePosition()
     {
         var position = _savedPositions.Pop();
         ResetPosition(position);
@@ -51,9 +51,9 @@ internal sealed class SeekableTextSource
     /// <summary>
     /// Pop position from stack, without restoring
     /// </summary>
-    public void PopPosition()
+    public int PopPosition()
     {
-        _savedPositions.Pop();
+        return _savedPositions.Pop();
     }
 
     public char Peek()

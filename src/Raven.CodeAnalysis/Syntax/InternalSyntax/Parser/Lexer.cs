@@ -24,20 +24,20 @@ internal class Lexer : ILexer
         _textSource.ResetPosition(position);
     }
 
-    public void Checkpoint()
+    public void CreateCheckpoint()
     {
         _textSource.PushPosition();
     }
 
-    public void Backtrack()
+    public void RewindToCheckpoint()
     {
-        var position = _textSource.RestorePosition();
+        var position = _textSource.PopAndRestorePosition();
         _lookaheadTokens.Clear();
         _currentPosition = position;
         _tokenStartPosition = position;
     }
 
-    public void PopCheckpoint()
+    public void ClearCheckpoint()
     {
         _textSource.PopPosition();
     }
