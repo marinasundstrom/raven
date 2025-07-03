@@ -59,9 +59,9 @@ internal class BaseParseContext : ParseContext
     /// <summary>
     /// Create a checkpoint that enables rewinding the token stream
     /// </summary>
-    public ParserCheckpoint CreateCheckpoint()
+    public ParserCheckpoint CreateCheckpoint(string debugName = "")
     {
-        return new ParserCheckpoint(this);
+        return new ParserCheckpoint(this, debugName);
     }
 
     /// <summary>
