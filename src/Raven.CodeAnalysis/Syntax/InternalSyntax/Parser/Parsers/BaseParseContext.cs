@@ -7,12 +7,12 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 /// </summary>
 internal class BaseParseContext : ParseContext
 {
-    private SyntaxToken? _lastToken;
+    internal SyntaxToken? _lastToken;
     private readonly ILexer _lexer;
     private int _position;
     private bool _treatNewlinesAsTokens;
-    private readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
-    private readonly List<SyntaxTrivia> _pendingTrivia = new();
+    internal readonly List<SyntaxToken> _lookaheadTokens = new List<SyntaxToken>();
+    internal readonly List<SyntaxTrivia> _pendingTrivia = new();
     private readonly StringBuilder _stringBuilder = new StringBuilder();
 
     public BaseParseContext(ILexer lexer, int position = 0) : base()
@@ -52,26 +52,26 @@ internal class BaseParseContext : ParseContext
         if (_treatNewlinesAsTokens != value)
         {
             _treatNewlinesAsTokens = value;
-            _lookaheadTokens.Clear(); // Invalidate lookahead because context changed
-            _lexer.ResetToPosition(Position);
+            RewindToPosition(Position);
         }
     }
 
     /// <summary>
-    /// Create a checkpoint
+    /// Create a checkpoint that enables rewinding the token stream
     /// </summary>
-    public void CreateCheckpoint()
+    public ParserCheckpoint CreateCheckpoint()
     {
-        _lexer.CreateCheckpoint();
+        return new ParserCheckpoint(this);
     }
 
     /// <summary>
-    /// Rewind to the last checkpoint
+    /// Rewind to a specific position in the token stream
     /// </summary>
-    public void RewindToCheckpoint()
+    /// <param name="position"></param>
+    public void RewindToPosition(int position)
     {
-        _lookaheadTokens.Clear();
-        _lexer.RewindToCheckpoint();
+        _lookaheadTokens.Clear(); // Invalidate lookahead because context changed
+        _lexer.ResetToPosition(position);
     }
 
     /// <summary>
