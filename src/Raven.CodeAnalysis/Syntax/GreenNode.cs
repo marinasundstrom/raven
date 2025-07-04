@@ -31,6 +31,8 @@ public abstract class GreenNode
 
     public abstract GreenNode GetSlot(int index);
 
+    public T GetSlot<T>(int index) where T : GreenNode => (T)GetSlot(index);
+
     internal IEnumerable<GreenNode> GetChildren()
     {
         for (int i = 0; i < SlotCount; i++)

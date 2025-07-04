@@ -1,6 +1,5 @@
 namespace Generator;
 
-using System;
 using System.Linq;
 using System.Text;
 
@@ -19,17 +18,25 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
         //Debugger.Launch();
 
         // Identify all partial classes that inherit (directly or indirectly) from SyntaxNode
-        var partialClasses = context.SyntaxProvider
+        var partialClassDeclarations = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: IsPotentialPartialClass,
-                transform: GetClassSymbol)
-            .Where(symbol => symbol is not null && symbol.InheritsFromInternalSyntaxNode());
+                transform: (ctx, ct) =>
+                {
+                    var classDecl = (ClassDeclarationSyntax)ctx.Node;
+                    var symbol = ctx.SemanticModel.GetDeclaredSymbol(classDecl, ct) as INamedTypeSymbol;
+                    return (ClassDecl: classDecl, Symbol: symbol);
+                })
+            .Where(x => x.Symbol is not null && x.Symbol.InheritsFromInternalSyntaxNode());
 
         // Generate source for each identified class
-        context.RegisterSourceOutput(partialClasses, ProcessSyntaxNodeClass);
+        context.RegisterSourceOutput(partialClassDeclarations, (ctx, tuple) =>
+        {
+            ProcessSyntaxNodeClass(ctx, tuple.Symbol!, tuple.ClassDecl);
+        });
     }
 
-    private void ProcessSyntaxNodeClass(SourceProductionContext context, INamedTypeSymbol? classSymbol)
+    private void ProcessSyntaxNodeClass(SourceProductionContext context, INamedTypeSymbol classSymbol, ClassDeclarationSyntax classDecl)
     {
         if (classSymbol is null)
         {
@@ -188,6 +195,17 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
             members.Add(withUpdatedChildren);
             //members.Add(updateMethod);
             members.AddRange(acceptMethods);
+
+            var ctorDecl = classDecl.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+
+            var ctorSymbol = classSymbol.InstanceConstructors
+                .FirstOrDefault(ctor =>
+                    ctor.DeclaringSyntaxReferences.Any(r => r.Span == ctorDecl.Span));
+
+            if (ctorSymbol is not null)
+            {
+                members.AddRange(InternalSyntaxNodePropertyGenerator.GenerateSlotProperties(ctorDecl, ctorSymbol));
+            }
         }
 
         var ns =
