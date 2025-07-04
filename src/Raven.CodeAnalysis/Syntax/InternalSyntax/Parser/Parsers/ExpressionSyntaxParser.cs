@@ -762,7 +762,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 ));
         }
 
-        return WhileExpression(whileKeyword, condition!, statement!, null, Diagnostics);
+        return WhileExpression(whileKeyword, condition!, statement!, Diagnostics);
     }
 
     internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()

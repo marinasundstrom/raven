@@ -163,6 +163,7 @@
       type: Expression
     - name: TerminatorToken
       type: Token
+      nullable: true
 - name: LocalDeclarationStatement
   base: Statement
   properties:
@@ -613,9 +614,6 @@
       type: Expression
     - name: Statement
       type: Statement
-    - name: TerminatorToken
-      type: Token
-      nullable: true
 - name: ArgumentList
   base: Node
   properties:
