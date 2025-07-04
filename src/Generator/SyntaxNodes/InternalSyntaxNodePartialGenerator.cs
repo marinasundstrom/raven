@@ -187,7 +187,6 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                 parameters.RemoveAt(parameters.Count - 1);
 
                 var updateMethod = UpdateMethodGenerator.GenerateUpdateMethod(classSymbol.Name, parameters);
-        */
 
         if (!classSymbol.IsAbstract)
         {
@@ -207,6 +206,7 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                 members.AddRange(InternalSyntaxNodePropertyGenerator.GenerateSlotProperties(ctorDecl, ctorSymbol));
             }
         }
+        */
 
         var ns =
                 FileScopedNamespaceDeclaration(
@@ -217,23 +217,9 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                                 IdentifierName("CodeAnalysis")),
                             IdentifierName("Syntax")),
                         IdentifierName("InternalSyntax")))
-                .WithMembers(
-                    List<MemberDeclarationSyntax>([
-                        ClassDeclaration(className)
-                        .WithModifiers(
-                            TokenList(
-                                [
-                            Token(SyntaxKind.InternalKeyword),
-                            Token(SyntaxKind.PartialKeyword)]))
-                        /*.WithBaseList(
-                            BaseList(
-                                SingletonSeparatedList<BaseTypeSyntax>(
-                                    SimpleBaseType(
-                                        IdentifierName("StatementSyntax"))))) */
-                        .WithMembers(
-                            List<MemberDeclarationSyntax>(members)),
+                .WithMembers([
                             visitorPartialClass,
-                            visitorGenericPartialClass]));
+                            visitorGenericPartialClass]);
 
 
         // Convert to source text and add to the compilation

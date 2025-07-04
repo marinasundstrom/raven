@@ -10,12 +10,12 @@ public partial class EnumMemberDeclarationSyntax : MemberDeclarationSyntax
     {
     }
 
-    public EnumMemberDeclarationSyntax(SyntaxToken identifier, EqualsValueClauseSyntax? equalsValueClauseSyntax)
-        : this(new InternalSyntax.EnumMemberDeclarationSyntax(identifier.Green, (InternalSyntax.EqualsValueClauseSyntax?)equalsValueClauseSyntax?.Green, null))
+    public EnumMemberDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken identifier, EqualsValueClauseSyntax? equalsValueClauseSyntax)
+        : this(new InternalSyntax.EnumMemberDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.EqualsValueClauseSyntax?)equalsValueClauseSyntax?.Green, null))
     {
     }
-    
-    public override SyntaxTokenList Modifiers { get; } = SyntaxTokenList.Empty;
+
+    public override partial SyntaxTokenList Modifiers { get; }
 
     public partial SyntaxToken Identifier { get; }
     public partial EqualsValueClauseSyntax? EqualsValueClauseSyntax { get; }
@@ -23,9 +23,9 @@ public partial class EnumMemberDeclarationSyntax : MemberDeclarationSyntax
 
 public static partial class SyntaxFactory
 {
-    public static EnumMemberDeclarationSyntax EnumMemberDeclaration(SyntaxToken identifier)
-        => new EnumMemberDeclarationSyntax(identifier, null);
+    public static EnumMemberDeclarationSyntax EnumMemberDeclaration(SyntaxTokenList modifiers, SyntaxToken identifier)
+        => new EnumMemberDeclarationSyntax(modifiers, identifier, null);
 
-    public static EnumMemberDeclarationSyntax EnumMemberDeclaration(SyntaxToken identifier, EqualsValueClauseSyntax? equalsValueClauseSyntax)
-        => new EnumMemberDeclarationSyntax(identifier, equalsValueClauseSyntax);
+    public static EnumMemberDeclarationSyntax EnumMemberDeclaration(SyntaxTokenList modifiers, SyntaxToken identifier, EqualsValueClauseSyntax? equalsValueClauseSyntax)
+        => new EnumMemberDeclarationSyntax(modifiers, identifier, equalsValueClauseSyntax);
 }

@@ -27,7 +27,7 @@ using (var file = File.OpenRead("./combined.cs"))
         {
             Name = cls.Identifier.Text.Replace("Syntax", ""),
             Base = cls.BaseList?.Types.FirstOrDefault()?.Type.ToString().Replace("Syntax", "") ?? "Node",
-            Abstract = cls.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword))
+            Abstract = cls.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)),
         };
 
         foreach (var member in cls.Members.OfType<PropertyDeclarationSyntax>())
@@ -35,7 +35,16 @@ using (var file = File.OpenRead("./combined.cs"))
             if (!member.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
                 continue;
 
-            var propType = member.Type.ToString();
+            if (member.Identifier.Text == "Kind")
+            {
+                modelEntry.ExplicitKind = true;
+            }
+
+            var unwrappedType = member.Type is NullableTypeSyntax nts
+                ? nts.ElementType
+                : member.Type;
+
+            var propType = unwrappedType.ToString();
             var isSyntaxLike = propType is "SyntaxToken" or "SyntaxTokenList"
                 || propType.EndsWith("Syntax")
                 || propType.StartsWith("SyntaxList<")
@@ -57,7 +66,7 @@ using (var file = File.OpenRead("./combined.cs"))
                 },
                 Nullable = member.Type is NullableTypeSyntax,
                 Inherited = member.Modifiers.Any(m => m.IsKind(SyntaxKind.OverrideKeyword)),
-                Abstract = member.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword))
+                Abstract = member.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)) || member.Modifiers.Any(m => m.IsKind(SyntaxKind.VirtualKeyword))
             });
         }
 
@@ -71,25 +80,6 @@ using (var file = File.OpenRead("./combined.cs"))
 
     var yaml = serializer.Serialize(model);
 
-    File.WriteAllText("model.yaml", yaml);
+    File.WriteAllText("Model.yaml", yaml);
     Console.WriteLine(yaml);
-}
-
-public class SyntaxNodeModel
-{
-    public string Name { get; set; } = string.Empty;
-    public string Base { get; set; } = string.Empty;
-
-    [DefaultValue(false)]
-    public bool Abstract { get; set; }
-    public List<PropertyModel> Properties { get; set; } = new();
-}
-
-public class PropertyModel
-{
-    public string Name { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
-    public bool Nullable { get; set; }
-    public bool Inherited { get; set; }
-    public bool Abstract { get; set; }
 }

@@ -21,7 +21,7 @@ public partial class ArgumentSyntax : SyntaxNode
 
     public ArgumentSyntax(
         ExpressionSyntax expression)
-        : this(new InternalSyntax.ArgumentSyntax((InternalSyntax.ExpressionSyntax)expression.Green), (SyntaxNode)null, 0)
+        : this(new InternalSyntax.ArgumentSyntax(null, (InternalSyntax.ExpressionSyntax)expression.Green), (SyntaxNode)null, 0)
     {
 
     }

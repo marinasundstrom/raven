@@ -16,17 +16,17 @@ public partial class ConstructorDeclarationSyntax : BaseMethodDeclarationSyntax
     }
 
     public ConstructorDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken initKeyword, SyntaxToken? identifier, ParameterListSyntax parameters, BlockSyntax body, SyntaxToken? terminatorToken)
-    : this(new InternalSyntax.ConstructorDeclarationSyntax(modifiers.Green, initKeyword.Green, identifier?.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, (InternalSyntax.BlockSyntax)body.Green, terminatorToken?.Green))
+    : this(new InternalSyntax.ConstructorDeclarationSyntax(modifiers.Green, initKeyword.Green, identifier?.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, (InternalSyntax.BlockSyntax)body.Green, null, terminatorToken?.Green))
     {
     }
 
     public ConstructorDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken initKeyword, SyntaxToken? identifier, ParameterListSyntax parameters, ArrowExpressionClauseSyntax expressionBody, SyntaxToken? terminatorToken)
-    : this(new InternalSyntax.ConstructorDeclarationSyntax(modifiers.Green, initKeyword.Green, identifier?.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, (InternalSyntax.ArrowExpressionClauseSyntax)expressionBody.Green, terminatorToken?.Green, null))
+    : this(new InternalSyntax.ConstructorDeclarationSyntax(modifiers.Green, initKeyword.Green, identifier?.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, null, (InternalSyntax.ArrowExpressionClauseSyntax)expressionBody.Green, terminatorToken?.Green, null))
     {
     }
 
     public ConstructorDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken initKeyword, SyntaxToken? identifier, ParameterListSyntax parameters, BlockSyntax? body, ArrowExpressionClauseSyntax? expressionBody, SyntaxToken? terminatorToken)
-: this(new InternalSyntax.ConstructorDeclarationSyntax(modifiers.Green, initKeyword.Green, identifier?.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, (InternalSyntax.ArrowExpressionClauseSyntax)expressionBody?.Green, terminatorToken?.Green, null))
+: this(new InternalSyntax.ConstructorDeclarationSyntax(modifiers.Green, initKeyword.Green, identifier?.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, null, (InternalSyntax.ArrowExpressionClauseSyntax)expressionBody?.Green, terminatorToken?.Green, null))
     {
     }
 }

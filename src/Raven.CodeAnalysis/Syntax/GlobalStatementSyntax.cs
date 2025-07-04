@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public partial class GlobalStatementSyntax : MemberDeclarationSyntax
 {
-    public override SyntaxTokenList Modifiers { get; }
+    public override partial SyntaxTokenList Modifiers { get; }
 
     public partial StatementSyntax Statement { get; }
 
@@ -12,7 +12,12 @@ public partial class GlobalStatementSyntax : MemberDeclarationSyntax
     }
 
     public GlobalStatementSyntax(StatementSyntax statement)
-        : this(new InternalSyntax.GlobalStatementSyntax((InternalSyntax.StatementSyntax)statement.Green))
+        : this(new InternalSyntax.GlobalStatementSyntax(SyntaxTokenList.Empty.Green, (InternalSyntax.StatementSyntax)statement.Green))
+    {
+    }
+
+    public GlobalStatementSyntax(SyntaxTokenList modifiers, StatementSyntax statement)
+    : this(new InternalSyntax.GlobalStatementSyntax(modifiers.Green, (InternalSyntax.StatementSyntax)statement.Green))
     {
     }
 }

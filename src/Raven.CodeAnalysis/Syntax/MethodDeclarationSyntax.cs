@@ -16,12 +16,12 @@ public partial class MethodDeclarationSyntax : BaseMethodDeclarationSyntax
     }
 
     public MethodDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken identifier, ParameterListSyntax parameters, ArrowTypeClauseSyntax returnType, BlockSyntax body, SyntaxToken? terminatorToken)
-    : this(new InternalSyntax.MethodDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, (InternalSyntax.ArrowTypeClauseSyntax)returnType.Green, (InternalSyntax.BlockSyntax)body.Green, terminatorToken?.Green))
+    : this(new InternalSyntax.MethodDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, (InternalSyntax.ArrowTypeClauseSyntax)returnType.Green, (InternalSyntax.BlockSyntax)body.Green, null, terminatorToken?.Green))
     {
     }
 
     public MethodDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken identifier, ParameterListSyntax parameters, ArrowTypeClauseSyntax returnType, ArrowExpressionClauseSyntax expressionBody, SyntaxToken? terminatorToken)
-    : this(new InternalSyntax.MethodDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, (InternalSyntax.ArrowTypeClauseSyntax)returnType.Green, (InternalSyntax.ArrowExpressionClauseSyntax)expressionBody.Green, terminatorToken?.Green, null))
+    : this(new InternalSyntax.MethodDeclarationSyntax(modifiers.Green, identifier.Green, (InternalSyntax.ParameterListSyntax)parameters.Green, (InternalSyntax.ArrowTypeClauseSyntax)returnType.Green, null, (InternalSyntax.ArrowExpressionClauseSyntax)expressionBody.Green, terminatorToken?.Green, null))
     {
     }
 

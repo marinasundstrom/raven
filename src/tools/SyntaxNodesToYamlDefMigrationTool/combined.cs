@@ -461,45 +461,45 @@ public abstract class ExpressionStatementSyntax : StatementSyntax
     }
 }
 
-public partial class ExpressionStatement1Syntax : ExpressionStatementSyntax
+public partial class ExpressionStatementSyntax : ExpressionStatementSyntax
 {
     public override partial ExpressionSyntax Expression { get; }
 
-    internal ExpressionStatement1Syntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
+    internal ExpressionStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)
     {
     }
 
-    public ExpressionStatement1Syntax(ExpressionSyntax expression)
+    public ExpressionStatementSyntax(ExpressionSyntax expression)
     : this(expression, SyntaxFactory.SemicolonToken)
     {
     }
 
-    public ExpressionStatement1Syntax(ExpressionSyntax expression, SyntaxToken terminatorToken)
-        : this(new InternalSyntax.ExpressionStatement1Syntax((InternalSyntax.ExpressionSyntax)expression.Green))
+    public ExpressionStatementSyntax(ExpressionSyntax expression, SyntaxToken terminatorToken)
+        : this(new InternalSyntax.ExpressionStatementSyntax((InternalSyntax.ExpressionSyntax)expression.Green))
     {
     }
 }
 
 
-public partial class ExpressionStatement2Syntax : ExpressionStatementSyntax
+public partial class ExpressionStatementSyntax : ExpressionStatementSyntax
 {
     public override partial ExpressionSyntax Expression { get; }
 
     public partial SyntaxToken TerminatorToken { get; }
 
-    internal ExpressionStatement2Syntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
+    internal ExpressionStatementSyntax(InternalSyntax.SyntaxNode greenNode, SyntaxNode parent = null, int position = 0)
         : base(greenNode, parent, position)
     {
     }
 
-    public ExpressionStatement2Syntax(ExpressionSyntax expression)
+    public ExpressionStatementSyntax(ExpressionSyntax expression)
     : this(expression, SyntaxFactory.SemicolonToken)
     {
     }
 
-    public ExpressionStatement2Syntax(ExpressionSyntax expression, SyntaxToken terminatorToken)
-        : this(new InternalSyntax.ExpressionStatement2Syntax((InternalSyntax.ExpressionSyntax)expression.Green, terminatorToken.Green))
+    public ExpressionStatementSyntax(ExpressionSyntax expression, SyntaxToken terminatorToken)
+        : this(new InternalSyntax.ExpressionStatementSyntax((InternalSyntax.ExpressionSyntax)expression.Green, terminatorToken.Green))
     {
     }
 }

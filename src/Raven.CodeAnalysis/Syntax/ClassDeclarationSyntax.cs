@@ -26,7 +26,7 @@ public partial class ClassDeclarationSyntax : TypeDeclarationSyntax
     }
 
     public ClassDeclarationSyntax(SyntaxTokenList modifiers, SyntaxToken keyword, SyntaxToken identifier, ParameterListSyntax parameterList, SyntaxToken openBraceToken, SyntaxList<MemberDeclarationSyntax> members, SyntaxToken closeBraceToken, SyntaxToken? terminatorToken)
-        : this(new InternalSyntax.ClassDeclarationSyntax(modifiers.Green, keyword.Green, identifier.Green, (InternalSyntax.SyntaxList)parameterList.Green, openBraceToken.Green, members.Green, closeBraceToken.Green, terminatorToken?.Green, null))
+        : this(new InternalSyntax.ClassDeclarationSyntax(modifiers.Green, keyword.Green, identifier.Green, (InternalSyntax.ParameterListSyntax)parameterList.Green, openBraceToken.Green, members.Green, closeBraceToken.Green, terminatorToken?.Green, null))
     {
     }
 }

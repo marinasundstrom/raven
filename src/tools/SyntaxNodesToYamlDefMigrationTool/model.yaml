@@ -1,5 +1,6 @@
 - name: AssignmentExpression
   base: Expression
+  explicitKind: true
   properties:
   - name: LeftHandSide
     type: Expression
@@ -77,6 +78,9 @@
 - name: Argument
   base: Node
   properties:
+  - name: NameColon
+    type: NameColon
+    nullable: true
   - name: Expression
     type: Expression
 - name: NamespaceDeclaration
@@ -100,8 +104,12 @@
     inherited: true
   - name: CloseBraceToken
     type: Token
+  - name: TerminatorToken
+    type: Token
+    nullable: true
 - name: UnaryExpression
   base: Expression
+  explicitKind: true
   properties:
   - name: OperatorToken
     type: Token
@@ -131,6 +139,10 @@
   - name: Identifier
     type: Token
     inherited: true
+  - name: ParameterList
+    type: ParameterList
+    nullable: true
+    inherited: true
   - name: OpenBraceToken
     type: Token
     inherited: true
@@ -140,19 +152,24 @@
   - name: CloseBraceToken
     type: Token
     inherited: true
+  - name: TerminatorToken
+    type: Token
+    nullable: true
+    inherited: true
 - name: ExpressionStatement
   base: Statement
   abstract: true
   properties:
   - name: Expression
     type: Expression
-- name: ExpressionStatement1
+    abstract: true
+- name: ExpressionStatement
   base: ExpressionStatement
   properties:
   - name: Expression
     type: Expression
     inherited: true
-- name: ExpressionStatement2
+- name: ExpressionStatement
   base: ExpressionStatement
   properties:
   - name: Expression
@@ -179,6 +196,10 @@
     abstract: true
   - name: CloseBraceToken
     type: Token
+    abstract: true
+  - name: TerminatorToken
+    type: Token
+    nullable: true
     abstract: true
 - name: TupleExpression
   base: Expression
@@ -211,14 +232,31 @@
     inherited: true
   - name: InitKeyword
     type: Token
+  - name: Identifier
+    type: Token
+    nullable: true
   - name: ParameterList
     type: ParameterList
     inherited: true
+  - name: Body
+    type: Block
+    nullable: true
+    inherited: true
+  - name: ExpressionBody
+    type: ArrowExpressionClause
+    nullable: true
+    inherited: true
+  - name: TerminatorToken
+    type: Token
+    nullable: true
 - name: ReturnStatement
   base: Statement
   properties:
   - name: ReturnKeyword
     type: Token
+  - name: Expression
+    type: Expression
+    nullable: true
   - name: TerminatorToken
     type: Token
 - name: CompilationUnit
@@ -232,6 +270,7 @@
     type: Token
 - name: LiteralExpression
   base: Expression
+  explicitKind: true
   properties:
   - name: Token
     type: Token
@@ -241,10 +280,13 @@
   properties:
   - name: Name
     type: Name
+    abstract: true
   - name: Imports
     type: List<ImportDirective>
+    abstract: true
   - name: Members
     type: List<MemberDeclaration>
+    abstract: true
 - name: Type
   base: Expression
   abstract: true
@@ -259,6 +301,7 @@
   properties:
   - name: Identifier
     type: Token
+    abstract: true
 - name: IdentifierName
   base: SimpleName
   properties:
@@ -338,6 +381,10 @@
   - name: Members
     type: List<MemberDeclaration>
     abstract: true
+  - name: ParameterList
+    type: ParameterList
+    nullable: true
+    abstract: true
 - name: IfExpression
   base: Expression
   properties:
@@ -347,6 +394,9 @@
     type: Expression
   - name: Expression
     type: Expression
+  - name: ElseClause
+    type: ElseClause
+    nullable: true
 - name: TypeArgumentList
   base: Node
   properties:
@@ -367,7 +417,11 @@
     type: Token
 - name: MemberAccessExpression
   base: Expression
+  explicitKind: true
   properties:
+  - name: Expression
+    type: Expression
+    nullable: true
   - name: OperatorToken
     type: Token
   - name: Name
@@ -423,6 +477,9 @@
     inherited: true
   - name: Declaration
     type: VariableDeclaration
+  - name: TerminatorToken
+    type: Token
+    nullable: true
 - name: BasePropertyDeclaration
   base: MemberDeclaration
   abstract: true
@@ -432,6 +489,10 @@
     abstract: true
   - name: Type
     type: TypeAnnotationClause
+    abstract: true
+  - name: AccessorList
+    type: AccessorList
+    nullable: true
     abstract: true
 - name: VariableDeclaration
   base: Node
@@ -460,6 +521,9 @@
     type: TokenList
   - name: Identifier
     type: Token
+  - name: TypeAnnotation
+    type: TypeAnnotationClause
+    nullable: true
 - name: EnumMemberDeclaration
   base: MemberDeclaration
   properties:
@@ -468,6 +532,9 @@
     inherited: true
   - name: Identifier
     type: Token
+  - name: EqualsValueClauseSyntax
+    type: EqualsValueClause
+    nullable: true
 - name: ArrowExpressionClause
   base: Node
   properties:
@@ -481,6 +548,7 @@
   properties: []
 - name: UnaryPattern
   base: Pattern
+  explicitKind: true
   properties:
   - name: OperatorToken
     type: Token
@@ -488,6 +556,7 @@
     type: Pattern
 - name: BinaryPattern
   base: Pattern
+  explicitKind: true
   properties:
   - name: Left
     type: Pattern
@@ -521,6 +590,10 @@
   - name: CloseBraceToken
     type: Token
     inherited: true
+  - name: TerminatorToken
+    type: Token
+    nullable: true
+    inherited: true
 - name: IndexerDeclaration
   base: BasePropertyDeclaration
   properties:
@@ -535,6 +608,16 @@
   - name: Type
     type: TypeAnnotationClause
     inherited: true
+  - name: AccessorList
+    type: AccessorList
+    nullable: true
+    inherited: true
+  - name: Initializer
+    type: EqualsValueClause
+    nullable: true
+  - name: TerminatorToken
+    type: Token
+    nullable: true
 - name: WhileExpression
   base: Expression
   properties:
@@ -544,6 +627,9 @@
     type: Expression
   - name: Statement
     type: Statement
+  - name: TerminatorToken
+    type: Token
+    nullable: true
 - name: ArgumentList
   base: Node
   properties:
@@ -578,8 +664,19 @@
   - name: Type
     type: TypeAnnotationClause
     inherited: true
+  - name: AccessorList
+    type: AccessorList
+    nullable: true
+    inherited: true
+  - name: Initializer
+    type: EqualsValueClause
+    nullable: true
+  - name: TerminatorToken
+    type: Token
+    nullable: true
 - name: BinaryExpression
   base: Expression
+  explicitKind: true
   properties:
   - name: LeftHandSide
     type: Expression
@@ -630,6 +727,9 @@
     type: ParameterList
   - name: ReturnType
     type: ArrowTypeClause
+  - name: Body
+    type: Block
+    nullable: true
 - name: ObjectCreationExpression
   base: Expression
   properties:
@@ -652,6 +752,17 @@
     inherited: true
   - name: ReturnType
     type: ArrowTypeClause
+  - name: Body
+    type: Block
+    nullable: true
+    inherited: true
+  - name: ExpressionBody
+    type: ArrowExpressionClause
+    nullable: true
+    inherited: true
+  - name: TerminatorToken
+    type: Token
+    nullable: true
 - name: BracketedParameterList
   base: Node
   properties:
@@ -679,13 +790,23 @@
     type: Token
   - name: TypeAnnotation
     type: TypeAnnotationClause
+  - name: Initializer
+    type: EqualsValueClause
+    nullable: true
 - name: AccessorDeclaration
   base: Node
+  explicitKind: true
   properties:
   - name: Modifiers
     type: TokenList
   - name: Keyword
     type: Token
+  - name: Body
+    type: Block
+    nullable: true
+  - name: ExpressionBody
+    type: ArrowExpressionClause
+    nullable: true
   - name: TerminatorToken
     type: Token
 - name: BaseMethodDeclaration
@@ -694,6 +815,14 @@
   properties:
   - name: ParameterList
     type: ParameterList
+    abstract: true
+  - name: Body
+    type: Block
+    nullable: true
+    abstract: true
+  - name: ExpressionBody
+    type: ArrowExpressionClause
+    nullable: true
     abstract: true
 - name: ElementAccessExpression
   base: Expression

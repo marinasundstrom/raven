@@ -15,7 +15,7 @@ public sealed partial class WhileExpressionSyntax : ExpressionSyntax
 
     public WhileExpressionSyntax(SyntaxToken whileKeyword, ExpressionSyntax condition, StatementSyntax statement, SyntaxToken? terminatorToken)
       : this(
-            new InternalSyntax.WhileExpressionSyntax(whileKeyword.Green, (InternalSyntax.ExpressionSyntax)condition.Green, (InternalSyntax.StatementSyntax)statement.Green))
+            new InternalSyntax.WhileExpressionSyntax(whileKeyword.Green, (InternalSyntax.ExpressionSyntax)condition.Green, (InternalSyntax.StatementSyntax)statement.Green, null))
     {
 
     }
