@@ -9,18 +9,19 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     [Fact]
     public void ReplaceNode_DirectChild()
     {
-        var ifStatement = IfStatement(
+        var ifExpression = IfExpression(
             IfKeyword,
             LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
-            Block());
+            Block(),
+            null);
 
-        var condition = ifStatement.Condition;
+        var condition = ifExpression.Condition;
 
         var newCondition = LiteralExpression(SyntaxKind.StringLiteralExpression, IdentifierToken("test"));
 
-        var newIfStatement = ifStatement.ReplaceNode(condition, newCondition);
+        var newIfStatement = ifExpression.ReplaceNode(condition, newCondition);
 
-        newIfStatement.ShouldNotBeSameAs(ifStatement);
+        newIfStatement.ShouldNotBeSameAs(ifExpression);
         newIfStatement.Condition.ShouldBeOfType<LiteralExpressionSyntax>();
         testOutputHelper.WriteLine(newIfStatement.ToFullString());
     }
@@ -50,16 +51,17 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     [Fact]
     public void ReplaceToken_DirectChild()
     {
-        var ifStatement = IfStatement(
+        var ifExpression = IfExpression(
             IfKeyword.WithTrailingTrivia(Space),
             LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
-            Block());
+            Block(),
+            null);
 
         var newIfKeyword = IdentifierToken("test").WithTrailingTrivia(Space);
 
-        var newIfStatement = ifStatement.ReplaceToken(ifStatement.IfKeyword, newIfKeyword);
+        var newIfStatement = ifExpression.ReplaceToken(ifExpression.IfKeyword, newIfKeyword);
 
-        newIfStatement.ShouldNotBeSameAs(ifStatement);
+        newIfStatement.ShouldNotBeSameAs(ifExpression);
         newIfStatement.IfKeyword.Text.ShouldBe("test");
         testOutputHelper.WriteLine(newIfStatement.ToFullString());
     }
@@ -67,17 +69,18 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
     [Fact]
     public void ReplaceToken_WithinInnerNode()
     {
-        var ifStatement = IfStatement(
+        var ifExpression = IfExpression(
             IfKeyword,
             LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
-            Block());
+            Block(),
+            null);
 
-        var oldToken = ifStatement.Condition.GetFirstToken();
+        var oldToken = ifExpression.Condition.GetFirstToken();
         var newToken = NumericLiteral(100);
 
-        var newIfStatement = ifStatement.ReplaceToken(oldToken, newToken);
+        var newIfStatement = ifExpression.ReplaceToken(oldToken, newToken);
 
-        newIfStatement.ShouldNotBeSameAs(ifStatement);
+        newIfStatement.ShouldNotBeSameAs(ifExpression);
         newIfStatement.Condition.ToFullString().ShouldContain("100");
         testOutputHelper.WriteLine(newIfStatement.ToFullString());
     }
@@ -149,7 +152,7 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         var block = Block(
             OpenBraceToken,
             List<StatementSyntax>(
-                ReturnStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)))
+                ReturnStatement(ReturnKeyword, LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)), NewLineToken)
             ),
             CloseBraceToken);
 

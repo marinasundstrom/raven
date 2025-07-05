@@ -16,7 +16,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         var root = syntaxTree.GetRoot();
 
-        //var ifStatement = (root.Members.FirstOrDefault() as GlobalStatementSyntax)?.Statement as IfExpressionSyntax;
+        //var ifExpression = (root.Members.FirstOrDefault() as GlobalStatementSyntax)?.Statement as IfExpressionSyntax;
 
         var str = syntaxTree.GetRoot().ToFullString();
         testOutputHelper.WriteLine(str);
