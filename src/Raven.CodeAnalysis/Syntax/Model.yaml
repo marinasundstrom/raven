@@ -8,6 +8,7 @@
       type: Token
     - name: RightHandSide
       type: Expression
+
 - name: AccessorList
   base: Expression
   properties:
@@ -17,6 +18,7 @@
       type: List<AccessorDeclaration>
     - name: CloseBraceToken
       type: Token
+
 - name: FileScopedNamespaceDeclaration
   base: BaseNamespaceDeclaration
   properties:
@@ -36,11 +38,13 @@
     - name: Members
       type: List<MemberDeclaration>
       inherited: true
+
 - name: EmptyStatement
   base: Statement
   properties:
     - name: TerminatorToken
       type: Token
+
 - name: EqualsValueClause
   base: Node
   properties:
@@ -48,6 +52,7 @@
       type: Token
     - name: Value
       type: Expression
+
 - name: ParameterList
   base: Node
   properties:
@@ -57,24 +62,29 @@
       type: SeparatedList<Parameter>
     - name: CloseParenToken
       type: Token
+
 - name: Expression
   base: ExpressionOrPattern
   abstract: true
   properties: []
+
 - name: VariableDesignation
   base: Node
   abstract: true
   properties: []
+
 - name: SingleVariableDesignation
   base: VariableDesignation
   properties:
     - name: Identifier
       type: Token
+
 - name: CollectionElement
   base: Node
   properties:
     - name: Expression
       type: Expression
+
 - name: Argument
   base: Node
   properties:
@@ -83,6 +93,7 @@
       nullable: true
     - name: Expression
       type: Expression
+
 - name: NamespaceDeclaration
   base: BaseNamespaceDeclaration
   properties:
@@ -107,6 +118,7 @@
     - name: TerminatorToken
       type: Token
       nullable: true
+
 - name: UnaryExpression
   base: Expression
   explicitKind: true
@@ -115,6 +127,7 @@
       type: Token
     - name: Expression
       type: Expression
+
 - name: ArrowTypeClause
   base: Node
   properties:
@@ -122,11 +135,13 @@
       type: Token
     - name: Type
       type: Type
+
 - name: SelfExpression
   base: Expression
   properties:
     - name: SelfKeyword
       type: Token
+
 - name: ClassDeclaration
   base: TypeDeclaration
   properties:
@@ -156,6 +171,7 @@
       type: Token
       nullable: true
       inherited: true
+
 - name: ExpressionStatement
   base: Statement
   properties:
@@ -164,6 +180,7 @@
     - name: TerminatorToken
       type: Token
       nullable: true
+
 - name: LocalDeclarationStatement
   base: Statement
   properties:
@@ -171,6 +188,7 @@
       type: VariableDeclaration
     - name: TerminatorToken
       type: Token
+
 - name: BaseTypeDeclaration
   base: MemberDeclaration
   abstract: true
@@ -188,6 +206,7 @@
       type: Token
       nullable: true
       abstract: true
+
 - name: TupleExpression
   base: Expression
   properties:
@@ -197,11 +216,13 @@
       type: SeparatedList<Argument>
     - name: CloseParenToken
       type: Token
+
 - name: PredefinedType
   base: Type
   properties:
     - name: Keyword
       type: Token
+
 - name: CollectionExpression
   base: Expression
   properties:
@@ -211,6 +232,7 @@
       type: SeparatedList<CollectionElement>
     - name: CloseBracketToken
       type: Token
+
 - name: ConstructorDeclaration
   base: BaseMethodDeclaration
   properties:
@@ -236,6 +258,7 @@
     - name: TerminatorToken
       type: Token
       nullable: true
+
 - name: ReturnStatement
   base: Statement
   properties:
@@ -246,6 +269,7 @@
       nullable: true
     - name: TerminatorToken
       type: Token
+
 - name: CompilationUnit
   base: Node
   properties:
@@ -255,12 +279,14 @@
       type: List<MemberDeclaration>
     - name: EndOfFileToken
       type: Token
+
 - name: LiteralExpression
   base: Expression
   explicitKind: true
   properties:
     - name: Token
       type: Token
+
 - name: BaseNamespaceDeclaration
   base: MemberDeclaration
   abstract: true
@@ -274,14 +300,17 @@
     - name: Members
       type: List<MemberDeclaration>
       abstract: true
+
 - name: Type
   base: Expression
   abstract: true
   properties: []
+
 - name: Name
   base: Type
   abstract: true
   properties: []
+
 - name: SimpleName
   base: Name
   abstract: true
@@ -289,12 +318,14 @@
     - name: Identifier
       type: Token
       abstract: true
+
 - name: IdentifierName
   base: SimpleName
   properties:
     - name: Identifier
       type: Token
       inherited: true
+
 - name: GenericName
   base: SimpleName
   properties:
@@ -303,6 +334,7 @@
       inherited: true
     - name: TypeArgumentList
       type: TypeArgumentList
+
 - name: QualifiedName
   base: Name
   properties:
@@ -312,6 +344,7 @@
       type: Token
     - name: Right
       type: SimpleName
+
 - name: AliasQualifiedName
   base: Name
   properties:
@@ -321,6 +354,7 @@
       type: Token
     - name: Name
       type: SimpleName
+
 - name: NullableType
   base: Type
   properties:
@@ -328,11 +362,13 @@
       type: Type
     - name: QuestionToken
       type: Token
+
 - name: UnionType
   base: Type
   properties:
     - name: Types
       type: SeparatedList<Type>
+
 - name: Block
   base: Expression
   properties:
@@ -342,6 +378,7 @@
       type: List<Statement>
     - name: CloseBraceToken
       type: Token
+
 - name: MemberDeclaration
   base: Node
   abstract: true
@@ -349,6 +386,7 @@
     - name: Modifiers
       type: TokenList
       abstract: true
+
 - name: ParenthesizedExpression
   base: Expression
   properties:
@@ -358,6 +396,7 @@
       type: Expression
     - name: CloseParenToken
       type: Token
+
 - name: TypeDeclaration
   base: BaseTypeDeclaration
   abstract: true
@@ -372,6 +411,7 @@
       type: ParameterList
       nullable: true
       abstract: true
+
 - name: IfExpression
   base: Expression
   properties:
@@ -384,6 +424,7 @@
     - name: ElseClause
       type: ElseClause
       nullable: true
+
 - name: TypeArgumentList
   base: Node
   properties:
@@ -393,6 +434,7 @@
       type: SeparatedList<TypeArgument>
     - name: LessThanToken
       type: Token
+
 - name: BracketedArgumentList
   base: Node
   properties:
@@ -402,6 +444,7 @@
       type: SeparatedList<Argument>
     - name: CloseBracketToken
       type: Token
+
 - name: MemberAccessExpression
   base: Expression
   explicitKind: true
@@ -413,6 +456,7 @@
       type: Token
     - name: Name
       type: SimpleName
+
 - name: NameColon
   base: Node
   properties:
@@ -420,6 +464,7 @@
       type: IdentifierName
     - name: ColonTon
       type: Token
+
 - name: SimpleLambdaExpression
   base: LambdaExpression
   properties:
@@ -436,10 +481,12 @@
     - name: ExpressionBody
       type: Expression
       inherited: true
+
 - name: Statement
   base: Node
   abstract: true
   properties: []
+
 - name: ImportDirective
   base: Node
   properties:
@@ -449,6 +496,7 @@
       type: Type
     - name: TerminatorToken
       type: Token
+
 - name: ElseClause
   base: Node
   properties:
@@ -456,6 +504,7 @@
       type: Token
     - name: Expression
       type: Expression
+
 - name: FieldDeclaration
   base: MemberDeclaration
   properties:
@@ -467,6 +516,7 @@
     - name: TerminatorToken
       type: Token
       nullable: true
+
 - name: BasePropertyDeclaration
   base: MemberDeclaration
   abstract: true
@@ -481,6 +531,7 @@
       type: AccessorList
       nullable: true
       abstract: true
+
 - name: VariableDeclaration
   base: Node
   properties:
@@ -488,6 +539,7 @@
       type: Token
     - name: Declarators
       type: SeparatedList<VariableDeclarator>
+
 - name: LambdaExpression
   base: Expression
   abstract: true
@@ -501,6 +553,7 @@
     - name: ExpressionBody
       type: Expression
       abstract: true
+
 - name: Parameter
   base: Node
   properties:
@@ -511,6 +564,7 @@
     - name: TypeAnnotation
       type: TypeAnnotationClause
       nullable: true
+
 - name: EnumMemberDeclaration
   base: MemberDeclaration
   properties:
@@ -522,6 +576,7 @@
     - name: EqualsValueClauseSyntax
       type: EqualsValueClause
       nullable: true
+
 - name: ArrowExpressionClause
   base: Node
   properties:
@@ -529,10 +584,12 @@
       type: Token
     - name: Expression
       type: Expression
+
 - name: Pattern
   base: ExpressionOrPattern
   abstract: true
   properties: []
+
 - name: UnaryPattern
   base: Pattern
   explicitKind: true
@@ -541,6 +598,7 @@
       type: Token
     - name: Pattern
       type: Pattern
+
 - name: BinaryPattern
   base: Pattern
   explicitKind: true
@@ -551,6 +609,7 @@
       type: Token
     - name: Right
       type: Pattern
+
 - name: DeclarationPattern
   base: Pattern
   properties:
@@ -558,6 +617,7 @@
       type: Type
     - name: Designation
       type: VariableDesignation
+
 - name: EnumDeclaration
   base: BaseTypeDeclaration
   properties:
@@ -581,6 +641,7 @@
       type: Token
       nullable: true
       inherited: true
+
 - name: IndexerDeclaration
   base: BasePropertyDeclaration
   properties:
@@ -605,6 +666,7 @@
     - name: TerminatorToken
       type: Token
       nullable: true
+
 - name: WhileExpression
   base: Expression
   properties:
@@ -614,6 +676,7 @@
       type: Expression
     - name: Statement
       type: Statement
+
 - name: ArgumentList
   base: Node
   properties:
@@ -623,11 +686,13 @@
       type: SeparatedList<Argument>
     - name: CloseParenToken
       type: Token
+
 - name: TypeArgument
   base: Node
   properties:
     - name: Type
       type: Type
+
 - name: GlobalStatement
   base: MemberDeclaration
   properties:
@@ -636,6 +701,7 @@
       inherited: true
     - name: Statement
       type: Statement
+
 - name: PropertyDeclaration
   base: BasePropertyDeclaration
   properties:
@@ -658,6 +724,7 @@
     - name: TerminatorToken
       type: Token
       nullable: true
+
 - name: BinaryExpression
   base: Expression
   explicitKind: true
@@ -668,6 +735,7 @@
       type: Token
     - name: RightHandSide
       type: Expression
+
 - name: TypeAnnotationClause
   base: Node
   properties:
@@ -675,6 +743,7 @@
       type: Token
     - name: Type
       type: Type
+
 - name: IsPatternExpression
   base: Expression
   properties:
@@ -684,6 +753,7 @@
       type: Token
     - name: Pattern
       type: Pattern
+
 - name: ParenthesizedLambdaExpression
   base: LambdaExpression
   properties:
@@ -700,6 +770,7 @@
     - name: ExpressionBody
       type: Expression
       inherited: true
+
 - name: LocalFunctionStatement
   base: Statement
   properties:
@@ -714,6 +785,7 @@
     - name: Body
       type: Block
       nullable: true
+
 - name: ObjectCreationExpression
   base: Expression
   properties:
@@ -723,6 +795,7 @@
       type: Type
     - name: ArgumentList
       type: ArgumentList
+
 - name: MethodDeclaration
   base: BaseMethodDeclaration
   properties:
@@ -747,6 +820,7 @@
     - name: TerminatorToken
       type: Token
       nullable: true
+
 - name: BracketedParameterList
   base: Node
   properties:
@@ -756,6 +830,7 @@
       type: SeparatedList<Parameter>
     - name: CloseBracketToken
       type: Token
+
 - name: InvocationExpression
   base: Expression
   properties:
@@ -763,10 +838,12 @@
       type: Expression
     - name: ArgumentList
       type: ArgumentList
+
 - name: ExpressionOrPattern
   base: Node
   abstract: true
   properties: []
+
 - name: VariableDeclarator
   base: Node
   properties:
@@ -778,6 +855,7 @@
     - name: Initializer
       type: EqualsValueClause
       nullable: true
+
 - name: AccessorDeclaration
   base: Node
   explicitKind: true
@@ -794,6 +872,7 @@
       nullable: true
     - name: TerminatorToken
       type: Token
+
 - name: BaseMethodDeclaration
   base: MemberDeclaration
   abstract: true
@@ -809,6 +888,7 @@
       type: ArrowExpressionClause
       nullable: true
       abstract: true
+
 - name: ElementAccessExpression
   base: Expression
   properties:
