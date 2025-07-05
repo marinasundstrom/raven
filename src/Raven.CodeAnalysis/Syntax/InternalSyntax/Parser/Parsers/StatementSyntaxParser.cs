@@ -135,11 +135,11 @@ internal class StatementSyntaxParser : SyntaxParser
                 /*
                                 case SyntaxKind.IfKeyword:
                                     var ifExpr = ParseIfExpressionSyntax();
-                                    return new ExpressionStatement1Syntax(ifExpr, diagnostics);
+                                    return new ExpressionStatementSyntax(ifExpr, diagnostics);
 
                                 case SyntaxKind.WhileKeyword:
                                     var whileExpr = ParseWhileExpressionSyntax();
-                                    return new ExpressionStatement1Syntax(whileExpr, diagnostics);
+                                    return new ExpressionStatementSyntax(whileExpr, diagnostics);
                                     */
         }
 
@@ -182,7 +182,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             if (LastStatement is null)
             {
-                return ExpressionStatement(new ExpressionSyntax.Missing(), Diagnostics);
+                return ExpressionStatement(new ExpressionSyntax.Missing(), null, Diagnostics);
             }
 
             return null;
@@ -194,7 +194,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             TryConsumeTerminator(out var terminatorToken2);
 
-            return ExpressionStatementWithSemicolon(expression, terminatorToken2, Diagnostics);
+            return ExpressionStatement(expression, terminatorToken2, Diagnostics);
         }
 
         SetTreatNewlinesAsTokens(true);
@@ -207,7 +207,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     GetEndOfLastToken()));
         }
 
-        return ExpressionStatementWithSemicolon(expression, terminatorToken, Diagnostics);
+        return ExpressionStatement(expression, terminatorToken, Diagnostics);
     }
 
     public StatementSyntax? LastStatement { get; set; }
@@ -259,7 +259,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             TypeSyntax type = new NameSyntaxParser(this).ParseTypeName();
 
-            return TypeAnnotation(colonToken, type);
+            return TypeAnnotationClause(colonToken, type);
         }
 
         return null;

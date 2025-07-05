@@ -33,7 +33,6 @@ public static class SyntaxFacts
         { "struct", SyntaxKind.StructKeyword },
         { "class", SyntaxKind.ClassKeyword },
         { "self", SyntaxKind.SelfKeyword },
-        { "prop", SyntaxKind.PropKeyword },
         { "init", SyntaxKind.InitKeyword },
         { "public", SyntaxKind.PublicKeyword },
         { "private", SyntaxKind.PrivateKeyword },
@@ -141,7 +140,6 @@ public static class SyntaxFacts
             SyntaxKind.StructKeyword => "struct",
             SyntaxKind.ClassKeyword => "class",
             SyntaxKind.SelfKeyword => "self",
-            SyntaxKind.PropKeyword => "prop",
             SyntaxKind.InitKeyword => "init",
 
             SyntaxKind.GetKeyword => "get",

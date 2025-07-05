@@ -52,7 +52,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return ClassDeclaration(modifiers, structOrClassKeyword, identifier, SyntaxList.Empty, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(modifiers, structOrClassKeyword, identifier, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
     private SyntaxList ParseModifiers()
@@ -142,11 +142,11 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (expressionBody is not null)
         {
-            return ConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, expressionBody, terminatorToken);
+            return ConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, null, expressionBody, terminatorToken);
         }
         else if (body is not null)
         {
-            return ConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, body, terminatorToken);
+            return ConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, body, null, terminatorToken);
         }
 
         throw new Exception();
@@ -205,11 +205,11 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (expressionBody is not null)
         {
-            return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, expressionBody, terminatorToken);
+            return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, null, expressionBody, terminatorToken);
         }
         else if (body is not null)
         {
-            return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, body, terminatorToken);
+            return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, body, null, terminatorToken);
         }
 
         throw new Exception();
@@ -326,14 +326,14 @@ internal class TypeDeclarationParser : SyntaxParser
                 accessorList.Add(AccessorDeclaration(
                     name.IsKind(SyntaxKind.GetKeyword) ? SyntaxKind.GetAccessorDeclaration
                     : SyntaxKind.SetAccessorDeclaration,
-                    modifiers, name, expressionBody, terminatorToken));
+                    modifiers, name, null, expressionBody, terminatorToken));
             }
             else if (body is not null)
             {
                 accessorList.Add(AccessorDeclaration(
                     name.IsKind(SyntaxKind.GetKeyword) ? SyntaxKind.GetAccessorDeclaration
                     : SyntaxKind.SetAccessorDeclaration,
-                    modifiers, name, body, terminatorToken));
+                    modifiers, name, body, null, terminatorToken));
             }
         }
 
@@ -434,7 +434,7 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             TypeSyntax type = new NameSyntaxParser(this).ParseTypeName();
 
-            return TypeAnnotation(colonToken, type);
+            return TypeAnnotationClause(colonToken, type);
         }
 
         return null;

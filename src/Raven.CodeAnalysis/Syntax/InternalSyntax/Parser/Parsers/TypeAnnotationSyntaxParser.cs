@@ -12,7 +12,7 @@ internal class TypeAnnotationClauseSyntaxParser : SyntaxParser
         {
             TypeSyntax type = new NameSyntaxParser(this).ParseTypeName();
 
-            return SyntaxFactory.TypeAnnotation(colonToken, type);
+            return SyntaxFactory.TypeAnnotationClause(colonToken, type);
         }
 
         return null;
@@ -24,7 +24,7 @@ internal class TypeAnnotationClauseSyntaxParser : SyntaxParser
         {
             TypeSyntax type = new NameSyntaxParser(this).ParseTypeName();
 
-            return SyntaxFactory.ReturnTypeAnnotation(arrowToken, type);
+            return SyntaxFactory.ArrowTypeClause(arrowToken, type);
         }
 
         return null;

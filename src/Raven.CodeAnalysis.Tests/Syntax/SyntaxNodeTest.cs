@@ -156,8 +156,8 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         // Nodes to replace the single return statement
         var newStatements = new List<SyntaxNode>
         {
-            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(100))),
-            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(200)))
+            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(100)), NewLineToken),
+            ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(200)), NewLineToken)
         };
 
         // Perform the replacement

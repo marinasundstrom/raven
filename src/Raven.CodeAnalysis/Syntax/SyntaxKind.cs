@@ -40,6 +40,7 @@ public enum SyntaxKind
     ArrowTypeClause = 81,
     ParameterList = 82,
     Parameter = 83,
+    BracketedParameterList = 84,
 
     LocalDeclaration = 90,
     VariableDeclaration = 91,
@@ -50,6 +51,9 @@ public enum SyntaxKind
     SetAccessorDeclaration = 95,
     ConstructorDeclaration = 96,
 
+    IndexerDeclaration = 97,
+
+
     // === Statements === (100–129)
     GlobalStatement = 100,
     LocalFunctionStatement = 101,
@@ -57,6 +61,7 @@ public enum SyntaxKind
     ReturnStatement = 103,
     EmptyStatement = 104,
     Block = 105,
+    LocalDeclarationStatement = 106,
 
     // === Control Flow === (130–159)
     IfExpression = 130,
@@ -162,7 +167,6 @@ public enum SyntaxKind
     EnumKeyword = 1115,
     StructKeyword = 1116,
     ClassKeyword = 1117,
-    PropKeyword = 1118,
     InitKeyword = 1119,
     SelfKeyword = 1120,
 

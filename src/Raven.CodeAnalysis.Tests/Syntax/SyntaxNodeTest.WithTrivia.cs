@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
+
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
 using static Raven.CodeAnalysis.Syntax.SyntaxFactory;
@@ -76,7 +78,7 @@ public partial class SyntaxNodeTest
 
         var returnStatement = block.Statements.OfType<ReturnStatementSyntax>().First();
 
-        var newChild = ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(20)));
+        var newChild = ExpressionStatement(LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(20)), NewLineToken);
 
         var newBlock = block.ReplaceNode(returnStatement, newChild);
 

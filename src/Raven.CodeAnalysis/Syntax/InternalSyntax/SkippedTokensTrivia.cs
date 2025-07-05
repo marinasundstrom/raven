@@ -9,6 +9,16 @@ internal partial class SkippedTokensTrivia : SyntaxNode
     {
 
     }
+
+    internal override void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitSkippedTokensTrivia(this);
+    }
+
+    internal override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitSkippedTokensTrivia(this);
+    }
 }
 
 internal static partial class SyntaxFactory

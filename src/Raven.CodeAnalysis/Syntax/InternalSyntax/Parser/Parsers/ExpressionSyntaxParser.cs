@@ -455,7 +455,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             if (expression is null)
                 break;
 
-            argumentList.Add(Argument(expression));
+            argumentList.Add(Argument(null, expression));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -487,7 +487,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             if (expression is null)
                 break;
 
-            argumentList.Add(Argument(expression));
+            argumentList.Add(Argument(null, expression));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -762,7 +762,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 ));
         }
 
-        return WhileStatement(whileKeyword, condition!, statement!, Diagnostics);
+        return WhileExpression(whileKeyword, condition!, statement!, Diagnostics);
     }
 
     internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()
