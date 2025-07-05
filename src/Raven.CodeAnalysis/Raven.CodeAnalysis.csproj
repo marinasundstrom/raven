@@ -26,6 +26,9 @@
       SetTargetFramework="TargetFramework=netstandard2.0" />
   </ItemGroup>
 
-
+  <Target Name="RunNodeGenerator" BeforeTargets="Build">
+    <Exec Command="dotnet run --project  ../../tools/NodeGenerator"
+      WorkingDirectory="./Syntax" />
+  </Target>
 
 </Project>
