@@ -27,7 +27,7 @@ foreach (var node in nodes)
     await GenerateRedNode(nodesByName, node);
 }
 
-Console.WriteLine($"{nodes.Count} files were generated");
+Console.WriteLine($"{nodes.Count * 2} files were generated for {nodes.Count} nodes");
 
 static async Task GenerateGreenNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node)
 {
