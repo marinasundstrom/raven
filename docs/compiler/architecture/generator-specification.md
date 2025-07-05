@@ -1,5 +1,7 @@
 # Generator specification
 
+**This documentation is outdated**: Nodes are created from a type specification: `Model.yml`.
+
 The generators scan for matching type declarations, and create partial declarations that merge with the original definition, adding members and implementation.
 
 Details below.

@@ -1,5 +1,7 @@
 # Source generation
 
+**This documentation is outdated**: Nodes are created from a type specification: `Model.yml`.
+
 ---
 
 **Note:** For a more in-depth specification about the implementation of the source generator, look [here](/docs/compiler/architecture/generator-specification.md).
