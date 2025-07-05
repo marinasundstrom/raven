@@ -17,8 +17,17 @@ var nodes = deserializer.Deserialize<List<SyntaxNodeModel>>(streamReader);
 if (!Directory.Exists("InternalSyntax/generated"))
     Directory.CreateDirectory("InternalSyntax/generated");
 
+if (!Directory.Exists("generated"))
+    Directory.CreateDirectory("generated");
+
 var nodesByName = nodes.ToDictionary(n => n.Name);
 foreach (var node in nodes)
+{
+    await GenerateGreenNode(nodesByName, node);
+    await GenerateRedNode(nodesByName, node);
+}
+
+static async Task GenerateGreenNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node)
 {
     var source = GreenNodeGenerator.GenerateGreenNode(node, nodesByName);
 
@@ -28,5 +37,18 @@ foreach (var node in nodes)
     if (unit is not null)
     {
         await File.WriteAllTextAsync($"./InternalSyntax/generated/{node.Name}Syntax.SyntaxFactory.g.cs", unit.ToFullString());
+    }
+}
+
+static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node)
+{
+    var source = RedNodeGenerator.GenerateRedNode(node);
+
+    await File.WriteAllTextAsync($"./generated/{node.Name}Syntax.g.cs", source.ToFullString());
+
+    var unit = RedNodeGenerator.GenerateRedFactoryMethod(node);
+    if (unit is not null)
+    {
+        await File.WriteAllTextAsync($"./generated/{node.Name}Syntax.SyntaxFactory.g.cs", unit.ToFullString());
     }
 }
