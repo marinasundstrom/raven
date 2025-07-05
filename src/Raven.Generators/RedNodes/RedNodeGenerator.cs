@@ -141,23 +141,40 @@ public static class RedNodeGenerator
                             ConstantPattern(greenSlot),
                             InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
                                 ThisExpression(), IdentifierName("GetRed")))
-                                .WithArgumentList(ArgumentList(SeparatedList(new[]
-                                {
+                                .WithArgumentList(ArgumentList(SeparatedList(
+                                [
                                     Argument(IdentifierName("ref " + backing)),
                                     Argument(greenSlot)
-                                })))
+                                ])))
                         ));
                 }
                 else
                 {
+                    var backing = "_" + camel;
+                    backingFields.Add(FieldDeclaration(
+                        VariableDeclaration(IdentifierName(typeName + "?"))
+                            .WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier(backing)))))
+                        .AddModifiers(Token(SyntaxKind.InternalKeyword)));
+
                     getExpr = CastExpression(IdentifierName(typeName),
                         InvocationExpression(IdentifierName("GetNodeSlot"))
                             .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(greenSlot)))));
+
+                    getNodeSwitchArms.Add(
+                        SwitchExpressionArm(
+                        ConstantPattern(greenSlot),
+                        InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                            ThisExpression(), IdentifierName("GetRed"))).WithArgumentList(
+                            ArgumentList(SeparatedList(new[]
+                            {
+                                    Argument(IdentifierName("ref " + backing)),
+                                        Argument(greenSlot)
+                            })))));
                 }
             }
 
             properties.Add(
-                PropertyDeclaration(ParseTypeName(typeName + (isNullable && isToken ? "?" : "")), prop.Name)
+                PropertyDeclaration(ParseTypeName(MapRedType(prop.Type, prop.Nullable)), prop.Name)
                     .WithModifiers(TokenList(modifiers))
                     .WithExpressionBody(ArrowExpressionClause(getExpr))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
@@ -437,7 +454,8 @@ public static class RedNodeGenerator
         "Node" => "SyntaxNode",
         "Token" => nullable ? "SyntaxToken?" : "SyntaxToken",
         "TokenList" => "SyntaxTokenList",
-        var t when t.StartsWith("List<") || t.StartsWith("SeparatedList<") => "SyntaxList<" + t[(t.IndexOf('<') + 1)..^1] + "Syntax>",
+        var t when t.StartsWith("List<") => "SyntaxList<" + t[(t.IndexOf('<') + 1)..^1] + "Syntax>",
+        var t when t.StartsWith("SeparatedList<") => "SeparatedSyntaxList<" + t[(t.IndexOf('<') + 1)..^1] + "Syntax>",
         _ => rawType + "Syntax" + (nullable ? "?" : "")
     };
 

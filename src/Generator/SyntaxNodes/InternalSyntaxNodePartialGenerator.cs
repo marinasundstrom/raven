@@ -171,11 +171,11 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
 
         List<MemberDeclarationSyntax> members = [constructor];
 
-        var acceptMethods = AcceptMethodGenerator.GenerateAcceptMethods(new AcceptMethodGeneratorOptions(classSymbol.Name, true, nodeBaseClass: "SyntaxNode"));
+        //var acceptMethods = AcceptMethodGenerator.GenerateAcceptMethods(new AcceptMethodGeneratorOptions(classSymbol.Name, true, nodeBaseClass: "SyntaxNode"));
 
-        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(classSymbol, true));
+        //var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(classSymbol, true));
 
-        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(classSymbol, true));
+        //var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(classSymbol, true));
 
         //var rewriterGenericPartialClass = GenerateRewriterPartialClass(context, classSymbol);
 
@@ -216,10 +216,7 @@ public partial class InternalSyntaxNodePartialGenerator : IIncrementalGenerator
                                 IdentifierName("Raven"),
                                 IdentifierName("CodeAnalysis")),
                             IdentifierName("Syntax")),
-                        IdentifierName("InternalSyntax")))
-                .WithMembers([
-                            visitorPartialClass,
-                            visitorGenericPartialClass]);
+                        IdentifierName("InternalSyntax")));
 
 
         // Convert to source text and add to the compilation

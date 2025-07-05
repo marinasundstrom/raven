@@ -27,6 +27,43 @@ foreach (var node in nodes)
     await GenerateRedNode(nodesByName, node);
 }
 
+var unit = VisitorGenerator.GenerateVisitorClass(nodes);
+if (unit is not null)
+{
+    await File.WriteAllTextAsync($"./generated/SyntaxVisitor.g.cs", unit.ToFullString());
+}
+
+var unit2 = VisitorGenerator.GenerateVisitorClass(nodes, false, "Raven.CodeAnalysis.Syntax.InternalSyntax");
+if (unit2 is not null)
+{
+    await File.WriteAllTextAsync($"./InternalSyntax/generated/SyntaxVisitor.g.cs", unit2.ToFullString());
+}
+
+var unit3 = VisitorGenerator.GenerateGenericVisitorClass(nodes);
+if (unit3 is not null)
+{
+    await File.WriteAllTextAsync($"./generated/SyntaxVisitor`1.g.cs", unit3.ToFullString());
+}
+
+var unit4 = VisitorGenerator.GenerateGenericVisitorClass(nodes, false, "Raven.CodeAnalysis.Syntax.InternalSyntax");
+if (unit4 is not null)
+{
+    await File.WriteAllTextAsync($"./InternalSyntax/generated/SyntaxVisitor`1.g.cs", unit4.ToFullString());
+}
+
+var unit5 = VisitorGenerator.GenerateSyntaxRewriterClass(nodes);
+if (unit5 is not null)
+{
+    await File.WriteAllTextAsync($"./generated/SyntaxRewriter`1.g.cs", unit5.ToFullString());
+}
+
+var unit6 = VisitorGenerator.GenerateSyntaxRewriterClass(nodes, false, "Raven.CodeAnalysis.Syntax.InternalSyntax");
+if (unit6 is not null)
+{
+    await File.WriteAllTextAsync($"./InternalSyntax/generated/SyntaxRewriter`1.g.cs", unit6.ToFullString());
+}
+
+
 Console.WriteLine($"{nodes.Count * 2} files were generated for {nodes.Count} nodes");
 
 static async Task GenerateGreenNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node)

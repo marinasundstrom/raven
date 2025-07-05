@@ -146,12 +146,30 @@ public static class GreenNodeGenerator
 
         if (!isAbstract)
         {
+            // Prepare update parameters and arguments
+            var updateParams = node.Properties.Select(p =>
+                Parameter(Identifier(ToCamelCase(p.Name)))
+                    .WithType(ParseTypeName(MapType(p.Type, p.Nullable)))
+            ).ToList();
+
+            var updateArgs = node.Properties.Select(p =>
+                Argument(IdentifierName(ToCamelCase(p.Name)))
+            ).ToList();
+
+            var updateMethod = MethodUpdate(
+                name, // class name with "Syntax" suffix
+                updateParams,
+                updateArgs,
+                node
+            );
+
             members.AddRange(
             [
                 GenerateAccept(name, node.Name),
                 GenerateAcceptGeneric(name, node.Name),
                 GenerateCreateRed(name, node.Name),
-                GenerateWithUpdatedChildren(name)
+                GenerateWithUpdatedChildren(name),
+                updateMethod
             ]);
         }
 
@@ -274,6 +292,7 @@ public static class GreenNodeGenerator
                         Argument (IdentifierName("position"))
                         ]))))));
     }
+
     private static MethodDeclarationSyntax GenerateWithUpdatedChildren(string className)
     {
         return MethodDeclaration(
@@ -295,6 +314,69 @@ public static class GreenNodeGenerator
                         Argument (IdentifierName("Kind")),
                         Argument (IdentifierName("newChildren"))
                         ]))))));
+    }
+
+    private static MethodDeclarationSyntax MethodUpdate(
+        string className,
+        List<ParameterSyntax> updateParams,
+        List<ArgumentSyntax> updateArgs,
+        SyntaxNodeModel node)
+    {
+        var conditions = new List<ExpressionSyntax>();
+        var ctorArgs = new List<ArgumentSyntax>();
+        var finalParams = new List<ParameterSyntax>();
+
+        int offset = 0;
+
+        if (node.ExplicitKind)
+        {
+            // Inject kind parameter first
+            var kindParam = Parameter(Identifier("kind")).WithType(IdentifierName("SyntaxKind"));
+            finalParams.Add(kindParam);
+            ctorArgs.Add(Argument(IdentifierName("kind")));
+
+            // Add kind != this.Kind check
+            conditions.Add(BinaryExpression(
+                SyntaxKind.NotEqualsExpression,
+                IdentifierName("Kind"),
+                IdentifierName("kind")));
+
+            offset = 1;
+        }
+
+        // Add property parameters and constructor args
+        for (int i = 0; i < node.Properties.Count; i++)
+        {
+            var prop = node.Properties[i];
+            var param = updateParams[i];
+
+            finalParams.Add(param);
+        }
+
+        ctorArgs.AddRange(updateArgs.Select(arg => arg));
+
+        // Property inequality checks
+        if (updateArgs.Count > 0)
+        {
+            conditions.AddRange(updateArgs
+                .Zip(node.Properties, (arg, prop) =>
+                    BinaryExpression(SyntaxKind.NotEqualsExpression, IdentifierName(prop.Name), arg.Expression)));
+        }
+
+        var condition = conditions.Count == 0
+            ? LiteralExpression(SyntaxKind.FalseLiteralExpression)
+            : conditions.Aggregate((a, b) => BinaryExpression(SyntaxKind.LogicalOrExpression, a, b));
+
+        return MethodDeclaration(IdentifierName(className), "Update")
+            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+            .WithParameterList(ParameterList(SeparatedList(finalParams)))
+            .WithBody(Block(
+                IfStatement(
+                    condition,
+                    Block(ReturnStatement(
+                        ObjectCreationExpression(IdentifierName(className))
+                            .WithArgumentList(ArgumentList(SeparatedList(ctorArgs)))))),
+                ReturnStatement(ThisExpression())));
     }
 
     public static CompilationUnitSyntax GenerateFactoryMethod(SyntaxNodeModel node)

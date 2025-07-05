@@ -59,17 +59,16 @@ public partial class SyntaxNodePartialGenerator : IIncrementalGenerator
 
         var syntaxNodePartialClass = SyntaxNodePartialClassGenerator.GeneratePartialClass(context, classSymbol);
 
-        var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(classSymbol));
+        //var visitorPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForVisitor(new VisitorPartialGeneratorOptions(classSymbol));
 
-        var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(classSymbol));
+        //var visitorGenericPartialClass = VisitorPartialGenerator.GeneratePartialClassWithVisitMethodForGenericVisitor(new VisitorPartialGeneratorOptions(classSymbol));
 
-        var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(new RewriterPartialGeneratorOptions(classSymbol, GenerateSyntaxNodeUpdateMethodImpl));
+        //var rewriterGenericPartialClass = VisitorPartialGenerator.GenerateVisitMethodForRewriter(new RewriterPartialGeneratorOptions(classSymbol, GenerateSyntaxNodeUpdateMethodImpl));
 
         // Wrap it in a namespace
         var namespaceDeclaration = FileScopedNamespaceDeclaration(ParseName(namespaceName))
             .AddMembers(
-                syntaxNodePartialClass, visitorPartialClass,
-                visitorGenericPartialClass, rewriterGenericPartialClass);
+                syntaxNodePartialClass);
 
         // Convert to source text and add to the compilation
         var syntaxTree = CompilationUnit()

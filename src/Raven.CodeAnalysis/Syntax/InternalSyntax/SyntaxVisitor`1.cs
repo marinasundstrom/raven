@@ -23,6 +23,10 @@ internal abstract partial class SyntaxVisitor<TResult>
 
     public virtual TResult VisitToken(SyntaxToken syntaxToken)
     {
+        VisitTriviaList(syntaxToken.LeadingTrivia);
+
+        VisitTriviaList(syntaxToken.TrailingTrivia);
+
         return default!;
     }
 
@@ -46,12 +50,34 @@ internal abstract partial class SyntaxVisitor<TResult>
         return default!;
     }
 
-    internal TResult VisitTrivia(SyntaxTrivia trivia)
+    public virtual TResult VisitTrivia(SyntaxTrivia trivia)
     {
-        VisitTriviaList(trivia.LeadingTrivia);
-
-        VisitTriviaList(trivia.TrailingTrivia);
+        if (trivia.HasStructuredTrivia)
+        {
+            var structure = trivia.GetStructuredTrivia()!;
+            return VisitStructuredTrivia(structure);
+        }
 
         return default!;
+    }
+
+    private TResult VisitStructuredTrivia(SyntaxNode structure)
+    {
+        return structure.Accept(this);
+    }
+
+    public virtual TResult VisitSkippedTokensTrivia(SkippedTokensTrivia skippedTokens)
+    {
+        return DefaultVisit(skippedTokens);
+    }
+
+    public virtual TResult VisitPattern(PatternSyntax pattern)
+    {
+        return DefaultVisit(pattern);
+    }
+
+    public virtual TResult VisitVariableDesignation(VariableDesignationSyntax variableDesignation)
+    {
+        return DefaultVisit(variableDesignation);
     }
 }
