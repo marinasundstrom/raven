@@ -18,8 +18,4 @@
     </PackageReference>
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="../../Raven.Generators/Raven.Generators.csproj" />
-  </ItemGroup>
-
 </Project>

@@ -26,14 +26,6 @@
       SetTargetFramework="TargetFramework=netstandard2.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Raven.Generators\Raven.Generators.csproj" PrivateAssets="all"
-      ReferenceOutputAssembly="true" OutputItemType="Analyzer"
-      SetTargetFramework="TargetFramework=netstandard2.0" />
-  </ItemGroup>
 
-  <ItemGroup>
-    <AdditionalFiles Include="Syntax\Model.yaml" />
-  </ItemGroup>
 
 </Project>

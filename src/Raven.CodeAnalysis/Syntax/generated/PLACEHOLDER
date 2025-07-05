@@ -2,4 +2,4 @@ Generated files will be here
 
 Run this from Syntax directory:
 
-dotnet run --project  ~/Projects/Raven/src/tools/GreenNodeGenerator
+dotnet run --project  ~/Projects/Raven/src/tools/NodeGenerator
