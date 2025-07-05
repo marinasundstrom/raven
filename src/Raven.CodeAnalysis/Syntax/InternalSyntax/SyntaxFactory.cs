@@ -77,7 +77,8 @@ internal static partial class SyntaxFactory
     public static SyntaxTrivia SingleLineComment(string text) => new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, text);
     public static SkippedTokensTrivia SkippedTokensTrivia(SyntaxTokenList tokens) => new SkippedTokensTrivia(tokens.Green, []);
 
-    //public static readonly SyntaxToken EndOfLine = new SyntaxToken(SyntaxKind.EndOfLineToken, "\n");
+    public static readonly SyntaxToken NewLineToken = new SyntaxToken(SyntaxKind.NewLineToken, "\n");
+    
     public static readonly SyntaxToken EndOfFile = new SyntaxToken(SyntaxKind.EndOfFileToken, string.Empty);
 
     public static SyntaxList TokenList(params IEnumerable<SyntaxToken> tokens) => new SyntaxList(tokens.ToArray());

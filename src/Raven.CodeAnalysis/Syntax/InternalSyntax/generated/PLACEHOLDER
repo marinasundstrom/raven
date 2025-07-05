@@ -1,0 +1,5 @@
+Generated files will be here
+
+Run this from Syntax directory:
+
+dotnet run --project  ../../tools/NodeGenerator

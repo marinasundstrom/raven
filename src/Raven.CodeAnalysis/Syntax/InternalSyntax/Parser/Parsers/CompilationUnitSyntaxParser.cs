@@ -65,7 +65,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             if (statement is null)
                 return;
 
-            var globalStatement = GlobalStatement(statement);
+            var globalStatement = GlobalStatement(SyntaxList.Empty, statement);
 
             memberDeclarations.Add(globalStatement);
         }

@@ -408,3 +408,6 @@ ASALocalRun/
 _site
 api
 *.log
+
+# Generated files
+*.g.cs

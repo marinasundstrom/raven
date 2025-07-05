@@ -54,6 +54,6 @@ internal class EnumDeclarationParser : SyntaxParser
     {
         var identifier = ReadToken();
 
-        return EnumMemberDeclaration(identifier);
+        return EnumMemberDeclaration(SyntaxList.Empty, identifier, null);
     }
 }

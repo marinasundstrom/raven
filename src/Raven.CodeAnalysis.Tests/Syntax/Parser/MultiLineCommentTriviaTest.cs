@@ -16,11 +16,11 @@ public class MultiLineCommentTriviaTest
 
         var root = syntaxTree.GetRoot();
 
-        var ifStatement = root.DescendantNodes()
+        var ifExpression = root.DescendantNodes()
             .OfType<IfExpressionSyntax>()
             .First();
 
-        var trivia = ((BlockSyntax)ifStatement.Expression).CloseBraceToken.LeadingTrivia.FirstOrDefault(x => x.Kind == SyntaxKind.MultiLineCommentTrivia);
+        var trivia = ((BlockSyntax)ifExpression.Expression).CloseBraceToken.LeadingTrivia.FirstOrDefault(x => x.Kind == SyntaxKind.MultiLineCommentTrivia);
 
         trivia.ShouldNotBeNull();
     }

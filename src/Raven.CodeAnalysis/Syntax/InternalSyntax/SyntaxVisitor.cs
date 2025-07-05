@@ -1,6 +1,7 @@
 
 
 
+
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal abstract partial class SyntaxVisitor
@@ -20,7 +21,9 @@ internal abstract partial class SyntaxVisitor
 
     public virtual void VisitToken(SyntaxToken syntaxToken)
     {
+        VisitTriviaList(syntaxToken.LeadingTrivia);
 
+        VisitTriviaList(syntaxToken.TrailingTrivia);
     }
 
     public virtual void VisitSyntaxList(SyntaxList syntaxList)
@@ -41,8 +44,30 @@ internal abstract partial class SyntaxVisitor
 
     public virtual void VisitTrivia(SyntaxTrivia trivia)
     {
-        VisitTriviaList(trivia.LeadingTrivia);
+        if (trivia.HasStructuredTrivia)
+        {
+            var structure = trivia.GetStructuredTrivia()!;
+            VisitStructuredTrivia(structure);
+        }
+    }
 
-        VisitTriviaList(trivia.TrailingTrivia);
+    private void VisitStructuredTrivia(SyntaxNode structure)
+    {
+        structure.Accept(this);
+    }
+
+    public virtual void VisitSkippedTokensTrivia(SkippedTokensTrivia skippedTokens)
+    {
+        DefaultVisit(skippedTokens);
+    }
+
+    public virtual void VisitPattern(PatternSyntax pattern)
+    {
+        DefaultVisit(pattern);
+    }
+
+    public virtual void VisitVariableDesignation(VariableDesignationSyntax variableDesignation)
+    {
+        DefaultVisit(variableDesignation);
     }
 }

@@ -48,7 +48,7 @@ public partial class SyntaxNodeTest
         var block = Block(
             OpenBraceToken,
             List<StatementSyntax>(
-                ReturnStatement(MissingToken(SyntaxKind.ReturnKeyword), MissingToken(SyntaxKind.SemicolonToken))
+                ReturnStatement(MissingToken(SyntaxKind.ReturnKeyword), MissingToken(SyntaxKind.NewLineToken))
             ),
             MissingToken(SyntaxKind.CloseBraceToken));
 

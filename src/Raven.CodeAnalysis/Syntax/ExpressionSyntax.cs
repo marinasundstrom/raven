@@ -1,12 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax;
 
-public abstract class ExpressionSyntax : ExpressionOrPatternSyntax
+public abstract partial class ExpressionSyntax : ExpressionOrPatternSyntax
 {
-    internal ExpressionSyntax(GreenNode greenNode, SyntaxNode parent, int position)
-        : base(greenNode, parent, position)
-    {
-    }
-
     public class Missing : ExpressionSyntax
     {
         internal Missing()
