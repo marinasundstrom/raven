@@ -396,7 +396,7 @@ public static class RedNodeGenerator
                 .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(ThisExpression())))))));
 
     private static MethodDeclarationSyntax MethodGetNodeSlot(List<SwitchExpressionArmSyntax> arms) =>
-        MethodDeclaration(NullableType(IdentifierName("SyntaxNode")), "GetNodeSlot")
+        MethodDeclaration(IdentifierName("SyntaxNode"), "GetNodeSlot")
             .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
             .AddParameterListParameters(Parameter(Identifier("index")).WithType(PredefinedType(Token(SyntaxKind.IntKeyword))))
             .WithBody(Block(ReturnStatement(SwitchExpression(IdentifierName("index")).WithArms(SeparatedList(arms.Append(
