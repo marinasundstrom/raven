@@ -87,7 +87,7 @@ let x = 2; Console.WriteLine(x)
 Raven supports target-typed expressions, allowing constructs like:
 
 ```raven
-let x = .Length  // If type context implies a known receiver
+let x: string = .Empty  // If type context implies a known receiver
 ```
 
 This enables more concise and predictive IntelliSense experiences and binds expression semantics to the type system, not just to the lexical scope.
