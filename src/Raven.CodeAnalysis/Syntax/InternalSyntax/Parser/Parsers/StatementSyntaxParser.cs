@@ -55,7 +55,12 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
-        return LocalFunctionStatement(funcKeyword, identifier, parameterList, returnParameterAnnotation, block);
+        if (!TryConsumeTerminator(out var terminatorToken))
+        {
+
+        }
+
+        return LocalFunctionStatement(funcKeyword, identifier, parameterList, returnParameterAnnotation, block, terminatorToken);
     }
 
     public ParameterListSyntax ParseParameterList()

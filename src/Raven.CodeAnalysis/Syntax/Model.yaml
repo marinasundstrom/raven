@@ -188,6 +188,7 @@
       type: VariableDeclaration
     - name: TerminatorToken
       type: Token
+      nullable: true
 
 - name: BaseTypeDeclaration
   base: MemberDeclaration
@@ -269,6 +270,7 @@
       nullable: true
     - name: TerminatorToken
       type: Token
+      nullable: true
 
 - name: CompilationUnit
   base: Node
@@ -784,6 +786,9 @@
       type: ArrowTypeClause
     - name: Body
       type: Block
+      nullable: true
+    - name: TerminatorToken
+      type: Token
       nullable: true
 
 - name: ObjectCreationExpression
