@@ -114,12 +114,9 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var checkpoint = CreateCheckpoint();
 
-        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        var expression = new ExpressionSyntaxParser(this).ParseExpressionOrNull();
 
-        if (expression.IsMissing)
-        {
-            checkpoint.Dispose();
-        }
+        checkpoint.Dispose();
 
         SetTreatNewlinesAsTokens(true);
 

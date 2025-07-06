@@ -4,8 +4,8 @@ public abstract partial class ExpressionSyntax : ExpressionOrPatternSyntax
 {
     public class Missing : ExpressionSyntax
     {
-        internal Missing()
-            : base(new InternalSyntax.ExpressionSyntax.Missing([]), null, 0)
+        internal Missing(SyntaxKind kind = SyntaxKind.None)
+            : base(new InternalSyntax.ExpressionSyntax.Missing(kind), null, 0)
         {
         }
 

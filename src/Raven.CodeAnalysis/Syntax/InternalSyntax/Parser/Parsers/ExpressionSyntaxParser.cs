@@ -19,6 +19,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return ParseOrExpression() ?? new ExpressionSyntax.Missing();
     }
 
+    public ExpressionSyntax ParseExpressionOrNull()
+    {
+        return ParseOrExpression();
+    }
+
     public BlockSyntax ParseBlockSyntax()
     {
         var openBrace = ExpectToken(SyntaxKind.OpenBraceToken);
