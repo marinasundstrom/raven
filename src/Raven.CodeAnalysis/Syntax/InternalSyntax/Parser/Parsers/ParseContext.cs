@@ -37,8 +37,27 @@ internal abstract class ParseContext
     public virtual TextSpan GetStartOfLastToken() => Parent?.GetStartOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
 
     public virtual TextSpan GetEndOfLastToken() => Parent?.GetEndOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
-
+    
+    public virtual TextSpan GetSpanOfLastToken() => Parent?.GetSpanOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
+    
+    public virtual TextSpan GetFullSpanOfLastToken() => Parent?.GetFullSpanOfLastToken() ?? throw new InvalidOperationException("No base or parent set");
+    
+    public virtual ParserCheckpoint CreateCheckpoint(string debugName = "")
+    {
+        return Parent!.CreateCheckpoint(debugName);
+    }
+    
+    public virtual void RewindToPosition(int position)
+    {
+        Parent?.RewindToPosition(position);
+    }
+    
     public virtual bool TreatNewlinesAsTokens => Parent?.TreatNewlinesAsTokens ?? throw new InvalidOperationException("No base or parent set");
 
     public virtual void SetTreatNewlinesAsTokens(bool value) => Parent?.SetTreatNewlinesAsTokens(value);
+
+    public virtual SyntaxToken SkipUntil(params IEnumerable<SyntaxKind> expectedKind)
+    {
+        return Parent?.SkipUntil(expectedKind)  ?? throw new InvalidOperationException("No base or parent set");
+    }
 }

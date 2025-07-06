@@ -57,7 +57,6 @@ public struct SyntaxTrivia
     public SyntaxNode? GetStructure()
     {
         var tokenParent = _token?.Parent;
-        var _parent = tokenParent?.Parent;
         return _structure ??= Green.GetStructuredTrivia()?.CreateRed(tokenParent, _position);
     }
 

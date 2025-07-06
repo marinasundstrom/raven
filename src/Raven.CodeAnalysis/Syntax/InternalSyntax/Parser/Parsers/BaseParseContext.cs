@@ -40,7 +40,24 @@ internal class BaseParseContext : ParseContext
 
         return new TextSpan(Position - LastToken.TrailingTrivia.Width, 0);
     }
+    
+    public override TextSpan GetSpanOfLastToken()
+    {
+        if (LastToken is null)
+            throw new InvalidOperationException("Have not started parsing yet");
 
+        int tokenStart = Position - LastToken.TrailingTrivia.Width - LastToken.Width;
+        return new TextSpan(tokenStart, LastToken.Width);
+    }
+
+    public override TextSpan GetFullSpanOfLastToken()
+    {
+        if (LastToken is null)
+            throw new InvalidOperationException("Have not started parsing yet");
+
+        return new TextSpan(Position - LastToken.FullWidth, LastToken.FullWidth);
+    }
+    
     /// <summary>
     /// Treat newlines as tokens
     /// </summary>
@@ -59,7 +76,7 @@ internal class BaseParseContext : ParseContext
     /// <summary>
     /// Create a checkpoint that enables rewinding the token stream
     /// </summary>
-    public ParserCheckpoint CreateCheckpoint(string debugName = "")
+    public override ParserCheckpoint CreateCheckpoint(string debugName = "")
     {
         return new ParserCheckpoint(this, debugName);
     }
@@ -68,7 +85,7 @@ internal class BaseParseContext : ParseContext
     /// Rewind to a specific position in the token stream
     /// </summary>
     /// <param name="position"></param>
-    public void RewindToPosition(int position)
+    public override void RewindToPosition(int position)
     {
         _lookaheadTokens.Clear(); // Invalidate lookahead because context changed
         _lexer.ResetToPosition(position);
@@ -375,17 +392,19 @@ internal class BaseParseContext : ParseContext
         return token.Kind == SyntaxKind.LineFeedToken || token.Kind == SyntaxKind.NewLineToken;
     }
 
-    public void SkipUntil(SyntaxKind expectedKind)
+    public override SyntaxToken SkipUntil(params IEnumerable<SyntaxKind> expectedKind)
     {
         var skippedTokens = new List<SyntaxToken>();
 
-        while (true)
-        {
-            var token = PeekToken();
-            if (token.Kind == expectedKind || token.Kind == SyntaxKind.EndOfFileToken)
-                break;
+        _pendingTrivia.Clear();
 
+        SyntaxToken token = PeekToken();
+
+        while (!expectedKind.Contains(token.Kind) && token.Kind != SyntaxKind.EndOfFileToken)
+        {
             skippedTokens.Add(ReadToken());
+
+            token = PeekToken();
         }
 
         if (skippedTokens.Count > 0)
@@ -394,7 +413,12 @@ internal class BaseParseContext : ParseContext
                 new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
             );
 
-            _pendingTrivia.Add(trivia);
+            var leadingTrivia = token.LeadingTrivia.Add(trivia);
+            ReadToken();
+            _lastToken = new SyntaxToken(token.Kind, token.Text, leadingTrivia, token.TrailingTrivia);
+            return _lastToken;
         }
+
+        return ReadToken();
     }
 }

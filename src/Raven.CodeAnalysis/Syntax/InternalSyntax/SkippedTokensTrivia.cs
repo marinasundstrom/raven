@@ -10,6 +10,11 @@ internal partial class SkippedTokensTrivia : SyntaxNode
 
     }
 
+    public override Syntax.SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
+    {
+        return new Syntax.SkippedTokensTrivia(this, parent, position);
+    }
+
     internal override void Accept(SyntaxVisitor visitor)
     {
         visitor.VisitSkippedTokensTrivia(this);

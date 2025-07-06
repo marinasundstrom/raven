@@ -112,19 +112,28 @@ internal class StatementSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
+        var checkpoint = CreateCheckpoint();
+
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        if (expression.IsMissing)
+        {
+            checkpoint.Dispose();
+        }
 
         SetTreatNewlinesAsTokens(true);
 
         if (!TryConsumeTerminator(out var terminatorToken))
         {
+            terminatorToken = SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+
             AddDiagnostic(
                 DiagnosticInfo.Create(
                     CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()));
+                    GetFullSpanOfLastToken()));
         }
 
-        return ReturnStatement(returnKeyword, expression, terminatorToken);
+        return ReturnStatement(returnKeyword, expression, terminatorToken, Diagnostics);
     }
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()

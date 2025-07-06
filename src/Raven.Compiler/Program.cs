@@ -91,9 +91,16 @@ catch (Exception e)
 
 stopwatch.Stop();
 
+if (debug)
+{
+    var str = root.ToFullString();
+    Console.WriteLine(str);
+}
+
 if (shouldPrintSyntaxTree || debug)
 {
-    root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true });
+    var includeLocations = true;
+    root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = includeLocations, Colorize = true, ExpandListsAsProperties = true });
 }
 
 if (shouldDumpSyntax || debug)
