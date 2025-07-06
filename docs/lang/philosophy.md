@@ -22,6 +22,12 @@ public init WithName(name: string) {
 }
 ```
 
+The usage:
+
+```raven
+let user = User.WithName("Anna") 
+```
+
 ---
 
 ### 2. **Symmetric Design**
