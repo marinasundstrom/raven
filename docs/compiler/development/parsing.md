@@ -32,6 +32,6 @@ var t1 = PeekToken(2); // ')'
 
  ## Backtracking
 
- For contextual parsing, you can create a checkpoint, by calling `Checkpoint` in the parser. And then restore it by calling `Backtrack`.
+ For contextual parsing, you can create a checkpoint, by calling `CreateCheckpoint` in the parser. And then restore to that checkpoint by disposing the object.
 
  The lexer does support resetting to a specified position. This is ultimately used by the aforementioned functionality.
