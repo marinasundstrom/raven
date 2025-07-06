@@ -26,9 +26,12 @@
       SetTargetFramework="TargetFramework=netstandard2.0" />
   </ItemGroup>
 
-  <Target Name="RunNodeGenerator" BeforeTargets="Build">
-    <Exec Command="dotnet run --project  ../../tools/NodeGenerator"
-      WorkingDirectory="./Syntax" />
+  <Target Name="RunNodeGenerator"
+    Inputs="Syntax/Model.yml"
+    Outputs="Syntax/generated/.stamp"
+    BeforeTargets="Build">
+    <Exec Command="dotnet run --project ../../tools/NodeGenerator"
+      WorkingDirectory="Syntax" />
   </Target>
 
 </Project>

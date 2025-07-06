@@ -1,5 +1,5 @@
-Generated files will be here
+This directory will contain generated files. These files won't be checked into the repository. Editing these files will cause the compiler to act in unexpected ways. If  Model.yml changes these files will be re-generated. 
 
-Run this from Syntax directory:
+To manually trigger generation of the files, run this command from the "Syntax" directory:
 
 dotnet run --project  ../../tools/NodeGenerator
