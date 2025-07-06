@@ -188,10 +188,10 @@ public static class PrettySyntaxTreePrinter
 
             sb.AppendLine($"{newIndent}{childMarker}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
 
-            var newIndent2 = newIndent + (isChildLast ? IndentationStr : MarkerStraight);
-
             if (trivia.HasStructure)
             {
+                var newIndent2 = newIndent + MarkerStraight;
+
                 PrintStructuredTrivia(sb, printerOptions, trivia, isFirstChild, isChildLast, newIndent2);
             }
         }
@@ -215,11 +215,11 @@ public static class PrettySyntaxTreePrinter
         {
             var isChildLast2 = i2 == structureCount - 1;
 
-            var newIndent4 = newIndent2 + (isChildLast2 ? IndentationStr : MarkerStraight);
+            var newIndent4 = newIndent2 + IndentationStr;
 
             if (triviaChild.TryGetToken(out var token))
             {
-                sb.AppendLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.ValueText} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                sb.AppendLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
             }
             i2++;
         }
@@ -230,7 +230,7 @@ public static class PrettySyntaxTreePrinter
         var lineSpan = location.GetLineSpan();
         var start = lineSpan.StartLinePosition;
         var end = lineSpan.EndLinePosition;
-        return $"({(start.Line + 1)},{start.Character + 1}) - ({(end.Line + 1)},{end.Character + 1})";
+        return $"({start.Line + 1},{start.Character + 1}) - ({end.Line + 1},{end.Character + 1})";
     }
 
     private static string Span(TextSpan span)
