@@ -40,7 +40,7 @@
       "_appName": "Raven",
       "_appTitle": "Raven",
       "_enableSearch": true,
-      "pdf": true
+      "pdf": false
     }
   }
 }
