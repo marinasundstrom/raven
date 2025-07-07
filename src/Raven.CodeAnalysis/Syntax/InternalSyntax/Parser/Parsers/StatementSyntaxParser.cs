@@ -112,11 +112,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
-        var checkpoint = CreateCheckpoint();
-
         var expression = new ExpressionSyntaxParser(this).ParseExpressionOrNull();
-
-        checkpoint.Dispose();
 
         SetTreatNewlinesAsTokens(true);
 
