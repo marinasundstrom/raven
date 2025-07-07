@@ -100,7 +100,7 @@ public class ChildSyntaxListItem
 
     public SyntaxNode Parent => _parentNode;
 
-    public object? ParentListGreen => _parentListGreen;
+    internal InternalSyntax.SyntaxList? ParentListGreen => _parentListGreen;
 
     public bool TryGetToken(out SyntaxToken token)
     {
