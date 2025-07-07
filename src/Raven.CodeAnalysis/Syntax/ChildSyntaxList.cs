@@ -1,5 +1,4 @@
 using System.Collections;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Syntax;
@@ -30,22 +29,22 @@ public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
     {
         int position = _node.Position;
 
-        var tempChildren = new List<ChildSyntaxListItem>();
-        for (int index = 0; index < _node.Green.SlotCount; index++)
-        {
-            var childGreenNode = _node.Green.GetSlot(index);
-            if (childGreenNode is InternalSyntax.SyntaxList)
-            {
-                var syntaxList = childGreenNode;
+        var nodeGreen = _node.Green;
 
+        var tempChildren = new List<ChildSyntaxListItem>();
+        for (int index = 0; index < nodeGreen.SlotCount; index++)
+        {
+            var childGreenNode = nodeGreen.GetSlot(index);
+            if (childGreenNode is InternalSyntax.SyntaxList syntaxList)
+            {
                 for (int i = 0; i < syntaxList.SlotCount; i++)
                 {
-                    var child = syntaxList.GetSlot(i);
-                    if (child is not null)
+                    var listItemGreenNode = syntaxList.GetSlot(i);
+                    if (listItemGreenNode is not null)
                     {
-                        tempChildren.Add(new ChildSyntaxListItem(child, _node, position));
+                        tempChildren.Add(new ChildSyntaxListItem(listItemGreenNode, _node, position, syntaxList));
 
-                        position += child.FullWidth;
+                        position += listItemGreenNode.FullWidth;
                     }
                 }
             }
@@ -78,26 +77,30 @@ public class ChildSyntaxList : IEnumerable<ChildSyntaxListItem>
 
 public class ChildSyntaxListItem
 {
-    private readonly GreenNode _node;
-    private readonly SyntaxNode _parent;
+    private readonly GreenNode _itemGreenNode;
+    private readonly SyntaxNode _parentNode;
     private readonly int _position;
+    private readonly InternalSyntax.SyntaxList? _parentListGreen;
     private SyntaxToken? _token;
-    private SyntaxNode? _n;
+    private SyntaxNode? _node;
 
-    internal ChildSyntaxListItem(GreenNode node, SyntaxNode parent, int position)
+    internal ChildSyntaxListItem(GreenNode itemGreenNode, SyntaxNode parentNode, int position, InternalSyntax.SyntaxList? parentListGreen = null)
     {
-        _node = node ?? throw new ArgumentNullException(nameof(node));
-        _parent = parent;
+        _itemGreenNode = itemGreenNode ?? throw new ArgumentNullException(nameof(itemGreenNode));
+        _parentNode = parentNode;
         _position = position;
+        _parentListGreen = parentListGreen;
     }
 
-    public bool IsToken => _node is InternalSyntax.SyntaxToken;
-    public bool IsNode => _node is InternalSyntax.SyntaxNode;
+    public bool IsToken => _itemGreenNode is InternalSyntax.SyntaxToken;
+    public bool IsNode => _itemGreenNode is InternalSyntax.SyntaxNode;
 
-    public SyntaxToken AsToken() => _token ??= IsToken ? new SyntaxToken(_node as InternalSyntax.SyntaxToken, _parent, _position) : default;
-    public SyntaxNode? AsNode() => _n ??= IsNode ? (SyntaxNode?)SyntaxNodeCache.GetValue(_node, (s) => s.CreateRed(_parent, _position)) : null;
+    public SyntaxToken AsToken() => _token ??= IsToken ? new SyntaxToken(_itemGreenNode as InternalSyntax.SyntaxToken, _parentNode, _position) : default;
+    public SyntaxNode? AsNode() => _node ??= IsNode ? (SyntaxNode?)SyntaxNodeCache.GetValue(_itemGreenNode, (s) => s.CreateRed(_parentNode, _position)) : null;
 
-    public SyntaxNode Parent => _parent;
+    public SyntaxNode Parent => _parentNode;
+
+    public object? ParentListGreen => _parentListGreen;
 
     public bool TryGetToken(out SyntaxToken token)
     {
