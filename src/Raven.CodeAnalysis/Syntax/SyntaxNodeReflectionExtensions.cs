@@ -187,6 +187,13 @@ public static class SyntaxNodeReflectionExtensions
                         return property.Name;
                 }
             }
+            else if (value is SyntaxTokenList tokenList)
+            {
+                foreach (var item in tokenList)
+                {
+                    return property.Name;
+                }
+            }
         }
 
         return null;
