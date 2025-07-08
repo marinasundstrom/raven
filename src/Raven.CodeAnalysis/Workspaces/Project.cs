@@ -10,6 +10,7 @@ public sealed class Project
     private readonly ImmutableDictionary<DocumentId, Document> _documents;
 
     public ProjectId Id { get; }
+    public SolutionId SolutionId => Id.SolutionId;
     public ProjectAttributes Attributes { get; }
     public VersionStamp Version { get; }
 

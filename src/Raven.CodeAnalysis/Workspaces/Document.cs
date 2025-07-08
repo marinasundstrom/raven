@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Immutable;
-
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -11,24 +9,23 @@ public sealed class Document
     private SemanticModel? _lazySemanticModel;
 
     public DocumentId Id { get; }
-    public ProjectId ProjectId { get; }
+    public ProjectId ProjectId => Id.ProjectId;
     public DocumentAttributes Attributes { get; }
     public VersionStamp Version { get; }
 
     public string Name => Attributes.Name;
     public string Text => Attributes.Text;
 
-    public Document(DocumentId id, ProjectId projectId, DocumentAttributes attributes)
+    public Document(DocumentId id, DocumentAttributes attributes)
     {
         Id = id;
-        ProjectId = projectId;
         Attributes = attributes;
         Version = VersionStamp.Create();
     }
 
     public Document WithAttributes(DocumentAttributes newAttributes)
     {
-        return newAttributes.Equals(Attributes) ? this : new Document(Id, ProjectId, newAttributes);
+        return newAttributes.Equals(Attributes) ? this : new Document(Id, newAttributes);
     }
 
     public Document WithText(string newText)
@@ -58,11 +55,4 @@ public sealed class Document
         _lazySemanticModel = compilation.GetSemanticModel(GetSyntaxTree());
         return _lazySemanticModel;
     }
-
-    /*
-    public ImmutableArray<Diagnostic> GetDiagnostics()
-    {
-        return GetSyntaxTree().GetDiagnostics();
-    }
-    */
 }

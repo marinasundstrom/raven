@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
@@ -9,19 +6,40 @@ public sealed class Solution
 {
     private readonly ImmutableDictionary<ProjectId, Project> _projects;
 
-    public ImmutableArray<Project> Projects => _projects.Values.ToImmutableArray();
+    public SolutionId Id { get; }
+    public SolutionAttributes Attributes { get; }
     public VersionStamp Version { get; }
 
-    public Solution()
+    public ImmutableArray<Project> Projects => _projects.Values.ToImmutableArray();
+
+    public Solution(SolutionId id, string name)
+        : this(id, new SolutionAttributes(name))
     {
+
+    }
+
+
+    public Solution(SolutionId id, SolutionAttributes attributes)
+    {
+        Id = id;
+        Attributes = attributes;
         _projects = ImmutableDictionary<ProjectId, Project>.Empty;
         Version = VersionStamp.Create();
     }
 
-    private Solution(ImmutableDictionary<ProjectId, Project> projects, VersionStamp version)
+    private Solution(SolutionId id, SolutionAttributes attributes, ImmutableDictionary<ProjectId, Project> projects, VersionStamp version)
     {
+        Id = id;
+        Attributes = attributes;
         _projects = projects;
         Version = version;
+    }
+
+    public Solution WithAttributes(SolutionAttributes newAttributes)
+    {
+        return newAttributes.Equals(Attributes)
+            ? this
+            : new Solution(Id, newAttributes, _projects, VersionStamp.Create());
     }
 
     public Project? GetProject(ProjectId id)
@@ -30,19 +48,17 @@ public sealed class Solution
     public Solution AddProject(Project project)
     {
         var updated = _projects.SetItem(project.Id, project);
-        return new Solution(updated, VersionStamp.Create());
+        return new Solution(Id, Attributes, updated, VersionStamp.Create());
     }
 
     public Solution RemoveProject(ProjectId id)
     {
         var updated = _projects.Remove(id);
-        return new Solution(updated, VersionStamp.Create());
+        return new Solution(Id, Attributes, updated, VersionStamp.Create());
     }
 
     public Solution WithProject(Project project)
-    {
-        return AddProject(project);
-    }
+        => AddProject(project);
 
     public Solution WithProjectAttributes(ProjectId id, ProjectAttributes newAttributes)
     {

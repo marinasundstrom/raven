@@ -15,14 +15,14 @@ public class Workspace : IDisposable
 
     public virtual string? Kind { get; }
 
-    public Solution CurrentSolution { get; protected set; } = new();
+    public Solution CurrentSolution { get; protected set; } = new(SolutionId.CreateNew(), "");
 
     public event EventHandler<WorkspaceChangeEventArgs>? WorkspaceChanged;
 
     public async Task<Solution> OpenSolutionAsync(string solutionPath, CancellationToken cancellationToken = default)
     {
         // TODO: Replace with actual loading logic from disk
-        var solution = new Solution(); // Simulated load
+        var solution = new Solution(SolutionId.CreateNew(), "Bar"); // Simulated load
         CurrentSolution = solution;
         WorkspaceChanged?.Invoke(this, new WorkspaceChangeEventArgs(
             WorkspaceChangeKind.SolutionAdded,
