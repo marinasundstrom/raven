@@ -17,8 +17,7 @@ public class WorkspaceTest(ITestOutputHelper testOutputHelper)
         workspace.TryApplyChanges(solution);
 
         var docId = DocumentId.CreateNew(projectId);
-        var doc = Document.Create(project, docId, "Test.rvn", SourceText.From("class Test {}"));
-        solution = solution.AddDocument(doc);
+        solution = solution.AddDocument(projectId, docId, "Test.rvn", SourceText.From("class Test {}"));
         workspace.TryApplyChanges(solution);
 
         var retrieved = workspace.CurrentSolution.GetDocument(docId);
@@ -38,8 +37,7 @@ public class WorkspaceTest(ITestOutputHelper testOutputHelper)
         workspace.TryApplyChanges(solution);
 
         var docId = DocumentId.CreateNew(projectId);
-        var doc = Document.Create(project, docId, "Main.rvn", SourceText.From("print(1);"));
-        solution = solution.AddDocument(doc);
+        solution = solution.AddDocument(projectId, docId, "Main.rvn", SourceText.From("print(1);"));
         workspace.TryApplyChanges(solution);
 
         var originalDoc = workspace.CurrentSolution.GetDocument(docId)!;
@@ -75,8 +73,7 @@ public class WorkspaceTest(ITestOutputHelper testOutputHelper)
         workspace.TryApplyChanges(solution);
 
         var docId = DocumentId.CreateNew(projectId);
-        var doc = Document.Create(project, docId, "Code.rvn", SourceText.From("x = 1"));
-        solution = solution.AddDocument(doc);
+        solution = solution.AddDocument(projectId, docId, "Code.rvn", SourceText.From("x = 1"));
         workspace.TryApplyChanges(solution);
 
         var updated = doc.WithText(SourceText.From("x = 2"));

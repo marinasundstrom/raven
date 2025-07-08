@@ -17,12 +17,12 @@ public sealed class Document
     public VersionStamp Version { get; }
 
     public string Name => Attributes.Name;
-    public string Text => Attributes.Text;
+    public SourceText Text => Attributes.Text;
 
     internal Solution Solution => _solution;
     internal Project Project => _solution.GetProject(ProjectId)!;
 
-    public Document(DocumentId id, string name, string text)
+    public Document(DocumentId id, string name, SourceText text)
         : this(null!, id, new DocumentAttributes(name, text))
     {
 
@@ -41,7 +41,7 @@ public sealed class Document
         return newAttributes.Equals(Attributes) ? this : new Document(_solution, Id, newAttributes);
     }
 
-    public Document WithText(string newText)
+    public Document WithText(SourceText newText)
     {
         return WithAttributes(Attributes.WithText(newText));
     }
@@ -71,6 +71,6 @@ public sealed class Document
 
     public static Document Create(Project project, DocumentId id, string name, SourceText sourceText)
     {
-        return new Document(project.Solution, id, new DocumentAttributes(name, sourceText.ToString()));
+        return new Document(project.Solution, id, new DocumentAttributes(name, sourceText));
     }
 }

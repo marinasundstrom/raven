@@ -91,7 +91,7 @@ public class Workspace : IDisposable
                 var oldText = oldDocs[docId].Text;
                 var newText = newDocs[docId].Text;
 
-                if (!string.Equals(oldText, newText, StringComparison.Ordinal))
+                if (!oldText.ContentEquals(newText))
                 {
                     changes.Add(new WorkspaceChangeEventArgs(
                         WorkspaceChangeKind.DocumentChanged, newSolution, oldSolution, projectId, docId));

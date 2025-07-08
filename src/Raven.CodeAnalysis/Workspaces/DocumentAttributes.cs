@@ -1,13 +1,15 @@
 using System;
 
+using Raven.CodeAnalysis.Text;
+
 namespace Raven.CodeAnalysis;
 
 public sealed class DocumentAttributes : IEquatable<DocumentAttributes>
 {
     public string Name { get; }
-    public string Text { get; }
+    public SourceText Text { get; }
 
-    public DocumentAttributes(string name, string text)
+    public DocumentAttributes(string name, SourceText text)
     {
         Name = name;
         Text = text;
@@ -18,7 +20,7 @@ public sealed class DocumentAttributes : IEquatable<DocumentAttributes>
         return name == Name ? this : new DocumentAttributes(name, Text);
     }
 
-    public DocumentAttributes WithText(string text)
+    public DocumentAttributes WithText(SourceText text)
     {
         return text == Text ? this : new DocumentAttributes(Name, text);
     }

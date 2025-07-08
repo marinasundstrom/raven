@@ -11,10 +11,9 @@ public static class SolutionExtensions
         return solution.AddProject(project);
     }
 
-    public static Solution AddDocument(this Solution solution, DocumentId id, string name, SourceText text, string? filePath = null)
+    public static Solution AddDocument(this Solution solution, ProjectId projectId, DocumentId id, string name, SourceText text, string? filePath = null)
     {
-        var projectId = id.ProjectId;
-        var document = new Document(id, name, text.ToString());
+        var document = new Document(id, name, text);
         var project = solution.GetProject(projectId);
         if (project == null) return solution;
 
@@ -28,8 +27,8 @@ public static class SolutionExtensions
         if (oldDoc == null) return solution;
 
         var newDoc = newName != null
-            ? oldDoc.WithText(text.ToString()).WithName(newName)
-            : oldDoc.WithText(text.ToString());
+            ? oldDoc.WithText(text).WithName(newName)
+            : oldDoc.WithText(text);
 
         return solution.WithDocument(newDoc);
     }
