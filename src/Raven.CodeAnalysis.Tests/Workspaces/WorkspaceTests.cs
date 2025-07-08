@@ -1,3 +1,4 @@
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -5,104 +6,83 @@ namespace Raven.CodeAnalysis.Tests;
 public class WorkspaceTest(ITestOutputHelper testOutputHelper)
 {
     [Fact]
-    public void Foo1()
+    public void AddProjectAndDocument_ShouldPreserveIdsAndUpdateVersions()
     {
-        var solutionId = SolutionId.CreateNew();
-        var solution = new Solution(solutionId, "Solution");
-        var projectId = ProjectId.CreateNew(solutionId);
-        solution = solution.AddProject(projectId, "MyProject", "MyAssembly", LanguageNames.Raven);
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
 
-        var documentId = DocumentId.CreateNew(projectId);
-        var updatedSolution = solution.AddDocument(documentId, "Test.cs", SourceText.From("class Test {}"));
+        var projectId = ProjectId.CreateNew(solution.Id);
+        var project = Project.Create(solution, projectId, "MyProject", "MyAssembly", LanguageNames.Raven);
+        solution = solution.AddProject(project);
+        workspace.TryApplyChanges(solution);
 
-        testOutputHelper.WriteLine($"Document added to project: {updatedSolution.Projects.First().Documents.First().Name}");
+        var docId = DocumentId.CreateNew(projectId);
+        var doc = Document.Create(project, docId, "Test.rvn", SourceText.From("class Test {}"));
+        solution = solution.AddDocument(doc);
+        workspace.TryApplyChanges(solution);
+
+        var retrieved = workspace.CurrentSolution.GetDocument(docId);
+        Assert.Equal("Test.rvn", retrieved?.Name);
+        Assert.Equal(docId, retrieved?.Id);
     }
 
     [Fact]
-    public async Task Foo2()
+    public async Task UpdateDocumentText_ShouldCreateNewVersion()
     {
-        // Create an AdhocWorkspace
         var workspace = new AdhocWorkspace();
-
-        workspace.WorkspaceChanged += (sender, args) =>
-        {
-            if (args.Kind == WorkspaceChangeKind.DocumentChanged)
-            {
-                var newDocument = args.NewSolution.GetDocument(args.DocumentId.GetValueOrDefault());
-                var newText = newDocument!.GetTextAsync().Result;
-                testOutputHelper.WriteLine("Document text changed!");
-            }
-        };
-
-        // Create a new Solution
         var solution = workspace.CurrentSolution;
 
-        // Add a project
         var projectId = ProjectId.CreateNew(solution.Id);
-        solution = solution.AddProject(projectId, "MyProject", "MyProject.dll", LanguageNames.Raven);
-
+        var project = Project.Create(solution, projectId, "Project", "Assembly", LanguageNames.Raven);
+        solution = solution.AddProject(project);
         workspace.TryApplyChanges(solution);
 
-        // Add a document to the project
-        var documentId = DocumentId.CreateNew(projectId);
-        solution = solution.AddDocument(documentId, "MyDocument.cs", SourceText.From("class C {}"));
-
+        var docId = DocumentId.CreateNew(projectId);
+        var doc = Document.Create(project, docId, "Main.rvn", SourceText.From("print(1);"));
+        solution = solution.AddDocument(doc);
         workspace.TryApplyChanges(solution);
 
-        // Retrieve the document
-        var document = workspace.CurrentSolution.GetDocument(documentId);
-        testOutputHelper.WriteLine((await document!.GetTextAsync()).ToString());
+        var originalDoc = workspace.CurrentSolution.GetDocument(docId)!;
+        var originalVersion = originalDoc.Version;
+
+        var updatedText = SourceText.From("print(2);");
+        var updatedDoc = originalDoc.WithText(updatedText);
+        solution = solution.WithDocument(updatedDoc);
+        workspace.TryApplyChanges(solution);
+
+        var finalDoc = workspace.CurrentSolution.GetDocument(docId)!;
+
+        Assert.Equal(docId, finalDoc.Id);
+        Assert.NotEqual(originalVersion, finalDoc.Version);
+        Assert.Equal(updatedText.ToString(), (await finalDoc.GetTextAsync()).ToString());
     }
 
     [Fact]
-    public async Task Foo3()
+    public void WorkspaceEvents_ShouldRaiseOnDocumentChange()
     {
-        // Create an AdhocWorkspace
+        var triggered = false;
         var workspace = new AdhocWorkspace();
-
-        workspace.WorkspaceChanged += (sender, args) =>
+        workspace.WorkspaceChanged += (_, args) =>
         {
-            /*
             if (args.Kind == WorkspaceChangeKind.DocumentChanged)
-            {
-                var newDocument = args.NewSolution.GetDocument(args.DocumentId.GetValueOrDefault());
-                var newText = newDocument.GetTextAsync().Result;
-                testOutputHelper.WriteLine("Document text changed!");
-            }
-            */
-
-            testOutputHelper.WriteLine(args.Kind.ToString());
+                triggered = true;
         };
 
-        // Create initial solution and add a project
         var solution = workspace.CurrentSolution;
         var projectId = ProjectId.CreateNew(solution.Id);
-        solution = solution.AddProject(projectId, "MyProject", "MyAssembly", LanguageNames.Raven);
-
+        var project = Project.Create(solution, projectId, "P", "A", LanguageNames.Raven);
+        solution = solution.AddProject(project);
         workspace.TryApplyChanges(solution);
 
-        // Add a document
-        var documentId = DocumentId.CreateNew(projectId);
-        solution = solution.AddDocument(documentId, "Test.cs", SourceText.From("Console.WriteLine(2);"), filePath: "Test.cs");
-
-        var updatedDocument = solution.GetDocument(documentId);
-
-        var tree = await updatedDocument!.GetSyntaxTreeAsync();
-
+        var docId = DocumentId.CreateNew(projectId);
+        var doc = Document.Create(project, docId, "Code.rvn", SourceText.From("x = 1"));
+        solution = solution.AddDocument(doc);
         workspace.TryApplyChanges(solution);
 
-        // Update the document
-        var updatedText = SourceText.From("Console.WriteLine(\"test\");");
-        var updatedSolution = solution.UpdateDocument(documentId, updatedText, "UpdatedTest.cs");
+        var updated = doc.WithText(SourceText.From("x = 2"));
+        var newSolution = solution.WithDocument(updated);
+        workspace.TryApplyChanges(newSolution);
 
-        workspace.TryApplyChanges(updatedSolution);
-
-        // Verify the update
-        var updatedDocument2 = updatedSolution.GetDocument(documentId);
-
-        var tree2 = await updatedDocument2!.GetSyntaxTreeAsync();
-
-        testOutputHelper.WriteLine($"Updated Document: {updatedDocument2!.Name}");
-        testOutputHelper.WriteLine((await updatedDocument2.GetTextAsync()).ToString());
+        Assert.True(triggered);
     }
 }

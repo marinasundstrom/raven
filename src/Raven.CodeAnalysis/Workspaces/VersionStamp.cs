@@ -1,5 +1,3 @@
-using System;
-
 namespace Raven.CodeAnalysis;
 
 public readonly struct VersionStamp : IEquatable<VersionStamp>

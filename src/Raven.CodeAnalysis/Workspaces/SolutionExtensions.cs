@@ -7,14 +7,14 @@ public static class SolutionExtensions
     public static Solution AddProject(this Solution solution, ProjectId id, string name, string assemblyName, string language)
     {
         var attributes = new ProjectAttributes(name, []);
-        var project = new Project(id, attributes);
+        var project = new Project(id, "Test");
         return solution.AddProject(project);
     }
 
     public static Solution AddDocument(this Solution solution, DocumentId id, string name, SourceText text, string? filePath = null)
     {
         var projectId = id.ProjectId;
-        var document = new Document(id, new DocumentAttributes(name, text.ToString()));
+        var document = new Document(id, name, text.ToString());
         var project = solution.GetProject(projectId);
         if (project == null) return solution;
 

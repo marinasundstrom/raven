@@ -1,10 +1,13 @@
 using System;
+
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
 public sealed class Document
 {
+    private readonly Solution _solution;
     private SyntaxTree? _lazySyntaxTree;
     private SemanticModel? _lazySemanticModel;
 
@@ -16,8 +19,18 @@ public sealed class Document
     public string Name => Attributes.Name;
     public string Text => Attributes.Text;
 
-    public Document(DocumentId id, DocumentAttributes attributes)
+    internal Solution Solution => _solution;
+    internal Project Project => _solution.GetProject(ProjectId)!;
+
+    public Document(DocumentId id, string name, string text)
+        : this(null!, id, new DocumentAttributes(name, text))
     {
+
+    }
+
+    internal Document(Solution solution, DocumentId id, DocumentAttributes attributes)
+    {
+        _solution = solution;
         Id = id;
         Attributes = attributes;
         Version = VersionStamp.Create();
@@ -25,7 +38,7 @@ public sealed class Document
 
     public Document WithAttributes(DocumentAttributes newAttributes)
     {
-        return newAttributes.Equals(Attributes) ? this : new Document(Id, newAttributes);
+        return newAttributes.Equals(Attributes) ? this : new Document(_solution, Id, newAttributes);
     }
 
     public Document WithText(string newText)
@@ -54,5 +67,10 @@ public sealed class Document
 
         _lazySemanticModel = compilation.GetSemanticModel(GetSyntaxTree());
         return _lazySemanticModel;
+    }
+
+    public static Document Create(Project project, DocumentId id, string name, SourceText sourceText)
+    {
+        return new Document(project.Solution, id, new DocumentAttributes(name, sourceText.ToString()));
     }
 }
