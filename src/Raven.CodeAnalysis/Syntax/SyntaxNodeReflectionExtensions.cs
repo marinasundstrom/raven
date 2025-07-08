@@ -90,12 +90,14 @@ public static class SyntaxNodeReflectionExtensions
         return null; // No matching property found
     }
 
-    public static IEnumerable<ChildGroup> GetChildrenGroupedByProperty(this SyntaxNode node, bool includeTokens = true)
+    public static NodeProperties GetChildrenGroupedByProperty(this SyntaxNode node, bool includeTokens = true)
     {
         var children = node.ChildNodesAndTokens();
-        var groups = new Dictionary<string, List<SyntaxNodeOrToken>>();
+        var groups = new Dictionary<string, List<Child>>();
 
         var listProperties = new HashSet<string>();
+
+        int slotIndex = 0;
 
         foreach (var child in children)
         {
@@ -118,24 +120,30 @@ public static class SyntaxNodeReflectionExtensions
             if (!string.IsNullOrEmpty(name))
             {
                 if (!groups.TryGetValue(name!, out var list))
-                    groups[name!] = list = new List<SyntaxNodeOrToken>();
+                    groups[name!] = list = new List<Child>();
 
-                list.Add(child);
+                list.Add(new Child
+                {
+                    SlotIndex = slotIndex++,
+                    Item = child
+                });
 
                 if (isListItem)
                     listProperties.Add(name!);
             }
         }
 
-        foreach (var kvp in groups)
+        var properties = groups.Select(kvp =>
         {
-            yield return new ChildGroup
+            return new ChildGroup
             {
                 PropertyName = kvp.Key,
                 IsList = listProperties.Contains(kvp.Key),
                 Items = kvp.Value
             };
-        }
+        });
+
+        return new NodeProperties(properties);
     }
 
     public static string? GetPropertyNameForListItem(this SyntaxNode node, SyntaxNode nodeItem)
@@ -199,10 +207,64 @@ public static class SyntaxNodeReflectionExtensions
         return null;
     }
 
+    public sealed class NodeProperties
+    {
+        private readonly IEnumerable<ChildGroup> _lazy;
+        private IReadOnlyList<ChildGroup> _properties;
+        private int? _slotCount;
+        private IDictionary<int, Child> _map;
+
+        public NodeProperties(IEnumerable<ChildGroup> properties)
+        {
+            _lazy = properties;
+        }
+
+        public int SlotCount => _slotCount ??= Properties.SelectMany(x => x.Items).Count();
+
+        public IReadOnlyList<ChildGroup> Properties => _properties ??= _lazy.ToList();
+
+        public Child this[int index]
+        {
+            get
+            {
+                if (_map is null)
+                {
+                    _map = CreateMap();
+                }
+
+                return _map[index];
+            }
+        }
+
+        private IDictionary<int, Child> CreateMap()
+        {
+            Dictionary<int, Child> dictionary = new Dictionary<int, Child>();
+
+            foreach (var group in Properties)
+            {
+                foreach (var child in group.Items)
+                {
+                    dictionary[child.SlotIndex] = child;
+                }
+            }
+
+            return dictionary;
+        }
+    }
+
     public sealed class ChildGroup
     {
         public required string PropertyName { get; init; }
         public required bool IsList { get; init; }
-        public required IReadOnlyList<SyntaxNodeOrToken> Items { get; init; }
+        public required IReadOnlyList<Child> Items { get; init; }
+    }
+
+    public sealed class Child
+    {
+        public int SlotIndex { get; init; }
+
+        public required SyntaxNodeOrToken Item { get; init; }
+
+        public override string ToString() => $"{SlotIndex}: {Item.AsNode()?.Kind ?? Item.AsToken().Kind}";
     }
 }

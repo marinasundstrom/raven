@@ -42,7 +42,7 @@ var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
 var root = syntaxTree.GetRoot();
 
 var block = root.DescendantNodes().OfType<BlockSyntax>().ElementAt(2);
-var props = block?.GetChildrenGroupedByPropertyName(true);
+var props = block?.GetChildrenGroupedByProperty(true);
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
