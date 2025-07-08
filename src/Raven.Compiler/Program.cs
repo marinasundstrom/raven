@@ -27,6 +27,9 @@ var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : "te
 var shouldPrintSyntaxTree = args.Contains("-s");
 var shouldDumpSyntax = args.Contains("-d");
 
+var shouldDumpRawSyntax = false;
+var shouldDumpBinders = false;
+
 filePath = Path.GetFullPath(filePath);
 
 if (!File.Exists(filePath))
@@ -41,8 +44,8 @@ var sourceText = SourceText.From(file);
 var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
 var root = syntaxTree.GetRoot();
 
-var block = root.DescendantNodes().OfType<BlockSyntax>().ElementAt(2);
-var props = block?.GetChildrenGroupedByProperty(true);
+//var block = root.DescendantNodes().OfType<BlockSyntax>().ElementAt(2);
+//var props = block?.GetChildrenGroupedByProperty(true);
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
@@ -94,7 +97,7 @@ catch (Exception e)
 
 stopwatch.Stop();
 
-if (debug)
+if (shouldDumpRawSyntax || debug)
 {
     var str = root.ToFullString();
     Console.WriteLine(str);
@@ -115,7 +118,7 @@ if (shouldDumpSyntax || debug)
     Console.WriteLine();
 }
 
-if (debug)
+if (shouldDumpBinders || debug)
 {
     var semanticModel = compilation.GetSemanticModel(syntaxTree);
     semanticModel.PrintBinderTree();
