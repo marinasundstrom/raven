@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public enum DocumentState
+public enum DocumentState2
 {
     None,
     Opened,

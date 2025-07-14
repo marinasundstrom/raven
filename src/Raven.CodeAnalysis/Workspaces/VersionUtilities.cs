@@ -21,6 +21,6 @@ public static class VersionUtilities
         if (oldDoc is null || newDoc is null)
             return false;
 
-        return oldDoc.Version != newDoc.Version;
+        return oldDoc.State.Text != newDoc.State.Text;
     }
 }

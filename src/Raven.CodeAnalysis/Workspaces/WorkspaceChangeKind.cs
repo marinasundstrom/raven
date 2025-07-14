@@ -1,25 +1,29 @@
+
 namespace Raven.CodeAnalysis;
 
+/// <summary>
+/// Mirrors Roslyn's <see cref="Microsoft.CodeAnalysis.WorkspaceChangeKind"/>.
+/// </summary>
 public enum WorkspaceChangeKind
 {
-    SolutionChanged,
     SolutionAdded,
     SolutionRemoved,
+    SolutionChanged,
     SolutionCleared,
     SolutionReloaded,
+
     ProjectAdded,
     ProjectRemoved,
     ProjectChanged,
     ProjectReloaded,
+
     DocumentAdded,
     DocumentRemoved,
-    DocumentReloaded,
     DocumentChanged,
+    DocumentReloaded,
+
     AdditionalDocumentAdded,
     AdditionalDocumentRemoved,
-    AdditionalDocumentReloaded,
     AdditionalDocumentChanged,
-
-    // Add more
-
+    AdditionalDocumentReloaded
 }

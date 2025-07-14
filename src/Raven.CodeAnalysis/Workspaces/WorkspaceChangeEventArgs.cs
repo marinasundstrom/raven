@@ -1,19 +1,28 @@
-namespace Raven.CodeAnalysis;
 
-public class WorkspaceChangeEventArgs : EventArgs
+using System;
+
+namespace Raven.CodeAnalysis
 {
-    public WorkspaceChangeEventArgs(WorkspaceChangeKind kind, Solution newSolution, Solution oldSolution, ProjectId? projectId, DocumentId? documentId)
+    public sealed class WorkspaceChangeEventArgs : EventArgs
     {
-        Kind = kind;
-        NewSolution = newSolution;
-        OldSolution = oldSolution;
-        ProjectId = projectId;
-        DocumentId = documentId;
-    }
+        public WorkspaceChangeEventArgs(
+            WorkspaceChangeKind kind,
+            Solution oldSolution,
+            Solution newSolution,
+            ProjectId? projectId = null,
+            DocumentId? documentId = null)
+        {
+            Kind = kind;
+            OldSolution = oldSolution;
+            NewSolution = newSolution;
+            ProjectId = projectId;
+            DocumentId = documentId;
+        }
 
-    public WorkspaceChangeKind Kind { get; }
-    public Solution NewSolution { get; }
-    public Solution OldSolution { get; }
-    public ProjectId? ProjectId { get; }
-    public DocumentId? DocumentId { get; }
+        public WorkspaceChangeKind Kind { get; }
+        public Solution OldSolution { get; }
+        public Solution NewSolution { get; }
+        public ProjectId? ProjectId { get; }
+        public DocumentId? DocumentId { get; }
+    }
 }

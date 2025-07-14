@@ -1,4 +1,3 @@
-using System;
 using System.Text;
 
 namespace Raven.CodeAnalysis;
@@ -22,3 +21,4 @@ public static class DebugTrace
         return sb.ToString();
     }
 }
+

@@ -1,55 +1,66 @@
-using System;
-
 namespace Raven.CodeAnalysis;
 
 public readonly struct SolutionId : IEquatable<SolutionId>
 {
-    public Guid Id { get; }
-
-    public SolutionId(Guid id) => Id = id;
-
+    private readonly Guid _id;
+    private SolutionId(Guid id) => _id = id;
     public static SolutionId CreateNew() => new(Guid.NewGuid());
-
-    public bool Equals(SolutionId other) => Id.Equals(other.Id);
+    public bool Equals(SolutionId other) => _id.Equals(other._id);
     public override bool Equals(object? obj) => obj is SolutionId other && Equals(other);
-    public override int GetHashCode() => Id.GetHashCode();
-    public override string ToString() => Id.ToString();
+    public override int GetHashCode() => _id.GetHashCode();
+    public override string ToString() => _id.ToString();
+
+    public static bool operator ==(SolutionId left, SolutionId right)
+        => left.Equals(right);
+    public static bool operator !=(SolutionId left, SolutionId right)
+        => !left.Equals(right);
 }
 
 public readonly struct ProjectId : IEquatable<ProjectId>
 {
-    public SolutionId SolutionId { get; }
-    public Guid Id { get; }
-
-    public ProjectId(SolutionId solutionId, Guid id)
+    private readonly SolutionId _solutionId;
+    private readonly Guid _id;
+    private ProjectId(SolutionId solutionId, Guid guid)
     {
-        SolutionId = solutionId;
-        Id = id;
+        _solutionId = solutionId;
+        _id = guid;
     }
 
+    public SolutionId SolutionId => _solutionId;
     public static ProjectId CreateNew(SolutionId solutionId) => new(solutionId, Guid.NewGuid());
 
-    public bool Equals(ProjectId other) => Id.Equals(other.Id) && SolutionId.Equals(other.SolutionId);
+    public bool Equals(ProjectId other) => _id.Equals(other._id) && _solutionId.Equals(other._solutionId);
     public override bool Equals(object? obj) => obj is ProjectId other && Equals(other);
-    public override int GetHashCode() => HashCode.Combine(SolutionId, Id);
-    public override string ToString() => $"{SolutionId}/{Id}";
+    public override int GetHashCode() => HashCode.Combine(_solutionId, _id);
+    public override string ToString() => $"{_solutionId}/{_id}";
+
+    public static bool operator ==(ProjectId left, ProjectId right)
+        => left.Equals(right);
+    public static bool operator !=(ProjectId left, ProjectId right)
+        => !left.Equals(right);
 }
 
 public readonly struct DocumentId : IEquatable<DocumentId>
 {
-    public ProjectId ProjectId { get; }
-    public Guid Id { get; }
+    private readonly ProjectId _projectId;
+    private readonly Guid _id;
 
-    public DocumentId(ProjectId projectId, Guid id)
+    private DocumentId(ProjectId projectId, Guid id)
     {
-        ProjectId = projectId;
-        Id = id;
+        _projectId = projectId;
+        _id = id;
     }
 
+    public ProjectId ProjectId => _projectId;
     public static DocumentId CreateNew(ProjectId projectId) => new(projectId, Guid.NewGuid());
 
-    public bool Equals(DocumentId other) => Id.Equals(other.Id) && ProjectId.Equals(other.ProjectId);
+    public bool Equals(DocumentId other) => _id.Equals(other._id) && _projectId.Equals(other._projectId);
     public override bool Equals(object? obj) => obj is DocumentId other && Equals(other);
-    public override int GetHashCode() => HashCode.Combine(ProjectId, Id);
-    public override string ToString() => $"{ProjectId}/{Id}";
+    public override int GetHashCode() => HashCode.Combine(_projectId, _id);
+    public override string ToString() => $"{_projectId}/{_id}";
+
+    public static bool operator ==(DocumentId left, DocumentId right)
+        => left.Equals(right);
+    public static bool operator !=(DocumentId left, DocumentId right)
+        => !left.Equals(right);
 }
