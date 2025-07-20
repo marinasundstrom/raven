@@ -234,7 +234,7 @@ let b : int = 2
 Or, function declaration:
 
 ```csharp
-func add(a : int, b : int) : int { a + b; }
+func add(a : int, b : int) -> int { a + b; }
 ```
 
 ### Union type
@@ -244,7 +244,7 @@ Sometimes you want to return a value of multiple possible types, such as either 
 This is represented as `int | string`.
 
 ```csharp
-func test(x : int | string) : void { /* ... */ }
+func test(x : int | string) -> void { /* ... */ }
 ```
 
 Type unions can be produced by `if` expressions.
