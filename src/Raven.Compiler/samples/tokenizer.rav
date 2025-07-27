@@ -2,24 +2,24 @@ import System
 import System.Text
 
 /*
- *. let lexer = Lexer(TextReader(...))
+ *. let lexer = Lexer.WithSource(TextReader(...))
  *  let token = lexer.ReadToken()
  */
 
 public class Lexer {
     let textReader : TextReader
 
-    public init(textReader : TextReader) {
+    public init WithSource(textReader : TextReader) {
         self._textReader = textReader
     }
 
-    public func ReadToken() -> Token {
+    public ReadToken() -> Token {
         while true {
             let ch = _textReader.Read()
 
             var number = -1
 
-            if int.Parse(ch.ToString(), &number) {
+            if int.TryParse(ch.ToString(), &number) {
                 return Token(.Numerical, "test")
             } else if char.IsLetter(ch) {
                 return Token(.Identifier, "test")
@@ -31,9 +31,9 @@ public class Lexer {
 
 public struct Token(kind : SyntaxKind, value : string) {
 
-    public prop Kind : SyntaxKind { get } = kind
+    public Kind : SyntaxKind { get } = kind
 
-    public prop Value : string { get } = value
+    public Value : string { get } = value
 }
 
 public enum SyntaxKind { Identifier, Numerical, Unknown }
