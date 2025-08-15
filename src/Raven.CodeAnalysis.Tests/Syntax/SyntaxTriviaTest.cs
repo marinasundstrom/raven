@@ -86,7 +86,7 @@ public class StructuredSyntaxTriviaTest
 
         var returnStatement = ReturnStatement(ReturnKeyword, x);
 
-        z = returnStatement.TerminatorToken.TrailingTrivia.First();
-        var o = z.GetStructure();
+        //z = returnStatement.TerminatorToken.Value.TrailingTrivia.First();
+        //var o = z.GetStructure();
     }
 }

@@ -173,4 +173,18 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         updatedBlock.ToFullString().ShouldContain("200;");
         testOutputHelper.WriteLine(updatedBlock.ToFullString());
     }
+
+    [Fact]
+    public void AddAnnotation()
+    {
+        var ifExpression = IfExpression(
+            IfKeyword,
+            LiteralExpression(SyntaxKind.NumericLiteralExpression, NumericLiteral(42)),
+            Block(),
+            null);
+
+        var x = ifExpression.WithAdditionalAnnotations(new SyntaxAnnotation("test"));
+
+        var z = x.GetAnnotation("test");
+    }
 }
