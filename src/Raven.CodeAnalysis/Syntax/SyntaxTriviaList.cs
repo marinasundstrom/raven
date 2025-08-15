@@ -8,18 +8,62 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
     private readonly int _position;
     internal readonly InternalSyntax.SyntaxTriviaList Green;
     private readonly SyntaxToken _parent;
+    private readonly TextSpan _span;
+    private readonly TextSpan _fullSpan;
 
     public SyntaxTriviaList()
     {
         Green = new InternalSyntax.SyntaxTriviaList([], null);
         _parent = default!;
         _position = 0;
+
+        var greenList = Green;
+        var position = _position;
+
+        if (greenList.SlotCount == 0)
+        {
+            _span = _fullSpan = new TextSpan(position, 0);
+        }
+        else
+        {
+            var firstGreen = greenList[0];
+            var lastGreen = greenList[greenList.SlotCount - 1];
+
+            int spanStart = position + firstGreen.GetLeadingTriviaWidth();
+            int fullWidth = greenList.FullWidth;
+            int spanEnd = position + fullWidth - lastGreen.GetTrailingTriviaWidth();
+            int spanWidth = spanEnd - spanStart;
+
+            _span = new TextSpan(spanStart, spanWidth);
+            _fullSpan = new TextSpan(position, fullWidth);
+        }
     }
 
     internal SyntaxTriviaList(params IEnumerable<SyntaxTrivia> trivias)
     {
         Green = new InternalSyntax.SyntaxTriviaList(trivias.Select(x => x.Green).ToArray());
         _parent = default;
+
+        var greenList = Green;
+        var position = _position;
+
+        if (greenList.SlotCount == 0)
+        {
+            _span = _fullSpan = new TextSpan(position, 0);
+        }
+        else
+        {
+            var firstGreen = greenList[0];
+            var lastGreen = greenList[greenList.SlotCount - 1];
+
+            int spanStart = position + firstGreen.GetLeadingTriviaWidth();
+            int fullWidth = greenList.FullWidth;
+            int spanEnd = position + fullWidth - lastGreen.GetTrailingTriviaWidth();
+            int spanWidth = spanEnd - spanStart;
+
+            _span = new TextSpan(spanStart, spanWidth);
+            _fullSpan = new TextSpan(position, fullWidth);
+        }
     }
 
     internal SyntaxTriviaList(SyntaxToken parent, InternalSyntax.SyntaxTriviaList greenList, int position = 0)
@@ -27,6 +71,24 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
         _position = position;
+
+        if (greenList.SlotCount == 0)
+        {
+            _span = _fullSpan = new TextSpan(position, 0);
+        }
+        else
+        {
+            var firstGreen = greenList[0];
+            var lastGreen = greenList[greenList.SlotCount - 1];
+
+            int spanStart = position + firstGreen.GetLeadingTriviaWidth();
+            int fullWidth = greenList.FullWidth;
+            int spanEnd = position + fullWidth - lastGreen.GetTrailingTriviaWidth();
+            int spanWidth = spanEnd - spanStart;
+
+            _span = new TextSpan(spanStart, spanWidth);
+            _fullSpan = new TextSpan(position, fullWidth);
+        }
     }
 
     public int Width => Green.Width;

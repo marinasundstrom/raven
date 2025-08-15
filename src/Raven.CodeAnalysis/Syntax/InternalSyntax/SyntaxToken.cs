@@ -8,6 +8,9 @@ internal class SyntaxToken : GreenNode
 
     public string Text => _text;
 
+    internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
+    internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
+
     public SyntaxToken(
         SyntaxKind kind,
         string text,
@@ -58,6 +61,10 @@ internal class SyntaxToken : GreenNode
     {
         return new SyntaxToken(Kind, Text, LeadingTrivia, SyntaxTriviaList.Create(trivias.ToArray())); ;
     }
+
+    public override int GetLeadingTriviaWidth() => LeadingTrivia.Width;
+
+    public override int GetTrailingTriviaWidth() => TrailingTrivia.Width;
 
     internal static SyntaxToken Missing(SyntaxKind kind)
     {

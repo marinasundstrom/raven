@@ -38,7 +38,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return statement;
         }
 
-        var leadingTrivia = statement.LeadingTrivia;
+        var leadingTrivia = statement.GetLeadingTrivia();
         return statement.WithLeadingTrivia(FormatTrivia());
     }
 

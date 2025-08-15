@@ -7,15 +7,23 @@ public readonly struct SyntaxTokenList : IEnumerable<SyntaxToken>
     internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;
     private readonly int _position;
+    private readonly TextSpan _span;
+    private readonly TextSpan _fullSpan;
 
     internal SyntaxTokenList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
         _position = position;
+
+        GreenSpanHelper.ComputeSpanAndFullSpan(greenList, position, out _span, out _fullSpan);
     }
 
     public int Count => Green.SlotCount;
+
+    public TextSpan Span => _span;
+
+    public TextSpan FullSpan => _fullSpan;
 
     public SyntaxToken this[int index]
     {
