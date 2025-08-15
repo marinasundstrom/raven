@@ -22,12 +22,12 @@ public struct TextSpan : IEquatable<TextSpan>, IComparable<TextSpan>
 
     private string GetDebuggerDisplay()
     {
-        return $"{Start}..{End}";
+        return $"[{Start}..{End}]";
     }
 
     public override string ToString()
     {
-        return $"{Start}..{End}";
+        return $"[{Start}..{End}]";
     }
 
     public int CompareTo(TextSpan other)

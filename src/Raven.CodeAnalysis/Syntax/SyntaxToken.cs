@@ -33,7 +33,11 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     }
     private string GetDebuggerDisplay()
     {
-        return $"{Kind} \"{Text}\"{(Value is not null ? $" = {Value}" : "")}";
+        if (string.IsNullOrEmpty(Text))
+        {
+            return $"{GetType().Name} {Kind}";
+        }
+        return $"{GetType().Name} {Kind} {Text ?? Value?.ToString()}";
     }
 
     public SyntaxKind Kind => Green.Kind;
