@@ -14,8 +14,7 @@ internal partial class ExpressionSyntax : ExpressionOrPatternSyntax
             IEnumerable<SyntaxAnnotation>? annotations = null)
             : base(kind, [], diagnostics, annotations)
         {
-            LeadingTrivia = SyntaxTriviaList.Empty;
-            TrailingTrivia = SyntaxTriviaList.Empty;
+
         }
 
         public override bool IsMissing => true;

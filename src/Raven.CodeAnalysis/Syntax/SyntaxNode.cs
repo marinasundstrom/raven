@@ -50,7 +50,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
     {
         get
         {
-            var start = Position + LeadingTrivia.Width;
+            var start = Position + GetLeadingTrivia().Width;
             return new TextSpan(start, Width);
         }
     }
@@ -82,30 +82,24 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return new ChildSyntaxList(this);
     }
 
-    public SyntaxTriviaList LeadingTrivia
+    public SyntaxTriviaList GetLeadingTrivia()
     {
-        get
+        var firstToken = GetFirstToken();
+        if (firstToken == default(SyntaxToken))
         {
-            var firstToken = GetFirstToken();
-            if (firstToken == default(SyntaxToken))
-            {
-                return SyntaxTriviaList.Empty;
-            }
-            return firstToken.LeadingTrivia;
+            return SyntaxTriviaList.Empty;
         }
+        return firstToken.LeadingTrivia;
     }
 
-    public SyntaxTriviaList TrailingTrivia
+    public SyntaxTriviaList GetTrailingTrivia()
     {
-        get
+        var lastToken = GetLastToken();
+        if (lastToken == default(SyntaxToken))
         {
-            var lastToken = GetLastToken();
-            if (lastToken == default(SyntaxToken))
-            {
-                return SyntaxTriviaList.Empty;
-            }
-            return lastToken.TrailingTrivia;
+            return SyntaxTriviaList.Empty;
         }
+        return lastToken.TrailingTrivia;
     }
 
     public SyntaxToken GetFirstToken(bool includeZeroWidth = false)

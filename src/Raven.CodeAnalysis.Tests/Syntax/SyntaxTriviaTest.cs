@@ -68,7 +68,7 @@ public class StructuredSyntaxTriviaTest
                     SkippedTokensTrivia(
                         TokenList(SemicolonToken))));
 
-        var z = x.TrailingTrivia.First();
+        var z = x.GetTrailingTrivia().First();
         var y = z.GetStructure();
     }
 

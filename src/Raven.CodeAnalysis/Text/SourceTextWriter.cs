@@ -13,8 +13,8 @@ public static class SourceTextWriter
         WriteNodeToText(node, builder);
         if (!withSpans)
         {
-            var leadingTrivia = node.LeadingTrivia;
-            var trailingTrivia = node.TrailingTrivia;
+            var leadingTrivia = node.GetLeadingTrivia();
+            var trailingTrivia = node.GetTrailingTrivia();
 
             builder.Remove(0, leadingTrivia.Width);
             builder.Remove(node.Width, trailingTrivia.Width);

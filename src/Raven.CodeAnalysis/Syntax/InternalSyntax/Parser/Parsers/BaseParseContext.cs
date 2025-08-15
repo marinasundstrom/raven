@@ -40,7 +40,7 @@ internal class BaseParseContext : ParseContext
 
         return new TextSpan(Position - LastToken.TrailingTrivia.Width, 0);
     }
-    
+
     public override TextSpan GetSpanOfLastToken()
     {
         if (LastToken is null)
@@ -57,7 +57,7 @@ internal class BaseParseContext : ParseContext
 
         return new TextSpan(Position - LastToken.FullWidth, LastToken.FullWidth);
     }
-    
+
     /// <summary>
     /// Treat newlines as tokens
     /// </summary>
@@ -170,7 +170,7 @@ internal class BaseParseContext : ParseContext
 
         if (_pendingTrivia.Count > 0)
         {
-            leadingTrivia = new SyntaxTriviaList(_pendingTrivia.Concat(leadingTrivia.LeadingTrivia).ToArray());
+            leadingTrivia = new SyntaxTriviaList(_pendingTrivia.Concat(leadingTrivia.GetLeadingTrivia()).ToArray());
             _pendingTrivia.Clear();
         }
 

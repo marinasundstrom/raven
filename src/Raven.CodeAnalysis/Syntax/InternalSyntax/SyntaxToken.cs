@@ -8,6 +8,9 @@ internal class SyntaxToken : GreenNode
 
     public string Text => _text;
 
+    internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
+    internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
+
     public SyntaxToken(
         SyntaxKind kind,
         string text,

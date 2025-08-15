@@ -29,9 +29,9 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
             var firstGreen = greenList[0];
             var lastGreen = greenList[greenList.SlotCount - 1];
 
-            int spanStart = position + firstGreen.LeadingTrivia.Width;
+            int spanStart = position + firstGreen.GetLeadingTriviaWidth();
             int fullWidth = greenList.FullWidth;
-            int spanEnd = position + fullWidth - lastGreen.TrailingTrivia.Width;
+            int spanEnd = position + fullWidth - lastGreen.GetTrailingTriviaWidth();
             int spanWidth = spanEnd - spanStart;
 
             _span = new TextSpan(spanStart, spanWidth);
@@ -56,9 +56,9 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
             var firstGreen = greenList[0];
             var lastGreen = greenList[greenList.SlotCount - 1];
 
-            int spanStart = position + firstGreen.LeadingTrivia.Width;
+            int spanStart = position + firstGreen.GetLeadingTriviaWidth();
             int fullWidth = greenList.FullWidth;
-            int spanEnd = position + fullWidth - lastGreen.TrailingTrivia.Width;
+            int spanEnd = position + fullWidth - lastGreen.GetTrailingTriviaWidth();
             int spanWidth = spanEnd - spanStart;
 
             _span = new TextSpan(spanStart, spanWidth);

@@ -18,8 +18,17 @@ public abstract class GreenNode
     public int FullWidth { get; protected set; }
     public int SlotCount { get; }
 
-    internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
-    internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
+    internal InternalSyntax.SyntaxTriviaList GetLeadingTrivia()
+    {
+        var firstToken = GetFirstToken();
+        return firstToken?.LeadingTrivia ?? InternalSyntax.SyntaxTriviaList.Empty;
+    }
+
+    internal InternalSyntax.SyntaxTriviaList GetTrailingTrivia()
+    {
+        var lastToken = GetLastToken();
+        return lastToken?.TrailingTrivia ?? InternalSyntax.SyntaxTriviaList.Empty;
+    }
 
     public virtual int GetLeadingTriviaWidth()
     {
