@@ -10,8 +10,9 @@ internal partial class ExpressionSyntax : ExpressionOrPatternSyntax
     internal class Missing : ExpressionSyntax
     {
         public Missing(SyntaxKind kind = SyntaxKind.None,
-            IEnumerable<DiagnosticInfo>? diagnostics = null)
-            : base(kind, [], diagnostics)
+            IEnumerable<DiagnosticInfo>? diagnostics = null,
+            IEnumerable<SyntaxAnnotation>? annotations = null)
+            : base(kind, [], diagnostics, annotations)
         {
             LeadingTrivia = SyntaxTriviaList.Empty;
             TrailingTrivia = SyntaxTriviaList.Empty;

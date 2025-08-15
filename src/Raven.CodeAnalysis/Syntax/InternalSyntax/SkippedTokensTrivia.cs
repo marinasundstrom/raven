@@ -3,9 +3,10 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 internal partial class SkippedTokensTrivia : SyntaxNode
 {
     public SkippedTokensTrivia(SyntaxList tokens,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
     : base(
-        SyntaxKind.SkippedTokensTrivia, [tokens ?? throw new ArgumentNullException(nameof(tokens))], diagnostics)
+        SyntaxKind.SkippedTokensTrivia, [tokens ?? throw new ArgumentNullException(nameof(tokens))], diagnostics, annotations)
     {
 
     }
@@ -30,6 +31,7 @@ internal static partial class SyntaxFactory
 {
     public static SkippedTokensTrivia SkippedTokensTrivia(
         SyntaxList tokens,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-      => new(tokens, diagnostics);
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
+      => new(tokens, diagnostics, annotations);
 }

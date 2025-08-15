@@ -13,8 +13,9 @@ internal class SyntaxToken : GreenNode
         string text,
         SyntaxTriviaList leadingTrivia = null,
         SyntaxTriviaList trailingTrivia = null,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-    : this(kind, text, null, text.Length, leadingTrivia, trailingTrivia, diagnostics)
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
+    : this(kind, text, null, text.Length, leadingTrivia, trailingTrivia, diagnostics, annotations)
     {
 
     }
@@ -26,8 +27,9 @@ internal class SyntaxToken : GreenNode
         int width,
         SyntaxTriviaList? leadingTrivia = null,
         SyntaxTriviaList? trailingTrivia = null,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(kind, 0, diagnostics)
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
+        : base(kind, 0, diagnostics, annotations)
     {
         _text = text;
         _value = value;
@@ -67,7 +69,7 @@ internal class SyntaxToken : GreenNode
         return new Syntax.SyntaxToken(token, null!);
     }
 
-    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
         return this;
     }

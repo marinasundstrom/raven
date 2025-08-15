@@ -9,8 +9,9 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
     private readonly SyntaxTrivia[] _trivias;
 
     public SyntaxTriviaList(SyntaxTrivia[] trivias,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(SyntaxKind.List, trivias?.Length ?? 0, diagnostics)
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
+        : base(SyntaxKind.List, trivias?.Length ?? 0, diagnostics, annotations)
     {
         _trivias = trivias ?? Array.Empty<SyntaxTrivia>();
 
@@ -26,7 +27,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
     {
         var n = _trivias.ToList();
         n.RemoveAt(index);
-        return (SyntaxTriviaList)WithUpdatedChildren(n.ToArray());
+        return (SyntaxTriviaList)With(n.ToArray());
     }
 
     public override GreenNode GetSlot(int index)
@@ -89,9 +90,9 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         return GetEnumerator();
     }
 
-    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
-        return new SyntaxList(newChildren);
+        return new SyntaxList(children);
     }
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)

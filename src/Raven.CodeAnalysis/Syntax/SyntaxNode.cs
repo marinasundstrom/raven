@@ -484,6 +484,21 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return _diagnostics ?? Enumerable.Empty<Diagnostic>();
     }
 
+    public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)
+    {
+        return Green.GetAnnotations(annotationKinds);
+    }
+
+    public SyntaxAnnotation? GetAnnotation(string kind)
+    {
+        return Green.GetAnnotation(kind);
+    }
+
+    public SyntaxNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
+    {
+        return Green.WithAdditionalAnnotations(annotations).CreateRed(null, 0);
+    }
+
     public SyntaxReference GetReference() => new SyntaxReference(SyntaxTree!, this);
 
     public SyntaxToken FindToken(int position)
