@@ -69,7 +69,9 @@ public static class RedNodeGenerator
             var modifiers = new List<SyntaxToken> { Token(SyntaxKind.PublicKeyword) };
             if (prop.IsInherited) modifiers.Add(Token(SyntaxKind.OverrideKeyword));
 
-            ExpressionSyntax getExpr;
+            ExpressionSyntax? getExpr = null;
+            BlockSyntax? getBlock = null;
+
             if (isTokenList)
             {
                 getExpr = ObjectCreationExpression(IdentifierName("SyntaxTokenList"))
@@ -109,15 +111,46 @@ public static class RedNodeGenerator
             }
             else if (isList)
             {
-                getExpr = ObjectCreationExpression(ParseTypeName(typeName))
-                    .WithArgumentList(ArgumentList(SeparatedList(new[]
-                    {
+                var backing = "_" + camel;
+                var redFieldName = backing;
+                var slotIndexLiteral = greenSlot;
+
+                // 1. Backing field
+                backingFields.Add(
+                    FieldDeclaration(
+                        VariableDeclaration(ParseTypeName(typeName))
+                            .WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier(redFieldName)))))
+                    .AddModifiers(Token(SyntaxKind.InternalKeyword)));
+
+                // 2. Property getter expression (lazy init)
+                getBlock = Block(
+                    IfStatement(
+                        BinaryExpression(SyntaxKind.EqualsExpression,
+                            IdentifierName(redFieldName),
+                            DefaultExpression(ParseTypeName(typeName))),
+                        ExpressionStatement(
+                            AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                IdentifierName(redFieldName),
+                                ObjectCreationExpression(ParseTypeName(typeName))
+                                    .WithArgumentList(ArgumentList(SeparatedList(new[]
+                                    {
                         Argument(CastExpression(ParseTypeName("InternalSyntax.SyntaxList"),
-                            InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("Green"), IdentifierName("GetSlot"))).WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(greenSlot)))))),
+                            InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                IdentifierName("Green"),
+                                IdentifierName("GetSlot")))
+                            .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(slotIndexLiteral)))))),
                         Argument(ThisExpression()),
-                        Argument(BinaryExpression(SyntaxKind.AddExpression, IdentifierName("Position"),
-                            InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("Green"), IdentifierName("GetChildStartPosition"))).WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(greenSlot))))))
-                    })));
+                        Argument(BinaryExpression(SyntaxKind.AddExpression,
+                            IdentifierName("Position"),
+                            InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                IdentifierName("Green"),
+                                IdentifierName("GetChildStartPosition")))
+                            .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(slotIndexLiteral))))))
+                                    })))
+                            )
+                        )),
+                    ReturnStatement(IdentifierName(redFieldName))
+                );
             }
             else
             {
@@ -170,11 +203,27 @@ public static class RedNodeGenerator
                 }
             }
 
-            properties.Add(
-                PropertyDeclaration(ParseTypeName(MapRedType(prop.FullTypeName, prop.IsNullable)), prop.Name)
-                    .WithModifiers(TokenList(modifiers))
+
+            var decl = PropertyDeclaration(ParseTypeName(MapRedType(prop.FullTypeName, prop.IsNullable)), prop.Name)
+                .WithModifiers(TokenList(modifiers));
+
+            if (getBlock is null && getExpr is not null)
+            {
+                decl = decl
                     .WithExpressionBody(ArrowExpressionClause(getExpr))
-                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+            }
+            else if (getBlock is not null)
+            {
+                decl = decl
+                    .WithAccessorList(AccessorList(List([AccessorDeclaration(SyntaxKind.GetAccessorDeclaration, getBlock)])));
+            }
+
+
+            properties.Add(decl);
+
+            getExpr = null;
+            getBlock = null;
 
             if (!node.IsAbstract)
             {
