@@ -1,11 +1,8 @@
-// Updated Red Node Generator
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+using NodesShared;
 
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
@@ -16,8 +13,8 @@ public static class RedNodeGenerator
     public static CompilationUnitSyntax GenerateRedNode(SyntaxNodeModel node)
     {
         var className = node.Name + "Syntax";
-        var baseType = IdentifierName(MapRedType(node.Base, false));
-        var isSealed = !node.Abstract;
+        var baseType = IdentifierName(MapRedType(node.Inherits, false));
+        var isSealed = !node.IsAbstract;
         var greenType = ParseTypeName($"InternalSyntax.{className}");
         var slotIndex = 0;
 
@@ -30,18 +27,18 @@ public static class RedNodeGenerator
         var backingFields = new List<FieldDeclarationSyntax>();
         var getNodeSwitchArms = new List<SwitchExpressionArmSyntax>();
 
-        if (node.ExplicitKind)
+        if (node.HasExplicitKind)
         {
             ctorParams.Add(Parameter(Identifier("kind")).WithType(IdentifierName("SyntaxKind")));
             greenArgs.Add(Argument(IdentifierName("kind")));
         }
 
-        foreach (var prop in node.Properties)
+        foreach (var prop in node.Slots)
         {
-            if (node.Abstract && prop.Abstract && !prop.Inherited)
+            if (node.IsAbstract && prop.IsAbstract && !prop.IsInherited)
             {
                 // Declare abstract property in abstract base class
-                properties.Add(PropertyDeclaration(ParseTypeName(MapRedType(prop.Type, prop.Nullable)), prop.Name)
+                properties.Add(PropertyDeclaration(ParseTypeName(MapRedType(prop.FullTypeName, prop.IsNullable)), prop.Name)
                     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.AbstractKeyword))
                     .WithAccessorList(AccessorList(SingletonList(
                         AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
@@ -49,28 +46,28 @@ public static class RedNodeGenerator
                 continue;
             }
 
-            if (node.Abstract && !prop.Inherited)
+            if (node.IsAbstract && !prop.IsInherited)
                 continue;
 
             var camel = ToCamelCase(prop.Name);
-            var typeName = MapRedType(prop.Type, false);
+            var typeName = MapRedType(prop.FullTypeName, false);
             var greenSlot = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(slotIndex));
-            var isList = IsListType(prop.Type);
-            var isTokenList = prop.Type == "TokenList";
-            var isToken = prop.Type == "Token" || isTokenList;
-            var isNullable = prop.Nullable;
+            var isList = IsListType(prop.FullTypeName);
+            var isTokenList = prop.FullTypeName == "TokenList";
+            var isToken = prop.FullTypeName == "Token" || isTokenList;
+            var isNullable = prop.IsNullable;
 
             var ctorType = ParseTypeName(typeName + (isNullable ? "?" : ""));
             ctorParams.Add(Parameter(Identifier(camel)).WithType(ctorType));
             updateParams.Add(Parameter(Identifier(camel)).WithType(ctorType));
 
-            ExpressionSyntax greenExpr = GetGreenCast(camel, prop.Type, isToken, isNullable);
+            ExpressionSyntax greenExpr = GetGreenCast(camel, prop.FullTypeName, isToken, isNullable);
 
             greenArgs.Add(Argument(greenExpr));
             updateArgs.Add(Argument(IdentifierName(camel)));
 
             var modifiers = new List<SyntaxToken> { Token(SyntaxKind.PublicKeyword) };
-            if (prop.Inherited) modifiers.Add(Token(SyntaxKind.OverrideKeyword));
+            if (prop.IsInherited) modifiers.Add(Token(SyntaxKind.OverrideKeyword));
 
             ExpressionSyntax getExpr;
             if (isTokenList)
@@ -174,14 +171,14 @@ public static class RedNodeGenerator
             }
 
             properties.Add(
-                PropertyDeclaration(ParseTypeName(MapRedType(prop.Type, prop.Nullable)), prop.Name)
+                PropertyDeclaration(ParseTypeName(MapRedType(prop.FullTypeName, prop.IsNullable)), prop.Name)
                     .WithModifiers(TokenList(modifiers))
                     .WithExpressionBody(ArrowExpressionClause(getExpr))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)));
 
-            if (!node.Abstract)
+            if (!node.IsAbstract)
             {
-                var updateArgsForWith = node.Properties.Select(p =>
+                var updateArgsForWith = node.Slots.Select(p =>
                 {
                     var propName = ToCamelCase(p.Name);
                     return Argument(
@@ -195,7 +192,7 @@ public static class RedNodeGenerator
                     );
                 }).ToList();
 
-                if (node.ExplicitKind)
+                if (node.HasExplicitKind)
                 {
                     updateArgsForWith.Insert(0,
                         Argument(MemberAccessExpression(
@@ -217,13 +214,13 @@ public static class RedNodeGenerator
             slotIndex++;
         }
 
-        if (!node.Abstract && node.ExplicitKind)
+        if (!node.IsAbstract && node.HasExplicitKind)
         {
             var updateArgsForWithKind = new List<ArgumentSyntax>
                 {
                     Argument(IdentifierName("kind"))
                 };
-            updateArgsForWithKind.AddRange(node.Properties.Select(p =>
+            updateArgsForWithKind.AddRange(node.Slots.Select(p =>
                 Argument(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, ThisExpression(), IdentifierName(p.Name)))
             ));
 
@@ -241,7 +238,7 @@ public static class RedNodeGenerator
         var members = new List<MemberDeclarationSyntax>();
         members.AddRange(backingFields);
         members.Add(ConstructorFromGreen(className, greenType));
-        if (!node.Abstract)
+        if (!node.IsAbstract)
         {
             members.Add(ConstructorPublic(className, ctorParams, greenType, greenArgs));
             members.Add(MethodUpdate(className, updateParams, updateArgs, node));
@@ -257,7 +254,7 @@ public static class RedNodeGenerator
         }
         var classModifiers = new List<SyntaxToken> { Token(SyntaxKind.PublicKeyword) };
 
-        if (node.Abstract)
+        if (node.IsAbstract)
             classModifiers.Add(Token(SyntaxKind.AbstractKeyword));
         else
             classModifiers.Add(Token(SyntaxKind.SealedKeyword));
@@ -328,7 +325,7 @@ public static class RedNodeGenerator
 
         int offset = 0;
 
-        if (node.ExplicitKind)
+        if (node.HasExplicitKind)
         {
             // Inject kind parameter first
             var kindParam = Parameter(Identifier("kind")).WithType(IdentifierName("SyntaxKind"));
@@ -345,9 +342,9 @@ public static class RedNodeGenerator
         }
 
         // Add property parameters and constructor args
-        for (int i = 0; i < node.Properties.Count; i++)
+        for (int i = 0; i < node.Slots.Count; i++)
         {
-            var prop = node.Properties[i];
+            var prop = node.Slots[i];
             var param = updateParams[i];
 
             finalParams.Add(param);
@@ -359,7 +356,7 @@ public static class RedNodeGenerator
         if (updateArgs.Count > 0)
         {
             conditions.AddRange(updateArgs
-                .Zip(node.Properties, (arg, prop) =>
+                .Zip(node.Slots, (arg, prop) =>
                     BinaryExpression(SyntaxKind.NotEqualsExpression, IdentifierName(prop.Name), arg.Expression)));
         }
 
@@ -407,7 +404,7 @@ public static class RedNodeGenerator
 
     public static CompilationUnitSyntax GenerateRedFactoryMethod(SyntaxNodeModel node)
     {
-        if (node.Abstract)
+        if (node.IsAbstract)
             return null!; // skip abstract nodes
 
         var methodName = node.Name;
@@ -415,7 +412,7 @@ public static class RedNodeGenerator
         var parameters = new List<ParameterSyntax>();
         var arguments = new List<ArgumentSyntax>();
 
-        if (node.ExplicitKind)
+        if (node.HasExplicitKind)
         {
             parameters.Add(
                 Parameter(Identifier("kind"))
@@ -423,11 +420,11 @@ public static class RedNodeGenerator
             arguments.Add(Argument(IdentifierName("kind")));
         }
 
-        foreach (var prop in node.Properties)
+        foreach (var prop in node.Slots)
         {
             parameters.Add(
                 Parameter(Identifier(ToCamelCase(prop.Name)))
-                    .WithType(IdentifierName(MapRedType(prop.Type, prop.Nullable))));
+                    .WithType(IdentifierName(MapRedType(prop.FullTypeName, prop.IsNullable))));
             arguments.Add(Argument(IdentifierName(ToCamelCase(prop.Name))));
         }
 

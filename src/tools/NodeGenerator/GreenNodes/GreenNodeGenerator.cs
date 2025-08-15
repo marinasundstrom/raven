@@ -2,6 +2,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using NodesShared;
+
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Raven.Generators;
@@ -13,12 +15,12 @@ public static class GreenNodeGenerator
         Dictionary<string, SyntaxNodeModel> nodesByName)
     {
         var name = node.Name + "Syntax";
-        var baseName = MapType(node.Base, false);
-        var isAbstract = node.Abstract;
+        var baseName = MapType(node.Inherits, false);
+        var isAbstract = node.IsAbstract;
 
         var allProperties = isAbstract
-            ? node.Properties.ToList() // include abstract props in abstract classes
-            : node.Properties.Where(p => !p.Abstract).ToList(); // exclude in concrete
+            ? node.Slots.ToList() // include abstract props in abstract classes
+            : node.Slots.Where(p => !p.IsAbstract).ToList(); // exclude in concrete
 
         var slotIndex = 0;
 
@@ -32,7 +34,7 @@ public static class GreenNodeGenerator
         {
             var parameters = ctorFields.Select(p =>
                 Parameter(Identifier(ToCamelCase(p.Name))).WithType(
-                    IdentifierName(MapType(p.Type, p.Nullable)))).ToList();
+                    IdentifierName(MapType(p.FullTypeName, p.IsNullable)))).ToList();
 
             parameters.Add(Parameter(Identifier("diagnostics"))
                 .WithType(NullableType(IdentifierName("IEnumerable<DiagnosticInfo>")))
@@ -42,14 +44,14 @@ public static class GreenNodeGenerator
                 .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
                 .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))));
 
-            if (node.ExplicitKind)
+            if (node.HasExplicitKind)
             {
                 parameters.Insert(0, Parameter(Identifier("kind"))
                 .WithType(IdentifierName("SyntaxKind")));
             }
 
             var slotArgs = ctorFields.Select(p =>
-                (ExpressionSyntax)(p.Nullable
+                (ExpressionSyntax)(p.IsNullable
                     ? IdentifierName(ToCamelCase(p.Name))
                     : BinaryExpression(SyntaxKind.CoalesceExpression,
                         IdentifierName(ToCamelCase(p.Name)),
@@ -67,7 +69,7 @@ public static class GreenNodeGenerator
                 .WithInitializer(ConstructorInitializer(SyntaxKind.BaseConstructorInitializer,
                     ArgumentList(SeparatedList(
                     [
-                        Argument(node.ExplicitKind ? IdentifierName("kind")
+                        Argument(node.HasExplicitKind ? IdentifierName("kind")
                         : MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
                             IdentifierName("SyntaxKind"), IdentifierName(node.Name))),
                         Argument(CollectionExpression(
@@ -114,9 +116,9 @@ public static class GreenNodeGenerator
 
         foreach (var prop in allProperties)
         {
-            var typeName = IdentifierName(MapType(prop.Type, prop.Nullable));
+            var typeName = IdentifierName(MapType(prop.FullTypeName, prop.IsNullable));
 
-            if (isAbstract && !prop.Inherited && prop.Abstract)
+            if (isAbstract && !prop.IsInherited && prop.IsAbstract)
             {
                 members.Add(PropertyDeclaration(typeName, prop.Name)
                     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.AbstractKeyword))
@@ -129,14 +131,14 @@ public static class GreenNodeGenerator
                 continue;
             }
 
-            if (isAbstract && !prop.Inherited)
+            if (isAbstract && !prop.IsInherited)
             {
                 // Skip body in abstract class for non-abstract fields
                 continue;
             }
 
             var modifiers = new List<SyntaxToken> { Token(SyntaxKind.PublicKeyword) };
-            if (prop.Inherited)
+            if (prop.IsInherited)
             {
                 modifiers.Add(Token(SyntaxKind.OverrideKeyword));
             }
@@ -156,12 +158,12 @@ public static class GreenNodeGenerator
         if (!isAbstract)
         {
             // Prepare update parameters and arguments
-            var updateParams = node.Properties.Select(p =>
+            var updateParams = node.Slots.Select(p =>
                 Parameter(Identifier(ToCamelCase(p.Name)))
-                    .WithType(ParseTypeName(MapType(p.Type, p.Nullable)))
+                    .WithType(ParseTypeName(MapType(p.FullTypeName, p.IsNullable)))
             ).ToList();
 
-            var updateArgs = node.Properties.Select(p =>
+            var updateArgs = node.Slots.Select(p =>
                 Argument(IdentifierName(ToCamelCase(p.Name)))
             ).ToList();
 
@@ -351,7 +353,7 @@ public static class GreenNodeGenerator
 
         int offset = 0;
 
-        if (node.ExplicitKind)
+        if (node.HasExplicitKind)
         {
             // Inject kind parameter first
             var kindParam = Parameter(Identifier("kind")).WithType(IdentifierName("SyntaxKind"));
@@ -368,9 +370,9 @@ public static class GreenNodeGenerator
         }
 
         // Add property parameters and constructor args
-        for (int i = 0; i < node.Properties.Count; i++)
+        for (int i = 0; i < node.Slots.Count; i++)
         {
-            var prop = node.Properties[i];
+            var prop = node.Slots[i];
             var param = updateParams[i];
 
             finalParams.Add(param);
@@ -382,7 +384,7 @@ public static class GreenNodeGenerator
         if (updateArgs.Count > 0)
         {
             conditions.AddRange(updateArgs
-                .Zip(node.Properties, (arg, prop) =>
+                .Zip(node.Slots, (arg, prop) =>
                     BinaryExpression(SyntaxKind.NotEqualsExpression, IdentifierName(prop.Name), arg.Expression)));
         }
 
@@ -404,7 +406,7 @@ public static class GreenNodeGenerator
 
     public static CompilationUnitSyntax GenerateFactoryMethod(SyntaxNodeModel node)
     {
-        if (node.Abstract)
+        if (node.IsAbstract)
             return null!; // skip abstract nodes
 
         var methodName = node.Name;
@@ -412,7 +414,7 @@ public static class GreenNodeGenerator
         var parameters = new List<ParameterSyntax>();
         var arguments = new List<ArgumentSyntax>();
 
-        if (node.ExplicitKind)
+        if (node.HasExplicitKind)
         {
             parameters.Add(
                 Parameter(Identifier("kind"))
@@ -421,11 +423,11 @@ public static class GreenNodeGenerator
             arguments.Add(Argument(IdentifierName("kind")));
         }
 
-        foreach (var prop in node.Properties)
+        foreach (var prop in node.Slots)
         {
             parameters.Add(
                 Parameter(Identifier(ToCamelCase(prop.Name)))
-                    .WithType(IdentifierName(MapType(prop.Type, prop.Nullable))));
+                    .WithType(IdentifierName(MapType(prop.FullTypeName, prop.IsNullable))));
 
             arguments.Add(Argument(IdentifierName(ToCamelCase(prop.Name))));
         }

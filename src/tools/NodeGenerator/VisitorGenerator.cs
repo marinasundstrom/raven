@@ -7,6 +7,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using NodesShared;
+
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Raven.Generators;
@@ -17,7 +19,7 @@ public static class VisitorGenerator
     public static CompilationUnitSyntax GenerateVisitorClass(List<SyntaxNodeModel> allNodes, bool isPublic = true, string namespaceName = "Raven.CodeAnalysis.Syntax")
     {
         var methods = allNodes
-            .Where(n => !n.Abstract)
+            .Where(n => !n.IsAbstract)
             .Select(n =>
                 MethodDeclaration(
                     PredefinedType(Token(SyntaxKind.VoidKeyword)),
@@ -49,7 +51,7 @@ public static class VisitorGenerator
     public static CompilationUnitSyntax GenerateGenericVisitorClass(List<SyntaxNodeModel> allNodes, bool isPublic = true, string namespaceName = "Raven.CodeAnalysis.Syntax")
     {
         var methods = allNodes
-            .Where(n => !n.Abstract)
+            .Where(n => !n.IsAbstract)
             .Select(n =>
                 MethodDeclaration(
                     IdentifierName("TResult"),
@@ -82,12 +84,12 @@ public static class VisitorGenerator
     public static CompilationUnitSyntax GenerateSyntaxRewriterClass(List<SyntaxNodeModel> allNodes, bool isPublic = true, string namespaceName = "Raven.CodeAnalysis.Syntax")
     {
         var methods = allNodes
-            .Where(n => !n.Abstract)
+            .Where(n => !n.IsAbstract)
             .Select(n =>
             {
                 var visitArgs = new List<ArgumentSyntax>();
 
-                if (n.ExplicitKind)
+                if (n.HasExplicitKind)
                 {
                     // Add: node.Kind
                     visitArgs.Add(Argument(
@@ -97,7 +99,7 @@ public static class VisitorGenerator
                             IdentifierName("Kind"))));
                 }
 
-                foreach (var prop in n.Properties)
+                foreach (var prop in n.Slots)
                 {
                     var memberAccess = MemberAccessExpression(
                         SyntaxKind.SimpleMemberAccessExpression,
@@ -106,7 +108,7 @@ public static class VisitorGenerator
 
                     bool b = namespaceName.Contains("InternalSyntax");
 
-                    var visitMethodName = "Visit" + (b ? GetVisitorMethodNameGreen(prop.Type) : GetVisitorMethodName(prop.Type));
+                    var visitMethodName = "Visit" + (b ? GetVisitorMethodNameGreen(prop.FullTypeName) : GetVisitorMethodName(prop.FullTypeName));
                     var visitInvocation = InvocationExpression(
                         IdentifierName(visitMethodName))
                         .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(memberAccess))));
@@ -115,7 +117,7 @@ public static class VisitorGenerator
                     ExpressionSyntax visitedArg = visitMethodName switch
                     {
                         "VisitToken" or "VisitList" => visitInvocation,
-                        _ => CastExpression(ParseTypeName((b ? MapGreenType(prop.Type, prop.Nullable) : MapRedType(prop.Type, prop.Nullable))), visitInvocation)
+                        _ => CastExpression(ParseTypeName((b ? MapGreenType(prop.FullTypeName, prop.IsNullable) : MapRedType(prop.FullTypeName, prop.IsNullable))), visitInvocation)
                     };
 
                     visitArgs.Add(Argument(visitedArg));

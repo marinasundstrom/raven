@@ -1,28 +1,39 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using System.Xml;
+using System.Xml.Linq;
+
+using NodesShared;
 
 using Raven.Generators;
 
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+var model = LoadSyntaxNodesFromXml("Model.xml");
 
-using var streamReader = new StreamReader("Model.yaml");
+string hash = await GetHashAsync(model);
 
-var deserializer = new DeserializerBuilder()
-    .WithNamingConvention(CamelCaseNamingConvention.Instance)
-    .IgnoreUnmatchedProperties()
-    .Build();
-
-var model = deserializer.Deserialize<List<SyntaxNodeModel>>(streamReader);
-
-string hash = GetHash(model);
+var force = args.Contains("-f");
 
 // Compare to .stamp
 const string stampPath = "./generated/.stamp";
-if (File.Exists(stampPath) && File.ReadAllText(stampPath) == hash)
+if (File.Exists(stampPath) && File.ReadAllText(stampPath) == hash && !force)
 {
     Console.WriteLine("Model unchanged. Skipping generation.");
     return;
+}
+
+foreach (var file in Directory.GetFiles("./generated/", "*.g.cs", SearchOption.TopDirectoryOnly))
+{
+    File.Delete(file);
+}
+
+foreach (var file in Directory.GetFiles("./InternalSyntax/generated/", "*.g.cs", SearchOption.TopDirectoryOnly))
+{
+    File.Delete(file);
+}
+
+if (force)
+{
+    Console.WriteLine("Forcing generation");
 }
 
 await GenerateCode(model);
@@ -56,19 +67,16 @@ static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByNam
     }
 }
 
-static string GetHash(List<SyntaxNodeModel> model)
+static async Task<string> GetHashAsync(List<SyntaxNodeModel> model)
 {
+    using var memoryStream = new MemoryStream();
 
-    // Canonicalize by re-serializing (remove indentation for stability)
-    var serializer = new SerializerBuilder()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
-        .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitDefaults)
-        .Build();
+    using var xmlWriter = XmlWriter.Create(memoryStream, new XmlWriterSettings { Async = true, Indent = true });
 
-    var canonical = serializer.Serialize(model);
+    await Serialization.SerializeAsXml(model, xmlWriter);
 
     // Compute SHA-256 hash
-    string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    string hash = Convert.ToHexString(SHA256.HashData(memoryStream.GetBuffer()));
     return hash;
 }
 
@@ -124,4 +132,39 @@ static async Task GenerateCode(List<SyntaxNodeModel> model)
     }
 
     Console.WriteLine($"{model.Count * 2} files were generated for {model.Count} nodes");
+}
+
+List<SyntaxNodeModel> LoadSyntaxNodesFromXml(string path)
+{
+    var doc = XDocument.Load(path);
+    var result = new List<SyntaxNodeModel>();
+
+    foreach (var nodeElement in doc.Descendants("Node"))
+    {
+        var node = new SyntaxNodeModel
+        {
+            Name = nodeElement.Attribute("Name")?.Value ?? throw new Exception("Node missing Name"),
+            Inherits = nodeElement.Attribute("Inherits")?.Value ?? "",
+            IsAbstract = ParseBool(nodeElement.Attribute("IsAbstract")),
+            HasExplicitKind = ParseBool(nodeElement.Attribute("HasExplicitKind")),
+            Slots = nodeElement.Elements("Slot").Select(slotEl => new SlotModel
+            {
+                Name = slotEl.Attribute("Name")?.Value ?? throw new Exception("Slot missing Name"),
+                Type = slotEl.Attribute("Type")?.Value ?? throw new Exception("Slot missing Type"),
+                ElementType = slotEl.Attribute("ElementType")?.Value,
+                IsNullable = ParseBool(slotEl.Attribute("IsNullable")),
+                IsInherited = ParseBool(slotEl.Attribute("IsInherited")),
+                IsAbstract = ParseBool(slotEl.Attribute("IsAbstract"))
+            }).ToList()
+        };
+
+        result.Add(node);
+    }
+
+    return result;
+}
+
+bool ParseBool(XAttribute? attr, bool defaultValue = false)
+{
+    return attr != null && bool.TryParse(attr.Value, out var result) ? result : defaultValue;
 }
