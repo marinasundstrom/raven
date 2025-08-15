@@ -30,4 +30,9 @@ public abstract partial class SyntaxVisitor<TResult>
     {
         return default!;
     }
+
+    public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia syntaxTrivia)
+    {
+        return syntaxTrivia;
+    }
 }

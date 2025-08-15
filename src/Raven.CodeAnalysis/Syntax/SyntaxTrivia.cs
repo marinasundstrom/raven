@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace Raven.CodeAnalysis.Syntax;
+﻿namespace Raven.CodeAnalysis.Syntax;
 
 public struct SyntaxTrivia
 {
@@ -15,13 +13,9 @@ public struct SyntaxTrivia
 
     public SyntaxToken? Token => _token;
 
-    public TextSpan Span
-    {
-        get
-        {
-            return new TextSpan(_position, Green.Width);
-        }
-    }
+    public TextSpan Span => new TextSpan(_position, Green.Width);
+
+    public TextSpan FullSpan => new TextSpan(_position, Green.Width);
 
     public int SpanStart
     {
@@ -70,6 +64,16 @@ public struct SyntaxTrivia
         }
         return Text;
     }
+
+    public void Accept(SyntaxVisitor visitor)
+    {
+        visitor.VisitTrivia(this);
+    }
+
+    public SyntaxTrivia Accept<TResult>(SyntaxVisitor<TResult> visitor)
+    {
+        return visitor.VisitTrivia(this);
+    }
 }
 
 public static partial class SyntaxFactory
@@ -85,7 +89,7 @@ public static partial class SyntaxFactory
 
 public abstract class StructuredTriviaSyntax : SyntaxNode
 {
-    protected StructuredTriviaSyntax(GreenNode greenNode, SyntaxNode parent, int position = 0) : base(greenNode, parent, position)
+    protected StructuredTriviaSyntax(GreenNode greenNode, SyntaxNode? parent, int position = 0) : base(greenNode, parent, position)
     {
     }
 }

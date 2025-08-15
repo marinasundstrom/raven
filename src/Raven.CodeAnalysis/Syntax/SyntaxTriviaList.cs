@@ -2,7 +2,7 @@
 
 namespace Raven.CodeAnalysis.Syntax;
 
-public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
+public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>, IEquatable<SyntaxTriviaList>
 {
     public static SyntaxTriviaList Empty = new SyntaxTriviaList([]);
     private readonly int _position;
@@ -146,6 +146,21 @@ public struct SyntaxTriviaList : IEnumerable<SyntaxTrivia>
     {
         return string.Concat(this.ToArray());
     }
+
+    public override bool Equals(object? obj)
+    => obj is SyntaxTriviaList other && Equals(other);
+
+    public bool Equals(SyntaxTriviaList other)
+        => Green == other.Green && _parent.Equals(other._parent) && _position == other._position;
+
+    public override int GetHashCode()
+        => HashCode.Combine(Green, _parent, _position);
+
+    public static bool operator ==(SyntaxTriviaList left, SyntaxTriviaList right)
+    => left.Equals(right);
+
+    public static bool operator !=(SyntaxTriviaList left, SyntaxTriviaList right)
+        => !left.Equals(right);
 }
 
 public static partial class SyntaxFactory

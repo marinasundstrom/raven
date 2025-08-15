@@ -24,7 +24,7 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
         _position = 0;
     }
 
-    internal SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode parent, int position = 0)
+    internal SyntaxList(InternalSyntax.SyntaxList greenList, SyntaxNode? parent, int position = 0)
     {
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
@@ -38,9 +38,19 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
         return new SyntaxList<TNode>(Green.Add(node.Green), null);
     }
 
+    public SyntaxList<TNode> Insert(int index, TNode node)
+    {
+        return new SyntaxList<TNode>(Green.Insert(index, node.Green), null);
+    }
+
     public SyntaxList<TNode> Remove(TNode node)
     {
         return new SyntaxList<TNode>(Green.Remove(node.Green), null);
+    }
+
+    public SyntaxList<TNode> RemoveAt(int index)
+    {
+        return new SyntaxList<TNode>(Green.RemoveAt(index), null);
     }
 
     public int IndexOf(Func<TNode, bool> predicate)

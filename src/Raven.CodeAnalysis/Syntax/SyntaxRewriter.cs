@@ -41,7 +41,7 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return default;
     }
 
-    public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
+    public override SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
     {
         return default;
     }
@@ -106,6 +106,17 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
             newList.Add(item.Accept(this));
         }
         return SyntaxFactory.TokenList(newList);
+    }
+
+    public virtual SyntaxTriviaList VisitList(SyntaxTriviaList list)
+    {
+        List<SyntaxTrivia> newList = [];
+
+        foreach (var item in list)
+        {
+            newList.Add(item.Accept(this));
+        }
+        return SyntaxFactory.TriviaList(newList);
     }
 
     public virtual SeparatedSyntaxList<TElement>? VisitList<TElement>(SeparatedSyntaxList<TElement>? list0)

@@ -136,7 +136,12 @@ public abstract class GreenNode
         return (InternalSyntax.SyntaxToken?)node;
     }
 
-    public virtual SyntaxNode CreateRed(Syntax.SyntaxNode? parent, int position)
+    public SyntaxNode CreateRed()
+    {
+        return CreateRed(null, 0);
+    }
+
+    public virtual SyntaxNode CreateRed(SyntaxNode? parent, int position)
     {
         return null!;
     }

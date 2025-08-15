@@ -21,8 +21,8 @@ public class ParserNewlineTests
         var s2 = parser.ParseStatement();
 
 
-        var firstStatement = s1.CreateRed(null, 0);
-        var secondStatement = s2.CreateRed(null, 0);
+        var firstStatement = s1.CreateRed();
+        var secondStatement = s2.CreateRed();
 
         // Assert
         Assert.NotNull(firstStatement);
@@ -32,7 +32,7 @@ public class ParserNewlineTests
         Assert.Equal(SyntaxKind.NumericLiteralToken, firstToken.Kind);
         Assert.Equal(SyntaxKind.LineFeedToken, context.LastToken?.Kind); // newline was consumed as terminator
     }
-    
+
     [Fact]
     public void Statement_SemicolonActsAsTerminator_WhenOutsideParens()
     {
@@ -47,8 +47,8 @@ public class ParserNewlineTests
         var s2 = parser.ParseStatement();
 
 
-        var firstStatement = s1.CreateRed(null, 0);
-        var secondStatement = s2.CreateRed(null, 0);
+        var firstStatement = s1.CreateRed();
+        var secondStatement = s2.CreateRed();
 
         // Assert
         Assert.NotNull(firstStatement);
@@ -71,7 +71,7 @@ public class ParserNewlineTests
         // Act
         var s = parser.ParseStatement();
 
-        var statement = s.CreateRed(null, 0);
+        var statement = s.CreateRed();
 
         // Assert
         var literalToken = statement.DescendantTokens().FirstOrDefault(t => t.Kind == SyntaxKind.NumericLiteralToken);
@@ -93,13 +93,13 @@ public class ParserNewlineTests
         // Act
         var s = parser.ParseStatement();
 
-        var statement = s.CreateRed(null, 0);
+        var statement = s.CreateRed();
 
         // Assert
         var lastToken = statement.GetLastToken();
         Assert.Equal(SyntaxKind.SemicolonToken, context.LastToken?.Kind);
     }
-    
+
     [Theory]
     [InlineData("let x = 1;", SyntaxKind.SemicolonToken)]
     [InlineData("let x = 1\n", SyntaxKind.NewLineToken)]

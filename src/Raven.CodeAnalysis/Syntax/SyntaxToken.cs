@@ -25,7 +25,7 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     public SyntaxTriviaList LeadingTrivia => new(this, Green.LeadingTrivia, Position);
     public SyntaxTriviaList TrailingTrivia => new(this, Green.TrailingTrivia, Position + Width);
 
-    internal SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode parent, int position = 0)
+    internal SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode? parent, int position = 0)
     {
         Green = greenToken;
         _parent = parent;

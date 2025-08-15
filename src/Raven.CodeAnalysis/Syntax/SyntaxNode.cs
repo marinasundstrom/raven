@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Text;
 namespace Raven.CodeAnalysis.Syntax;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-public abstract class SyntaxNode : IEquatable<SyntaxNode>
+public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 {
     internal readonly GreenNode Green;
     private readonly SyntaxTree _syntaxTree;
@@ -98,16 +98,7 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return lastToken == default(SyntaxToken) ? SyntaxTriviaList.Empty : lastToken.TrailingTrivia;
     }
 
-    public SyntaxToken GetFirstToken(bool includeZeroWidth = false)
-    {
-        return (SyntaxToken)(Green.GetFirstToken() ?? default);
-    }
-    public SyntaxToken GetLastToken(bool includeZeroWidth = false)
-    {
-        return (SyntaxToken)(Green.GetLastToken() ?? default);
-    }
-
-    public SyntaxNode(GreenNode greenNode, SyntaxNode parent, int position = 0)
+    public SyntaxNode(GreenNode greenNode, SyntaxNode? parent, int position = 0)
     {
         Green = greenNode ?? throw new ArgumentNullException(nameof(greenNode));
         _parent = parent;
@@ -120,136 +111,8 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         _syntaxTree = syntaxTree;
     }
 
-    /// <summary>
-    /// Retrieves all descendant nodes recursively.
-    /// </summary>
-    public IEnumerable<SyntaxNode> DescendantNodes()
-    {
-        foreach (var child in ChildNodes())
-        {
-            yield return child;
-
-            if (child is not null)
-            {
-                foreach (var descendant in child.DescendantNodes())
-                {
-                    yield return descendant;
-                }
-            }
-        }
-    }
-
-    public IEnumerable<SyntaxNode> DescendantNodesAndSelf()
-    {
-        yield return this;
-
-        foreach (var child in ChildNodes())
-        {
-            foreach (var descendant in child.DescendantNodesAndSelf())
-            {
-                yield return descendant;
-            }
-        }
-    }
-
-    public IEnumerable<SyntaxNodeOrToken> DescendantNodesAndTokens(bool descendIntoTrivia = false)
-    {
-        foreach (var child in ChildNodesAndTokens())
-        {
-            yield return child;
-
-            if (child.IsNode)
-            {
-                foreach (var descendant in child.AsNode()!.DescendantNodesAndTokens(descendIntoTrivia))
-                {
-                    yield return descendant;
-                }
-            }
-        }
-    }
-
-    public IEnumerable<SyntaxNodeOrToken> DescendantNodesAndTokensAndSelf(bool descendIntoTrivia = false)
-    {
-        yield return new SyntaxNodeOrToken(this);
-
-        foreach (var child in ChildNodesAndTokens())
-        {
-            yield return child;
-
-            if (child.IsNode)
-            {
-                foreach (var descendant in child.AsNode()!.DescendantNodesAndTokens(descendIntoTrivia))
-                {
-                    yield return descendant;
-                }
-            }
-        }
-    }
-
-    public IEnumerable<SyntaxToken> DescendantTokens(bool descendIntoTrivia = false)
-    {
-        foreach (var child in ChildNodesAndTokens())
-        {
-            if (child.IsToken)
-            {
-                var token = child.AsToken();
-                yield return token;
-
-                if (descendIntoTrivia)
-                {
-                    foreach (var trivia in token.LeadingTrivia)
-                    {
-                        if (trivia.HasStructure)
-                        {
-                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
-                                yield return t;
-                        }
-                    }
-
-                    foreach (var trivia in token.TrailingTrivia)
-                    {
-                        if (trivia.HasStructure)
-                        {
-                            foreach (var t in trivia.GetStructure().DescendantTokens(true))
-                                yield return t;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                var node = child.AsNode()!;
-                foreach (var token in node.DescendantTokens(descendIntoTrivia))
-                    yield return token;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Retrieves all ancestor nodes up to the root.
-    /// </summary>
-    public IEnumerable<SyntaxNode> Ancestors()
-    {
-        var current = _parent;
-        while (current != null)
-        {
-            yield return current;
-            current = current._parent;
-        }
-    }
-
-    public IEnumerable<SyntaxNode> AncestorsAndSelf()
-    {
-        var current = this;
-        while (current is not null)
-        {
-            yield return current;
-            current = current.Parent;
-        }
-    }
-
     protected virtual string GetDebuggerDisplay()
-         => $"{GetType().Name} {Kind} {ToString()}";
+     => $"{GetType().Name} {Kind} {ToString()}";
 
     internal virtual SyntaxNode? GetNodeSlot(int index) { return null; }
 
@@ -391,54 +254,6 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return HashCode.Combine(Green, _parent);
     }
 
-    public SyntaxNode FindNode(TextSpan span,
-                               bool findInsideTrivia = false,
-                               bool getInnermostNodeForTie = false)
-    {
-        if (!FullSpan.IntersectsWith(span))
-            return null!;
-
-        SyntaxNode? bestMatchFromChildren = null;
-        foreach (var child in ChildNodes())
-        {
-            if (!child.FullSpan.Contains(span))
-                continue;
-
-            var childMatch = child.FindNode(span, findInsideTrivia, getInnermostNodeForTie);
-            if (childMatch is not null)
-            {
-                // If we don't already have a match, take it.
-                if (bestMatchFromChildren is null)
-                {
-                    bestMatchFromChildren = childMatch;
-                }
-                else
-                {
-                    // Both matches presumably have the same span; handle tie-breaking:
-                    if (getInnermostNodeForTie)
-                    {
-                        // The childMatch is presumably "inner", so prefer the childMatch.
-                        bestMatchFromChildren = childMatch;
-                    }
-                    else
-                    {
-                        // Keep the existing match for "outermost" behavior.
-                    }
-                }
-            }
-        }
-
-        if (bestMatchFromChildren is not null)
-            return bestMatchFromChildren;
-
-        if (Span.Contains(span))
-        {
-            return this;
-        }
-
-        return null!;
-    }
-
     public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
 
     public IEnumerable<Diagnostic> GetDiagnostics()
@@ -486,38 +301,8 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
 
     public SyntaxNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
     {
-        return Green.WithAdditionalAnnotations(annotations).CreateRed(null, 0);
+        return Green.WithAdditionalAnnotations(annotations).CreateRed();
     }
 
     public SyntaxReference GetReference() => new SyntaxReference(SyntaxTree!, this);
-
-    public SyntaxToken FindToken(int position)
-    {
-        if (position < Position || position > this.FullSpan.End)
-            throw new ArgumentOutOfRangeException(nameof(position), "Position is out of bounds of this syntax tree.");
-
-        return FindTokenInternal(this, position);
-    }
-
-    private static SyntaxToken FindTokenInternal(SyntaxNode node, int position)
-    {
-        foreach (var child in node.ChildNodesAndTokens())
-        {
-            if (child.IsToken)
-            {
-                var token = child.AsToken();
-                if (position >= token.Position && position < token.End)
-                    return token;
-            }
-            else
-            {
-                var childNode = child.AsNode()!;
-                if (position >= childNode.Position && position < childNode.End)
-                    return FindTokenInternal(childNode, position);
-            }
-        }
-
-        // If not found (e.g., position == EndOfFile), return EOF token
-        return node is CompilationUnitSyntax cu ? cu.EndOfFileToken : default;
-    }
 }

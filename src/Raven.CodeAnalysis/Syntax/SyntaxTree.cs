@@ -37,7 +37,7 @@ public class SyntaxTree
     {
         var parser = new InternalSyntax.Parser.LanguageParser(path ?? "file", options ?? new ParseOptions());
 
-        var compilationUnit = (CompilationUnitSyntax)parser.Parse(sourceText).CreateRed(null, 0);
+        var compilationUnit = (CompilationUnitSyntax)parser.Parse(sourceText).CreateRed();
 
         var sourceTree = new SyntaxTree(sourceText, path, options);
 
@@ -228,10 +228,10 @@ public class SyntaxTree
         if (reparse)
         {
             // Fallback: Reparse the entire tree
-            return SyntaxTree.ParseText(newText, _options, FilePath);
+            return ParseText(newText, _options, FilePath);
         }
 
-        return SyntaxTree.Create(newCompilationUnit, _options, Encoding, FilePath);
+        return Create(newCompilationUnit, _options, Encoding, FilePath);
     }
 
     private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace)
@@ -262,7 +262,7 @@ public class SyntaxTree
 
         var parser = new InternalSyntax.Parser.LanguageParser(string.Empty, _options);
 
-        return parser.ParseSyntax(requestedSyntaxType, newText, position)!.CreateRed(null, 0);
+        return parser.ParseSyntax(requestedSyntaxType, newText, position)!.CreateRed();
     }
 }
 
