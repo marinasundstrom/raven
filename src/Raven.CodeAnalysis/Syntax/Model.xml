@@ -27,7 +27,7 @@
   </Node>
   <Node Name="ParameterList" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" />
-    <Slot Name="Parameters" Type="SeparatedList&lt;Parameter&gt;" ElementType="Parameter" />
+    <Slot Name="Parameters" Type="SeparatedList" ElementType="Parameter" />
     <Slot Name="CloseParenToken" Type="Token" />
   </Node>
   <Node Name="Expression" Inherits="ExpressionOrPattern" IsAbstract="true" />
@@ -89,7 +89,7 @@
   </Node>
   <Node Name="TupleExpression" Inherits="Expression">
     <Slot Name="OpenParenToken" Type="Token" />
-    <Slot Name="Arguments" Type="SeparatedList&lt;Argument&gt;" ElementType="Argument" />
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="Argument" />
     <Slot Name="CloseParenToken" Type="Token" />
   </Node>
   <Node Name="PredefinedType" Inherits="Type">
@@ -97,7 +97,7 @@
   </Node>
   <Node Name="CollectionExpression" Inherits="Expression">
     <Slot Name="OpenBracketToken" Type="Token" />
-    <Slot Name="Elements" Type="SeparatedList&lt;CollectionElement&gt;" ElementType="CollectionElement" />
+    <Slot Name="Elements" Type="SeparatedList" ElementType="CollectionElement" />
     <Slot Name="CloseBracketToken" Type="Token" />
   </Node>
   <Node Name="ConstructorDeclaration" Inherits="BaseMethodDeclaration">
@@ -154,7 +154,7 @@
     <Slot Name="QuestionToken" Type="Token" />
   </Node>
   <Node Name="UnionType" Inherits="Type">
-    <Slot Name="Types" Type="SeparatedList&lt;Type&gt;" ElementType="Type" />
+    <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
   </Node>
   <Node Name="Block" Inherits="Expression">
     <Slot Name="OpenBraceToken" Type="Token" />
@@ -182,12 +182,12 @@
   </Node>
   <Node Name="TypeArgumentList" Inherits="Node">
     <Slot Name="GreaterThanToken" Type="Token" />
-    <Slot Name="Arguments" Type="SeparatedList&lt;TypeArgument&gt;" ElementType="TypeArgument" />
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="TypeArgument" />
     <Slot Name="LessThanToken" Type="Token" />
   </Node>
   <Node Name="BracketedArgumentList" Inherits="Node">
     <Slot Name="OpenBracketToken" Type="Token" />
-    <Slot Name="Arguments" Type="SeparatedList&lt;Argument&gt;" ElementType="Argument" />
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="Argument" />
     <Slot Name="CloseBracketToken" Type="Token" />
   </Node>
   <Node Name="MemberAccessExpression" Inherits="Expression" HasExplicitKind="true">
@@ -228,7 +228,7 @@
   </Node>
   <Node Name="VariableDeclaration" Inherits="Node">
     <Slot Name="LetOrVarKeyword" Type="Token" />
-    <Slot Name="Declarators" Type="SeparatedList&lt;VariableDeclarator&gt;" ElementType="VariableDeclarator" />
+    <Slot Name="Declarators" Type="SeparatedList" ElementType="VariableDeclarator" />
   </Node>
   <Node Name="LambdaExpression" Inherits="Expression" IsAbstract="true">
     <Slot Name="FuncKeyword" Type="Token" IsAbstract="true" />
@@ -268,7 +268,7 @@
     <Slot Name="EnumKeyword" Type="Token" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" />
-    <Slot Name="Members" Type="SeparatedList&lt;EnumMemberDeclaration&gt;" ElementType="EnumMemberDeclaration" />
+    <Slot Name="Members" Type="SeparatedList" ElementType="EnumMemberDeclaration" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" IsNullable="true" IsInherited="true" />
   </Node>
@@ -288,7 +288,7 @@
   </Node>
   <Node Name="ArgumentList" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" />
-    <Slot Name="Arguments" Type="SeparatedList&lt;Argument&gt;" ElementType="Argument" />
+    <Slot Name="Arguments" Type="SeparatedList" ElementType="Argument" />
     <Slot Name="CloseParenToken" Type="Token" />
   </Node>
   <Node Name="TypeArgument" Inherits="Node">
@@ -351,7 +351,7 @@
   </Node>
   <Node Name="BracketedParameterList" Inherits="Node">
     <Slot Name="OpenBracketToken" Type="Token" />
-    <Slot Name="Parameters" Type="SeparatedList&lt;Parameter&gt;" ElementType="Parameter" />
+    <Slot Name="Parameters" Type="SeparatedList" ElementType="Parameter" />
     <Slot Name="CloseBracketToken" Type="Token" />
   </Node>
   <Node Name="InvocationExpression" Inherits="Expression">

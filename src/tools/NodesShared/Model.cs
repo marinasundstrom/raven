@@ -19,7 +19,7 @@ public class SlotModel
     {
         get
         {
-            if (Type == "List")
+            if (Type == "List" || Type == "SeparatedList")
             {
                 return $"{Type}<{ElementType}>";
             }
