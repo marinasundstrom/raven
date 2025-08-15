@@ -8,8 +8,9 @@ internal abstract class SyntaxNode : GreenNode
     public SyntaxNode(
         SyntaxKind kind,
         GreenNode[] slots,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(kind, slots?.Length ?? 0, diagnostics)
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
+        : base(kind, slots?.Length ?? 0, diagnostics, annotations)
     {
         _slots = slots ?? Array.Empty<GreenNode>();
 
@@ -44,7 +45,7 @@ internal abstract class SyntaxNode : GreenNode
         return offset;
     }
 
-    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
         return null; // new SyntaxNode(Kind, newChildren, _diagnostics);
     }
@@ -52,6 +53,11 @@ internal abstract class SyntaxNode : GreenNode
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return null; // new SyntaxNode(Kind, _slots, _diagnostics);
+    }
+
+    internal override GreenNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
+    {
+        return With(_slots, null, annotations);
     }
 
     internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()

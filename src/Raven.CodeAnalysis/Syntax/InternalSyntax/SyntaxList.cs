@@ -7,8 +7,9 @@ internal class SyntaxList : GreenNode
     private readonly GreenNode[] _items;
 
     public SyntaxList(GreenNode[] items,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(SyntaxKind.List, items?.Length ?? 0, diagnostics)
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
+        : base(SyntaxKind.List, items?.Length ?? 0, diagnostics, annotations)
     {
         _items = items ?? throw new ArgumentNullException(nameof(items));
 
@@ -23,9 +24,9 @@ internal class SyntaxList : GreenNode
 
     public GreenNode this[int index] => _items[index];
 
-    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
-        return new SyntaxList(newChildren);
+        return new SyntaxList(children);
     }
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)

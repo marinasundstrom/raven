@@ -7,7 +7,8 @@ namespace Raven.CodeAnalysis.Syntax;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public abstract class GreenNode
 {
-    internal IEnumerable<DiagnosticInfo>? _diagnostics;
+    internal readonly IEnumerable<DiagnosticInfo> _diagnostics;
+    private readonly IEnumerable<SyntaxAnnotation> _annotations;
 
     public virtual SyntaxKind Kind { get; }
 
@@ -20,11 +21,12 @@ public abstract class GreenNode
     internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
     internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
 
-    internal GreenNode(SyntaxKind kind, int slotCount, IEnumerable<DiagnosticInfo>? diagnostics = null)
+    internal GreenNode(SyntaxKind kind, int slotCount, IEnumerable<DiagnosticInfo>? diagnostics = null, IEnumerable<SyntaxAnnotation>? annotations = null)
     {
         Kind = kind;
         SlotCount = slotCount;
-        _diagnostics = diagnostics;
+        _diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
+        _annotations = annotations ?? Enumerable.Empty<SyntaxAnnotation>();
     }
 
     public virtual bool IsMissing { get; }
@@ -158,7 +160,7 @@ public abstract class GreenNode
             }
         }
 
-        return WithUpdatedChildren(updatedChildren);
+        return With(updatedChildren);
     }
 
     public GreenNode ReplaceNode(GreenNode oldNode, IEnumerable<GreenNode> newNodes)
@@ -193,7 +195,7 @@ public abstract class GreenNode
         }
 
         // Create a new green node with updated children
-        return WithUpdatedChildren(updatedChildren.ToArray());
+        return With(updatedChildren.ToArray());
     }
 
     public GreenNode ReplaceNodes(Func<GreenNode, bool> condition, Func<GreenNode, GreenNode> replacement)
@@ -236,10 +238,10 @@ public abstract class GreenNode
         }
 
         // Otherwise, return a new node with the updated children
-        return WithUpdatedChildren(updatedChildren);
+        return With(updatedChildren);
     }
 
-    protected virtual GreenNode CreateParentWithNodes(IEnumerable<GreenNode> newNodes)
+    internal virtual GreenNode CreateParentWithNodes(IEnumerable<GreenNode> newNodes)
     {
         // This implementation depends on the specific type of the parent node.
         // For simplicity, you can return a SyntaxList for now, or customize it based on the context.
@@ -247,11 +249,26 @@ public abstract class GreenNode
         return new SyntaxList(newNodes.ToArray());
     }
 
-    protected abstract GreenNode WithUpdatedChildren(GreenNode[] newChildren);
+    internal abstract GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null);
 
     internal IEnumerable<DiagnosticInfo> GetDiagnostics()
     {
-        return _diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
+        return _diagnostics;
+    }
+
+    public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)
+    {
+        return _annotations.Where(x => annotationKinds.Contains(x.Kind));
+    }
+
+    public SyntaxAnnotation? GetAnnotation(string kind)
+    {
+        return _annotations.FirstOrDefault(x => x.Kind == kind);
+    }
+
+    internal virtual GreenNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
+    {
+        throw new NotImplementedException("Override method");
     }
 
     internal abstract IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive();

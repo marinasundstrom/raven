@@ -20,8 +20,9 @@ internal class SyntaxTrivia : GreenNode
 
     public SyntaxTrivia(
         SyntaxNode node,
-        IEnumerable<DiagnosticInfo>? diagnostics = null)
-        : base(node.Kind, 0, diagnostics)
+        IEnumerable<DiagnosticInfo>? diagnostics = null,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
+        : base(node.Kind, 0, diagnostics, annotations)
     {
         _structuredTrivia = node;
         Text = string.Empty;
@@ -57,7 +58,7 @@ internal class SyntaxTrivia : GreenNode
         return new SyntaxTrivia(Kind, Text, _diagnostics);
     }
 
-    protected override GreenNode WithUpdatedChildren(GreenNode[] newChildren)
+    internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
         return this;
     }

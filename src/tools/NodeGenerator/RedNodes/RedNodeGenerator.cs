@@ -309,7 +309,9 @@ public static class RedNodeGenerator
                         .WithArgumentList(ArgumentList(SeparatedList(greenArgs.Concat(
                         [
                             Argument(LiteralExpression(SyntaxKind.NullLiteralExpression))
-                                .WithNameColon(NameColon("diagnostics"))
+                                .WithNameColon(NameColon("diagnostics")),
+                            Argument(LiteralExpression(SyntaxKind.NullLiteralExpression))
+                                .WithNameColon(NameColon("annotations"))
                         ]))))),
                         Argument(LiteralExpression(SyntaxKind.NullLiteralExpression)), Argument(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0)))]))))
             .WithBody(Block());

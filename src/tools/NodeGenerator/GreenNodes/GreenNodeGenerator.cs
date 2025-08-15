@@ -38,6 +38,10 @@ public static class GreenNodeGenerator
                 .WithType(NullableType(IdentifierName("IEnumerable<DiagnosticInfo>")))
                 .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))));
 
+            parameters.Add(Parameter(Identifier("annotations"))
+                .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
+                .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))));
+
             if (node.ExplicitKind)
             {
                 parameters.Insert(0, Parameter(Identifier("kind"))
@@ -68,7 +72,8 @@ public static class GreenNodeGenerator
                             IdentifierName("SyntaxKind"), IdentifierName(node.Name))),
                         Argument(CollectionExpression(
                             SeparatedList<CollectionElementSyntax>(CreateExpressionElementList(slotArgs)))),
-                        Argument(IdentifierName("diagnostics"))
+                        Argument(IdentifierName("diagnostics")),
+                        Argument(IdentifierName("annotations"))
                     ]))))
                     .WithBody(Block());
 
@@ -89,6 +94,9 @@ public static class GreenNodeGenerator
                             OmittedArraySizeExpression()))))),
             Parameter(Identifier("diagnostics"))
                 .WithType(NullableType(IdentifierName("IEnumerable<DiagnosticInfo>")))
+                .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))),
+            Parameter(Identifier("annotations"))
+                .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
                 .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression)))
             ])))
             .WithInitializer(ConstructorInitializer(
@@ -97,7 +105,8 @@ public static class GreenNodeGenerator
                 [
                 Argument(IdentifierName("kind")),
                 Argument(IdentifierName("slots")),
-                Argument(IdentifierName("diagnostics"))
+                Argument(IdentifierName("diagnostics")),
+                Argument(IdentifierName("annotations"))
                 ]))))
             .WithBody(Block());
 
@@ -168,7 +177,7 @@ public static class GreenNodeGenerator
                 GenerateAccept(name, node.Name),
                 GenerateAcceptGeneric(name, node.Name),
                 GenerateCreateRed(name, node.Name),
-                GenerateWithUpdatedChildren(name),
+                GenerateWith(name),
                 updateMethod
             ]);
         }
@@ -293,26 +302,40 @@ public static class GreenNodeGenerator
                         ]))))));
     }
 
-    private static MethodDeclarationSyntax GenerateWithUpdatedChildren(string className)
+    private static MethodDeclarationSyntax GenerateWith(string className)
     {
         return MethodDeclaration(
                 IdentifierName(className),
-                "WithUpdatedChildren")
-            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+                "With")
+            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
             .AddParameterListParameters(
-                Parameter(Identifier("newChildren"))
+                Parameter(Identifier("children"))
                     .WithType(ArrayType(IdentifierName("GreenNode"))
                         .WithRankSpecifiers(SingletonList(
                             ArrayRankSpecifier(
                                 SingletonSeparatedList<ExpressionSyntax>(
-                                    OmittedArraySizeExpression()))))))
+                                    OmittedArraySizeExpression()))))),
+                Parameter(Identifier("diagnostics"))
+                    .WithType(NullableType(ArrayType(IdentifierName("DiagnosticInfo"))
+                        .WithRankSpecifiers(SingletonList(
+                            ArrayRankSpecifier(
+                                SingletonSeparatedList<ExpressionSyntax>(
+                                    OmittedArraySizeExpression())))))).WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))),
+                Parameter(Identifier("annotations"))
+                    .WithType(NullableType(ArrayType(IdentifierName("SyntaxAnnotation"))
+                        .WithRankSpecifiers(SingletonList(
+                            ArrayRankSpecifier(
+                                SingletonSeparatedList<ExpressionSyntax>(
+                                    OmittedArraySizeExpression())))))).WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))))
             .WithBody(Block(
                 ReturnStatement(
                     ObjectCreationExpression(IdentifierName(className))
                         .WithArgumentList(ArgumentList(SeparatedList(
                         [
                         Argument (IdentifierName("Kind")),
-                        Argument (IdentifierName("newChildren"))
+                        Argument (IdentifierName("children")),
+                        Argument (IdentifierName("diagnostics")),
+                        Argument (IdentifierName("annotations")),
                         ]))))));
     }
 
@@ -415,6 +438,15 @@ public static class GreenNodeGenerator
                     LiteralExpression(SyntaxKind.NullLiteralExpression))));
 
         arguments.Add(Argument(IdentifierName("diagnostics")));
+
+        // annotations (optional)
+        parameters.Add(
+            Parameter(Identifier("annotations"))
+                .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
+                .WithDefault(EqualsValueClause(
+                    LiteralExpression(SyntaxKind.NullLiteralExpression))));
+
+        arguments.Add(Argument(IdentifierName("annotations")));
 
         var method = MethodDeclaration(IdentifierName(typeName), methodName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
