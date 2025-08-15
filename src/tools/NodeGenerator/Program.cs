@@ -11,12 +11,29 @@ var model = LoadSyntaxNodesFromXml("Model.xml");
 
 string hash = await GetHashAsync(model);
 
+var force = args.Contains("-f");
+
 // Compare to .stamp
 const string stampPath = "./generated/.stamp";
-if (File.Exists(stampPath) && File.ReadAllText(stampPath) == hash)
+if (File.Exists(stampPath) && File.ReadAllText(stampPath) == hash && !force)
 {
     Console.WriteLine("Model unchanged. Skipping generation.");
     return;
+}
+
+foreach (var file in Directory.GetFiles("./generated/", "*.g.cs", SearchOption.TopDirectoryOnly))
+{
+    File.Delete(file);
+}
+
+foreach (var file in Directory.GetFiles("./InternalSyntax/generated/", "*.g.cs", SearchOption.TopDirectoryOnly))
+{
+    File.Delete(file);
+}
+
+if (force)
+{
+    Console.WriteLine("Forcing generation");
 }
 
 await GenerateCode(model);
