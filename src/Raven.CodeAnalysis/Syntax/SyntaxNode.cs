@@ -82,24 +82,20 @@ public abstract class SyntaxNode : IEquatable<SyntaxNode>
         return new ChildSyntaxList(this);
     }
 
+    public bool HasLeadingTrivia => Green.GetLeadingTrivia().Count > 0;
+
+    public bool HasTrailingTrivia => Green.GetTrailingTrivia().Count > 0;
+
     public SyntaxTriviaList GetLeadingTrivia()
     {
         var firstToken = GetFirstToken();
-        if (firstToken == default(SyntaxToken))
-        {
-            return SyntaxTriviaList.Empty;
-        }
-        return firstToken.LeadingTrivia;
+        return firstToken == default(SyntaxToken) ? SyntaxTriviaList.Empty : firstToken.LeadingTrivia;
     }
 
     public SyntaxTriviaList GetTrailingTrivia()
     {
         var lastToken = GetLastToken();
-        if (lastToken == default(SyntaxToken))
-        {
-            return SyntaxTriviaList.Empty;
-        }
-        return lastToken.TrailingTrivia;
+        return lastToken == default(SyntaxToken) ? SyntaxTriviaList.Empty : lastToken.TrailingTrivia;
     }
 
     public SyntaxToken GetFirstToken(bool includeZeroWidth = false)

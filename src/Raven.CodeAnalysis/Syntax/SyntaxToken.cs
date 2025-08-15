@@ -19,8 +19,11 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     public int Width => Green.Width;
     public int FullWidth => Green.FullWidth;
 
-    public SyntaxTriviaList LeadingTrivia => new SyntaxTriviaList(this, Green.LeadingTrivia, Position);
-    public SyntaxTriviaList TrailingTrivia => new SyntaxTriviaList(this, Green.TrailingTrivia, Position + Width);
+    public bool HasLeadingTrivia => Green.LeadingTrivia.Count > 0;
+    public bool HasTrailingTrivia => Green.TrailingTrivia.Count > 0;
+
+    public SyntaxTriviaList LeadingTrivia => new(this, Green.LeadingTrivia, Position);
+    public SyntaxTriviaList TrailingTrivia => new(this, Green.TrailingTrivia, Position + Width);
 
     internal SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode parent, int position = 0)
     {
