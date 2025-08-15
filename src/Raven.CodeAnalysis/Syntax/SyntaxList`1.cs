@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Diagnostics;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
@@ -13,6 +14,8 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
     internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;
     private readonly int _position;
+    private readonly TextSpan _span;
+    private readonly TextSpan _fullSpan;
 
     public SyntaxList()
     {
@@ -26,6 +29,8 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
         Green = greenList ?? throw new ArgumentNullException(nameof(greenList));
         _parent = parent;
         _position = position;
+
+        GreenSpanHelper.ComputeSpanAndFullSpan(greenList, position, out _span, out _fullSpan);
     }
 
     public SyntaxList<TNode> Add(TNode node)
@@ -60,6 +65,10 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
     }
 
     public int Count => Green.SlotCount;
+
+    public TextSpan Span => _span;
+
+    public TextSpan FullSpan => _fullSpan;
 
     public TNode this[int index]
     {

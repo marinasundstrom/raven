@@ -21,6 +21,18 @@ public abstract class GreenNode
     internal InternalSyntax.SyntaxTriviaList LeadingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
     internal InternalSyntax.SyntaxTriviaList TrailingTrivia { get; set; } = InternalSyntax.SyntaxTriviaList.Empty;
 
+    public virtual int GetLeadingTriviaWidth()
+    {
+        var firstToken = GetFirstToken();
+        return firstToken is null ? 0 : firstToken.LeadingTrivia.Width;
+    }
+
+    public virtual int GetTrailingTriviaWidth()
+    {
+        var lastToken = GetLastToken();
+        return lastToken is null ? 0 : lastToken.TrailingTrivia.Width;
+    }
+
     internal GreenNode(SyntaxKind kind, int slotCount, IEnumerable<DiagnosticInfo>? diagnostics = null, IEnumerable<SyntaxAnnotation>? annotations = null)
     {
         Kind = kind;

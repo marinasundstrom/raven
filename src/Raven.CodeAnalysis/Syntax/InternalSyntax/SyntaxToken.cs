@@ -59,6 +59,10 @@ internal class SyntaxToken : GreenNode
         return new SyntaxToken(Kind, Text, LeadingTrivia, SyntaxTriviaList.Create(trivias.ToArray())); ;
     }
 
+    public override int GetLeadingTriviaWidth() => LeadingTrivia.Width;
+
+    public override int GetTrailingTriviaWidth() => TrailingTrivia.Width;
+
     internal static SyntaxToken Missing(SyntaxKind kind)
     {
         return new SyntaxToken(kind, string.Empty) { _isMissing = true };
