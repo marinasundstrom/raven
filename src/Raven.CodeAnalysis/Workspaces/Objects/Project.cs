@@ -1,27 +1,18 @@
 using System.Collections.Immutable;
-
-using static Raven.CodeAnalysis.ProjectInfo;
+using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
+/// <summary>
+/// Public facade for a project that delegates to an underlying immutable
+/// <see cref="ProjectState"/>.  All mutating operations are performed on the
+/// state which returns a new instance to preserve immutability.
+/// </summary>
 public sealed class Project
 {
     private readonly Solution _solution;
 
-    private readonly ImmutableDictionary<DocumentId, DocumentInfo> _documents;
-
-    public ProjectId Id => State.Id;
     internal ProjectState State { get; }
-    public VersionStamp Version => _solution.Version;
-    internal Solution Solution => _solution;
-
-    public string Name => State.Name;
-
-    public IReadOnlyList<ProjectReference> ProjectReferences => State.ProjectReferences;
-    public IReadOnlyList<MetadataReference> MetadataReferences => State.MetadataReferences;
-
-    public ImmutableArray<Document> Documents =>
-        State.DocumentStates.Ids.Select(id => _solution.GetDocument(id)).Where(d => d is not null).Cast<Document>().ToImmutableArray();
 
     internal Project(Solution solution, ProjectState state)
     {
@@ -29,15 +20,24 @@ public sealed class Project
         State = state;
     }
 
-    public bool ContainsDocument(DocumentId id)
-        => _documentIds.Contains(id);
+    public ProjectId Id => State.Id;
+    public string Name => State.Name;
+    public VersionStamp Version => State.Version;
+    internal Solution Solution => _solution;
 
-    public Document? GetDocument(DocumentId id)
-        => _documentIds.Contains(id) ? _solution.GetDocument(id) : null;
+    public IReadOnlyList<ProjectReference> ProjectReferences => State.ProjectReferences;
+    public IReadOnlyList<MetadataReference> MetadataReferences => State.MetadataReferences;
 
-    public Project WithAttributes(ProjectAttributes newAttributes)
-        => _solution.GetProject(Id)!.Solution.WithProjectAttributes(Id, newAttributes).GetProject(Id)!;
+    public ImmutableArray<Document> Documents =>
+        State.DocumentStates.Ids
+            .Select(id => _solution.GetDocument(id))
+            .Where(d => d is not null)
+            .Cast<Document>()
+            .ToImmutableArray();
 
-    public Project WithReferences(IEnumerable<ProjectReference> references)
-        => WithAttributes(Solution.WithProjectMetadataReferences(Id, references.ToImmutableArray()));
+    public bool ContainsDocument(DocumentId id) =>
+        State.DocumentStates.Ids.Contains(id);
+
+    public Document? GetDocument(DocumentId id) =>
+        _solution.GetDocument(id);
 }

@@ -1,17 +1,21 @@
 using System.Threading;
 using System.Threading.Tasks;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
+/// <summary>
+/// Facade for a single source document.  The immutable information is held in
+/// <see cref="DocumentState"/>; this type provides convenient accessors.
+/// </summary>
 public sealed class Document : TextDocument
 {
     private SemanticModel? _lazySemanticModel;
 
     internal Document(Project project, DocumentState state) : base(project, state)
     {
-
     }
 
     public Document WithName(string newName)

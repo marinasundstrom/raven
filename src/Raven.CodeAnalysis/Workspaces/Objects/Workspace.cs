@@ -1,3 +1,5 @@
+using System;
+
 namespace Raven.CodeAnalysis;
 
 /// <summary>
@@ -26,10 +28,13 @@ public class Workspace
         if (ReferenceEquals(oldSolution, newSolution)) return true;
 
         _currentSolution = newSolution;
+        var state = newSolution.State;
         OnWorkspaceChanged(new WorkspaceChangeEventArgs(
-                                WorkspaceChangeKind.SolutionChanged,
-                                oldSolution,
-                                newSolution));
+            state.ChangeKind,
+            oldSolution,
+            newSolution,
+            state.ProjectId,
+            state.DocumentId));
         return true;
     }
 

@@ -1,30 +1,21 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
-public abstract class TextDocument
+public class TextDocument
 {
-    internal TextDocument(Project project, TextDocumentState state)
-    {
-        Project = project;
-        State = state;
-    }
-
-    public DocumentId Id => State.Id;
-
-    public string Name => State.Name;
-
-    public Project Project { get; }
+    internal TextDocument(TextDocumentState state) => State = state;
 
     internal TextDocumentState State { get; }
 
-    public async Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
-    {
-        return await State.GetTextAsync(cancellationToken);
-    }
+    public DocumentId Id => State.Id;
+    public string Name => State.Name;
+    public ProjectId ProjectId => Id.ProjectId;
+    public VersionStamp Version => State.Version;
 
-    public Task<bool> TryGetTextAsync(out SourceText text, CancellationToken cancellationToken = default)
-    {
-        return State.TryGetTextAsync(out text, cancellationToken).AsTask();
-    }
+    public virtual Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
+        => State.GetTextAsync(cancellationToken);
 }
+

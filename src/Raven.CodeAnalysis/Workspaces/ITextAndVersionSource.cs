@@ -1,10 +1,13 @@
-using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Raven.CodeAnalysis;
 
-public interface ITextAndVersionSource
+/// <summary>
+/// Provides access to a <see cref="TextAndVersion"/> value, potentially loading it lazily.
+/// </summary>
+internal interface ITextAndVersionSource
 {
-    bool TryGetValue([NotNullWhen(true)] out TextAndVersion? textAndVersion);
-
-    TextLoader TextLoader { get; }
+    Task<TextAndVersion> GetValueAsync(CancellationToken cancellationToken);
 }
+
