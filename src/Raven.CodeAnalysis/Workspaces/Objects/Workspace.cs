@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+
 namespace Raven.CodeAnalysis;
 
 /// <summary>
@@ -7,17 +10,23 @@ public class Workspace
 {
     private Solution _currentSolution;
 
-    public Workspace(Solution initialSolution)
+    public Workspace(string kind)
     {
-        _currentSolution = initialSolution;
+        var info = new SolutionInfo(
+            new SolutionInfo.SolutionAttributes(SolutionId.CreateNew(), string.Empty, VersionStamp.Create()),
+            Enumerable.Empty<ProjectInfo>());
+        _currentSolution = new Solution(info);
+        Kind = kind;
     }
+
+    public string Kind { get; }
 
     public event EventHandler<WorkspaceChangeEventArgs>? WorkspaceChanged;
 
     public Solution CurrentSolution => _currentSolution;
 
     /// <summary>
-    /// Tries to apply the given solution as the current one. If the versions differ we raise a WorkspaceChanged event.
+    /// Tries to apply the given solution as the current one and raises a WorkspaceChanged event.
     /// </summary>
     public bool TryApplyChanges(Solution newSolution)
     {
@@ -27,9 +36,11 @@ public class Workspace
 
         _currentSolution = newSolution;
         OnWorkspaceChanged(new WorkspaceChangeEventArgs(
-                                WorkspaceChangeKind.SolutionChanged,
+                                newSolution.ChangeKind,
                                 oldSolution,
-                                newSolution));
+                                newSolution,
+                                newSolution.LastProjectId,
+                                newSolution.LastDocumentId));
         return true;
     }
 

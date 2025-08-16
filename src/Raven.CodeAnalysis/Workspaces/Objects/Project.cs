@@ -1,43 +1,30 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
-
-using static Raven.CodeAnalysis.ProjectInfo;
+using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
 public sealed class Project
 {
-    private readonly Solution _solution;
+    private readonly ProjectState _state;
 
-    private readonly ImmutableDictionary<DocumentId, DocumentInfo> _documents;
+    internal Project(ProjectState state) => _state = state;
 
-    public ProjectId Id => State.Id;
-    internal ProjectState State { get; }
-    public VersionStamp Version => _solution.Version;
-    internal Solution Solution => _solution;
+    internal ProjectState State => _state;
 
-    public string Name => State.Name;
+    public ProjectId Id => _state.Info.Id;
+    public string Name => _state.Info.Name;
+    public VersionStamp Version => _state.Info.Version;
 
-    public IReadOnlyList<ProjectReference> ProjectReferences => State.ProjectReferences;
-    public IReadOnlyList<MetadataReference> MetadataReferences => State.MetadataReferences;
+    public IEnumerable<Document> Documents => _state.Documents.Values.Select(s => new Document(s));
 
-    public ImmutableArray<Document> Documents =>
-        State.DocumentStates.Ids.Select(id => _solution.GetDocument(id)).Where(d => d is not null).Cast<Document>().ToImmutableArray();
+    public Document? GetDocument(DocumentId id) =>
+        _state.Documents.TryGetValue(id, out var s) ? new Document(s) : null;
 
-    internal Project(Solution solution, ProjectState state)
-    {
-        _solution = solution;
-        State = state;
-    }
+    internal Project AddDocument(Document document)
+        => new(_state.AddDocument(document.State));
 
-    public bool ContainsDocument(DocumentId id)
-        => _documentIds.Contains(id);
-
-    public Document? GetDocument(DocumentId id)
-        => _documentIds.Contains(id) ? _solution.GetDocument(id) : null;
-
-    public Project WithAttributes(ProjectAttributes newAttributes)
-        => _solution.GetProject(Id)!.Solution.WithProjectAttributes(Id, newAttributes).GetProject(Id)!;
-
-    public Project WithReferences(IEnumerable<ProjectReference> references)
-        => WithAttributes(Solution.WithProjectMetadataReferences(Id, references.ToImmutableArray()));
+    internal Project UpdateDocument(Document document)
+        => new(_state.UpdateDocument(document.State));
 }
+

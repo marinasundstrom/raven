@@ -1,39 +1,31 @@
+using System.Collections.Immutable;
+using System.Linq;
+
 namespace Raven.CodeAnalysis;
 
-sealed class ProjectState
+internal sealed class ProjectState
 {
-    public ProjectInfo ProjectInfo { get; }
+    internal ProjectInfo Info { get; }
+    internal ImmutableDictionary<DocumentId, DocumentState> Documents { get; }
 
-    public ProjectState(ProjectInfo projectInfo, TextDocumentStates<DocumentState> documentStates)
+    internal ProjectState(ProjectInfo info, ImmutableDictionary<DocumentId, DocumentState> documents)
     {
-        ProjectInfo = projectInfo.WithDocuments([]);
-        DocumentStates = documentStates;
+        Info = info;
+        Documents = documents;
     }
 
-    public ProjectId Id => ProjectInfo.Id;
-    public string Name => ProjectInfo.Name;
-    public VersionStamp Version => ProjectInfo.Version;
-    public ParseOptions? ParseOptions => ProjectInfo.ParseOptions;
-    public string? DefaultNamespace => ProjectInfo.DefaultNamespace;
-    public string? OutputFilePath => ProjectInfo.OutputFilePath;
-
-    public IReadOnlyList<MetadataReference> MetadataReferences => ProjectInfo.MetadataReferences;
-    public IReadOnlyList<ProjectReference> ProjectReferences => ProjectInfo.ProjectReferences;
-
-    public TextDocumentStates<DocumentState> DocumentStates { get; }
-
-    public ProjectState WithMetadataReferences(IEnumerable<MetadataReference> enumerable)
+    internal ProjectState AddDocument(DocumentState document)
     {
-        return With(ProjectInfo.WithVersion(Version.GetNewerVersion()), DocumentStates);
+        var newDocs = Documents.Add(document.Id, document);
+        var newInfo = Info.WithDocuments(newDocs.Values.Select(d => d.Info));
+        return new ProjectState(newInfo, newDocs);
     }
 
-    public ProjectState WithProjectReferences(IEnumerable<ProjectReference> enumerable)
+    internal ProjectState UpdateDocument(DocumentState document)
     {
-        return With(ProjectInfo.WithVersion(Version.GetNewerVersion()), DocumentStates);
-    }
-
-    private ProjectState With(ProjectInfo? projectInfo = null, TextDocumentStates<DocumentState>? documentStates = null)
-    {
-        return new ProjectState(projectInfo ?? ProjectInfo, documentStates ?? DocumentStates);
+        var newDocs = Documents.SetItem(document.Id, document);
+        var newInfo = Info.WithDocuments(newDocs.Values.Select(d => d.Info));
+        return new ProjectState(newInfo, newDocs);
     }
 }
+
