@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
@@ -256,37 +257,42 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 
     public bool ContainsDiagnostics => _containsDiagnostics ??= GetDiagnostics().Any();
 
-    public IEnumerable<Diagnostic> GetDiagnostics()
+    internal virtual void ComputeDiagnostics(DiagnosticBag bag)
     {
-        if (_diagnostics is not null)
-            return _diagnostics;
-
         foreach (var diagnostic in Green.GetDiagnostics())
         {
-            var location = SyntaxTree.GetLocation(diagnostic.Span);
-            var d = Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args);
-            (_diagnostics ??= new List<Diagnostic>()).Add(d);
+            var location = SyntaxTree is null ? Location.None : SyntaxTree.GetLocation(diagnostic.Span);
+            bag.Report(Diagnostic.Create(diagnostic.Descriptor, location, diagnostic.Args));
         }
 
         foreach (var child in ChildNodesAndTokens())
         {
             if (child.IsNode)
             {
-                foreach (var diagnostic in child.AsNode()!.GetDiagnostics())
-                {
-                    (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
-                }
+                child.AsNode()!.ComputeDiagnostics(bag);
             }
             else if (child.IsToken)
             {
-                foreach (var diagnostic in child.AsToken()!.GetDiagnostics())
+                var token = child.AsToken();
+                if (token.SyntaxTree is not null)
                 {
-                    (_diagnostics ??= new List<Diagnostic>()).Add(diagnostic);
+                    foreach (var d in token.GetDiagnostics())
+                        bag.Report(d);
                 }
             }
         }
+    }
 
-        return _diagnostics ?? Enumerable.Empty<Diagnostic>();
+    public IEnumerable<Diagnostic> GetDiagnostics()
+    {
+        if (_diagnostics is null)
+        {
+            var bag = new DiagnosticBag();
+            ComputeDiagnostics(bag);
+            _diagnostics = bag.AsEnumerable().ToList();
+        }
+
+        return _diagnostics!;
     }
 
     public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)

@@ -294,6 +294,7 @@ public static class RedNodeGenerator
             members.AddRange(withMethods);
             members.Add(MethodAccept(className, node.Name));
             members.Add(MethodAcceptT(className, node.Name));
+            members.Add(MethodComputeDiagnostics(node));
         }
         members.AddRange(properties);
 
@@ -319,6 +320,7 @@ public static class RedNodeGenerator
             .WithUsings(List(new[]
             {
                 UsingDirective(ParseName("System")),
+                UsingDirective(ParseName("Raven.CodeAnalysis")),
                 UsingDirective(ParseName("Raven.CodeAnalysis.Syntax.InternalSyntax"))
             }))
             .WithMembers(SingletonList<MemberDeclarationSyntax>(
@@ -442,6 +444,60 @@ public static class RedNodeGenerator
             .WithBody(Block(ReturnStatement(InvocationExpression(
                 MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("visitor"), IdentifierName("Visit" + nodeName)))
                 .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(ThisExpression())))))));
+
+    private static MethodDeclarationSyntax MethodComputeDiagnostics(SyntaxNodeModel node)
+    {
+        var statements = new List<StatementSyntax>();
+
+        foreach (var prop in node.Slots.Where(p => p.FullTypeName == "Token" && !p.IsNullable))
+        {
+            var token = IdentifierName(prop.Name);
+            var tokenKind = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, token, IdentifierName("Kind"));
+            var locationExpr = InvocationExpression(
+                MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, token, IdentifierName("GetLocation")))
+                .WithArgumentList(ArgumentList());
+
+            // bag.ReportIdentifierExpected(location)
+            var identifierReport = ExpressionStatement(
+                InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("bag"), IdentifierName("ReportIdentifierExpected")))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(locationExpr)))));
+
+            var semicolonReport = ExpressionStatement(
+                InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("bag"), IdentifierName("ReportSemicolonExpected")))
+                    .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(locationExpr)))));
+
+            var characterReport = ExpressionStatement(
+                InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("bag"), IdentifierName("ReportCharacterExpected")))
+                    .WithArgumentList(ArgumentList(SeparatedList(new []{
+                        Argument(InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("SyntaxFacts"), IdentifierName("GetSyntaxTokenText")))
+                            .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(tokenKind))))),
+                        Argument(locationExpr)
+                    }))));
+
+            var semicolonCheck = BinaryExpression(SyntaxKind.EqualsExpression, tokenKind,
+                MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("SyntaxKind"), IdentifierName("SemicolonToken")));
+
+            var identifierCheck = BinaryExpression(SyntaxKind.EqualsExpression, tokenKind,
+                MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName("SyntaxKind"), IdentifierName("IdentifierToken")));
+
+            var innerIf = IfStatement(identifierCheck, Block(identifierReport))
+                .WithElse(ElseClause(
+                    IfStatement(semicolonCheck, Block(semicolonReport))
+                        .WithElse(ElseClause(Block(characterReport))));
+
+            var missingCheck = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, token, IdentifierName("IsMissing"));
+            statements.Add(IfStatement(missingCheck, innerIf));
+        }
+
+        statements.Add(ExpressionStatement(
+            InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, BaseExpression(), IdentifierName("ComputeDiagnostics")))
+                .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(IdentifierName("bag")))))));
+
+        return MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), "ComputeDiagnostics")
+            .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
+            .AddParameterListParameters(Parameter(Identifier("bag")).WithType(IdentifierName("DiagnosticBag")))
+            .WithBody(Block(statements));
+    }
 
     private static MethodDeclarationSyntax MethodGetNodeSlot(List<SwitchExpressionArmSyntax> arms) =>
         MethodDeclaration(IdentifierName("SyntaxNode"), "GetNodeSlot")
