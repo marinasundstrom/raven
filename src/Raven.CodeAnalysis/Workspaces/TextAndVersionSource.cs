@@ -1,13 +1,27 @@
-using System.Diagnostics.CodeAnalysis;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Raven.CodeAnalysis;
 
-public sealed class TextAndVersionSource : ITextAndVersionSource
+/// <summary>
+/// Simple caching wrapper around a text/verssion loader.
+/// </summary>
+internal sealed class TextAndVersionSource : ITextAndVersionSource
 {
-    public TextLoader TextLoader => throw new NotImplementedException();
+    private readonly Func<CancellationToken, Task<TextAndVersion>> _loader;
+    private TextAndVersion? _cached;
 
-    public bool TryGetValue([NotNullWhen(true)] out TextAndVersion textAndVersion)
+    public TextAndVersionSource(Func<CancellationToken, Task<TextAndVersion>> loader)
     {
-        throw new NotImplementedException();
+        _loader = loader;
+    }
+
+    public async Task<TextAndVersion> GetValueAsync(CancellationToken cancellationToken)
+    {
+        if (_cached == null)
+            _cached = await _loader(cancellationToken).ConfigureAwait(false);
+        return _cached;
     }
 }
+

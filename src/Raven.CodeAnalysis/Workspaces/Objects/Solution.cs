@@ -1,11 +1,12 @@
 using System.Collections.Immutable;
 using System.Linq;
+
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
 /// <summary>
-/// Public immutable representation of a set of projects.  The heavy lifting is
+/// /// Public immutable representation of a set of projects.  The heavy lifting is
 /// done by <see cref="SolutionState"/> which stores the actual data.  Each
 /// mutation returns a new <see cref="Solution"/> with a different underlying
 /// state, allowing cheap incremental updates.
