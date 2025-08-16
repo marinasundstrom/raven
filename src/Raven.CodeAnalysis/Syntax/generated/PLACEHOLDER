@@ -2,6 +2,6 @@ This directory will contain generated files. These files won't be checked into t
 
 To manually trigger generation of these files, run this command from the "Syntax" directory:
 
-dotnet run --project  ../../tools/NodeGenerator
+dotnet run --project  ../../../tools/NodeGenerator
 
 Add -f to force even if the model has no changed.
