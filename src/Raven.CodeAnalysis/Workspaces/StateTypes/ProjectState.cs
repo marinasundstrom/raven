@@ -6,7 +6,7 @@ sealed class ProjectState
 
     public ProjectState(ProjectInfo projectInfo, TextDocumentStates<DocumentState> documentStates)
     {
-        ProjectInfo = projectInfo.WithDocuments([]);
+        ProjectInfo = projectInfo;
         DocumentStates = documentStates;
     }
 
@@ -21,6 +21,9 @@ sealed class ProjectState
     public IReadOnlyList<ProjectReference> ProjectReferences => ProjectInfo.ProjectReferences;
 
     public TextDocumentStates<DocumentState> DocumentStates { get; }
+
+    public DocumentState? GetDocumentState(DocumentId id)
+        => DocumentStates.States.TryGetValue(id, out var state) ? state : null;
 
     public ProjectState WithMetadataReferences(IEnumerable<MetadataReference> enumerable)
     {

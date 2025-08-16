@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.DocumentInfo;
@@ -20,6 +22,12 @@ abstract class TextDocumentState
     public SourceText Text => _attributes.Text;
     public string? FilePath => _attributes.FilePath;
     public ITextAndVersionSource TextAndVersionSource => _textSource;
+
+    /// <summary>
+    /// Expose the underlying immutable attribute record to subclasses so they can
+    /// produce new states with updated values while preserving immutability.
+    /// </summary>
+    protected DocumentAttributes Attributes => _attributes;
 
     public ValueTask<SourceText> GetTextAsync(CancellationToken cancellationToken)
     {
