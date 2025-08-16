@@ -1217,7 +1217,7 @@ internal class ExpressionGenerator : Generator
             return substitutedMethod.GetMethodInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
         if (methodSymbol is SourceMethodSymbol sourceMethodSymbol)
-            return MethodGenerator.TypeGenerator.MethodGenerators.First(x => x.MethodSymbol == sourceMethodSymbol).MethodBuilder;
+            return (MethodInfo)MethodGenerator.TypeGenerator.MethodGenerators.First(x => x.MethodSymbol == sourceMethodSymbol).MethodBase;
 
         throw new InvalidOperationException();
     }

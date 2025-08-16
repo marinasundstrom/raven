@@ -20,25 +20,41 @@ internal class MethodGenerator
     public Compilation Compilation => _compilation ??= TypeGenerator.Compilation;
     public TypeGenerator TypeGenerator { get; }
     public IMethodSymbol MethodSymbol { get; }
-    public MethodBuilder MethodBuilder { get; private set; }
+    public MethodBase MethodBase { get; private set; }
     public bool IsEntryPointCandidate { get; private set; }
 
     internal void DefineMethodBuilder()
     {
         var returnType = ResolveClrType(MethodSymbol.ReturnType);
 
-        var parameterTypes = MethodSymbol.Parameters.Select(p => ResolveClrType(p.Type));
+        var parameterTypes = MethodSymbol.Parameters.Select(p => ResolveClrType(p.Type)).ToArray();
 
-        MethodBuilder = TypeGenerator.TypeBuilder!
-            .DefineMethod(MethodSymbol.Name,
-                MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, CallingConventions.Standard,
-                returnType,
-                parameterTypes.ToArray());
+        MethodAttributes attributes = MethodAttributes.HideBySig | MethodAttributes.Public;
+        if (MethodSymbol.IsStatic)
+            attributes |= MethodAttributes.Static;
+
+        if (MethodSymbol.IsConstructor)
+        {
+            MethodBase = TypeGenerator.TypeBuilder!
+                .DefineConstructor(attributes, CallingConventions.Standard, parameterTypes);
+        }
+        else
+        {
+            MethodBase = TypeGenerator.TypeBuilder!
+                .DefineMethod(MethodSymbol.Name,
+                    attributes, CallingConventions.Standard,
+                    returnType,
+                    parameterTypes);
+        }
 
         int i = 1;
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {
-            var methodBuilder = MethodBuilder.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
+            ParameterBuilder methodBuilder;
+            if (MethodBase is MethodBuilder mb)
+                methodBuilder = mb.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
+            else
+                methodBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
 
             if (parameterSymbol.Type.IsUnion)
             {
