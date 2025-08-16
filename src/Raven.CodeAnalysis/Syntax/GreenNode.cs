@@ -301,7 +301,7 @@ public abstract class GreenNode
 
     internal abstract GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics);
 
-    private string GetDebuggerDisplay() => $"{Kind} {GetValueText()}";
+    private string GetDebuggerDisplay() => $"{GetType().Name} {GetValueText()}";
 
     internal abstract void Accept(InternalSyntax.SyntaxVisitor visitor);
 
