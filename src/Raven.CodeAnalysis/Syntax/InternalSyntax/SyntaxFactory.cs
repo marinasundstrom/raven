@@ -6,6 +6,7 @@ internal static partial class SyntaxFactory
 {
     public static SyntaxToken MissingToken(SyntaxKind kind) => SyntaxToken.Missing(kind);
 
+    public static SyntaxToken Token(SyntaxKind kind) => new SyntaxToken(kind, string.Empty);
 
     public static SyntaxToken IdentifierToken(string text) => new SyntaxToken(SyntaxKind.IdentifierToken, text);
     public static SyntaxToken NumericLiteral(int value) => new SyntaxToken(SyntaxKind.NumericLiteralToken, value.ToString(), value, value.ToString().Length);
@@ -78,7 +79,7 @@ internal static partial class SyntaxFactory
     public static SkippedTokensTrivia SkippedTokensTrivia(SyntaxTokenList tokens) => new SkippedTokensTrivia(tokens.Green, []);
 
     public static readonly SyntaxToken NewLineToken = new SyntaxToken(SyntaxKind.NewLineToken, "\n");
-    
+
     public static readonly SyntaxToken EndOfFile = new SyntaxToken(SyntaxKind.EndOfFileToken, string.Empty);
 
     public static SyntaxList TokenList(params IEnumerable<SyntaxToken> tokens) => new SyntaxList(tokens.ToArray());
