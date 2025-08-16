@@ -120,4 +120,57 @@ public class WorkspaceTest
         var treeB2 = comp3.SyntaxTrees.Single(t => t.FilePath == "B.rvn");
         Assert.Same(treeB1, treeB2);
     }
+
+    [Fact]
+    public void WorkspaceEvents_ShouldRaiseOnProjectAdded()
+    {
+        WorkspaceChangeEventArgs? args = null;
+        var workspace = new AdhocWorkspace();
+        workspace.WorkspaceChanged += (_, e) => args = e;
+
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        var newSolution = solution.AddProject(projectId, "P");
+        workspace.TryApplyChanges(newSolution);
+
+        Assert.NotNull(args);
+        Assert.Equal(WorkspaceChangeKind.ProjectAdded, args!.Kind);
+        Assert.Equal(projectId, args.ProjectId);
+        Assert.Null(args.DocumentId);
+    }
+
+    [Fact]
+    public void WorkspaceEvents_ShouldRaiseOnDocumentAdded()
+    {
+        WorkspaceChangeEventArgs? args = null;
+        var workspace = new AdhocWorkspace();
+        workspace.WorkspaceChanged += (_, e) => args = e;
+
+        var solution = workspace.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+        workspace.TryApplyChanges(solution);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var newSolution = solution.AddDocument(docId, "Code.rvn", SourceText.From("x = 1"));
+        workspace.TryApplyChanges(newSolution);
+
+        Assert.NotNull(args);
+        Assert.Equal(WorkspaceChangeKind.DocumentAdded, args!.Kind);
+        Assert.Equal(projectId, args.ProjectId);
+        Assert.Equal(docId, args.DocumentId);
+    }
+
+    [Fact]
+    public void TryApplyChanges_SameSolution_ShouldNotRaiseEvents()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+        var triggered = false;
+        workspace.WorkspaceChanged += (_, __) => triggered = true;
+
+        workspace.TryApplyChanges(solution);
+
+        Assert.False(triggered);
+    }
 }
