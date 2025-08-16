@@ -65,7 +65,7 @@ Every part of Raven's compiler is context-sensitive and modular. Parsers, binder
 
 ### 5. **Syntax is Structure**
 
-Raven's syntax trees are not just parsing artifacts — they are designed objects. Nodes are generated from formal YAML specifications, ensuring consistency, testability, and predictability. This emphasis on structural design reflects the language's belief that **syntax is architecture**.
+Raven's syntax trees are not just parsing artifacts — they are designed objects. Nodes are generated from formal XML specifications, ensuring consistency, testability, and predictability. This emphasis on structural design reflects the language's belief that **syntax is architecture**.
 
 ---
 

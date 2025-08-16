@@ -1,6 +1,6 @@
 # Source generation
 
-**This documentation is outdated**: Nodes are created from a type specification: `Model.yml`.
+**This documentation is outdated**: Nodes are created from a type specification: `Model.xml`.
 
 ---
 
