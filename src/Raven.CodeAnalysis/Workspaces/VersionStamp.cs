@@ -16,12 +16,13 @@ public readonly struct VersionStamp : IEquatable<VersionStamp>, IComparable<Vers
     // ‑ ticks : DateTime.UtcNow.Ticks with the low bits shifted left so they stay the most‑significant part.
     // ‑ local : counter to disambiguate multiple stamps created within the same 100‑ns tick.
     // ‑ global: process‑wide counter to disambiguate between different app‑domains / processes.
-    private readonly long _value;
+    private readonly ulong _value;
 
     private readonly int _localIncrement;
     private readonly int _globalIncrement;
 
     private static int s_globalVersion = 1000;
+
 
     #region ctors
     private VersionStamp(DateTime utcLastModified)
@@ -49,12 +50,15 @@ public readonly struct VersionStamp : IEquatable<VersionStamp>, IComparable<Vers
         const int localBits = 10; // 0‑1023 updates within the same tick
         const int globalBits = 6;  // 0‑63 unique process‑wide values
 
-        long packedTicks = utcLastModified == default
-            ? 0L
-            : (utcLastModified.Ticks & ((1L << (64 - localBits - globalBits)) - 1)) << (localBits + globalBits);
 
-        long packedLocal = (localIncrement & ((1L << localBits) - 1)) << globalBits;
-        long packedGlobal = globalIncrement & ((1L << globalBits) - 1);
+        ulong packedTicks = utcLastModified == default
+            ? 0UL
+            : ((ulong)utcLastModified.Ticks & ((1UL << (64 - localBits - globalBits)) - 1))
+                << (localBits + globalBits);
+
+
+        ulong packedLocal = (ulong)(localIncrement & ((1 << localBits) - 1)) << globalBits;
+        ulong packedGlobal = (ulong)(globalIncrement & ((1 << globalBits) - 1));
 
         _value = packedTicks | packedLocal | packedGlobal;
     }
@@ -71,18 +75,30 @@ public readonly struct VersionStamp : IEquatable<VersionStamp>, IComparable<Vers
     /// </summary>
     public VersionStamp GetNewerVersion()
     {
+        const int localBits = 10;
         DateTime utcNow = DateTime.UtcNow;
         int nextLocal;
+
         if (utcNow <= _utcLastModified)
         {
-            utcNow = _utcLastModified;
-            nextLocal = _localIncrement + 1;
+            if (_localIncrement < ((1 << localBits) - 1))
+            {
+                utcNow = _utcLastModified;
+                nextLocal = _localIncrement + 1;
+            }
+            else
+            {
+                // We've used all 1024 slots in this tick — wait for the next tick.
+                do { utcNow = DateTime.UtcNow; } while (utcNow <= _utcLastModified);
+                nextLocal = 0;
+            }
         }
         else
         {
             nextLocal = 0;
         }
-        return new VersionStamp(utcNow, nextLocal);
+
+        return new VersionStamp(utcNow, nextLocal, _globalIncrement);
     }
 
     #region Comparison / equality
@@ -99,4 +115,7 @@ public readonly struct VersionStamp : IEquatable<VersionStamp>, IComparable<Vers
     #endregion
 
     public override string ToString() => _value.ToString();
+
+    public string ToDebugString()
+        => $"0x{_value:X16} (utc={_utcLastModified:O}, local={_localIncrement}, global={_globalIncrement})";
 }
