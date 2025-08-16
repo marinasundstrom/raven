@@ -5,6 +5,7 @@
 //namespace Test
 
 import System
+import System.Collections.Generic
 
 Console.WriteLine("Hello"); let x = 2
 

@@ -35,4 +35,49 @@ public class ImportResolutionTest : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void GenericListWithoutImport_Should_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            List<string>;
+            """;
+
+        var verifier = CreateVerifier(
+                    testCode,
+                    [
+                         new DiagnosticResult("RAV0103").WithLocation(1, 1).WithArguments("List")
+                    ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void GenericListWithCorrectImport_ShouldNot_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            import System.Collections.Generic;
+
+            List<string>;
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void FullyQualifiedGenericListWithoutImport_ShouldNot_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            System.Collections.Generic.List<string>;
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -172,9 +173,132 @@ internal abstract class Binder
             var type = LookupType(ident.Identifier.Text);
             if (type is not null)
                 return type;
+
+            var ns = LookupNamespace(ident.Identifier.Text);
+            if (ns is not null)
+                throw new Exception($"Type '{typeSyntax}' could not be resolved.");
+        }
+
+        if (typeSyntax is GenericNameSyntax generic)
+        {
+            var typeArgs = generic.TypeArgumentList.Arguments
+                .Select(arg => ResolveType(arg.Type))
+                .ToArray();
+
+            var symbol = LookupType(generic.Identifier.Text) as INamedTypeSymbol;
+            if (symbol is not null && symbol.Arity == typeArgs.Length)
+            {
+                return Compilation.ConstructGenericType(symbol, typeArgs);
+            }
+        }
+
+        if (typeSyntax is QualifiedNameSyntax qualified)
+        {
+            var symbol = ResolveQualifiedType(qualified);
+            if (symbol is not null)
+                return symbol;
         }
 
         throw new Exception($"Type '{typeSyntax}' could not be resolved.");
+    }
+
+    private ITypeSymbol? ResolveQualifiedType(QualifiedNameSyntax qualified)
+    {
+        var left = ResolveQualifiedLeft(qualified.Left);
+
+        if (left is INamespaceSymbol ns)
+        {
+            if (qualified.Right is IdentifierNameSyntax id)
+            {
+                return ns.LookupType(id.Identifier.Text);
+            }
+
+            if (qualified.Right is GenericNameSyntax gen)
+            {
+                var unconstructed = ns.LookupType(gen.Identifier.Text) as INamedTypeSymbol;
+                if (unconstructed is null)
+                    return null;
+
+                var args = gen.TypeArgumentList.Arguments
+                    .Select(a => ResolveType(a.Type))
+                    .ToArray();
+
+                if (unconstructed.Arity != args.Length)
+                    return null;
+
+                return Compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            return null;
+        }
+
+        if (left is ITypeSymbol leftType)
+        {
+            if (qualified.Right is IdentifierNameSyntax id)
+            {
+                return leftType.GetMembers(id.Identifier.Text)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault(t => t.Arity == 0);
+            }
+
+            if (qualified.Right is GenericNameSyntax gen)
+            {
+                var unconstructed = leftType.GetMembers(gen.Identifier.Text)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault(t => t.Arity == gen.TypeArgumentList.Arguments.Count);
+
+                if (unconstructed is null)
+                    return null;
+
+                var args = gen.TypeArgumentList.Arguments
+                    .Select(a => ResolveType(a.Type))
+                    .ToArray();
+
+                return Compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    private object? ResolveQualifiedLeft(TypeSyntax left)
+    {
+        if (left is IdentifierNameSyntax id)
+        {
+            var ns = LookupNamespace(id.Identifier.Text);
+            if (ns is not null)
+                return ns;
+
+            var type = LookupType(id.Identifier.Text);
+            if (type is not null)
+                return type;
+
+            return null;
+        }
+
+        if (left is GenericNameSyntax gen)
+        {
+            var args = gen.TypeArgumentList.Arguments
+                .Select(a => ResolveType(a.Type))
+                .ToArray();
+
+            var symbol = LookupType(gen.Identifier.Text) as INamedTypeSymbol;
+            if (symbol is not null && symbol.Arity == args.Length)
+            {
+                return Compilation.ConstructGenericType(symbol, args);
+            }
+
+            return null;
+        }
+
+        if (left is QualifiedNameSyntax qualified)
+        {
+            return ResolveQualifiedType(qualified);
+        }
+
+        return null;
     }
 
     public virtual IEnumerable<ISymbol> LookupAvailableSymbols()
