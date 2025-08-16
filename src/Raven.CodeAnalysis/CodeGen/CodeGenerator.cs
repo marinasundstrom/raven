@@ -25,7 +25,7 @@ internal class CodeGenerator
     public PersistedAssemblyBuilder AssemblyBuilder { get; private set; }
     public ModuleBuilder ModuleBuilder { get; private set; }
 
-    private MethodBuilder EntryPoint { get; set; }
+    private MethodBase EntryPoint { get; set; }
 
     public Type TypeUnionAttributeType { get; private set; }
 
@@ -70,7 +70,7 @@ internal class CodeGenerator
         EntryPoint = _typeGenerators.Values
             .SelectMany(x => x.MethodGenerators)
             .Where(x => x.IsEntryPointCandidate)
-            .First().MethodBuilder;
+            .First().MethodBase;
 
         MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
         MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken);

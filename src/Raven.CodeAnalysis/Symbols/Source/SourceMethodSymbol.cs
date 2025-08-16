@@ -8,7 +8,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
     private IEnumerable<SourceParameterSymbol> _parameters;
 
-    public SourceMethodSymbol(string name, ITypeSymbol returnType, ImmutableArray<SourceParameterSymbol> parameters, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = true)
+    public SourceMethodSymbol(string name, ITypeSymbol returnType, ImmutableArray<SourceParameterSymbol> parameters, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = true, MethodKind methodKind = MethodKind.Ordinary)
             : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         ReturnType = returnType;
@@ -16,16 +16,14 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
         IsStatic = isStatic;
 
-        //var declaringSyntax = declaringSyntaxReferences.First().GetSyntax();
-
-        MethodKind = MethodKind.Ordinary;
+        MethodKind = methodKind;
     }
 
     public ITypeSymbol ReturnType { get; }
 
     public ImmutableArray<IParameterSymbol> Parameters => _parameters.OfType<IParameterSymbol>().ToImmutableArray();
 
-    public bool IsConstructor => false;
+    public bool IsConstructor => MethodKind == MethodKind.Constructor;
 
     public override bool IsStatic { get; }
 

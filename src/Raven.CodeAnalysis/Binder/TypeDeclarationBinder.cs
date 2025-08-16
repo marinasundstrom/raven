@@ -21,6 +21,7 @@ internal sealed class TypeDeclarationBinder : Binder
         return node switch
         {
             MethodDeclarationSyntax method => BindMethodSymbol(method),
+            ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
             FieldDeclarationSyntax field => BindFieldSymbol(field),
             _ => base.BindDeclaredSymbol(node)
         };
@@ -47,6 +48,16 @@ internal sealed class TypeDeclarationBinder : Binder
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.Name == method.Identifier.Text &&
                                  m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == method));
+    }
+
+    private ISymbol? BindConstructorSymbol(ConstructorDeclarationSyntax ctor)
+    {
+        var id = ctor.Identifier;
+        var name = !id.HasValue ? ".ctor" : id.Value.Text;
+        return _containingType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.Name == name &&
+                                 m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == ctor));
     }
 
     // Implement BindMethodSymbol / BindFieldSymbol as needed

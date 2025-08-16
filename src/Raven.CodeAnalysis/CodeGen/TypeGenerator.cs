@@ -88,7 +88,7 @@ internal class TypeGenerator
                 _methodGenerators[methodSymbol] = methodGenerator;
                 methodGenerator.DefineMethodBuilder();
 
-                CodeGen.AddMemberBuilder((SourceSymbol)methodSymbol, methodGenerator.MethodBuilder);
+                CodeGen.AddMemberBuilder((SourceSymbol)methodSymbol, methodGenerator.MethodBase);
             }
             else if (memberSymbol is IFieldSymbol fieldSymbol)
             {
@@ -107,7 +107,8 @@ internal class TypeGenerator
                 }
 
                 var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, type, attr);
-                fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
+                if (fieldSymbol.IsLiteral)
+                    fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
                 _fieldBuilders[fieldSymbol] = fieldBuilder;
 
                 CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);

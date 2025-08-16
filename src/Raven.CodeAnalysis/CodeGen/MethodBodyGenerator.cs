@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Symbols;
@@ -8,7 +9,7 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal class MethodBodyGenerator
 {
     private TypeBuilder _typeBuilder;
-    private MethodBuilder _methodBuilder;
+    private MethodBase _methodBase;
     private Compilation _compilation;
     private IMethodSymbol _methodSymbol;
 
@@ -21,7 +22,7 @@ internal class MethodBodyGenerator
     public MethodGenerator MethodGenerator { get; }
     public IMethodSymbol MethodSymbol => _methodSymbol ??= MethodGenerator.MethodSymbol;
     public TypeBuilder TypeBuilder => _typeBuilder ??= MethodGenerator.TypeGenerator.TypeBuilder!;
-    public MethodBuilder MethodBuilder => _methodBuilder ??= MethodGenerator.MethodBuilder;
+    public MethodBase MethodBase => _methodBase ??= MethodGenerator.MethodBase;
 
     private BaseGenerator baseGenerator;
     private Scope scope;
@@ -33,7 +34,9 @@ internal class MethodBodyGenerator
         baseGenerator = new BaseGenerator(this);
         scope = new Scope(baseGenerator);
 
-        ILGenerator = MethodBuilder.GetILGenerator();
+        ILGenerator = (MethodBase as MethodBuilder)?.GetILGenerator()
+                     ?? (MethodBase as ConstructorBuilder)?.GetILGenerator()
+                     ?? throw new InvalidOperationException();
 
         var syntax = MethodSymbol.DeclaringSyntaxReferences.First().GetSyntax();
 
@@ -79,6 +82,19 @@ internal class MethodBodyGenerator
             case MethodDeclarationSyntax methodDeclaration:
                 if (methodDeclaration.Body != null)
                     EmitIL(methodDeclaration.Body.Statements.ToList());
+                else
+                    ILGenerator.Emit(OpCodes.Ret);
+                break;
+            case ConstructorDeclarationSyntax constructorDeclaration:
+                if (MethodSymbol.IsConstructor)
+                {
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    var baseCtor = ResolveClrType(MethodSymbol.ContainingType!.BaseType!).GetConstructor(Type.EmptyTypes);
+                    ILGenerator.Emit(OpCodes.Call, baseCtor);
+                }
+
+                if (constructorDeclaration.Body != null)
+                    EmitIL(constructorDeclaration.Body.Statements.ToList());
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
