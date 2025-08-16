@@ -7,8 +7,16 @@ namespace Raven.CodeAnalysis.Syntax;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public abstract class GreenNode
 {
-    internal readonly IEnumerable<DiagnosticInfo> _diagnostics;
-    private readonly IEnumerable<SyntaxAnnotation> _annotations;
+    internal readonly DiagnosticInfo[]? _diagnostics;
+    internal readonly SyntaxAnnotation[]? _annotations;
+
+    internal GreenNode(SyntaxKind kind, int slotCount, IEnumerable<DiagnosticInfo>? diagnostics = null, IEnumerable<SyntaxAnnotation>? annotations = null)
+    {
+        Kind = kind;
+        SlotCount = slotCount;
+        _diagnostics = diagnostics?.ToArray() ?? null;
+        _annotations = annotations?.ToArray() ?? null;
+    }
 
     public virtual SyntaxKind Kind { get; }
 
@@ -40,14 +48,6 @@ public abstract class GreenNode
     {
         var lastToken = GetLastToken();
         return lastToken is null ? 0 : lastToken.TrailingTrivia.Width;
-    }
-
-    internal GreenNode(SyntaxKind kind, int slotCount, IEnumerable<DiagnosticInfo>? diagnostics = null, IEnumerable<SyntaxAnnotation>? annotations = null)
-    {
-        Kind = kind;
-        SlotCount = slotCount;
-        _diagnostics = diagnostics ?? Enumerable.Empty<DiagnosticInfo>();
-        _annotations = annotations ?? Enumerable.Empty<SyntaxAnnotation>();
     }
 
     public virtual bool IsMissing { get; }
@@ -279,17 +279,20 @@ public abstract class GreenNode
 
     internal IEnumerable<DiagnosticInfo> GetDiagnostics()
     {
-        return _diagnostics;
+        return _diagnostics ?? Array.Empty<DiagnosticInfo>();
     }
 
     public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)
     {
+        if (_annotations is null)
+            return Array.Empty<SyntaxAnnotation>();
+
         return _annotations.Where(x => annotationKinds.Contains(x.Kind));
     }
 
     public SyntaxAnnotation? GetAnnotation(string kind)
     {
-        return _annotations.FirstOrDefault(x => x.Kind == kind);
+        return _annotations?.FirstOrDefault(x => x.Kind == kind);
     }
 
     internal virtual GreenNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)
@@ -306,4 +309,19 @@ public abstract class GreenNode
     internal abstract void Accept(InternalSyntax.SyntaxVisitor visitor);
 
     internal abstract TResult Accept<TResult>(InternalSyntax.SyntaxVisitor<TResult> visitor);
+
+    // Used by generated code
+    protected static bool AreEqual<T>(T[]? a, T[]? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a == null || b == null) return false;
+        if (a.Length != b.Length) return false;
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (!Equals(a[i], b[i])) return false;
+        }
+
+        return true;
+    }
 }

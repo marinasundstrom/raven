@@ -172,10 +172,10 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 
         // Step 1: Traverse and locate the node to replace in the green tree
         var greenToReplace = oldNode.Green;
-        var newGreen = this.Green.ReplaceNode(greenToReplace, newNode.Green);
+        var newGreen = Green.ReplaceNode(greenToReplace, newNode.Green);
 
         // Step 2: Rebuild the red tree with the updated green node
-        return newGreen.CreateRed(this.Parent, this.Position);
+        return newGreen.CreateRed();
     }
 
     internal SyntaxNode ReplaceNodeWithNodesCore(SyntaxNode oldNode, IEnumerable<SyntaxNode> newNodes)
@@ -191,10 +191,10 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         var greenNewNodes = newNodes.Select(n => n.Green);
 
         // Perform the replacement in the green tree
-        var newGreen = this.Green.ReplaceNode(greenOldNode, greenNewNodes);
+        var newGreen = Green.ReplaceNode(greenOldNode, greenNewNodes);
 
         // Rebuild the red tree
-        return newGreen.CreateRed(this.Parent, this.Position);
+        return newGreen.CreateRed();
     }
 
     public abstract void Accept(SyntaxVisitor visitor);
@@ -205,7 +205,7 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
     {
         if (SyntaxTree is null)
         {
-            return default(Location)!;
+            return default!;
         }
         return SyntaxTree!.GetLocation(Span);
     }

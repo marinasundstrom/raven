@@ -34,5 +34,15 @@ public class Foo(ITestOutputHelper testOutputHelper)
         var root = syntaxTree.GetRoot();
 
         var f = root.DescendantNodes().OfType<LiteralExpressionSyntax>().First();
+        var node = (LiteralExpressionSyntax)f.WithAdditionalAnnotations(new SyntaxAnnotation("test"));
+
+        var node2 = node.WithToken(SyntaxFactory.NumericLiteral(42));
+
+        var newRoot = root.ReplaceNode(f, node2);
+
+        var f2 = newRoot.DescendantNodes().OfType<LiteralExpressionSyntax>().First();
+
+        var str = newRoot.ToFullString();
+
     }
 }

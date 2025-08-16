@@ -306,9 +306,7 @@ public static class GreenNodeGenerator
 
     private static MethodDeclarationSyntax GenerateWith(string className)
     {
-        return MethodDeclaration(
-                IdentifierName(className),
-                "With")
+        return MethodDeclaration(IdentifierName(className), "With")
             .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.OverrideKeyword))
             .AddParameterListParameters(
                 Parameter(Identifier("children"))
@@ -322,23 +320,83 @@ public static class GreenNodeGenerator
                         .WithRankSpecifiers(SingletonList(
                             ArrayRankSpecifier(
                                 SingletonSeparatedList<ExpressionSyntax>(
-                                    OmittedArraySizeExpression())))))).WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))),
+                                    OmittedArraySizeExpression()))))))
+                    .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))),
                 Parameter(Identifier("annotations"))
                     .WithType(NullableType(ArrayType(IdentifierName("SyntaxAnnotation"))
                         .WithRankSpecifiers(SingletonList(
                             ArrayRankSpecifier(
                                 SingletonSeparatedList<ExpressionSyntax>(
-                                    OmittedArraySizeExpression())))))).WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))))
+                                    OmittedArraySizeExpression()))))))
+                    .WithDefault(EqualsValueClause(LiteralExpression(SyntaxKind.NullLiteralExpression))))
             .WithBody(Block(
+                // Declare i
+                LocalDeclarationStatement(
+                    VariableDeclaration(PredefinedType(Token(SyntaxKind.IntKeyword)))
+                    .WithVariables(SingletonSeparatedList(
+                        VariableDeclarator(Identifier("i"))
+                        .WithInitializer(EqualsValueClause(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0))))))),
+                // for (; i < this.SlotCount; i++)
+                ForStatement(
+                    Block(
+                        IfStatement(
+                            BinaryExpression(SyntaxKind.NotEqualsExpression,
+                                InvocationExpression(
+                                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        ThisExpression(), IdentifierName("GetSlot")))
+                                .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(IdentifierName("i"))))),
+                                ElementAccessExpression(IdentifierName("children"))
+                                .WithArgumentList(BracketedArgumentList(SingletonSeparatedList(Argument(IdentifierName("i")))))
+                            ),
+                            BreakStatement()
+                        )
+                    ))
+                .WithDeclaration(null) // we declared i earlier
+                .WithCondition(BinaryExpression(SyntaxKind.LessThanExpression,
+                    IdentifierName("i"),
+                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                        ThisExpression(), IdentifierName("SlotCount"))))
+                .WithIncrementors(SingletonSeparatedList<ExpressionSyntax>(
+                    PostfixUnaryExpression(SyntaxKind.PostIncrementExpression,
+                        IdentifierName("i")))),
+                // Check if unchanged
+                IfStatement(
+                    BinaryExpression(SyntaxKind.LogicalAndExpression,
+                        BinaryExpression(SyntaxKind.EqualsExpression,
+                            IdentifierName("i"),
+                            MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                ThisExpression(), IdentifierName("SlotCount"))),
+                        BinaryExpression(SyntaxKind.LogicalAndExpression,
+                            InvocationExpression(IdentifierName("AreEqual"))
+                                .WithArgumentList(ArgumentList(SeparatedList([
+                                Argument(IdentifierName("diagnostics")),
+                                Argument(
+                                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        ThisExpression(), IdentifierName("_diagnostics")))
+                                ]))),
+                            InvocationExpression(IdentifierName("AreEqual"))
+                                .WithArgumentList(ArgumentList(SeparatedList([
+                                Argument(IdentifierName("annotations")),
+                                Argument(
+                                    MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
+                                        ThisExpression(), IdentifierName("_annotations")))
+                                ])))
+                        )
+                    ),
+                    ReturnStatement(ThisExpression())
+                ),
+                // Return new instance
                 ReturnStatement(
                     ObjectCreationExpression(IdentifierName(className))
-                        .WithArgumentList(ArgumentList(SeparatedList(
-                        [
-                        Argument (IdentifierName("Kind")),
-                        Argument (IdentifierName("children")),
-                        Argument (IdentifierName("diagnostics")),
-                        Argument (IdentifierName("annotations")),
-                        ]))))));
+                    .WithArgumentList(ArgumentList(SeparatedList(
+                    [
+                    Argument(IdentifierName("Kind")),
+                    Argument(IdentifierName("children")),
+                    Argument(IdentifierName("diagnostics")),
+                    Argument(IdentifierName("annotations")),
+                    ])))
+                )
+            ));
     }
 
     private static MethodDeclarationSyntax MethodUpdate(
