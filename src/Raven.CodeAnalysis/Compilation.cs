@@ -235,16 +235,58 @@ public class Compilation
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
             }
         }
+        else if (memberDeclaration is ClassDeclarationSyntax classDeclaration)
+        {
+            Location[] locations = [syntaxTree.GetLocation(classDeclaration.Span)];
+
+            SyntaxReference[] references = [classDeclaration.GetReference()];
+
+            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingNamespace = declaringSymbol switch
+            {
+                INamespaceSymbol ns => ns,
+                INamedTypeSymbol type => type.ContainingNamespace,
+                _ => null
+            };
+
+            var symbol = new SourceNamedTypeSymbol(
+                classDeclaration.Identifier.Text,
+                GetSpecialType(SpecialType.System_Object),
+                TypeKind.Class,
+                declaringSymbol,
+                containingType,
+                containingNamespace,
+            locations, references);
+
+            SourceGlobalNamespace.AddMember(symbol);
+
+            foreach (var memberDeclaration2 in classDeclaration.Members)
+            {
+                AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
+            }
+        }
         else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
             Location[] locations = [syntaxTree.GetLocation(methodDeclaration.Span)];
 
             SyntaxReference[] references = [methodDeclaration.GetReference()];
 
-            ITypeSymbol typeSymbol = null!;
+            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingNamespace = declaringSymbol switch
+            {
+                INamespaceSymbol ns => ns,
+                INamedTypeSymbol type => type.ContainingNamespace,
+                _ => null
+            };
+
+            var returnType = GetSpecialType(SpecialType.System_Void);
 
             var symbol = new SourceMethodSymbol(
-                methodDeclaration.Identifier.Text.ToString(), typeSymbol, [], null!, null, null,
+                methodDeclaration.Identifier.Text.ToString(), returnType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                declaringSymbol,
+                containingType,
+                containingNamespace,
                 locations, references);
         }
     }
