@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <Target Name="RunNodeGenerator"
-    BeforeTargets="Build">
+    BeforeTargets="CoreCompile">
     <Exec Command="dotnet run --project ../../../tools/NodeGenerator"
       WorkingDirectory="Syntax" />
   </Target>
