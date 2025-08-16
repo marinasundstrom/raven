@@ -72,7 +72,16 @@ public readonly struct VersionStamp : IEquatable<VersionStamp>, IComparable<Vers
     public VersionStamp GetNewerVersion()
     {
         DateTime utcNow = DateTime.UtcNow;
-        int nextLocal = (utcNow == _utcLastModified) ? (_localIncrement + 1) : 0;
+        int nextLocal;
+        if (utcNow <= _utcLastModified)
+        {
+            utcNow = _utcLastModified;
+            nextLocal = _localIncrement + 1;
+        }
+        else
+        {
+            nextLocal = 0;
+        }
         return new VersionStamp(utcNow, nextLocal);
     }
 
