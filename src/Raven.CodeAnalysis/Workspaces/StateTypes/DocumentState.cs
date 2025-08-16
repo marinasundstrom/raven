@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -22,17 +25,19 @@ sealed class DocumentState : TextDocumentState
 
     private async Task<SourceText> LoadTextAsync()
     {
-        if (Info.Text is not null)
-            return Info.Text;
-        if (Info.TextLoader is not null)
-            return await Info.TextLoader.LoadTextAsync(CancellationToken.None);
-        return SourceText.From(string.Empty);
+        if (TextAndVersionSource.TryGetValue(out var cached))
+            return cached.Text;
+
+        var result = await TextAndVersionSource.TextLoader.LoadTextAndVersionAsync(CancellationToken.None);
+        if (TextAndVersionSource is TextAndVersionSource concrete)
+            concrete.SetValue(result);
+        return result.Text;
     }
 
     private async Task<SyntaxTree> LoadSyntaxTreeAsync()
     {
         var text = await GetTextAsync();
-        return SyntaxFactory.ParseSyntaxTree(text, Info.ParseOptions);
+        return SyntaxFactory.ParseSyntaxTree(text, ParseOptions);
     }
 
     public Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
@@ -44,7 +49,9 @@ sealed class DocumentState : TextDocumentState
     public DocumentState WithText(SourceText newText)
     {
         if (newText == null) throw new ArgumentNullException(nameof(newText));
-        var newInfo = Info.WithText(newText);
-        return new DocumentState(newInfo);
+
+        var tav = new TextAndVersion(newText, VersionStamp.Create(), Info.FilePath);
+        var source = new TextAndVersionSource(TextLoader.From(tav), tav);
+        return new DocumentState(Info.WithText(newText), source, ParseOptions);
     }
 }

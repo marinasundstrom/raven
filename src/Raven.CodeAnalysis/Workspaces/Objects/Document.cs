@@ -1,3 +1,4 @@
+using System.Threading;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -24,7 +25,8 @@ public sealed class Document : TextDocument
         if (_lazySyntaxTree is not null)
             return _lazySyntaxTree;
 
-        _lazySyntaxTree = SyntaxTree.ParseText(State.Text);
+        var text = GetTextAsync(CancellationToken.None).GetAwaiter().GetResult();
+        _lazySyntaxTree = SyntaxTree.ParseText(text);
         return _lazySyntaxTree;
     }
 

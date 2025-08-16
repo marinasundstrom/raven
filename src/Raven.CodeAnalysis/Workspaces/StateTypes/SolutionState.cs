@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.SolutionInfo;
 
@@ -62,8 +63,27 @@ sealed class SolutionState
 
     private DocumentState CreateDocumentState(DocumentInfo di)
     {
-        var textSource = new TextAndVersionSource();
-        //new TextAndVersion(di.Text, VersionStamp.Create())
+        TextLoader loader;
+        TextAndVersion? initial = null;
+
+        if (di.Text is not null)
+        {
+            var tav = new TextAndVersion(di.Text, VersionStamp.Create(), di.FilePath);
+            loader = TextLoader.From(tav);
+            initial = tav;
+        }
+        else if (di.TextLoader is not null)
+        {
+            loader = di.TextLoader;
+        }
+        else
+        {
+            var tav = new TextAndVersion(SourceText.From(string.Empty), VersionStamp.Create(), di.FilePath);
+            loader = TextLoader.From(tav);
+            initial = tav;
+        }
+
+        var textSource = new TextAndVersionSource(loader, initial);
         return new DocumentState(di.Attributes, textSource, new ParseOptions());
     }
 
