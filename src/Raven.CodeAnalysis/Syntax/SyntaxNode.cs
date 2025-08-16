@@ -38,13 +38,13 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 
     public virtual SyntaxKind Kind => Green.Kind;
 
-    public int Position { get; }
+    internal int Position { get; }
 
-    public int End => Position + FullWidth;
+    internal int End => Position + FullWidth;
 
-    public int Width => Green.Width;
+    internal int Width => Green.Width;
 
-    public int FullWidth => Green.FullWidth;
+    internal int FullWidth => Green.FullWidth;
 
     public TextSpan Span
     {

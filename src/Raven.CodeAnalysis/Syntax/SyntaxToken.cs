@@ -61,9 +61,9 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
         }
     }
 
-    public int Position { get; }
+    internal int Position { get; }
 
-    public int End => Position + FullWidth;
+    internal int End => Position + FullWidth;
 
     public TextSpan Span
     {
