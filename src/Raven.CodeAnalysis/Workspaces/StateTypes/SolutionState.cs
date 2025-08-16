@@ -1,77 +1,107 @@
 using System.Collections.Immutable;
 using System.Linq;
 
+using static Raven.CodeAnalysis.SolutionInfo;
+
 namespace Raven.CodeAnalysis;
 
-internal sealed class SolutionState
+/// <summary>
+/// Immutable state representation of a <see cref="Solution"/>.  It tracks all
+/// project states and remembers the kind of change that produced the state so
+/// callers can react appropriately.
+/// </summary>
+sealed class SolutionState
 {
-    internal SolutionInfo Info { get; }
-    internal ImmutableDictionary<ProjectId, ProjectState> Projects { get; }
-    internal ImmutableDictionary<DocumentId, DocumentState> Documents { get; }
-    internal WorkspaceChangeKind ChangeKind { get; }
-    internal ProjectId? LastProjectId { get; }
-    internal DocumentId? LastDocumentId { get; }
+    internal SolutionAttributes SolutionAttributes { get; }
 
-    private SolutionState(
-        SolutionInfo info,
-        ImmutableDictionary<ProjectId, ProjectState> projects,
-        ImmutableDictionary<DocumentId, DocumentState> documents,
-        WorkspaceChangeKind changeKind,
-        ProjectId? lastProjectId,
-        DocumentId? lastDocumentId)
+    public SolutionId Id => SolutionAttributes.Id;
+    public string FilePath => SolutionAttributes.FilePath;
+    public VersionStamp Version => SolutionAttributes.Version;
+
+    public WorkspaceChangeKind ChangeKind { get; }
+    public ProjectId? ProjectId { get; }
+    public DocumentId? DocumentId { get; }
+
+    public IReadOnlyList<ProjectId> ProjectIds { get; }
+    public IImmutableDictionary<ProjectId, ProjectState> ProjectStates { get; }
+
+    public SolutionState(SolutionAttributes attributes,
+                         IReadOnlyList<ProjectId> projectIds,
+                         IImmutableDictionary<ProjectId, ProjectState> projectStates,
+                         WorkspaceChangeKind changeKind = WorkspaceChangeKind.SolutionChanged,
+                         ProjectId? projectId = null,
+                         DocumentId? documentId = null)
     {
-        Info = info;
-        Projects = projects;
-        Documents = documents;
+        SolutionAttributes = attributes;
+        ProjectIds = projectIds;
+        ProjectStates = projectStates;
         ChangeKind = changeKind;
-        LastProjectId = lastProjectId;
-        LastDocumentId = lastDocumentId;
+        ProjectId = projectId;
+        DocumentId = documentId;
     }
 
-    internal SolutionState(SolutionInfo info)
-        : this(info,
-               ImmutableDictionary<ProjectId, ProjectState>.Empty,
-               ImmutableDictionary<DocumentId, DocumentState>.Empty,
-               WorkspaceChangeKind.SolutionAdded,
-               null,
-               null)
-    { }
+    public ProjectState? GetProjectState(ProjectId projectId)
+        => ProjectStates.TryGetValue(projectId, out var state) ? state : null;
 
-    private SolutionState With(
-        ImmutableDictionary<ProjectId, ProjectState> projects,
-        ImmutableDictionary<DocumentId, DocumentState> documents,
-        WorkspaceChangeKind kind,
-        ProjectId? projectId,
-        DocumentId? documentId)
+    public bool ContainsProject(ProjectId projectId)
+        => ProjectStates.ContainsKey(projectId);
+
+    public SolutionState AddProject(ProjectInfo projectInfo)
     {
-        var newInfo = new SolutionInfo(
-            new SolutionInfo.SolutionAttributes(Info.Id, Info.FilePath, Info.Version.GetNewerVersion()),
-            projects.Values.Select(p => p.Info));
-        return new SolutionState(newInfo, projects, documents, kind, projectId, documentId);
+        var projectState = CreateProjectState(projectInfo);
+        var ids = ProjectIds.Concat(new[] { projectInfo.Id }).ToList();
+        var states = ProjectStates.Add(projectInfo.Id, projectState);
+        var newAttributes = SolutionAttributes with { Version = Version.GetNewerVersion() };
+        return new SolutionState(newAttributes, ids, states,
+                                 WorkspaceChangeKind.ProjectAdded, projectInfo.Id, null);
     }
 
-    internal SolutionState AddProject(ProjectState project)
+    public SolutionState RemoveProject(ProjectId projectId)
     {
-        var newProjects = Projects.Add(project.Info.Id, project);
-        return With(newProjects, Documents, WorkspaceChangeKind.ProjectAdded, project.Info.Id, null);
+        var ids = ProjectIds.Where(id => id != projectId).ToList();
+        var states = ProjectStates.Remove(projectId);
+        var newAttributes = SolutionAttributes with { Version = Version.GetNewerVersion() };
+        return new SolutionState(newAttributes, ids, states,
+                                 WorkspaceChangeKind.ProjectRemoved, projectId, null);
     }
 
-    internal SolutionState AddDocument(DocumentState document)
+    public SolutionState AddDocument(ProjectId projectId, DocumentInfo documentInfo)
     {
-        var project = Projects[document.Id.ProjectId];
-        var newProject = project.AddDocument(document);
-        var newProjects = Projects.SetItem(project.Info.Id, newProject);
-        var newDocs = Documents.Add(document.Id, document);
-        return With(newProjects, newDocs, WorkspaceChangeKind.DocumentAdded, project.Info.Id, document.Id);
+        var projectState = ProjectStates[projectId];
+        var documentState = CreateDocumentState(documentInfo);
+        var newDocStates = new TextDocumentStates<DocumentState>(
+            projectState.DocumentStates.States.Values.Append(documentState).ToImmutableList());
+        var newProjectInfo = projectState.ProjectInfo.WithDocuments(
+            projectState.ProjectInfo.Documents.Concat(new[] { documentInfo }));
+        var newProjectState = new ProjectState(newProjectInfo, newDocStates);
+        var states = ProjectStates.SetItem(projectId, newProjectState);
+        var newAttributes = SolutionAttributes with { Version = Version.GetNewerVersion() };
+        return new SolutionState(newAttributes, ProjectIds, states,
+                                 WorkspaceChangeKind.DocumentAdded, projectId, documentInfo.Id);
     }
 
-    internal SolutionState UpdateDocument(DocumentState document)
+    public DocumentState? GetDocumentState(DocumentId id)
     {
-        var project = Projects[document.Id.ProjectId];
-        var newProject = project.UpdateDocument(document);
-        var newProjects = Projects.SetItem(project.Info.Id, newProject);
-        var newDocs = Documents.SetItem(document.Id, document);
-        return With(newProjects, newDocs, WorkspaceChangeKind.DocumentChanged, project.Info.Id, document.Id);
+        if (ProjectStates.TryGetValue(id.ProjectId, out var project) &&
+            project.DocumentStates.States.TryGetValue(id, out var doc))
+            return doc;
+        return null;
+    }
+
+    private static ProjectState CreateProjectState(ProjectInfo pi)
+    {
+        return new ProjectState(pi, CreateDocumentStates(pi));
+    }
+
+    private static TextDocumentStates<DocumentState> CreateDocumentStates(ProjectInfo pi)
+    {
+        var docs = pi.Documents.Select(CreateDocumentState).ToImmutableList();
+        return new TextDocumentStates<DocumentState>(docs);
+    }
+
+    private static DocumentState CreateDocumentState(DocumentInfo di)
+    {
+        var textSource = new TextAndVersionSource();
+        return new DocumentState(di.Attributes, textSource, new ParseOptions());
     }
 }
-

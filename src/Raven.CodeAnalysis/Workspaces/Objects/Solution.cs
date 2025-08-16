@@ -1,63 +1,99 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
+/// <summary>
+/// /// Public immutable representation of a set of projects.  The heavy lifting is
+/// done by <see cref="SolutionState"/> which stores the actual data.  Each
+/// mutation returns a new <see cref="Solution"/> with a different underlying
+/// state, allowing cheap incremental updates.
+/// </summary>
 public sealed class Solution
 {
-    private readonly SolutionState _state;
+    internal SolutionState State { get; }
 
-    private Solution(SolutionState state) => _state = state;
+    public Solution(SolutionInfo info)
+        : this(CreateStateFromInfo(info))
+    {
+    }
 
-    public Solution(SolutionInfo info) : this(new SolutionState(info)) { }
+    private Solution(SolutionState state)
+    {
+        State = state;
+    }
 
-    internal WorkspaceChangeKind ChangeKind => _state.ChangeKind;
-    internal ProjectId? LastProjectId => _state.LastProjectId;
-    internal DocumentId? LastDocumentId => _state.LastDocumentId;
+    public SolutionId Id => State.Id;
+    public VersionStamp Version => State.Version;
 
-    public IEnumerable<Project> Projects => _state.Projects.Values.Select(s => new Project(s));
+    public IEnumerable<Project> Projects =>
+        State.ProjectIds.Select(id => GetProject(id)!).Where(p => p is not null);
 
-    public Project? GetProject(ProjectId id) =>
-        _state.Projects.TryGetValue(id, out var p) ? new Project(p) : null;
+    public Project? GetProject(ProjectId id)
+    {
+        var state = State.GetProjectState(id);
+        return state is null ? null : new Project(this, state);
+    }
 
-    public Document? GetDocument(DocumentId id) =>
-        _state.Documents.TryGetValue(id, out var d) ? new Document(d) : null;
+    public Document? GetDocument(DocumentId id)
+    {
+        var docState = State.GetDocumentState(id);
+        if (docState is null) return null;
+        var projectState = State.GetProjectState(id.ProjectId)!;
+        var project = new Project(this, projectState);
+        return new Document(project, docState);
+    }
 
-    public VersionStamp Version => _state.Info.Version;
-
-    private Solution With(SolutionState state) => new(state);
+    public bool ContainsProject(ProjectId id) => State.ContainsProject(id);
 
     public Solution AddProject(string name)
     {
-        var projectId = ProjectId.CreateNew(_state.Info.Id);
-        var projectInfo = new ProjectInfo(new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create()), Enumerable.Empty<DocumentInfo>());
-        var projectState = new ProjectState(projectInfo, ImmutableDictionary<DocumentId, DocumentState>.Empty);
-        return With(_state.AddProject(projectState));
+        var projectId = ProjectId.CreateNew(Id);
+        var info = new ProjectInfo(
+            new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create()),
+            Enumerable.Empty<DocumentInfo>());
+        var newState = State.AddProject(info);
+        return new Solution(newState);
     }
 
-    public Solution AddDocument(DocumentId documentId, string name, SourceText text)
+    public Solution AddProject(ProjectInfo projectInfo)
     {
-        var docInfo = DocumentInfo.Create(documentId, name, text);
-        var docState = new DocumentState(docInfo, VersionStamp.Create());
-        return With(_state.AddDocument(docState));
+        var newState = State.AddProject(projectInfo);
+        return new Solution(newState);
     }
 
-    public Solution WithDocument(Document document)
-        => With(_state.UpdateDocument(document.State));
-
-    public Solution WithDocumentText(DocumentId id, SourceText text)
+    public Solution RemoveProject(ProjectId projectId)
     {
-        var document = GetDocument(id) ?? throw new InvalidOperationException("Document not found");
-        return WithDocument(document.WithText(text));
+        var newState = State.RemoveProject(projectId);
+        return new Solution(newState);
     }
 
-    public Solution WithDocumentName(DocumentId id, string name)
+    public Solution AddDocument(ProjectId projectId, string name, SourceText text)
     {
-        var document = GetDocument(id) ?? throw new InvalidOperationException("Document not found");
-        return WithDocument(document.WithName(name));
+        var docId = DocumentId.CreateNew(projectId);
+        var docInfo = DocumentInfo.Create(docId, name, text);
+        var newState = State.AddDocument(projectId, docInfo);
+        return new Solution(newState);
+    }
+
+    private static SolutionState CreateStateFromInfo(SolutionInfo info)
+    {
+        var projectStates = info.Projects
+            .Select(pi => new ProjectState(pi, CreateDocumentStates(pi)))
+            .ToImmutableDictionary(ps => ps.Id);
+        return new SolutionState(info.Attributes,
+                                 projectStates.Keys.ToList(),
+                                 projectStates,
+                                 WorkspaceChangeKind.SolutionAdded);
+    }
+
+    private static TextDocumentStates<DocumentState> CreateDocumentStates(ProjectInfo pi)
+    {
+        var docs = pi.Documents
+            .Select(di => new DocumentState(di.Attributes, new TextAndVersionSource(), new ParseOptions()))
+            .ToImmutableList();
+        return new TextDocumentStates<DocumentState>(docs);
     }
 }
-

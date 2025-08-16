@@ -1,15 +1,25 @@
-using Raven.CodeAnalysis.Text;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
+/// <summary>
+/// Facade for a single source document.  The immutable information is held in
+/// <see cref="DocumentState"/>; this type provides convenient accessors.
+/// </summary>
 public sealed class Document : TextDocument
 {
-    internal Document(DocumentState state) : base(state) { }
+    private SyntaxTree? _lazySyntaxTree;
 
-    internal new DocumentState State => (DocumentState)base.State;
+    internal Document(Project project, DocumentState state) : base(project, state)
+    {
+    }
 
-    public Document WithText(SourceText newText) => new(State.WithText(newText));
+    public SyntaxTree GetSyntaxTree()
+    {
+        if (_lazySyntaxTree is not null)
+            return _lazySyntaxTree;
 
-    public Document WithName(string newName) => new(State.WithName(newName));
+        _lazySyntaxTree = SyntaxTree.ParseText(State.Text);
+        return _lazySyntaxTree;
+    }
 }
-

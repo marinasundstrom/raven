@@ -1,30 +1,43 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
+/// <summary>
+/// Public facade for a project that delegates to an underlying immutable
+/// <see cref="ProjectState"/>.  All mutating operations are performed on the
+/// state which returns a new instance to preserve immutability.
+/// </summary>
 public sealed class Project
 {
-    private readonly ProjectState _state;
+    private readonly Solution _solution;
 
-    internal Project(ProjectState state) => _state = state;
+    internal ProjectState State { get; }
 
-    internal ProjectState State => _state;
+    internal Project(Solution solution, ProjectState state)
+    {
+        _solution = solution;
+        State = state;
+    }
 
-    public ProjectId Id => _state.Info.Id;
-    public string Name => _state.Info.Name;
-    public VersionStamp Version => _state.Info.Version;
+    public ProjectId Id => State.Id;
+    public string Name => State.Name;
+    public VersionStamp Version => State.Version;
+    internal Solution Solution => _solution;
 
-    public IEnumerable<Document> Documents => _state.Documents.Values.Select(s => new Document(s));
+    public IReadOnlyList<ProjectReference> ProjectReferences => State.ProjectReferences;
+    public IReadOnlyList<MetadataReference> MetadataReferences => State.MetadataReferences;
+
+    public ImmutableArray<Document> Documents =>
+        State.DocumentStates.Ids
+            .Select(id => _solution.GetDocument(id))
+            .Where(d => d is not null)
+            .Cast<Document>()
+            .ToImmutableArray();
+
+    public bool ContainsDocument(DocumentId id) =>
+        State.DocumentStates.Ids.Contains(id);
 
     public Document? GetDocument(DocumentId id) =>
-        _state.Documents.TryGetValue(id, out var s) ? new Document(s) : null;
-
-    internal Project AddDocument(Document document)
-        => new(_state.AddDocument(document.State));
-
-    internal Project UpdateDocument(Document document)
-        => new(_state.UpdateDocument(document.State));
+        _solution.GetDocument(id);
 }
-
