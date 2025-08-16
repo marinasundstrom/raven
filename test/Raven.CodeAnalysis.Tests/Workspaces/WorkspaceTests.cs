@@ -1,19 +1,19 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Text;
+using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class WorkspaceTest(ITestOutputHelper testOutputHelper)
+public class WorkspaceTest
 {
-    /*
     [Fact]
-    public void AddProjectAndDocument_ShouldPreserveIdsAndUpdateVersions()
+    public void AddProjectAndDocument_ShouldPreserveIds()
     {
         var workspace = new AdhocWorkspace();
         var solution = workspace.CurrentSolution;
 
         var projectId = ProjectId.CreateNew(solution.Id);
-        solution = solution.AddProject("MyProject"); //, "MyAssembly", LanguageNames.Raven);
+        solution = solution.AddProject(projectId, "MyProject");
         workspace.TryApplyChanges(solution);
 
         var docId = DocumentId.CreateNew(projectId);
@@ -32,7 +32,7 @@ public class WorkspaceTest(ITestOutputHelper testOutputHelper)
         var solution = workspace.CurrentSolution;
 
         var projectId = ProjectId.CreateNew(solution.Id);
-        var project = solution.AddProject("Project");
+        solution = solution.AddProject(projectId, "Project");
         workspace.TryApplyChanges(solution);
 
         var docId = DocumentId.CreateNew(projectId);
@@ -48,7 +48,6 @@ public class WorkspaceTest(ITestOutputHelper testOutputHelper)
         workspace.TryApplyChanges(solution);
 
         var finalDoc = workspace.CurrentSolution.GetDocument(docId)!;
-
         Assert.Equal(docId, finalDoc.Id);
         Assert.NotEqual(originalVersion, finalDoc.Version);
         Assert.Equal(updatedText.ToString(), (await finalDoc.GetTextAsync()).ToString());
@@ -67,18 +66,18 @@ public class WorkspaceTest(ITestOutputHelper testOutputHelper)
 
         var solution = workspace.CurrentSolution;
         var projectId = ProjectId.CreateNew(solution.Id);
-        var project = solution.AddProject("P");
+        solution = solution.AddProject(projectId, "P");
         workspace.TryApplyChanges(solution);
 
         var docId = DocumentId.CreateNew(projectId);
-        solution = project.AddDocument(docId, "Code.rvn", SourceText.From("x = 1"));
+        solution = solution.AddDocument(docId, "Code.rvn", SourceText.From("x = 1"));
         workspace.TryApplyChanges(solution);
 
+        var doc = workspace.CurrentSolution.GetDocument(docId)!;
         var updated = doc.WithText(SourceText.From("x = 2"));
         var newSolution = solution.WithDocument(updated);
         workspace.TryApplyChanges(newSolution);
 
         Assert.True(triggered);
     }
-    */
 }

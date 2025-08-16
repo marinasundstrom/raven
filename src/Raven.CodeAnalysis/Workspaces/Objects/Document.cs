@@ -1,39 +1,44 @@
-using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
-public sealed class Document : TextDocument
+/// <summary>
+/// Represents a source document within a project. Instances are immutable and
+/// any change results in a new <see cref="Document"/> instance.
+/// </summary>
+public sealed class Document
 {
-    private SyntaxTree? _lazySyntaxTree;
-    private SemanticModel? _lazySemanticModel;
-
-    internal Document(Project project, DocumentState state) : base(project, state)
+    internal Document(DocumentId id, string name, SourceText text, string? filePath, VersionStamp version)
     {
-
+        Id = id;
+        Name = name;
+        Text = text;
+        FilePath = filePath;
+        Version = version;
     }
 
-    public Document WithName(string newName)
-        => Project.Solution.WithDocumentName(Id, newName).GetDocument(Id)!;
+    /// <summary>The identifier for this document.</summary>
+    public DocumentId Id { get; }
 
+    /// <summary>The name of the document.</summary>
+    public string Name { get; }
+
+    /// <summary>The path to the document on disk if any.</summary>
+    public string? FilePath { get; }
+
+    /// <summary>The current version of the text.</summary>
+    public VersionStamp Version { get; }
+
+    internal SourceText Text { get; }
+
+    /// <summary>Asynchronously gets the text of the document.</summary>
+    public Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(Text);
+
+    /// <summary>Creates a new document with updated text and a new version stamp.</summary>
     public Document WithText(SourceText newText)
-        => Project.Solution.WithDocumentText(Id, newText).GetDocument(Id)!;
-
-    public SyntaxTree GetSyntaxTree()
     {
-        if (_lazySyntaxTree is not null)
-            return _lazySyntaxTree;
-
-        _lazySyntaxTree = SyntaxTree.ParseText(State.Text);
-        return _lazySyntaxTree;
-    }
-
-    public SemanticModel GetSemanticModel(Compilation compilation)
-    {
-        if (_lazySemanticModel is not null)
-            return _lazySemanticModel;
-
-        _lazySemanticModel = compilation.GetSemanticModel(GetSyntaxTree());
-        return _lazySemanticModel;
+        if (newText is null) throw new ArgumentNullException(nameof(newText));
+        return new Document(Id, Name, newText, FilePath, Version.GetNewerVersion());
     }
 }
