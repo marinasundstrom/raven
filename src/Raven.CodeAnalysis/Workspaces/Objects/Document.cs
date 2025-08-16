@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -5,7 +7,6 @@ namespace Raven.CodeAnalysis;
 
 public sealed class Document : TextDocument
 {
-    private SyntaxTree? _lazySyntaxTree;
     private SemanticModel? _lazySemanticModel;
 
     internal Document(Project project, DocumentState state) : base(project, state)
@@ -19,21 +20,16 @@ public sealed class Document : TextDocument
     public Document WithText(SourceText newText)
         => Project.Solution.WithDocumentText(Id, newText).GetDocument(Id)!;
 
-    public SyntaxTree GetSyntaxTree()
-    {
-        if (_lazySyntaxTree is not null)
-            return _lazySyntaxTree;
+    public Task<SyntaxTree> GetSyntaxTreeAsync(CancellationToken cancellationToken = default)
+        => State.GetSyntaxTreeAsync(cancellationToken);
 
-        _lazySyntaxTree = SyntaxTree.ParseText(State.Text);
-        return _lazySyntaxTree;
-    }
-
-    public SemanticModel GetSemanticModel(Compilation compilation)
+    public async Task<SemanticModel> GetSemanticModelAsync(Compilation compilation, CancellationToken cancellationToken = default)
     {
         if (_lazySemanticModel is not null)
             return _lazySemanticModel;
 
-        _lazySemanticModel = compilation.GetSemanticModel(GetSyntaxTree());
+        var tree = await GetSyntaxTreeAsync(cancellationToken);
+        _lazySemanticModel = compilation.GetSemanticModel(tree);
         return _lazySemanticModel;
     }
 }

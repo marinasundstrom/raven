@@ -62,8 +62,8 @@ sealed class SolutionState
 
     private DocumentState CreateDocumentState(DocumentInfo di)
     {
-        var textSource = new TextAndVersionSource();
-        //new TextAndVersion(di.Text, VersionStamp.Create())
+        var textAndVersion = new TextAndVersion(di.Text, VersionStamp.Create(), di.FilePath);
+        var textSource = new TextAndVersionSource(TextLoader.From(textAndVersion), textAndVersion);
         return new DocumentState(di.Attributes, textSource, new ParseOptions());
     }
 

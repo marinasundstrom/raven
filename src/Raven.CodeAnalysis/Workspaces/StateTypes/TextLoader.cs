@@ -1,3 +1,6 @@
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace Raven.CodeAnalysis;
 
 public abstract class TextLoader
@@ -10,4 +13,6 @@ public abstract class TextLoader
         }
         return new TextDocumentLoader(textAndVersion);
     }
+
+    public abstract Task<TextAndVersion> LoadTextAndVersionAsync(DocumentId documentId, CancellationToken cancellationToken);
 }

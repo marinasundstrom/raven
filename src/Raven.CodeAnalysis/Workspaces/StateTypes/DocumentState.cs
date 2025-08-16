@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -7,44 +9,28 @@ namespace Raven.CodeAnalysis;
 
 sealed class DocumentState : TextDocumentState
 {
-    private readonly Lazy<Task<SourceText>> _lazyText;
-    private readonly Lazy<Task<SyntaxTree>> _lazySyntaxTree;
+    private readonly ParseOptions _parseOptions;
+    private SyntaxTree? _syntaxTree;
 
-    public ParseOptions ParseOptions { get; }
-
-    public DocumentState(DocumentAttributes attribute, ITextAndVersionSource textSource, ParseOptions parseOptions)
-        : base(attribute, textSource)
+    public DocumentState(DocumentAttributes attributes, ITextAndVersionSource textSource, ParseOptions parseOptions)
+        : base(attributes, textSource)
     {
-        _lazyText = new Lazy<Task<SourceText>>(LoadTextAsync);
-        _lazySyntaxTree = new Lazy<Task<SyntaxTree>>(LoadSyntaxTreeAsync);
-        ParseOptions = parseOptions;
+        _parseOptions = parseOptions;
     }
 
-    private async Task<SourceText> LoadTextAsync()
+    public async Task<SyntaxTree> GetSyntaxTreeAsync(CancellationToken cancellationToken = default)
     {
-        if (Info.Text is not null)
-            return Info.Text;
-        if (Info.TextLoader is not null)
-            return await Info.TextLoader.LoadTextAsync(CancellationToken.None);
-        return SourceText.From(string.Empty);
+        if (_syntaxTree is not null)
+            return _syntaxTree;
+
+        var text = await GetTextAsync(cancellationToken);
+        _syntaxTree = SyntaxFactory.ParseSyntaxTree(text, _parseOptions);
+        return _syntaxTree;
     }
-
-    private async Task<SyntaxTree> LoadSyntaxTreeAsync()
-    {
-        var text = await GetTextAsync();
-        return SyntaxFactory.ParseSyntaxTree(text, Info.ParseOptions);
-    }
-
-    public Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
-        => _lazyText.Value;
-
-    public Task<SyntaxTree> GetSyntaxTreeAsync(CancellationToken cancellationToken = default)
-        => _lazySyntaxTree.Value;
 
     public DocumentState WithText(SourceText newText)
     {
-        if (newText == null) throw new ArgumentNullException(nameof(newText));
-        var newInfo = Info.WithText(newText);
-        return new DocumentState(newInfo);
+        var newAttributes = Attributes.WithText(newText);
+        return new DocumentState(newAttributes, TextAndVersionSource, _parseOptions);
     }
 }
