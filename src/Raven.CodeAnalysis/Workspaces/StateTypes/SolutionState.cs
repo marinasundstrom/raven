@@ -1,110 +1,77 @@
 using System.Collections.Immutable;
-
-using static Raven.CodeAnalysis.SolutionInfo;
+using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
-sealed class SolutionState
+internal sealed class SolutionState
 {
-    internal SolutionAttributes SolutionAttributes { get; }
-    public SolutionId Id => SolutionAttributes.Id;
-    public string? FilePath => SolutionAttributes.FilePath;
-    public VersionStamp Version => SolutionAttributes.Version;
-    public string? WorkspaceKind { get; set; }
-    public int WorkspaceVersion { get; set; }
+    internal SolutionInfo Info { get; }
+    internal ImmutableDictionary<ProjectId, ProjectState> Projects { get; }
+    internal ImmutableDictionary<DocumentId, DocumentState> Documents { get; }
+    internal WorkspaceChangeKind ChangeKind { get; }
+    internal ProjectId? LastProjectId { get; }
+    internal DocumentId? LastDocumentId { get; }
 
-    public IReadOnlyList<ProjectId> ProjectIds { get; set; }
-    public IImmutableDictionary<ProjectId, ProjectState> ProjectStates { get; }
-    public IReadOnlyList<AnalyzerReference> AnalyzerReferences { get; }
-
-    public SolutionState(string? workspaceKind, int workspaceVersion, SolutionAttributes solutionAttributes, IReadOnlyList<ProjectId> projectIds, IImmutableDictionary<ProjectId, ProjectState> idToProjectState, IReadOnlyList<AnalyzerReference> analyzerReferences)
+    private SolutionState(
+        SolutionInfo info,
+        ImmutableDictionary<ProjectId, ProjectState> projects,
+        ImmutableDictionary<DocumentId, DocumentState> documents,
+        WorkspaceChangeKind changeKind,
+        ProjectId? lastProjectId,
+        DocumentId? lastDocumentId)
     {
-        WorkspaceKind = workspaceKind;
-        WorkspaceVersion = workspaceVersion;
-        SolutionAttributes = solutionAttributes;
-        ProjectIds = projectIds;
-        ProjectStates = idToProjectState;
-        AnalyzerReferences = analyzerReferences;
+        Info = info;
+        Projects = projects;
+        Documents = documents;
+        ChangeKind = changeKind;
+        LastProjectId = lastProjectId;
+        LastDocumentId = lastDocumentId;
     }
 
-    public ProjectState? GetProjectState(ProjectId projectId)
+    internal SolutionState(SolutionInfo info)
+        : this(info,
+               ImmutableDictionary<ProjectId, ProjectState>.Empty,
+               ImmutableDictionary<DocumentId, DocumentState>.Empty,
+               WorkspaceChangeKind.SolutionAdded,
+               null,
+               null)
+    { }
+
+    private SolutionState With(
+        ImmutableDictionary<ProjectId, ProjectState> projects,
+        ImmutableDictionary<DocumentId, DocumentState> documents,
+        WorkspaceChangeKind kind,
+        ProjectId? projectId,
+        DocumentId? documentId)
     {
-        if (!ProjectStates.TryGetValue(projectId, out var state))
-        {
-            return null;
-        }
-        return state;
+        var newInfo = new SolutionInfo(
+            new SolutionInfo.SolutionAttributes(Info.Id, Info.FilePath, Info.Version.GetNewerVersion()),
+            projects.Values.Select(p => p.Info));
+        return new SolutionState(newInfo, projects, documents, kind, projectId, documentId);
     }
 
-    public bool ContainsProject(ProjectId projectId)
+    internal SolutionState AddProject(ProjectState project)
     {
-        if (projectId != default)
-        {
-            return ProjectStates.ContainsKey(projectId);
-        }
-        return false;
+        var newProjects = Projects.Add(project.Info.Id, project);
+        return With(newProjects, Documents, WorkspaceChangeKind.ProjectAdded, project.Info.Id, null);
     }
 
-
-    public SolutionState AddProjects(IReadOnlyList<ProjectInfo> projectInfos)
+    internal SolutionState AddDocument(DocumentState document)
     {
-        var newProjectIds = ProjectIds.Concat(projectInfos.Select(pi => pi.Id));
-        var newProjectStates = ProjectStates.AddRange(projectInfos.Select(CreateProjectState).ToDictionary(ps => ps.Id, ps => ps));
-        return new SolutionState(WorkspaceKind, WorkspaceVersion, SolutionAttributes, [.. newProjectIds], newProjectStates.ToImmutableDictionary(), AnalyzerReferences);
+        var project = Projects[document.Id.ProjectId];
+        var newProject = project.AddDocument(document);
+        var newProjects = Projects.SetItem(project.Info.Id, newProject);
+        var newDocs = Documents.Add(document.Id, document);
+        return With(newProjects, newDocs, WorkspaceChangeKind.DocumentAdded, project.Info.Id, document.Id);
     }
 
-    private ProjectState CreateProjectState(ProjectInfo pi)
+    internal SolutionState UpdateDocument(DocumentState document)
     {
-        return new ProjectState(pi,
-            new TextDocumentStates<DocumentState>(
-                pi.Documents.Select(CreateDocumentState).ToImmutableList()));
-    }
-
-    private DocumentState CreateDocumentState(DocumentInfo di)
-    {
-        var textSource = new TextAndVersionSource();
-        //new TextAndVersion(di.Text, VersionStamp.Create())
-        return new DocumentState(di.Attributes, textSource, new ParseOptions());
-    }
-
-    public SolutionState RemoveProjects(IReadOnlyList<ProjectId> projectIds)
-    {
-        var newProjectIds = ProjectIds.Except(projectIds);
-        var newProjectStates = ProjectStates.Where(ps => !projectIds.Contains(ps.Key));
-        return new SolutionState(WorkspaceKind, WorkspaceVersion, SolutionAttributes, [.. newProjectIds], newProjectStates.ToImmutableDictionary(), AnalyzerReferences);
-    }
-
-    public StateChange AddMetadataReferences(ProjectId projectId, IReadOnlyCollection<MetadataReference> metadataReferences)
-    {
-        var oldProject = GetProjectState(projectId)!;
-        if (metadataReferences.Count == 0)
-        {
-            return new StateChange(this, oldProject, oldProject);
-        }
-        return ForkProject(oldProject,
-            oldProject.WithMetadataReferences(oldProject.MetadataReferences.Concat(metadataReferences)));
-    }
-
-    public StateChange AddProjectReferences(ProjectId projectId, IReadOnlyCollection<ProjectReference> projectReferences)
-    {
-        var oldProject = GetProjectState(projectId)!;
-        if (projectReferences.Count == 0)
-        {
-            return new StateChange(this, oldProject, oldProject);
-        }
-        return ForkProject(oldProject,
-            oldProject.WithProjectReferences(oldProject.ProjectReferences.Concat(projectReferences)));
-    }
-
-    private StateChange ForkProject(ProjectState oldProject, ProjectState newProject)
-    {
-        // TODO: Handle dependency graph (?)
-        return new StateChange(this, oldProject, newProject);
-    }
-
-    public SolutionState AddAnalyzerReferences(IReadOnlyCollection<AnalyzerReference> analyzerReferences)
-    {
-        var newAnalyzerReference = AnalyzerReferences.Concat(analyzerReferences);
-        return new SolutionState(WorkspaceKind, WorkspaceVersion, SolutionAttributes, ProjectIds, ProjectStates, newAnalyzerReference.ToList());
+        var project = Projects[document.Id.ProjectId];
+        var newProject = project.UpdateDocument(document);
+        var newProjects = Projects.SetItem(project.Info.Id, newProject);
+        var newDocs = Documents.SetItem(document.Id, document);
+        return With(newProjects, newDocs, WorkspaceChangeKind.DocumentChanged, project.Info.Id, document.Id);
     }
 }
+

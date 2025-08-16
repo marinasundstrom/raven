@@ -1,50 +1,51 @@
-using Raven.CodeAnalysis.Syntax;
+using System.Threading;
+using System.Threading.Tasks;
 using Raven.CodeAnalysis.Text;
-
-using static Raven.CodeAnalysis.DocumentInfo;
 
 namespace Raven.CodeAnalysis;
 
-sealed class DocumentState : TextDocumentState
+internal class TextDocumentState
 {
-    private readonly Lazy<Task<SourceText>> _lazyText;
-    private readonly Lazy<Task<SyntaxTree>> _lazySyntaxTree;
+    protected DocumentInfo Info { get; }
+    private readonly ITextAndVersionSource _textSource;
 
-    public ParseOptions ParseOptions { get; }
-
-    public DocumentState(DocumentAttributes attribute, ITextAndVersionSource textSource, ParseOptions parseOptions)
-        : base(attribute, textSource)
+    public TextDocumentState(DocumentInfo info, VersionStamp version)
     {
-        _lazyText = new Lazy<Task<SourceText>>(LoadTextAsync);
-        _lazySyntaxTree = new Lazy<Task<SyntaxTree>>(LoadSyntaxTreeAsync);
-        ParseOptions = parseOptions;
+        Info = info;
+        Version = version;
+        _textSource = new TextAndVersionSource(ct => info.TextLoader.LoadTextAndVersionAsync(info.Id, ct));
     }
 
-    private async Task<SourceText> LoadTextAsync()
-    {
-        if (Info.Text is not null)
-            return Info.Text;
-        if (Info.TextLoader is not null)
-            return await Info.TextLoader.LoadTextAsync(CancellationToken.None);
-        return SourceText.From(string.Empty);
-    }
+    public DocumentId Id => Info.Id;
+    public string Name => Info.Name;
+    public VersionStamp Version { get; }
 
-    private async Task<SyntaxTree> LoadSyntaxTreeAsync()
-    {
-        var text = await GetTextAsync();
-        return SyntaxFactory.ParseSyntaxTree(text, Info.ParseOptions);
-    }
+    public virtual async Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
+        => (await _textSource.GetValueAsync(cancellationToken).ConfigureAwait(false)).Text;
 
-    public Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
-        => _lazyText.Value;
+    protected virtual TextDocumentState With(DocumentInfo info, VersionStamp version)
+        => new TextDocumentState(info, version);
 
-    public Task<SyntaxTree> GetSyntaxTreeAsync(CancellationToken cancellationToken = default)
-        => _lazySyntaxTree.Value;
+    public virtual TextDocumentState WithText(SourceText text)
+        => With(Info.WithText(text), Version.GetNewerVersion());
 
-    public DocumentState WithText(SourceText newText)
-    {
-        if (newText == null) throw new ArgumentNullException(nameof(newText));
-        var newInfo = Info.WithText(newText);
-        return new DocumentState(newInfo);
-    }
+    public virtual TextDocumentState WithName(string name)
+        => With(Info.WithName(name), Version);
 }
+
+internal sealed class DocumentState : TextDocumentState
+{
+    public DocumentState(DocumentInfo info, VersionStamp version) : base(info, version) { }
+
+    protected override TextDocumentState With(DocumentInfo info, VersionStamp version)
+        => new DocumentState(info, version);
+
+    public new DocumentState WithText(SourceText text)
+        => (DocumentState)base.WithText(text);
+
+    public new DocumentState WithName(string name)
+        => (DocumentState)base.WithName(name);
+
+    internal new DocumentInfo Info => base.Info;
+}
+

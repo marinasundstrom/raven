@@ -1,39 +1,15 @@
-using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
 public sealed class Document : TextDocument
 {
-    private SyntaxTree? _lazySyntaxTree;
-    private SemanticModel? _lazySemanticModel;
+    internal Document(DocumentState state) : base(state) { }
 
-    internal Document(Project project, DocumentState state) : base(project, state)
-    {
+    internal new DocumentState State => (DocumentState)base.State;
 
-    }
+    public Document WithText(SourceText newText) => new(State.WithText(newText));
 
-    public Document WithName(string newName)
-        => Project.Solution.WithDocumentName(Id, newName).GetDocument(Id)!;
-
-    public Document WithText(SourceText newText)
-        => Project.Solution.WithDocumentText(Id, newText).GetDocument(Id)!;
-
-    public SyntaxTree GetSyntaxTree()
-    {
-        if (_lazySyntaxTree is not null)
-            return _lazySyntaxTree;
-
-        _lazySyntaxTree = SyntaxTree.ParseText(State.Text);
-        return _lazySyntaxTree;
-    }
-
-    public SemanticModel GetSemanticModel(Compilation compilation)
-    {
-        if (_lazySemanticModel is not null)
-            return _lazySemanticModel;
-
-        _lazySemanticModel = compilation.GetSemanticModel(GetSyntaxTree());
-        return _lazySemanticModel;
-    }
+    public Document WithName(string newName) => new(State.WithName(newName));
 }
+
