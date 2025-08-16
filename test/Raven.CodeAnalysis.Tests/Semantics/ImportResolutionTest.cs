@@ -56,15 +56,26 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
-    public void ImportedNamespaceSystemDoesContainStringInClass_ShouldNot_ProduceDiagnostic()
+    public void GenericListWithCorrectImport_ShouldNot_ProduceDiagnostic()
     {
         string testCode =
             """
-            import System;
+            import System.Collections.Generic;
 
-            class C {
-                String field;
-            }
+            List<string>;
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void FullyQualifiedGenericListWithoutImport_ShouldNot_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            System.Collections.Generic.List<string>;
             """;
 
         var verifier = CreateVerifier(testCode);
