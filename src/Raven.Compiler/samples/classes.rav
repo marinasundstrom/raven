@@ -52,8 +52,12 @@ class Person {
         set => roles[index] = value
     }
 
+    /*
+
     // Invocation operator: e.g., person(2025)
     public self(year: int) -> string {
         return $"Name: {name}, Age in {year}: {year - (System.DateTime.Now.Year - age)}"
     }
+
+    */
 }
