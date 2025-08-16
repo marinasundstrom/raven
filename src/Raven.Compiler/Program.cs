@@ -101,6 +101,8 @@ if (shouldDumpRawSyntax || debug)
 {
     var str = root.ToFullString();
     Console.WriteLine(str);
+
+    Console.WriteLine();
 }
 
 if (shouldPrintSyntaxTree || debug)
@@ -122,6 +124,8 @@ if (shouldDumpBinders || debug)
 {
     var semanticModel = compilation.GetSemanticModel(syntaxTree);
     semanticModel.PrintBinderTree();
+
+    Console.WriteLine();
 }
 
 if (result is not null)
