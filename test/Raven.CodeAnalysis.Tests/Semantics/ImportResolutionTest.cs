@@ -35,4 +35,40 @@ public class ImportResolutionTest : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void NamespaceSystemNotImportedStringInClassNotAvailable_Should_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            class C {
+                String field;
+            }
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult("RAV0103").WithLocation(2, 5).WithArguments("String")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ImportedNamespaceSystemDoesContainStringInClass_ShouldNot_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            import System;
+
+            class C {
+                String field;
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }

@@ -189,7 +189,7 @@ public partial class SemanticModel
 
         _binderCache[cu] = topLevelBinder;
 
-        RegisterNamespaceMembers(cu, namespaceBinder, targetNamespace);
+        RegisterNamespaceMembers(cu, parentBinder, targetNamespace);
 
         // Step 5: Register and bind global statements
         foreach (var stmt in cu.DescendantNodes().OfType<GlobalStatementSyntax>())
