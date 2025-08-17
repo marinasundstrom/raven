@@ -1,39 +1,51 @@
 # Raven Programming Language
 
-**Raven** is an experimental compiler inspired by the .NET Roslyn compiler architecture.
+<!---
+[![Build](https://github.com/marinasundstrom/raven/actions/workflows/dotnet.yml/badge.svg)](https://github.com/marinasundstrom/raven/actions/workflows/dotnet.yml)
+[![Tests](https://github.com/marinasundstrom/raven/actions/workflows/dotnet.yml/badge.svg?event=push)](https://github.com/marinasundstrom/raven/actions/workflows/dotnet.yml)-->
 
-This project is built for fun and learning, with the purpose of designing a modern compiler that provides an API for manipulating syntax in an efficient, immutable manner—a concept often referred to as "Compiler-as-a-Service."
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-available-brightgreen.svg)](docs/)
 
-Raven is a merger and continued work on the projects from the [compiler-projects](https://github.com/marinasundstrom/compiler-projects) repository.
+**Raven** is a modern programming language and experimental compiler inspired by the [.NET Roslyn](https://github.com/dotnet/roslyn) architecture.
 
----
+✨ **Key traits**:
+- **Familiar yet fresh syntax** — looks like Swift, with ideas borrowed from Rust, F#, and C#  
+- **Targets the .NET runtime** — compiles directly to IL and integrates with the .NET ecosystem  
+- **Immutable, service-oriented design** — a compiler built as an API, following the "Compiler-as-a-Service" philosophy  
 
-## Why the Name "Raven"?
-
-The name reflects the character and essence of the language.
-
-Ravens are remarkable birds, known for their intelligence and adaptability. In Old Norse mythology, ravens held significant importance as messengers of Odin, the chief god. His two ravens, **Huginn** ("thought") and **Muninn** ("memory" or "mind"), symbolized the power of intellect and reflection—qualities that align with the goals of this programming language.
-
-The choice of "Raven" as the name is also a nod to its mythological roots and the fascinating traits of these birds. Alternatively, we could consider using the Old Norse term **"Hrafn"** or the Danish **"Ravn"** to further emphasize these connections.
-
----
-
-## Project Goals
-
-- **Create a Programming Language**: Build a programming language from the ground up, covering essential aspects of language design and implementation.
-- **Focus on Parsing and Semantic Analysis**: Dive into the foundational processes of parsing and semantic analysis to understand and implement key components of a compiler.
-- **Serve as a Reference for Compiler Construction**: Provide a documented reference for those interested in compiler construction, detailing the development process and design decisions.
-- **Pragmatic Scope**: Acknowledge the extensive features of mature frameworks like Roslyn (over 10 years in development) and focus on implementing a feasible subset of features rather than aiming for full parity.
+Raven is primarily a **learning and exploration project**, aimed at:
+- Understanding modern compiler construction  
+- Experimenting with language design  
+- Providing a clean API for syntax manipulation and analysis  
 
 ---
 
-## Syntax
+## 🪶 Why the Name "Raven"?
+
+Ravens are remarkable birds, known for their intelligence and adaptability.  
+
+In Old Norse mythology, ravens held significant importance as messengers of Odin. His two ravens, **Huginn** ("thought") and **Muninn** ("memory/mind"), symbolized intellect and reflection—qualities that align with the goals of this language.  
+
+The name reflects both the **mythological roots** and the **clever traits** of these birds.  
+Alternative names considered: Old Norse **"Hrafn"** or Danish **"Ravn."**
+
+---
+
+## 🎯 Project Goals
+
+- **Create a Programming Language** — build a language from the ground up, covering design and implementation.  
+- **Focus on Parsing & Semantics** — implement parsing, binding, and analysis as the backbone of compilation.  
+- **Serve as a Reference** — provide a well-documented example for compiler enthusiasts.  
+- **Pragmatic Scope** — aim for a practical subset of Roslyn-like features, not full parity.  
+
+---
+
+## ✨ Syntax
 
 See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
 
-### Sample
-
-Here’s a sample of the Raven syntax, taken from [this file](src/Raven.Compiler/samples/general.rav):
+### Example
 
 ```raven
 import System
@@ -54,41 +66,109 @@ while i < list.Length {
 }
 
 Console.WriteLine(stringBuilder.ToString())
-```
+````
 
-Demonstrated here:
+**Highlights**:
 
-* Control flow constructs as expressions, with `if` and `while`.
-* `let` and `var` bindings (immutable vs mutable)
-* Implicit return from block (no `return` needed)
-* Array and index accessing
-* Consuming classes from the .NET class library
-
+* Control flow as expressions (`if`, `while`)
+* `let` vs `var` (immutable vs mutable)
+* Implicit returns (no `return` keyword)
+* Array/index access
+* Direct interop with .NET libraries
 
 More [samples](src/Raven.Compiler/samples/).
 
 ---
 
-## API
+## 🧩 API
 
-The compiler API is detailed [here](docs/compiler/api).
-
-The [Raven.Compiler project](src/Raven.Compiler/Program.cs) demonstrates how to utilize the API in practice.
-
----
-
-## Development
-
-This project is being developed through a combination of:
-
-- **AI Assistance**: Using AI for guidance on architecture and generating initial code.
-- **Source Code Analysis**: Studying the source code of the C# compiler for insights.
-- **Reverse Engineering**: Examining decompiled sources of the C# compiler to understand its inner workings.
-
-For a deeper look into the language's structure, check out the [unit tests](/Raven.CodeAnalysis.Tests/Syntax/AstTest.cs).
+* Compiler API reference: [docs/compiler/api](docs/compiler/api)
+* Example usage: [Raven.Compiler project](src/Raven.Compiler/Program.cs)
 
 ---
 
-## Documentation
+## 🛠 Prerequisites
 
-Comprehensive project documentation is available [here](/docs/).
+* [.NET SDK 9.0](https://dotnet.microsoft.com/)
+* Optional: [DocFX](https://dotnet.github.io/docfx/) for docs
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# Restore packages
+dotnet restore
+
+# Generate syntax nodes (run from the Syntax directory)
+cd src/Raven.CodeAnalysis/Syntax
+dotnet run --project ../../../tools/NodeGenerator   # add -f to force regeneration
+cd ../../..
+
+# Build and test
+dotnet build Raven.sln
+dotnet test
+```
+
+Run the compiler:
+
+```bash
+dotnet run --project src/Raven.Compiler
+```
+
+---
+
+## 📂 Repository Structure
+
+```
+src/
+  Raven.CodeAnalysis/         # Compiler core: syntax, binder, semantic model, code gen
+  Raven.Compiler/             # Command-line compiler & samples
+  Raven.CodeAnalysis.Testing/ # Diagnostic test helpers
+  TypeUnionAnalyzer/          # Analyzer for C# type unions
+  TestDep/                    # Auxiliary test project
+
+test/                         # Unit tests
+tools/
+  NodeGenerator/              # Generates syntax node code from Model.xml
+  Generator/                  # Shared Roslyn generator framework
+docs/                         # Language spec & design docs
+```
+
+---
+
+## 🔧 Development Notes
+
+* The `RunNodeGenerator` target in `Raven.CodeAnalysis.csproj` runs automatically, but if generated files are missing, run the command manually.
+* Generated files reside in `Syntax/generated/` and `Syntax/InternalSyntax/generated/` — **do not edit by hand**.
+* Always run `dotnet build` and `dotnet test` before committing.
+
+---
+
+## 🏗 Architecture
+
+Raven is built as a pipeline of cooperating **compiler agents**:
+
+```
+Lexer → Parser → Binder → DataFlow → Generator → Workspace
+```
+
+See [AGENTS.md](docs/AGENTS.md) for full details.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+See [CONTRIBUTING.md](CONTRIBUTING.md) for coding standards, git conventions, and workflow.
+
+---
+
+## 📚 Documentation
+
+* Full documentation: [docs/](docs/)
+* Unit tests for the language: [Raven.CodeAnalysis.Tests](test/Raven.CodeAnalysis.Tests)
+
+---
+
+💡 *Raven is a playground for exploring compilers and language design — your ideas and contributions can directly shape its evolution!*
