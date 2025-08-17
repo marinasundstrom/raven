@@ -1,4 +1,5 @@
 using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -56,9 +57,14 @@ class MethodBodyBinder : BlockBinder
             var ctor = _methodSymbol.ContainingType!.Constructors.First(c => c.Parameters.Length == 0);
             var creation = new BoundObjectCreationExpression(ctor, Array.Empty<BoundExpression>());
             var declarator = new BoundVariableDeclarator(_self, creation);
-            var declaration = new BoundLocalDeclarationStatement(new[] { declarator });
+            var declaration = new BoundLocalDeclarationStatement([declarator]);
             statements.Insert(0, declaration);
             statements.Add(new BoundReturnStatement(new BoundLocalAccess(_self)));
+
+            var or = (BoundFieldAssignmentExpression)((BoundExpressionStatement)statements[1]).Expression;
+
+            statements[1] = new BoundExpressionStatement(
+                new BoundFieldAssignmentExpression(new BoundLocalAccess(_self), or.Field, or.Right));
 
             return new BoundBlockExpression(statements);
         }

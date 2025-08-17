@@ -107,8 +107,8 @@ internal class ExpressionGenerator : Generator
                 EmitIsPatternExpression(isPatternExpression);
                 break;
 
-            case BoundSelfExpression:
-                ILGenerator.Emit(OpCodes.Ldarg_0);
+            case BoundSelfExpression selfExpression:
+                EmitSelfExpression(selfExpression);
                 break;
 
             case BoundTypeExpression:
@@ -128,6 +128,11 @@ internal class ExpressionGenerator : Generator
             default:
                 throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
         }
+    }
+
+    private void EmitSelfExpression(BoundSelfExpression selfExpression)
+    {
+        ILGenerator.Emit(OpCodes.Ldarg_0);
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
@@ -548,7 +553,7 @@ internal class ExpressionGenerator : Generator
                         }
                     }
 
-                    if (!fieldSymbol.IsStatic)
+                    if (!fieldSymbol.IsStatic && receiver is null)
                     {
                         ILGenerator.Emit(OpCodes.Ldarg_0);
                     }

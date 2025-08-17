@@ -233,7 +233,7 @@ partial class BlockBinder : Binder
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
 
-        CacheBoundNode(syntax, boundNode);
+        //CacheBoundNode(syntax, boundNode);
 
         return boundNode;
     }
@@ -1185,7 +1185,7 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
-            return new BoundFieldAssignmentExpression(right2, fieldSymbol, right2);
+            return new BoundFieldAssignmentExpression(GetReceiver(left), fieldSymbol, right2);
         }
         else if (left.Symbol is IPropertySymbol propertySymbol)
         {
@@ -1208,10 +1208,20 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
-            return new BoundPropertyAssignmentExpression(right2, propertySymbol, right2);
+            return new BoundPropertyAssignmentExpression(GetReceiver(left), propertySymbol, right2);
         }
 
         throw new Exception();
+    }
+
+    private BoundExpression? GetReceiver(BoundExpression left)
+    {
+        // Unwrap receive from member access 
+
+        if (left is BoundMemberAccessExpression pa)
+            return pa.Receiver;
+
+        return left;
     }
 
     private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)
