@@ -466,6 +466,7 @@ internal class ExpressionGenerator : Generator
 
         IMethodSymbol constructorSymbol = symbol switch
         {
+            SourceMethodSymbol sm => sm,
             PEMethodSymbol a => a,
             SubstitutedMethodSymbol b => b,
             _ => throw new Exception("Unsupported constructor symbol")
@@ -504,8 +505,9 @@ internal class ExpressionGenerator : Generator
             }
         }
 
-        var constructorInfo = symbol switch
+        ConstructorInfo constructorInfo = symbol switch
         {
+            SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
             PEMethodSymbol a => a.GetConstructorInfo(),
             SubstitutedMethodSymbol m => m.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
             _ => throw new Exception()

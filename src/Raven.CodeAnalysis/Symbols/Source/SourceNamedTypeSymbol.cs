@@ -25,7 +25,12 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
 
-    public ImmutableArray<IMethodSymbol> Constructors { get; }
+    public ImmutableArray<IMethodSymbol> Constructors => _members
+        .OfType<SourceMethodSymbol>()
+        .Where(x => x.MethodKind == MethodKind.Constructor)
+        .Cast<IMethodSymbol>()
+        .ToImmutableArray();
+
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }

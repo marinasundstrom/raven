@@ -366,7 +366,7 @@ public partial class SemanticModel
                             parentNamespace.AsSourceNamespace(),
                             [ctorDecl.GetLocation()],
                             [ctorDecl.GetReference()],
-                            isStatic: false,
+                            isStatic: false, // !isPrimary,
                             methodKind: methodKind);
 
                         var parameters = new List<SourceParameterSymbol>();

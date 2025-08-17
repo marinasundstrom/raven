@@ -21,18 +21,16 @@ public class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         // Compare parameters (for methods)
         if (x is IMethodSymbol methodX && y is IMethodSymbol methodY)
         {
-            if (!methodX.Parameters.SequenceEqual((IEnumerable<ISymbol>)methodY.Parameters, SymbolEqualityComparer.Default))
+            if (!methodX.Parameters.SequenceEqual((IEnumerable<ISymbol>)methodY.Parameters, Default))
                 return false;
 
             for (int i = 0; i < methodX.Parameters.Length; i++)
             {
                 var paramX = methodX.Parameters[i];
                 var paramY = methodY.Parameters[i];
-                if (!paramX.Type.Equals(paramY.Type, SymbolEqualityComparer.Default))
+                if (!paramX.Type.Equals(paramY.Type, Default))
                     return false;
             }
-
-            return false;
         }
 
         // Other checks as needed

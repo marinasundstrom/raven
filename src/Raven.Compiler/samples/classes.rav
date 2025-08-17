@@ -9,7 +9,7 @@ import System.Collections.Generic
 
 Console.WriteLine("Hello"); let x = 2
 
-//let user = Person(42)
+let user = new Person(42)
 //let user = Person.WithName("John").SetAge(30).AddRole("admin")
 
 class Person {
