@@ -20,8 +20,8 @@ class BinderFactory
         Binder? newBinder = node switch
         {
             NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
-            MethodDeclarationSyntax => new MethodBinder(null!, parentBinder!),
-            BlockSyntax => parentBinder is MethodBinder ? new BlockBinder(NewMethod(parentBinder), parentBinder!) : new LocalScopeBinder(parentBinder!),
+            MethodDeclarationSyntax => parentBinder,
+            BlockSyntax => ResolveBlockBinder(parentBinder),
             IfExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
@@ -34,7 +34,14 @@ class BinderFactory
         return newBinder;
     }
 
-    private static IMethodSymbol? NewMethod(Binder? parentBinder)
+    private Binder? ResolveBlockBinder(Binder? parentBinder)
+    {
+        return parentBinder is MethodBinder
+            ? new MethodBodyBinder(GetMethodSymbol(parentBinder)!, parentBinder!)
+            : new LocalScopeBinder(parentBinder!);
+    }
+
+    private static IMethodSymbol? GetMethodSymbol(Binder? parentBinder)
     {
         if (parentBinder is MethodBinder methodBinder)
             return methodBinder?.GetMethodSymbol()!;
