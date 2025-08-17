@@ -870,14 +870,15 @@ partial class BlockBinder : Binder
         }
 
         // Bind arguments
-        var boundArguments = new List<BoundExpression>();
+        var boundArguments = new BoundExpression[syntax.ArgumentList.Arguments.Count];
         bool hasErrors = false;
+        int i = 0;
         foreach (var arg in syntax.ArgumentList.Arguments)
         {
             var boundArg = BindExpression(arg.Expression);
             if (boundArg is BoundErrorExpression)
                 hasErrors = true;
-            boundArguments.Add(boundArg);
+            boundArguments[i++] = boundArg;
         }
 
         if (hasErrors)
@@ -918,10 +919,10 @@ partial class BlockBinder : Binder
         }
 
         // Try overload resolution
-        var method = OverloadResolver.ResolveOverload(candidates, boundArguments.ToArray(), Compilation);
+        var method = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
         if (method == null)
         {
-            _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Count, syntax.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
             return new BoundErrorExpression(
                 Compilation.ErrorTypeSymbol,
                 null,
@@ -961,24 +962,25 @@ partial class BlockBinder : Binder
         }
 
         // Bind arguments
-        var boundArguments = new List<BoundExpression>(syntax.ArgumentList.Arguments.Count);
+        var boundArguments = new BoundExpression[syntax.ArgumentList.Arguments.Count];
         bool hasErrors = false;
+        int i = 0;
         foreach (var arg in syntax.ArgumentList.Arguments)
         {
             var boundArg = BindExpression(arg.Expression);
             if (boundArg is BoundErrorExpression)
                 hasErrors = true;
-            boundArguments.Add(boundArg);
+            boundArguments[i++] = boundArg;
         }
 
         if (hasErrors)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
         // Overload resolution
-        var constructor = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments.ToArray(), Compilation);
+        var constructor = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation);
         if (constructor == null)
         {
-            _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Count, syntax.GetLocation());
+            _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
 
