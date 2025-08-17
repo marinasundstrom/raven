@@ -145,18 +145,6 @@ docs/                         # Language spec & design docs
 
 ---
 
-## 🏗 Architecture
-
-Raven is built as a pipeline of cooperating **compiler agents**:
-
-```
-Lexer → Parser → Binder → DataFlow → Generator → Workspace
-```
-
-See [AGENTS.md](docs/AGENTS.md) for full details.
-
----
-
 ## 🤝 Contributing
 
 Contributions are welcome!
