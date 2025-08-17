@@ -63,10 +63,15 @@ internal sealed class TypeDeclarationBinder : Binder
                                  m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == method));
     }
 
-    private ISymbol? BindConstructorSymbol(ConstructorDeclarationSyntax ctor)
+    private ISymbol? BindConstructorSymbol(BaseConstructorDeclarationSyntax ctor)
     {
-        var id = ctor.Identifier;
-        var name = !id.HasValue ? ".ctor" : id.Value.Text;
+        string name = ".ctor";
+        
+        if (ctor is NamedConstructorDeclarationSyntax namedConstructor)
+        {
+            name = namedConstructor.Identifier.Text;
+        }
+        
         return _containingType.GetMembers()
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.Name == name &&

@@ -351,23 +351,52 @@ public partial class SemanticModel
                     }
                 case ConstructorDeclarationSyntax ctorDecl:
                     {
-                        var idToken = ctorDecl.Identifier;
-                        var isPrimary = !idToken.HasValue;
-                        var name = isPrimary ? ".ctor" : idToken.Value.Text;
-                        var returnType = isPrimary ? Compilation.GetSpecialType(SpecialType.System_Void) : classSymbol;
-                        var methodKind = isPrimary ? MethodKind.Constructor : MethodKind.Ordinary;
-
                         var ctorSymbol = new SourceMethodSymbol(
-                            name,
-                            returnType,
+                            ".ctor",
+                            Compilation.GetSpecialType(SpecialType.System_Void),
                             ImmutableArray<SourceParameterSymbol>.Empty,
                             classSymbol,
                             classSymbol,
                             parentNamespace.AsSourceNamespace(),
                             [ctorDecl.GetLocation()],
                             [ctorDecl.GetReference()],
-                            isStatic: false, // !isPrimary,
-                            methodKind: methodKind);
+                            isStatic: false,
+                            methodKind: MethodKind.Constructor);
+
+                        var parameters = new List<SourceParameterSymbol>();
+                        foreach (var p in ctorDecl.ParameterList.Parameters)
+                        {
+                            var pType = classBinder.ResolveType(p.TypeAnnotation!.Type);
+                            var pSymbol = new SourceParameterSymbol(
+                                p.Identifier.Text,
+                                pType,
+                                ctorSymbol,
+                                classSymbol,
+                                parentNamespace.AsSourceNamespace(),
+                                [p.GetLocation()],
+                                [p.GetReference()]
+                            );
+                            parameters.Add(pSymbol);
+                        }
+
+                        ctorSymbol.SetParameters(parameters);
+                        _binderCache[ctorDecl] = new MethodBinder(ctorSymbol, classBinder);
+                        break;
+                    }
+
+                case NamedConstructorDeclarationSyntax ctorDecl:
+                    {
+                        var ctorSymbol = new SourceMethodSymbol(
+                            ctorDecl.Identifier.Text,
+                            classSymbol,
+                            ImmutableArray<SourceParameterSymbol>.Empty,
+                            classSymbol,
+                            classSymbol,
+                            parentNamespace.AsSourceNamespace(),
+                            [ctorDecl.GetLocation()],
+                            [ctorDecl.GetReference()],
+                            isStatic: true,
+                            methodKind: MethodKind.NamedConstructor);
 
                         var parameters = new List<SourceParameterSymbol>();
                         foreach (var p in ctorDecl.ParameterList.Parameters)

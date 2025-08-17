@@ -23,7 +23,11 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public ImmutableArray<IParameterSymbol> Parameters => _parameters.OfType<IParameterSymbol>().ToImmutableArray();
 
-    public bool IsConstructor => MethodKind == MethodKind.Constructor;
+    public bool IsConstructor => MethodKind is MethodKind.Constructor or MethodKind.NamedConstructor;
+
+    public bool IsOrdinaryConstructor => MethodKind is MethodKind.Constructor;
+
+    public bool IsNamedConstructor => MethodKind is MethodKind.NamedConstructor;
 
     public override bool IsStatic { get; }
 

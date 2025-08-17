@@ -50,8 +50,9 @@ public enum SyntaxKind
     GetAccessorDeclaration = 94,
     SetAccessorDeclaration = 95,
     ConstructorDeclaration = 96,
+    NamedConstructorDeclaration = 97,
 
-    IndexerDeclaration = 97,
+    IndexerDeclaration = 98,
 
 
     // === Statements === (100–129)

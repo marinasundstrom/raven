@@ -100,14 +100,26 @@
     <Slot Name="Elements" Type="SeparatedList" ElementType="CollectionElement" />
     <Slot Name="CloseBracketToken" Type="Token" />
   </Node>
-  <Node Name="ConstructorDeclaration" Inherits="BaseMethodDeclaration">
+  <Node Name="BaseConstructorDeclaration" Inherits="BaseMethodDeclaration" IsAbstract="true">
+    <Slot Name="InitKeyword" Type="Token" IsAbstract="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsNullable="true" IsAbstract="true" />
+  </Node>
+  <Node Name="ConstructorDeclaration" Inherits="BaseConstructorDeclaration">
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
-    <Slot Name="InitKeyword" Type="Token" />
-    <Slot Name="Identifier" Type="Token" IsNullable="true" />
+    <Slot Name="InitKeyword" Type="Token" IsInherited="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
     <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
-    <Slot Name="TerminatorToken" Type="Token" IsNullable="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsNullable="true" IsInherited="true" />
+  </Node>
+  <Node Name="NamedConstructorDeclaration" Inherits="BaseConstructorDeclaration">
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="InitKeyword" Type="Token" IsInherited="true" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
+    <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
+    <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsNullable="true" IsInherited="true" />
   </Node>
   <Node Name="ReturnStatement" Inherits="Statement">
     <Slot Name="ReturnKeyword" Type="Token" />

@@ -140,13 +140,27 @@ internal class TypeDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        if (expressionBody is not null)
+        if (identifier is null)
         {
-            return ConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, null, expressionBody, terminatorToken);
+            if (expressionBody is not null)
+            {
+                return ConstructorDeclaration(modifiers, initKeyword, parameterList, null, expressionBody, terminatorToken);
+            }
+            else if (body is not null)
+            {
+                return ConstructorDeclaration(modifiers, initKeyword, parameterList, body, null, terminatorToken);
+            }
         }
-        else if (body is not null)
+        else
         {
-            return ConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, body, null, terminatorToken);
+            if (expressionBody is not null)
+            {
+                return NamedConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, null, expressionBody, terminatorToken);
+            }
+            else if (body is not null)
+            {
+                return NamedConstructorDeclaration(modifiers, initKeyword, identifier, parameterList, body, null, terminatorToken);
+            }
         }
 
         throw new Exception();
