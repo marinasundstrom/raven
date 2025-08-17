@@ -1,21 +1,29 @@
+
 namespace Raven.CodeAnalysis;
 
-class MethodBinder : Binder
+class MethodBinder : BlockBinder
 {
-    public MethodBinder(Binder parent) : base(parent) { }
-
     private readonly Dictionary<string, IParameterSymbol> _parameters = new();
+    private readonly IMethodSymbol _methodSymbol;
 
-    public MethodBinder(Binder parent, IEnumerable<IParameterSymbol> parameters) : base(parent)
+    public MethodBinder(IMethodSymbol methodSymbol, Binder parent) : base(methodSymbol, parent)
     {
+        _methodSymbol = methodSymbol;
+    }
+
+    public MethodBinder(IMethodSymbol methodSymbol, Binder parent, IEnumerable<IParameterSymbol> parameters) : base(methodSymbol, parent)
+    {
+        _methodSymbol = methodSymbol;
+
         foreach (var param in parameters)
             _parameters[param.Name] = param;
     }
 
     public override ISymbol? LookupSymbol(string name)
     {
-        if (_parameters.TryGetValue(name, out var sym))
-            return sym;
+        var paramSymbol = _methodSymbol.Parameters.FirstOrDefault(p => p.Name == name);
+        if (paramSymbol is not null)
+            return paramSymbol;
 
         var parentSymbol = base.LookupSymbol(name);
         if (parentSymbol != null)
@@ -23,4 +31,6 @@ class MethodBinder : Binder
 
         return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
     }
+
+    public IMethodSymbol GetMethodSymbol() => _methodSymbol;
 }

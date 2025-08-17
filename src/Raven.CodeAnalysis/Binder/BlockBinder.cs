@@ -64,6 +64,10 @@ partial class BlockBinder : Binder
         if (_localFunctions.TryGetValue(name, out var func))
             return func;
 
+        var parentSymbol1 = ParentBinder?.LookupSymbol(name);
+        if (parentSymbol1 != null)
+            return parentSymbol1;
+
         var parentSymbol = base.LookupSymbol(name);
         if (parentSymbol != null)
             return parentSymbol;
@@ -742,6 +746,7 @@ partial class BlockBinder : Binder
             ITypeSymbol type => new BoundTypeExpression(type),
             ILocalSymbol local => new BoundLocalAccess(local),
             IParameterSymbol param => new BoundParameterAccess(param),
+            IFieldSymbol field => new BoundFieldAccess(field),
             IPropertySymbol prop => new BoundPropertyAccess(prop),
             _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
         };

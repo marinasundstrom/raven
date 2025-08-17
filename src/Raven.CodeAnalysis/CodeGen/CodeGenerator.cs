@@ -169,7 +169,11 @@ internal class CodeGenerator
 
     private void DefineTypeBuilders()
     {
-        foreach (var typeSymbol in Compilation.Module.GlobalNamespace.GetAllMembersRecursive().OfType<ITypeSymbol>())
+        var types = Compilation.Module.GlobalNamespace
+            .GetAllMembersRecursive()
+            .OfType<ITypeSymbol>().Distinct();
+
+        foreach (var typeSymbol in types)
         {
             var generator = new TypeGenerator(this, typeSymbol);
             _typeGenerators[typeSymbol] = generator;

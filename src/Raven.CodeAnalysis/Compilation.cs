@@ -167,6 +167,7 @@ public class Compilation
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
 
+        /*
         foreach (var syntaxTree in SyntaxTrees)
         {
             var root = syntaxTree.GetRoot();
@@ -180,6 +181,7 @@ public class Compilation
                 AnalyzeMemberDeclaration(syntaxTree, SourceGlobalNamespace, memberDeclaration);
             }
         }
+        */
     }
 
     private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
@@ -257,8 +259,6 @@ public class Compilation
                 containingType,
                 containingNamespace,
             locations, references);
-
-            SourceGlobalNamespace.AddMember(symbol);
 
             foreach (var memberDeclaration2 in classDeclaration.Members)
             {

@@ -81,19 +81,19 @@ outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
 
 EmitResult? result = null;
 
-try
+//try
+//{
+using (var stream = File.OpenWrite($"{outputPath}"))
 {
-    using (var stream = File.OpenWrite($"{outputPath}"))
-    {
-        result = compilation.Emit(stream);
-    }
+    result = compilation.Emit(stream);
 }
-catch (Exception e)
+//}
+/*catch (Exception e)
 {
     Console.WriteLine($"Code generation failed: {e}");
 
     //return;
-}
+} */
 
 stopwatch.Stop();
 

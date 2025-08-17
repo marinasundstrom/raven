@@ -14,7 +14,20 @@ internal sealed class TypeDeclarationBinder : Binder
         _containingType = containingType;
     }
 
-    public ISymbol ContainingSymbol => _containingType;
+    public new ITypeSymbol ContainingSymbol => _containingType;
+
+    public override ISymbol? LookupSymbol(string name)
+    {
+        var symbol = ContainingSymbol.GetMembers(name).FirstOrDefault();
+        if (symbol is not null)
+            return symbol;
+
+        var parentSymbol1 = ParentBinder?.LookupSymbol(name);
+        if (parentSymbol1 != null)
+            return parentSymbol1;
+
+        return base.LookupSymbol(name);
+    }
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {

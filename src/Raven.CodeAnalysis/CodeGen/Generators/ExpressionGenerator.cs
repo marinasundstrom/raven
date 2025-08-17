@@ -47,6 +47,10 @@ internal class ExpressionGenerator : Generator
                 EmitPropertyAccess(propertyAccess);
                 break;
 
+            case BoundFieldAccess fieldAccess:
+                EmitFieldAccess(fieldAccess);
+                break;
+
             case BoundMemberAccessExpression memberAccessExpression:
                 EmitMemberAccessExpression(memberAccessExpression);
                 break;
@@ -101,6 +105,10 @@ internal class ExpressionGenerator : Generator
 
             case BoundIsPatternExpression isPatternExpression:
                 EmitIsPatternExpression(isPatternExpression);
+                break;
+
+            case BoundSelfExpression:
+                ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 
             case BoundTypeExpression:
@@ -538,6 +546,11 @@ internal class ExpressionGenerator : Generator
                         }
                     }
 
+                    if (!fieldSymbol.IsStatic)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldarg_0);
+                    }
+
                     // Emit RHS value
                     EmitExpression(right);
 
@@ -630,6 +643,7 @@ internal class ExpressionGenerator : Generator
     {
         return fieldSymbol switch
         {
+            SourceFieldSymbol sourceFieldSymbol => sourceFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
             PEFieldSymbol peFieldSymbol => peFieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen),
             _ => throw new Exception("Unsupported field symbol")
         };
@@ -951,13 +965,14 @@ internal class ExpressionGenerator : Generator
             }
             else
             {
-                if (metadataFieldSymbol.IsStatic)
+                if (fieldSymbol.IsStatic)
                 {
-                    ILGenerator.Emit(OpCodes.Ldsfld, metadataFieldSymbol.GetFieldInfo());
+                    ILGenerator.Emit(OpCodes.Ldsfld, GetField(fieldSymbol));
                 }
                 else
                 {
-                    ILGenerator.Emit(OpCodes.Ldfld, metadataFieldSymbol.GetFieldInfo());
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    ILGenerator.Emit(OpCodes.Ldfld, GetField(fieldSymbol));
                 }
             }
         }

@@ -64,6 +64,7 @@ class LocalFunctionBinder : Binder
 
     public MethodBinder GetMethodBodyBinder()
     {
-        return _methodBodyBinder ??= new MethodBinder(this, GetMethodSymbol().Parameters);
+        var methodSymbol = GetMethodSymbol();
+        return _methodBodyBinder ??= new MethodBinder(methodSymbol!, this, methodSymbol.Parameters);
     }
 }

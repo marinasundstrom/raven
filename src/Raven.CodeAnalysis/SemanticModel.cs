@@ -187,9 +187,10 @@ public partial class SemanticModel
         var mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()]);
         var topLevelBinder = new TopLevelBinder(importBinder, this, mainMethod);
 
-        _binderCache[cu] = topLevelBinder;
+        var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
+        RegisterNamespaceMembers(cu, compilationUnitBinder, targetNamespace);
 
-        RegisterNamespaceMembers(cu, parentBinder, targetNamespace);
+        _binderCache[cu] = compilationUnitBinder;
 
         // Step 5: Register and bind global statements
         foreach (var stmt in cu.DescendantNodes().OfType<GlobalStatementSyntax>())
@@ -345,6 +346,7 @@ public partial class SemanticModel
                         }
 
                         methodSymbol.SetParameters(parameters);
+                        _binderCache[methodDecl] = new MethodBinder(methodSymbol, classBinder);
                         break;
                     }
                 case ConstructorDeclarationSyntax ctorDecl:
@@ -384,6 +386,7 @@ public partial class SemanticModel
                         }
 
                         ctorSymbol.SetParameters(parameters);
+                        _binderCache[ctorDecl] = new MethodBinder(ctorSymbol, classBinder);
                         break;
                     }
             }

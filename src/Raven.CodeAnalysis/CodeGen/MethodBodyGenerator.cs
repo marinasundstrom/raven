@@ -85,6 +85,7 @@ internal class MethodBodyGenerator
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
+
             case ConstructorDeclarationSyntax constructorDeclaration:
                 if (MethodSymbol.IsConstructor)
                 {
@@ -94,9 +95,18 @@ internal class MethodBodyGenerator
                 }
 
                 if (constructorDeclaration.Body != null)
-                    EmitIL(constructorDeclaration.Body.Statements.ToList());
-                else
+                    EmitIL(constructorDeclaration.Body.Statements.ToList(), false);
+
+                if (MethodSymbol.IsConstructor)
+                {
                     ILGenerator.Emit(OpCodes.Ret);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    ILGenerator.Emit(OpCodes.Ret);
+                }
+
                 break;
 
             default:
@@ -116,7 +126,7 @@ internal class MethodBodyGenerator
         methodGenerator.EmitBody();
     }
 
-    private void EmitIL(IEnumerable<StatementSyntax> statements)
+    private void EmitIL(IEnumerable<StatementSyntax> statements, bool withReturn = true)
     {
         if (!statements.Any())
             return;
@@ -130,8 +140,11 @@ internal class MethodBodyGenerator
             EmitStatement(boundNode);
         }
 
-        ILGenerator.Emit(OpCodes.Nop);
-        ILGenerator.Emit(OpCodes.Ret);
+        if (withReturn)
+        {
+            ILGenerator.Emit(OpCodes.Nop);
+            ILGenerator.Emit(OpCodes.Ret);
+        }
     }
 
     private void EmitStatement(BoundStatement statement)
