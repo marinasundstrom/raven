@@ -83,6 +83,58 @@ class MethodBinder : BlockBinder
             return new BoundBlockExpression(statements);
         }
 
+        public override BoundNode? VisitBlockExpression(BoundBlockExpression node)
+        {
+            var statements = VisitList(node.Statements).Cast<BoundStatement>().ToList();
+            return new BoundBlockExpression(statements);
+        }
+
+        public override BoundNode? VisitExpressionStatement(BoundExpressionStatement node)
+        {
+            var expression = (BoundExpression)Visit(node.Expression)!;
+            return new BoundExpressionStatement(expression);
+        }
+
+        public override BoundNode? VisitReturnStatement(BoundReturnStatement node)
+        {
+            var expression = node.Expression is null ? null : (BoundExpression?)Visit(node.Expression);
+            return new BoundReturnStatement(expression);
+        }
+
+        public override BoundNode? VisitMemberAccessExpression(BoundMemberAccessExpression node)
+        {
+            var receiver = node.Receiver is null ? null : (BoundExpression?)Visit(node.Receiver);
+            return new BoundMemberAccessExpression(receiver, node.Member);
+        }
+
+        public override BoundNode? VisitFieldAssignmentExpression(BoundFieldAssignmentExpression node)
+        {
+            var receiver = node.Receiver is null ? null : (BoundExpression?)Visit(node.Receiver);
+            var right = (BoundExpression)Visit(node.Right)!;
+            return new BoundFieldAssignmentExpression(receiver, node.Field, right);
+        }
+
+        public override BoundNode? VisitPropertyAssignmentExpression(BoundPropertyAssignmentExpression node)
+        {
+            var receiver = node.Receiver is null ? null : (BoundExpression?)Visit(node.Receiver);
+            var right = (BoundExpression)Visit(node.Right)!;
+            return new BoundPropertyAssignmentExpression(receiver, node.Property, right);
+        }
+
+        public override BoundNode? VisitBinaryExpression(BoundBinaryExpression node)
+        {
+            var left = (BoundExpression)Visit(node.Left)!;
+            var right = (BoundExpression)Visit(node.Right)!;
+            return new BoundBinaryExpression(left, node.Operator, right);
+        }
+
+        public override BoundNode? VisitInvocationExpression(BoundInvocationExpression node)
+        {
+            var receiver = node.Receiver is null ? null : (BoundExpression?)Visit(node.Receiver);
+            var args = node.Arguments.Select(a => (BoundExpression)Visit(a)!).ToArray();
+            return new BoundInvocationExpression(node.Method, args, receiver);
+        }
+
         public override BoundNode? VisitSelfExpression(BoundSelfExpression node)
         {
             return new BoundLocalAccess(_self);
