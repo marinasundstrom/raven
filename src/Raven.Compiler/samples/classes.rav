@@ -26,9 +26,9 @@ class Person {
     }
 
     // Named constructor
-    /*public init WithName(name: string) {
+    public init WithName(name: string) {
         self.name = name
-    }*/
+    }
 
     // Regular method
     public AddRole(role: string) -> Person {

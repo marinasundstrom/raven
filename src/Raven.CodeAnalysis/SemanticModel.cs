@@ -282,21 +282,6 @@ public partial class SemanticModel
                         break;
                     }
             }
-
-            if (!classSymbol.Constructors.Any())
-            {
-                _ = new SourceMethodSymbol(
-                    ".ctor",
-                    Compilation.GetSpecialType(SpecialType.System_Void),
-                    ImmutableArray<SourceParameterSymbol>.Empty,
-                    classSymbol,
-                    classSymbol,
-                    parentNamespace.AsSourceNamespace(),
-                    [classDecl.GetLocation()],
-                    [classDecl.GetReference()],
-                    isStatic: false,
-                    methodKind: MethodKind.Constructor);
-            }
         }
     }
 
@@ -434,6 +419,21 @@ public partial class SemanticModel
                         break;
                     }
             }
+        }
+
+        if (!classSymbol.Constructors.Any(x => x.Parameters.Length == 0))
+        {
+            _ = new SourceMethodSymbol(
+                ".ctor",
+                Compilation.GetSpecialType(SpecialType.System_Void),
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                classSymbol,
+                classSymbol,
+                parentNamespace.AsSourceNamespace(),
+                [classDecl.GetLocation()],
+                [classDecl.GetReference()],
+                isStatic: false,
+                methodKind: MethodKind.Constructor);
         }
     }
 

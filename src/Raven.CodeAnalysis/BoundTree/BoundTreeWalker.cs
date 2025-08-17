@@ -1,3 +1,5 @@
+using System.Reflection.Emit;
+
 namespace Raven.CodeAnalysis;
 
 internal class BoundTreeWalker : BoundTreeVisitor
@@ -18,6 +20,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         switch (node)
         {
+            case BoundSelfExpression self:
+                VisitSelfExpression(self);
+                break;
             case BoundLiteralExpression lit:
                 VisitLiteralExpression(lit);
                 break;
@@ -51,6 +56,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitVariableExpression(BoundVariableExpression node) { }
     public override void VisitLocalAccess(BoundLocalAccess node) { }
     public override void VisitParameterAccess(BoundParameterAccess node) { }
+    public override void VisitSelfExpression(BoundSelfExpression self) { }
+
 
     public virtual void VisitStatement(BoundStatement statement)
     {

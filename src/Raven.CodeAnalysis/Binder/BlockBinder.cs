@@ -170,10 +170,10 @@ partial class BlockBinder : Binder
 
     public Dictionary<string, IMethodSymbol> _localFunctions = new();
 
-    private BoundExpression BindBlock(BlockSyntax block)
+    public virtual BoundBlockExpression BindBlock(BlockSyntax block)
     {
         if (TryGetCachedBoundNode(block) is BoundExpression cached)
-            return cached;
+            return (BoundBlockExpression)cached;
 
         // Step 1: Pre-declare all local functions
         foreach (var stmt in block.Statements)

@@ -56,6 +56,21 @@ internal class MethodBodyGenerator
         switch (syntax)
         {
             case CompilationUnitSyntax compilationUnit:
+                foreach (var localDeclStmt in syntax.DescendantNodes()
+                    .OfType<LocalDeclarationStatementSyntax>())
+                {
+                    foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
+                    {
+                        var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
+
+                        var clrType = ResolveClrType(localSymbol.Type);
+                        var builder = ILGenerator.DeclareLocal(clrType);
+                        builder.SetLocalSymInfo(localSymbol.Name);
+
+                        scope.AddLocal(localSymbol, builder);
+                    }
+                }
+
                 foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
                 {
                     EmitLocalFunction(localFunctionStmt);
