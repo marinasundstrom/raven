@@ -1012,7 +1012,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        return new BoundObjectCreationExpression(constructor, boundArguments.ToArray(), receiver);
+        return new BoundObjectCreationExpression(constructor, boundArguments, receiver);
     }
 
     private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)

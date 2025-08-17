@@ -9,8 +9,11 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            class Foo {}
-            Foo();
+            class Foo {
+                init () {}
+            }
+
+            let foo = Foo();
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -23,9 +26,15 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            class Foo {}
-            int Foo(int x) => x;
-            int i = Foo(3);
+            class Foo {
+                init () {}
+            }
+
+            func Foo(x: int) -> int {
+                return x;
+            }
+
+            let i = Foo(3);
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -38,9 +47,15 @@ public class ObjectCreationTests : DiagnosticTestBase
     {
         string testCode =
             """
-            class Foo { public Foo(int x) {} }
-            void Foo() {}
-            Foo(1);
+            class Foo {
+                init () {}
+
+                init (x: int) {} 
+            }
+
+            func Foo() -> void {}
+            
+            let i = Foo(1);
             """;
 
         var verifier = CreateVerifier(testCode);
