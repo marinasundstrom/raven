@@ -884,53 +884,135 @@ partial class BlockBinder : Binder
         if (hasErrors)
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
 
-        // Lookup candidate methods
-        IEnumerable<IMethodSymbol> candidates;
-        if (receiver != null)
+        // Handle different receiver kinds
+        if (receiver is BoundNamespaceExpression nsReceiver)
         {
-            candidates = receiver.Type.ResolveMembers(methodName).OfType<IMethodSymbol>();
-        }
-        else
-        {
-            var symbol = LookupSymbol(methodName);
-            if (symbol == null)
+            var typeInNs = nsReceiver.Namespace
+                .GetMembers(methodName)
+                .OfType<INamedTypeSymbol>()
+                .FirstOrDefault();
+
+            if (typeInNs is null)
             {
                 _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
-                return new BoundErrorExpression(
-                    Compilation.ErrorTypeSymbol,
-                    null,
-                    BoundExpressionReason.NotFound
-                );
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
-            candidates = symbol is IMethodSymbol single
-                ? [single]
-                : (symbol as INamedTypeSymbol)?.GetMembers(methodName).OfType<IMethodSymbol>() ?? Enumerable.Empty<IMethodSymbol>();
+            return BindConstructorInvocation(typeInNs, boundArguments, syntax, receiver);
         }
 
-        if (!candidates.Any())
+        if (receiver is BoundTypeExpression typeReceiver)
         {
+            var candidateMethods = typeReceiver.Type
+                .ResolveMembers(methodName)
+                .OfType<IMethodSymbol>()
+                .ToArray();
+
+            if (candidateMethods.Length > 0)
+            {
+                var method = OverloadResolver.ResolveOverload(candidateMethods, boundArguments, Compilation);
+                if (method is not null)
+                    return new BoundInvocationExpression(method, boundArguments.ToArray(), receiver);
+
+                var nestedType = typeReceiver.Type
+                    .GetMembers(methodName)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault();
+
+                if (nestedType is not null)
+                    return BindConstructorInvocation(nestedType, boundArguments, syntax, receiver);
+
+                _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            }
+
+            var nested = typeReceiver.Type
+                .GetMembers(methodName)
+                .OfType<INamedTypeSymbol>()
+                .FirstOrDefault();
+
+            if (nested is not null)
+                return BindConstructorInvocation(nested, boundArguments, syntax, receiver);
+
             _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
-            return new BoundErrorExpression(
-                Compilation.ErrorTypeSymbol,
-                null,
-                BoundExpressionReason.NotFound
-            );
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
-        // Try overload resolution
-        var method = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
-        if (method == null)
+        if (receiver != null)
         {
-            _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
-            return new BoundErrorExpression(
-                Compilation.ErrorTypeSymbol,
-                null,
-                BoundExpressionReason.OverloadResolutionFailed
-            );
+            var candidates = receiver.Type
+                .ResolveMembers(methodName)
+                .OfType<IMethodSymbol>()
+                .ToArray();
+
+            if (candidates.Length == 0)
+            {
+                _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            }
+
+            var method = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
+            if (method is null)
+            {
+                _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            }
+
+            return new BoundInvocationExpression(method, boundArguments.ToArray(), receiver);
         }
 
-        return new BoundInvocationExpression(method, boundArguments.ToArray(), receiver);
+        // No receiver -> try methods first, then constructors
+        var sym = LookupSymbol(methodName);
+
+        if (sym is IMethodSymbol m)
+        {
+            var candidates = new[] { m };
+            var method = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
+            if (method is not null)
+                return new BoundInvocationExpression(method, boundArguments.ToArray(), null);
+
+            // Fall back to type if overload resolution failed
+            var typeSym = LookupType(methodName) as INamedTypeSymbol;
+            if (typeSym is not null)
+                return BindConstructorInvocation(typeSym, boundArguments, syntax);
+
+            _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+        }
+
+        if (sym is INamedTypeSymbol namedType)
+        {
+            return BindConstructorInvocation(namedType, boundArguments, syntax);
+        }
+
+        if (sym is null)
+        {
+            var typeSym = LookupType(methodName) as INamedTypeSymbol;
+            if (typeSym is not null)
+                return BindConstructorInvocation(typeSym, boundArguments, syntax);
+
+            _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
+        _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindConstructorInvocation(
+        INamedTypeSymbol typeSymbol,
+        BoundExpression[] boundArguments,
+        InvocationExpressionSyntax syntax,
+        BoundExpression? receiver = null)
+    {
+        var constructor = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation);
+        if (constructor is null)
+        {
+            _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+        }
+
+        return new BoundObjectCreationExpression(constructor, boundArguments, receiver);
     }
 
     private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
