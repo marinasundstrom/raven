@@ -25,8 +25,6 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsConstructor => MethodKind is MethodKind.Constructor or MethodKind.NamedConstructor;
 
-    public bool IsOrdinaryConstructor => MethodKind is MethodKind.Constructor;
-
     public bool IsNamedConstructor => MethodKind is MethodKind.NamedConstructor;
 
     public override bool IsStatic { get; }

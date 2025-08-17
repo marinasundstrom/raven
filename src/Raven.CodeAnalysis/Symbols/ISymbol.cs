@@ -223,7 +223,6 @@ public interface IMethodSymbol : ISymbol
     ITypeSymbol ReturnType { get; }
     ImmutableArray<IParameterSymbol> Parameters { get; }
     bool IsConstructor => MethodKind is MethodKind.Constructor;
-    bool IsOrdinaryConstructor => MethodKind is MethodKind.Constructor;
     bool IsNamedConstructor => false;
     IMethodSymbol? OriginalDefinition { get; }
 

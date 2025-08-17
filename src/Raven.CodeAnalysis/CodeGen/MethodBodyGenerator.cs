@@ -87,7 +87,9 @@ internal class MethodBodyGenerator
                 break;
 
             case BaseConstructorDeclarationSyntax constructorDeclaration:
-                if (MethodSymbol.IsOrdinaryConstructor)
+                var ordinaryConstr = !MethodSymbol.IsNamedConstructor;
+
+                if (ordinaryConstr)
                 {
                     ILGenerator.Emit(OpCodes.Ldarg_0);
                     var baseCtor = ResolveClrType(MethodSymbol.ContainingType!.BaseType!).GetConstructor(Type.EmptyTypes);
@@ -97,7 +99,7 @@ internal class MethodBodyGenerator
                 if (constructorDeclaration.Body != null)
                     EmitIL(constructorDeclaration.Body.Statements.ToList(), false);
 
-                if (MethodSymbol.IsOrdinaryConstructor)
+                if (ordinaryConstr)
                 {
                     ILGenerator.Emit(OpCodes.Ret);
                 }
