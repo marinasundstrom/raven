@@ -42,26 +42,35 @@ internal class MethodBodyGenerator
 
         var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
 
-        foreach (var localDeclStmt in syntax.DescendantNodes()
-            //.OfType<GlobalStatementSyntax>()
-            //.Select(x => x.Statement)
-            .OfType<LocalDeclarationStatementSyntax>())
+        BoundBlockExpression? boundBody = syntax switch
         {
-            foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
-            {
-                var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
+            MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockExpression,
+            LocalFunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockExpression,
+            BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockExpression,
+            _ => null
+        };
 
-                var clrType = ResolveClrType(localSymbol.Type);
-                var builder = ILGenerator.DeclareLocal(clrType);
-                builder.SetLocalSymInfo(localSymbol.Name);
-
-                scope.AddLocal(localSymbol, builder);
-            }
-        }
+        if (boundBody != null)
+            DeclareLocals(boundBody);
 
         switch (syntax)
         {
             case CompilationUnitSyntax compilationUnit:
+                foreach (var localDeclStmt in syntax.DescendantNodes()
+                    .OfType<LocalDeclarationStatementSyntax>())
+                {
+                    foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
+                    {
+                        var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
+
+                        var clrType = ResolveClrType(localSymbol.Type);
+                        var builder = ILGenerator.DeclareLocal(clrType);
+                        builder.SetLocalSymInfo(localSymbol.Name);
+
+                        scope.AddLocal(localSymbol, builder);
+                    }
+                }
+
                 foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
                 {
                     EmitLocalFunction(localFunctionStmt);
@@ -73,15 +82,15 @@ internal class MethodBodyGenerator
                 break;
 
             case LocalFunctionStatementSyntax localFunctionStatement:
-                if (localFunctionStatement.Body != null)
-                    EmitIL(localFunctionStatement.Body.Statements.ToList());
+                if (boundBody != null)
+                    EmitBoundBlock(boundBody);
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             case MethodDeclarationSyntax methodDeclaration:
-                if (methodDeclaration.Body != null)
-                    EmitIL(methodDeclaration.Body.Statements.ToList());
+                if (boundBody != null)
+                    EmitBoundBlock(boundBody);
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
@@ -96,18 +105,20 @@ internal class MethodBodyGenerator
                     ILGenerator.Emit(OpCodes.Call, baseCtor);
                 }
 
-                if (constructorDeclaration.Body != null)
-                    EmitIL(constructorDeclaration.Body.Statements.ToList(), false);
+                if (boundBody != null)
+                    EmitBoundBlock(boundBody, false);
 
                 if (ordinaryConstr)
                 {
                     ILGenerator.Emit(OpCodes.Ret);
                 }
-                else
-                {
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
-                    ILGenerator.Emit(OpCodes.Ret);
-                }
+                break;
+
+            case ClassDeclarationSyntax:
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                var baseCtor2 = ResolveClrType(MethodSymbol.ContainingType!.BaseType!).GetConstructor(Type.EmptyTypes);
+                ILGenerator.Emit(OpCodes.Call, baseCtor2);
+                ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             default:
@@ -125,6 +136,45 @@ internal class MethodBodyGenerator
         MethodGenerator.TypeGenerator.Add(methodSymbol, methodGenerator);
         methodGenerator.DefineMethodBuilder();
         methodGenerator.EmitBody();
+    }
+
+    private void DeclareLocals(BoundBlockExpression block)
+    {
+        var collector = new LocalCollector();
+        collector.Visit(block);
+
+        foreach (var localSymbol in collector.Locals)
+        {
+            var clrType = ResolveClrType(localSymbol.Type);
+            var builder = ILGenerator.DeclareLocal(clrType);
+            builder.SetLocalSymInfo(localSymbol.Name);
+            scope.AddLocal(localSymbol, builder);
+        }
+    }
+
+    private void EmitBoundBlock(BoundBlockExpression block, bool withReturn = true)
+    {
+        foreach (var statement in block.Statements)
+            EmitStatement(statement);
+
+        if (withReturn)
+        {
+            ILGenerator.Emit(OpCodes.Nop);
+            ILGenerator.Emit(OpCodes.Ret);
+        }
+    }
+
+    private sealed class LocalCollector : Raven.CodeAnalysis.BoundTreeWalker
+    {
+        public List<ILocalSymbol> Locals { get; } = new();
+
+        public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
+        {
+            foreach (var d in node.Declarators)
+                Locals.Add(d.Local);
+
+            base.VisitLocalDeclarationStatement(node);
+        }
     }
 
     private void EmitIL(IEnumerable<StatementSyntax> statements, bool withReturn = true)
