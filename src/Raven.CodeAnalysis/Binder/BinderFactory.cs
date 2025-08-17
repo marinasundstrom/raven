@@ -20,8 +20,8 @@ class BinderFactory
         Binder? newBinder = node switch
         {
             NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
-            MethodDeclarationSyntax => new MethodBinder(null!, parentBinder!),
-            BlockSyntax => parentBinder is MethodBinder ? new BlockBinder(NewMethod(parentBinder), parentBinder!) : new LocalScopeBinder(parentBinder!),
+            MethodDeclarationSyntax => parentBinder,
+            BlockSyntax => parentBinder is MethodBinder ? new MethodBodyBinder(NewMethod(parentBinder)!, parentBinder!) : new LocalScopeBinder(parentBinder!),
             IfExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
