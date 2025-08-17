@@ -240,7 +240,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindSelfExpression(SelfExpressionSyntax selfExpression)
     {
-        if (_containingSymbol is IMethodSymbol method && !method.IsStatic)
+        if (_containingSymbol is IMethodSymbol method && (!method.IsStatic || method.IsNamedConstructor))
         {
             var containingType = method.ContainingType;
             return new BoundSelfExpression(containingType);

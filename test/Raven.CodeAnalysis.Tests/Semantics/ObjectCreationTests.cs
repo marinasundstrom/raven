@@ -62,5 +62,46 @@ public class ObjectCreationTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void NamedConstructorCreatesObject()
+    {
+        string testCode =
+            """
+            class Person {
+                var name: string;
+
+                public init WithName(name: string) {
+                    self.name = name;
+                }
+
+                public GetName() -> string => name;
+            }
+
+            let p = Person.WithName("John");
+            let n = p.GetName();
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void DefaultConstructorSynthesizedWhenMissing()
+    {
+        string testCode =
+            """
+            class Foo {
+                var x: int;
+            }
+
+            let f = Foo();
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
 
