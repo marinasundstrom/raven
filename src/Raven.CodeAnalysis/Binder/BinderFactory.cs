@@ -21,7 +21,7 @@ class BinderFactory
         {
             NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
             MethodDeclarationSyntax => parentBinder,
-            BlockSyntax => ResolveBlockBinder(parentBinder),
+            BlockSyntax => CreateBlockBinder(parentBinder),
             IfExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
@@ -34,8 +34,11 @@ class BinderFactory
         return newBinder;
     }
 
-    private Binder? ResolveBlockBinder(Binder? parentBinder)
+    private Binder? CreateBlockBinder(Binder? parentBinder)
     {
+        // A block directly under a method requires a MethodBodyBinder so the method body
+        // can bind parameters and local declarations. Nested blocks receive a
+        // LocalScopeBinder to track their own local scope.
         return parentBinder is MethodBinder
             ? new MethodBodyBinder(GetMethodSymbol(parentBinder)!, parentBinder!)
             : new LocalScopeBinder(parentBinder!);
