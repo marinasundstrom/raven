@@ -73,6 +73,11 @@ internal class MethodBodyGenerator
 
                 foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
                 {
+                    var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
+                    if (methodSymbol is null)
+                        continue;
+                    if (MethodGenerator.TypeGenerator.HasMethodGenerator(methodSymbol))
+                        continue;
                     EmitLocalFunction(localFunctionStmt);
                 }
 
@@ -130,6 +135,9 @@ internal class MethodBodyGenerator
     {
         var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
         if (methodSymbol is null)
+            return;
+
+        if (MethodGenerator.TypeGenerator.HasMethodGenerator(methodSymbol))
             return;
 
         var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol);
