@@ -25,7 +25,7 @@ Run this if build fails because syntax nodes have not been generated:
 
 ```bash
 cd src/Raven.CodeAnalysis/Syntax
-dotnet run --project ../../../tools/NodeGenerator -f
+dotnet run --project ../../../tools/NodeGenerator -- -f
 cd ../../..
 ```
 

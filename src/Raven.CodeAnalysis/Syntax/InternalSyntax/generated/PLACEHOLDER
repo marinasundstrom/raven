@@ -4,4 +4,4 @@ To manually trigger generation of these files, run this command from the "Syntax
 
 dotnet run --project  ../../../tools/NodeGenerator
 
-Add -f to force even if the model has no changed.
+Add `-- -f` to force even if the model has no changed.
