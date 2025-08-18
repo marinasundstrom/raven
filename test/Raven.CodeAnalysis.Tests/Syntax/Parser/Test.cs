@@ -29,8 +29,8 @@ public class ParserNewlineTests
         Assert.NotNull(secondStatement);
 
         var firstToken = firstStatement.GetLastToken();
-        Assert.Equal(SyntaxKind.NumericLiteralToken, firstToken.Kind);
-        Assert.Equal(SyntaxKind.LineFeedToken, context.LastToken?.Kind); // newline was consumed as terminator
+        Assert.Equal(SyntaxKind.NewLineToken, firstToken.Kind);
+        Assert.Equal(SyntaxKind.NewLineToken, context.LastToken?.Kind); // newline was consumed as terminator
     }
 
     [Fact]
@@ -55,8 +55,8 @@ public class ParserNewlineTests
         Assert.NotNull(secondStatement);
 
         var firstToken = firstStatement.GetLastToken();
-        Assert.Equal(SyntaxKind.NumericLiteralToken, firstToken.Kind);
-        Assert.Equal(SyntaxKind.LineFeedToken, context.LastToken?.Kind); // newline was consumed as terminator
+        Assert.Equal(SyntaxKind.SemicolonToken, firstToken.Kind);
+        Assert.Equal(SyntaxKind.NewLineToken, context.LastToken?.Kind); // semicolon was consumed as terminator
     }
 
     [Fact]
