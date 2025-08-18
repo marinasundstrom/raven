@@ -452,9 +452,9 @@ partial class BlockBinder : Binder
         var condition = BindExpression(whileExpression.Condition);
 
         var expressionBinder = SemanticModel.GetBinder(whileExpression, this);
-        var statement = expressionBinder.BindStatement(whileExpression.Statement) as BoundExpressionStatement;
+        var expression = expressionBinder.BindExpression(whileExpression.Expression) as BoundExpression;
 
-        return new BoundWhileExpression(condition, statement.Expression!);
+        return new BoundWhileExpression(condition, expression!);
     }
 
     private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)

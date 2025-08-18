@@ -296,7 +296,7 @@
   <Node Name="WhileExpression" Inherits="Expression">
     <Slot Name="WhileKeyword" Type="Token" />
     <Slot Name="Condition" Type="Expression" />
-    <Slot Name="Statement" Type="Statement" />
+    <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="ArgumentList" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" />

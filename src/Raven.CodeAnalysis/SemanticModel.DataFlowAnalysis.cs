@@ -257,7 +257,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
         _assignedOnEntry = assignedBefore;
         _writtenInside = assignedBefore.ToHashSet();
 
-        Visit(node.Statement);
+        Visit(node.Expression);
     }
 
     public void SetInitialAssigned(HashSet<ISymbol> assigned)

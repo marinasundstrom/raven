@@ -756,9 +756,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
                ));
         }
 
-        var statement = new StatementSyntaxParser(this).ParseStatement();
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
-        if (statement!.IsMissing)
+        if (expression!.IsMissing)
         {
             AddDiagnostic(
                 DiagnosticInfo.Create(
@@ -767,7 +767,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 ));
         }
 
-        return WhileExpression(whileKeyword, condition!, statement!, Diagnostics);
+        return WhileExpression(whileKeyword, condition!, expression!, Diagnostics);
     }
 
     internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()
