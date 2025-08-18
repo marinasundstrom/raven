@@ -11,9 +11,9 @@ public partial class SyntaxNode
 
     public SyntaxToken GetLastToken(bool includeZeroWidth = false)
     {
-        foreach (var token in DescendantTokens(descendIntoTrivia: true).Reverse())
+        foreach (var token in DescendantTokens(descendIntoTrivia: false).Reverse())
         {
-            if (includeZeroWidth || token.FullWidth > 0)
+            if (includeZeroWidth || token.Width > 0)
                 return token;
         }
 
