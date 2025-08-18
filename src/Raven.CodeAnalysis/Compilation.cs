@@ -326,6 +326,9 @@ public class Compilation
             return new Conversion(isImplicit: true, isIdentity: true);
         }
 
+        if (source.SpecialType == SpecialType.System_Void)
+            return Conversion.None;
+
         var objType = GetSpecialType(SpecialType.System_Object);
 
         if (destination.Equals(objType, SymbolEqualityComparer.Default))

@@ -25,17 +25,25 @@ internal sealed class OverloadResolver
                 var param = parameters[i];
                 var arg = arguments[i];
 
+                // No value can have type 'void' — immediately reject this candidate.
+                if (arg.Type is { } t && t.SpecialType == SpecialType.System_Void)
+                {
+                    allMatch = false;
+                    break;
+                }
+
                 // Handle ref/in/out
                 if (param.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
                 {
                     if (arg is not BoundAddressOfExpression ||
-                        !SymbolEqualityComparer.Default.Equals(arg.Type, param.Type))
+                        !SymbolEqualityComparer.Default.Equals(arg.Type, param.Type) ||
+                        arg.Type.SpecialType == SpecialType.System_Void) // extra guard for safety
                     {
                         allMatch = false;
                         break;
                     }
 
-                    continue; // no score increase for ref match
+                    continue; // exact ref match; no score increase
                 }
 
                 if (arg is BoundAddressOfExpression)
