@@ -31,7 +31,7 @@ class LocalFunctionBinder : Binder
             return _methodSymbol;
 
         //ISymbol container = null; //this.ContainingSymbol;
-        var container = Compilation.SourceGlobalNamespace.LookupType("Program");
+        var container = Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
 
         var returnType = ResolveType(_syntax.ReturnType.Type);
 
@@ -40,7 +40,7 @@ class LocalFunctionBinder : Binder
             returnType,
             [],
             container,
-            container.ContainingType,
+            container,
             container.ContainingNamespace,
             [_syntax.GetLocation()],
             [_syntax.GetReference()],

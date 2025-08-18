@@ -44,6 +44,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundBlockExpression block:
                 VisitBlockExpression(block);
                 break;
+            case BoundMemberAccessExpression memberAccess:
+                VisitMemberAccessExpression(memberAccess);
+                break;
             // Add others as needed
             default:
                 throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}");
