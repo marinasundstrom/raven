@@ -310,24 +310,28 @@ public partial class SemanticModel
             switch (member)
             {
                 case FieldDeclarationSyntax fieldDecl:
-                    classBinder.BindFieldDeclaration(fieldDecl);
-                    _binderCache[fieldDecl] = classBinder;
+                    var fieldBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    fieldBinder.BindFieldDeclaration(fieldDecl);
+                    _binderCache[fieldDecl] = fieldBinder;
                     foreach (var decl in fieldDecl.Declaration.Declarators)
-                        _binderCache[decl] = classBinder;
+                        _binderCache[decl] = fieldBinder;
                     break;
 
                 case MethodDeclarationSyntax methodDecl:
-                    var methodBinder = classBinder.BindMethodDeclaration(methodDecl);
+                    var memberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
                     _binderCache[methodDecl] = methodBinder;
                     break;
 
                 case ConstructorDeclarationSyntax ctorDecl:
-                    var ctorBinder = classBinder.BindConstructorDeclaration(ctorDecl);
+                    var ctorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var ctorBinder = ctorMemberBinder.BindConstructorDeclaration(ctorDecl);
                     _binderCache[ctorDecl] = ctorBinder;
                     break;
 
                 case NamedConstructorDeclarationSyntax ctorDecl:
-                    var namedCtorBinder = classBinder.BindNamedConstructorDeclaration(ctorDecl);
+                    var namedCtorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var namedCtorBinder = namedCtorMemberBinder.BindNamedConstructorDeclaration(ctorDecl);
                     _binderCache[ctorDecl] = namedCtorBinder;
                     break;
             }
