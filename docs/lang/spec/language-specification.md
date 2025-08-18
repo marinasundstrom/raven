@@ -8,12 +8,26 @@ You find them [here](../../../src/Raven.Compiler/samples/).
 
 The file extension for source code files is: `.rav`.
 
+> Perhaps in the future we should use `.rvn`.
+
 ## Grammar
 
 An accompanying [EBNF grammar](grammar.ebnf) describes the structural
 syntax of Raven. **It is non-normative**: it does not encode contextual rules,
 disambiguation, or the full parsing process; those details are specified
 throughout this language specification.
+
+## Syntax node model
+
+The syntax node model defines the **logical structure** of Raven programs.
+It is specified in [Model.xml](../../../src/Raven.CodeAnalysis/Syntax/Model.xml) and
+drives code generation of the immutable syntax tree API.
+
+The model describes the set of node kinds and their children.  
+The **parser** applies the grammar and contextual rules to construct these nodes.  
+
+In short: the model defines the shape; the parser defines the rules,
+as outlined in this specification.
 
 ## Statements
 
