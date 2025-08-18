@@ -47,10 +47,7 @@ Block              ::= '{' {Statement} '}' ;
 
 Statement          ::= LocalDeclaration
                      | ReturnStatement
-                     | ExpressionStatement
-                     | IfStatement
-                     | WhileStatement
-                     | Block ;
+                     | ExpressionStatement ;
 
 LocalDeclaration   ::= ('let' | 'var') VariableDeclarators ;
 
@@ -60,9 +57,10 @@ VariableDeclarator ::= Identifier (':' Type)? '=' Expression ;
 
 ReturnStatement    ::= 'return' Expression? ;
 
-IfStatement        ::= 'if' Expression Block ['else' Block] ;
 
-WhileStatement     ::= 'while' Expression Block ;
+IfExpression       ::= 'if' Expression Expression ['else' Expression] ;
+
+WhileExpression    ::= 'while' Expression Expression ;
 
 ExpressionStatement ::= Expression ;
 
@@ -93,7 +91,9 @@ PrimaryExpression  ::= Literal
                      | ObjectCreationExpression
                      | TupleExpression
                      | ParenthesizedExpression
-                     | Block ;
+                     | Block
+                     | IfExpression
+                     | WhileExpression ;
 
 InvocationExpression ::= PrimaryExpression '(' ArgumentList? ')' ;
 

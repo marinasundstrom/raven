@@ -24,6 +24,9 @@ let a = 42
 let b = 1; b = 3
 ```
 
+Control-flow constructs such as `if` and `while` are expressions.
+When used for their side effects in statement position, they appear as expression statements.
+
 ### Top-level statements
 
 Support for top-level statements. Meaning no `Main` method.
@@ -34,26 +37,6 @@ import System
 Console.WriteLine("Hello, World!")
 ```
 
-### `if` statement
-
-```csharp
-if x > 3 {
-    Console.WriteLine("Hello, World!")
-    list[i] = 42
-}
-```
-
-### `while` statement
-
-```csharp
-var i = 0
-
-while i < list.Length {
-    let item = list[i]
-    Console.WriteLine(item)
-    i = i + 1
-}
-```
 
 ## Expressions
 
@@ -104,6 +87,27 @@ let tuple = (a: 42, b: 2)
 
 System.Console.WriteLine(tuple.a)
 System.Console.WriteLine(tuple.Item1)
+```
+
+### `if` expression
+
+```csharp
+if x > 3 {
+    Console.WriteLine("Hello, World!")
+    list[i] = 42
+}
+```
+
+### `while` expression
+
+```csharp
+var i = 0
+
+while i < list.Length {
+    let item = list[i]
+    Console.WriteLine(item)
+    i = i + 1
+}
 ```
 
 ### Block expression
