@@ -13,7 +13,7 @@ The syntax for declaring an invocation operator is this. (as defined in a class)
 ```raven
 public class Test {
     public self(no: int) -> string {
-        return "Foo";
+        return "Foo"
     }
 }
 ```
@@ -21,11 +21,11 @@ public class Test {
 When "invoking" an instance of a type with an invocation operator:
 
 ```raven
-let test = Test();
-let x = test(2);
+let test = Test()
+let x = test(2)
 ```
 
-### Implementation detail
+### Implementation details
 
 The compiler produces something that can be represented this way in C#:
 
