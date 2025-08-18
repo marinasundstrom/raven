@@ -34,26 +34,21 @@ internal class TypeDeclarationBinder : Binder
     {
         return node switch
         {
+            ClassDeclarationSyntax => _containingType,
             MethodDeclarationSyntax method => BindMethodSymbol(method),
             ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
-            FieldDeclarationSyntax field => BindFieldSymbol(field),
+            NamedConstructorDeclarationSyntax namedCtor => BindConstructorSymbol(namedCtor),
+            VariableDeclaratorSyntax variable => BindFieldSymbol(variable),
             _ => base.BindDeclaredSymbol(node)
         };
     }
 
-    private ISymbol? BindFieldSymbol(FieldDeclarationSyntax field)
+    private ISymbol? BindFieldSymbol(VariableDeclaratorSyntax variable)
     {
-        foreach (var decl in field.Declaration.Declarators)
-        {
-            var match = _containingType.GetMembers()
-                .OfType<IFieldSymbol>()
-                .FirstOrDefault(f => f.Name == decl.Identifier.Text);
-
-            if (match != null)
-                return match;
-        }
-
-        return null;
+        return _containingType.GetMembers()
+            .OfType<IFieldSymbol>()
+            .FirstOrDefault(f => f.Name == variable.Identifier.Text &&
+                                 f.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == variable));
     }
 
     private ISymbol? BindMethodSymbol(MethodDeclarationSyntax method)

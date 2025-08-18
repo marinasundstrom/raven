@@ -57,7 +57,7 @@ public partial class SemanticModel
             return symbolInfo;
 
         var binder = GetBinder(node);
-        var info = binder.BindReferencedSymbol(node);
+        var info = binder.BindSymbol(node);
         _symbolMappings[node] = info;
         return info;
     }
@@ -88,6 +88,24 @@ public partial class SemanticModel
             return new TypeInfo(null, null);
 
         return new TypeInfo(boundExpr.Type, boundExpr.GetConvertedType());
+    }
+
+    /// <summary>
+    /// Gets type information about a type syntax.
+    /// </summary>
+    /// <param name="typeSyntax">The type syntax node.</param>
+    public TypeInfo GetTypeInfo(TypeSyntax typeSyntax)
+    {
+        var binder = GetBinder(typeSyntax);
+        try
+        {
+            var type = binder.ResolveType(typeSyntax);
+            return new TypeInfo(type, type);
+        }
+        catch
+        {
+            return new TypeInfo(null, null);
+        }
     }
 
     /// <summary>
@@ -294,6 +312,8 @@ public partial class SemanticModel
                 case FieldDeclarationSyntax fieldDecl:
                     classBinder.BindFieldDeclaration(fieldDecl);
                     _binderCache[fieldDecl] = classBinder;
+                    foreach (var decl in fieldDecl.Declaration.Declarators)
+                        _binderCache[decl] = classBinder;
                     break;
 
                 case MethodDeclarationSyntax methodDecl:
