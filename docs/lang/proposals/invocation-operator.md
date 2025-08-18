@@ -11,8 +11,7 @@ Yoy can define one or more unique invocation operators for your type.
 The syntax for declaring an invocation operator is this. (as defined in a class)
 
 ```raven
-public class Test 
-{
+public class Test {
     public self(no: int) -> string {
         return "Foo";
     }
@@ -28,19 +27,26 @@ let x = test(2);
 
 ### Implementation detail
 
-The compiler produces something that can be represented this way:
+The compiler produces something that can be represented this way in C#:
 
 ```csharp
 [Invokable]
 public class Test 
 {
-    public string Invoke(int no) {
+    public string Invoke(int no) 
+    {
         return "Foo";
     }
 }
 ```
 
+With the invocation as such:
+
 ```csharp
 var test = new Test();
 var x = test.Invoke(2);
 ```
+
+## Notes
+
+The `Invoke` method mirrors the one of delegates.
