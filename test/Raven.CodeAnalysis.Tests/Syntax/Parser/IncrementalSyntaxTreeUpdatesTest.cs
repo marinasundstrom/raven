@@ -1,9 +1,22 @@
 using Raven.CodeAnalysis.Text;
+using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
-public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper)
+public class IncrementalSyntaxTreeUpdatesTest
 {
+    private static void AssertIncrementalParse(SourceText original, SourceText updated)
+    {
+        var originalTree = SyntaxTree.ParseText(original);
+        var incrementalTree = originalTree.WithChangedText(updated);
+        var expectedTree = SyntaxTree.ParseText(updated);
+
+        var normalizedExpected = expectedTree.GetRoot().NormalizeWhitespace().ToFullString();
+        var normalizedActual = incrementalTree.GetRoot().NormalizeWhitespace().ToFullString();
+
+        Assert.Equal(normalizedExpected, normalizedActual);
+    }
+
     [Fact]
     public void ApplyTextChangeToSyntaxTree()
     {
@@ -16,22 +29,14 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var syntaxTree = SyntaxTree.ParseText(sourceText);
-
         var textChange = new TextChange(
-            new TextSpan(4, 3), // Span of the text to replace
-            "x"   // New text to insert
+            new TextSpan(4, 3),
+            "x"
         );
 
         var changedSourceText = sourceText.WithChange(textChange);
 
-        var updatedTree = syntaxTree.WithChangedText(changedSourceText);
-
-        var newRoot = updatedTree.GetRoot();
-
-        testOutputHelper.WriteLine(newRoot.ToFullString());
-
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true }));
+        AssertIncrementalParse(sourceText, changedSourceText);
     }
 
     [Fact]
@@ -44,8 +49,6 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var syntaxTree = SyntaxTree.ParseText(sourceText);
-
         var changedSourceText = SourceText.From(
             """
             if (foo)  {
@@ -55,13 +58,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var updatedTree = syntaxTree.WithChangedText(changedSourceText);
-
-        var newRoot = updatedTree.GetRoot();
-
-        testOutputHelper.WriteLine(newRoot.ToFullString());
-
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true }));
+        AssertIncrementalParse(sourceText, changedSourceText);
     }
 
     [Fact]
@@ -76,14 +73,6 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var syntaxTree = SyntaxTree.ParseText(sourceText);
-
-        var oldRoot = syntaxTree.GetRoot();
-
-        testOutputHelper.WriteLine(oldRoot.ToFullString());
-
-        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true }));
-
         var changedSourceText = SourceText.From(
             """
             {
@@ -95,13 +84,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var updatedTree = syntaxTree.WithChangedText(changedSourceText);
-
-        var newRoot = updatedTree.GetRoot();
-
-        testOutputHelper.WriteLine(newRoot.ToFullString());
-
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true }));
+        AssertIncrementalParse(sourceText, changedSourceText);
     }
 
     [Fact]
@@ -114,14 +97,6 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var syntaxTree = SyntaxTree.ParseText(sourceText);
-
-        var oldRoot = syntaxTree.GetRoot();
-
-        testOutputHelper.WriteLine(oldRoot.ToFullString());
-
-        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true }));
-
         var changedSourceText = SourceText.From(
             """
             if (foo)  {
@@ -129,13 +104,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var updatedTree = syntaxTree.WithChangedText(changedSourceText);
-
-        var newRoot = updatedTree.GetRoot();
-
-        testOutputHelper.WriteLine(newRoot.ToFullString());
-
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true }));
+        AssertIncrementalParse(sourceText, changedSourceText);
     }
 
     [Fact]
@@ -148,14 +117,6 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var syntaxTree = SyntaxTree.ParseText(sourceText);
-
-        var oldRoot = syntaxTree.GetRoot();
-
-        testOutputHelper.WriteLine(oldRoot.ToFullString());
-
-        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true }));
-
         var changedSourceText = SourceText.From(
             """
             if (foo)  {
@@ -163,13 +124,7 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var updatedTree = syntaxTree.WithChangedText(changedSourceText);
-
-        var newRoot = updatedTree.GetRoot();
-
-        testOutputHelper.WriteLine(newRoot.ToFullString());
-
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true }));
+        AssertIncrementalParse(sourceText, changedSourceText);
     }
 
     [Fact]
@@ -182,30 +137,17 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper testOutputHelper
             }
             """);
 
-        var syntaxTree = SyntaxTree.ParseText(sourceText);
-
-        var oldRoot = syntaxTree.GetRoot();
-
-        testOutputHelper.WriteLine(oldRoot.ToFullString());
-
-        testOutputHelper.WriteLine(oldRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true }));
-
         var changedSourceText = SourceText.From(
             """
             if (foo)  {
                 if(x) {
-                
-                } 
+
+                }
                 else {}
             }
             """);
 
-        var updatedTree = syntaxTree.WithChangedText(changedSourceText);
-
-        var newRoot = updatedTree.GetRoot();
-
-        testOutputHelper.WriteLine(newRoot.ToFullString());
-
-        testOutputHelper.WriteLine(newRoot.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true }));
+        AssertIncrementalParse(sourceText, changedSourceText);
     }
 }
+

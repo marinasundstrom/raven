@@ -37,7 +37,7 @@ internal class LanguageParser
     {
         using var textReader = sourceText.GetTextReader(position);
 
-        _lexer = new Lexer(textReader);
+        _lexer = new Lexer(textReader, position);
         var parseContext = new BaseParseContext(_lexer, position);
 
         return ParseRequestedType(parseContext, requestedSyntaxType);
@@ -75,9 +75,9 @@ internal class LanguageParser
 
     public StatementSyntax ParseStatement(SourceText sourceText, int offset = 0, bool consumeFullText = true)
     {
-        using var textReader = sourceText.GetTextReader();
+        using var textReader = sourceText.GetTextReader(offset);
 
-        var lexer = new Lexer(textReader);
+        var lexer = new Lexer(textReader, offset);
         var parseContext = new BaseParseContext(lexer, offset);
 
         return new StatementSyntaxParser(parseContext).ParseStatement();
