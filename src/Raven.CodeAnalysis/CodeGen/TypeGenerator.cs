@@ -126,6 +126,11 @@ internal class TypeGenerator
 
     public Type CreateType() => TypeBuilder!.CreateType();
 
+    public bool HasMethodGenerator(IMethodSymbol methodSymbol)
+    {
+        return _methodGenerators.ContainsKey(methodSymbol);
+    }
+
     public void Add(IMethodSymbol methodSymbol, MethodGenerator methodGenerator)
     {
         _methodGenerators[methodSymbol] = methodGenerator;
