@@ -588,5 +588,5 @@ internal class Lexer : ILexer
         return false;
     }
 
-    public bool IsEndOfFile => _textSource.Peek() == -1;
+    public bool IsEndOfFile => _textSource.Peek() == 0;
 }
