@@ -102,7 +102,7 @@ dotnet restore
 
 # Generate syntax nodes (run from the Syntax directory)
 cd src/Raven.CodeAnalysis/Syntax
-dotnet run --project ../../../tools/NodeGenerator   # add -f to force regeneration
+dotnet run --project ../../../tools/NodeGenerator   # add `-- -f` to force regeneration
 cd ../../..
 
 # Build and test
@@ -110,11 +110,15 @@ dotnet build Raven.sln
 dotnet test
 ```
 
-Run the compiler:
+### Run the compiler
+
+Command:
 
 ```bash
-dotnet run --project src/Raven.Compiler
+dotnet run --project src/Raven.Compiler -- <path-to-file> -o <output-file-path>
 ```
+
+> ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and and hardcoded output file path (`test.dll`).
 
 ---
 
