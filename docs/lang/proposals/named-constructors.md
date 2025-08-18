@@ -40,14 +40,14 @@ let person = Person
 
 ### Implementation details
 
-Implementation-wise, named constructors are static factory methods that are defined like this:
+Implementation-wise, named constructors are static factory methods that are defined like so in C#:
 
 ```csharp
 public class Person 
 {
     private string name;
 
-    public string WithName(string name) 
+    public static string WithName(string name) 
     {
         var self = new Person();
         self.name = name;
@@ -56,11 +56,15 @@ public class Person
 }
 ```
 
-And utilized like so from C# and other .NET languages:
+Notice that the static factory method, which is the named constructor, has access to the private members of the instance in "self" since its defined within the same class.
+
+The method is utilized like so from C# and other .NET languages:
 
 ```csharp
 var person = Person.WithName("John");
 ```
+
+This sample demonstrated how to use a named constructor from C#.
 
 ## Points
 
