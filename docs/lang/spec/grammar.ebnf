@@ -1,6 +1,7 @@
 (* Raven language EBNF grammar
    This grammar captures the structural form of Raven source code.
-   Contextual rules and parsing details are described in the language specification. *)
+   Contextual rules and parsing details are described in the language specification.
+   NOTE: Non-normative. Context-sensitive parsing and validation live outside this EBNF. *)
 
 CompilationUnit          ::= {ImportDirective | Declaration | Statement} EOF ;
 
@@ -80,11 +81,14 @@ IndexerDeclaration       ::= MemberModifiers?
                              Identifier BracketedParameterList ':' Type AccessorList ;
 
 AccessorList             ::= '{' Accessor {Accessor} '}' ;
-Accessor                 ::= AccessorModifier? ('get' | 'set') ( Block | '=>' Expression | ';' ) ;
+Accessor                 ::= AccessorModifier? ('get' | 'set')
+                             ( Block | '=>' Expression | ';' ) ;
 
 BracketedParameterList   ::= '[' ParameterList? ']' ;
 
-(* ---------- Statements ---------- *)
+(* ---------- Statements ----------
+   NOTE: Raven has no separate If/While *statements*.
+         Standalone control flow uses ExpressionStatement with IfExpression/WhileExpression. *)
 
 Statement                ::= LocalDeclaration
                            | ReturnStatement
@@ -143,7 +147,9 @@ Argument                 ::= [Identifier ':'] Expression ;
 MemberAccessTrailer      ::= '.' Identifier ;
 ElementAccessTrailer     ::= '[' Expression ']' ;
 
-(* Primary includes block/if/while as expressions *)
+(* ---------- Primaries ----------
+   NOTE: Block/IfExpression/WhileExpression can appear as expressions,
+         so `if (…) … [else …]` and `while (…) …` can be used as statements via ExpressionStatement. *)
 PrimaryExpression        ::= Literal
                            | Identifier
                            | ObjectCreationExpression
@@ -175,7 +181,7 @@ Type                     ::= UnionType ;
 
 UnionType                ::= Intersection {'|' Intersection} ;     (* left-assoc *)
 
-Intersection             ::= PrimaryType ;                          (* reserved for future '&' *)
+Intersection             ::= PrimaryType ;                         (* reserved for future '&' *)
 
 PrimaryType              ::= TupleType
                            | GenericType
