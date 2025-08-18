@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Syntax;
 internal static class GreenSpanHelper
 {
     public static void ComputeSpanAndFullSpan(
-        InternalSyntax.SyntaxList greenList,
+        this InternalSyntax.SyntaxList greenList,
         int position,
         out TextSpan span,
         out TextSpan fullSpan)
