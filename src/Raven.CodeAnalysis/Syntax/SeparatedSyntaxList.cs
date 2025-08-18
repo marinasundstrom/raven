@@ -28,7 +28,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         _parent = parent;
         _position = position;
 
-        GreenSpanHelper.ComputeSpanAndFullSpan(greenList, position, out _span, out _fullSpan);
+        greenList.ComputeSpanAndFullSpan(position, out _span, out _fullSpan);
     }
 
     public SeparatedSyntaxList(params SyntaxNodeOrToken[] items)
@@ -36,7 +36,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
         var p = items.Select(x => x.Green).ToArray();
         Green = new InternalSyntax.SyntaxList(p);
 
-        GreenSpanHelper.ComputeSpanAndFullSpan(Green, _position, out _span, out _fullSpan);
+        Green.ComputeSpanAndFullSpan(_position, out _span, out _fullSpan);
     }
 
     public int Count => (Green.SlotCount + 1) / 2; // Elements are at even indices

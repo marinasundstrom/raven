@@ -16,7 +16,7 @@ public readonly struct SyntaxTokenList : IEnumerable<SyntaxToken>
         _parent = parent;
         _position = position;
 
-        GreenSpanHelper.ComputeSpanAndFullSpan(greenList, position, out _span, out _fullSpan);
+        greenList.ComputeSpanAndFullSpan(position, out _span, out _fullSpan);
     }
 
     public int Count => Green.SlotCount;

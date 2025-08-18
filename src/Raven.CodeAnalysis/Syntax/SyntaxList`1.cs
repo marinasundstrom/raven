@@ -30,7 +30,7 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
         _parent = parent;
         _position = position;
 
-        GreenSpanHelper.ComputeSpanAndFullSpan(greenList, position, out _span, out _fullSpan);
+        greenList.ComputeSpanAndFullSpan(position, out _span, out _fullSpan);
     }
 
     public SyntaxList<TNode> Add(TNode node)
