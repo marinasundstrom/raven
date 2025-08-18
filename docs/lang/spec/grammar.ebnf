@@ -1,0 +1,116 @@
+(* Raven language EBNF grammar *)
+
+CompilationUnit    ::= {ImportDirective | Declaration | Statement} EOF ;
+
+ImportDirective    ::= 'import' QualifiedName ;
+
+Declaration        ::= NamespaceDeclaration
+                     | FunctionDeclaration
+                     | EnumDeclaration
+                     | ClassDeclaration
+                     | StructDeclaration ;
+
+NamespaceDeclaration ::= 'namespace' Identifier Block ;
+
+FunctionDeclaration ::= 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
+
+ReturnTypeClause   ::= '->' Type ;
+
+ParameterList      ::= Parameter {',' Parameter} ;
+
+Parameter          ::= Identifier ':' Type ;
+
+Block              ::= '{' {Statement} '}' ;
+
+Statement          ::= LocalDeclaration
+                     | ReturnStatement
+                     | ExpressionStatement
+                     | IfStatement
+                     | WhileStatement
+                     | Block ;
+
+LocalDeclaration   ::= ('let' | 'var') VariableDeclarators ;
+
+VariableDeclarators ::= VariableDeclarator {',' VariableDeclarator} ;
+
+VariableDeclarator ::= Identifier (':' Type)? '=' Expression ;
+
+ReturnStatement    ::= 'return' Expression? ;
+
+IfStatement        ::= 'if' Expression Block ['else' Block] ;
+
+WhileStatement     ::= 'while' Expression Block ;
+
+ExpressionStatement ::= Expression ;
+
+Expression         ::= AssignmentExpression ;
+
+AssignmentExpression ::= Identifier '=' AssignmentExpression
+                        | LogicalOrExpression ;
+
+LogicalOrExpression ::= LogicalAndExpression {'||' LogicalAndExpression} ;
+
+LogicalAndExpression ::= EqualityExpression {'&&' EqualityExpression} ;
+
+EqualityExpression ::= RelationalExpression {('==' | '!=') RelationalExpression} ;
+
+RelationalExpression ::= AdditiveExpression {('<' | '>' | '<=' | '>=') AdditiveExpression} ;
+
+AdditiveExpression ::= MultiplicativeExpression {('+' | '-') MultiplicativeExpression} ;
+
+MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression} ;
+
+UnaryExpression    ::= PrimaryExpression | ('+' | '-' | '!') UnaryExpression ;
+
+PrimaryExpression  ::= Literal
+                     | Identifier
+                     | InvocationExpression
+                     | MemberAccessExpression
+                     | ElementAccessExpression
+                     | ObjectCreationExpression
+                     | TupleExpression
+                     | ParenthesizedExpression
+                     | Block ;
+
+InvocationExpression ::= PrimaryExpression '(' ArgumentList? ')' ;
+
+ArgumentList       ::= Argument {',' Argument} ;
+
+Argument           ::= Expression | Identifier ':' Expression ;
+
+MemberAccessExpression ::= PrimaryExpression '.' Identifier ;
+
+ElementAccessExpression ::= PrimaryExpression '[' Expression ']' ;
+
+ObjectCreationExpression ::= 'new' Type '(' ArgumentList? ')' ;
+
+TupleExpression    ::= '(' TupleElement {',' TupleElement} ')' ;
+
+TupleElement       ::= Identifier ':' Expression | Expression ;
+
+ParenthesizedExpression ::= '(' Expression ')' ;
+
+Literal            ::= NumericLiteral
+                     | StringLiteral
+                     | 'true'
+                     | 'false'
+                     | 'null' ;
+
+Type               ::= SimpleType | GenericType | UnionType | TupleType ;
+
+SimpleType         ::= Identifier | 'int' | 'string' | 'bool' | 'void' | 'char' ;
+
+GenericType        ::= SimpleType '<' TypeList '>' ;
+
+TypeList           ::= Type {',' Type} ;
+
+UnionType          ::= Type '|' Type ;
+
+TupleType          ::= '(' Type {',' Type} ')' ;
+
+QualifiedName      ::= Identifier {'.' Identifier} ;
+
+Identifier         ::= /* letter followed by letters or digits */ ;
+
+NumericLiteral     ::= /* digits */ ;
+StringLiteral      ::= '"' ... '"' ;
