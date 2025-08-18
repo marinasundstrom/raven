@@ -34,7 +34,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
     public INamespaceSymbol GlobalNamespace =>
         _globalNamespace ??= new PENamespaceSymbol(_typeResolver, this, string.Empty, this, null);
-    
+
     public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols { get; }
 
     public INamespaceSymbol? GetModuleNamespace(INamespaceSymbol namespaceSymbol)

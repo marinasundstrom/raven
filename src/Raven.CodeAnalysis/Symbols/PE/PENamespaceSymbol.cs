@@ -27,7 +27,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     }
 
     public override IAssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
-    public override IModuleSymbol ContainingModule => _module ?? ContainingSymbol!.ContainingModule!;
+    public override IModuleSymbol ContainingModule => _module ?? ContainingNamespace!.ContainingModule!;
     public override string Name => _name;
     public override SymbolKind Kind => SymbolKind.Namespace;
 

@@ -56,7 +56,9 @@ public class DiagnosticVerifierTest
     {
         string testCode =
             """
-            System.Console.WriteLine("Hello" + ", World!);
+            import System;
+            
+            Console.WriteLine("Hello" + ", World!");
             """;
 
         var verifier = CreateVerifier(
@@ -78,7 +80,7 @@ public class DiagnosticVerifierTest
     {
         string testCode =
             """
-            System.Console.WriteLine("Hello" + ", World!);
+            System.Console.WriteLine("Hello" + ", World!");
             """;
 
         var verifier = CreateVerifier(
