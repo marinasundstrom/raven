@@ -1,6 +1,6 @@
 # Proposal: Local declarations
 
-> ℹ️ This proposal has been partly implemented
+> ⚠️ 🧩 This proposal has been partly implemented
 
 Locals are names that values are bound to. Commonly referred to as "variables", there are many types of bindings, and the behavior of a variable is just one of them. The names might be 
 

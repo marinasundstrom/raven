@@ -1,6 +1,6 @@
 # Proposal: Indentation
 
-> ℹ️ This proposal has been partly implemented
+> ❌ This proposal has been rejected
 
 This is an important decision to make:
 

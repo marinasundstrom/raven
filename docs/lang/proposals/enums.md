@@ -1,6 +1,6 @@
 # Proposal: Enums
 
-> ℹ️ This proposal has been partly implemented
+> ⚠️ 🧩 This proposal has been partly implemented
 
 ```csharp
 enum DeviceType {

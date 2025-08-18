@@ -1,6 +1,6 @@
 # Proposal: Named constructors
 
-> ℹ️ This proposal has been partly implemented
+> ⚠️ 🧩 This proposal has been partly implemented
 
 This document outlines the feature "named constructors".
 

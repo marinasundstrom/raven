@@ -1,6 +1,6 @@
 # Proposal: Expression-first
 
-> ℹ️ This proposal has been partly implemented
+> ⚠️ 🧩 This proposal has been partly implemented
 
 We should focus on expressions over statements.
 
