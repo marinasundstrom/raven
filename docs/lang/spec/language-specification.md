@@ -11,15 +11,17 @@ The file extension for source code files is: `.rav`.
 ## Grammar
 
 An accompanying [EBNF grammar](grammar.ebnf) describes the structural
-syntax of Raven. It does not encode contextual rules or the full parsing
-process; those details are specified throughout this language
-specification.
+syntax of Raven. **It is non-normative**: it does not encode contextual rules,
+disambiguation, or the full parsing process; those details are specified
+throughout this language specification.
 
 ## Statements
 
-Statements are terminated by newline, or an optional semicolon that may separate multiple statements on one line.
+Statements are terminated by a **newline**, or by an **optional semicolon** `;`
+that may separate multiple statements on one line. Newlines inside
+parentheses/brackets/braces do not terminate statements.
 
-```csharp
+```raven
 let a = 42
 let b = 1; b = 3
 ```
@@ -29,80 +31,105 @@ When used for their side effects in statement position, they appear as expressio
 
 ### Top-level statements
 
-Support for top-level statements. Meaning no `Main` method.
+Top-level statements are supported—no `Main` method is required.
 
-```c#
+```raven
 import System
 
 Console.WriteLine("Hello, World!")
 ```
 
+### Expression statements
+
+Any expression can appear as a statement.
+
+> **Note:** Control flow such as `if` and `while` are **expressions**. When used
+> on their own line, they form an `ExpressionStatement`.
 
 ## Expressions
 
 ### String literals
 
-```c#
+```raven
 let hello = "Hello, "
-
 Console.WriteLine(hello + "World!")
-
 Console.WriteLine("Hello, " + 2)
 ```
 
-### Array expression and access
+### Array literals and element access
 
-```csharp
+```raven
 let list = [1, 42, 3]
-
 let a = list[1]
 ```
 
 ### Function invocation
 
-```csharp
+```raven
 Foo(1, 2)
-
 Console.WriteLine("Test")
 ```
 
 ### Object creation
 
-```rust
+```raven
 let sb = new StringBuilder()
 sb.AppendLine("Foo")
 ```
 
 Generics:
 
-```rust
+```raven
 let list = new List<int>()
 list.Add(2)
 ```
 
-### Tuple
+### Tuple expressions and access
 
-```csharp
+Tuples can be **named** or **positional**. Both projections are available.
+
+```raven
 let tuple = (a: 42, b: 2)
+Console.WriteLine(tuple.a)      // named
+Console.WriteLine(tuple.Item1)  // positional
+```
 
-System.Console.WriteLine(tuple.a)
-System.Console.WriteLine(tuple.Item1)
+### Block expression
+
+A block is an expression; its value is the value of its last expression
+(or `void` if none).
+
+```raven
+{
+    let x = 10
+    x + 1
+}
 ```
 
 ### `if` expression
 
-```csharp
+```raven
 if x > 3 {
     Console.WriteLine("Hello, World!")
     list[i] = 42
 }
 ```
 
+With `else`:
+
+```raven
+let res =
+    if cond {
+        10
+    } else {
+        20
+    }
+```
+
 ### `while` expression
 
-```csharp
+```raven
 var i = 0
-
 while i < list.Length {
     let item = list[i]
     Console.WriteLine(item)
@@ -110,19 +137,11 @@ while i < list.Length {
 }
 ```
 
-### Block expression
-
-```c#
-{
-    // Body here
-}
-```
-
 ## Namespace declaration
 
-Each file may define a namespace like so:
+Each file may define a namespace:
 
-```c#
+```raven
 namespace Foo
 
 // Members here
@@ -130,21 +149,22 @@ namespace Foo
 
 ### Import directive
 
-```c#
+```raven
 namespace Foo
 
 import System
+// or import System.Collections.*  // wildcard supported by the binder
 
 // Members here
 ```
 
 ### Scoped namespaces
 
-You may define multiple namespaces, even nested ones, in one single file by defining block scopes:
+You may define multiple namespaces (including nested) in one file using
+block scopes:
 
-```c#
-
-// Members here
+```raven
+// Members in the global namespace
 
 namespace A1
 {
@@ -165,111 +185,93 @@ namespace A.B
 }
 ```
 
-The outermost undeclared namespace is the global namespace. Meaning whatever is declared there has no prefixed namespace
+The outermost undeclared namespace is the **global namespace**.
 
-## Function declaration
+## Functions
 
-```rust
-func Foo(a : int, b : b) -> int 
+```raven
+func Foo(a: int, b: int) -> int
 {
-    // Body here
+    a + b
 }
 ```
 
-### `ref` and `out` parameters
+Arrow bodies are allowed:
 
-Using the the `&` address operator.
+```raven
+func add(a: int, b: int) -> int => a + b
+```
 
-```c#
+### `ref`/`out` arguments
+
+Raven uses the **address operator** `&` at call sites. (Exact rules are
+contextual; the binder enforces that the target is assignable.)
+
+```raven
 var total = 0
-
 if !int.TryParse(arg, &total) {
     Console.WriteLine("Expected number")
 }
 ```
 
-## Local declaration
+## Local declarations
 
-### Value binding
+### Value binding (`let`)
 
-Once a value is assigned to a name, it can't be re-assigned.
+A `let` binding is **immutable** (not reassignable). Types are inferred
+unless annotated.
 
-Implicitly typed, with type inference.
-
-```c#
+```raven
 let x = "Foo"
+let y: int = 2
+let a: int = 2, b: string = ""
 ```
 
-With type annotation.
+### Variable binding (`var`)
 
-```c#
-let x : int = 2
-```
+A `var` binding is **mutable** (reassignable).
 
-Multiple declarators:
+```raven
+var x = "Foo"
+x = "Bar"
 
-```c#
-let a : int = 2, b : string = ""
-```
-
-### Variable binding
-
-A name that is variable, meaning that a value can be re-assigned.
-
-Implicitly typed, with type inference.
-
-```c#
-let x = "Foo"
-```
-
-With type annotation.
-
-```c#
-let x : int = 2
+var y: int = 2
+y = 3
 ```
 
 ## Types
 
 ### Type annotations
 
-Types are specified as type annotations where they can't implicitly be inferred.
+Use type annotations where inference is insufficient (e.g., for
+parameters, some bindings, or return types):
 
-Such as `let` or `var` bindings:
-
-```c#
+```raven
 let a = 2
+let b: int = 2
 
-let b : int = 2
+func add(a: int, b: int) -> int { a + b }
 ```
 
-Or, function declaration:
+### Union types
 
-```csharp
-func add(a : int, b : int) -> int { a + b; }
+Unions express multiple possible types (e.g., `int | string`).
+
+```raven
+func test(x: int | string) -> void { /* ... */ }
 ```
 
-### Union type
+Unions arise naturally from control flow:
 
-Sometimes you want to return a value of multiple possible types, such as either and `int` or a `string`.
-
-This is represented as `int | string`.
-
-```csharp
-func test(x : int | string) -> void { /* ... */ }
-```
-
-Type unions can be produced by `if` expressions.
-
-```c#
+```raven
 let x = 3
 let y = if x > 2 { 40 + w; } else { true; }
-
-// y is inferred to be "int | bool"
+// y is inferred as: int | bool
 ```
 
-You can then discriminate the values using patterns:
+Discrimination via `is`:
 
-```c#
+```raven
 if y is int a {
     Console.WriteLine(a)
 }
@@ -278,13 +280,74 @@ else if y is bool b {
 }
 ```
 
-Under the hood, type unions are represented as type `object`.
+> **Note:** Representation is an implementation detail; conceptually, unions
+> are first-class in the type system even if lowered to `object` at runtime.
 
 ### Enums
 
-```c#
-var foo : Grades = .B
-foo = .C
+Enum members can be referenced with a **leading dot** when the type is known.
+
+```raven
+var grade: Grades = .B
+grade = .C
 
 enum Grades { A, B, C }
 ```
+
+## Members (classes/structs)
+
+Raven supports classes and structs with fields, methods, constructors,
+properties, and indexers. Modifiers are C#-like but validated by the
+binder (e.g., `abstract` members require an `abstract` type; `override`
+requires a virtual base member).
+
+```raven
+class Counter
+{
+    public let Name: string
+
+    private var _value: int = 0
+
+    init(name: string) { Name = name }
+
+    public Value: int {
+        get => _value;
+        private set => _value = value;
+    }
+
+    // Indexer
+    public this[i: int]: int {
+        get => _value + i;
+    }
+
+    public Increment(): void => _value = _value + 1
+}
+```
+
+**Notes**
+
+* Fields use `let`/`var` and require `;` after declarators.
+* Accessor-level access (e.g., `private set`) is supported.
+* Methods/ctors/properties/indexers may use arrow bodies.
+
+## Operators (precedence summary)
+
+Lowest → highest (all left-associative unless noted):
+
+1. Assignment: `=  +=  -=  *=  /=  %=`
+2. Null-coalescing: `??`
+3. Logical OR: `||`
+4. Logical AND: `&&`
+5. Equality: `==  !=`
+6. Relational: `<  >  <=  >=`
+7. Type tests: `is  as` (binds after relational)
+8. Additive: `+  -`
+9. Multiplicative: `*  /  %`
+10. Unary (prefix): `+  -  !`
+11. Postfix trailers: call `()`, member `.`, index `[]`
+
+> **Disambiguation notes**
+>
+> * `(<expr>)` is a **parenthesized expression** unless a comma appears (including trailing), in which case it’s a **tuple**.
+> * `<` starts **type arguments** only in a **type context**; elsewhere it’s the less-than operator.
+> * The LHS of assignment must be **assignable** (identifier, member access, element access, or tuple deconstruction).
