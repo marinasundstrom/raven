@@ -8,6 +8,13 @@ You find them [here](../../../src/Raven.Compiler/samples/).
 
 The file extension for source code files is: `.rav`.
 
+## Grammar
+
+An accompanying [EBNF grammar](grammar.ebnf) describes the structural
+syntax of Raven. It does not encode contextual rules or the full parsing
+process; those details are specified throughout this language
+specification.
+
 ## Statements
 
 Statements are terminated by newline, or an optional semicolon that may separate multiple statements on one line.
