@@ -11,9 +11,11 @@ internal class Lexer : ILexer
     private int _currentPosition = 0;
     private int _tokenStartPosition = 0;
 
-    public Lexer(TextReader textReader)
+    public Lexer(TextReader textReader, int startPosition = 0)
     {
-        _textSource = new SeekableTextSource(textReader);
+        _textSource = new SeekableTextSource(textReader, startPosition);
+        _currentPosition = startPosition;
+        _tokenStartPosition = startPosition;
     }
 
     public void ResetToPosition(int position)
