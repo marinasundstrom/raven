@@ -1,5 +1,8 @@
-﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+﻿using System.Diagnostics;
 
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal class SyntaxTrivia : GreenNode
 {
     private readonly SyntaxNode? _structuredTrivia;
@@ -62,6 +65,8 @@ internal class SyntaxTrivia : GreenNode
     {
         return this;
     }
+
+    private string GetDebuggerDisplay() => $"{GetType().Name} {GetValueText()}";
 
     internal override void Accept(SyntaxVisitor visitor)
     {

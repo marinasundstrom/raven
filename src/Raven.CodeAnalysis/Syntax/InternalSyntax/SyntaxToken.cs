@@ -1,5 +1,8 @@
-﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+﻿using System.Diagnostics;
 
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal class SyntaxToken : GreenNode
 {
     private readonly string _text;
@@ -105,6 +108,15 @@ internal class SyntaxToken : GreenNode
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
         return new SyntaxToken(Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics);
+    }
+
+    private string GetDebuggerDisplay()
+    {
+        if (string.IsNullOrEmpty(Text))
+        {
+            return $"{GetType().Name} {Kind}";
+        }
+        return $"{GetType().Name} {Kind} {Text}";
     }
 
     internal override void Accept(SyntaxVisitor visitor)

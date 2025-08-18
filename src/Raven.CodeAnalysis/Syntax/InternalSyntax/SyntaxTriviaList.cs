@@ -1,8 +1,10 @@
 ﻿using System.Collections;
+using System.Diagnostics;
 using System.Formats.Asn1;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
 {
     public readonly static SyntaxTriviaList Empty = new SyntaxTriviaList([]);
@@ -110,6 +112,8 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
             }
         }
     }
+
+    private string GetDebuggerDisplay() => $"{GetType().Name} {GetValueText()}";
 
     internal override void Accept(SyntaxVisitor visitor)
     {

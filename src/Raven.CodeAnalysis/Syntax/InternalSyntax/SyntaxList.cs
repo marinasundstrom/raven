@@ -1,5 +1,8 @@
-﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+﻿using System.Diagnostics;
 
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal class SyntaxList : GreenNode
 {
     public static readonly SyntaxList Empty = new([]);
@@ -68,6 +71,8 @@ internal class SyntaxList : GreenNode
             }
         }
     }
+
+    private string GetDebuggerDisplay() => $"{GetType().Name} {GetValueText()}";
 
     internal override void Accept(SyntaxVisitor visitor)
     {

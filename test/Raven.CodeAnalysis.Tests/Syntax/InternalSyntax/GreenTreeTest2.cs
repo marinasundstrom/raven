@@ -5,21 +5,29 @@ public class GreenTreeTest2
     [Fact]
     public void Test1()
     {
-        var node = new ReturnStatementSyntax(
-            new SyntaxToken(SyntaxKind.ReturnKeyword, "return"),
-            new LiteralExpressionSyntax(SyntaxKind.NumericLiteralExpression, new SyntaxToken(SyntaxKind.NumericLiteralToken, "2")),
-            new SyntaxToken(SyntaxKind.None, string.Empty)
+        var node = SyntaxFactory.ReturnStatement(
+            SyntaxFactory.ReturnKeyword,
+            SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
+                SyntaxFactory.NumericLiteral(2)),
+            SyntaxFactory.Token(SyntaxKind.None)
         );
+
+        var n = node.CreateRed();
+        var str = n.ToFullString();
     }
 
     [Fact]
     public void Test2()
     {
-        var node = new ReturnStatementSyntax(
-            new SyntaxToken(SyntaxKind.ReturnKeyword, "return", null!, new SyntaxTriviaList([new SyntaxTrivia(SyntaxKind.WhitespaceTrivia, " ")])),
-            new LiteralExpressionSyntax(SyntaxKind.NumericLiteralExpression, new SyntaxToken(SyntaxKind.NumericLiteralToken, "2")),
-            new SyntaxToken(SyntaxKind.SemicolonToken, ";")
+        var node = SyntaxFactory.ReturnStatement(
+            SyntaxFactory.ReturnKeyword,
+            SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
+                SyntaxFactory.NumericLiteral(2)),
+            SyntaxFactory.SemicolonToken
         );
+
+        var n = node.CreateRed();
+        var str = n.ToFullString();
     }
 
 }
