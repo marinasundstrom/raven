@@ -1,5 +1,7 @@
 # Proposal: Indentation
 
+> ℹ️ This proposal has been partly implemented
+
 This is an important decision to make:
 
 Should we use indentation for blocks instead of curly braces?

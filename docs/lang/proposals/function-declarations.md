@@ -1,5 +1,8 @@
 # Proposal: Function declarations
 
+> ℹ️ This proposal has been partly implemented
+
+
 This is how function and method declarations are envisioned:
 
 ```csharp

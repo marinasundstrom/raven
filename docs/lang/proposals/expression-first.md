@@ -1,5 +1,7 @@
 # Proposal: Expression-first
 
+> ℹ️ This proposal has been partly implemented
+
 We should focus on expressions over statements.
 
 Every statement is an expression that may return a value.

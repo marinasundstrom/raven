@@ -1,8 +1,12 @@
 # Language specification
 
-## Samples
+## Code samples
 
 You find them [here](../../../src/Raven.Compiler/samples/).
+
+## Proposals
+
+You find proposals for feature [here](../proposals/).
 
 ## File extension
 
@@ -84,19 +88,34 @@ Foo(1, 2)
 Console.WriteLine("Test")
 ```
 
+Here’s a fixed and polished version of that section for the spec:
+
 ### Object creation
+
+Objects are created by **calling the type name** directly, just like any
+other method.
+
+```raven
+let sb = StringBuilder()
+sb.AppendLine("Foo")
+````
+
+Generic types work the same way:
+
+```raven
+let list = List<int>()
+list.Add(2)
+```
+
+Raven also supports the `new` keyword for **backwards compatibility** and
+for cases where you want to be explicit about creating an object:
 
 ```raven
 let sb = new StringBuilder()
-sb.AppendLine("Foo")
-```
-
-Generics:
-
-```raven
 let list = new List<int>()
-list.Add(2)
 ```
+
+This way it’s clear that *constructor-as-call* is the default, and `new` is optional/explicit.  
 
 ### Tuple expressions and access
 
@@ -325,16 +344,16 @@ class Counter
     init(name: string) { Name = name }
 
     public Value: int {
-        get => _value;
-        private set => _value = value;
+        get => _value
+        private set => _value = value
     }
 
     // Indexer
     public this[i: int]: int {
-        get => _value + i;
+        get => _value + i
     }
 
-    public Increment(): void => _value = _value + 1
+    public Increment() -> void => _value = _value + 1
 }
 ```
 
