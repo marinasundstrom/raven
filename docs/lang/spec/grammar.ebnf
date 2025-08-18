@@ -2,138 +2,197 @@
    This grammar captures the structural form of Raven source code.
    Contextual rules and parsing details are described in the language specification. *)
 
-CompilationUnit    ::= {ImportDirective | Declaration | Statement} EOF ;
+CompilationUnit          ::= {ImportDirective | Declaration | Statement} EOF ;
 
-ImportDirective    ::= 'import' QualifiedName ;
+ImportDirective          ::= 'import' QualifiedName ('.' '*')? ;
 
-Declaration        ::= NamespaceDeclaration
-                     | FunctionDeclaration
-                     | EnumDeclaration
-                     | ClassDeclaration
-                     | StructDeclaration ;
+(* ---------- Modifiers ---------- *)
 
-NamespaceDeclaration ::= 'namespace' Identifier Block ;
+MemberModifiers          ::= { MemberModifier } ;
+MemberModifier           ::= AccessModifier
+                           | 'static' | 'abstract' | 'virtual' | 'override' | 'sealed'
+                           | 'readonly' | 'async' | 'extern' ;
 
-FunctionDeclaration ::= 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
+AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 
-ReturnTypeClause   ::= '->' Type ;
+AccessorModifier         ::= AccessModifier ;
 
-ParameterList      ::= Parameter {',' Parameter} ;
+TypeModifiers            ::= { TypeModifier } ;
+TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'static' ;
 
-Parameter          ::= Identifier ':' Type ;
+FunctionModifiers        ::= { FunctionModifier } ;
+FunctionModifier         ::= AccessModifier | 'async' | 'extern' | 'static' ;
 
-EnumDeclaration    ::= 'enum' Identifier '{' EnumMembers? '}' ;
-EnumMembers        ::= EnumMember {',' EnumMember} ;
-EnumMember         ::= Identifier ['=' Expression] ;
+(* ---------- Declarations ---------- *)
 
-ClassDeclaration   ::= 'class' Identifier ClassBody ;
-StructDeclaration  ::= 'struct' Identifier ClassBody ;
-ClassBody          ::= '{' {ClassMember} '}' ;
-ClassMember        ::= FieldDeclaration
-                     | MethodDeclaration
-                     | ConstructorDeclaration
-                     | PropertyDeclaration
-                     | IndexerDeclaration ;
+Declaration              ::= NamespaceDeclaration
+                           | FunctionDeclaration
+                           | EnumDeclaration
+                           | ClassDeclaration
+                           | StructDeclaration ;
 
-ConstructorDeclaration ::= 'init' Identifier? '(' ParameterList? ')' (Block | '=>' Expression) ;
-MethodDeclaration  ::= Identifier '(' ParameterList? ')' ReturnTypeClause? (Block | '=>' Expression) ;
-PropertyDeclaration ::= Identifier ':' Type AccessorList ;
-IndexerDeclaration ::= Identifier BracketedParameterList ':' Type AccessorList ;
-AccessorList       ::= '{' Accessor {Accessor} '}' ;
-Accessor           ::= ['ref' | 'out' | 'in'] ('get' | 'set') (Block | '=>' Expression) ;
-BracketedParameterList ::= '[' ParameterList? ']' ;
+NamespaceDeclaration     ::= 'namespace' Identifier Block ;
 
-Block              ::= '{' {Statement} '}' ;
+FunctionDeclaration      ::= FunctionModifiers?
+                             'func' Identifier '(' ParameterList? ')'
+                             ReturnTypeClause?
+                             ( Block | '=>' Expression ) ;
 
-Statement          ::= LocalDeclaration
-                     | ReturnStatement
-                     | ExpressionStatement ;
+ReturnTypeClause         ::= '->' Type ;
 
-LocalDeclaration   ::= ('let' | 'var') VariableDeclarators ;
+ParameterList            ::= Parameter {',' Parameter} ;
+Parameter                ::= Identifier ':' Type ;
 
-VariableDeclarators ::= VariableDeclarator {',' VariableDeclarator} ;
+EnumDeclaration          ::= TypeModifiers?
+                             'enum' Identifier '{' EnumMembers? '}' ;
+EnumMembers              ::= EnumMember {',' EnumMember} ;
+EnumMember               ::= Identifier ['=' Expression] ;
 
-VariableDeclarator ::= Identifier (':' Type)? '=' Expression ;
+ClassDeclaration         ::= TypeModifiers? 'class' Identifier ClassBody ;
+StructDeclaration        ::= TypeModifiers? 'struct' Identifier ClassBody ;
+ClassBody                ::= '{' {ClassMember} '}' ;
 
-ReturnStatement    ::= 'return' Expression? ;
+ClassMember              ::= FieldDeclaration
+                           | MethodDeclaration
+                           | ConstructorDeclaration
+                           | PropertyDeclaration
+                           | IndexerDeclaration ;
 
+FieldDeclaration         ::= MemberModifiers? FieldKind VariableDeclarators ';' ;
+FieldKind                ::= 'let' | 'var' ;
 
-IfExpression       ::= 'if' Expression Expression ['else' Expression] ;
+VariableDeclarators      ::= VariableDeclarator {',' VariableDeclarator} ;
+VariableDeclarator       ::= Identifier (':' Type)? ['=' Expression] ;
 
-WhileExpression    ::= 'while' Expression Expression ;
+ConstructorDeclaration   ::= MemberModifiers?
+                             'init' Identifier? '(' ParameterList? ')'
+                             ( Block | '=>' Expression ) ;
 
-ExpressionStatement ::= Expression ;
+MethodDeclaration        ::= MemberModifiers?
+                             Identifier '(' ParameterList? ')'
+                             ReturnTypeClause?
+                             ( Block | '=>' Expression ) ;
 
-Expression         ::= AssignmentExpression ;
+PropertyDeclaration      ::= MemberModifiers?
+                             Identifier ':' Type AccessorList ;
 
-AssignmentExpression ::= Identifier '=' AssignmentExpression
-                        | LogicalOrExpression ;
+IndexerDeclaration       ::= MemberModifiers?
+                             Identifier BracketedParameterList ':' Type AccessorList ;
 
-LogicalOrExpression ::= LogicalAndExpression {'||' LogicalAndExpression} ;
+AccessorList             ::= '{' Accessor {Accessor} '}' ;
+Accessor                 ::= AccessorModifier? ('get' | 'set') ( Block | '=>' Expression | ';' ) ;
 
-LogicalAndExpression ::= EqualityExpression {'&&' EqualityExpression} ;
+BracketedParameterList   ::= '[' ParameterList? ']' ;
 
-EqualityExpression ::= RelationalExpression {('==' | '!=') RelationalExpression} ;
+(* ---------- Statements ---------- *)
 
-RelationalExpression ::= AdditiveExpression {('<' | '>' | '<=' | '>=') AdditiveExpression} ;
+Statement                ::= LocalDeclaration
+                           | ReturnStatement
+                           | ExpressionStatement ;
 
-AdditiveExpression ::= MultiplicativeExpression {('+' | '-') MultiplicativeExpression} ;
+LocalDeclaration         ::= ('let' | 'var') LocalVariableDeclarators ;
+LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarator} ;
+LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 
+ReturnStatement          ::= 'return' Expression? ;
+
+ExpressionStatement      ::= Expression ;
+
+(* ---------- Expressions & precedence (lowest → highest) ---------- *)
+
+Expression               ::= AssignmentExpression ;
+
+AssignmentExpression     ::= Assignable AssignmentOperator AssignmentExpression
+                           | ConditionalNullCoalesceExpression ;
+
+AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' ;
+
+Assignable               ::= Identifier
+                           | MemberAccessExpression
+                           | ElementAccessExpression
+                           | TupleDeconstruction ;
+
+TupleDeconstruction      ::= '(' DeconstructionElement {',' DeconstructionElement} ')' ;
+DeconstructionElement    ::= Identifier | '_' | TupleDeconstruction ;
+
+ConditionalNullCoalesceExpression
+                           ::= LogicalOrExpression {'??' LogicalOrExpression} ;
+
+LogicalOrExpression      ::= LogicalAndExpression {'||' LogicalAndExpression} ;
+LogicalAndExpression     ::= EqualityExpression {'&&' EqualityExpression} ;
+EqualityExpression       ::= RelationalExpression {('==' | '!=') RelationalExpression} ;
+RelationalExpression     ::= TypeTestExpression
+                             {('<' | '>' | '<=' | '>=') TypeTestExpression} ;
+
+TypeTestExpression       ::= AdditiveExpression {('is' | 'as') Type} ;
+
+AdditiveExpression       ::= MultiplicativeExpression {('+' | '-') MultiplicativeExpression} ;
 MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression} ;
 
-UnaryExpression    ::= PrimaryExpression | ('+' | '-' | '!') UnaryExpression ;
+UnaryExpression          ::= PostfixExpression
+                           | ('+' | '-' | '!') UnaryExpression ;
 
-PrimaryExpression  ::= Literal
-                     | Identifier
-                     | InvocationExpression
-                     | MemberAccessExpression
-                     | ElementAccessExpression
-                     | ObjectCreationExpression
-                     | TupleExpression
-                     | ParenthesizedExpression
-                     | Block
-                     | IfExpression
-                     | WhileExpression ;
+PostfixExpression        ::= PrimaryExpression { PostfixTrailer } ;
+PostfixTrailer           ::= ArgumentList
+                           | MemberAccessTrailer
+                           | ElementAccessTrailer ;
 
-InvocationExpression ::= PrimaryExpression '(' ArgumentList? ')' ;
+ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
+Argument                 ::= [Identifier ':'] Expression ;
 
-ArgumentList       ::= Argument {',' Argument} ;
+MemberAccessTrailer      ::= '.' Identifier ;
+ElementAccessTrailer     ::= '[' Expression ']' ;
 
-Argument           ::= Expression | Identifier ':' Expression ;
+(* Primary includes block/if/while as expressions *)
+PrimaryExpression        ::= Literal
+                           | Identifier
+                           | ObjectCreationExpression
+                           | TupleExpression
+                           | ParenthesizedExpression
+                           | Block
+                           | IfExpression
+                           | WhileExpression ;
 
-MemberAccessExpression ::= PrimaryExpression '.' Identifier ;
+Block                    ::= '{' {Statement} '}' ;
 
-ElementAccessExpression ::= PrimaryExpression '[' Expression ']' ;
+IfExpression             ::= 'if' Expression Expression ['else' Expression] ;
+WhileExpression          ::= 'while' Expression Expression ;
 
-ObjectCreationExpression ::= 'new' Type '(' ArgumentList? ')' ;
+ObjectCreationExpression ::= 'new' Type '(' [Argument {',' Argument}] ')' ;
 
-TupleExpression    ::= '(' TupleElement {',' TupleElement} ')' ;
+TupleExpression          ::= '(' TupleElement {',' TupleElement} ')' ;
+TupleElement             ::= [Identifier ':'] Expression ;
 
-TupleElement       ::= Identifier ':' Expression | Expression ;
+ParenthesizedExpression  ::= '(' Expression ')' ;
 
-ParenthesizedExpression ::= '(' Expression ')' ;
+Literal                  ::= NumericLiteral
+                           | StringLiteral
+                           | 'true' | 'false' | 'null' ;
 
-Literal            ::= NumericLiteral
-                     | StringLiteral
-                     | 'true'
-                     | 'false'
-                     | 'null' ;
+(* ---------- Types ---------- *)
 
-Type               ::= SimpleType | GenericType | UnionType | TupleType ;
+Type                     ::= UnionType ;
 
-SimpleType         ::= Identifier | 'int' | 'string' | 'bool' | 'void' | 'char' ;
+UnionType                ::= Intersection {'|' Intersection} ;     (* left-assoc *)
 
-GenericType        ::= SimpleType '<' TypeList '>' ;
+Intersection             ::= PrimaryType ;                          (* reserved for future '&' *)
 
-TypeList           ::= Type {',' Type} ;
+PrimaryType              ::= TupleType
+                           | GenericType
+                           | SimpleType
+                           | ParenthesizedType ;
 
-UnionType          ::= Type '|' Type ;
+SimpleType               ::= BuiltinType | QualifiedName ;
+BuiltinType              ::= 'int' | 'string' | 'bool' | 'void' | 'char' ;
 
-TupleType          ::= '(' Type {',' Type} ')' ;
+GenericType              ::= QualifiedName '<' TypeList '>' ;
+TypeList                 ::= Type {',' Type} ;
 
-QualifiedName      ::= Identifier {'.' Identifier} ;
+TupleType                ::= '(' Type {',' Type} ')' ;
+ParenthesizedType        ::= '(' Type ')' ;
 
-Identifier         ::= /* letter followed by letters or digits */ ;
+QualifiedName            ::= Identifier {'.' Identifier} ;
 
-NumericLiteral     ::= /* digits */ ;
-StringLiteral      ::= '"' ... '"' ;
+Identifier               ::= /* letter followed by letters or digits */ ;
+NumericLiteral           ::= /* int | float | hex | bin (lexically resolved) */ ;
+StringLiteral            ::= '"' /* content with escapes */ '"' ;
