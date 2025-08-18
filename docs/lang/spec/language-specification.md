@@ -1,3 +1,5 @@
+> ⚠️ This is a living document that is subject change
+
 # Language specification
 
 ## Code samples
@@ -6,7 +8,7 @@ You find them [here](../../../src/Raven.Compiler/samples/).
 
 ## Proposals
 
-You find proposals for feature [here](../proposals/).
+You find proposals for future language features [here](../proposals/).
 
 ## File extension
 
