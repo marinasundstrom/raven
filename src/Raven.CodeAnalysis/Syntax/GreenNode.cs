@@ -86,54 +86,32 @@ public abstract class GreenNode
 
     internal InternalSyntax.SyntaxToken? GetFirstToken()
     {
-        GreenNode? node = this;
-
-        for (int i = 0, n = node.SlotCount; i < n; i++)
+        for (int i = 0, n = SlotCount; i < n; i++)
         {
-            var child = node.GetSlot(i);
-            if (child != null)
-            {
-                if (child is InternalSyntax.SyntaxToken t)
-                {
-                    return t;
-                }
-                else
-                {
-                    var c = child.GetFirstToken();
-                    if (c is not null)
-                    {
-                        return c;
-                    }
-                }
-            }
-        }
+            var child = GetSlot(i);
+            if (child == null) continue;
 
+            if (child is InternalSyntax.SyntaxToken t) return t;
+
+            var tok = child.GetFirstToken();
+            if (tok != null) return tok; // keep scanning siblings if null
+        }
         return null;
     }
 
     internal InternalSyntax.SyntaxToken? GetLastToken()
     {
-        GreenNode? node = this;
-
-        do
+        for (int i = SlotCount - 1; i >= 0; i--)
         {
-            GreenNode? lastChild = null;
+            var child = GetSlot(i);
+            if (child == null) continue;
 
-            for (int i = node.SlotCount - 1; i >= 0; i--)
-            {
-                var child = node.GetSlot(i);
-                if (child != null)
-                {
-                    lastChild = child;
-                    break;
-                }
-            }
+            if (child is InternalSyntax.SyntaxToken t) return t;
 
-            node = lastChild;
+            var tok = child.GetLastToken();
+            if (tok != null) return tok; // keep scanning siblings if null
         }
-        while (node != null && node is not InternalSyntax.SyntaxToken);
-
-        return (InternalSyntax.SyntaxToken?)node;
+        return null;
     }
 
     public SyntaxNode CreateRed()
@@ -323,5 +301,86 @@ public abstract class GreenNode
         }
 
         return true;
+    }
+
+    protected void CalculateWidths()
+    {
+        // Assumes slots are already set.
+        int slotCount = SlotCount;
+
+        if (slotCount == 0) { Width = 0; FullWidth = 0; return; }
+
+        if (slotCount == 1)
+        {
+            var only = GetSlot(0);
+            Width = only?.Width ?? 0;
+            FullWidth = only?.FullWidth ?? 0;
+            return;
+        }
+
+        int sumFull = 0;
+        for (int i = 0; i < slotCount; i++)
+        {
+            var s = GetSlot(i);
+            if (s != null) sumFull += s.FullWidth;
+        }
+
+        var firstTok = GetFirstToken();
+        var lastTok = GetLastToken();
+
+        int leading = firstTok?.LeadingTrivia.Width ?? 0;
+        int trailing = lastTok?.TrailingTrivia.Width ?? 0;
+
+        FullWidth = sumFull;
+        Width = Math.Max(0, sumFull - leading - trailing);
+    }
+
+    [Conditional("DEBUG")]
+    public void DebugValidateAgainstText(string source)
+    {
+        // 1) FullWidth must equal total text length for the root.
+        if (this is InternalSyntax.CompilationUnitSyntax && FullWidth != source.Length)
+            throw new InvalidOperationException($"Root.FullWidth={FullWidth} != source.Length={source.Length}");
+
+        // 2) Width <= FullWidth, both non-negative.
+        if (Width < 0 || FullWidth < 0 || Width > FullWidth)
+            throw new InvalidOperationException($"Invalid widths: Width={Width}, FullWidth={FullWidth}");
+
+        // 3) Child FullWidth sum must equal this.FullWidth
+        int sum = 0;
+        for (int i = 0; i < SlotCount; i++)
+            sum += GetSlot(i)?.FullWidth ?? 0;
+        if (sum != FullWidth)
+            throw new InvalidOperationException($"Child FullWidth sum {sum} != node.FullWidth {FullWidth}");
+
+        // 4) If FullWidth > 0 and Width == 0, then all tokens are zero-width and/or all width is trivia.
+        if (FullWidth > 0 && Width == 0)
+        {
+            var firstTok = GetFirstToken();
+            var lastTok = GetLastToken();
+            if (firstTok == null || lastTok == null)
+                throw new InvalidOperationException("Non-zero FullWidth but no tokens found.");
+            // Leading + trailing trivia must consume everything.
+            var leading = firstTok.LeadingTrivia.Width;
+            var trailing = lastTok.TrailingTrivia.Width;
+            if (leading + trailing != FullWidth)
+                throw new InvalidOperationException("Width==0 but outer trivia does not consume FullWidth.");
+        }
+
+        // 5) Monotonic child offsets
+        int offset = 0;
+        for (int i = 0; i < SlotCount; i++)
+        {
+            var child = GetSlot(i);
+            if (child == null) continue;
+            var start = GetChildStartPosition(i);
+            if (start != offset)
+                throw new InvalidOperationException($"Child[{i}] start {start} != expected {offset}");
+            offset += child.FullWidth;
+        }
+
+        // Recurse
+        for (int i = 0; i < SlotCount; i++)
+            GetSlot(i)?.DebugValidateAgainstText(source);
     }
 }

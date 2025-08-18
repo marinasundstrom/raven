@@ -3,7 +3,6 @@
 internal abstract class SyntaxNode : GreenNode
 {
     private readonly GreenNode[] _slots;
-    private bool? _isMissing;
 
     public SyntaxNode(
         SyntaxKind kind,
@@ -14,18 +13,16 @@ internal abstract class SyntaxNode : GreenNode
     {
         _slots = slots ?? Array.Empty<GreenNode>();
 
-        Width = this.CalculateWidth();
-        FullWidth = this.CalculateFullWidth();
+        CalculateWidths();
     }
 
-    public override bool IsMissing => _isMissing ??= GetChildren()
-        .All(s => s.IsMissing);
+    public override bool IsMissing => Width == 0;
 
     public override GreenNode GetSlot(int index)
     {
         if (index < 0 || index >= SlotCount)
             return null;
-        //throw new IndexOutOfRangeException($"Invalid slot index: {index}");
+
         return _slots[index];
     }
 

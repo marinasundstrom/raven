@@ -13,12 +13,8 @@ internal class SyntaxList : GreenNode
     {
         _items = items ?? throw new ArgumentNullException(nameof(items));
 
-        Width = this.CalculateWidth();
-        FullWidth = this.CalculateFullWidth();
+        CalculateWidths();
     }
-
-    private static int CalculateFullWidth(GreenNode[] items) =>
-     items?.Sum(item => item.FullWidth) ?? 0;
 
     public override GreenNode GetSlot(int index) => _items[index];
 
