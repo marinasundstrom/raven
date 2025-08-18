@@ -1,4 +1,6 @@
-(* Raven language EBNF grammar *)
+(* Raven language EBNF grammar
+   This grammar captures the structural form of Raven source code.
+   Contextual rules and parsing details are described in the language specification. *)
 
 CompilationUnit    ::= {ImportDirective | Declaration | Statement} EOF ;
 
@@ -19,6 +21,27 @@ ReturnTypeClause   ::= '->' Type ;
 ParameterList      ::= Parameter {',' Parameter} ;
 
 Parameter          ::= Identifier ':' Type ;
+
+EnumDeclaration    ::= 'enum' Identifier '{' EnumMembers? '}' ;
+EnumMembers        ::= EnumMember {',' EnumMember} ;
+EnumMember         ::= Identifier ['=' Expression] ;
+
+ClassDeclaration   ::= 'class' Identifier ClassBody ;
+StructDeclaration  ::= 'struct' Identifier ClassBody ;
+ClassBody          ::= '{' {ClassMember} '}' ;
+ClassMember        ::= FieldDeclaration
+                     | MethodDeclaration
+                     | ConstructorDeclaration
+                     | PropertyDeclaration
+                     | IndexerDeclaration ;
+
+ConstructorDeclaration ::= 'init' Identifier? '(' ParameterList? ')' (Block | '=>' Expression) ;
+MethodDeclaration  ::= Identifier '(' ParameterList? ')' ReturnTypeClause? (Block | '=>' Expression) ;
+PropertyDeclaration ::= Identifier ':' Type AccessorList ;
+IndexerDeclaration ::= Identifier BracketedParameterList ':' Type AccessorList ;
+AccessorList       ::= '{' Accessor {Accessor} '}' ;
+Accessor           ::= ['ref' | 'out' | 'in'] ('get' | 'set') (Block | '=>' Expression) ;
+BracketedParameterList ::= '[' ParameterList? ']' ;
 
 Block              ::= '{' {Statement} '}' ;
 
