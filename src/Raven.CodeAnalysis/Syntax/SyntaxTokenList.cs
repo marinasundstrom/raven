@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public readonly struct SyntaxTokenList : IEnumerable<SyntaxToken>
 {
-    public static readonly SyntaxTokenList Empty = new SyntaxTokenList();
+    public static readonly SyntaxTokenList Empty = new(new InternalSyntax.SyntaxList([]), null, 0);
 
     internal readonly InternalSyntax.SyntaxList Green;
     private readonly SyntaxNode _parent;

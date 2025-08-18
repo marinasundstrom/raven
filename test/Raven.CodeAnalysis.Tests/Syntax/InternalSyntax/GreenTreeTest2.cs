@@ -8,7 +8,7 @@ public class GreenTreeTest2
         var node = new ReturnStatementSyntax(
             new SyntaxToken(SyntaxKind.ReturnKeyword, "return"),
             new LiteralExpressionSyntax(SyntaxKind.NumericLiteralExpression, new SyntaxToken(SyntaxKind.NumericLiteralToken, "2")),
-            new SyntaxToken(SyntaxKind.SemicolonToken, ";")
+            new SyntaxToken(SyntaxKind.None, string.Empty)
         );
     }
 
