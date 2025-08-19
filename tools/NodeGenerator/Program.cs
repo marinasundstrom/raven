@@ -126,6 +126,9 @@ static async Task GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel>
     var factsTokens = TokenGenerator.GenerateSyntaxFacts(tokens);
     await File.WriteAllTextAsync("./generated/SyntaxFacts.Tokens.g.cs", factsTokens);
 
+    var factsNodes = NodeFactsGenerator.GenerateSyntaxFacts(model, nodeKinds);
+    await File.WriteAllTextAsync("./generated/SyntaxFacts.Nodes.g.cs", factsNodes);
+
     var syntaxKind = SyntaxKindGenerator.Generate(model, nodeKinds, tokens);
     await File.WriteAllTextAsync("./generated/SyntaxKind.g.cs", syntaxKind);
 
