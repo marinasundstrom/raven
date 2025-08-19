@@ -238,8 +238,15 @@ internal class BaseParseContext : ParseContext
                         _stringBuilder.Append(peeked.Text);
                         peeked = _lexer.PeekToken();
                     }
+                    var commentTrivia = new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, _stringBuilder.ToString());
 
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.SingleLineCommentTrivia, _stringBuilder.ToString()));
+                    if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
+                    {
+                        _pendingTrivia.Add(commentTrivia);
+                        break;
+                    }
+
+                    trivia.Add(commentTrivia);
                     continue;
                 }
                 else if (token2.Kind == SyntaxKind.StarToken)

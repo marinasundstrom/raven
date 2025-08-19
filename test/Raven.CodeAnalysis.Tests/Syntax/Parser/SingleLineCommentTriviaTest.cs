@@ -40,4 +40,19 @@ public class SingleLineCommentTriviaTest
 
         trivia.ShouldNotBeNull();
     }
+
+    [Fact]
+    public void SingleLineCommentTrivia_BeforeEof_IsLeadingTriviaOfEndOfFileToken()
+    {
+        var code = "let x = 1; // Foo bar";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var root = syntaxTree.GetRoot();
+
+        var trivia = root.EndOfFileToken.LeadingTrivia
+            .FirstOrDefault(x => x.Kind == SyntaxKind.SingleLineCommentTrivia);
+
+        trivia.ShouldNotBeNull();
+    }
 }
