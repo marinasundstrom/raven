@@ -31,5 +31,5 @@
   <NodeKind Name="NotPattern" Type="UnaryPattern" />
   <NodeKind Name="AndPattern" Type="BinaryPattern" />
   <NodeKind Name="OrPattern" Type="BinaryPattern" />
-  <NodeKind Name="SkippedTokensTrivia" Type="StructuredTriviaSyntax" />
+  <NodeKind Name="SkippedTokensTrivia" Type="StructuredTrivia" />
 </NodeKinds>
