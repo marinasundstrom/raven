@@ -23,12 +23,13 @@ public class RavenWorkspaceTests
         var workspace = RavenWorkspace.Create();
         var projectId = workspace.AddProject("App");
 
-        workspace.CurrentSolution.AddDocument(
-                DocumentId.CreateNew(projectId),
-                "test.rav",
-                SourceText.From("System.Console.WriteLine(\"Hello\")\n"));
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        var document = project.AddDocument(
+            "test.rav",
+            SourceText.From("System.Console.WriteLine(\"Hello\")\n"));
+        workspace.TryApplyChanges(document.Project.Solution);
 
         var compilation = workspace.GetCompilation(projectId);
-        Assert.NotEmpty(compilation.References);
+        Assert.Contains(compilation.SyntaxTrees, t => t.FilePath == "test.rav");
     }
 }
