@@ -126,7 +126,7 @@ public abstract class GreenNode
 
     public virtual object? GetValue() => (int)Kind;
 
-    public virtual string? GetValueText() => SyntaxFacts.IsKeywordKind(Kind) ? SyntaxFacts.GetSyntaxTokenText(Kind) : Kind.ToString();
+    public virtual string? GetValueText() => SyntaxFacts.IsReservedWordKind(Kind) ? SyntaxFacts.GetSyntaxTokenText(Kind) : Kind.ToString();
 
     public virtual int GetChildStartPosition(int childIndex)
     {

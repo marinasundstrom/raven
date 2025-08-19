@@ -9,8 +9,9 @@ using Raven.Generators;
 
 var model = LoadSyntaxNodesFromXml("Model.xml");
 var tokens = LoadTokenKindsFromXml("Tokens.xml");
+var nodeKinds = LoadNodeKindsFromXml("NodeKinds.xml");
 
-string hash = await GetHashAsync(model, tokens);
+string hash = await GetHashAsync(model, tokens, nodeKinds);
 
 var force = args.Contains("-f");
 
@@ -68,7 +69,7 @@ static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByNam
     }
 }
 
-static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKindModel> tokens)
+static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds)
 {
     using var memoryStream = new MemoryStream();
 
@@ -80,13 +81,23 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKi
         new XElement("TokenKind",
             new XAttribute("Name", t.Name),
             t.Text is null ? null : new XAttribute("Text", t.Text),
-            t.IsKeyword ? new XAttribute("IsKeyword", t.IsKeyword) : null,
-            t.IsTrivia ? new XAttribute("IsTrivia", t.IsTrivia) : null))));
+            t.IsReservedWord ? new XAttribute("IsReservedWord", t.IsReservedWord) : null,
+            t.IsTrivia ? new XAttribute("IsTrivia", t.IsTrivia) : null,
+            t.IsUnaryOperator ? new XAttribute("IsUnaryOperator", t.IsUnaryOperator) : null,
+            t.IsBinaryOperator ? new XAttribute("IsBinaryOperator", t.IsBinaryOperator) : null,
+            t.Precedence is int p ? new XAttribute("Precedence", p) : null))));
+
+    var nodeKindsDoc = new XDocument(new XElement("NodeKinds", nodeKinds.Select(n =>
+        new XElement("NodeKind",
+            new XAttribute("Name", n.Name),
+            new XAttribute("Type", n.Type)))));
 
     using var tokensStream = new MemoryStream();
     tokensDoc.Save(tokensStream);
+    using var nodeKindsStream = new MemoryStream();
+    nodeKindsDoc.Save(nodeKindsStream);
 
-    var combined = memoryStream.ToArray().Concat(tokensStream.ToArray()).ToArray();
+    var combined = memoryStream.ToArray().Concat(tokensStream.ToArray()).Concat(nodeKindsStream.ToArray()).ToArray();
     string hash = Convert.ToHexString(SHA256.HashData(combined));
     return hash;
 }
@@ -195,8 +206,11 @@ List<TokenKindModel> LoadTokenKindsFromXml(string path)
         {
             Name = tokenElement.Attribute("Name")?.Value ?? throw new Exception("TokenKind missing Name"),
             Text = tokenElement.Attribute("Text")?.Value,
-            IsKeyword = ParseBool(tokenElement.Attribute("IsKeyword")),
-            IsTrivia = ParseBool(tokenElement.Attribute("IsTrivia"))
+            IsReservedWord = ParseBool(tokenElement.Attribute("IsReservedWord")),
+            IsTrivia = ParseBool(tokenElement.Attribute("IsTrivia")),
+            IsUnaryOperator = ParseBool(tokenElement.Attribute("IsUnaryOperator")),
+            IsBinaryOperator = ParseBool(tokenElement.Attribute("IsBinaryOperator")),
+            Precedence = int.TryParse(tokenElement.Attribute("Precedence")?.Value, out var prec) ? prec : null
         };
 
         result.Add(token);
@@ -210,10 +224,37 @@ bool ParseBool(XAttribute? attr, bool defaultValue = false)
     return attr != null && bool.TryParse(attr.Value, out var result) ? result : defaultValue;
 }
 
+List<NodeKindModel> LoadNodeKindsFromXml(string path)
+{
+    var doc = XDocument.Load(path);
+    var result = new List<NodeKindModel>();
+
+    foreach (var nodeKindElement in doc.Descendants("NodeKind"))
+    {
+        var nk = new NodeKindModel
+        {
+            Name = nodeKindElement.Attribute("Name")?.Value ?? throw new Exception("NodeKind missing Name"),
+            Type = nodeKindElement.Attribute("Type")?.Value ?? throw new Exception("NodeKind missing Type")
+        };
+        result.Add(nk);
+    }
+
+    return result;
+}
+
 record TokenKindModel
 {
     public required string Name { get; init; }
     public string? Text { get; init; }
-    public bool IsKeyword { get; init; }
+    public bool IsReservedWord { get; init; }
     public bool IsTrivia { get; init; }
+    public bool IsUnaryOperator { get; init; }
+    public bool IsBinaryOperator { get; init; }
+    public int? Precedence { get; init; }
+}
+
+record NodeKindModel
+{
+    public required string Name { get; init; }
+    public required string Type { get; init; }
 }
