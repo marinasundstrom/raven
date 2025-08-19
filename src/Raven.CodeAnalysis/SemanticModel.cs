@@ -139,9 +139,9 @@ public partial class SemanticModel
         // special case for CompilationUnitSyntax
         if (node is CompilationUnitSyntax cu)
         {
-            var topLevelBinder = CreateTopLevelBinder(cu, Compilation.GlobalBinder);
-            _binderCache[cu] = topLevelBinder;
-            return topLevelBinder;
+            var binder = BindCompilationUnit(cu, parentBinder ?? Compilation.GlobalBinder);
+            _binderCache[cu] = binder;
+            return binder;
         }
 
         // Ensure parent binder is constructed and cached first
@@ -162,7 +162,7 @@ public partial class SemanticModel
         return newBinder;
     }
 
-    private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, Binder parentBinder)
+    private Binder BindCompilationUnit(CompilationUnitSyntax cu, Binder parentBinder)
     {
         // Step 1: Resolve namespace
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
@@ -194,15 +194,22 @@ public partial class SemanticModel
         var importBinder = new ImportBinder(namespaceBinder, imports);
         parentBinder = importBinder;
 
-        // Step 3: Create synthesized Main
-        var programClass = new SynthesizedProgramClassSymbol(Compilation, targetNamespace.AsSourceNamespace(), [cu.GetLocation()], [cu.GetReference()]);
-        var mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()]);
-        var topLevelBinder = new TopLevelBinder(importBinder, this, mainMethod);
-
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
         RegisterNamespaceMembers(cu, compilationUnitBinder, targetNamespace);
 
-        _binderCache[cu] = compilationUnitBinder;
+        CreateTopLevelBinder(cu, targetNamespace, importBinder);
+
+        _binderCache[cu] = namespaceBinder;
+
+        return namespaceBinder;
+    }
+
+    private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, INamespaceSymbol namespaceSymbol, Binder parentBinder)
+    {
+        // Step 3: Create synthesized Main
+        var programClass = new SynthesizedProgramClassSymbol(Compilation, namespaceSymbol.AsSourceNamespace(), [cu.GetLocation()], [cu.GetReference()]);
+        var mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()]);
+        var topLevelBinder = new TopLevelBinder(parentBinder, this, mainMethod);
 
         // Step 5: Register and bind global statements
         foreach (var stmt in cu.DescendantNodes().OfType<GlobalStatementSyntax>())
@@ -218,6 +225,8 @@ public partial class SemanticModel
         foreach (var stmt in cu.DescendantNodes().OfType<GlobalStatementSyntax>())
         {
             topLevelBinder.BindGlobalStatement(stmt);
+
+            _binderCache[stmt] = topLevelBinder;
         }
 
         return topLevelBinder;
