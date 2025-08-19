@@ -53,16 +53,46 @@ internal static class TokenGenerator
         sb.AppendLine();
         sb.AppendLine("public static partial class SyntaxFacts");
         sb.AppendLine("{");
-        sb.AppendLine("    private static readonly IDictionary<string, SyntaxKind> _keywordStrings = new Dictionary<string, SyntaxKind>");
+        sb.AppendLine("    private static readonly IDictionary<string, SyntaxKind> _reservedWordStrings = new Dictionary<string, SyntaxKind>");
         sb.AppendLine("    {");
-        foreach (var t in tokens.Where(t => t.IsKeyword && t.Text != null))
+        foreach (var t in tokens.Where(t => t.IsReservedWord && t.Text != null))
         {
             sb.AppendLine($"        {{ \"{t.Text}\", SyntaxKind.{t.Name} }},");
         }
         sb.AppendLine("    };");
-        sb.AppendLine("    private static readonly HashSet<SyntaxKind> _keywordKinds = [.. _keywordStrings.Values];");
-        sb.AppendLine("    public static bool IsKeywordKind(SyntaxKind kind) => _keywordKinds.Contains(kind);");
-        sb.AppendLine("    public static bool ParseReservedWord(string text, out SyntaxKind kind) => _keywordStrings.TryGetValue(text, out kind);");
+        sb.AppendLine("    private static readonly HashSet<SyntaxKind> _reservedWordKinds = [.. _reservedWordStrings.Values];");
+        sb.AppendLine("    public static bool IsReservedWordKind(SyntaxKind kind) => _reservedWordKinds.Contains(kind);");
+        sb.AppendLine("    public static bool ParseReservedWord(string text, out SyntaxKind kind) => _reservedWordStrings.TryGetValue(text, out kind);");
+
+        var binaryOps = tokens.Where(t => t.IsBinaryOperator).GroupBy(t => t.Precedence).OrderByDescending(g => g.Key);
+        sb.AppendLine("    public static bool TryResolveOperatorPrecedence(SyntaxKind kind, out int precedence)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        switch (kind)");
+        sb.AppendLine("        {");
+        foreach (var group in binaryOps)
+        {
+            foreach (var t in group)
+                sb.AppendLine($"            case SyntaxKind.{t.Name}:");
+            sb.AppendLine($"                precedence = {group.Key};");
+            sb.AppendLine("                return true;");
+            sb.AppendLine();
+        }
+        sb.AppendLine("            default:");
+        sb.AppendLine("                precedence = -1;");
+        sb.AppendLine("                return false;");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+
+        var unaryOps = tokens.Where(t => t.IsUnaryOperator);
+        sb.AppendLine("    public static bool IsUnaryOperatorToken(SyntaxKind kind) => kind switch");
+        sb.AppendLine("    {");
+        foreach (var t in unaryOps)
+        {
+            sb.AppendLine($"        SyntaxKind.{t.Name} => true,");
+        }
+        sb.AppendLine("        _ => false,");
+        sb.AppendLine("    };");
+
         sb.AppendLine("    public static string? GetSyntaxTokenText(this SyntaxKind kind)");
         sb.AppendLine("    {");
         sb.AppendLine("        return kind switch");

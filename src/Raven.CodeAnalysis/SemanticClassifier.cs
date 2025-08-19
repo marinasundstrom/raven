@@ -13,8 +13,8 @@ public static class SemanticClassifier
         {
             var kind = descendant.Kind;
 
-            // Keywords
-            if (descendant.IsKeyword())
+            // Reserved words
+            if (descendant.IsReservedWord())
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }

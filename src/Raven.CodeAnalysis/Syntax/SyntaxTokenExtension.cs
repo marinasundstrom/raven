@@ -2,8 +2,8 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static class SyntaxTokenExtension
 {
-    public static bool IsKeyword(this SyntaxToken token)
+    public static bool IsReservedWord(this SyntaxToken token)
     {
-        return SyntaxFacts.IsKeywordKind(token.Kind);
+        return SyntaxFacts.IsReservedWordKind(token.Kind);
     }
 }

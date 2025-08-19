@@ -2,44 +2,6 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public static partial class SyntaxFacts
 {
-    public static bool TryResolveOperatorPrecedence(SyntaxKind kind, out int precedence)
-    {
-        switch (kind)
-        {
-            case SyntaxKind.StarToken:
-            case SyntaxKind.SlashToken:
-            case SyntaxKind.PercentToken:
-                precedence = 5;
-                return true;
-
-            case SyntaxKind.PlusToken:
-            case SyntaxKind.MinusToken:
-                precedence = 4;
-                return true;
-
-            case SyntaxKind.LessThanToken:
-            case SyntaxKind.LessThanOrEqualsToken:
-            case SyntaxKind.GreaterThanToken:
-            case SyntaxKind.GreaterThanOrEqualsToken:
-            case SyntaxKind.EqualsEqualsToken:
-            case SyntaxKind.NotEqualsToken:
-                precedence = 3;
-                return true;
-
-            case SyntaxKind.AndToken:
-                precedence = 2;
-                return true;
-
-            case SyntaxKind.OrToken:
-                precedence = 1;
-                return true;
-
-            default:
-                precedence = -1;
-                return false;
-        }
-    }
-
     public static bool IsExpression(SyntaxKind kind)
     {
         switch (kind)
@@ -148,15 +110,4 @@ public static partial class SyntaxFacts
         };
     }
 
-    public static bool IsUnaryOperatorToken(SyntaxKind kind)
-    {
-        return kind switch
-        {
-            SyntaxKind.PlusToken => true,        // Unary +
-            SyntaxKind.MinusToken => true,       // Unary -
-            SyntaxKind.ExclamationToken => true, // Logical not
-            SyntaxKind.AmpersandToken => true,   // Address-of
-            _ => false
-        };
-    }
 }
