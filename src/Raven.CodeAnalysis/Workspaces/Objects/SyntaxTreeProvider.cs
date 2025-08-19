@@ -18,17 +18,28 @@ public class SyntaxTreeProvider
         ".rav"
     };
 
+    /// <summary>Determines whether the specified document supports a syntax tree.</summary>
+    public virtual bool SupportsSyntaxTree(string name, string? filePath = null)
+    {
+        var path = filePath ?? name;
+        var ext = Path.GetExtension(path);
+        return s_sourceExtensions.Contains(ext);
+    }
+
+    /// <summary>Determines whether the specified document supports a semantic model.</summary>
+    public virtual bool SupportsSemanticModel(string name, string? filePath = null)
+        => SupportsSyntaxTree(name, filePath);
+
     /// <summary>
     /// Attempts to parse a <see cref="SyntaxTree"/> for the specified document
     /// name and text. Non-Raven files return <c>null</c>.
     /// </summary>
     public virtual SyntaxTree? TryParse(string name, SourceText text, string? filePath = null)
     {
-        var path = filePath ?? name;
-        var ext = Path.GetExtension(path);
-        if (!s_sourceExtensions.Contains(ext))
+        if (!SupportsSyntaxTree(name, filePath))
             return null;
 
+        var path = filePath ?? name;
         return SyntaxTree.ParseText(text, path: path);
     }
 }
