@@ -1,35 +1,54 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
 /// <summary>
-/// Immutable representation of a set of projects and documents.
+/// Immutable representation of a set of projects and documents. Acts as a facade
+/// over <see cref="SolutionInfo"/> data and lazily creates <see cref="Project"/>
+/// instances on demand.
 /// </summary>
 public sealed class Solution
 {
-    private readonly ImmutableDictionary<ProjectId, Project> _projects;
+    private readonly SolutionInfo _info;
+    private readonly ImmutableDictionary<ProjectId, ProjectInfo> _projectInfos;
+    private ImmutableDictionary<ProjectId, Project> _projectCache;
 
-    public Solution(HostServices hostServices)
-        : this(SolutionId.CreateNew(), VersionStamp.Create(), hostServices, ImmutableDictionary<ProjectId, Project>.Empty)
+    public Solution(HostServices services, Workspace? workspace = null)
+        : this(new SolutionInfo(new SolutionInfo.SolutionAttributes(SolutionId.CreateNew(), string.Empty, VersionStamp.Create()), ImmutableArray<ProjectInfo>.Empty), services, workspace, ImmutableDictionary<ProjectId, Project>.Empty)
     {
     }
 
-    private Solution(SolutionId id, VersionStamp version, HostServices hostServices, ImmutableDictionary<ProjectId, Project> projects)
+    private Solution(SolutionInfo info, HostServices services, Workspace? workspace, ImmutableDictionary<ProjectId, Project> projectCache)
     {
-        Id = id;
-        Version = version;
-        HostServices = hostServices;
-        _projects = projects;
+        _info = info;
+        Services = services;
+        Workspace = workspace;
+        _projectInfos = info.Projects.ToImmutableDictionary(p => p.Id);
+        _projectCache = projectCache;
     }
 
-    public SolutionId Id { get; }
-    public VersionStamp Version { get; }
-    public HostServices HostServices { get; }
+    public SolutionId Id => _info.Id;
+    public VersionStamp Version => _info.Version;
+    public HostServices Services { get; }
+    public Workspace? Workspace { get; }
 
-    public IEnumerable<Project> Projects => _projects.Values;
+    public IEnumerable<Project> Projects => _projectInfos.Values.Select(info => GetProject(info.Id)!);
 
-    public Project? GetProject(ProjectId id) => _projects.TryGetValue(id, out var p) ? p : null;
+    public Project? GetProject(ProjectId id)
+    {
+        if (!_projectInfos.TryGetValue(id, out var info))
+            return null;
+        if (!_projectCache.TryGetValue(id, out var project))
+        {
+            project = new Project(info, this);
+            _projectCache = _projectCache.Add(id, project);
+        }
+        return project;
+    }
 
     public Document? GetDocument(DocumentId id) => GetProject(id.ProjectId)?.GetDocument(id);
 
@@ -43,36 +62,54 @@ public sealed class Solution
     /// <summary>Adds a new project with the specified id and name.</summary>
     public Solution AddProject(ProjectId id, string name)
     {
-        if (_projects.ContainsKey(id)) return this;
-        var project = new Project(id, name, ImmutableDictionary<DocumentId, Document>.Empty, VersionStamp.Create());
-        var newProjects = _projects.Add(id, project);
-        return new Solution(Id, Version.GetNewerVersion(), HostServices, newProjects);
+        if (_projectInfos.ContainsKey(id)) return this;
+        var projAttr = new ProjectInfo.ProjectAttributes(id, name, VersionStamp.Create());
+        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>());
+        var newInfos = _projectInfos.Add(id, projInfo);
+        var newInfo = _info.WithProjects(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
 
     /// <summary>Adds a new document to the specified project.</summary>
     public Solution AddDocument(DocumentId id, string name, SourceText text)
     {
-        if (!_projects.TryGetValue(id.ProjectId, out var project))
+        if (!_projectInfos.TryGetValue(id.ProjectId, out var projInfo))
             throw new InvalidOperationException("Project not found");
-
-        var tree = HostServices.SyntaxTreeProvider.TryParse(name, text);
-        var document = new Document(id, name, text, tree, null, VersionStamp.Create());
-        var newProject = project.AddDocument(document);
-        var newProjects = _projects.SetItem(project.Id, newProject);
-        return new Solution(Id, Version.GetNewerVersion(), HostServices, newProjects);
+        var docInfo = DocumentInfo.Create(id, name, text);
+        projInfo = projInfo.WithDocuments(projInfo.Documents.Add(docInfo)).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(id.ProjectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
 
-    /// <summary>Replaces an existing document with a new instance.</summary>
+    /// <summary>Creates a new solution with updated text for the specified document.</summary>
+    public Solution WithDocumentText(DocumentId id, SourceText newText)
+    {
+        if (!_projectInfos.TryGetValue(id.ProjectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+        var docInfo = projInfo.Documents.FirstOrDefault(d => d.Id == id) ?? throw new InvalidOperationException("Document not found");
+        var updatedDoc = docInfo.WithText(newText);
+        var updatedDocs = projInfo.Documents.Select(d => d.Id == id ? updatedDoc : d).ToImmutableArray();
+        projInfo = projInfo.WithDocuments(updatedDocs).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(id.ProjectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    /// <summary>Replaces an existing document with the given instance.</summary>
     public Solution WithDocument(Document document)
     {
-        if (!_projects.TryGetValue(document.Id.ProjectId, out var project))
+        if (document is null) throw new ArgumentNullException(nameof(document));
+        var id = document.Id;
+        if (!_projectInfos.TryGetValue(id.ProjectId, out var projInfo))
             throw new InvalidOperationException("Project not found");
-
-        if (!project.ContainsDocument(document.Id))
+        if (projInfo.Documents.All(d => d.Id != id))
             throw new InvalidOperationException("Document not found");
-
-        var newProject = project.WithDocument(document);
-        var newProjects = _projects.SetItem(project.Id, newProject);
-        return new Solution(Id, Version.GetNewerVersion(), HostServices, newProjects);
+        var info = document.Info;
+        var updatedDocs = projInfo.Documents.Select(d => d.Id == id ? info : d).ToImmutableArray();
+        projInfo = projInfo.WithDocuments(updatedDocs).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(id.ProjectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
 }

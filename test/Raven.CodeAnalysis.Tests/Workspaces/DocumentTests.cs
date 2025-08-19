@@ -12,11 +12,12 @@ public class DocumentTests
     public async Task GetSyntaxTreeAsync_ShouldReturnSameInstance()
     {
         var source = SourceText.From("x = 1");
-        var solutionId = SolutionId.CreateNew();
-        var projectId = ProjectId.CreateNew(solutionId);
+        var solution = new Solution(HostServices.Default);
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
         var documentId = DocumentId.CreateNew(projectId);
-        var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
-        var document = new Document(documentId, "Test.rvn", source, tree, null, VersionStamp.Create());
+        solution = solution.AddDocument(documentId, "Test.rvn", source);
+        var document = solution.GetDocument(documentId)!;
 
         var tree1 = await document.GetSyntaxTreeAsync();
         var tree2 = await document.GetSyntaxTreeAsync();

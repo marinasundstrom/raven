@@ -44,11 +44,12 @@ public class EditorTests
     private static Document CreateDocument(string text)
     {
         var source = SourceText.From(text);
-        var solutionId = SolutionId.CreateNew();
-        var projectId = ProjectId.CreateNew(solutionId);
+        var solution = new Solution(HostServices.Default);
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
         var documentId = DocumentId.CreateNew(projectId);
-        var tree = SyntaxTree.ParseText(source, path: "Test");
-        return new Document(documentId, "Test", source, tree, null, VersionStamp.Create());
+        solution = solution.AddDocument(documentId, "Test", source);
+        return solution.GetDocument(documentId)!;
     }
 }
 

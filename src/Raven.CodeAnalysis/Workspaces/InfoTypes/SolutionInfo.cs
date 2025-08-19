@@ -24,6 +24,9 @@ public sealed class SolutionInfo
     public SolutionInfo WithProjects(IEnumerable<ProjectInfo> projects) =>
         new(Attributes, projects);
 
+    public SolutionInfo WithVersion(VersionStamp version) =>
+        new(new SolutionAttributes(Id, FilePath, version), Projects);
+
     public sealed record SolutionAttributes(SolutionId Id,
                                             string FilePath,
                                             VersionStamp Version);
