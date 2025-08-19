@@ -58,6 +58,32 @@ public sealed class Project
         return doc;
     }
 
+    /// <summary>
+    /// Adds a new document to this project and returns the resulting <see cref="Document"/>.
+    /// </summary>
+    /// <remarks>
+    /// The returned document belongs to a new <see cref="Solution"/> that contains the
+    /// added document. To update a <see cref="Workspace"/>, apply the returned document's
+    /// solution via <c>workspace.TryApplyChanges(document.Project.Solution)</c>.
+    /// </remarks>
+    public Document AddDocument(DocumentId id, string name, SourceText text)
+    {
+        if (id.ProjectId != Id)
+            throw new ArgumentException("DocumentId must belong to this project", nameof(id));
+
+        var newSolution = _solution.AddDocument(id, name, text);
+        return newSolution.GetDocument(id)!;
+    }
+
+    /// <summary>
+    /// Adds a new document with an automatically generated identifier.
+    /// </summary>
+    public Document AddDocument(string name, SourceText text)
+    {
+        var id = DocumentId.CreateNew(Id);
+        return AddDocument(id, name, text);
+    }
+
     internal Project AddDocument(DocumentInfo info)
     {
         var newInfos = _documentInfos.Add(info.Id, info);
