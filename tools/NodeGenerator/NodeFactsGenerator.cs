@@ -38,10 +38,6 @@ internal static class NodeFactsGenerator
 
         var sorted = concrete.OrderBy(n => n).ToList();
         var expressionKinds = sorted.Where(IsExpressionKind).ToList();
-        // Remove kinds that are types but not expressions
-        expressionKinds.Remove("PredefinedType");
-        expressionKinds.Remove("SelfExpression");
-        expressionKinds.Remove("TupleExpression");
         var statementKinds = sorted.Where(IsStatementKind).ToList();
         var literalKinds = sorted.Where(IsLiteralExpressionKind).ToList();
         var assignmentKinds = sorted.Where(IsAssignmentExpressionKind).ToList();
