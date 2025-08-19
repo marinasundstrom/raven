@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -58,7 +59,7 @@ public sealed class Document
             }
             catch
             {
-                newTree = SyntaxTree.ParseText(newText, path: FilePath ?? Name);
+                newTree = SyntaxTreeProvider.TryParse(Name, newText, FilePath ?? Name);
             }
         }
         return new Document(Id, Name, newText, newTree, FilePath, Version.GetNewerVersion());
