@@ -102,14 +102,15 @@ public class Workspace
         foreach (var doc in project.Documents)
         {
             presentDocs.Add(doc.Id);
+            var tree = doc.SyntaxTree;
+            if (tree is null)
+                continue;
             if (documentStates.TryGetValue(doc.Id, out var docState) && docState.Version == doc.Version)
             {
                 syntaxTrees.Add(docState.SyntaxTree);
             }
             else
             {
-                var text = doc.GetTextAsync().Result;
-                var tree = SyntaxTree.ParseText(text, options: null, path: doc.FilePath ?? doc.Name);
                 syntaxTrees.Add(tree);
                 documentStates[doc.Id] = new DocumentState(doc.Version, tree);
             }

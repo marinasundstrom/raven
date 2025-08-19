@@ -53,7 +53,8 @@ public sealed class Solution
         if (!_projects.TryGetValue(id.ProjectId, out var project))
             throw new InvalidOperationException("Project not found");
 
-        var document = new Document(id, name, text, null, VersionStamp.Create());
+        var tree = SyntaxTreeProvider.TryParse(name, text);
+        var document = new Document(id, name, text, tree, null, VersionStamp.Create());
         var newProject = project.AddDocument(document);
         var newProjects = _projects.SetItem(project.Id, newProject);
         return new Solution(Id, Version.GetNewerVersion(), newProjects);
