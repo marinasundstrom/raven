@@ -75,11 +75,20 @@
 
   <!-- Trivia and specials -->
   <TokenKind Name="WhitespaceTrivia" Text=" " IsTrivia="true" />
-  <TokenKind Name="LineFeedToken" Text="\n" />
-  <TokenKind Name="CarriageReturnToken" Text="\r" />
-  <TokenKind Name="CarriageReturnLineFeedToken" Text="\r\n" />
+  <TokenKind Name="TabTrivia" Text="\t" IsTrivia="true" />
+  <TokenKind Name="LineFeedTrivia" Text="\n" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnTrivia" Text="\r" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnLineFeedTrivia" Text="\r\n" IsTrivia="true" />
+  <TokenKind Name="EndOfLineTrivia" Text="\n" IsTrivia="true" />
+  <TokenKind Name="SingleLineCommentTrivia" Text="//" IsTrivia="true" />
+  <TokenKind Name="MultiLineCommentTrivia" Text="/*" IsTrivia="true" />
+
+  <TokenKind Name="Whitespace" Text=" " IsTrivia="true" />
+  <TokenKind Name="TabToken" Text="\t" IsTrivia="true" />
+  <TokenKind Name="LineFeedToken" Text="\n" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnToken" Text="\r" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnLineFeedToken" Text="\r\n" IsTrivia="true" />
   <TokenKind Name="NewLineToken" Text="\n" />
-  <TokenKind Name="TabToken" Text="\t" />
   <TokenKind Name="EndOfFileToken" Text="" />
 
   <!-- Tokens without fixed text -->
