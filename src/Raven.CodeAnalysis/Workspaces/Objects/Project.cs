@@ -39,6 +39,12 @@ public sealed class Project
     /// <summary>All documents in the project.</summary>
     public IEnumerable<Document> Documents => _documentInfos.Values.Select(info => GetDocument(info.Id)!);
 
+    /// <summary>Project-to-project references.</summary>
+    public IReadOnlyList<ProjectReference> ProjectReferences => _info.ProjectReferences;
+
+    /// <summary>Metadata references for this project.</summary>
+    public IReadOnlyList<MetadataReference> MetadataReferences => _info.MetadataReferences;
+
     /// <summary>Gets a document by its identifier.</summary>
     public Document? GetDocument(DocumentId id)
     {
