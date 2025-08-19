@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Raven.CodeAnalysis.Syntax;
@@ -21,7 +22,7 @@ public class Workspace
     {
         Kind = kind;
         Services = services ?? throw new ArgumentNullException(nameof(services));
-        _currentSolution = new Solution(services);
+        _currentSolution = new Solution(services, this);
     }
 
     public string Kind { get; }
@@ -34,14 +35,16 @@ public class Workspace
     public Solution CurrentSolution => _currentSolution;
 
     /// <summary>Creates a new empty <see cref="Solution"/> using the workspace services.</summary>
-    public Solution CreateSolution() => new Solution(Services);
+    public Solution CreateSolution() => new Solution(Services, this);
 
     /// <summary>Opens the specified <see cref="Solution"/> as the current solution.</summary>
     public void OpenSolution(Solution solution)
     {
         if (solution is null) throw new ArgumentNullException(nameof(solution));
-        if (!ReferenceEquals(solution.HostServices, Services))
+        if (!ReferenceEquals(solution.Services, Services))
             throw new InvalidOperationException("Solution was created with different host services.");
+        if (!ReferenceEquals(solution.Workspace, this))
+            throw new InvalidOperationException("Solution was created with different workspace.");
 
         TryApplyChanges(solution);
     }
@@ -50,8 +53,10 @@ public class Workspace
     public bool TryApplyChanges(Solution newSolution)
     {
         if (newSolution is null) throw new ArgumentNullException(nameof(newSolution));
-        if (!ReferenceEquals(newSolution.HostServices, Services))
+        if (!ReferenceEquals(newSolution.Services, Services))
             throw new InvalidOperationException("Solution was created with different host services.");
+        if (!ReferenceEquals(newSolution.Workspace, this))
+            throw new InvalidOperationException("Solution was created with different workspace.");
         var oldSolution = _currentSolution;
         if (ReferenceEquals(oldSolution, newSolution)) return true;
 

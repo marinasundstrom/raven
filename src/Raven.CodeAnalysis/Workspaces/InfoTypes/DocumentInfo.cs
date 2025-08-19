@@ -12,11 +12,12 @@ public sealed class DocumentInfo
     public DocumentId Id => Attributes.Id;
     public string Name => Attributes.Name;
     public SourceText Text => Attributes.Text;
+    public VersionStamp Version => Attributes.Version;
     public string? FilePath => Attributes.FilePath;
 
     /// <summary>Factory helper for convenience.</summary>
     public static DocumentInfo Create(DocumentId id, string name, SourceText text, string? filePath = null) =>
-        new(new DocumentAttributes(id, name, text, filePath));
+        new(new DocumentAttributes(id, name, text, VersionStamp.Create(), filePath));
 
     public DocumentInfo WithText(SourceText newText) => new(Attributes.WithText(newText));
 
@@ -29,10 +30,14 @@ public sealed class DocumentInfo
         DocumentId Id,
         string Name,
         SourceText Text,
+        VersionStamp Version,
         string? FilePath)
     {
-        public DocumentAttributes WithText(SourceText text) => text == Text ? this : this with { Text = text };
-        public DocumentAttributes WithName(string name) => name == Name ? this : this with { Name = name };
-        public DocumentAttributes WithFilePath(string? path) => path == FilePath ? this : this with { FilePath = path };
+        public DocumentAttributes WithText(SourceText text) =>
+            text == Text ? this : this with { Text = text, Version = Version.GetNewerVersion() };
+        public DocumentAttributes WithName(string name) =>
+            name == Name ? this : this with { Name = name, Version = Version.GetNewerVersion() };
+        public DocumentAttributes WithFilePath(string? path) =>
+            path == FilePath ? this : this with { FilePath = path, Version = Version.GetNewerVersion() };
     }
 }

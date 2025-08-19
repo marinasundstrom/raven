@@ -1,43 +1,68 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
 /// <summary>
-/// Represents a project within a <see cref="Solution"/>. Projects are immutable
-/// and contain a collection of <see cref="Document"/> instances.
+/// Represents a project within a <see cref="Solution"/>. Acts as a facade over
+/// immutable <see cref="ProjectInfo"/> data and owns a set of <see cref="Document"/>s.
 /// </summary>
 public sealed class Project
 {
-    private readonly ImmutableDictionary<DocumentId, Document> _documents;
+    private readonly ProjectInfo _info;
+    private readonly Solution _solution;
+    private ImmutableDictionary<DocumentId, Document> _documentCache = ImmutableDictionary<DocumentId, Document>.Empty;
+    private readonly ImmutableDictionary<DocumentId, DocumentInfo> _documentInfos;
 
-    internal Project(ProjectId id, string name, ImmutableDictionary<DocumentId, Document> documents, VersionStamp version)
+    internal Project(ProjectInfo info, Solution solution)
     {
-        Id = id;
-        Name = name;
-        _documents = documents;
-        Version = version;
+        _info = info ?? throw new ArgumentNullException(nameof(info));
+        _solution = solution ?? throw new ArgumentNullException(nameof(solution));
+        _documentInfos = info.Documents.ToImmutableDictionary(d => d.Id);
     }
 
-    public ProjectId Id { get; }
-    public string Name { get; }
-    public VersionStamp Version { get; }
+    /// <summary>The solution that contains this project.</summary>
+    public Solution Solution => _solution;
 
-    public IEnumerable<Document> Documents => _documents.Values;
+    /// <summary>The identifier for this project.</summary>
+    public ProjectId Id => _info.Id;
 
-    public bool ContainsDocument(DocumentId id) => _documents.ContainsKey(id);
+    /// <summary>The name of the project.</summary>
+    public string Name => _info.Name;
 
-    public Document? GetDocument(DocumentId id) => _documents.TryGetValue(id, out var d) ? d : null;
+    /// <summary>The current version of the project.</summary>
+    public VersionStamp Version => _info.Version;
 
-    internal Project AddDocument(Document document)
+    /// <summary>All documents in the project.</summary>
+    public IEnumerable<Document> Documents => _documentInfos.Values.Select(info => GetDocument(info.Id)!);
+
+    /// <summary>Gets a document by its identifier.</summary>
+    public Document? GetDocument(DocumentId id)
     {
-        var newDocs = _documents.Add(document.Id, document);
-        return new Project(Id, Name, newDocs, Version.GetNewerVersion());
+        if (!_documentInfos.TryGetValue(id, out var info))
+            return null;
+        if (!_documentCache.TryGetValue(id, out var doc))
+        {
+            doc = new Document(info, this);
+            _documentCache = _documentCache.Add(id, doc);
+        }
+        return doc;
     }
 
-    internal Project WithDocument(Document document)
+    internal Project AddDocument(DocumentInfo info)
     {
-        var newDocs = _documents.SetItem(document.Id, document);
-        return new Project(Id, Name, newDocs, Version.GetNewerVersion());
+        var newInfos = _documentInfos.Add(info.Id, info);
+        var newInfo = _info.WithDocuments(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Project(newInfo, _solution);
+    }
+
+    internal Project WithDocument(DocumentInfo info)
+    {
+        var newInfos = _documentInfos.SetItem(info.Id, info);
+        var newInfo = _info.WithDocuments(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Project(newInfo, _solution);
     }
 }
