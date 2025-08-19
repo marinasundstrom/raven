@@ -6,8 +6,8 @@ public static class HelperExtensions
     {
         name = name.ToCamelCase();
 
-        var x = SyntaxFacts.IsKeywordKind(SyntaxFacts.GetKeywordKind(name));
-        if (x)
+        var keywordKind = SyntaxFacts.GetKeywordKind(name);
+        if (SyntaxFacts.IsKeywordKind(keywordKind))
         {
             return $"@{name}";
         }

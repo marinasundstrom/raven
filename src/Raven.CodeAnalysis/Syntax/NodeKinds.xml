@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NodeKinds>
+  <NodeKind Name="GetAccessorDeclaration" Type="AccessorDeclaration" />
+  <NodeKind Name="SetAccessorDeclaration" Type="AccessorDeclaration" />
+  <NodeKind Name="NumericLiteralExpression" Type="LiteralExpression" />
+  <NodeKind Name="TrueLiteralExpression" Type="LiteralExpression" />
+  <NodeKind Name="FalseLiteralExpression" Type="LiteralExpression" />
+  <NodeKind Name="CharacterLiteralExpression" Type="LiteralExpression" />
+  <NodeKind Name="StringLiteralExpression" Type="LiteralExpression" />
+  <NodeKind Name="NullLiteralExpression" Type="LiteralExpression" />
+  <NodeKind Name="UnaryPlusExpression" Type="UnaryExpression" />
+  <NodeKind Name="UnaryMinusExpression" Type="UnaryExpression" />
+  <NodeKind Name="LogicalNotExpression" Type="UnaryExpression" />
+  <NodeKind Name="AddressOfExpression" Type="UnaryExpression" />
+  <NodeKind Name="AddExpression" Type="BinaryExpression" />
+  <NodeKind Name="SubtractExpression" Type="BinaryExpression" />
+  <NodeKind Name="MultiplyExpression" Type="BinaryExpression" />
+  <NodeKind Name="DivideExpression" Type="BinaryExpression" />
+  <NodeKind Name="ModuloExpression" Type="BinaryExpression" />
+  <NodeKind Name="PowerExpression" Type="BinaryExpression" />
+  <NodeKind Name="EqualsExpression" Type="BinaryExpression" />
+  <NodeKind Name="NotEqualsExpression" Type="BinaryExpression" />
+  <NodeKind Name="LessThanExpression" Type="BinaryExpression" />
+  <NodeKind Name="GreaterThanExpression" Type="BinaryExpression" />
+  <NodeKind Name="LessThanOrEqualsExpression" Type="BinaryExpression" />
+  <NodeKind Name="GreaterThanOrEqualsExpression" Type="BinaryExpression" />
+  <NodeKind Name="LogicalAndExpression" Type="BinaryExpression" />
+  <NodeKind Name="LogicalOrExpression" Type="BinaryExpression" />
+  <NodeKind Name="SimpleAssignmentExpression" Type="AssignmentExpression" />
+  <NodeKind Name="SimpleMemberAccessExpression" Type="MemberAccessExpression" />
+  <NodeKind Name="NotPattern" Type="UnaryPattern" />
+  <NodeKind Name="AndPattern" Type="BinaryPattern" />
+  <NodeKind Name="OrPattern" Type="BinaryPattern" />
+  <NodeKind Name="SkippedTokensTrivia" Type="StructuredTrivia" />
+</NodeKinds>

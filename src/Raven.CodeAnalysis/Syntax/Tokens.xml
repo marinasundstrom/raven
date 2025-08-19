@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Tokens>
+  <!-- Keywords -->
+  <TokenKind Name="VoidKeyword" Text="void" IsReservedWord="true" />
+  <TokenKind Name="NullKeyword" Text="null" IsReservedWord="true" />
+  <TokenKind Name="IntKeyword" Text="int" IsReservedWord="true" />
+  <TokenKind Name="StringKeyword" Text="string" IsReservedWord="true" />
+  <TokenKind Name="BoolKeyword" Text="bool" IsReservedWord="true" />
+  <TokenKind Name="CharKeyword" Text="char" IsReservedWord="true" />
+  <TokenKind Name="ImportKeyword" Text="import" IsReservedWord="true" />
+  <TokenKind Name="NamespaceKeyword" Text="namespace" IsReservedWord="true" />
+  <TokenKind Name="LetKeyword" Text="let" IsReservedWord="true" />
+  <TokenKind Name="VarKeyword" Text="var" IsReservedWord="true" />
+  <TokenKind Name="FuncKeyword" Text="func" IsReservedWord="true" />
+  <TokenKind Name="EnumKeyword" Text="enum" IsReservedWord="true" />
+  <TokenKind Name="StructKeyword" Text="struct" IsReservedWord="true" />
+  <TokenKind Name="ClassKeyword" Text="class" IsReservedWord="true" />
+  <TokenKind Name="InitKeyword" Text="init" IsReservedWord="true" />
+  <TokenKind Name="SelfKeyword" Text="self" IsReservedWord="true" />
+  <TokenKind Name="IfKeyword" Text="if" IsReservedWord="true" />
+  <TokenKind Name="ElseKeyword" Text="else" IsReservedWord="true" />
+  <TokenKind Name="WhileKeyword" Text="while" IsReservedWord="true" />
+  <TokenKind Name="ReturnKeyword" Text="return" IsReservedWord="true" />
+  <TokenKind Name="NewKeyword" Text="new" IsReservedWord="true" />
+  <TokenKind Name="TrueKeyword" Text="true" IsReservedWord="true" />
+  <TokenKind Name="FalseKeyword" Text="false" IsReservedWord="true" />
+  <TokenKind Name="IsKeyword" Text="is" IsReservedWord="true" />
+  <TokenKind Name="NotKeyword" Text="not" IsReservedWord="true" />
+  <TokenKind Name="AndToken" Text="and" IsReservedWord="true" IsBinaryOperator="true" Precedence="2" />
+  <TokenKind Name="OrToken" Text="or" IsReservedWord="true" IsBinaryOperator="true" Precedence="1" />
+  <TokenKind Name="RefKeyword" Text="ref" IsReservedWord="true" />
+  <TokenKind Name="OutKeyword" Text="out" IsReservedWord="true" />
+  <TokenKind Name="InKeyword" Text="in" IsReservedWord="true" />
+  <TokenKind Name="PublicKeyword" Text="public" IsReservedWord="true" />
+  <TokenKind Name="PrivateKeyword" Text="private" IsReservedWord="true" />
+  <TokenKind Name="InternalKeyword" Text="internal" IsReservedWord="true" />
+  <TokenKind Name="ProtectedKeyword" Text="protected" IsReservedWord="true" />
+  <TokenKind Name="StaticKeyword" Text="static" IsReservedWord="true" />
+  <TokenKind Name="AbstractKeyword" Text="abstract" IsReservedWord="true" />
+  <TokenKind Name="SealedKeyword" Text="sealed" IsReservedWord="true" />
+  <TokenKind Name="OverrideKeyword" Text="override" IsReservedWord="true" />
+  <TokenKind Name="GetKeyword" Text="get" IsReservedWord="true" />
+  <TokenKind Name="SetKeyword" Text="set" IsReservedWord="true" />
+
+  <!-- Operators and punctuation -->
+  <TokenKind Name="ArrowToken" Text="->" />
+  <TokenKind Name="FatArrowToken" Text="=>" />
+  <TokenKind Name="EqualsToken" Text="=" />
+  <TokenKind Name="EqualsEqualsToken" Text="==" IsBinaryOperator="true" Precedence="3" />
+  <TokenKind Name="NotEqualsToken" Text="!=" IsBinaryOperator="true" Precedence="3" />
+  <TokenKind Name="LessThanToken" Text="&lt;" IsBinaryOperator="true" Precedence="3" />
+  <TokenKind Name="LessThanOrEqualsToken" Text="&lt;=" IsBinaryOperator="true" Precedence="3" />
+  <TokenKind Name="GreaterThanToken" Text="&gt;" IsBinaryOperator="true" Precedence="3" />
+  <TokenKind Name="GreaterThanOrEqualsToken" Text="&gt;=" IsBinaryOperator="true" Precedence="3" />
+  <TokenKind Name="PlusToken" Text="+" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="4" />
+  <TokenKind Name="MinusToken" Text="-" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="4" />
+  <TokenKind Name="StarToken" Text="*" IsBinaryOperator="true" Precedence="5" />
+  <TokenKind Name="SlashToken" Text="/" IsBinaryOperator="true" Precedence="5" />
+  <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="5" />
+  <TokenKind Name="CaretToken" Text="^" />
+  <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" />
+  <TokenKind Name="BarToken" Text="|" />
+  <TokenKind Name="ExclamationToken" Text="!" IsUnaryOperator="true" />
+  <TokenKind Name="QuestionToken" Text="?" />
+  <TokenKind Name="DotToken" Text="." />
+  <TokenKind Name="CommaToken" Text="," />
+  <TokenKind Name="ColonToken" Text=":" />
+  <TokenKind Name="SemicolonToken" Text=";" />
+  <TokenKind Name="OpenParenToken" Text="(" />
+  <TokenKind Name="CloseParenToken" Text=")" />
+  <TokenKind Name="OpenBraceToken" Text="{" />
+  <TokenKind Name="CloseBraceToken" Text="}" />
+  <TokenKind Name="OpenBracketToken" Text="[" />
+  <TokenKind Name="CloseBracketToken" Text="]" />
+
+  <!-- Trivia and specials -->
+  <TokenKind Name="WhitespaceTrivia" Text=" " IsTrivia="true" />
+  <TokenKind Name="TabTrivia" Text="\t" IsTrivia="true" />
+  <TokenKind Name="LineFeedTrivia" Text="\n" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnTrivia" Text="\r" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnLineFeedTrivia" Text="\r\n" IsTrivia="true" />
+  <TokenKind Name="EndOfLineTrivia" Text="\n" IsTrivia="true" />
+  <TokenKind Name="SingleLineCommentTrivia" Text="//" IsTrivia="true" />
+  <TokenKind Name="MultiLineCommentTrivia" Text="/*" IsTrivia="true" />
+
+  <TokenKind Name="Whitespace" Text=" " IsTrivia="true" />
+  <TokenKind Name="TabToken" Text="\t" IsTrivia="true" />
+  <TokenKind Name="LineFeedToken" Text="\n" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnToken" Text="\r" IsTrivia="true" />
+  <TokenKind Name="CarriageReturnLineFeedToken" Text="\r\n" IsTrivia="true" />
+  <TokenKind Name="NewLineToken" Text="\n" />
+  <TokenKind Name="EndOfFileToken" Text="" />
+
+  <!-- Tokens without fixed text -->
+  <TokenKind Name="IdentifierToken" />
+  <TokenKind Name="NumericLiteralToken" />
+  <TokenKind Name="CharacterLiteralToken" />
+  <TokenKind Name="StringLiteralToken" />
+</Tokens>
