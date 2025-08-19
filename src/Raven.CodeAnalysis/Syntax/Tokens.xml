@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Tokens>
+  <!-- Keywords -->
+  <TokenKind Name="VoidKeyword" Text="void" IsKeyword="true" />
+  <TokenKind Name="NullKeyword" Text="null" IsKeyword="true" />
+  <TokenKind Name="IntKeyword" Text="int" IsKeyword="true" />
+  <TokenKind Name="StringKeyword" Text="string" IsKeyword="true" />
+  <TokenKind Name="BoolKeyword" Text="bool" IsKeyword="true" />
+  <TokenKind Name="CharKeyword" Text="char" IsKeyword="true" />
+  <TokenKind Name="ImportKeyword" Text="import" IsKeyword="true" />
+  <TokenKind Name="NamespaceKeyword" Text="namespace" IsKeyword="true" />
+  <TokenKind Name="LetKeyword" Text="let" IsKeyword="true" />
+  <TokenKind Name="VarKeyword" Text="var" IsKeyword="true" />
+  <TokenKind Name="FuncKeyword" Text="func" IsKeyword="true" />
+  <TokenKind Name="EnumKeyword" Text="enum" IsKeyword="true" />
+  <TokenKind Name="StructKeyword" Text="struct" IsKeyword="true" />
+  <TokenKind Name="ClassKeyword" Text="class" IsKeyword="true" />
+  <TokenKind Name="InitKeyword" Text="init" IsKeyword="true" />
+  <TokenKind Name="SelfKeyword" Text="self" IsKeyword="true" />
+  <TokenKind Name="IfKeyword" Text="if" IsKeyword="true" />
+  <TokenKind Name="ElseKeyword" Text="else" IsKeyword="true" />
+  <TokenKind Name="WhileKeyword" Text="while" IsKeyword="true" />
+  <TokenKind Name="ReturnKeyword" Text="return" IsKeyword="true" />
+  <TokenKind Name="NewKeyword" Text="new" IsKeyword="true" />
+  <TokenKind Name="TrueKeyword" Text="true" IsKeyword="true" />
+  <TokenKind Name="FalseKeyword" Text="false" IsKeyword="true" />
+  <TokenKind Name="IsKeyword" Text="is" IsKeyword="true" />
+  <TokenKind Name="NotKeyword" Text="not" IsKeyword="true" />
+  <TokenKind Name="AndKeyword" Text="and" IsKeyword="true" />
+  <TokenKind Name="OrKeyword" Text="or" IsKeyword="true" />
+  <TokenKind Name="RefKeyword" Text="ref" IsKeyword="true" />
+  <TokenKind Name="OutKeyword" Text="out" IsKeyword="true" />
+  <TokenKind Name="InKeyword" Text="in" IsKeyword="true" />
+  <TokenKind Name="PublicKeyword" Text="public" IsKeyword="true" />
+  <TokenKind Name="PrivateKeyword" Text="private" IsKeyword="true" />
+  <TokenKind Name="InternalKeyword" Text="internal" IsKeyword="true" />
+  <TokenKind Name="ProtectedKeyword" Text="protected" IsKeyword="true" />
+  <TokenKind Name="StaticKeyword" Text="static" IsKeyword="true" />
+  <TokenKind Name="AbstractKeyword" Text="abstract" IsKeyword="true" />
+  <TokenKind Name="SealedKeyword" Text="sealed" IsKeyword="true" />
+  <TokenKind Name="OverrideKeyword" Text="override" IsKeyword="true" />
+  <TokenKind Name="GetKeyword" Text="get" IsKeyword="true" />
+  <TokenKind Name="SetKeyword" Text="set" IsKeyword="true" />
+
+  <!-- Operators and punctuation -->
+  <TokenKind Name="ArrowToken" Text="->" />
+  <TokenKind Name="FatArrowToken" Text="=>" />
+  <TokenKind Name="EqualsToken" Text="=" />
+  <TokenKind Name="EqualsEqualsToken" Text="==" />
+  <TokenKind Name="NotEqualsToken" Text="!=" />
+  <TokenKind Name="LessThanToken" Text="&lt;" />
+  <TokenKind Name="LessThanOrEqualsToken" Text="&lt;=" />
+  <TokenKind Name="GreaterThanToken" Text="&gt;" />
+  <TokenKind Name="GreaterThanOrEqualsToken" Text="&gt;=" />
+  <TokenKind Name="PlusToken" Text="+" />
+  <TokenKind Name="MinusToken" Text="-" />
+  <TokenKind Name="StarToken" Text="*" />
+  <TokenKind Name="SlashToken" Text="/" />
+  <TokenKind Name="PercentToken" Text="%" />
+  <TokenKind Name="CaretToken" Text="^" />
+  <TokenKind Name="AmpersandToken" Text="&amp;" />
+  <TokenKind Name="BarToken" Text="|" />
+  <TokenKind Name="ExclamationToken" Text="!" />
+  <TokenKind Name="QuestionToken" Text="?" />
+  <TokenKind Name="DotToken" Text="." />
+  <TokenKind Name="CommaToken" Text="," />
+  <TokenKind Name="ColonToken" Text=":" />
+  <TokenKind Name="SemicolonToken" Text=";" />
+  <TokenKind Name="OpenParenToken" Text="(" />
+  <TokenKind Name="CloseParenToken" Text=")" />
+  <TokenKind Name="OpenBraceToken" Text="{" />
+  <TokenKind Name="CloseBraceToken" Text="}" />
+  <TokenKind Name="OpenBracketToken" Text="[" />
+  <TokenKind Name="CloseBracketToken" Text="]" />
+
+  <!-- Trivia and specials -->
+  <TokenKind Name="WhitespaceTrivia" Text=" " IsTrivia="true" />
+  <TokenKind Name="LineFeedToken" Text="\n" />
+  <TokenKind Name="CarriageReturnToken" Text="\r" />
+  <TokenKind Name="CarriageReturnLineFeedToken" Text="\r\n" />
+  <TokenKind Name="NewLineToken" Text="\n" />
+  <TokenKind Name="TabToken" Text="\t" />
+  <TokenKind Name="EndOfFileToken" Text="" />
+
+  <!-- Tokens without fixed text -->
+  <TokenKind Name="IdentifierToken" />
+  <TokenKind Name="NumericLiteralToken" />
+  <TokenKind Name="CharacterLiteralToken" />
+  <TokenKind Name="StringLiteralToken" />
+</Tokens>

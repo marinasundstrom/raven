@@ -8,8 +8,9 @@ using NodesShared;
 using Raven.Generators;
 
 var model = LoadSyntaxNodesFromXml("Model.xml");
+var tokens = LoadTokenKindsFromXml("Tokens.xml");
 
-string hash = await GetHashAsync(model);
+string hash = await GetHashAsync(model, tokens);
 
 var force = args.Contains("-f");
 
@@ -36,7 +37,7 @@ if (force)
     Console.WriteLine("Forcing generation");
 }
 
-await GenerateCode(model);
+await GenerateCode(model, tokens);
 
 // Write new hash to .stamp
 File.WriteAllText(stampPath, hash);
@@ -67,7 +68,7 @@ static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByNam
     }
 }
 
-static async Task<string> GetHashAsync(List<SyntaxNodeModel> model)
+static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKindModel> tokens)
 {
     using var memoryStream = new MemoryStream();
 
@@ -75,12 +76,22 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model)
 
     await Serialization.SerializeAsXml(model, xmlWriter);
 
-    // Compute SHA-256 hash
-    string hash = Convert.ToHexString(SHA256.HashData(memoryStream.GetBuffer()));
+    var tokensDoc = new XDocument(new XElement("Tokens", tokens.Select(t =>
+        new XElement("TokenKind",
+            new XAttribute("Name", t.Name),
+            t.Text is null ? null : new XAttribute("Text", t.Text),
+            t.IsKeyword ? new XAttribute("IsKeyword", t.IsKeyword) : null,
+            t.IsTrivia ? new XAttribute("IsTrivia", t.IsTrivia) : null))));
+
+    using var tokensStream = new MemoryStream();
+    tokensDoc.Save(tokensStream);
+
+    var combined = memoryStream.ToArray().Concat(tokensStream.ToArray()).ToArray();
+    string hash = Convert.ToHexString(SHA256.HashData(combined));
     return hash;
 }
 
-static async Task GenerateCode(List<SyntaxNodeModel> model)
+static async Task GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel> tokens)
 {
     if (!Directory.Exists("InternalSyntax/generated"))
         Directory.CreateDirectory("InternalSyntax/generated");
@@ -94,6 +105,15 @@ static async Task GenerateCode(List<SyntaxNodeModel> model)
         await GenerateGreenNode(nodesByName, node);
         await GenerateRedNode(nodesByName, node);
     }
+
+    var internalTokens = TokenGenerator.GenerateInternalFactory(tokens);
+    await File.WriteAllTextAsync("./InternalSyntax/generated/SyntaxFactory.Tokens.g.cs", internalTokens);
+
+    var redTokens = TokenGenerator.GenerateRedFactory(tokens);
+    await File.WriteAllTextAsync("./generated/SyntaxFactory.Tokens.g.cs", redTokens);
+
+    var factsTokens = TokenGenerator.GenerateSyntaxFacts(tokens);
+    await File.WriteAllTextAsync("./generated/SyntaxFacts.Tokens.g.cs", factsTokens);
 
     var unit = VisitorGenerator.GenerateVisitorClass(model);
     if (unit is not null)
@@ -164,7 +184,36 @@ List<SyntaxNodeModel> LoadSyntaxNodesFromXml(string path)
     return result;
 }
 
+List<TokenKindModel> LoadTokenKindsFromXml(string path)
+{
+    var doc = XDocument.Load(path);
+    var result = new List<TokenKindModel>();
+
+    foreach (var tokenElement in doc.Descendants("TokenKind"))
+    {
+        var token = new TokenKindModel
+        {
+            Name = tokenElement.Attribute("Name")?.Value ?? throw new Exception("TokenKind missing Name"),
+            Text = tokenElement.Attribute("Text")?.Value,
+            IsKeyword = ParseBool(tokenElement.Attribute("IsKeyword")),
+            IsTrivia = ParseBool(tokenElement.Attribute("IsTrivia"))
+        };
+
+        result.Add(token);
+    }
+
+    return result;
+}
+
 bool ParseBool(XAttribute? attr, bool defaultValue = false)
 {
     return attr != null && bool.TryParse(attr.Value, out var result) ? result : defaultValue;
+}
+
+record TokenKindModel
+{
+    public required string Name { get; init; }
+    public string? Text { get; init; }
+    public bool IsKeyword { get; init; }
+    public bool IsTrivia { get; init; }
 }
