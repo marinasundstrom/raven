@@ -106,21 +106,36 @@ public class Workspace
     /// </summary>
     public Compilation GetCompilation(ProjectId projectId)
     {
+        return GetCompilation(projectId, new HashSet<ProjectId>());
+    }
+
+    private Compilation GetCompilation(ProjectId projectId, HashSet<ProjectId> building)
+    {
         var project = CurrentSolution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
-        if (!_projectCompilations.TryGetValue(projectId, out var state))
+        if (!building.Add(projectId))
+            throw new InvalidOperationException("Circular project reference detected.");
+
+        try
         {
-            return BuildCompilation(project);
+            if (!_projectCompilations.TryGetValue(projectId, out var state))
+            {
+                return BuildCompilation(project, null, building);
+            }
+
+            if (state.Version == project.Version)
+                return state.Compilation;
+
+            return BuildCompilation(project, state, building);
         }
-
-        if (state.Version == project.Version)
-            return state.Compilation;
-
-        return BuildCompilation(project, state);
+        finally
+        {
+            building.Remove(projectId);
+        }
     }
 
-    private Compilation BuildCompilation(Project project, ProjectCompilationState? state = null)
+    private Compilation BuildCompilation(Project project, ProjectCompilationState? state, HashSet<ProjectId> building)
     {
         state ??= new ProjectCompilationState();
 
@@ -150,7 +165,16 @@ public class Workspace
         foreach (var id in toRemove)
             documentStates.Remove(id);
 
-        var compilation = Compilation.Create(project.Name, syntaxTrees.ToArray());
+        var references = new List<MetadataReference>();
+        references.AddRange(project.MetadataReferences);
+
+        foreach (var projRef in project.ProjectReferences)
+        {
+            var compRef = GetCompilation(projRef.ProjectId, building).ToMetadataReference();
+            references.Add(compRef);
+        }
+
+        var compilation = Compilation.Create(project.Name, syntaxTrees.ToArray(), references.ToArray());
 
         state.Version = project.Version;
         state.Compilation = compilation;

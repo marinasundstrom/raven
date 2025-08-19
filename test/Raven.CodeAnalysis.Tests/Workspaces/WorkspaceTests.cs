@@ -1,5 +1,6 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Text;
+using System;
 using System.Linq;
 using Xunit;
 
@@ -172,5 +173,58 @@ public class WorkspaceTest
         workspace.TryApplyChanges(solution);
 
         Assert.False(triggered);
+    }
+
+    [Fact]
+    public void GetCompilation_ShouldIncludeMetadataReferences()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "P");
+        var mscorlib = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+        solution = solution.AddMetadataReference(projectId, mscorlib);
+        workspace.TryApplyChanges(solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        Assert.Contains(mscorlib, compilation.References);
+    }
+
+    [Fact]
+    public void GetCompilation_ShouldIncludeProjectReferences()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+
+        var libId = ProjectId.CreateNew(solution.Id);
+        var appId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(libId, "Lib");
+        solution = solution.AddProject(appId, "App");
+        solution = solution.AddProjectReference(appId, new ProjectReference(libId));
+        workspace.TryApplyChanges(solution);
+
+        var libComp = workspace.GetCompilation(libId);
+        var appComp = workspace.GetCompilation(appId);
+
+        var refComp = Assert.Single(appComp.References.OfType<CompilationReference>());
+        Assert.Same(libComp, refComp.Compilation);
+    }
+
+    [Fact]
+    public void GetCompilation_CircularProjectReference_ShouldThrow()
+    {
+        var workspace = new AdhocWorkspace();
+        var solution = workspace.CurrentSolution;
+
+        var aId = ProjectId.CreateNew(solution.Id);
+        var bId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(aId, "A");
+        solution = solution.AddProject(bId, "B");
+        solution = solution.AddProjectReference(aId, new ProjectReference(bId));
+        solution = solution.AddProjectReference(bId, new ProjectReference(aId));
+        workspace.TryApplyChanges(solution);
+
+        Assert.Throws<InvalidOperationException>(() => workspace.GetCompilation(aId));
     }
 }

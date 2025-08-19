@@ -128,7 +128,7 @@ public class Compilation
 
     private readonly object _setupLock = new();
 
-    private void EnsureSetup()
+    internal void EnsureSetup()
     {
         if (setup) return;
 
@@ -558,13 +558,26 @@ public class Compilation
 
         if (!_metadataReferenceSymbols.TryGetValue(metadataReference, out var symbol))
         {
-            var portableExecutableReference = metadataReference as PortableExecutableReference;
-            if (portableExecutableReference is null)
-                throw new InvalidOperationException();
+            switch (metadataReference)
+            {
+                case PortableExecutableReference per:
+                {
+                    var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
+                    symbol = GetAssembly(assembly);
+                    break;
+                }
+                case CompilationReference cr:
+                {
+                    var compilation = cr.Compilation;
+                    compilation.EnsureSetup();
+                    symbol = compilation.Assembly;
+                    break;
+                }
+                default:
+                    throw new InvalidOperationException();
+            }
 
-            var assembly = _metadataLoadContext.LoadFromAssemblyPath(portableExecutableReference.FilePath);
-            symbol = GetAssembly(assembly);
-            _metadataReferenceSymbols[metadataReference] = symbol;
+            _metadataReferenceSymbols[metadataReference] = (IAssemblySymbol)symbol!;
         }
         return symbol;
     }

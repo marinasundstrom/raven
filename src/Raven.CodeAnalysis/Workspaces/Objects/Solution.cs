@@ -112,4 +112,32 @@ public sealed class Solution
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
+
+    /// <summary>Adds a metadata reference to the specified project.</summary>
+    public Solution AddMetadataReference(ProjectId projectId, MetadataReference reference)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        var updatedRefs = projInfo.MetadataReferences.Add(reference);
+        projInfo = projInfo.WithMetadataReferences(updatedRefs).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    /// <summary>Adds a project reference to the specified project.</summary>
+    public Solution AddProjectReference(ProjectId projectId, ProjectReference reference)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+        if (!_projectInfos.ContainsKey(reference.ProjectId))
+            throw new InvalidOperationException("Referenced project not found");
+
+        var updatedRefs = projInfo.ProjectReferences.Add(reference);
+        projInfo = projInfo.WithProjectReferences(updatedRefs).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
 }
