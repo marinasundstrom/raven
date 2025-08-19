@@ -14,23 +14,17 @@ Major components:
 
 ## Build & Test
 Run all commands from the repository root unless noted:
-```bash
-dotnet build              # build all projects
-dotnet test               # run unit tests
-```
-
-### Optional: Generate syntax nodes
-
-Run this if build fails because syntax nodes have not been generated:
 
 ```bash
+# To generate the syntax nodes (first time and then when Model.xml has changed)
 cd src/Raven.CodeAnalysis/Syntax
 dotnet run --project ../../../tools/NodeGenerator -- -f
 cd ../../..
+
+# Build and run tests for the main project
+dotnet build              # build all projects
+dotnet test               # run unit tests
 ```
-
-This command should normally run as part of the compilation process, but might fail in some cases.
-
 
 ## Coding Guidelines
 * Use idiomatic C# style, following .NET conventions.
