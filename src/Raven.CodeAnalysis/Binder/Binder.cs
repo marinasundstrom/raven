@@ -199,10 +199,6 @@ internal abstract class Binder
             var type = LookupType(ident.Identifier.Text);
             if (type is not null)
                 return type;
-
-            var ns = LookupNamespace(ident.Identifier.Text);
-            if (ns is not null)
-                throw new Exception($"Type '{typeSyntax}' could not be resolved.");
         }
 
         if (typeSyntax is GenericNameSyntax generic)
@@ -225,7 +221,14 @@ internal abstract class Binder
                 return symbol;
         }
 
-        throw new Exception($"Type '{typeSyntax}' could not be resolved.");
+        var name = typeSyntax switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text,
+            _ => typeSyntax.ToString()
+        };
+
+        _diagnostics.ReportUndefinedName(name, typeSyntax.GetLocation());
+        return Compilation.ErrorTypeSymbol;
     }
 
     private ITypeSymbol? ResolveQualifiedType(QualifiedNameSyntax qualified)

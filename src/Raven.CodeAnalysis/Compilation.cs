@@ -307,15 +307,6 @@ public class Compilation
             diagnostics.AddRange(model.GetDiagnostics(cancellationToken));
         }
 
-        /*
-        var diagnostics = BinderFactory
-            .GetAllBinders()
-            .SelectMany(b => b.Diagnostics.AsEnumerable())
-            .ToImmutableArray();
-        
-        diagnostics.AddRange(model.GetDiagnostics(cancellationToken));
-        */
-
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
     }
 
@@ -565,18 +556,18 @@ public class Compilation
             switch (metadataReference)
             {
                 case PortableExecutableReference per:
-                {
-                    var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
-                    symbol = GetAssembly(assembly);
-                    break;
-                }
+                    {
+                        var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
+                        symbol = GetAssembly(assembly);
+                        break;
+                    }
                 case CompilationReference cr:
-                {
-                    var compilation = cr.Compilation;
-                    compilation.EnsureSetup();
-                    symbol = compilation.Assembly;
-                    break;
-                }
+                    {
+                        var compilation = cr.Compilation;
+                        compilation.EnsureSetup();
+                        symbol = compilation.Assembly;
+                        break;
+                    }
                 default:
                     throw new InvalidOperationException();
             }
