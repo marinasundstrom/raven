@@ -38,7 +38,7 @@ if (force)
     Console.WriteLine("Forcing generation");
 }
 
-await GenerateCode(model, tokens);
+await GenerateCode(model, tokens, nodeKinds);
 
 // Write new hash to .stamp
 File.WriteAllText(stampPath, hash);
@@ -102,7 +102,7 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKi
     return hash;
 }
 
-static async Task GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel> tokens)
+static async Task GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds)
 {
     if (!Directory.Exists("InternalSyntax/generated"))
         Directory.CreateDirectory("InternalSyntax/generated");
@@ -125,6 +125,9 @@ static async Task GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel>
 
     var factsTokens = TokenGenerator.GenerateSyntaxFacts(tokens);
     await File.WriteAllTextAsync("./generated/SyntaxFacts.Tokens.g.cs", factsTokens);
+
+    var syntaxKind = SyntaxKindGenerator.Generate(model, nodeKinds, tokens);
+    await File.WriteAllTextAsync("./generated/SyntaxKind.g.cs", syntaxKind);
 
     var unit = VisitorGenerator.GenerateVisitorClass(model);
     if (unit is not null)

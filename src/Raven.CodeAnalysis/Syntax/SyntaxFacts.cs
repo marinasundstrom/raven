@@ -71,7 +71,7 @@ public static partial class SyntaxFacts
             case SyntaxKind.Block:
             case SyntaxKind.ExpressionStatement:
             case SyntaxKind.ReturnStatement:
-            case SyntaxKind.LocalDeclaration:
+            case SyntaxKind.LocalDeclarationStatement:
             case SyntaxKind.EmptyStatement:
             case SyntaxKind.GlobalStatement:
             case SyntaxKind.LocalFunctionStatement:

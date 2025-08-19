@@ -28,4 +28,8 @@
   <NodeKind Name="LogicalOrExpression" Type="BinaryExpression" />
   <NodeKind Name="SimpleAssignmentExpression" Type="AssignmentExpression" />
   <NodeKind Name="SimpleMemberAccessExpression" Type="MemberAccessExpression" />
+  <NodeKind Name="NotPattern" Type="UnaryPattern" />
+  <NodeKind Name="AndPattern" Type="BinaryPattern" />
+  <NodeKind Name="OrPattern" Type="BinaryPattern" />
+  <NodeKind Name="SkippedTokensTrivia" Type="StructuredTriviaSyntax" />
 </NodeKinds>
