@@ -53,16 +53,20 @@ public class Compilation
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
-        return new Compilation(assemblyName, syntaxTrees, [], options);
+        var core = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+        return new Compilation(assemblyName, syntaxTrees, [core], options);
     }
 
     public static Compilation Create(string assemblyName, CompilationOptions? options = null)
     {
-        return new Compilation(assemblyName, [], [], options);
+        var core = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+        return new Compilation(assemblyName, [], [core], options);
     }
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
+        if (references.Length == 0)
+            references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
         return new Compilation(assemblyName, syntaxTrees, references, options);
     }
 
