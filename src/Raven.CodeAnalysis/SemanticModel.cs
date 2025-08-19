@@ -43,6 +43,12 @@ public partial class SemanticModel
         {
             topLevelBinder.BindGlobalStatement(globalStmt);
         }
+
+        foreach (var typeDeclaration in root.DescendantNodes().OfType<TypeDeclarationSyntax>())
+        {
+            var typeDeclarationBinder = GetBinder(typeDeclaration) as TypeDeclarationBinder;
+            // Bind declaration
+        }
     }
 
     /// <summary>
