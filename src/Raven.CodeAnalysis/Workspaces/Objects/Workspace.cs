@@ -13,21 +13,45 @@ public class Workspace
     private readonly Dictionary<ProjectId, ProjectCompilationState> _projectCompilations = new();
 
     protected Workspace(string kind)
+        : this(kind, HostServices.Default)
+    {
+    }
+
+    protected Workspace(string kind, HostServices services)
     {
         Kind = kind;
-        _currentSolution = new Solution();
+        Services = services ?? throw new ArgumentNullException(nameof(services));
+        _currentSolution = new Solution(services);
     }
 
     public string Kind { get; }
+
+    /// <summary>Services available to this workspace.</summary>
+    public HostServices Services { get; }
 
     public event EventHandler<WorkspaceChangeEventArgs>? WorkspaceChanged;
 
     public Solution CurrentSolution => _currentSolution;
 
+    /// <summary>Creates a new empty <see cref="Solution"/> using the workspace services.</summary>
+    public Solution CreateSolution() => new Solution(Services);
+
+    /// <summary>Opens the specified <see cref="Solution"/> as the current solution.</summary>
+    public void OpenSolution(Solution solution)
+    {
+        if (solution is null) throw new ArgumentNullException(nameof(solution));
+        if (!ReferenceEquals(solution.HostServices, Services))
+            throw new InvalidOperationException("Solution was created with different host services.");
+
+        TryApplyChanges(solution);
+    }
+
     /// <summary>Attempts to apply a new solution and raises the appropriate change event.</summary>
     public bool TryApplyChanges(Solution newSolution)
     {
         if (newSolution is null) throw new ArgumentNullException(nameof(newSolution));
+        if (!ReferenceEquals(newSolution.HostServices, Services))
+            throw new InvalidOperationException("Solution was created with different host services.");
         var oldSolution = _currentSolution;
         if (ReferenceEquals(oldSolution, newSolution)) return true;
 
@@ -102,14 +126,15 @@ public class Workspace
         foreach (var doc in project.Documents)
         {
             presentDocs.Add(doc.Id);
+            var tree = doc.SyntaxTree;
+            if (tree is null)
+                continue;
             if (documentStates.TryGetValue(doc.Id, out var docState) && docState.Version == doc.Version)
             {
                 syntaxTrees.Add(docState.SyntaxTree);
             }
             else
             {
-                var text = doc.GetTextAsync().Result;
-                var tree = SyntaxTree.ParseText(text, options: null, path: doc.FilePath ?? doc.Name);
                 syntaxTrees.Add(tree);
                 documentStates[doc.Id] = new DocumentState(doc.Version, tree);
             }
