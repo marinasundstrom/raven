@@ -47,7 +47,8 @@ public class EditorTests
         var solutionId = SolutionId.CreateNew();
         var projectId = ProjectId.CreateNew(solutionId);
         var documentId = DocumentId.CreateNew(projectId);
-        return new Document(documentId, "Test", source, null, VersionStamp.Create());
+        var tree = SyntaxTree.ParseText(source, path: "Test");
+        return new Document(documentId, "Test", source, tree, null, VersionStamp.Create());
     }
 }
 

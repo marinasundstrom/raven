@@ -1,3 +1,6 @@
+using System.Threading;
+using System.Threading.Tasks;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
@@ -8,11 +11,12 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public sealed class Document
 {
-    internal Document(DocumentId id, string name, SourceText text, string? filePath, VersionStamp version)
+    internal Document(DocumentId id, string name, SourceText text, SyntaxTree? syntaxTree, string? filePath, VersionStamp version)
     {
         Id = id;
         Name = name;
         Text = text;
+        SyntaxTree = syntaxTree;
         FilePath = filePath;
         Version = version;
     }
@@ -31,14 +35,32 @@ public sealed class Document
 
     internal SourceText Text { get; }
 
+    internal SyntaxTree? SyntaxTree { get; }
+
     /// <summary>Asynchronously gets the text of the document.</summary>
     public Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(Text);
+
+    /// <summary>Asynchronously gets the syntax tree of the document, if any.</summary>
+    public Task<SyntaxTree?> GetSyntaxTreeAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(SyntaxTree);
 
     /// <summary>Creates a new document with updated text and a new version stamp.</summary>
     public Document WithText(SourceText newText)
     {
         if (newText is null) throw new ArgumentNullException(nameof(newText));
-        return new Document(Id, Name, newText, FilePath, Version.GetNewerVersion());
+        SyntaxTree? newTree = null;
+        if (SyntaxTree is not null)
+        {
+            try
+            {
+                newTree = SyntaxTree.WithChangedText(newText);
+            }
+            catch
+            {
+                newTree = SyntaxTree.ParseText(newText, path: FilePath ?? Name);
+            }
+        }
+        return new Document(Id, Name, newText, newTree, FilePath, Version.GetNewerVersion());
     }
 }

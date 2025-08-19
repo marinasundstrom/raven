@@ -10,20 +10,22 @@ public sealed class Solution
 {
     private readonly ImmutableDictionary<ProjectId, Project> _projects;
 
-    public Solution()
-        : this(SolutionId.CreateNew(), VersionStamp.Create(), ImmutableDictionary<ProjectId, Project>.Empty)
+    public Solution(HostServices hostServices)
+        : this(SolutionId.CreateNew(), VersionStamp.Create(), hostServices, ImmutableDictionary<ProjectId, Project>.Empty)
     {
     }
 
-    private Solution(SolutionId id, VersionStamp version, ImmutableDictionary<ProjectId, Project> projects)
+    private Solution(SolutionId id, VersionStamp version, HostServices hostServices, ImmutableDictionary<ProjectId, Project> projects)
     {
         Id = id;
         Version = version;
+        HostServices = hostServices;
         _projects = projects;
     }
 
     public SolutionId Id { get; }
     public VersionStamp Version { get; }
+    public HostServices HostServices { get; }
 
     public IEnumerable<Project> Projects => _projects.Values;
 
@@ -44,7 +46,7 @@ public sealed class Solution
         if (_projects.ContainsKey(id)) return this;
         var project = new Project(id, name, ImmutableDictionary<DocumentId, Document>.Empty, VersionStamp.Create());
         var newProjects = _projects.Add(id, project);
-        return new Solution(Id, Version.GetNewerVersion(), newProjects);
+        return new Solution(Id, Version.GetNewerVersion(), HostServices, newProjects);
     }
 
     /// <summary>Adds a new document to the specified project.</summary>
@@ -53,10 +55,11 @@ public sealed class Solution
         if (!_projects.TryGetValue(id.ProjectId, out var project))
             throw new InvalidOperationException("Project not found");
 
-        var document = new Document(id, name, text, null, VersionStamp.Create());
+        var tree = HostServices.SyntaxTreeProvider.TryParse(name, text);
+        var document = new Document(id, name, text, tree, null, VersionStamp.Create());
         var newProject = project.AddDocument(document);
         var newProjects = _projects.SetItem(project.Id, newProject);
-        return new Solution(Id, Version.GetNewerVersion(), newProjects);
+        return new Solution(Id, Version.GetNewerVersion(), HostServices, newProjects);
     }
 
     /// <summary>Replaces an existing document with a new instance.</summary>
@@ -70,6 +73,6 @@ public sealed class Solution
 
         var newProject = project.WithDocument(document);
         var newProjects = _projects.SetItem(project.Id, newProject);
-        return new Solution(Id, Version.GetNewerVersion(), newProjects);
+        return new Solution(Id, Version.GetNewerVersion(), HostServices, newProjects);
     }
 }
