@@ -62,6 +62,20 @@ internal abstract class Binder
 
     public virtual SymbolInfo BindReferencedSymbol(SyntaxNode node)
     {
+        // Handle type syntax first so qualified names and generics are resolved correctly.
+        if (node is TypeSyntax typeSyntax && node is not IdentifierNameSyntax)
+        {
+            try
+            {
+                var type = ResolveType(typeSyntax);
+                return new SymbolInfo(type);
+            }
+            catch
+            {
+                return SymbolInfo.None;
+            }
+        }
+
         return node switch
         {
             IdentifierNameSyntax id => BindIdentifierReference(id),
@@ -79,8 +93,20 @@ internal abstract class Binder
 
     internal virtual SymbolInfo BindIdentifierReference(IdentifierNameSyntax node)
     {
-        var symbol = LookupSymbol(node.Identifier.Text);
-        return symbol != null ? new SymbolInfo(symbol) : SymbolInfo.None;
+        var name = node.Identifier.Text;
+        var symbol = LookupSymbol(name);
+        if (symbol != null)
+            return new SymbolInfo(symbol);
+
+        var type = LookupType(name);
+        if (type != null)
+            return new SymbolInfo(type);
+
+        var ns = LookupNamespace(name);
+        if (ns != null)
+            return new SymbolInfo(ns);
+
+        return SymbolInfo.None;
     }
 
     internal virtual SymbolInfo BindMemberAccessReference(MemberAccessExpressionSyntax node)

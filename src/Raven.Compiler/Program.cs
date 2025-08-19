@@ -21,7 +21,7 @@ var stopwatch = Stopwatch.StartNew();
 // -s - display the syntax tree
 // -d - dump syntax (highlighted)
 
-var filePath = args.Length > 0 ? args[0] : "../../../samples/type-unions.rav";
+var filePath = args.Length > 0 ? args[0] : "../../../samples/classes.rav";
 var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : "test.dll"; //: null;
 
 var shouldPrintSyntaxTree = args.Contains("-s");

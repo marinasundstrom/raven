@@ -57,7 +57,7 @@ public partial class SemanticModel
             return symbolInfo;
 
         var binder = GetBinder(node);
-        var info = binder.BindReferencedSymbol(node);
+        var info = binder.BindSymbol(node);
         _symbolMappings[node] = info;
         return info;
     }
@@ -88,6 +88,24 @@ public partial class SemanticModel
             return new TypeInfo(null, null);
 
         return new TypeInfo(boundExpr.Type, boundExpr.GetConvertedType());
+    }
+
+    /// <summary>
+    /// Gets type information about a type syntax.
+    /// </summary>
+    /// <param name="typeSyntax">The type syntax node.</param>
+    public TypeInfo GetTypeInfo(TypeSyntax typeSyntax)
+    {
+        var binder = GetBinder(typeSyntax);
+        try
+        {
+            var type = binder.ResolveType(typeSyntax);
+            return new TypeInfo(type, type);
+        }
+        catch
+        {
+            return new TypeInfo(null, null);
+        }
     }
 
     /// <summary>
@@ -245,7 +263,7 @@ public partial class SemanticModel
                         var classBinder = new TypeDeclarationBinder(parentBinder, classSymbol);
                         _binderCache[classDecl] = classBinder;
                         RegisterClassSymbol(classDecl, classSymbol);
-                        RegisterClassMembers(classDecl, classSymbol, classBinder, parentNamespace);
+                        RegisterClassMembers(classDecl, classBinder);
                         break;
                     }
 
@@ -285,156 +303,41 @@ public partial class SemanticModel
         }
     }
 
-    private void RegisterClassMembers(ClassDeclarationSyntax classDecl, SourceNamedTypeSymbol classSymbol, TypeDeclarationBinder classBinder, INamespaceSymbol parentNamespace)
+    private void RegisterClassMembers(ClassDeclarationSyntax classDecl, TypeDeclarationBinder classBinder)
     {
         foreach (var member in classDecl.Members)
         {
             switch (member)
             {
                 case FieldDeclarationSyntax fieldDecl:
-                    {
-                        foreach (var decl in fieldDecl.Declaration.Declarators)
-                        {
-                            var fieldType = decl.TypeAnnotation is null
-                                ? Compilation.GetSpecialType(SpecialType.System_Object)
-                                : classBinder.ResolveType(decl.TypeAnnotation.Type);
-                            _ = new SourceFieldSymbol(
-                                decl.Identifier.Text,
-                                fieldType,
-                                isStatic: false,
-                                isLiteral: false,
-                                constantValue: null,
-                                classSymbol,
-                                classSymbol,
-                                parentNamespace.AsSourceNamespace(),
-                                [decl.GetLocation()],
-                                [decl.GetReference()]
-                            );
-                        }
-                        break;
-                    }
+                    var fieldBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    fieldBinder.BindFieldDeclaration(fieldDecl);
+                    _binderCache[fieldDecl] = fieldBinder;
+                    foreach (var decl in fieldDecl.Declaration.Declarators)
+                        _binderCache[decl] = fieldBinder;
+                    break;
+
                 case MethodDeclarationSyntax methodDecl:
-                    {
-                        var returnType = methodDecl.ReturnType is null
-                            ? Compilation.GetSpecialType(SpecialType.System_Void)
-                            : classBinder.ResolveType(methodDecl.ReturnType.Type);
-                        var methodSymbol = new SourceMethodSymbol(
-                            methodDecl.Identifier.Text,
-                            returnType,
-                            ImmutableArray<SourceParameterSymbol>.Empty,
-                            classSymbol,
-                            classSymbol,
-                            parentNamespace.AsSourceNamespace(),
-                            [methodDecl.GetLocation()],
-                            [methodDecl.GetReference()],
-                            isStatic: false);
+                    var memberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
+                    _binderCache[methodDecl] = methodBinder;
+                    break;
 
-                        var parameters = new List<SourceParameterSymbol>();
-                        foreach (var p in methodDecl.ParameterList.Parameters)
-                        {
-                            var pType = classBinder.ResolveType(p.TypeAnnotation!.Type);
-                            var pSymbol = new SourceParameterSymbol(
-                                p.Identifier.Text,
-                                pType,
-                                methodSymbol,
-                                classSymbol,
-                                parentNamespace.AsSourceNamespace(),
-                                [p.GetLocation()],
-                                [p.GetReference()]
-                            );
-                            parameters.Add(pSymbol);
-                        }
-
-                        methodSymbol.SetParameters(parameters);
-                        _binderCache[methodDecl] = new MethodBinder(methodSymbol, classBinder);
-                        break;
-                    }
                 case ConstructorDeclarationSyntax ctorDecl:
-                    {
-                        var ctorSymbol = new SourceMethodSymbol(
-                            ".ctor",
-                            Compilation.GetSpecialType(SpecialType.System_Void),
-                            ImmutableArray<SourceParameterSymbol>.Empty,
-                            classSymbol,
-                            classSymbol,
-                            parentNamespace.AsSourceNamespace(),
-                            [ctorDecl.GetLocation()],
-                            [ctorDecl.GetReference()],
-                            isStatic: false,
-                            methodKind: MethodKind.Constructor);
-
-                        var parameters = new List<SourceParameterSymbol>();
-                        foreach (var p in ctorDecl.ParameterList.Parameters)
-                        {
-                            var pType = classBinder.ResolveType(p.TypeAnnotation!.Type);
-                            var pSymbol = new SourceParameterSymbol(
-                                p.Identifier.Text,
-                                pType,
-                                ctorSymbol,
-                                classSymbol,
-                                parentNamespace.AsSourceNamespace(),
-                                [p.GetLocation()],
-                                [p.GetReference()]
-                            );
-                            parameters.Add(pSymbol);
-                        }
-
-                        ctorSymbol.SetParameters(parameters);
-                        _binderCache[ctorDecl] = new MethodBinder(ctorSymbol, classBinder);
-                        break;
-                    }
+                    var ctorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var ctorBinder = ctorMemberBinder.BindConstructorDeclaration(ctorDecl);
+                    _binderCache[ctorDecl] = ctorBinder;
+                    break;
 
                 case NamedConstructorDeclarationSyntax ctorDecl:
-                    {
-                        var ctorSymbol = new SourceMethodSymbol(
-                            ctorDecl.Identifier.Text,
-                            classSymbol,
-                            ImmutableArray<SourceParameterSymbol>.Empty,
-                            classSymbol,
-                            classSymbol,
-                            parentNamespace.AsSourceNamespace(),
-                            [ctorDecl.GetLocation()],
-                            [ctorDecl.GetReference()],
-                            isStatic: true,
-                            methodKind: MethodKind.NamedConstructor);
-
-                        var parameters = new List<SourceParameterSymbol>();
-                        foreach (var p in ctorDecl.ParameterList.Parameters)
-                        {
-                            var pType = classBinder.ResolveType(p.TypeAnnotation!.Type);
-                            var pSymbol = new SourceParameterSymbol(
-                                p.Identifier.Text,
-                                pType,
-                                ctorSymbol,
-                                classSymbol,
-                                parentNamespace.AsSourceNamespace(),
-                                [p.GetLocation()],
-                                [p.GetReference()]
-                            );
-                            parameters.Add(pSymbol);
-                        }
-
-                        ctorSymbol.SetParameters(parameters);
-                        _binderCache[ctorDecl] = new MethodBinder(ctorSymbol, classBinder);
-                        break;
-                    }
+                    var namedCtorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var namedCtorBinder = namedCtorMemberBinder.BindNamedConstructorDeclaration(ctorDecl);
+                    _binderCache[ctorDecl] = namedCtorBinder;
+                    break;
             }
         }
 
-        if (!classSymbol.Constructors.Any(x => x.Parameters.Length == 0))
-        {
-            _ = new SourceMethodSymbol(
-                ".ctor",
-                Compilation.GetSpecialType(SpecialType.System_Void),
-                ImmutableArray<SourceParameterSymbol>.Empty,
-                classSymbol,
-                classSymbol,
-                parentNamespace.AsSourceNamespace(),
-                [classDecl.GetLocation()],
-                [classDecl.GetReference()],
-                isStatic: false,
-                methodKind: MethodKind.Constructor);
-        }
+        classBinder.EnsureDefaultConstructor(classDecl);
     }
 
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)

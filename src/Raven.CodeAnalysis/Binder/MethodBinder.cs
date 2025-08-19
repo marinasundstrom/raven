@@ -1,13 +1,16 @@
+using System.Collections.Generic;
+using System.Linq;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-class MethodBinder : Binder
+class MethodBinder : TypeMemberBinder
 {
     private readonly IMethodSymbol _methodSymbol;
 
-    public MethodBinder(IMethodSymbol methodSymbol, Binder parent) : base(parent)
+    public MethodBinder(IMethodSymbol methodSymbol, Binder parent)
+        : base(parent, (INamedTypeSymbol)methodSymbol.ContainingType!)
     {
         _methodSymbol = methodSymbol;
     }
@@ -29,6 +32,13 @@ class MethodBinder : Binder
             return parentSymbol;
 
         return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
+    }
+
+    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    {
+        if (node is MethodDeclarationSyntax or ConstructorDeclarationSyntax or NamedConstructorDeclarationSyntax)
+            return _methodSymbol;
+        return base.BindDeclaredSymbol(node);
     }
 
     public IMethodSymbol GetMethodSymbol() => _methodSymbol;

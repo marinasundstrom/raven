@@ -1,10 +1,11 @@
-
-
+using System.Linq;
+using System.Collections.Immutable;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-internal sealed class TypeDeclarationBinder : Binder
+internal class TypeDeclarationBinder : Binder
 {
     private readonly INamedTypeSymbol _containingType;
 
@@ -14,17 +15,17 @@ internal sealed class TypeDeclarationBinder : Binder
         _containingType = containingType;
     }
 
-    public new ITypeSymbol ContainingSymbol => _containingType;
+    public new INamedTypeSymbol ContainingSymbol => _containingType;
 
     public override ISymbol? LookupSymbol(string name)
     {
-        var symbol = ContainingSymbol.GetMembers(name).FirstOrDefault();
+        var symbol = _containingType.GetMembers(name).FirstOrDefault();
         if (symbol is not null)
             return symbol;
 
-        var parentSymbol1 = ParentBinder?.LookupSymbol(name);
-        if (parentSymbol1 != null)
-            return parentSymbol1;
+        var parentSymbol = ParentBinder?.LookupSymbol(name);
+        if (parentSymbol != null)
+            return parentSymbol;
 
         return base.LookupSymbol(name);
     }
@@ -33,50 +34,26 @@ internal sealed class TypeDeclarationBinder : Binder
     {
         return node switch
         {
-            MethodDeclarationSyntax method => BindMethodSymbol(method),
-            ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
-            FieldDeclarationSyntax field => BindFieldSymbol(field),
+            ClassDeclarationSyntax => _containingType,
             _ => base.BindDeclaredSymbol(node)
         };
     }
 
-    private ISymbol? BindFieldSymbol(FieldDeclarationSyntax field)
+    public void EnsureDefaultConstructor(ClassDeclarationSyntax classDecl)
     {
-        foreach (var decl in field.Declaration.Declarators)
+        if (_containingType is INamedTypeSymbol named && !named.Constructors.Any(x => x.Parameters.Length == 0))
         {
-            var match = _containingType.GetMembers()
-                .OfType<IFieldSymbol>()
-                .FirstOrDefault(f => f.Name == decl.Identifier.Text);
-
-            if (match != null)
-                return match;
+            _ = new SourceMethodSymbol(
+                ".ctor",
+                Compilation.GetSpecialType(SpecialType.System_Void),
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                _containingType,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [classDecl.GetLocation()],
+                [classDecl.GetReference()],
+                isStatic: false,
+                methodKind: MethodKind.Constructor);
         }
-
-        return null;
     }
-
-    private ISymbol? BindMethodSymbol(MethodDeclarationSyntax method)
-    {
-        return _containingType.GetMembers()
-            .OfType<IMethodSymbol>()
-            .FirstOrDefault(m => m.Name == method.Identifier.Text &&
-                                 m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == method));
-    }
-
-    private ISymbol? BindConstructorSymbol(BaseConstructorDeclarationSyntax ctor)
-    {
-        string name = ".ctor";
-        
-        if (ctor is NamedConstructorDeclarationSyntax namedConstructor)
-        {
-            name = namedConstructor.Identifier.Text;
-        }
-        
-        return _containingType.GetMembers()
-            .OfType<IMethodSymbol>()
-            .FirstOrDefault(m => m.Name == name &&
-                                 m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == ctor));
-    }
-
-    // Implement BindMethodSymbol / BindFieldSymbol as needed
 }
