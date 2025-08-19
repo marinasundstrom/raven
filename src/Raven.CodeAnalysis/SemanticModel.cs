@@ -35,20 +35,8 @@ public partial class SemanticModel
 
     private void EnsureDiagnosticsCollected()
     {
-        var root = SyntaxTree.GetRoot();
-
-        var topLevelBinder = GetBinder(root) as TopLevelBinder;
-
-        foreach (var globalStmt in root.DescendantNodes().OfType<GlobalStatementSyntax>())
-        {
-            topLevelBinder.BindGlobalStatement(globalStmt);
-        }
-
-        foreach (var typeDeclaration in root.DescendantNodes().OfType<TypeDeclarationSyntax>())
-        {
-            var typeDeclarationBinder = GetBinder(typeDeclaration) as TypeDeclarationBinder;
-            // Bind declaration
-        }
+        // Binding is triggered during binder creation; simply ensure the root binder exists
+        _ = GetBinder(SyntaxTree.GetRoot());
     }
 
     /// <summary>
