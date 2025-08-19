@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Raven.CodeAnalysis.Syntax;
@@ -44,6 +46,14 @@ public sealed class Document
 
     internal DocumentInfo Info => _info;
 
+    /// <summary>Indicates whether this document can produce a syntax tree.</summary>
+    public bool SupportsSyntaxTree =>
+        Solution.Services.SyntaxTreeProvider.SupportsSyntaxTree(Name, FilePath);
+
+    /// <summary>Indicates whether this document can produce a semantic model.</summary>
+    public bool SupportsSemanticModel =>
+        Solution.Services.SyntaxTreeProvider.SupportsSemanticModel(Name, FilePath);
+
     internal SyntaxTree? SyntaxTree
     {
         get
@@ -58,9 +68,43 @@ public sealed class Document
     public Task<SourceText> GetTextAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(Text);
 
+    /// <summary>Asynchronously gets the version of the document's text.</summary>
+    public Task<VersionStamp> GetTextVersionAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(Version);
+
     /// <summary>Asynchronously gets the syntax tree of the document, if any.</summary>
     public Task<SyntaxTree?> GetSyntaxTreeAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(SyntaxTree);
+
+    /// <summary>Asynchronously gets the semantic model for this document, if supported.</summary>
+    public Task<SemanticModel?> GetSemanticModelAsync(CancellationToken cancellationToken = default)
+    {
+        if (!SupportsSemanticModel)
+            return Task.FromResult<SemanticModel?>(null);
+
+        var tree = SyntaxTree;
+        if (tree is null)
+            return Task.FromResult<SemanticModel?>(null);
+
+        Compilation compilation;
+        var workspace = Solution.Workspace;
+        if (workspace is not null)
+        {
+            compilation = workspace.GetCompilation(Project.Id);
+        }
+        else
+        {
+            var trees = Project.Documents
+                .Select(d => d.SyntaxTree)
+                .Where(t => t is not null)
+                .Cast<SyntaxTree>()
+                .ToArray();
+            compilation = Compilation.Create(Project.Name, trees);
+        }
+
+        var model = compilation.GetSemanticModel(tree);
+        return Task.FromResult<SemanticModel?>(model);
+    }
 
     /// <summary>Creates a new document with updated text using the owning solution.</summary>
     public Document WithText(SourceText newText)
@@ -68,5 +112,29 @@ public sealed class Document
         if (newText is null) throw new ArgumentNullException(nameof(newText));
         var newSolution = Solution.WithDocumentText(Id, newText);
         return newSolution.GetDocument(Id)!;
+    }
+
+    /// <summary>Creates a new document with the specified syntax root.</summary>
+    public Document WithSyntaxRoot(SyntaxNode root)
+    {
+        if (root is null) throw new ArgumentNullException(nameof(root));
+
+        if (!SupportsSyntaxTree)
+            throw new NotSupportedException("This document does not support syntax trees.");
+
+        var tree = root.SyntaxTree ?? SyntaxTree.Create((CompilationUnitSyntax)root, encoding: Text.Encoding, filePath: FilePath);
+        var text = tree.GetText() ?? SourceText.From(root.ToFullString());
+        var newSolution = Solution.WithDocumentText(Id, text);
+        var newDoc = newSolution.GetDocument(Id)!;
+        newDoc._syntaxTree = tree;
+        return newDoc;
+    }
+
+    /// <summary>Gets the text changes between this document and the specified old document.</summary>
+    public Task<IReadOnlyList<TextChange>> GetTextChangesAsync(Document oldDocument, CancellationToken cancellationToken = default)
+    {
+        if (oldDocument is null) throw new ArgumentNullException(nameof(oldDocument));
+        var changes = Text.GetTextChanges(oldDocument.Text);
+        return Task.FromResult(changes);
     }
 }
