@@ -25,7 +25,7 @@ public class MultiLineCommentTriviaTest
         trivia.ShouldNotBeNull();
     }
 
-    [Fact(Skip = "Fix")]
+    [Fact]
     public void MultiLineCommentTrivia_IsLeadingTriviaOfEndOFileToken()
     {
         var code = """

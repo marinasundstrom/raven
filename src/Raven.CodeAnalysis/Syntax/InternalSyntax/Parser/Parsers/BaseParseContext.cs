@@ -152,6 +152,12 @@ internal class BaseParseContext : ParseContext
 
         SyntaxTriviaList leadingTrivia = ReadTrivia(isTrailingTrivia: false);
 
+        if (_pendingTrivia.Count > 0)
+        {
+            leadingTrivia = new SyntaxTriviaList(_pendingTrivia.Concat(leadingTrivia.GetLeadingTrivia()).ToArray());
+            _pendingTrivia.Clear();
+        }
+
         // Check if we can extract a terminator from trivia
         var syntheticNewline = TryExtractNewlineTokenFromPendingTrivia(ref leadingTrivia);
         if (syntheticNewline != null)
@@ -167,12 +173,6 @@ internal class BaseParseContext : ParseContext
         }
 
         SyntaxTriviaList trailingTrivia = ReadTrivia(isTrailingTrivia: true);
-
-        if (_pendingTrivia.Count > 0)
-        {
-            leadingTrivia = new SyntaxTriviaList(_pendingTrivia.Concat(leadingTrivia.GetLeadingTrivia()).ToArray());
-            _pendingTrivia.Clear();
-        }
 
         return new SyntaxToken(token.Kind, token.Text, token.Value, token.Length, leadingTrivia, trailingTrivia, token.GetDiagnostics());
     }
@@ -273,7 +273,15 @@ internal class BaseParseContext : ParseContext
                         _stringBuilder.Append(current.Text);
                     }
 
-                    trivia.Add(new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, _stringBuilder.ToString()));
+                    var commentTrivia = new SyntaxTrivia(SyntaxKind.MultiLineCommentTrivia, _stringBuilder.ToString());
+
+                    if (isTrailingTrivia && _lexer.PeekToken().Kind == SyntaxKind.EndOfFileToken)
+                    {
+                        _pendingTrivia.Add(commentTrivia);
+                        break;
+                    }
+
+                    trivia.Add(commentTrivia);
                     continue;
                 }
             }
