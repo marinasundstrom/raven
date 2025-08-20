@@ -155,7 +155,7 @@ internal abstract class Binder
             return cached;
 
         var result = ParentBinder?.BindExpression(expression)
-                     ?? throw new NotImplementedException("BindExpression not implemented in root binder.");
+                     ?? new BoundErrorExpression(Compilation.ErrorTypeSymbol);
 
         CacheBoundNode(expression, result);
 
@@ -168,7 +168,7 @@ internal abstract class Binder
             return cached;
 
         var result = ParentBinder?.BindStatement(statement)
-                     ?? throw new NotImplementedException("BindStatement not implemented in root binder.");
+                     ?? new BoundExpressionStatement(new BoundErrorExpression(Compilation.ErrorTypeSymbol));
 
         CacheBoundNode(statement, result);
 
@@ -347,10 +347,12 @@ internal abstract class Binder
     }
 
     protected BoundNode? TryGetCachedBoundNode(SyntaxNode node)
-        => SemanticModel.TryGetCachedBoundNode(node);
+        => SemanticModel?.TryGetCachedBoundNode(node);
 
     protected void CacheBoundNode(SyntaxNode node, BoundNode bound)
-        => SemanticModel.CacheBoundNode(node, bound);
+    {
+        SemanticModel?.CacheBoundNode(node, bound);
+    }
 
     public virtual BoundNode GetOrBind(SyntaxNode node)
     {

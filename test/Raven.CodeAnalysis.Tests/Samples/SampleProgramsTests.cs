@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -75,5 +76,19 @@ public class SampleProgramsTests
         })!;
         run.WaitForExit();
         Assert.Equal(0, run.ExitCode);
+    }
+
+    [Theory]
+    [MemberData(nameof(SamplePrograms))]
+    public void Sample_should_load_into_compilation(string fileName, string[] _)
+    {
+        var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
+        var samplePath = Path.Combine(projectDir, "samples", fileName);
+        var text = File.ReadAllText(samplePath);
+        var tree = SyntaxTree.ParseText(text, path: samplePath);
+
+        var compilation = Compilation.Create("samples", new[] { tree }, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
     }
 }
