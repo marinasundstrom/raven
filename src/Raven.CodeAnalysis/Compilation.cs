@@ -458,6 +458,8 @@ public class Compilation
 
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
+        EnsureSetup();
+
         return _metadataReferenceSymbols
             .Select(x => x.Value)
             .Select(x => x.GetTypeByMetadataName(metadataName))
