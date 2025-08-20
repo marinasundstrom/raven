@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -44,7 +46,7 @@ public class SampleProgramsTests
             UseShellExecute = false,
             WorkingDirectory = projectDir,
         })!;
-        build.WaitForExit();
+        build.WaitForExit(TimeSpan.FromSeconds(2));
         Assert.Equal(0, build.ExitCode);
 
         var testDep = Path.Combine(projectDir, "TestDep.dll");
@@ -63,7 +65,7 @@ public class SampleProgramsTests
       ""version"": ""{version}""
     }}
   }}
-}}" );
+}}");
 
         var run = Process.Start(new ProcessStartInfo
         {
