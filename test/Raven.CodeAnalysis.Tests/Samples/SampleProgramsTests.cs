@@ -1,16 +1,12 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
+using System.Text.RegularExpressions;
 
-using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 
-using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class SampleProgramsTests
+public partial class SampleProgramsTests(ITestOutputHelper testOutput)
 {
     public static IEnumerable<object[]> SamplePrograms => new[]
     {
@@ -28,7 +24,7 @@ public class SampleProgramsTests
 
     [Theory]
     [MemberData(nameof(SamplePrograms))]
-    public void Sample_should_compile_and_run(string fileName, string[] args)
+    public async Task Sample_should_compile_and_run(string fileName, string[] args)
     {
         var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
         var samplePath = Path.Combine(projectDir, "samples", fileName);
@@ -46,7 +42,10 @@ public class SampleProgramsTests
             UseShellExecute = false,
             WorkingDirectory = projectDir,
         })!;
-        build.WaitForExit(TimeSpan.FromSeconds(2));
+
+        build.WaitForExit(TimeSpan.FromSeconds(3));
+        testOutput.WriteLine(StripAnsi((await build.StandardOutput.ReadToEndAsync())));
+
         Assert.Equal(0, build.ExitCode);
 
         var testDep = Path.Combine(projectDir, "TestDep.dll");
@@ -76,7 +75,10 @@ public class SampleProgramsTests
             UseShellExecute = false,
             WorkingDirectory = outputDir,
         })!;
-        run.WaitForExit();
+
+        run.WaitForExit(TimeSpan.FromSeconds(2));
+        testOutput.WriteLine(await run.StandardOutput.ReadToEndAsync());
+
         Assert.Equal(0, run.ExitCode);
     }
 
@@ -89,12 +91,23 @@ public class SampleProgramsTests
         var text = File.ReadAllText(samplePath);
         var tree = SyntaxTree.ParseText(text, path: samplePath);
 
+        var outputDir = Path.Combine(Path.GetTempPath(), "raven_samples", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(outputDir);
+
+        var testDepOutputPath = Path.Combine(outputDir, "TestDep.dll");
+
+        var testDep = Path.Combine(projectDir, "TestDep.dll");
+        if (File.Exists(testDep))
+            File.Copy(testDep, testDepOutputPath, overwrite: true);
+
         var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
 
         var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
                 .AddReferences([
                     MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
-                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)]);
+                    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Collections.dll")),
+                    MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+                    MetadataReference.CreateFromFile(testDepOutputPath)]);
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Empty(diagnostics);
@@ -114,11 +127,21 @@ public class SampleProgramsTests
         var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
 
         var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences([
-                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
-                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)]);
+                .AddReferences([
+                    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Collections.dll")),
+                    MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)]);
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Empty(diagnostics);
     }
+
+    static string StripAnsi(string input)
+    {
+        // Matches ANSI escape codes like \x1b[32m
+        return MyRegex().Replace(input, "");
+    }
+
+    [GeneratedRegex(@"\x1B\[[0-9;]*[A-Za-z]")]
+    private static partial Regex MyRegex();
 }

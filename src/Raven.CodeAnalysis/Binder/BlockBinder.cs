@@ -679,7 +679,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments)
     {
-        var symbol = LookupSymbol(name);
+        var symbol = LookupType(name);
 
         if (symbol is ITypeSymbol type && type is INamedTypeSymbol named)
         {
