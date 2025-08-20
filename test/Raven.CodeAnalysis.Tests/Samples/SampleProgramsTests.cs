@@ -92,7 +92,9 @@ public class SampleProgramsTests
         var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
 
         var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")));
+                .AddReferences([
+                    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)]);
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Empty(diagnostics);
