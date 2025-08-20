@@ -42,7 +42,7 @@ public class ImportResolutionTest : DiagnosticTestBase
         string testCode =
             """
             class C {
-                field: String;
+                let field: String;
             }
             """;
 
