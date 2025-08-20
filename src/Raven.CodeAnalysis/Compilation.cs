@@ -300,7 +300,7 @@ public class Compilation
 
     public ImmutableArray<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
-        List<Diagnostic> diagnostics = new List<Diagnostic>();
+        HashSet<Diagnostic> diagnostics = new HashSet<Diagnostic>();
 
         foreach (var syntaxTree in SyntaxTrees)
         {

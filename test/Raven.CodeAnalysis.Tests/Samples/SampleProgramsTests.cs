@@ -97,4 +97,26 @@ public class SampleProgramsTests
         var diagnostics = compilation.GetDiagnostics();
         Assert.Empty(diagnostics);
     }
+
+    [Fact]
+    public void Test()
+    {
+        var source = """
+        //import System
+
+        System.Console.WriteLine("Test")
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+
+        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+
+        var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences([
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)]);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+    }
 }

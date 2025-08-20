@@ -33,6 +33,7 @@ public partial class SemanticModel
 
             _diagnostics = _binderCache.Values
                 .SelectMany(b => b.Diagnostics.AsEnumerable())
+                .Distinct()
                 .ToImmutableArray();
         }
 

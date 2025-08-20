@@ -1,12 +1,6 @@
-﻿
+﻿namespace Raven.CodeAnalysis;
 
-
-
-using Raven.CodeAnalysis.Syntax;
-
-namespace Raven.CodeAnalysis;
-
-public class Diagnostic
+public class Diagnostic : IEquatable<Diagnostic>
 {
     private readonly object[]? _messageArgs;
 
@@ -30,18 +24,18 @@ public class Diagnostic
         return new Diagnostic(descriptor, location, messageArgs);
     }
 
-    public string GetDescription() => $"{Descriptor.DefaultSeverity.ToString().ToLower()} {Descriptor.Id}: {string.Format(Descriptor.MessageFormat, _messageArgs is not null ? ProcessArgs(_messageArgs).ToArray() : [])}";
+    public string GetDescription()
+        => $"{Descriptor.DefaultSeverity.ToString().ToLower()} {Descriptor.Id}: {GetMessage()}";
 
-    public string GetMessage() => string.Format(Descriptor.MessageFormat, _messageArgs is not null ? ProcessArgs(_messageArgs).ToArray() : []);
+    public string GetMessage()
+        => string.Format(Descriptor.MessageFormat, _messageArgs is not null ? ProcessArgs(_messageArgs).ToArray() : []);
 
     private IEnumerable<object> ProcessArgs(object[]? messageArgs)
     {
         return messageArgs?.Select(arg =>
         {
             if (arg is ISymbol symbol)
-            {
                 return symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            }
 
             return arg;
         }) ?? [];
@@ -52,39 +46,38 @@ public class Diagnostic
         throw new NotImplementedException();
     }
 
-    public override bool Equals(object? obj)
+    // ---- Equality ----
+
+    public bool Equals(Diagnostic? other)
     {
-        if (obj is not Diagnostic other)
+        if (ReferenceEquals(this, other))
+            return true;
+        if (other is null)
             return false;
 
-        if (!Descriptor.Equals(other.Descriptor))
+        // Descriptor and Location are expected to implement meaningful equality
+        if (!Equals(Descriptor, other.Descriptor))
             return false;
 
-        if (!Location.Equals(other.Location))
+        if (!Equals(Location, other.Location))
             return false;
 
-        var args1 = GetMessageArgs();
-        var args2 = other.GetMessageArgs();
-
-        /*
-        if (!args1.SequenceEqual(args2))
-            return false;
-        */
-
-        return true;
+        // Compare the fully formatted message (args normalized via ProcessArgs)
+        return string.Equals(GetMessage(), other.GetMessage(), StringComparison.Ordinal);
     }
+
+    public override bool Equals(object? obj) => Equals(obj as Diagnostic);
 
     public override int GetHashCode()
     {
         var hash = new HashCode();
         hash.Add(Descriptor);
         hash.Add(Location);
-
-        /*
-        foreach (var arg in GetMessageArgs())
-            hash.Add(arg);
-        */
-
+        // Hash by final formatted message to align with Equals
+        hash.Add(GetMessage(), StringComparer.Ordinal);
         return hash.ToHashCode();
     }
+
+    public static bool operator ==(Diagnostic? left, Diagnostic? right) => Equals(left, right);
+    public static bool operator !=(Diagnostic? left, Diagnostic? right) => !Equals(left, right);
 }
