@@ -5,20 +5,14 @@ namespace Raven.CodeAnalysis;
 class NamespaceBinder : Binder
 {
     private readonly INamespaceSymbol _namespaceSymbol;
-    private readonly Compilation _compilation;
-    private readonly SemanticModel? _semanticModel;
     private readonly List<INamespaceSymbol> _imports = new(); // Stores `using` directives
     private readonly List<SourceNamedTypeSymbol> _declaredTypes = [];
 
-    public NamespaceBinder(Binder parent, INamespaceSymbol ns, Compilation compilation, SemanticModel? semanticModel = null)
+    public NamespaceBinder(Binder parent, INamespaceSymbol ns)
         : base(parent)
     {
         _namespaceSymbol = ns;
-        _compilation = compilation;
-        _semanticModel = semanticModel;
     }
-
-    public override SemanticModel SemanticModel => _semanticModel ?? base.SemanticModel;
 
     /// <summary>
     /// Adds a namespace to the list of imports (`using System;`).
@@ -48,7 +42,7 @@ class NamespaceBinder : Binder
         }
 
         // 3. Finally, check global namespace for metadata types
-        return _compilation.GlobalNamespace.LookupType(name) ?? base.LookupType(name);
+        return Compilation.GlobalNamespace.LookupType(name) ?? base.LookupType(name);
     }
 
     public void DeclareType(SourceNamedTypeSymbol type)

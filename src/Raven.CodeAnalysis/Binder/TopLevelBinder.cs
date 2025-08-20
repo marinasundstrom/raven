@@ -1,6 +1,7 @@
 
 
 using Raven.CodeAnalysis.Syntax;
+using System.Collections.Generic;
 
 namespace Raven.CodeAnalysis;
 
@@ -15,21 +16,27 @@ class TopLevelBinder : BlockBinder
 
     public IMethodSymbol MainMethod => (IMethodSymbol)ContainingSymbol;
 
-    public void BindGlobalStatement(GlobalStatementSyntax stmt)
+    public void BindGlobalStatements(IEnumerable<GlobalStatementSyntax> statements)
     {
-        if (stmt.Statement is LocalFunctionStatementSyntax localFunction)
+        // Declare all local functions first so they are available to subsequent statements
+        foreach (var stmt in statements)
         {
-            var localFuncBinder = SemanticModel.GetBinder(localFunction, this);
-            if (localFuncBinder is LocalFunctionBinder lfBinder)
+            if (stmt.Statement is LocalFunctionStatementSyntax localFunc)
             {
-                var symbol = lfBinder.GetMethodSymbol();
-                DeclareLocalFunction(symbol);
+                var binder = SemanticModel.GetBinder(localFunc, this);
+                if (binder is LocalFunctionBinder lfBinder)
+                    DeclareLocalFunction(lfBinder.GetMethodSymbol());
             }
-            BindStatement(localFunction);
-            return;
         }
 
-        BindStatement(stmt.Statement);
+        // Bind each statement
+        foreach (var stmt in statements)
+        {
+            if (stmt.Statement is LocalFunctionStatementSyntax localFunction)
+                BindStatement(localFunction);
+            else
+                BindStatement(stmt.Statement);
+        }
     }
 
     public override ISymbol? LookupSymbol(string name)

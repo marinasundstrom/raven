@@ -16,7 +16,7 @@ Major components:
 Run all commands from the repository root unless noted:
 
 ```bash
-# To generate the syntax nodes (first time and then when Model.xml has changed)
+# Generate syntax nodes (run whenever working in Raven.CodeAnalysis or when Model.xml changes)
 cd src/Raven.CodeAnalysis/Syntax
 dotnet run --project ../../../tools/NodeGenerator -- -f
 cd ../../..
@@ -35,6 +35,7 @@ dotnet test               # run unit tests
 ## Contribution Checklist
 * Run `dotnet build` and `dotnet test`.
 * Ensure generated files (e.g., via `tools/NodeGenerator`) are up to date.
+* Add or update unit tests for every fix or feature.
 * Include concise commit messages (`feat:`, `fix:`, `docs:` etc.).
 * Provide PR summaries referencing relevant diagnostics or examples.
 
