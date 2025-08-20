@@ -1,12 +1,6 @@
-using System;
-using System.IO;
 using System.Reflection;
-using System.Runtime.Loader;
 
-using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
-
-using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -29,10 +23,12 @@ class Foo {
 
         var runtimePath = ReferenceAssemblyPaths.GetRuntimeDll();
 
+        MetadataReference[] references = [
+                MetadataReference.CreateFromFile(runtimePath)];
+
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
-            .AddReferences(
-                MetadataReference.CreateFromFile(runtimePath));
+            .AddReferences(references);
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -41,7 +37,10 @@ class Foo {
 
         peStream.Seek(0, SeekOrigin.Begin);
 
-        var assembly = AssemblyLoadContext.Default.LoadFromStream(peStream);
+        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
+        using var mlc = new MetadataLoadContext(resolver);
+
+        var assembly = mlc.LoadFromStream(peStream);
 
         Assert.NotNull(assembly.GetType("Foo", true));
     }
