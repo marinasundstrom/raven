@@ -89,7 +89,11 @@ public class SampleProgramsTests
         var text = File.ReadAllText(samplePath);
         var tree = SyntaxTree.ParseText(text, path: samplePath);
 
-        var compilation = Compilation.Create("samples", new[] { tree }, new CompilationOptions(OutputKind.ConsoleApplication));
+        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+
+        var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")));
+
         var diagnostics = compilation.GetDiagnostics();
         Assert.Empty(diagnostics);
     }
