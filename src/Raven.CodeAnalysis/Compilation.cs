@@ -49,6 +49,10 @@ public class Compilation
 
     internal BinderFactory BinderFactory { get; private set; }
 
+    internal DeclarationTable DeclarationTable { get; private set; }
+
+    internal SymbolFactory SymbolFactory { get; } = new SymbolFactory();
+
     public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= new ErrorTypeSymbol(this, "Error", null, [], []);
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
@@ -164,6 +168,7 @@ public class Compilation
         }
 
         BinderFactory = new BinderFactory(this);
+        DeclarationTable = new DeclarationTable(SyntaxTrees);
 
         Assembly = new SourceAssemblySymbol(AssemblyName, []);
 

@@ -59,7 +59,7 @@ class BinderFactory
     private Binder CreateNamespaceBinder(NamespaceDeclarationSyntax nsSyntax, Binder parentBinder)
     {
         var nsSymbol = _compilation.GlobalNamespace.LookupNamespace(nsSyntax.Name.ToString());
-        var nsBinder = new NamespaceBinder(parentBinder, nsSymbol!, _compilation);
+        var nsBinder = new NamespaceBinder(parentBinder, nsSymbol!);
 
         // Register `import` directives
         foreach (var importDirective in nsSyntax.Imports)

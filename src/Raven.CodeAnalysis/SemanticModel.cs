@@ -10,6 +10,7 @@ public partial class SemanticModel
     private readonly Dictionary<SyntaxNode, Binder> _binderCache = new();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
     private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
+    private IImmutableList<Diagnostic>? _diagnostics;
 
     public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
     {
@@ -26,17 +27,31 @@ public partial class SemanticModel
 
     public IImmutableList<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
-        EnsureDiagnosticsCollected();
+        if (_diagnostics is null)
+        {
+            EnsureDiagnosticsCollected();
 
-        return _binderCache.Values
-             .SelectMany(b => b.Diagnostics.AsEnumerable())
-             .ToImmutableArray();
+            _diagnostics = _binderCache.Values
+                .SelectMany(b => b.Diagnostics.AsEnumerable())
+                .ToImmutableArray();
+        }
+
+        return _diagnostics;
     }
 
     private void EnsureDiagnosticsCollected()
     {
-        // Binding is triggered during binder creation; simply ensure the root binder exists
-        _ = GetBinder(SyntaxTree.GetRoot());
+        var root = SyntaxTree.GetRoot();
+
+        foreach (var node in root.DescendantNodesAndSelf())
+        {
+            var binder = GetBinder(node);
+
+            if (node is ExpressionSyntax || node is StatementSyntax)
+            {
+                binder.GetOrBind(node);
+            }
+        }
     }
 
     /// <summary>
@@ -64,6 +79,15 @@ public partial class SemanticModel
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
         var binder = GetBinder(node);
+
+        if (Compilation.DeclarationTable.TryGetDeclKey(node, out var key))
+        {
+            return Compilation.SymbolFactory.GetOrCreate(key, () =>
+            {
+                return (Symbol)binder.BindDeclaredSymbol(node)!;
+            });
+        }
+
         return binder.BindDeclaredSymbol(node);
     }
 
@@ -174,14 +198,14 @@ public partial class SemanticModel
             targetNamespace = Compilation.GetNamespaceSymbol(fileScopedNamespace.Name.ToString())
                              ?? throw new Exception("Namespace not found");
 
-            namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace, Compilation, this);
+            namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace);
             parentBinder = namespaceBinder;
             _binderCache[fileScopedNamespace] = namespaceBinder;
         }
         else
         {
             targetNamespace = Compilation.SourceGlobalNamespace;
-            namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace, Compilation, this);
+            namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace);
             parentBinder = namespaceBinder;
         }
 
@@ -206,28 +230,15 @@ public partial class SemanticModel
 
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, INamespaceSymbol namespaceSymbol, Binder parentBinder)
     {
-        // Step 3: Create synthesized Main
         var programClass = new SynthesizedProgramClassSymbol(Compilation, namespaceSymbol.AsSourceNamespace(), [cu.GetLocation()], [cu.GetReference()]);
         var mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()]);
         var topLevelBinder = new TopLevelBinder(parentBinder, this, mainMethod);
 
-        // Step 5: Register and bind global statements
-        foreach (var stmt in cu.DescendantNodes().OfType<GlobalStatementSyntax>())
-        {
-            if (stmt.Statement is LocalFunctionStatementSyntax localFunc)
-            {
-                var binder = GetBinder(localFunc, topLevelBinder);
-                if (binder is LocalFunctionBinder lfBinder)
-                    topLevelBinder.DeclareLocalFunction(lfBinder.GetMethodSymbol());
-            }
-        }
+        var globals = cu.DescendantNodes().OfType<GlobalStatementSyntax>().ToList();
+        topLevelBinder.BindGlobalStatements(globals);
 
-        foreach (var stmt in cu.DescendantNodes().OfType<GlobalStatementSyntax>())
-        {
-            topLevelBinder.BindGlobalStatement(stmt);
-
+        foreach (var stmt in globals)
             _binderCache[stmt] = topLevelBinder;
-        }
 
         return topLevelBinder;
     }
@@ -243,7 +254,7 @@ public partial class SemanticModel
                         var nsSymbol = Compilation.GetNamespaceSymbol(nsDecl.Name.ToString())
                                         ?? throw new Exception($"Namespace not found: {nsDecl.Name}");
 
-                        var nsBinder = new NamespaceBinder(parentBinder, nsSymbol, Compilation);
+                        var nsBinder = new NamespaceBinder(parentBinder, nsSymbol);
                         _binderCache[nsDecl] = nsBinder;
 
                         RegisterNamespaceMembers(nsDecl, nsBinder, nsSymbol);
@@ -263,7 +274,7 @@ public partial class SemanticModel
                             [classDecl.GetReference()]
                         );
 
-                        var classBinder = new TypeDeclarationBinder(parentBinder, classSymbol);
+                        var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
                         _binderCache[classDecl] = classBinder;
                         RegisterClassSymbol(classDecl, classSymbol);
                         RegisterClassMembers(classDecl, classBinder);
@@ -282,6 +293,9 @@ public partial class SemanticModel
                             [enumDecl.GetLocation()],
                             [enumDecl.GetReference()]
                         );
+
+                        var enumBinder = new EnumDeclarationBinder(parentBinder, enumSymbol, enumDecl);
+                        _binderCache[enumDecl] = enumBinder;
 
                         int value = 0;
                         foreach (var enumMember in enumDecl.Members)
@@ -306,7 +320,7 @@ public partial class SemanticModel
         }
     }
 
-    private void RegisterClassMembers(ClassDeclarationSyntax classDecl, TypeDeclarationBinder classBinder)
+    private void RegisterClassMembers(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
     {
         foreach (var member in classDecl.Members)
         {
@@ -337,10 +351,64 @@ public partial class SemanticModel
                     var namedCtorBinder = namedCtorMemberBinder.BindNamedConstructorDeclaration(ctorDecl);
                     _binderCache[ctorDecl] = namedCtorBinder;
                     break;
+
+                case ClassDeclarationSyntax nestedClass:
+                    var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
+                    var nestedSymbol = new SourceNamedTypeSymbol(
+                        nestedClass.Identifier.Text,
+                        Compilation.GetTypeByMetadataName("System.Object"),
+                        TypeKind.Class,
+                        parentType,
+                        parentType,
+                        classBinder.CurrentNamespace!.AsSourceNamespace(),
+                        [nestedClass.GetLocation()],
+                        [nestedClass.GetReference()]
+                    );
+
+                    var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
+                    _binderCache[nestedClass] = nestedBinder;
+                    RegisterClassSymbol(nestedClass, nestedSymbol);
+                    RegisterClassMembers(nestedClass, nestedBinder);
+                    nestedBinder.EnsureDefaultConstructor();
+                    break;
+
+                case EnumDeclarationSyntax enumDecl:
+                    var parentTypeForEnum = (INamedTypeSymbol)classBinder.ContainingSymbol;
+                    var enumSymbol = new SourceNamedTypeSymbol(
+                        enumDecl.Identifier.Text,
+                        Compilation.GetTypeByMetadataName("System.Enum"),
+                        TypeKind.Enum,
+                        parentTypeForEnum,
+                        parentTypeForEnum,
+                        classBinder.CurrentNamespace!.AsSourceNamespace(),
+                        [enumDecl.GetLocation()],
+                        [enumDecl.GetReference()]
+                    );
+
+                    var enumBinder = new EnumDeclarationBinder(classBinder, enumSymbol, enumDecl);
+                    _binderCache[enumDecl] = enumBinder;
+
+                    int value = 0;
+                    foreach (var enumMember in enumDecl.Members)
+                    {
+                        _ = new SourceFieldSymbol(
+                            enumMember.Identifier.Text,
+                            enumSymbol,
+                            isStatic: true,
+                            isLiteral: true,
+                            constantValue: value++,
+                            enumSymbol,
+                            enumSymbol,
+                            classBinder.CurrentNamespace!.AsSourceNamespace(),
+                            [enumMember.GetLocation()],
+                            [enumMember.GetReference()]
+                        );
+                    }
+                    break;
             }
         }
 
-        classBinder.EnsureDefaultConstructor(classDecl);
+        classBinder.EnsureDefaultConstructor();
     }
 
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
