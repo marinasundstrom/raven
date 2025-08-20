@@ -57,14 +57,12 @@ public class Compilation
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
-        var core = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
-        return new Compilation(assemblyName, syntaxTrees, [core], options);
+        return new Compilation(assemblyName, syntaxTrees, [], options);
     }
 
     public static Compilation Create(string assemblyName, CompilationOptions? options = null)
     {
-        var core = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
-        return new Compilation(assemblyName, [], [core], options);
+        return new Compilation(assemblyName, [], [], options);
     }
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)

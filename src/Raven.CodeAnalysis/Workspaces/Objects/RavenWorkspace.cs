@@ -21,7 +21,7 @@ public sealed class RavenWorkspace : Workspace
     /// Creates a new <see cref="RavenWorkspace"/> with framework references for the
     /// specified SDK version and target framework.
     /// </summary>
-    public static RavenWorkspace Create(string sdkVersion = "9.0.7", string targetFramework = "net9.0")
+    public static RavenWorkspace Create(string sdkVersion = "9.0.*", string targetFramework = "net9.0")
     {
         var paths = ReferenceAssemblyPaths.GetReferenceAssemblyPaths(sdkVersion, targetFramework);
         MetadataReference[] refs;

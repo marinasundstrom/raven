@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
@@ -82,6 +83,14 @@ public sealed class Project
     {
         var id = DocumentId.CreateNew(Id);
         return AddDocument(id, name, text);
+    }
+
+    /// <summary>
+    /// Adds a metadata reference to this project and returns the resulting <see cref="Document"/>
+    /// </summary>
+    public Project AddMetadataReference(MetadataReference metadataReference)
+    {
+        return Solution.AddMetadataReference(Id, metadataReference).GetProject(Id);
     }
 
     internal Project AddDocument(DocumentInfo info)

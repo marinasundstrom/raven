@@ -1,7 +1,9 @@
 using System.Threading.Tasks;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -82,7 +84,7 @@ public class DocumentTests
     [Fact]
     public async Task GetSemanticModelAsync_ShouldReturnModel()
     {
-        var source = SourceText.From("x = 1");
+        var source = SourceText.From("let x = 1");
         var solution = new Solution(HostServices.Default);
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(projectId, "P");
@@ -90,7 +92,14 @@ public class DocumentTests
         solution = solution.AddDocument(docId, "Test.rvn", source);
         var document = solution.GetDocument(docId)!;
 
-        var model = await document.GetSemanticModelAsync();
+        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+
+        var project = document.Project.AddMetadataReference(
+            MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")));
+
+        var newDoc = project.GetDocument(docId)!;
+
+        var model = await newDoc.GetSemanticModelAsync();
         Assert.NotNull(model);
     }
 
