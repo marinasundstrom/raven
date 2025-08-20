@@ -4,6 +4,7 @@ using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using System.Runtime.Versioning;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -71,6 +72,16 @@ internal class CodeGenerator
             .SelectMany(x => x.MethodGenerators)
             .Where(x => x.IsEntryPointCandidate)
             .First().MethodBase;
+
+        var tfaCtor = typeof(TargetFrameworkAttribute).GetConstructor([typeof(string)])!;
+        var tfaProp = typeof(TargetFrameworkAttribute).GetProperty(nameof(TargetFrameworkAttribute.FrameworkDisplayName))!;
+        var tfa = new CustomAttributeBuilder(
+            tfaCtor,
+            [".NETCoreApp,Version=v9.0"],
+            [tfaProp],
+            [".NET 9.0"]);
+
+        AssemblyBuilder.SetCustomAttribute(tfa);
 
         MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
         MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken);

@@ -164,7 +164,10 @@ partial class BlockBinder : Binder
 
     private BoundStatement BindReturnStatement(ReturnStatementSyntax returnStatement)
     {
-        var expr = BindExpression(returnStatement.Expression);
+        var expr = returnStatement.Expression is not null
+            ? BindExpression(returnStatement.Expression)
+            : new BoundVoidExpression(Compilation.GetSpecialType(SpecialType.System_Void));
+
         return new BoundReturnStatement(expr);
     }
 

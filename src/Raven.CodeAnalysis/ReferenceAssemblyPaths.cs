@@ -52,6 +52,12 @@ public static class ReferenceAssemblyPaths
         return null;
     }
 
+    public static string GetRuntimeDll(string? sdkVersion = null, string? targetFramework = null, string packId = "Microsoft.NETCore.App.Ref")
+    {
+        var refAssembliesPath = GetReferenceAssemblyDir(sdkVersion, targetFramework, packId);
+        return Path.Combine(refAssembliesPath!, "System.Runtime.dll");
+    }
+
     // ----- helpers -----
 
     private static IEnumerable<string> GetDotNetRoots()

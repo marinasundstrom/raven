@@ -188,7 +188,11 @@ internal class MethodBodyGenerator
     private void EmitIL(IEnumerable<StatementSyntax> statements, bool withReturn = true)
     {
         if (!statements.Any())
+        {
+            ILGenerator.Emit(OpCodes.Nop);
+            ILGenerator.Emit(OpCodes.Ret);
             return;
+        }
 
         var semanticModel = Compilation.GetSemanticModel(statements.First().SyntaxTree);
 
