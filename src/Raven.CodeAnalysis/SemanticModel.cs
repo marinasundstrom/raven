@@ -43,14 +43,26 @@ public partial class SemanticModel
     private void EnsureDiagnosticsCollected()
     {
         var root = SyntaxTree.GetRoot();
+        var binder = GetBinder(root);
 
-        foreach (var node in root.DescendantNodesAndSelf())
+        Traverse(root, binder);
+
+        void Traverse(SyntaxNode node, Binder currentBinder)
         {
-            var binder = GetBinder(node);
-
-            if (node is ExpressionSyntax || node is StatementSyntax)
+            foreach (var child in node.ChildNodes())
             {
-                binder.GetOrBind(node);
+                if (child is GlobalStatementSyntax)
+                    continue;
+
+                var childBinder = GetBinder(child, currentBinder);
+
+                if (child is ExpressionSyntax || child is StatementSyntax)
+                {
+                    childBinder.GetOrBind(child);
+                    continue;
+                }
+
+                Traverse(child, childBinder);
             }
         }
     }
