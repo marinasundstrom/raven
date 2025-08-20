@@ -33,6 +33,7 @@ dotnet test               # run unit tests
 * Keep services loosely coupled—prefer interfaces and dependency injection.
 
 ## Contribution Checklist
+* Format each changed file using `dotnet format --include <comma separated list with file paths>` to respect `.editorconfig` rules.
 * Run `dotnet build` and `dotnet test`.
 * Ensure generated files (e.g., via `tools/NodeGenerator`) are up to date.
 * Add or update unit tests for every fix or feature.
