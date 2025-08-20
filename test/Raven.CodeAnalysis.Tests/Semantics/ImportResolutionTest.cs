@@ -49,7 +49,7 @@ public class ImportResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV0103").WithLocation(2, 5).WithArguments("String")
+                new DiagnosticResult("RAV0103").WithLocation(2, 16).WithArguments("String")
             ]);
 
         verifier.Verify();

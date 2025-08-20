@@ -506,7 +506,7 @@ partial class BlockBinder : Binder
             if (member is ITypeSymbol type)
                 return new BoundTypeExpression(type);
 
-            _diagnostics.ReportUndefinedName(name, memberAccess.Name.GetLocation());
+            _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(name, nsExpr.Namespace.Name, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
@@ -516,7 +516,7 @@ partial class BlockBinder : Binder
 
             if (member is null)
             {
-                _diagnostics.ReportUndefinedName(name, memberAccess.Name.GetLocation());
+                _diagnostics.ReportMemberDoesNotContainDefinition(name, memberAccess.Name.ToString(), memberAccess.Name.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
@@ -897,7 +897,7 @@ partial class BlockBinder : Binder
 
             if (typeInNs is null)
             {
-                _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+                _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(methodName, nsReceiver.Namespace.Name, syntax.Expression.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
@@ -937,7 +937,8 @@ partial class BlockBinder : Binder
             if (nested is not null)
                 return BindConstructorInvocation(nested, boundArguments, syntax, receiver);
 
-            _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+            _diagnostics.ReportMemberDoesNotContainDefinition(typeReceiver.Type.Name, methodName, syntax.Expression.GetLocation());
+
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 

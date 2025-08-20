@@ -10,7 +10,13 @@ public abstract class DiagnosticTestBase
             {
                 TestCode = testCode,
                 ExpectedDiagnostics = expectedDiagnostics?.ToList() ?? [],
-                DisabledDiagnostics = disabledDiagnostics?.ToList() ?? []
+                DisabledDiagnostics = disabledDiagnostics?.ToList() ?? [],
+                /*
+                State = new TestState
+                {
+                    ReferenceAssemblies = [.. ReferenceAssemblyPaths.GetReferenceAssemblyPaths().Select(x => MetadataReference.CreateFromFile(x))],
+                }
+                */
             }
         };
     }
