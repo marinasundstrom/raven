@@ -24,12 +24,22 @@ public sealed class RavenWorkspace : Workspace
 
     /// <summary>
     /// Creates a new <see cref="RavenWorkspace"/> with framework references for the
-    /// specified SDK version and target framework.
+    /// specified SDK version and target framework. If either is <c>null</c>, the latest
+    /// installed combination is used.
     /// </summary>
-    public static RavenWorkspace Create(string sdkVersion = "9.0.*", string targetFramework = "net9.0")
+    public static RavenWorkspace Create(string? sdkVersion = null, string? targetFramework = null)
     {
-        var refs = GetFrameworkReferencesCore(sdkVersion, targetFramework);
-        return new RavenWorkspace(sdkVersion, targetFramework, refs);
+        var pattern = sdkVersion;
+        if (!string.IsNullOrWhiteSpace(pattern) && pattern.IndexOf('*') < 0 && pattern.IndexOf('?') < 0)
+            pattern += "*";
+
+        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion(pattern, targetFramework);
+        var tfm = version.Moniker.ToTfm();
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(version, pattern);
+        MetadataReference[] refs = paths.Length == 0
+            ? [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]
+            : paths.Where(File.Exists).Select(MetadataReference.CreateFromFile).ToArray();
+        return new RavenWorkspace(pattern ?? "*", tfm, refs);
     }
 
     internal string DefaultTargetFramework => _defaultTargetFramework;

@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public static class RavenWorkspaceExtensions
 {
-    public static RavenWorkspace ToRavenWorkspace(this AdhocWorkspace workspace, string sdkVersion = "9.0.*", string targetFramework = "net9.0")
+    public static RavenWorkspace ToRavenWorkspace(this AdhocWorkspace workspace, string? sdkVersion = null, string? targetFramework = null)
     {
         if (workspace is null) throw new ArgumentNullException(nameof(workspace));
         var raven = RavenWorkspace.Create(sdkVersion, targetFramework);
