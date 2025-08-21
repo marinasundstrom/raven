@@ -9,7 +9,6 @@ namespace Raven.CodeAnalysis;
 
 internal abstract class Binder
 {
-    protected readonly Dictionary<string, ISymbol> SymbolTable = new();
     protected readonly DiagnosticBag _diagnostics;
 
     protected Binder(Binder? parent, DiagnosticBag? diagnostics = null)
@@ -137,16 +136,9 @@ internal abstract class Binder
         return ParentBinder?.LookupNamespace(name);
     }
 
-    public void DeclareSymbol(string name, ISymbol symbol)
-    {
-        if (SymbolTable.ContainsKey(name))
-            throw new Exception($"Symbol '{name}' is already declared in this scope.");
-        SymbolTable[name] = symbol;
-    }
-
     public virtual ISymbol? LookupSymbol(string name)
     {
-        return SymbolTable.TryGetValue(name, out var symbol) ? symbol : ParentBinder?.LookupSymbol(name);
+        return ParentBinder?.LookupSymbol(name);
     }
 
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)
