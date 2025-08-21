@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
@@ -6,8 +6,8 @@ using Raven.CodeAnalysis.Text;
 
 using Spectre.Console;
 
-using static Raven.ConsoleEx;
 using static Raven.AppHostBuilder;
+using static Raven.ConsoleEx;
 
 // ONLY FOR DEVELOPMENT
 bool debug = true;
@@ -21,7 +21,7 @@ var stopwatch = Stopwatch.StartNew();
 // -s - display the syntax tree
 // -d - dump syntax (highlighted)
 
-var filePath = args.Length > 0 ? args[0] : "../../../samples/classes.rav";
+var filePath = args.Length > 0 ? args[0] : $"../../../samples/classes{RavenFileExtensions.Raven}";
 var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : "test.dll"; //: null;
 
 var shouldPrintSyntaxTree = args.Contains("-s");

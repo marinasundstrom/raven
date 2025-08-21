@@ -53,29 +53,39 @@ public sealed class Solution
     public Document? GetDocument(DocumentId id) => GetProject(id.ProjectId)?.GetDocument(id);
 
     /// <summary>Adds a new project with the specified name.</summary>
-    public Solution AddProject(string name)
+    public Solution AddProject(string name, string? filePath = null, string? targetFramework = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
     {
         var projectId = ProjectId.CreateNew(Id);
-        return AddProject(projectId, name);
+        return AddProject(projectId, name, filePath, targetFramework, assemblyName, compilationOptions);
     }
 
     /// <summary>Adds a new project with the specified id and name.</summary>
-    public Solution AddProject(ProjectId id, string name)
+    public Solution AddProject(ProjectId id, string name, string? filePath = null, string? targetFramework = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
     {
         if (_projectInfos.ContainsKey(id)) return this;
         var projAttr = new ProjectInfo.ProjectAttributes(id, name, VersionStamp.Create());
-        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>());
+        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, targetFramework: targetFramework, compilationOptions: compilationOptions, assemblyName: assemblyName);
         var newInfos = _projectInfos.Add(id, projInfo);
         var newInfo = _info.WithProjects(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
 
+    /// <summary>Removes the project with the specified identifier.</summary>
+    public Solution RemoveProject(ProjectId id)
+    {
+        if (!_projectInfos.ContainsKey(id))
+            return this;
+        var newInfos = _projectInfos.Remove(id);
+        var newInfo = _info.WithProjects(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
     /// <summary>Adds a new document to the specified project.</summary>
-    public Solution AddDocument(DocumentId id, string name, SourceText text)
+    public Solution AddDocument(DocumentId id, string name, SourceText text, string? filePath = null)
     {
         if (!_projectInfos.TryGetValue(id.ProjectId, out var projInfo))
             throw new InvalidOperationException("Project not found");
-        var docInfo = DocumentInfo.Create(id, name, text);
+        var docInfo = DocumentInfo.Create(id, name, text, filePath);
         projInfo = projInfo.WithDocuments(projInfo.Documents.Add(docInfo)).WithVersion(projInfo.Version.GetNewerVersion());
         var newProjInfos = _projectInfos.SetItem(id.ProjectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
@@ -90,6 +100,21 @@ public sealed class Solution
         var docInfo = projInfo.Documents.FirstOrDefault(d => d.Id == id) ?? throw new InvalidOperationException("Document not found");
         var updatedDoc = docInfo.WithText(newText);
         var updatedDocs = projInfo.Documents.Select(d => d.Id == id ? updatedDoc : d).ToImmutableArray();
+        projInfo = projInfo.WithDocuments(updatedDocs).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(id.ProjectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    /// <summary>Removes a document from the specified project.</summary>
+    public Solution RemoveDocument(DocumentId id)
+    {
+        if (!_projectInfos.TryGetValue(id.ProjectId, out var projInfo))
+            return this;
+        var docInfo = projInfo.Documents.FirstOrDefault(d => d.Id == id);
+        if (docInfo is null)
+            return this;
+        var updatedDocs = projInfo.Documents.Remove(docInfo);
         projInfo = projInfo.WithDocuments(updatedDocs).WithVersion(projInfo.Version.GetNewerVersion());
         var newProjInfos = _projectInfos.SetItem(id.ProjectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
@@ -136,6 +161,17 @@ public sealed class Solution
 
         var updatedRefs = projInfo.ProjectReferences.Add(reference);
         projInfo = projInfo.WithProjectReferences(updatedRefs).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    public Solution WithCompilationOptions(ProjectId projectId, CompilationOptions? compilationOptions)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        projInfo = projInfo.WithCompilationOptions(compilationOptions).WithVersion(projInfo.Version.GetNewerVersion());
         var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);

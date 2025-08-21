@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 
 namespace Raven.CodeAnalysis;
@@ -9,11 +10,15 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public sealed class RavenWorkspace : Workspace
 {
+    private readonly string _sdkVersion;
+    private readonly string _defaultTargetFramework;
     private readonly MetadataReference[] _frameworkReferences;
 
-    private RavenWorkspace(MetadataReference[] frameworkReferences)
-        : base("Raven")
+    private RavenWorkspace(string sdkVersion, string defaultTargetFramework, MetadataReference[] frameworkReferences)
+        : base("Raven", new HostServices(new SyntaxTreeProvider(), new PersistenceService()))
     {
+        _sdkVersion = sdkVersion;
+        _defaultTargetFramework = defaultTargetFramework;
         _frameworkReferences = frameworkReferences;
     }
 
@@ -23,34 +28,43 @@ public sealed class RavenWorkspace : Workspace
     /// </summary>
     public static RavenWorkspace Create(string sdkVersion = "9.0.*", string targetFramework = "net9.0")
     {
+        var refs = GetFrameworkReferencesCore(sdkVersion, targetFramework);
+        return new RavenWorkspace(sdkVersion, targetFramework, refs);
+    }
+
+    internal string DefaultTargetFramework => _defaultTargetFramework;
+
+    internal MetadataReference[] GetFrameworkReferences(string targetFramework)
+        => GetFrameworkReferencesCore(_sdkVersion, targetFramework);
+
+    private static MetadataReference[] GetFrameworkReferencesCore(string sdkVersion, string targetFramework)
+    {
         var paths = ReferenceAssemblyPaths.GetReferenceAssemblyPaths(sdkVersion, targetFramework);
-        MetadataReference[] refs;
         if (paths.Length == 0)
         {
-            // fall back to the current runtime if reference assemblies are missing
-            refs = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+            return new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
         }
-        else
-        {
-            refs = paths
-                .Where(p => System.IO.File.Exists(p))
-                .Select(MetadataReference.CreateFromFile)
-                .ToArray();
-        }
-        return new RavenWorkspace(refs);
+
+        return paths
+            .Where(p => File.Exists(p))
+            .Select(MetadataReference.CreateFromFile)
+            .ToArray();
     }
 
     /// <summary>
     /// Adds a new project to the workspace preloaded with framework references.
     /// </summary>
-    public ProjectId AddProject(string name)
+    public ProjectId AddProject(string name, string? targetFramework = null, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
     {
+        var tfm = targetFramework ?? _defaultTargetFramework;
         var solution = CurrentSolution;
         var projectId = ProjectId.CreateNew(solution.Id);
-        solution = solution.AddProject(projectId, name);
-        foreach (var reference in _frameworkReferences)
+        solution = solution.AddProject(projectId, name, filePath, tfm, assemblyName, compilationOptions);
+        var references = tfm == _defaultTargetFramework ? _frameworkReferences : GetFrameworkReferences(tfm);
+        foreach (var reference in references)
             solution = solution.AddMetadataReference(projectId, reference);
         TryApplyChanges(solution);
         return projectId;
     }
+
 }
