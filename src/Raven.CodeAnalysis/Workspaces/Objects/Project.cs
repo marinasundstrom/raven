@@ -37,6 +37,12 @@ public sealed class Project
     /// <summary>The current version of the project.</summary>
     public VersionStamp Version => _info.Version;
 
+    /// <summary>The path to the project file on disk.</summary>
+    public string? FilePath => _info.FilePath;
+
+    /// <summary>The target framework for this project, if any.</summary>
+    public string? TargetFramework => _info.TargetFramework;
+
     /// <summary>All documents in the project.</summary>
     public IEnumerable<Document> Documents => _documentInfos.Values.Select(info => GetDocument(info.Id)!);
 
@@ -67,22 +73,22 @@ public sealed class Project
     /// added document. To update a <see cref="Workspace"/>, apply the returned document's
     /// solution via <c>workspace.TryApplyChanges(document.Project.Solution)</c>.
     /// </remarks>
-    public Document AddDocument(DocumentId id, string name, SourceText text)
+    public Document AddDocument(DocumentId id, string name, SourceText text, string? filePath = null)
     {
         if (id.ProjectId != Id)
             throw new ArgumentException("DocumentId must belong to this project", nameof(id));
 
-        var newSolution = _solution.AddDocument(id, name, text);
+        var newSolution = _solution.AddDocument(id, name, text, filePath);
         return newSolution.GetDocument(id)!;
     }
 
     /// <summary>
     /// Adds a new document with an automatically generated identifier.
     /// </summary>
-    public Document AddDocument(string name, SourceText text)
+    public Document AddDocument(string name, SourceText text, string? filePath = null)
     {
         var id = DocumentId.CreateNew(Id);
-        return AddDocument(id, name, text);
+        return AddDocument(id, name, text, filePath);
     }
 
     /// <summary>
