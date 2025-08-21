@@ -46,7 +46,7 @@ public static class TargetFrameworkResolver
         return folder;
     }
 
-    public static string[] GetAssemblies(TargetFrameworkMoniker version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
+    public static string[] GetReferenceAssemblies(TargetFrameworkMoniker version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
     {
         EnsureInstalled(version);
         return ReferenceAssemblyPaths.GetReferenceAssemblyPaths(sdkVersion, version.ToTfm(), packId);

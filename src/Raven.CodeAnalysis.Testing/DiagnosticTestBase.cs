@@ -15,7 +15,7 @@ public abstract class DiagnosticTestBase
                 State = new TestState
                 {
                     var version = TargetFrameworkResolver.GetLatestVersion();
-                    ReferenceAssemblies = [.. TargetFrameworkResolver.GetAssemblies(version).Select(x => MetadataReference.CreateFromFile(x))],
+                    ReferenceAssemblies = [.. TargetFrameworkResolver.GetReferenceAssemblies(version).Select(x => MetadataReference.CreateFromFile(x))],
                 }
                 */
             }
