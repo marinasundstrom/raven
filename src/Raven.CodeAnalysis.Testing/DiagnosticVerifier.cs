@@ -241,6 +241,6 @@ public static class ReferenceAssemblies
 
     private static MetadataReference[] GeReferences()
     {
-        return ReferenceAssemblyPaths.GetReferenceAssemblyPaths().Select(path => MetadataReference.CreateFromFile(path)).ToArray();
+        return TargetFrameworkResolver.GetReferenceAssemblyPaths().Select(path => MetadataReference.CreateFromFile(path)).ToArray();
     }
 }

@@ -56,4 +56,31 @@ public static class TargetFrameworkResolver
         // e.g., "net8.0" -> same; ".NETCoreApp,Version=v8.0" folder wouldn't normally appear here
         return folder;
     }
+
+    /// <summary>
+    /// Returns full paths to all reference assemblies for the resolved SDK version and target framework.
+    /// </summary>
+    public static string[] GetReferenceAssemblyPaths(string? sdkVersion = null, string? targetFramework = null, string packId = "Microsoft.NETCore.App.Ref")
+    {
+        var tfm = TargetFrameworkMoniker.Parse(Resolve(targetFramework)).ToTfm();
+        return ReferenceAssemblyPaths.GetReferenceAssemblyPaths(sdkVersion, tfm, packId);
+    }
+
+    /// <summary>
+    /// Resolves the reference assemblies directory for the chosen SDK version and target framework.
+    /// </summary>
+    public static string? GetReferenceAssemblyDir(string? sdkVersion = null, string? targetFramework = null, string packId = "Microsoft.NETCore.App.Ref")
+    {
+        var tfm = TargetFrameworkMoniker.Parse(Resolve(targetFramework)).ToTfm();
+        return ReferenceAssemblyPaths.GetReferenceAssemblyDir(sdkVersion, tfm, packId);
+    }
+
+    /// <summary>
+    /// Gets the path to System.Runtime.dll for the resolved SDK version and target framework.
+    /// </summary>
+    public static string GetRuntimeDll(string? sdkVersion = null, string? targetFramework = null, string packId = "Microsoft.NETCore.App.Ref")
+    {
+        var dir = GetReferenceAssemblyDir(sdkVersion, targetFramework, packId);
+        return Path.Combine(dir!, "System.Runtime.dll");
+    }
 }

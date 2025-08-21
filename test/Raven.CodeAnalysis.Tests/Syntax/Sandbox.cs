@@ -62,7 +62,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         #region Compilation
 
-        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -109,7 +109,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -139,7 +139,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -169,7 +169,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
