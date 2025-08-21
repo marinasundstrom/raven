@@ -72,8 +72,7 @@ public class PersistenceService
         }
 
         private static bool IsSource(string path) =>
-            path.EndsWith(".rav", StringComparison.OrdinalIgnoreCase) ||
-            path.EndsWith(".rvn", StringComparison.OrdinalIgnoreCase);
+            RavenFileExtensions.HasRavenExtension(path);
 
         private void WatchProject(Project project)
         {

@@ -24,7 +24,7 @@ internal static class ProjectFile
         {
             var path = document.FilePath;
             if (string.IsNullOrEmpty(path))
-                path = Path.Combine(dir, document.Name.EndsWith(".rav", StringComparison.OrdinalIgnoreCase) || document.Name.EndsWith(".rvn", StringComparison.OrdinalIgnoreCase) ? document.Name : document.Name + ".rav");
+                path = Path.Combine(dir, RavenFileExtensions.HasRavenExtension(document.Name) ? document.Name : document.Name + RavenFileExtensions.Raven);
             else if (!Path.IsPathRooted(path))
                 path = Path.Combine(dir, path);
 
@@ -81,9 +81,7 @@ internal static class ProjectFile
         }
         else
         {
-            var rav = Directory.EnumerateFiles(projectDir, "*.rav");
-            var rvn = Directory.EnumerateFiles(projectDir, "*.rvn");
-            paths = rav.Concat(rvn);
+            paths = RavenFileExtensions.All.SelectMany(ext => Directory.EnumerateFiles(projectDir, $"*{ext}"));
         }
 
         var documents = paths.Select(p =>

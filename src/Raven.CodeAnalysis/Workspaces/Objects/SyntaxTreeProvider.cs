@@ -12,11 +12,7 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public class SyntaxTreeProvider
 {
-    private static readonly HashSet<string> s_sourceExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".rvn",
-        ".rav"
-    };
+    private static readonly HashSet<string> s_sourceExtensions = new(RavenFileExtensions.All, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Determines whether the specified document supports a syntax tree.</summary>
     public virtual bool SupportsSyntaxTree(string name, string? filePath = null)

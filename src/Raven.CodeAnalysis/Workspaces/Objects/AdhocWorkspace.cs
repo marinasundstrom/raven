@@ -76,9 +76,7 @@ public sealed class AdhocWorkspace : Workspace
         if (!Directory.Exists(folderPath))
             throw new DirectoryNotFoundException(folderPath);
 
-        var rav = Directory.EnumerateFiles(folderPath, "*.rav");
-        var rvn = Directory.EnumerateFiles(folderPath, "*.rvn");
-        var files = rav.Concat(rvn);
+        var files = RavenFileExtensions.All.SelectMany(ext => Directory.EnumerateFiles(folderPath, $"*{ext}"));
 
         projectName ??= Path.GetFileName(folderPath);
         var solution = CurrentSolution;
