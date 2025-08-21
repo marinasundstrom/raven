@@ -73,6 +73,12 @@ public static class ReferenceAssemblyPaths
             if (Directory.Exists(r!))
                 yield return r!;
 
+        // Default install location for dotnet-install scripts
+        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var userDotNet = Path.Combine(userHome, ".dotnet");
+        if (Directory.Exists(userDotNet))
+            yield return userDotNet;
+
         // Fallbacks by OS
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {

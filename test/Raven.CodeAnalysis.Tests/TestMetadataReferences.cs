@@ -7,15 +7,17 @@ namespace Raven.CodeAnalysis.Tests;
 
 internal static class TestMetadataReferences
 {
-    private static readonly Lazy<MetadataReference[]> s_default = new(() =>
+    private static readonly Lazy<(string tfm, MetadataReference[] refs)> s_default = new(() =>
     {
         var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        return TargetFrameworkResolver.GetReferenceAssemblies(version)
+        var refs = TargetFrameworkResolver.GetReferenceAssemblies(version)
             .Where(File.Exists)
             .Select(MetadataReference.CreateFromFile)
             .ToArray();
+        return (version.Moniker.ToTfm(), refs);
     });
 
-    public static MetadataReference[] Default => s_default.Value;
+    public static string TargetFramework => s_default.Value.tfm;
+    public static MetadataReference[] Default => s_default.Value.refs;
 }
 

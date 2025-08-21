@@ -19,7 +19,7 @@ public class SolutionProjectPersistenceTests
         var libPath = Path.Combine(dir, "Lib.ravenproj");
         var appPath = Path.Combine(dir, "App.ravenproj");
 
-        var ws = RavenWorkspace.Create();
+        var ws = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var solution = ws.CurrentSolution;
         var libId = ProjectId.CreateNew(solution.Id);
         var appId = ProjectId.CreateNew(solution.Id);
@@ -47,7 +47,7 @@ public class SolutionProjectPersistenceTests
         Assert.True(File.Exists(programPath));
         Assert.Contains("WriteLine", File.ReadAllText(programPath));
 
-        var ws2 = RavenWorkspace.Create();
+        var ws2 = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         ws2.OpenSolution(solutionPath);
 
         Assert.Equal(2, ws2.CurrentSolution.Projects.Count());
