@@ -92,7 +92,8 @@ public class DocumentTests
         solution = solution.AddDocument(docId, "Test.rvn", source);
         var document = solution.GetDocument(docId)!;
 
-        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
+        var version = TargetFrameworkResolver.GetLatestVersion();
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var project = document.Project.AddMetadataReference(
             MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")));

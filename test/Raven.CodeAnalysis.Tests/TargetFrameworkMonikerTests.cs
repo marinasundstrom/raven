@@ -20,10 +20,10 @@ public class TargetFrameworkMonikerTests
     }
 
     [Fact]
-    public void Resolve_defaults_to_installed()
+    public void GetVersion_defaults_to_installed()
     {
-        var full = TargetFrameworkResolver.Resolve();
-        Assert.False(string.IsNullOrWhiteSpace(full));
+        var tfm = TargetFrameworkResolver.GetVersion();
+        Assert.False(string.IsNullOrWhiteSpace(tfm.ToFrameworkString()));
     }
 }
 

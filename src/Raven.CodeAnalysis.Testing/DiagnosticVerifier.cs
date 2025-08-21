@@ -241,6 +241,7 @@ public static class ReferenceAssemblies
 
     private static MetadataReference[] GeReferences()
     {
-        return TargetFrameworkResolver.GetReferenceAssemblyPaths().Select(path => MetadataReference.CreateFromFile(path)).ToArray();
+        var version = TargetFrameworkResolver.GetLatestVersion();
+        return TargetFrameworkResolver.GetAssemblies(version).Select(path => MetadataReference.CreateFromFile(path)).ToArray();
     }
 }

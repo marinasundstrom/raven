@@ -7,7 +7,8 @@ public class MetadataReferenceLoadingTests
     [Fact]
     public void GetTypeByMetadataName_LoadsReferences_WhenNoSyntaxTrees()
     {
-        var referencePaths = TargetFrameworkResolver.GetReferenceAssemblyPaths();
+        var version = TargetFrameworkResolver.GetLatestVersion();
+        var referencePaths = TargetFrameworkResolver.GetAssemblies(version);
         var references = referencePaths.Select(MetadataReference.CreateFromFile).ToArray();
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))

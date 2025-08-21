@@ -9,7 +9,8 @@ class Program
     static void Main()
     {
         var compilation = Compilation.Create("test", options: new CompilationOptions(OutputKind.ConsoleApplication));
-        var refDir = TargetFrameworkResolver.GetReferenceAssemblyDir();
+        var version = TargetFrameworkResolver.GetLatestVersion();
+        var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
         var references = new[]
         {
             MetadataReference.CreateFromFile(Path.Combine(refDir!, "System.Runtime.dll")),

@@ -62,7 +62,8 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         #region Compilation
 
-        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
+        var version = TargetFrameworkResolver.GetLatestVersion();
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -109,7 +110,8 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
+        var version = TargetFrameworkResolver.GetLatestVersion();
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -139,7 +141,8 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
+        var version = TargetFrameworkResolver.GetLatestVersion();
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -169,7 +172,8 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var refAssembliesPath = TargetFrameworkResolver.GetReferenceAssemblyDir();
+        var version = TargetFrameworkResolver.GetLatestVersion();
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
