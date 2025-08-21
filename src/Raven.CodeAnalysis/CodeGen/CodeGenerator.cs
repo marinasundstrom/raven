@@ -47,10 +47,12 @@ internal class CodeGenerator
         var assemblyName = new AssemblyName(_compilation.AssemblyName);
         assemblyName.Version = new Version(1, 0, 0, 0);
 
+        var tfaProp = typeof(TargetFrameworkAttribute).GetProperty(nameof(TargetFrameworkAttribute.FrameworkDisplayName))!;
         var targetFrameworkAttribute = new CustomAttributeBuilder(
             // TODO: This should not be set here
-            typeof(System.Runtime.Versioning.TargetFrameworkAttribute).GetConstructor([typeof(string)]),
-            [".NETCoreApp,Version=v9.0"]  // Replace with your version
+            typeof(TargetFrameworkAttribute).GetConstructor([typeof(string)]),
+            [".NETCoreApp,Version=v9.0"], [tfaProp],
+            [".NET 9.0"]
         );
 
         AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly, [targetFrameworkAttribute]);
@@ -72,16 +74,6 @@ internal class CodeGenerator
             .SelectMany(x => x.MethodGenerators)
             .Where(x => x.IsEntryPointCandidate)
             .First().MethodBase;
-
-        var tfaCtor = typeof(TargetFrameworkAttribute).GetConstructor([typeof(string)])!;
-        var tfaProp = typeof(TargetFrameworkAttribute).GetProperty(nameof(TargetFrameworkAttribute.FrameworkDisplayName))!;
-        var tfa = new CustomAttributeBuilder(
-            tfaCtor,
-            [".NETCoreApp,Version=v9.0"],
-            [tfaProp],
-            [".NET 9.0"]);
-
-        AssemblyBuilder.SetCustomAttribute(tfa);
 
         MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
         MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken);

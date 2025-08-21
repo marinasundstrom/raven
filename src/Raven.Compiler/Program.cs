@@ -49,7 +49,7 @@ var root = syntaxTree.GetRoot();
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
-var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir("9.*");
 
 var compilation = Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
     .AddSyntaxTrees(syntaxTree)
