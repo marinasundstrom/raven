@@ -19,7 +19,7 @@ class Foo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.GetLatestVersion();
+        var version = TargetFrameworkResolver.ResolveLatestVersion();
 
         var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
 

@@ -88,7 +88,7 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
         if (File.Exists(testDep))
             File.Copy(testDep, testDepOutputPath, overwrite: true);
 
-        var version = TargetFrameworkResolver.GetLatestVersion();
+        var version = TargetFrameworkResolver.ResolveLatestVersion();
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
@@ -113,7 +113,7 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
 
         var tree = SyntaxTree.ParseText(source);
 
-        var version = TargetFrameworkResolver.GetLatestVersion();
+        var version = TargetFrameworkResolver.ResolveLatestVersion();
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))

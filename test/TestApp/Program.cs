@@ -9,7 +9,7 @@ class Program
     static void Main()
     {
         var compilation = Compilation.Create("test", options: new CompilationOptions(OutputKind.ConsoleApplication));
-        var version = TargetFrameworkResolver.GetLatestVersion();
+        var version = TargetFrameworkResolver.ResolveLatestVersion();
         var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
         var references = new[]
         {

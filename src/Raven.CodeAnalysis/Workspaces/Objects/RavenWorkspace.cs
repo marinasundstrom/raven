@@ -39,7 +39,7 @@ public sealed class RavenWorkspace : Workspace
 
     private static MetadataReference[] GetFrameworkReferencesCore(string sdkVersion, string targetFramework)
     {
-        var version = TargetFrameworkResolver.GetVersion(targetFramework);
+        var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
         var paths = TargetFrameworkResolver.GetReferenceAssemblies(version, sdkVersion);
         if (paths.Length == 0)
         {

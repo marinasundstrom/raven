@@ -2,23 +2,23 @@ namespace Raven.CodeAnalysis;
 
 public static class TargetFrameworkResolver
 {
-    public static TargetFrameworkMoniker GetVersion(string? tfmOrFull = null)
+    public static TargetFrameworkVersion ResolveVersion(string? tfmOrFull = null)
     {
         if (string.IsNullOrWhiteSpace(tfmOrFull))
         {
-            return GetLatestVersion();
+            return ResolveLatestVersion();
         }
 
         var parsed = TargetFrameworkMoniker.Parse(tfmOrFull);
         EnsureInstalled(parsed);
-        return parsed;
+        return new TargetFrameworkVersion(parsed);
     }
 
-    public static TargetFrameworkMoniker GetLatestVersion(string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
+    public static TargetFrameworkVersion ResolveLatestVersion(string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
     {
         var dir = ReferenceAssemblyPaths.GetReferenceAssemblyDir(sdkVersion, targetFramework: null, packId);
         if (dir is null)
-            return new TargetFrameworkMoniker(FrameworkId.NetCoreApp, new Version(9, 0));
+            return new TargetFrameworkVersion(new TargetFrameworkMoniker(FrameworkId.NetCoreApp, new Version(9, 0)));
 
         var tfmName = Path.GetFileName(dir);
         if (!TargetFrameworkMoniker.TryParse(tfmName, out var tfm))
@@ -27,7 +27,7 @@ public static class TargetFrameworkResolver
         }
 
         EnsureInstalled(tfm!);
-        return tfm!;
+        return new TargetFrameworkVersion(tfm!);
     }
 
     public static void EnsureInstalled(TargetFrameworkMoniker tfm)
@@ -46,19 +46,19 @@ public static class TargetFrameworkResolver
         return folder;
     }
 
-    public static string[] GetReferenceAssemblies(TargetFrameworkMoniker version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
+    public static string[] GetReferenceAssemblies(TargetFrameworkVersion version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
     {
-        EnsureInstalled(version);
-        return ReferenceAssemblyPaths.GetReferenceAssemblyPaths(sdkVersion, version.ToTfm(), packId);
+        EnsureInstalled(version.Moniker);
+        return ReferenceAssemblyPaths.GetReferenceAssemblyPaths(sdkVersion, version.Moniker.ToTfm(), packId);
     }
 
-    public static string? GetDirectoryPath(TargetFrameworkMoniker version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
+    public static string? GetDirectoryPath(TargetFrameworkVersion version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
     {
-        EnsureInstalled(version);
-        return ReferenceAssemblyPaths.GetReferenceAssemblyDir(sdkVersion, version.ToTfm(), packId);
+        EnsureInstalled(version.Moniker);
+        return ReferenceAssemblyPaths.GetReferenceAssemblyDir(sdkVersion, version.Moniker.ToTfm(), packId);
     }
 
-    public static string GetRuntimeDll(TargetFrameworkMoniker version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
+    public static string GetRuntimeDll(TargetFrameworkVersion version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
     {
         var dir = GetDirectoryPath(version, sdkVersion, packId);
         return Path.Combine(dir!, "System.Runtime.dll");
