@@ -64,11 +64,7 @@ partial class BlockBinder : Binder
         if (_localFunctions.TryGetValue(name, out var func))
             return func;
 
-        var parentSymbol1 = ParentBinder?.LookupSymbol(name);
-        if (parentSymbol1 != null)
-            return parentSymbol1;
-
-        var parentSymbol = base.LookupSymbol(name);
+        var parentSymbol = ParentBinder?.LookupSymbol(name);
         if (parentSymbol != null)
             return parentSymbol;
 
@@ -1292,12 +1288,6 @@ partial class BlockBinder : Binder
                 {
                     if (seen.Add(local.Name))
                         yield return local;
-                }
-
-                foreach (var symbol in block.SymbolTable.Values)
-                {
-                    if (seen.Add(symbol.Name))
-                        yield return symbol;
                 }
             }
 
