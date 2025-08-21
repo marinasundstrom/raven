@@ -15,10 +15,14 @@ public class SolutionProjectPersistenceTests
     public void SaveAndOpenSolution_RoundTripsProject()
     {
         var ws = RavenWorkspace.Create();
-        var projectId = ws.AddProject("App", targetFramework: "net9.0");
-        var project = ws.CurrentSolution.GetProject(projectId)!;
-        var document = project.AddDocument("Program.rav", SourceText.From("System.Console.WriteLine(\"Hi\");"), "Program.rav");
-        ws.TryApplyChanges(document.Project.Solution);
+        var libId = ws.AddProject("Lib", targetFramework: "net9.0", assemblyName: "Lib", compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var appId = ws.AddProject("App", targetFramework: "net9.0");
+        var libProj = ws.CurrentSolution.GetProject(libId)!;
+        var appProj = ws.CurrentSolution.GetProject(appId)!;
+        libProj.AddDocument("Lib.rav", SourceText.From("fn add(a:int,b:int)=a+b"), "Lib.rav");
+        var appDoc = appProj.AddDocument("Program.rav", SourceText.From("System.Console.WriteLine(\"Hi\");"), "Program.rav");
+        var sol = appDoc.Project.Solution.AddProjectReference(appId, new ProjectReference(libId));
+        ws.TryApplyChanges(sol);
 
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(dir);
@@ -32,17 +36,19 @@ public class SolutionProjectPersistenceTests
         var ws2 = RavenWorkspace.Create();
         ws2.OpenSolution(solutionPath);
 
-        var proj2 = ws2.CurrentSolution.Projects.Single();
-        Assert.Equal("App", proj2.Name);
-        Assert.Equal("net9.0", proj2.TargetFramework);
-        Assert.Single(proj2.Documents);
-        var doc2 = proj2.Documents.Single();
+        Assert.Equal(2, ws2.CurrentSolution.Projects.Count());
+        var lib2 = ws2.CurrentSolution.Projects.First(p => p.Name == "Lib");
+        var app2 = ws2.CurrentSolution.Projects.First(p => p.Name == "App");
+        Assert.Equal("Lib", lib2.AssemblyName);
+        Assert.Single(app2.ProjectReferences);
+        Assert.Equal(lib2.Id, app2.ProjectReferences.Single().ProjectId);
+        var doc2 = app2.Documents.Single();
         Assert.Equal("Program.rav", doc2.Name);
         Assert.Equal(programPath, doc2.FilePath);
         var text = doc2.GetTextAsync().Result.ToString();
         Assert.Contains("WriteLine", text);
-        var comp = ws2.GetCompilation(proj2.Id);
-        Assert.NotEmpty(comp.References);
+        var comp = ws2.GetCompilation(lib2.Id);
+        Assert.Equal(OutputKind.DynamicallyLinkedLibrary, comp.Options.OutputKind);
     }
 
     [Fact]

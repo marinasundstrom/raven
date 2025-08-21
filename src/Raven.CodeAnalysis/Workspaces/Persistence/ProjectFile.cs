@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -10,6 +11,8 @@ namespace Raven.CodeAnalysis;
 
 internal static class ProjectFile
 {
+    internal sealed record ProjectFileInfo(ProjectInfo Info, ImmutableArray<string> ProjectReferences);
+
     public static void Save(Project project, string filePath)
     {
         if (project is null) throw new ArgumentNullException(nameof(project));
@@ -31,18 +34,35 @@ internal static class ProjectFile
 
         var projectElement = new XElement("Project",
             new XAttribute("Name", project.Name),
-            project.TargetFramework is string tfm ? new XAttribute("TargetFramework", tfm) : null);
+            project.TargetFramework is string tfm ? new XAttribute("TargetFramework", tfm) : null,
+            project.AssemblyName is string asm ? new XAttribute("Output", asm) : null,
+            project.CompilationOptions is { } opts ? new XAttribute("OutputKind", opts.OutputKind) : null);
+
+        foreach (var projRef in project.ProjectReferences)
+        {
+            var refProj = project.Solution.GetProject(projRef.ProjectId);
+            var refPath = refProj?.FilePath;
+            if (string.IsNullOrEmpty(refPath))
+                continue;
+            var rel = Path.GetRelativePath(dir, refPath);
+            projectElement.Add(new XElement("ProjectReference", new XAttribute("Path", rel)));
+        }
 
         var doc = new XDocument(projectElement);
         doc.Save(filePath);
     }
 
-    public static ProjectInfo Load(string filePath)
+    public static ProjectFileInfo Load(string filePath)
     {
         var xdoc = XDocument.Load(filePath);
         var root = xdoc.Root ?? throw new InvalidDataException("Invalid project file.");
         var name = (string?)root.Attribute("Name") ?? Path.GetFileNameWithoutExtension(filePath);
         var targetFramework = (string?)root.Attribute("TargetFramework");
+        var output = (string?)root.Attribute("Output");
+        var outputKindAttr = (string?)root.Attribute("OutputKind");
+        CompilationOptions? options = null;
+        if (outputKindAttr is string ok && Enum.TryParse<OutputKind>(ok, out var kind))
+            options = new CompilationOptions(kind);
         var tempSolutionId = SolutionId.CreateNew();
         var projectId = ProjectId.CreateNew(tempSolutionId);
         var projectDir = Path.GetDirectoryName(filePath)!;
@@ -73,7 +93,13 @@ internal static class ProjectFile
             return DocumentInfo.Create(docId, Path.GetFileName(p), text, p);
         }).ToList();
 
+        var projectRefs = root.Elements("ProjectReference")
+            .Select(e => (string?)e.Attribute("Path") ?? throw new InvalidDataException("ProjectReference path missing."))
+            .Select(p => Path.IsPathRooted(p) ? p : Path.GetFullPath(Path.Combine(projectDir, p)))
+            .ToImmutableArray();
+
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
-        return new ProjectInfo(attrInfo, documents, filePath: filePath, targetFramework: targetFramework);
+        var info = new ProjectInfo(attrInfo, documents, filePath: filePath, targetFramework: targetFramework, compilationOptions: options, assemblyName: output);
+        return new ProjectFileInfo(info, projectRefs);
     }
 }

@@ -184,7 +184,8 @@ public class Workspace
             references.Add(compRef);
         }
 
-        var compilation = Compilation.Create(project.Name, syntaxTrees.ToArray(), references.ToArray());
+        var compilation = Compilation.Create(project.AssemblyName ?? project.Name,
+            syntaxTrees.ToArray(), references.ToArray(), project.CompilationOptions);
 
         state.Version = project.Version;
         state.Compilation = compilation;

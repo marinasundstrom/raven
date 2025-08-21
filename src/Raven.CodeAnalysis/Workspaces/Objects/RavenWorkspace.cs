@@ -54,12 +54,12 @@ public sealed class RavenWorkspace : Workspace
     /// <summary>
     /// Adds a new project to the workspace preloaded with framework references.
     /// </summary>
-    public ProjectId AddProject(string name, string? targetFramework = null, string? filePath = null)
+    public ProjectId AddProject(string name, string? targetFramework = null, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
     {
         var tfm = targetFramework ?? _defaultTargetFramework;
         var solution = CurrentSolution;
         var projectId = ProjectId.CreateNew(solution.Id);
-        solution = solution.AddProject(projectId, name, filePath, tfm);
+        solution = solution.AddProject(projectId, name, filePath, tfm, assemblyName, compilationOptions);
         var references = tfm == _defaultTargetFramework ? _frameworkReferences : GetFrameworkReferences(tfm);
         foreach (var reference in references)
             solution = solution.AddMetadataReference(projectId, reference);

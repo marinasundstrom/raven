@@ -11,7 +11,9 @@ public sealed class ProjectInfo
         IEnumerable<ProjectReference>? projectReferences = null,
         IEnumerable<MetadataReference>? metadataReferences = null,
         string? filePath = null,
-        string? targetFramework = null)
+        string? targetFramework = null,
+        CompilationOptions? compilationOptions = null,
+        string? assemblyName = null)
     {
         Attributes = attributes;
         Documents = documents.ToImmutableArray();
@@ -19,6 +21,8 @@ public sealed class ProjectInfo
         MetadataReferences = metadataReferences?.ToImmutableArray() ?? ImmutableArray<MetadataReference>.Empty;
         FilePath = filePath;
         TargetFramework = targetFramework;
+        CompilationOptions = compilationOptions;
+        AssemblyName = assemblyName;
     }
 
     public ProjectAttributes Attributes { get; }
@@ -30,14 +34,15 @@ public sealed class ProjectInfo
 
     public ImmutableArray<ProjectReference> ProjectReferences { get; }
     public ImmutableArray<MetadataReference> MetadataReferences { get; }
-    public string? OutputFilePath { get; internal set; }
+    public CompilationOptions? CompilationOptions { get; }
+    public string? AssemblyName { get; }
     public ParseOptions? ParseOptions { get; internal set; }
     public string? DefaultNamespace { get; internal set; }
     public string? FilePath { get; }
     public string? TargetFramework { get; }
 
     public ProjectInfo WithDocuments(IEnumerable<DocumentInfo> docs) =>
-        new(Attributes, docs, ProjectReferences, MetadataReferences, FilePath, TargetFramework);
+        new(Attributes, docs, ProjectReferences, MetadataReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
 
     public ProjectInfo WithVersion(VersionStamp version)
     {
@@ -45,14 +50,14 @@ public sealed class ProjectInfo
         {
             Version = version
         };
-        return new ProjectInfo(newAttributes, Documents, ProjectReferences, MetadataReferences, FilePath, TargetFramework);
+        return new ProjectInfo(newAttributes, Documents, ProjectReferences, MetadataReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
     }
 
     public ProjectInfo WithProjectReferences(IEnumerable<ProjectReference> projectReferences) =>
-        new(Attributes, Documents, projectReferences, MetadataReferences, FilePath, TargetFramework);
+        new(Attributes, Documents, projectReferences, MetadataReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
 
     public ProjectInfo WithMetadataReferences(IEnumerable<MetadataReference> metadataReferences) =>
-        new(Attributes, Documents, ProjectReferences, metadataReferences, FilePath, TargetFramework);
+        new(Attributes, Documents, ProjectReferences, metadataReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
 
     public sealed record ProjectAttributes(ProjectId Id, string Name, VersionStamp Version);
 }

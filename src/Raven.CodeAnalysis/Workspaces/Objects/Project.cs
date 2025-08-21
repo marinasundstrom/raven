@@ -43,6 +43,12 @@ public sealed class Project
     /// <summary>The target framework for this project, if any.</summary>
     public string? TargetFramework => _info.TargetFramework;
 
+    /// <summary>The compilation options for this project.</summary>
+    public CompilationOptions? CompilationOptions => _info.CompilationOptions;
+
+    /// <summary>The explicit assembly name for this project, if any.</summary>
+    public string? AssemblyName => _info.AssemblyName;
+
     /// <summary>All documents in the project.</summary>
     public IEnumerable<Document> Documents => _documentInfos.Values.Select(info => GetDocument(info.Id)!);
 
