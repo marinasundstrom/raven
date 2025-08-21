@@ -241,7 +241,7 @@ public static class ReferenceAssemblies
 
     private static MetadataReference[] GeReferences()
     {
-        var version = TargetFrameworkResolver.ResolveLatestVersion();
+        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
         return TargetFrameworkResolver.GetReferenceAssemblies(version).Select(path => MetadataReference.CreateFromFile(path)).ToArray();
     }
 }

@@ -92,7 +92,7 @@ public class DocumentTests
         solution = solution.AddDocument(docId, "Test.rvn", source);
         var document = solution.GetDocument(docId)!;
 
-        var version = TargetFrameworkResolver.ResolveLatestVersion();
+        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var project = document.Project.AddMetadataReference(
