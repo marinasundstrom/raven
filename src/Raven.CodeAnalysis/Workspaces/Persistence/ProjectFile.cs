@@ -100,7 +100,7 @@ internal static class ProjectFile
             .ToImmutableArray();
 
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
-        var info = new ProjectInfo(attrInfo, documents, filePath: filePath, targetFramework: targetFramework, compilationOptions: options, assemblyName: output);
+        var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output);
         return new ProjectFileInfo(info, projectRefs);
     }
 }

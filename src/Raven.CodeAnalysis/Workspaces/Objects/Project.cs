@@ -58,6 +58,9 @@ public sealed class Project
     /// <summary>Metadata references for this project.</summary>
     public IReadOnlyList<MetadataReference> MetadataReferences => _info.MetadataReferences;
 
+    /// <summary>An analyzer references for this project.</summary>
+    public IReadOnlyList<AnalyzerReference> AnalyzerReferences => _info.AnalyzerReferences;
+
     /// <summary>Gets a document by its identifier.</summary>
     public Document? GetDocument(DocumentId id)
     {
@@ -103,6 +106,12 @@ public sealed class Project
     public Project AddMetadataReference(MetadataReference metadataReference)
     {
         return Solution.AddMetadataReference(Id, metadataReference).GetProject(Id);
+    }
+
+    /// <summary>Adds an analyzer reference to this project.</summary>
+    public Project AddAnalyzerReference(AnalyzerReference analyzerReference)
+    {
+        return Solution.AddAnalyzerReference(Id, analyzerReference).GetProject(Id);
     }
 
     /// <summary>

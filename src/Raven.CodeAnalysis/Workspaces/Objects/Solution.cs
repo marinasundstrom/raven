@@ -64,7 +64,7 @@ public sealed class Solution
     {
         if (_projectInfos.ContainsKey(id)) return this;
         var projAttr = new ProjectInfo.ProjectAttributes(id, name, VersionStamp.Create());
-        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, targetFramework: targetFramework, compilationOptions: compilationOptions, assemblyName: assemblyName);
+        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: compilationOptions, assemblyName: assemblyName);
         var newInfos = _projectInfos.Add(id, projInfo);
         var newInfo = _info.WithProjects(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
@@ -172,7 +172,20 @@ public sealed class Solution
             throw new InvalidOperationException("Project not found");
 
         var attr = projInfo.Attributes with { Version = projInfo.Version.GetNewerVersion() };
-        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName);
+        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.AnalyzerReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName);
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    /// <summary>Adds an analyzer reference to the specified project.</summary>
+    public Solution AddAnalyzerReference(ProjectId projectId, AnalyzerReference reference)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        var updated = projInfo.AnalyzerReferences.Add(reference);
+        projInfo = projInfo.WithAnalyzerReferences(updated).WithVersion(projInfo.Version.GetNewerVersion());
         var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);

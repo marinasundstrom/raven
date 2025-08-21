@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -202,4 +205,26 @@ public class Workspace
     }
 
     private sealed record DocumentState(VersionStamp Version, SyntaxTree SyntaxTree);
+
+    /// <summary>
+    /// Gets diagnostics for the specified project, including analyzer diagnostics.
+    /// </summary>
+    public ImmutableArray<Diagnostic> GetDiagnostics(ProjectId projectId, CancellationToken cancellationToken = default)
+    {
+        var project = CurrentSolution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        var compilation = GetCompilation(projectId);
+        var diagnostics = compilation.GetDiagnostics(cancellationToken).ToHashSet();
+
+        foreach (var reference in project.AnalyzerReferences)
+        {
+            foreach (var analyzer in reference.GetAnalyzers())
+            {
+                diagnostics.AddRange(analyzer.Analyze(compilation, cancellationToken));
+            }
+        }
+
+        return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+    }
 }
