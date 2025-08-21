@@ -4,8 +4,10 @@
 This file applies to the entire repository.
 
 ## Project Summary
-Raven is an experimental compiler for a Swift/Rust/F#-inspired language targeting .NET.  
+Raven is an experimental compiler for a Swift/Rust/F#-inspired language targeting .NET. The compiler imitates the Roslyn compiler architecture and aims to be concept compatible with it.
+
 Major components:
+
 - `src/Raven.CodeAnalysis` — core compiler (syntax tree, binder, semantic model, code generation).
 - `src/Raven.Compiler` — CLI entry point and sample programs.
 - `test/Raven.CodeAnalysis.Tests` — unit tests.
@@ -16,7 +18,7 @@ Major components:
 Run all commands from the repository root unless noted:
 
 ```bash
-# Generate syntax nodes (run whenever working in Raven.CodeAnalysis or when Model.xml changes)
+# Generate syntax nodes (run whenever working in Raven.CodeAnalysis or when Model.xml, Tokens.xaml, and NodeKinds.xml change)
 cd src/Raven.CodeAnalysis/Syntax
 dotnet run --project ../../../tools/NodeGenerator -- -f
 cd ../../..
@@ -33,12 +35,14 @@ dotnet test               # run unit tests
 * Keep services loosely coupled—prefer interfaces and dependency injection.
 
 ## Contribution Checklist
-* Format each changed file using `dotnet format --include <comma separated list with file paths>` to respect `.editorconfig` rules.
+* Format each changed file using `dotnet format <path to dir of solution or project file> --include <comma separated list with file paths>` to respect `.editorconfig` rules.
 * Run `dotnet build` and `dotnet test`.
-* Ensure generated files (e.g., via `tools/NodeGenerator`) are up to date.
+* Ensure generated files (e.g., via `tools/NodeGenerator`) are up to date. (Required for building Raven.CodeAnalysis)
 * Add or update unit tests for every fix or feature.
 * Include concise commit messages (`feat:`, `fix:`, `docs:` etc.).
 * Provide PR summaries referencing relevant diagnostics or examples.
+* Update the language specification, grammar, and related docs when necessary.
+_(Only do so if explicitly instructed.)_
 
 ## Additional Notes
 * Workspace management and incremental compilation are key; favor additive changes.
