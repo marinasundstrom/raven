@@ -70,6 +70,16 @@ public sealed class Solution
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
 
+    /// <summary>Removes the project with the specified identifier.</summary>
+    public Solution RemoveProject(ProjectId id)
+    {
+        if (!_projectInfos.ContainsKey(id))
+            return this;
+        var newInfos = _projectInfos.Remove(id);
+        var newInfo = _info.WithProjects(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
     /// <summary>Adds a new document to the specified project.</summary>
     public Solution AddDocument(DocumentId id, string name, SourceText text, string? filePath = null)
     {
@@ -90,6 +100,21 @@ public sealed class Solution
         var docInfo = projInfo.Documents.FirstOrDefault(d => d.Id == id) ?? throw new InvalidOperationException("Document not found");
         var updatedDoc = docInfo.WithText(newText);
         var updatedDocs = projInfo.Documents.Select(d => d.Id == id ? updatedDoc : d).ToImmutableArray();
+        projInfo = projInfo.WithDocuments(updatedDocs).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(id.ProjectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    /// <summary>Removes a document from the specified project.</summary>
+    public Solution RemoveDocument(DocumentId id)
+    {
+        if (!_projectInfos.TryGetValue(id.ProjectId, out var projInfo))
+            return this;
+        var docInfo = projInfo.Documents.FirstOrDefault(d => d.Id == id);
+        if (docInfo is null)
+            return this;
+        var updatedDocs = projInfo.Documents.Remove(docInfo);
         projInfo = projInfo.WithDocuments(updatedDocs).WithVersion(projInfo.Version.GetNewerVersion());
         var newProjInfos = _projectInfos.SetItem(id.ProjectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());

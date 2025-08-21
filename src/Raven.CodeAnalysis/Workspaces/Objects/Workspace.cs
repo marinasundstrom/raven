@@ -91,8 +91,18 @@ public class Workspace
                     if (oldDoc.Version != doc.Version)
                         return (WorkspaceChangeKind.DocumentChanged, proj.Id, doc.Id);
                 }
+                foreach (var oldDoc in oldProj.Documents)
+                {
+                    if (proj.GetDocument(oldDoc.Id) is null)
+                        return (WorkspaceChangeKind.DocumentRemoved, proj.Id, oldDoc.Id);
+                }
                 return (WorkspaceChangeKind.ProjectChanged, proj.Id, null);
             }
+        }
+        foreach (var oldProj in oldSolution.Projects)
+        {
+            if (newSolution.GetProject(oldProj.Id) is null)
+                return (WorkspaceChangeKind.ProjectRemoved, oldProj.Id, null);
         }
         return (WorkspaceChangeKind.SolutionChanged, null, null);
     }

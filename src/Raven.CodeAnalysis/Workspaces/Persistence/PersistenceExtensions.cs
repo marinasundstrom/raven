@@ -46,5 +46,14 @@ public static class PersistenceExtensions
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
         File.WriteAllText(filePath, document.Text.ToString());
     }
+
+    public static IDisposable EnableFileWatching(this Workspace workspace)
+    {
+        var service = workspace.Services.PersistenceService
+            ?? throw new NotSupportedException("Persistence service is not available.");
+        if (workspace is not RavenWorkspace raven)
+            throw new NotSupportedException("File watching requires a RavenWorkspace.");
+        return service.EnableFileWatching(raven);
+    }
 }
 
