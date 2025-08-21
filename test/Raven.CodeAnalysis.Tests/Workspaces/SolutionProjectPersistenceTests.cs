@@ -14,9 +14,25 @@ public class SolutionProjectPersistenceTests
     [Fact]
     public void SaveAndOpenSolution_RoundTripsProject()
     {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        var libPath = Path.Combine(dir, "Lib.ravenproj");
+        var appPath = Path.Combine(dir, "App.ravenproj");
+
         var ws = RavenWorkspace.Create();
-        var libId = ws.AddProject("Lib", targetFramework: "net9.0", assemblyName: "Lib", compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        var appId = ws.AddProject("App", targetFramework: "net9.0");
+        var solution = ws.CurrentSolution;
+        var libId = ProjectId.CreateNew(solution.Id);
+        var appId = ProjectId.CreateNew(solution.Id);
+        solution = solution
+            .AddProject(libId, "Lib", libPath, assemblyName: "Lib", compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddProject(appId, "App", appPath);
+        foreach (var reference in TestMetadataReferences.Default)
+        {
+            solution = solution.AddMetadataReference(libId, reference);
+            solution = solution.AddMetadataReference(appId, reference);
+        }
+        ws.TryApplyChanges(solution);
+
         var libProj = ws.CurrentSolution.GetProject(libId)!;
         var appProj = ws.CurrentSolution.GetProject(appId)!;
         libProj.AddDocument("Lib.rav", SourceText.From("fn add(a:int,b:int)=a+b"), "Lib.rav");
@@ -24,8 +40,6 @@ public class SolutionProjectPersistenceTests
         var sol = appDoc.Project.Solution.AddProjectReference(appId, new ProjectReference(libId));
         ws.TryApplyChanges(sol);
 
-        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(dir);
         var solutionPath = Path.Combine(dir, "App.ravensln");
         ws.SaveSolution(solutionPath);
 
