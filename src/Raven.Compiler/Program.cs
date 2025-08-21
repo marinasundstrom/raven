@@ -55,7 +55,8 @@ var targetFramework = "net9.0";
 //var tfm = TargetFrameworkMoniker.Parse(targetFramework);
 
 var options = new CompilationOptions(OutputKind.ConsoleApplication);
-var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir(/* tfm.Version.ToString() + ".*" */);
+var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version /* version.Moniker.Version.ToString() + ".*" */);
 
 var compilation = Compilation.Create(assemblyName, options)
     .AddSyntaxTrees(syntaxTree)

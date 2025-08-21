@@ -39,7 +39,8 @@ public sealed class RavenWorkspace : Workspace
 
     private static MetadataReference[] GetFrameworkReferencesCore(string sdkVersion, string targetFramework)
     {
-        var paths = ReferenceAssemblyPaths.GetReferenceAssemblyPaths(sdkVersion, targetFramework);
+        var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(version, sdkVersion);
         if (paths.Length == 0)
         {
             return new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };

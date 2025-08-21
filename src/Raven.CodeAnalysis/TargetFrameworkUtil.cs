@@ -3,10 +3,10 @@ namespace Raven.CodeAnalysis;
 public static class TargetFrameworkUtil
 {
     public static string Resolve(string? tfmOrFull = null)
-        => TargetFrameworkResolver.Resolve(tfmOrFull);
+        => TargetFrameworkResolver.ResolveVersion(tfmOrFull).ToFrameworkString();
 
     public static string GetLatestFramework()
-        => TargetFrameworkResolver.GetLatestFrameworkTfm().ToFrameworkString();
+        => TargetFrameworkResolver.ResolveLatestInstalledVersion().ToFrameworkString();
 
     public static void EnsureInstalled(string tfm)
         => TargetFrameworkResolver.EnsureInstalled(TargetFrameworkMoniker.Parse(tfm));

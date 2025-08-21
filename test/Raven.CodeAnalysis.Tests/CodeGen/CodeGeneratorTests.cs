@@ -19,9 +19,9 @@ class Foo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyPaths();
+        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
 
-        var runtimePath = ReferenceAssemblyPaths.GetRuntimeDll();
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
 
         MetadataReference[] references = [
                 MetadataReference.CreateFromFile(runtimePath)];
