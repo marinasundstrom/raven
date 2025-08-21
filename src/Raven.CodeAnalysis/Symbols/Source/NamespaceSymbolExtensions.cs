@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis.Symbols;
 
-public static class NamespaceSymbolExtensions
+internal static class NamespaceSymbolExtensions
 {
     public static IEnumerable<ISymbol> GetAllMembersRecursive(this INamespaceSymbol ns)
     {
