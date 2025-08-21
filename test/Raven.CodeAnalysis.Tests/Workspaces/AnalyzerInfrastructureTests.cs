@@ -1,16 +1,11 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-
-using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Tests;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public class AnalyzerInfrastructureTests
 {
-    private sealed class TodoAnalyzer : IRavenAnalyzer
+    private sealed class TodoAnalyzer : IDiagnosticAnalyzer
     {
         public static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
             id: "AN0001",

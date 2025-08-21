@@ -1,10 +1,7 @@
-using System.Collections.Generic;
-using System.Threading;
-
-namespace Raven.CodeAnalysis;
+namespace Raven.CodeAnalysis.Diagnostics;
 
 /// <summary>Defines an analyzer that can produce diagnostics for a compilation.</summary>
-public interface IRavenAnalyzer
+public interface IDiagnosticAnalyzer
 {
     IEnumerable<Diagnostic> Analyze(Compilation compilation, CancellationToken cancellationToken = default);
 }
