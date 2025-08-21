@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -214,7 +215,7 @@ public class Workspace
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var compilation = GetCompilation(projectId);
-        var diagnostics = compilation.GetDiagnostics(cancellationToken).ToList();
+        var diagnostics = compilation.GetDiagnostics(cancellationToken).ToHashSet();
 
         foreach (var reference in project.AnalyzerReferences)
         {
