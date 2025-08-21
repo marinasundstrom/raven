@@ -3,8 +3,8 @@ namespace Raven.CodeAnalysis;
 public class CompilationOptions
 {
     public CompilationOptions()
+        : this(OutputKind.ConsoleApplication)
     {
-        OutputKind = OutputKind.ConsoleApplication;
     }
 
     public CompilationOptions(OutputKind outputKind)

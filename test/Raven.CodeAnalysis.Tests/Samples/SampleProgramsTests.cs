@@ -52,19 +52,7 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
         if (File.Exists(testDep))
             File.Copy(testDep, Path.Combine(outputDir, "TestDep.dll"), overwrite: true);
 
-        var refDir = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
-        var version = new DirectoryInfo(Path.GetDirectoryName(Path.GetDirectoryName(refDir)!)!).Name;
-        File.WriteAllText(
-            Path.Combine(outputDir, Path.ChangeExtension(fileName, ".runtimeconfig.json")),
-            $@"{{
-  ""runtimeOptions"": {{
-    ""tfm"": ""net9.0"",
-    ""framework"": {{
-      ""name"": ""Microsoft.NETCore.App"",
-      ""version"": ""{version}""
-    }}
-  }}
-}}");
+        Assert.True(File.Exists(Path.Combine(outputDir, Path.ChangeExtension(fileName, ".runtimeconfig.json"))));
 
         var run = Process.Start(new ProcessStartInfo
         {

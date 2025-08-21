@@ -171,7 +171,8 @@ public sealed class Solution
         if (!_projectInfos.TryGetValue(projectId, out var projInfo))
             throw new InvalidOperationException("Project not found");
 
-        projInfo = projInfo.WithCompilationOptions(compilationOptions).WithVersion(projInfo.Version.GetNewerVersion());
+        var attr = projInfo.Attributes with { Version = projInfo.Version.GetNewerVersion() };
+        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName);
         var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
