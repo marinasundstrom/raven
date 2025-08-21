@@ -28,8 +28,7 @@
 
   <Target Name="RunNodeGenerator"
     BeforeTargets="CoreCompile">
-    <!-- Use the built NodeGenerator assembly directly to avoid execution permission issues -->
-    <Exec Command="dotnet ../../../tools/NodeGenerator/bin/Debug/net9.0/NodeGenerator.dll"
+    <Exec Command="dotnet run --project ../../../tools/NodeGenerator"
       WorkingDirectory="Syntax" />
   </Target>
 

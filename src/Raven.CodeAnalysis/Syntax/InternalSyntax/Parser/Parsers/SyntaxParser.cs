@@ -97,7 +97,7 @@ internal class SyntaxParser : ParseContext
         // Allow optional semicolon
         if (ConsumeToken(SyntaxKind.SemicolonToken, out token))
             return true;
-        
+
         // Allow End of File
         if (ConsumeToken(SyntaxKind.EndOfFileToken, out token))
             return true;

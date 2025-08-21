@@ -50,9 +50,12 @@ var root = syntaxTree.GetRoot();
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
 var targetFramework = "net9.0";
-var tfm = TargetFrameworkMoniker.ToTfm(targetFramework);
+
+//var tfm = TargetFrameworkUtil.GetLatestFramework();
+//var tfm = TargetFrameworkMoniker.Parse(targetFramework);
+
 var options = new CompilationOptions(OutputKind.ConsoleApplication);
-var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
+var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir(/* tfm.Version.ToString() + ".*" */);
 
 var compilation = Compilation.Create(assemblyName, options)
     .AddSyntaxTrees(syntaxTree)

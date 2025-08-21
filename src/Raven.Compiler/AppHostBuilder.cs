@@ -94,7 +94,7 @@ static class AppHostBuilder
 
         // 8) Emit runtimeconfig.json using the picked pack version (product version)
         var runtimeConfigPath = Path.ChangeExtension(outputPath, ".runtimeconfig.json");
-        var tfm = TargetFrameworkMoniker.ToTfm(targetFramework);
+        var tfm = TargetFrameworkMoniker.Parse(targetFramework);
         var productVersion = Path.GetFileName(pickVersionDir); // e.g. "10.0.0" or "10.0.1"
         File.WriteAllText(runtimeConfigPath, $@"{{
   ""runtimeOptions"": {{
