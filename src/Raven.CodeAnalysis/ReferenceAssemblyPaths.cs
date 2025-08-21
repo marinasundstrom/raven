@@ -126,9 +126,24 @@ public static class ReferenceAssemblyPaths
         IEnumerable<string> candidates = versions;
         if (!string.IsNullOrWhiteSpace(sdkVersion) && sdkVersion != "*")
         {
-            // Basic glob support: * and ?
-            var re = WildcardToRegex(sdkVersion!);
-            candidates = candidates.Where(v => Regex.IsMatch(v, re, RegexOptions.IgnoreCase));
+            if (sdkVersion.IndexOf('*') >= 0 || sdkVersion.IndexOf('?') >= 0)
+            {
+                var re = WildcardToRegex(sdkVersion!);
+                candidates = versions.Where(v => Regex.IsMatch(v, re, RegexOptions.IgnoreCase));
+            }
+            else
+            {
+                var exact = versions.Where(v => string.Equals(v, sdkVersion, StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (exact.Length > 0)
+                {
+                    candidates = exact;
+                }
+                else
+                {
+                    var re = WildcardToRegex(sdkVersion + "*");
+                    candidates = versions.Where(v => Regex.IsMatch(v, re, RegexOptions.IgnoreCase));
+                }
+            }
         }
 
         // Pick the highest semantic version (stable > prerelease)
