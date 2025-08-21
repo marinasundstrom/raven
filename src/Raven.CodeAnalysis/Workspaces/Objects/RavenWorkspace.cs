@@ -15,7 +15,7 @@ public sealed class RavenWorkspace : Workspace
     private readonly MetadataReference[] _frameworkReferences;
 
     private RavenWorkspace(string sdkVersion, string defaultTargetFramework, MetadataReference[] frameworkReferences)
-        : base("Raven")
+        : base("Raven", new HostServices(new SyntaxTreeProvider(), new PersistenceService()))
     {
         _sdkVersion = sdkVersion;
         _defaultTargetFramework = defaultTargetFramework;
@@ -67,28 +67,4 @@ public sealed class RavenWorkspace : Workspace
         return projectId;
     }
 
-    public void OpenSolution(string filePath)
-    {
-        var solution = SolutionFile.Open(filePath, this);
-        base.OpenSolution(solution);
-    }
-
-    public void SaveSolution(string filePath)
-    {
-        SolutionFile.Save(CurrentSolution, filePath);
-    }
-
-    public ProjectId OpenProject(string projectFilePath)
-    {
-        var projInfo = ProjectFile.Load(projectFilePath);
-        var projectId = AddProject(projInfo.Name, projInfo.TargetFramework, projectFilePath);
-        var solution = CurrentSolution;
-        foreach (var doc in projInfo.Documents)
-        {
-            var docId = DocumentId.CreateNew(projectId);
-            solution = solution.AddDocument(docId, doc.Name, doc.Text, doc.FilePath);
-        }
-        TryApplyChanges(solution);
-        return projectId;
-    }
 }

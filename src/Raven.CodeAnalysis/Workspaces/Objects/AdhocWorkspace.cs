@@ -5,7 +5,13 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 public sealed class AdhocWorkspace : Workspace
 {
-    public AdhocWorkspace() : base("Adhoc")
+    public AdhocWorkspace()
+        : base("Adhoc")
+    {
+    }
+
+    public AdhocWorkspace(HostServices services)
+        : base("Adhoc", services)
     {
     }
 }

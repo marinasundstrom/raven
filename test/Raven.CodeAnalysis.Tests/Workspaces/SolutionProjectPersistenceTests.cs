@@ -44,4 +44,51 @@ public class SolutionProjectPersistenceTests
         var comp = ws2.GetCompilation(proj2.Id);
         Assert.NotEmpty(comp.References);
     }
+
+    [Fact]
+    public void AdHocWorkspace_SaveSolution_Throws()
+    {
+        var ws = new AdhocWorkspace();
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "Test.ravensln");
+        Assert.Throws<NotSupportedException>(() => ws.SaveSolution(path));
+    }
+
+    [Fact]
+    public void AdHocWorkspace_SaveDocument_WritesFile()
+    {
+        var ws = new AdhocWorkspace();
+        var solution = ws.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "App");
+        var docId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(docId, "Program.rav", SourceText.From("print"));
+        ws.TryApplyChanges(solution);
+        var doc = ws.CurrentSolution.GetDocument(docId)!;
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "Program.rav");
+        doc.SaveDocument(path);
+        Assert.True(File.Exists(path));
+        Assert.Contains("print", File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void ToRavenWorkspace_CopiesProjects()
+    {
+        var ws = new AdhocWorkspace();
+        var solution = ws.CurrentSolution;
+        var projectId = ProjectId.CreateNew(solution.Id);
+        solution = solution.AddProject(projectId, "App");
+        var docId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(docId, "Program.rav", SourceText.From("print"));
+        ws.TryApplyChanges(solution);
+
+        var raven = ws.ToRavenWorkspace();
+        var proj = raven.CurrentSolution.Projects.Single();
+        Assert.Equal("App", proj.Name);
+        Assert.Single(proj.Documents);
+        Assert.Equal("Program.rav", proj.Documents.Single().Name);
+    }
 }
