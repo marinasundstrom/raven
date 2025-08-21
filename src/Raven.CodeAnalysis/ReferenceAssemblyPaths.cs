@@ -73,6 +73,12 @@ public static class ReferenceAssemblyPaths
             if (Directory.Exists(r!))
                 yield return r!;
 
+        // Default install location for dotnet-install scripts
+        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var userDotNet = Path.Combine(userHome, ".dotnet");
+        if (Directory.Exists(userDotNet))
+            yield return userDotNet;
+
         // Fallbacks by OS
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -120,9 +126,24 @@ public static class ReferenceAssemblyPaths
         IEnumerable<string> candidates = versions;
         if (!string.IsNullOrWhiteSpace(sdkVersion) && sdkVersion != "*")
         {
-            // Basic glob support: * and ?
-            var re = WildcardToRegex(sdkVersion!);
-            candidates = candidates.Where(v => Regex.IsMatch(v, re, RegexOptions.IgnoreCase));
+            if (sdkVersion.IndexOf('*') >= 0 || sdkVersion.IndexOf('?') >= 0)
+            {
+                var re = WildcardToRegex(sdkVersion!);
+                candidates = versions.Where(v => Regex.IsMatch(v, re, RegexOptions.IgnoreCase));
+            }
+            else
+            {
+                var exact = versions.Where(v => string.Equals(v, sdkVersion, StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (exact.Length > 0)
+                {
+                    candidates = exact;
+                }
+                else
+                {
+                    var re = WildcardToRegex(sdkVersion + "*");
+                    candidates = versions.Where(v => Regex.IsMatch(v, re, RegexOptions.IgnoreCase));
+                }
+            }
         }
 
         // Pick the highest semantic version (stable > prerelease)
