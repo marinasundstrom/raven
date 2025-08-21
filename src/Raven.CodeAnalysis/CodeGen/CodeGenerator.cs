@@ -4,9 +4,9 @@ using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
-using System.Runtime.Versioning;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
@@ -44,18 +44,12 @@ internal class CodeGenerator
 
     public void Emit(Stream peStream, Stream? pdbStream)
     {
-        var assemblyName = new AssemblyName(_compilation.AssemblyName);
-        assemblyName.Version = new Version(1, 0, 0, 0);
+        var assemblyName = new AssemblyName(_compilation.AssemblyName)
+        {
+            Version = new Version(1, 0, 0, 0)
+        };
 
-        var tfaProp = typeof(TargetFrameworkAttribute).GetProperty(nameof(TargetFrameworkAttribute.FrameworkDisplayName))!;
-        var targetFrameworkAttribute = new CustomAttributeBuilder(
-            // TODO: This should not be set here
-            typeof(TargetFrameworkAttribute).GetConstructor([typeof(string)]),
-            [".NETCoreApp,Version=v9.0"], [tfaProp],
-            [".NET 9.0"]
-        );
-
-        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly, [targetFrameworkAttribute]);
+        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly);
         ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
         var globalNamespace = _compilation.SourceGlobalNamespace;
@@ -237,4 +231,5 @@ internal class CodeGenerator
         type = null!;
         return false;
     }
+
 }

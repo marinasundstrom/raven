@@ -49,9 +49,12 @@ var root = syntaxTree.GetRoot();
 
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
-var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir("9.*");
+var targetFramework = "net9.0";
+var tfm = TargetFrameworkMoniker.ToTfm(targetFramework);
+var options = new CompilationOptions(OutputKind.ConsoleApplication);
+var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir(targetFramework: tfm);
 
-var compilation = Compilation.Create(assemblyName, new CompilationOptions(OutputKind.ConsoleApplication))
+var compilation = Compilation.Create(assemblyName, options)
     .AddSyntaxTrees(syntaxTree)
     .AddReferences([
         MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
@@ -152,10 +155,10 @@ if (result is not null)
         {
             Succeeded(stopwatch.Elapsed);
         }
+
+        CreateAppHost(compilation, outputPath, targetFramework);
     }
 }
-
-//CreateAppHost(compilation);
 
 //Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
 

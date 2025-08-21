@@ -32,9 +32,10 @@ internal static class ProjectFile
             File.WriteAllText(path, document.Text.ToString());
         }
 
+        var targetFramework = project.TargetFramework;
         var projectElement = new XElement("Project",
             new XAttribute("Name", project.Name),
-            project.TargetFramework is string tfm ? new XAttribute("TargetFramework", tfm) : null,
+            targetFramework is string tfm ? new XAttribute("TargetFramework", tfm) : null,
             project.AssemblyName is string asm ? new XAttribute("Output", asm) : null,
             project.CompilationOptions is { } opts ? new XAttribute("OutputKind", opts.OutputKind) : null);
 
@@ -63,6 +64,8 @@ internal static class ProjectFile
         CompilationOptions? options = null;
         if (outputKindAttr is string ok && Enum.TryParse<OutputKind>(ok, out var kind))
             options = new CompilationOptions(kind);
+        else
+            options = new CompilationOptions(OutputKind.ConsoleApplication);
         var tempSolutionId = SolutionId.CreateNew();
         var projectId = ProjectId.CreateNew(tempSolutionId);
         var projectDir = Path.GetDirectoryName(filePath)!;
