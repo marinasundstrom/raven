@@ -63,19 +63,15 @@ public sealed class RavenWorkspace : Workspace
     }
 
     /// <summary>
-    /// Adds a new project to the workspace preloaded with framework references.
+    /// Adds a new project to the workspace.
     /// </summary>
-    public ProjectId AddProject(string name, string? targetFramework = null, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
+    public ProjectId AddProject(string name, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
     {
-        var tfm = targetFramework ?? _defaultTargetFramework;
         var options = compilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication);
 
         var solution = CurrentSolution;
         var projectId = ProjectId.CreateNew(solution.Id);
-        solution = solution.AddProject(projectId, name, filePath, tfm, assemblyName, options);
-        var references = tfm == _defaultTargetFramework ? _frameworkReferences : GetFrameworkReferences(tfm);
-        foreach (var reference in references)
-            solution = solution.AddMetadataReference(projectId, reference);
+        solution = solution.AddProject(projectId, name, filePath, assemblyName, options);
         TryApplyChanges(solution);
         return projectId;
     }

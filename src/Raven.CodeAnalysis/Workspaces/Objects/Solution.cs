@@ -53,18 +53,18 @@ public sealed class Solution
     public Document? GetDocument(DocumentId id) => GetProject(id.ProjectId)?.GetDocument(id);
 
     /// <summary>Adds a new project with the specified name.</summary>
-    public Solution AddProject(string name, string? filePath = null, string? targetFramework = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
+    public Solution AddProject(string name, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
     {
         var projectId = ProjectId.CreateNew(Id);
-        return AddProject(projectId, name, filePath, targetFramework, assemblyName, compilationOptions);
+        return AddProject(projectId, name, filePath, assemblyName, compilationOptions);
     }
 
     /// <summary>Adds a new project with the specified id and name.</summary>
-    public Solution AddProject(ProjectId id, string name, string? filePath = null, string? targetFramework = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
+    public Solution AddProject(ProjectId id, string name, string? filePath = null, string? assemblyName = null, CompilationOptions? compilationOptions = null)
     {
         if (_projectInfos.ContainsKey(id)) return this;
         var projAttr = new ProjectInfo.ProjectAttributes(id, name, VersionStamp.Create());
-        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: compilationOptions, assemblyName: assemblyName);
+        var projInfo = new ProjectInfo(projAttr, Array.Empty<DocumentInfo>(), filePath: filePath, analyzerReferences: null, targetFramework: null, compilationOptions: compilationOptions, assemblyName: assemblyName);
         var newInfos = _projectInfos.Add(id, projInfo);
         var newInfo = _info.WithProjects(newInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);

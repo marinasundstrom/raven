@@ -38,7 +38,7 @@ internal static class SolutionFile
             var projPath = Path.Combine(dir, rel);
             var projInfo = ProjectFile.Load(projPath);
             var projId = ProjectId.CreateNew(solution.Id);
-            solution = solution.AddProject(projId, projInfo.Info.Name, projPath, projInfo.Info.TargetFramework, projInfo.Info.AssemblyName, projInfo.Info.CompilationOptions);
+            solution = solution.AddProject(projId, projInfo.Info.Name, projPath, projInfo.Info.AssemblyName, projInfo.Info.CompilationOptions);
             foreach (var doc in projInfo.Info.Documents)
             {
                 var docId = DocumentId.CreateNew(projId);

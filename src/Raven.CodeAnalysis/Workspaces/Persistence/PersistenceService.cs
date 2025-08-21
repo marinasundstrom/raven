@@ -27,7 +27,7 @@ public class PersistenceService
         if (workspace is not RavenWorkspace raven)
             throw new NotSupportedException("Project persistence requires a RavenWorkspace.");
         var projInfo = ProjectFile.Load(projectFilePath);
-        var projectId = raven.AddProject(projInfo.Info.Name, projInfo.Info.TargetFramework, projectFilePath, projInfo.Info.AssemblyName, projInfo.Info.CompilationOptions);
+        var projectId = raven.AddProject(projInfo.Info.Name, projectFilePath, projInfo.Info.AssemblyName, projInfo.Info.CompilationOptions);
         var solution = workspace.CurrentSolution;
         foreach (var doc in projInfo.Info.Documents)
         {

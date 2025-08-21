@@ -8,13 +8,13 @@ namespace Raven.CodeAnalysis.Tests;
 public class RavenWorkspaceTests
 {
     [Fact]
-    public void AddProject_ShouldIncludeFrameworkReferences()
+    public void AddProject_ShouldNotIncludeFrameworkReferences()
     {
         var workspace = RavenWorkspace.Create();
         var projectId = workspace.AddProject("App");
 
         var compilation = workspace.GetCompilation(projectId);
-        Assert.NotEmpty(compilation.References);
+        Assert.Single(compilation.References);
     }
 
     [Fact]
