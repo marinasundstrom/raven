@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public class AnalyzerInfrastructureTests
 {
-    private sealed class TodoAnalyzer : IDiagnosticAnalyzer
+    private sealed class TodoAnalyzer : DiagnosticAnalyzer
     {
         public static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
             id: "AN0001",
@@ -16,14 +16,14 @@ public class AnalyzerInfrastructureTests
             category: "Testing",
             defaultSeverity: DiagnosticSeverity.Info);
 
-        public IEnumerable<Diagnostic> Analyze(Compilation compilation, CancellationToken cancellationToken = default)
+        public override void Initialize(AnalysisContext context)
         {
-            foreach (var tree in compilation.SyntaxTrees)
+            context.RegisterSyntaxTreeAction(ctx =>
             {
-                var text = tree.GetText()?.ToString();
+                var text = ctx.SyntaxTree.GetText()?.ToString();
                 if (text is not null && text.Contains("TODO"))
-                    yield return Diagnostic.Create(Descriptor, Location.None);
-            }
+                    ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, Location.None));
+            });
         }
     }
 
