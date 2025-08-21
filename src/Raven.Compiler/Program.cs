@@ -52,7 +52,7 @@ var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 var targetFramework = "net9.0";
 var tfm = TargetFrameworkMoniker.ToTfm(targetFramework);
 var options = new CompilationOptions(OutputKind.ConsoleApplication);
-var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir(targetFramework: tfm);
+var refAssembliesPath = ReferenceAssemblyPaths.GetReferenceAssemblyDir();
 
 var compilation = Compilation.Create(assemblyName, options)
     .AddSyntaxTrees(syntaxTree)
