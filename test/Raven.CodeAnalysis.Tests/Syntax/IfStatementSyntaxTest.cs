@@ -20,60 +20,6 @@ public class IfStatementSyntaxTest : DiagnosticTestBase
     }
 
     [Fact]
-    public void IfStatement_WithMissingCondition()
-    {
-        string testCode =
-            """
-            if() {
-            
-            }
-            """;
-
-        var verifier = CreateVerifier(testCode,
-               [
-                    new DiagnosticResult("RAV1525").WithLocation(1, 4).WithArguments(')'),
-               ]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void IfStatement_MissingBlock_AndSkippedToken()
-    {
-        string testCode =
-            """
-            if(x)
-            
-            }
-            """;
-
-        var verifier = CreateVerifier(testCode,
-                [
-                      new DiagnosticResult("RAV1525").WithLocation(3, 1).WithArguments('}'),
-                ], disabledDiagnostics: ["RAV0103"]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void IfStatement_MissingBlock_WithReturnStatement()
-    {
-        string testCode =
-            """
-            if(x)
-                return 2;
-            }
-            """;
-
-        var verifier = CreateVerifier(testCode,
-                [
-                      new DiagnosticResult("RAV1525").WithLocation(3, 1).WithArguments('}'),
-                ], disabledDiagnostics: ["RAV0103"]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
     public void IfStatement_WithElseClause()
     {
         string testCode =

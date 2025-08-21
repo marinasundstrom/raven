@@ -10,13 +10,12 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
     internal readonly GreenNode Green;
     private readonly SyntaxTree _syntaxTree;
     private readonly SyntaxNode _parent;
-    private bool? _isMissing = false;
     private List<Diagnostic>? _diagnostics;
     private bool? _containsDiagnostics;
 
     public SyntaxNode Parent => _parent;
 
-    public bool IsMissing => _isMissing ??= Green.IsMissing;
+    public bool IsMissing => Green.IsMissing;
 
     public SyntaxTree? SyntaxTree
     {
@@ -112,7 +111,7 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
     }
 
     protected virtual string GetDebuggerDisplay()
-     => $"{GetType().Name} {Kind} {ToString()}";
+     => $"{GetType().Name} {Kind} {(IsMissing ? "<missing>" : ToString())}";
 
     internal virtual SyntaxNode? GetNodeSlot(int index) { return null; }
 

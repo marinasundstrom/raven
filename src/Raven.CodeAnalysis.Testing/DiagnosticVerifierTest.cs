@@ -56,21 +56,20 @@ public class DiagnosticVerifierTest
     {
         string testCode =
             """
-            import System;
+            import System
             
-            Console.WriteLine("Hello" + ", World!);
+            Console.WriteLine("Hello" + ", World!)
             """;
 
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV1010").WithLocation(1, 36),
-                new DiagnosticResult("RAV1002").WithLocation(1, 47)
+                new DiagnosticResult("RAV1010").WithLocation(3, 29),
             ]);
 
         var result = verifier.GetResult();
 
-        result.MatchedDiagnostics.Count.ShouldBe(2);
+        result.MatchedDiagnostics.Count.ShouldBe(1);
         Assert.Empty(result.MissingDiagnostics);
         Assert.Empty(result.UnexpectedDiagnostics);
     }

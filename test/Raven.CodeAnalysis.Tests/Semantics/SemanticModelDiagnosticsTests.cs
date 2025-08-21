@@ -1,5 +1,6 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
@@ -11,14 +12,14 @@ public class SemanticModelDiagnosticsTests
     public void GetDiagnostics_CollectsMethodBodyDiagnostics()
     {
         var source = """
-class Program {
-    void M() {
+class Test {
+    M() -> void {
         1();
     }
 }
 """;
         var syntaxTree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", new[] { syntaxTree }, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = Compilation.Create("test", [syntaxTree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(syntaxTree);
 
         var diagnostics = model.GetDiagnostics();

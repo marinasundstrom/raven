@@ -46,7 +46,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
             Colorize = true,
             ExpandListsAsProperties = true
         }));
-        
+
         testOutputHelper.WriteLine(root.ToFullString());
 
         root.PrintSyntaxTree(new PrinterOptions
@@ -153,7 +153,9 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var service = new CompletionService();
 
-        var items3 = service.GetCompletions(compilation, syntaxTree, 20);
+        var items = service.GetCompletions(compilation, syntaxTree, 18);
+
+        Assert.All(items, i => i.InsertionText.StartsWith("Con"));
     }
 
     [Fact]
@@ -184,7 +186,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var service = new CompletionService();
 
-        var items3 = service.GetCompletions(compilation, syntaxTree, 20);
+        var items = service.GetCompletions(compilation, syntaxTree, 20);
 
         var x = compilation.Module.GlobalNamespace.LookupType("Program");
     }

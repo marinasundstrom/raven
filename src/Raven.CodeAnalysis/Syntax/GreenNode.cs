@@ -282,7 +282,7 @@ public abstract class GreenNode
 
     internal abstract GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics);
 
-    private string GetDebuggerDisplay() => $"{GetType().Name} {GetValueText()}";
+    private string GetDebuggerDisplay() => $"{GetType().Name} {(IsMissing ? "<missing>" : GetValueText())}";
 
     internal abstract void Accept(InternalSyntax.SyntaxVisitor visitor);
 

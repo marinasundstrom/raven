@@ -204,15 +204,7 @@ internal class StatementSyntaxParser : SyntaxParser
             return ExpressionStatement(expression, terminatorToken2, Diagnostics);
         }
 
-        SetTreatNewlinesAsTokens(true);
-
-        if (!TryConsumeTerminator(out var terminatorToken))
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()));
-        }
+        SyntaxToken? terminatorToken = NewMethod();
 
         return ExpressionStatement(expression, terminatorToken, Diagnostics);
     }
@@ -223,17 +215,32 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var declaration = ParseVariableDeclarationSyntax();
 
-        SetTreatNewlinesAsTokens(true);
-
-        if (!TryConsumeTerminator(out var terminatorToken))
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()));
-        }
+        SyntaxToken? terminatorToken = NewMethod();
 
         return LocalDeclarationStatement(declaration, terminatorToken, Diagnostics);
+    }
+
+    private SyntaxToken NewMethod()
+    {
+        var terminatorToken = PeekToken();
+        if (terminatorToken.IsKind(SyntaxKind.EndOfFileToken))
+        {
+            return ReadToken();
+        }
+        else
+        {
+            SetTreatNewlinesAsTokens(true);
+
+            if (!TryConsumeTerminator(out terminatorToken))
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.SemicolonExpected,
+                        GetEndOfLastToken()));
+            }
+        }
+
+        return terminatorToken;
     }
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()

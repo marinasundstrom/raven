@@ -483,6 +483,17 @@ internal class Lexer : ILexer
                                 break;
                             }
 
+                            if (IsEndOfLine(ch2)) // Check EOL before adding anything
+                            {
+                                diagnostics.Add(
+                                    DiagnosticInfo.Create(
+                                        CompilerDiagnostics.NewlineInConstant,
+                                        GetTokenStartPositionSpan()
+                                    ));
+
+                                break;
+                            }
+
                             if (IsEndOfFile) // Check EOF before adding anything
                             {
                                 diagnostics.Add(
@@ -537,6 +548,11 @@ internal class Lexer : ILexer
         }
 
         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
+    }
+
+    private bool IsEndOfLine(char ch)
+    {
+        return ch == '\n';
     }
 
     private string GetStringBuilderValue() => string.Intern(_stringBuilder.ToString());

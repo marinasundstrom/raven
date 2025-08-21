@@ -169,8 +169,8 @@ public partial class SyntaxNodeTest(ITestOutputHelper testOutputHelper)
         // Assertions
         updatedBlock.ShouldNotBeSameAs(block);
         updatedBlock.Statements.Count.ShouldBe(2);
-        updatedBlock.ToFullString().ShouldContain("100;");
-        updatedBlock.ToFullString().ShouldContain("200;");
+        updatedBlock.ToFullString().ShouldContain("100\\n");
+        updatedBlock.ToFullString().ShouldContain("200\\n");
         testOutputHelper.WriteLine(updatedBlock.ToFullString());
     }
 

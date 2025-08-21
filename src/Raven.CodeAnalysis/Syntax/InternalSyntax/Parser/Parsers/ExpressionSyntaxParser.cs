@@ -212,6 +212,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             var operatorCandidate = PeekToken();
 
+            if (operatorCandidate.IsKind(SyntaxKind.EndOfFileToken))
+                return expr;
+
             int prec;
             if (!TryResolveOperatorPrecedence(operatorCandidate, out prec))
                 return expr;
@@ -394,15 +397,18 @@ internal class ExpressionSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
             SetTreatNewlinesAsTokens(false);
 
             var arg = new ExpressionSyntaxParser(this).ParseArgument();
             if (arg is null)
                 break;
 
-            if (arg.GetSlot(0) is { } nameColon)
+            if (arg.NameColon is { } nameColon)
             {
-                var name = nameColon.GetSlot(0).GetSlot(0).GetValueText();
+                var name = nameColon.Name.Identifier.GetValueText();
                 if (!seenNames.Add(name))
                 {
                     //AddDiagnostic(DiagnosticInfo.Create(
@@ -454,6 +460,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
             var t = PeekToken();
 
             if (t.IsKind(SyntaxKind.CloseBracketToken))
+                break;
+
+            if (t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             var expression = new ExpressionSyntaxParser(this).ParseExpression();

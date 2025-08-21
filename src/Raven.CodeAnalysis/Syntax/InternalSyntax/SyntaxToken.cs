@@ -114,9 +114,9 @@ internal class SyntaxToken : GreenNode
     {
         if (string.IsNullOrEmpty(Text))
         {
-            return $"{GetType().Name} {Kind}";
+            return $"{GetType().Name} {Kind} {(IsMissing ? "<missing>" : string.Empty)}";
         }
-        return $"{GetType().Name} {Kind} {Text}";
+        return $"{GetType().Name} {Kind} {(IsMissing ? "<missing>" : Text)}";
     }
 
     internal override void Accept(SyntaxVisitor visitor)
