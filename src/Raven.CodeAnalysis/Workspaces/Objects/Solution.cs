@@ -165,4 +165,15 @@ public sealed class Solution
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
+
+    public Solution WithCompilationOptions(ProjectId projectId, CompilationOptions? compilationOptions)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        projInfo = projInfo.WithCompilationOptions(compilationOptions).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
 }

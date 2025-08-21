@@ -59,5 +59,8 @@ public sealed class ProjectInfo
     public ProjectInfo WithMetadataReferences(IEnumerable<MetadataReference> metadataReferences) =>
         new(Attributes, Documents, ProjectReferences, metadataReferences, FilePath, TargetFramework, CompilationOptions, AssemblyName);
 
+    public ProjectInfo WithCompilationOptions(CompilationOptions? compilationOptions) =>
+        new(Attributes, Documents, ProjectReferences, MetadataReferences, FilePath, TargetFramework, compilationOptions, AssemblyName);
+
     public sealed record ProjectAttributes(ProjectId Id, string Name, VersionStamp Version);
 }

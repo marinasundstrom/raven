@@ -97,4 +97,18 @@ public class SolutionProjectPersistenceTests
         Assert.Single(proj.Documents);
         Assert.Equal("Program.rav", proj.Documents.Single().Name);
     }
+
+    [Fact]
+    public void Project_WithCompilationOptions_UpdatesSolution()
+    {
+        var ws = RavenWorkspace.Create();
+        var projectId = ws.AddProject("App");
+        var project = ws.CurrentSolution.GetProject(projectId)!;
+        var updated = project.WithCompilationOptions(new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        ws.TryApplyChanges(updated.Solution);
+        var result = ws.CurrentSolution.GetProject(projectId)!;
+        Assert.Equal(OutputKind.DynamicallyLinkedLibrary, result.CompilationOptions?.OutputKind);
+        var comp = ws.GetCompilation(projectId);
+        Assert.Equal(OutputKind.DynamicallyLinkedLibrary, comp.Options.OutputKind);
+    }
 }

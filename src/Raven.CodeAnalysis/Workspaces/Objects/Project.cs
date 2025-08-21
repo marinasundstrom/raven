@@ -105,6 +105,15 @@ public sealed class Project
         return Solution.AddMetadataReference(Id, metadataReference).GetProject(Id);
     }
 
+    /// <summary>
+    /// Creates a new project with the specified <see cref="CompilationOptions"/>.
+    /// </summary>
+    public Project WithCompilationOptions(CompilationOptions? options)
+    {
+        var newSolution = Solution.WithCompilationOptions(Id, options);
+        return newSolution.GetProject(Id)!;
+    }
+
     internal Project AddDocument(DocumentInfo info)
     {
         var newInfos = _documentInfos.Add(info.Id, info);
