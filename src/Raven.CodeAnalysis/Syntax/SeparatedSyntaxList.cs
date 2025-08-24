@@ -14,6 +14,8 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
     private readonly int _position;
     private readonly TextSpan _span;
     private readonly TextSpan _fullSpan;
+    private IEnumerable<SyntaxToken> _separators;
+    private SyntaxNodeOrToken[] _slots;
 
     public SeparatedSyntaxList()
     {
@@ -41,7 +43,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     public int Count => (Green.SlotCount + 1) / 2; // Elements are at even indices
 
-    public int SeparatorCount => Green.SlotCount / 2;
+    public int SeparatorCount => GetSeparators().Count();
 
     public TextSpan Span => _span;
 
@@ -80,6 +82,16 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     private IEnumerable<SyntaxNodeOrToken> EnumerateItems()
     {
+        if (_slots is null)
+        {
+            _slots = EnumerateItems2().ToArray();
+        }
+
+        return _slots;
+    }
+
+    private IEnumerable<SyntaxNodeOrToken> EnumerateItems2()
+    {
         for (int i = 0; i < Green.SlotCount; i++)
         {
             var node = Green.GetSlot(i);
@@ -94,7 +106,7 @@ public struct SeparatedSyntaxList<TNode> : IEnumerable<TNode>
 
     public IEnumerable<SyntaxToken> GetSeparators()
     {
-        return EnumerateItems()
+        return _separators ??= EnumerateItems()
                 .Where(x => x.IsToken)
                 .Select(x => x.AsToken())
                 .OfType<SyntaxToken>();

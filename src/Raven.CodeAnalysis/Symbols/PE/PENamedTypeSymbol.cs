@@ -167,7 +167,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ITypeSymbol? LookupType(string name)
     {
-        throw new NotImplementedException();
+        return null;
     }
 
     internal void AddMember(ISymbol member)

@@ -225,7 +225,8 @@ public partial class SemanticModel
 
         // Step 2: Handle imports
         var namespaceImports = new List<INamespaceSymbol>();
-        var typeImports = new Dictionary<string, ITypeSymbol>();
+        var typeImports = new List<ITypeSymbol>();
+        var aliases = new Dictionary<string, ITypeSymbol>();
 
         foreach (var import in cu.DescendantNodes().OfType<ImportDirectiveSyntax>())
         {
@@ -247,13 +248,12 @@ public partial class SemanticModel
             }
 
             ITypeSymbol? typeSymbol = HasTypeArguments(import.Name)
-                ? ResolveGenericType(targetNamespace, import.Name)
+                ? ResolveOpenGenericType(targetNamespace, import.Name)
                 : ResolveType(targetNamespace, name);
 
             if (typeSymbol != null)
             {
-                var alias = GetRightmostIdentifier(import.Name);
-                typeImports[alias] = typeSymbol;
+                typeImports.Add(typeSymbol);
             }
         }
 
@@ -265,11 +265,11 @@ public partial class SemanticModel
 
             if (typeSymbol != null)
             {
-                typeImports[alias.Identifier.Text] = typeSymbol;
+                aliases[alias.Identifier.Text] = typeSymbol;
             }
         }
 
-        var importBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports);
+        var importBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);
         parentBinder = importBinder;
 
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
@@ -300,7 +300,7 @@ public partial class SemanticModel
         {
             if (name is GenericNameSyntax g)
             {
-                var baseName = g.Identifier.Text + "`" + g.TypeArgumentList.Arguments.Count;
+                var baseName = $"{g.Identifier.Text}`{g.TypeArgumentList.Arguments.Count}";
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
@@ -316,7 +316,7 @@ public partial class SemanticModel
             if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
-                var baseName = leftName + "." + gen.Identifier.Text + "`" + gen.TypeArgumentList.Arguments.Count;
+                var baseName = $"{leftName}.{gen.Identifier.Text}`{gen.TypeArgumentList.Arguments.Count}";
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
@@ -327,6 +327,37 @@ public partial class SemanticModel
                     .Select(a => namespaceBinder.ResolveType(a.Type))
                     .ToArray();
                 return Compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            return null;
+        }
+
+        ITypeSymbol? ResolveOpenGenericType(INamespaceSymbol current, NameSyntax name)
+        {
+            if (name is GenericNameSyntax g)
+            {
+                var baseName = $"{g.Identifier.Text}`{g.TypeArgumentList.Arguments.SeparatorCount + 1}";
+                var full = Combine(current, baseName);
+                var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
+                    ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
+                if (unconstructed is null)
+                    return null;
+
+                var args = g.TypeArgumentList.Arguments
+                    .Select(a => namespaceBinder.ResolveType(a.Type))
+                    .ToArray();
+                return Compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
+            {
+                var leftName = ((QualifiedNameSyntax)name).Left.ToString();
+                var baseName = $"{leftName}.{gen.Identifier.Text}`{gen.TypeArgumentList.Arguments.SeparatorCount + 1}";
+                var full = Combine(current, baseName);
+                var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
+                    ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
+                if (unconstructed is not null)
+                    return unconstructed;
             }
 
             return null;

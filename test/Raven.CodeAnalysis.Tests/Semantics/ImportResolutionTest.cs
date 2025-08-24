@@ -84,6 +84,21 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void ImportFullyQualifiedOpenGenericType_ShouldNot_ProduceDiagnostic2()
+    {
+        string testCode =
+            """
+            import System.Collections.Generic.List<>
+
+            List<int>
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void SpecificTypeImport_MakesTypeAvailable()
     {
         string testCode =
