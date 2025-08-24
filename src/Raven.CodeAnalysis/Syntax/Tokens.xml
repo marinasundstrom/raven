@@ -8,6 +8,7 @@
   <TokenKind Name="BoolKeyword" Text="bool" IsReservedWord="true" />
   <TokenKind Name="CharKeyword" Text="char" IsReservedWord="true" />
   <TokenKind Name="ImportKeyword" Text="import" IsReservedWord="true" />
+  <TokenKind Name="AliasKeyword" Text="alias" IsReservedWord="true" />
   <TokenKind Name="NamespaceKeyword" Text="namespace" IsReservedWord="true" />
   <TokenKind Name="LetKeyword" Text="let" IsReservedWord="true" />
   <TokenKind Name="VarKeyword" Text="var" IsReservedWord="true" />

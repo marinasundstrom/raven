@@ -14,6 +14,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     public CompilationUnitSyntax Parse()
     {
         List<ImportDirectiveSyntax> importDirectives = [];
+        List<AliasDirectiveSyntax> aliasDirectives = [];
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
         SyntaxToken nextToken;
@@ -22,21 +23,27 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
         while (!ConsumeToken(SyntaxKind.EndOfFileToken, out nextToken))
         {
-            ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
+            ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations);
 
             SetTreatNewlinesAsTokens(false);
         }
 
-        return CompilationUnit(List(importDirectives), List(memberDeclarations), nextToken);
+        return CompilationUnit(List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken);
     }
 
-    private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken, List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations)
+    private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken, List<ImportDirectiveSyntax> importDirectives, List<AliasDirectiveSyntax> aliasDirectives, List<MemberDeclarationSyntax> memberDeclarations)
     {
         if (nextToken.IsKind(SyntaxKind.ImportKeyword))
         {
             var importDirective = new ImportDirectiveSyntaxParser(this).ParseImportDirective();
 
             importDirectives.Add(importDirective);
+        }
+        else if (nextToken.IsKind(Raven.CodeAnalysis.Syntax.SyntaxKind.AliasKeyword))
+        {
+            var aliasDirective = new AliasDirectiveSyntaxParser(this).ParseAliasDirective();
+
+            aliasDirectives.Add(aliasDirective);
         }
         else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
         {

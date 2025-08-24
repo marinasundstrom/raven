@@ -1,18 +1,18 @@
-
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
-internal class ImportDirectiveSyntaxParser : SyntaxParser
+internal class AliasDirectiveSyntaxParser : SyntaxParser
 {
-    public ImportDirectiveSyntaxParser(ParseContext parent) : base(parent)
+    public AliasDirectiveSyntaxParser(ParseContext parent) : base(parent)
     {
-
     }
 
-    public ImportDirectiveSyntax ParseImportDirective()
+    public AliasDirectiveSyntax ParseAliasDirective()
     {
-        var importKeyword = ReadToken();
+        var aliasKeyword = ReadToken();
+        var identifier = ReadToken();
+        var equalsToken = ReadToken();
 
         NameSyntax nameSyntax;
         if (PeekToken().Kind == SyntaxKind.SemicolonToken)
@@ -41,6 +41,6 @@ internal class ImportDirectiveSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
-        return ImportDirective(importKeyword, nameSyntax, terminatorToken);
+        return AliasDirective(aliasKeyword, identifier, equalsToken, nameSyntax, terminatorToken);
     }
 }

@@ -114,11 +114,11 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
-    public void AliasImport_UsesAlias()
+    public void AliasDirective_UsesAlias()
     {
         string testCode =
             """
-            import SB = System.Text.StringBuilder;
+            alias SB = System.Text.StringBuilder;
 
             SB;
             """;
@@ -129,11 +129,11 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
-    public void AliasImport_UsesAlias_Generic()
+    public void AliasDirective_UsesAlias_Generic()
     {
         string testCode =
             """
-            import IntList = System.Collections.Generic.List<int>;
+            alias IntList = System.Collections.Generic.List<int>;
 
             IntList;
             """;

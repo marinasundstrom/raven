@@ -252,8 +252,20 @@ public partial class SemanticModel
 
             if (typeSymbol != null)
             {
-                var alias = import.Alias?.Name.Identifier.Text ?? GetRightmostIdentifier(import.Name);
+                var alias = GetRightmostIdentifier(import.Name);
                 typeImports[alias] = typeSymbol;
+            }
+        }
+
+        foreach (var alias in cu.DescendantNodes().OfType<AliasDirectiveSyntax>())
+        {
+            ITypeSymbol? typeSymbol = HasTypeArguments(alias.Name)
+                ? ResolveGenericType(targetNamespace, alias.Name)
+                : ResolveType(targetNamespace, alias.Name.ToString());
+
+            if (typeSymbol != null)
+            {
+                typeImports[alias.Identifier.Text] = typeSymbol;
             }
         }
 

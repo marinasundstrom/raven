@@ -87,8 +87,20 @@ class BinderFactory
 
             if (typeSymbol != null)
             {
-                var alias = importDirective.Alias?.Name.Identifier.Text ?? GetRightmostIdentifier(importDirective.Name);
+                var alias = GetRightmostIdentifier(importDirective.Name);
                 nsBinder.AddTypeImport(alias, typeSymbol);
+            }
+        }
+
+        foreach (var aliasDirective in nsSyntax.Aliases)
+        {
+            ITypeSymbol? typeSymbol = HasTypeArguments(aliasDirective.Name)
+                ? ResolveGenericType(nsSymbol!, aliasDirective.Name)
+                : ResolveType(nsSymbol!, aliasDirective.Name.ToString());
+
+            if (typeSymbol != null)
+            {
+                nsBinder.AddTypeImport(aliasDirective.Identifier.Text, typeSymbol);
             }
         }
 

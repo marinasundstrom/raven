@@ -161,22 +161,27 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     public override SyntaxNode? VisitImportDirective(ImportDirectiveSyntax node)
     {
         var importKeyword = node.ImportKeyword.WithTrailingTrivia(SyntaxFactory.Space);
-        NameEqualsSyntax? alias = null;
-        if (node.Alias is { } aliasNode)
-        {
-            var name = (IdentifierNameSyntax)VisitIdentifierName(aliasNode.Name)!;
-            var equals = aliasNode.EqualsToken.WithTrailingTrivia(SyntaxFactory.Space);
-            alias = aliasNode.Update(name, equals);
-        }
-
         var nameSyntax = (NameSyntax)VisitName(node.Name)!;
-
         var terminatorToken = node.TerminatorToken
             .WithTrailingTrivia(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(importKeyword, alias, nameSyntax, terminatorToken);
+        return node.Update(importKeyword, nameSyntax, terminatorToken);
+    }
+
+    public override SyntaxNode? VisitAliasDirective(AliasDirectiveSyntax node)
+    {
+        var aliasKeyword = node.AliasKeyword.WithTrailingTrivia(SyntaxFactory.Space);
+        var identifier = node.Identifier.WithTrailingTrivia(SyntaxFactory.Space);
+        var equalsToken = node.EqualsToken.WithTrailingTrivia(SyntaxFactory.Space);
+        var nameSyntax = (NameSyntax)VisitName(node.Name)!;
+        var terminatorToken = node.TerminatorToken
+            .WithTrailingTrivia(
+                SyntaxFactory.CarriageReturnLineFeed,
+                SyntaxFactory.CarriageReturnLineFeed);
+
+        return node.Update(aliasKeyword, identifier, equalsToken, nameSyntax, terminatorToken);
     }
 
     public override SyntaxNode? VisitFileScopedNamespaceDeclaration(FileScopedNamespaceDeclarationSyntax node)
@@ -190,7 +195,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(node.Modifiers, namespaceKeyword, name, terminatorToken, VisitList(node.Imports)!, VisitList(node.Members)!);
+        return node.Update(node.Modifiers, namespaceKeyword, name, terminatorToken, VisitList(node.Imports)!, VisitList(node.Aliases)!, VisitList(node.Members)!);
     }
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
