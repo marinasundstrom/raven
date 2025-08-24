@@ -65,6 +65,9 @@ public static class DiagnosticBagExtensions
     public static void ReportUndefinedName(this DiagnosticBag diagnostics, string name, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, location, name));
 
+    public static void ReportTypeRequiresTypeArguments(this DiagnosticBag diagnostics, string name, int arity, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.TypeRequiresTypeArguments, location, name, arity));
+
     public static void ReportCannotAssignVoidToImplicitlyTypedVariable(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotAssignVoidToAnImplicitlyTypedVariable, location));
 
