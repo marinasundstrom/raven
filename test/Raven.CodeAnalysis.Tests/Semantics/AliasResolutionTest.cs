@@ -9,9 +9,9 @@ public class AliasResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            alias SB = System.Text.StringBuilder;
+            alias SB = System.Text.StringBuilder
 
-            SB;
+            SB
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -24,9 +24,9 @@ public class AliasResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            alias IntList = System.Collections.Generic.List<int>;
+            alias IntList = System.Collections.Generic.List<int>
 
-            IntList;
+            IntList
             """;
 
         var verifier = CreateVerifier(testCode);
