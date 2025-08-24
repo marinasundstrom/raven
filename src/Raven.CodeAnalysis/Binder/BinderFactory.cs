@@ -77,7 +77,7 @@ class BinderFactory
             var namespaceSymbol = ResolveNamespace(nsSymbol!, importName);
             if (namespaceSymbol != null)
             {
-                nsBinder.AddUsingDirective(namespaceSymbol);
+                nsBinder.Diagnostics.ReportTypeExpectedWithoutWildcard(importDirective.Name.GetLocation());
                 continue;
             }
 

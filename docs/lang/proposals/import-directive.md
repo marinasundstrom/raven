@@ -7,6 +7,7 @@ This document outlines the import directive.
 ## Syntax
 
 The `import` directive appears at the top of a file, either outside or inside a namespace declaration.
+Importing all types from a namespace requires a trailing `.*` wildcard.
 
 ### Import a specific type
 

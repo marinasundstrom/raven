@@ -13,7 +13,7 @@ Assuming you have a syntax node that represent this code:
 ```csharp
   var sourceCode = 
             """
-            import System
+            import System.*
 
             let no = 2;
 
@@ -41,13 +41,17 @@ root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = t
 Will give you this:
 
 ```
-CompilationUnit [0..70] (1,1) - (7,2)
-├── ImportDirective [0..14] (1,1) - (2,1)
+CompilationUnit [0..72] (1,1) - (7,2)
+├── ImportDirective [0..16] (1,1) - (2,1)
 │   ├── ImportKeyword: import ImportKeyword [0..6] (1,1) - (1,7)
 │   │   └── ␣ WhitespaceTrivia [6..7] (1,7) - (1,8)
-│   ├── NamespaceOrType: IdentifierName [7..13] (1,8) - (1,14)
-│   │   └── Identifier: System IdentifierToken [7..13] (1,8) - (1,14)
-│   └── TerminatorToken: \n NewLineToken [13..14] (1,14) - (2,1)
+│   ├── NamespaceOrType: QualifiedName [7..15] (1,8) - (1,16)
+│   │   ├── Left: IdentifierName [7..13] (1,8) - (1,14)
+│   │   │   └── Identifier: System IdentifierToken [7..13] (1,8) - (1,14)
+│   │   ├── DotToken: . DotToken [13..14] (1,14) - (1,15)
+│   │   └── Right: WildcardName [14..15] (1,15) - (1,16)
+│   │       └── Identifier: * StarToken [14..15] (1,15) - (1,16)
+│   └── TerminatorToken: \n NewLineToken [15..16] (1,16) - (2,1)
 ├── GlobalStatement [15..26] (3,1) - (3,12)
 │   └── Statement: LocalDeclaration [15..26] (3,1) - (3,12)
 │       ├── Declaration: VariableDeclaration [15..25] (3,1) - (3,11)

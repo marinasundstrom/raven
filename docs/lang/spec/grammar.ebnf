@@ -5,7 +5,7 @@
 
 CompilationUnit          ::= {ImportDirective | Declaration | Statement} EOF ;
 
-ImportDirective          ::= 'import' QualifiedName ('.' '*')? ;
+ImportDirective          ::= 'import' QualifiedName ('.' '*')? ; (* Namespace imports require a trailing '.*' *)
 
 (* ---------- Modifiers ---------- *)
 

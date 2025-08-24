@@ -1,6 +1,6 @@
-import System
-import System.Collections.Generic
-import System.IO
+import System.*
+import System.Collections.Generic.*
+import System.IO.*
 
 let fileList = new List<string>()
 

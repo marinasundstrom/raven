@@ -26,7 +26,7 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            import System
+            import System.*
 
             String
             """;
@@ -60,7 +60,7 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            import System.Collections.Generic
+            import System.Collections.Generic.*
 
             List<string>
             """;
@@ -109,6 +109,26 @@ public class ImportResolutionTest : DiagnosticTestBase
             """;
 
         var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void NamespaceImportWithoutWildcard_Should_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            import System
+
+            String
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult("RAV0235").WithLocation(1, 8),
+                new DiagnosticResult("RAV0103").WithLocation(3, 1).WithArguments("String"),
+            ]);
 
         verifier.Verify();
     }

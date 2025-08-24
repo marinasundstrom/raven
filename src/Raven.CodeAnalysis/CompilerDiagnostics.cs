@@ -23,6 +23,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _cannotConvertFromTypeToType;
     private static DiagnosticDescriptor? _noOverloadForMethod;
     private static DiagnosticDescriptor? _typeOrNamespaceNameDoesNotExistInTheNamespace;
+    private static DiagnosticDescriptor? _typeExpectedWithoutWildcard;
     private static DiagnosticDescriptor? _invalidExpressionTerm;
     private static DiagnosticDescriptor? _theNameDoesNotExistInTheCurrentContext;
     private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
@@ -284,6 +285,19 @@ internal class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV0235: Type is expected without wildcard
+    /// </summary>
+    public static DiagnosticDescriptor TypeExpectedWithoutWildcard => _typeExpectedWithoutWildcard ??= DiagnosticDescriptor.Create(
+        id: "RAV0235",
+        title: "Type expected without wildcard",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Type is expected without wildcard",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV1525: Invalid expression term '{0}'
     /// </summary>
     public static DiagnosticDescriptor InvalidExpressionTerm => _invalidExpressionTerm ??= DiagnosticDescriptor.Create(
@@ -455,6 +469,7 @@ internal class CompilerDiagnostics
         CannotConvertFromTypeToType,
         NoOverloadForMethod,
         TypeOrNamespaceNameDoesNotExistInTheNamespace,
+        TypeExpectedWithoutWildcard,
         InvalidExpressionTerm,
         TheNameDoesNotExistInTheCurrentContext,
         CannotAssignVoidToAnImplicitlyTypedVariable,
@@ -491,6 +506,7 @@ internal class CompilerDiagnostics
             "RAV1503" => CannotConvertFromTypeToType,
             "RAV1501" => NoOverloadForMethod,
             "RAV0234" => TypeOrNamespaceNameDoesNotExistInTheNamespace,
+            "RAV0235" => TypeExpectedWithoutWildcard,
             "RAV1525" => InvalidExpressionTerm,
             "RAV0103" => TheNameDoesNotExistInTheCurrentContext,
             "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,

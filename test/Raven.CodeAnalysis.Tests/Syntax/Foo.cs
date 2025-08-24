@@ -9,8 +9,8 @@ public class Foo(ITestOutputHelper testOutputHelper)
     {
         var code =
         """
-        import System;
-        import System.Text;
+        import System.*;
+        import System.Text.*;
 
         let list = [1, 42, 3];
         var i = 0; 

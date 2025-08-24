@@ -2,7 +2,7 @@
  * Demonstrates type unions, patterns, and support for assembly references
  * * * */
 
-import System
+import System.*
 
 let w = 352342342
 

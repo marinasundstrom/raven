@@ -1,5 +1,5 @@
-import System
-import System.Text
+import System.*
+import System.Text.*
 
 /*
  *. let lexer = Lexer.WithSource(TextReader(...))

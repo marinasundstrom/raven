@@ -56,6 +56,9 @@ public static class DiagnosticBagExtensions
     public static void ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(this DiagnosticBag diagnostics, string typeOrNs, string container, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.TypeOrNamespaceNameDoesNotExistInTheNamespace, location, typeOrNs, container));
 
+    public static void ReportTypeExpectedWithoutWildcard(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.TypeExpectedWithoutWildcard, location));
+
     public static void ReportInvalidExpressionTerm(this DiagnosticBag diagnostics, string tokenText, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.InvalidExpressionTerm, location, tokenText));
 

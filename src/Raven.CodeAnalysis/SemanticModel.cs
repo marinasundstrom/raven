@@ -242,7 +242,7 @@ public partial class SemanticModel
             var nsSymbol = ResolveNamespace(targetNamespace, name);
             if (nsSymbol != null)
             {
-                namespaceImports.Add(nsSymbol);
+                namespaceBinder.Diagnostics.ReportTypeExpectedWithoutWildcard(import.Name.GetLocation());
                 continue;
             }
 

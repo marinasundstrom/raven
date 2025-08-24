@@ -9,8 +9,8 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     {
         var code =
         """
-        import System;
-        import System.Text;
+        import System.*;
+        import System.Text.*;
 
         let list = [1, 42, 3];
         var i = 0; 
@@ -103,7 +103,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     {
         var code =
         """
-        import System;
+        import System.*;
 
         Console.Wri;
         """;
@@ -134,7 +134,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     {
         var code =
             """
-            import System;
+            import System.*;
 
             Con
             """;
@@ -163,7 +163,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
     {
         var code =
             """
-            import System;
+            import System.*;
 
             let x = args;
             var i = 0;

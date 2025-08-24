@@ -54,7 +54,7 @@ When used for their side effects in statement position, they appear as expressio
 Top-level statements are supported—no `Main` method is required.
 
 ```raven
-import System
+import System.*
 
 Console.WriteLine("Hello, World!")
 ```
@@ -187,8 +187,8 @@ namespace Foo
 ```raven
 namespace Foo
 
-import System
-// or import System.Collections.*  // wildcard supported by the binder
+import System.*
+// or import System.Collections.*
 
 // Members here
 ```
@@ -203,8 +203,8 @@ block scopes:
 
 namespace A1
 {
-    import System
-    import System.IO
+    import System.*
+    import System.IO.*
 
     // Members here
 
