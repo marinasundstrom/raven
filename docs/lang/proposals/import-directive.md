@@ -20,16 +20,6 @@ import System.StringBuilder
 import System.*
 ```
 
-### Aliasing
-
-```raven
-import SB = System.StringBuilder
-```
-
-The name `SB` will be an alias for `System.StringBuilder`.
-
-The type aliased is required to be specified in fully qualified form (`System.StringBuilder`). This is to resolve ambiguities.
-
 ### Resolution
 
 Resolution works like this:
