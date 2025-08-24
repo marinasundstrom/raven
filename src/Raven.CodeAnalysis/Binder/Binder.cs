@@ -193,6 +193,12 @@ internal abstract class Binder
         if (typeSyntax is IdentifierNameSyntax ident)
         {
             var type = LookupType(ident.Identifier.Text);
+            if (type is INamedTypeSymbol named && named.Arity > 0)
+            {
+                _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, ident.Identifier.GetLocation());
+                return Compilation.ErrorTypeSymbol;
+            }
+
             if (type is not null)
                 return type;
         }
@@ -235,7 +241,14 @@ internal abstract class Binder
         {
             if (qualified.Right is IdentifierNameSyntax id)
             {
-                return ns.LookupType(id.Identifier.Text);
+                var type = ns.LookupType(id.Identifier.Text);
+                if (type is INamedTypeSymbol named && named.Arity > 0)
+                {
+                    _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, id.Identifier.GetLocation());
+                    return Compilation.ErrorTypeSymbol;
+                }
+
+                return type;
             }
 
             if (qualified.Right is GenericNameSyntax gen)
@@ -297,6 +310,12 @@ internal abstract class Binder
                 return ns;
 
             var type = LookupType(id.Identifier.Text);
+            if (type is INamedTypeSymbol named && named.Arity > 0)
+            {
+                _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, id.Identifier.GetLocation());
+                return Compilation.ErrorTypeSymbol;
+            }
+
             if (type is not null)
                 return type;
 

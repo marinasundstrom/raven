@@ -99,6 +99,25 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            import System.Collections.Generic.*
+
+            let x: List
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult("RAV0305").WithLocation(3, 8).WithArguments("List", 1)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void SpecificTypeImport_MakesTypeAvailable()
     {
         string testCode =

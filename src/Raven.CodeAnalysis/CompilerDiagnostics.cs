@@ -36,6 +36,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _unterminatedCharacterLiteral;
     private static DiagnosticDescriptor? _invalidEscapeSequence;
     private static DiagnosticDescriptor? _memberAccessRequiresTargetType;
+    private static DiagnosticDescriptor? _typeRequiresTypeArguments;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -449,6 +450,19 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV0305: The type '{0}' requires {1} type argument(s)
+    /// </summary>
+    public static DiagnosticDescriptor TypeRequiresTypeArguments => _typeRequiresTypeArguments ??= DiagnosticDescriptor.Create(
+        id: "RAV0305",
+        title: "Type requires type arguments",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The type '{0}' requires {1} type argument(s)",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -478,6 +492,7 @@ internal class CompilerDiagnostics
         ThisValueIsNotMutable,
         PropertyOrIndexerCannotBeAssignedIsReadOnly,
         CannotApplyIndexingWithToAnExpressionOfType,
+        TypeRequiresTypeArguments,
         NumericLiteralOutOfRange,
         UnterminatedCharacterLiteral,
         InvalidEscapeSequence,
@@ -519,6 +534,7 @@ internal class CompilerDiagnostics
             "RAV2002" => UnterminatedCharacterLiteral,
             "RAV2003" => InvalidEscapeSequence,
             "RAV2010" => MemberAccessRequiresTargetType,
+            "RAV0305" => TypeRequiresTypeArguments,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }
