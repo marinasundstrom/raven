@@ -103,7 +103,7 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            import System.Text.*;
+            import System.Text.*
 
             StringBuilder
             """;
