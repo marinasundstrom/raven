@@ -94,6 +94,9 @@ internal class SyntaxParser : ParseContext
 
     internal bool TryConsumeTerminator(out SyntaxToken token)
     {
+        if (ConsumeToken(SyntaxKind.NewLineToken, out token))
+            return true;
+
         // Allow optional semicolon
         if (ConsumeToken(SyntaxKind.SemicolonToken, out token))
             return true;

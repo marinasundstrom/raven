@@ -9,7 +9,7 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            String;
+            String
             """;
 
         var verifier = CreateVerifier(
@@ -26,9 +26,9 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            import System;
+            import System
 
-            String;
+            String
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -42,7 +42,7 @@ public class ImportResolutionTest : DiagnosticTestBase
         string testCode =
             """
             class C {
-                let field: String;
+                let field: String
             }
             """;
 
@@ -60,9 +60,9 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            import System.Collections.Generic;
+            import System.Collections.Generic
 
-            List<string>;
+            List<string>
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -75,7 +75,37 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            System.Collections.Generic.List<string>;
+            System.Collections.Generic.List<string>
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void SpecificTypeImport_MakesTypeAvailable()
+    {
+        string testCode =
+            """
+            import System.Text.StringBuilder
+
+            StringBuilder
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void WildcardImport_MakesAllTypesAvailable()
+    {
+        string testCode =
+            """
+            import System.Text.*
+
+            StringBuilder
             """;
 
         var verifier = CreateVerifier(testCode);

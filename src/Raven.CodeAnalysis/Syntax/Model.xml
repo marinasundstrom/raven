@@ -16,6 +16,7 @@
     <Slot Name="Name" Type="Name" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" />
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" IsInherited="true" />
+    <Slot Name="Aliases" Type="List" ElementType="AliasDirective" IsInherited="true" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
   </Node>
   <Node Name="EmptyStatement" Inherits="Statement">
@@ -48,6 +49,7 @@
     <Slot Name="Name" Type="Name" IsInherited="true" />
     <Slot Name="OpenBraceToken" Type="Token" />
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" IsInherited="true" />
+    <Slot Name="Aliases" Type="List" ElementType="AliasDirective" IsInherited="true" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
     <Slot Name="CloseBraceToken" Type="Token" />
     <Slot Name="TerminatorToken" Type="Token" IsNullable="true" />
@@ -128,6 +130,7 @@
   </Node>
   <Node Name="CompilationUnit" Inherits="Node">
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" />
+    <Slot Name="Aliases" Type="List" ElementType="AliasDirective" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" />
     <Slot Name="EndOfFileToken" Type="Token" />
   </Node>
@@ -137,11 +140,13 @@
   <Node Name="BaseNamespaceDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
     <Slot Name="Name" Type="Name" IsAbstract="true" />
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" IsAbstract="true" />
+    <Slot Name="Aliases" Type="List" ElementType="AliasDirective" IsAbstract="true" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsAbstract="true" />
   </Node>
   <Node Name="Type" Inherits="Expression" IsAbstract="true" />
   <Node Name="Name" Inherits="Type" IsAbstract="true" />
-  <Node Name="SimpleName" Inherits="Name" IsAbstract="true">
+  <Node Name="UnqualifiedName" Inherits="Name" IsAbstract="true" />
+  <Node Name="SimpleName" Inherits="UnqualifiedName" IsAbstract="true">
     <Slot Name="Identifier" Type="Token" IsAbstract="true" />
   </Node>
   <Node Name="IdentifierName" Inherits="SimpleName">
@@ -154,12 +159,19 @@
   <Node Name="QualifiedName" Inherits="Name">
     <Slot Name="Left" Type="Name" />
     <Slot Name="DotToken" Type="Token" />
-    <Slot Name="Right" Type="SimpleName" />
+    <Slot Name="Right" Type="UnqualifiedName" />
   </Node>
   <Node Name="AliasQualifiedName" Inherits="Name">
     <Slot Name="Alias" Type="IdentifierName" />
     <Slot Name="ColonColonToken" Type="Token" />
     <Slot Name="Name" Type="SimpleName" />
+  </Node>
+  <Node Name="WildcardName" Inherits="UnqualifiedName">
+    <Slot Name="StartToken" Type="Token" />
+  </Node>
+  <Node Name="NameEquals" Inherits="Node">
+    <Slot Name="Name" Type="IdentifierName" />
+    <Slot Name="EqualsToken" Type="Token" />
   </Node>
   <Node Name="NullableType" Inherits="Type">
     <Slot Name="ElementType" Type="Type" />
@@ -221,7 +233,14 @@
   <Node Name="Statement" Inherits="Node" IsAbstract="true" />
   <Node Name="ImportDirective" Inherits="Node">
     <Slot Name="ImportKeyword" Type="Token" />
-    <Slot Name="NamespaceOrType" Type="Type" />
+    <Slot Name="Name" Type="Name" />
+    <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
+  <Node Name="AliasDirective" Inherits="Node">
+    <Slot Name="AliasKeyword" Type="Token" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="EqualsToken" Type="Token" />
+    <Slot Name="Name" Type="Name" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="ElseClause" Inherits="Node">

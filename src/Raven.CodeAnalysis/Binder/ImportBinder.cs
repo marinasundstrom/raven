@@ -4,21 +4,26 @@ namespace Raven.CodeAnalysis;
 
 class ImportBinder : Binder
 {
-    private readonly IReadOnlyList<INamespaceSymbol> _imports;
+    private readonly IReadOnlyList<INamespaceSymbol> _namespaceImports;
+    private readonly IReadOnlyDictionary<string, ITypeSymbol> _typeImports;
 
-    public ImportBinder(Binder parent, IReadOnlyList<INamespaceSymbol> imports)
+    public ImportBinder(Binder parent, IReadOnlyList<INamespaceSymbol> namespaceImports, IReadOnlyDictionary<string, ITypeSymbol> typeImports)
         : base(parent)
     {
-        _imports = imports;
+        _namespaceImports = namespaceImports;
+        _typeImports = typeImports;
     }
 
     public override ITypeSymbol? LookupType(string name)
     {
-        foreach (var ns in _imports)
+        if (_typeImports.TryGetValue(name, out var type))
+            return type;
+
+        foreach (var ns in _namespaceImports)
         {
-            var type = ns.LookupType(name);
-            if (type != null)
-                return type;
+            var t = ns.LookupType(name);
+            if (t != null)
+                return t;
         }
 
         return ParentBinder?.LookupType(name);
@@ -26,15 +31,18 @@ class ImportBinder : Binder
 
     public override ISymbol? LookupSymbol(string name)
     {
-        foreach (var ns in _imports)
+        if (_typeImports.TryGetValue(name, out var type))
+            return type;
+
+        foreach (var ns in _namespaceImports)
         {
-            var type = ns.LookupType(name);
-            if (type != null)
-                return type;
+            var t = ns.LookupType(name);
+            if (t != null)
+                return t;
         }
 
         return ParentBinder?.LookupSymbol(name);
     }
 
-    public IEnumerable<INamespaceSymbol> GetImportedNamespaces() => _imports;
+    public IEnumerable<INamespaceSymbol> GetImportedNamespaces() => _namespaceImports;
 }

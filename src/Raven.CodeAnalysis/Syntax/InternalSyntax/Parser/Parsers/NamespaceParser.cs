@@ -13,6 +13,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
     public MemberDeclarationSyntax ParseNamespaceDeclaration()
     {
         List<ImportDirectiveSyntax> importDirectives = [];
+        List<AliasDirectiveSyntax> aliasDirectives = [];
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
         var namespaceKeyword = ReadToken();
@@ -23,7 +24,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
         {
             while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) && nextToken.Kind != SyntaxKind.CloseBraceToken)
             {
-                ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
+                ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations);
             }
 
             if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
@@ -41,14 +42,14 @@ internal class NamespaceDeclarationParser : SyntaxParser
             return NamespaceDeclaration(
                 SyntaxList.Empty,
                 namespaceKeyword, name, openBraceToken,
-                new SyntaxList(importDirectives.ToArray()), new SyntaxList(memberDeclarations.ToArray()),
+                new SyntaxList(importDirectives.ToArray()), new SyntaxList(aliasDirectives.ToArray()), new SyntaxList(memberDeclarations.ToArray()),
                 closeBraceToken, terminatorToken, Diagnostics);
         }
 
-        return ParseFileScopedNamespaceDeclarationCore(namespaceKeyword, name, importDirectives, memberDeclarations);
+        return ParseFileScopedNamespaceDeclarationCore(namespaceKeyword, name, importDirectives, aliasDirectives, memberDeclarations);
     }
 
-    private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(SyntaxToken namespaceKeyword, NameSyntax name, List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations)
+    private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(SyntaxToken namespaceKeyword, NameSyntax name, List<ImportDirectiveSyntax> importDirectives, List<AliasDirectiveSyntax> aliasDirectives, List<MemberDeclarationSyntax> memberDeclarations)
     {
         DiagnosticInfo[]? diagnostics = null;
 
@@ -60,7 +61,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
         while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken))
         {
-            ParseNamespaceMemberDeclarations(nextToken, importDirectives, memberDeclarations);
+            ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations);
 
             SetTreatNewlinesAsTokens(false);
         }
@@ -68,16 +69,22 @@ internal class NamespaceDeclarationParser : SyntaxParser
         return FileScopedNamespaceDeclaration(
             SyntaxList.Empty,
             namespaceKeyword, name, terminatorToken,
-            List(importDirectives), List(memberDeclarations), diagnostics);
+            List(importDirectives), List(aliasDirectives), List(memberDeclarations), diagnostics);
     }
 
-    private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken, List<ImportDirectiveSyntax> importDirectives, List<MemberDeclarationSyntax> memberDeclarations)
+    private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken, List<ImportDirectiveSyntax> importDirectives, List<AliasDirectiveSyntax> aliasDirectives, List<MemberDeclarationSyntax> memberDeclarations)
     {
         if (nextToken.IsKind(SyntaxKind.ImportKeyword))
         {
             var importDirective = new ImportDirectiveSyntaxParser(this).ParseImportDirective();
 
             importDirectives.Add(importDirective);
+        }
+        else if (nextToken.IsKind(Raven.CodeAnalysis.Syntax.SyntaxKind.AliasKeyword))
+        {
+            var aliasDirective = new AliasDirectiveSyntaxParser(this).ParseAliasDirective();
+
+            aliasDirectives.Add(aliasDirective);
         }
         else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
         {

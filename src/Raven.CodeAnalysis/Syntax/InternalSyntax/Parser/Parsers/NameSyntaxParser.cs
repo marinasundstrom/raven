@@ -14,11 +14,11 @@ internal class NameSyntaxParser : SyntaxParser
 
     public NameSyntax ParseName()
     {
-        NameSyntax left = ParseSimpleName();
+        NameSyntax left = ParseUnqualifiedName();
 
         while (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
         {
-            left = QualifiedName(left, dotToken, ParseSimpleName());
+            left = QualifiedName(left, dotToken, ParseUnqualifiedName());
         }
 
         return left;
@@ -62,11 +62,11 @@ internal class NameSyntaxParser : SyntaxParser
             return PredefinedType(peek);
         }
 
-        TypeSyntax left = ParseSimpleName();
+        TypeSyntax left = ParseUnqualifiedName();
 
         while (ConsumeToken(SyntaxKind.DotToken, out var dotToken))
         {
-            left = QualifiedName((NameSyntax)left, dotToken, ParseSimpleName());
+            left = QualifiedName((NameSyntax)left, dotToken, ParseUnqualifiedName());
         }
 
         if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
@@ -77,9 +77,12 @@ internal class NameSyntaxParser : SyntaxParser
         return left;
     }
 
-    public SimpleNameSyntax ParseSimpleName()
+    public UnqualifiedNameSyntax ParseUnqualifiedName()
     {
         var name = ReadToken();
+
+        if (name.IsKind(SyntaxKind.StarToken))
+            return WildcardName(name);
 
         if (name.IsKind(SyntaxKind.IdentifierToken) &&
             PeekToken().IsKind(SyntaxKind.LessThanToken) &&
@@ -90,6 +93,17 @@ internal class NameSyntaxParser : SyntaxParser
         }
 
         return IdentifierName(name);
+    }
+
+    public SimpleNameSyntax ParseSimpleName()
+    {
+        var name = ParseUnqualifiedName();
+        if (name is WildcardNameSyntax)
+        {
+            return IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
+        }
+
+        return (SimpleNameSyntax)name;
     }
 
     private TypeArgumentListSyntax ParseTypeArgumentList()

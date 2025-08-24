@@ -58,6 +58,11 @@ internal abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return node.Accept(this);
     }
 
+    public virtual SyntaxNode? VisitUnqualifiedName(UnqualifiedNameSyntax node)
+    {
+        return node.Accept(this);
+    }
+
     public virtual SyntaxNode? VisitSimpleName(SimpleNameSyntax node)
     {
         return node.Accept(this);

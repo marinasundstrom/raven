@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -223,12 +224,52 @@ public partial class SemanticModel
         }
 
         // Step 2: Handle imports
-        var imports = cu.DescendantNodes().OfType<ImportDirectiveSyntax>()
-            .Select(i => Compilation.GetNamespaceSymbol(i.NamespaceOrType.ToString()))
-            .OfType<INamespaceSymbol>()
-            .ToList();
+        var namespaceImports = new List<INamespaceSymbol>();
+        var typeImports = new Dictionary<string, ITypeSymbol>();
 
-        var importBinder = new ImportBinder(namespaceBinder, imports);
+        foreach (var import in cu.DescendantNodes().OfType<ImportDirectiveSyntax>())
+        {
+            var name = import.Name.ToString();
+
+            if (IsWildcard(import.Name, out var nsName))
+            {
+                var nsImport = ResolveNamespace(targetNamespace, nsName.ToString());
+                if (nsImport != null)
+                    namespaceImports.Add(nsImport);
+                continue;
+            }
+
+            var nsSymbol = ResolveNamespace(targetNamespace, name);
+            if (nsSymbol != null)
+            {
+                namespaceImports.Add(nsSymbol);
+                continue;
+            }
+
+            ITypeSymbol? typeSymbol = HasTypeArguments(import.Name)
+                ? ResolveGenericType(targetNamespace, import.Name)
+                : ResolveType(targetNamespace, name);
+
+            if (typeSymbol != null)
+            {
+                var alias = GetRightmostIdentifier(import.Name);
+                typeImports[alias] = typeSymbol;
+            }
+        }
+
+        foreach (var alias in cu.DescendantNodes().OfType<AliasDirectiveSyntax>())
+        {
+            ITypeSymbol? typeSymbol = HasTypeArguments(alias.Name)
+                ? ResolveGenericType(targetNamespace, alias.Name)
+                : ResolveType(targetNamespace, alias.Name.ToString());
+
+            if (typeSymbol != null)
+            {
+                typeImports[alias.Identifier.Text] = typeSymbol;
+            }
+        }
+
+        var importBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports);
         parentBinder = importBinder;
 
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
@@ -239,6 +280,85 @@ public partial class SemanticModel
         _binderCache[cu] = namespaceBinder;
 
         return namespaceBinder;
+
+        INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
+        {
+            var full = Combine(current, name);
+            return Compilation.GetNamespaceSymbol(full) ?? Compilation.GetNamespaceSymbol(name);
+        }
+
+        ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
+        {
+            var full = Combine(current, name);
+            return Compilation.GetTypeByMetadataName(full) ?? Compilation.GetTypeByMetadataName(name);
+        }
+
+        static bool HasTypeArguments(NameSyntax nameSyntax)
+            => nameSyntax.DescendantNodes().OfType<GenericNameSyntax>().Any();
+
+        ITypeSymbol? ResolveGenericType(INamespaceSymbol current, NameSyntax name)
+        {
+            if (name is GenericNameSyntax g)
+            {
+                var baseName = g.Identifier.Text + "`" + g.TypeArgumentList.Arguments.Count;
+                var full = Combine(current, baseName);
+                var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
+                    ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
+                if (unconstructed is null)
+                    return null;
+
+                var args = g.TypeArgumentList.Arguments
+                    .Select(a => namespaceBinder.ResolveType(a.Type))
+                    .ToArray();
+                return Compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
+            {
+                var leftName = ((QualifiedNameSyntax)name).Left.ToString();
+                var baseName = leftName + "." + gen.Identifier.Text + "`" + gen.TypeArgumentList.Arguments.Count;
+                var full = Combine(current, baseName);
+                var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
+                    ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
+                if (unconstructed is null)
+                    return null;
+
+                var args = gen.TypeArgumentList.Arguments
+                    .Select(a => namespaceBinder.ResolveType(a.Type))
+                    .ToArray();
+                return Compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            return null;
+        }
+
+        static string Combine(INamespaceSymbol current, string name)
+        {
+            var currentName = current.ToString();
+            return string.IsNullOrEmpty(currentName) ? name : currentName + "." + name;
+        }
+
+        static string GetRightmostIdentifier(NameSyntax nameSyntax)
+        {
+            return nameSyntax switch
+            {
+                IdentifierNameSyntax id => id.Identifier.Text,
+                QualifiedNameSyntax qn => GetRightmostIdentifier(qn.Right),
+                _ => nameSyntax.ToString()
+            };
+        }
+
+        static bool IsWildcard(NameSyntax nameSyntax, out NameSyntax baseName)
+        {
+            if (nameSyntax is QualifiedNameSyntax { Right: WildcardNameSyntax, Left: var left })
+            {
+                baseName = left;
+                return true;
+            }
+
+            baseName = default!;
+            return false;
+        }
     }
 
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, INamespaceSymbol namespaceSymbol, Binder parentBinder)

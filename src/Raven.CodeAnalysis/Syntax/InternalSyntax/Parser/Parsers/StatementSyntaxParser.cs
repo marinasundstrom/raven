@@ -204,7 +204,7 @@ internal class StatementSyntaxParser : SyntaxParser
             return ExpressionStatement(expression, terminatorToken2, Diagnostics);
         }
 
-        SyntaxToken? terminatorToken = NewMethod();
+        SyntaxToken? terminatorToken = ConsumeTerminator();
 
         return ExpressionStatement(expression, terminatorToken, Diagnostics);
     }
@@ -215,12 +215,12 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var declaration = ParseVariableDeclarationSyntax();
 
-        SyntaxToken? terminatorToken = NewMethod();
+        SyntaxToken? terminatorToken = ConsumeTerminator();
 
         return LocalDeclarationStatement(declaration, terminatorToken, Diagnostics);
     }
 
-    private SyntaxToken NewMethod()
+    private SyntaxToken ConsumeTerminator()
     {
         var terminatorToken = PeekToken();
         if (terminatorToken.IsKind(SyntaxKind.EndOfFileToken))
