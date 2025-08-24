@@ -11,7 +11,7 @@ public class Issue84_MemberResolutionBug : DiagnosticTestBase
     {
         string testCode =
             """
-            import System;
+            import System.*
 
             let a = DateTime.Parse("2015-03-21").Day;
             """;
@@ -26,7 +26,7 @@ public class Issue84_MemberResolutionBug : DiagnosticTestBase
     {
         string testCode =
             """
-            import System;
+            import System.*
 
             let a = DateTime.Now.ToString();
             """;

@@ -112,7 +112,7 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
     public void Test()
     {
         var source = """
-        //import System
+        //import System.*
 
         System.Console.WriteLine("Test")
         """;

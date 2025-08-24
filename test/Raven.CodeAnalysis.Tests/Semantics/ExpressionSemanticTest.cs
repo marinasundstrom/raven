@@ -9,7 +9,7 @@ public class ExpressionSemanticTest : DiagnosticTestBase
     {
         string testCode =
             """
-            import System;
+            import System.*
 
             Console.WriteLine(Console.WriteLine());
             """;

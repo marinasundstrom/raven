@@ -15,7 +15,7 @@ Would distinguish the language from other languages that are C-style, in particu
 C-like style that has been implemented to this date:
 
 ```csharp
-import System;
+import System.*;
 
 Console.Write("What is your name? ");
 
@@ -32,7 +32,7 @@ if name is not null {
 Using Python-like indentation (and no mandatory semicolons):
 
 ```csharp
-import System
+import System.*
 
 Console.Write("What is your name? ")
 

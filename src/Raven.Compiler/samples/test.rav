@@ -1,4 +1,4 @@
-import System
+import System.*
 
 let arg = if args.Length > 0 { args[0]; } else { "0"; }
 

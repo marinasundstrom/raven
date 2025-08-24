@@ -7,6 +7,7 @@ This document outlines the import directive.
 ## Syntax
 
 The `import` directive appears at the top of a file, either outside or inside a namespace declaration.
+Importing all types from a namespace requires a trailing `.*` wildcard.
 
 ### Import a specific type
 
@@ -18,6 +19,17 @@ import System.StringBuilder
 
 ```raven
 import System.*
+```
+
+### Import members of a type
+
+Applying the wildcard to a type name brings its nested types and static
+members into scope:
+
+```raven
+import System.Math.*
+
+let pi = PI
 ```
 
 ### Resolution

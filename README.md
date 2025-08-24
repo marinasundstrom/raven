@@ -48,8 +48,8 @@ See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
 ### Example
 
 ```raven
-import System
-import System.Text
+import System.*
+import System.Text.*
 
 let list = [1, 42, 3]
 var i = 0

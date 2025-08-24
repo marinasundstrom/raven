@@ -10,7 +10,7 @@
 These examples show the envisioned syntax of the language:
 
 ```csharp
-import System
+import System.*
 
 Console.Write("What is your name? ")
 
