@@ -128,4 +128,19 @@ public class ImportResolutionTest : DiagnosticTestBase
         verifier.Verify();
     }
 
+    [Fact]
+    public void AliasImport_UsesAlias_Generic()
+    {
+        string testCode =
+            """
+            import IntList = System.Collections.Generic.List<int>;
+
+            IntList;
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
 }

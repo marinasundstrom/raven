@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -73,17 +74,22 @@ class BinderFactory
                 continue;
             }
 
-            var typeSymbol = ResolveType(nsSymbol!, importName);
+            var namespaceSymbol = ResolveNamespace(nsSymbol!, importName);
+            if (namespaceSymbol != null)
+            {
+                nsBinder.AddUsingDirective(namespaceSymbol);
+                continue;
+            }
+
+            ITypeSymbol? typeSymbol = HasTypeArguments(importDirective.Name)
+                ? ResolveGenericType(nsSymbol!, importDirective.Name)
+                : ResolveType(nsSymbol!, importName);
+
             if (typeSymbol != null)
             {
                 var alias = importDirective.Alias?.Name.Identifier.Text ?? GetRightmostIdentifier(importDirective.Name);
                 nsBinder.AddTypeImport(alias, typeSymbol);
-                continue;
             }
-
-            var namespaceSymbol = ResolveNamespace(nsSymbol!, importName);
-            if (namespaceSymbol != null)
-                nsBinder.AddUsingDirective(namespaceSymbol);
         }
 
         return nsBinder;
@@ -98,6 +104,45 @@ class BinderFactory
         {
             var full = Combine(current, name);
             return _compilation.GetTypeByMetadataName(full) ?? _compilation.GetTypeByMetadataName(name);
+        }
+
+        static bool HasTypeArguments(NameSyntax nameSyntax)
+            => nameSyntax.DescendantNodes().OfType<GenericNameSyntax>().Any();
+
+        ITypeSymbol? ResolveGenericType(INamespaceSymbol current, NameSyntax name)
+        {
+            if (name is GenericNameSyntax g)
+            {
+                var baseName = g.Identifier.Text + "`" + g.TypeArgumentList.Arguments.Count;
+                var full = Combine(current, baseName);
+                var unconstructed = (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(full)
+                    ?? (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(baseName);
+                if (unconstructed is null)
+                    return null;
+
+                var args = g.TypeArgumentList.Arguments
+                    .Select(a => nsBinder.ResolveType(a.Type))
+                    .ToArray();
+                return _compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
+            {
+                var leftName = ((QualifiedNameSyntax)name).Left.ToString();
+                var baseName = leftName + "." + gen.Identifier.Text + "`" + gen.TypeArgumentList.Arguments.Count;
+                var full = Combine(current, baseName);
+                var unconstructed = (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(full)
+                    ?? (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(baseName);
+                if (unconstructed is null)
+                    return null;
+
+                var args = gen.TypeArgumentList.Arguments
+                    .Select(a => nsBinder.ResolveType(a.Type))
+                    .ToArray();
+                return _compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            return null;
         }
 
         static string Combine(INamespaceSymbol current, string name)

@@ -133,6 +133,10 @@ internal abstract class Binder
         if (ns != null)
             return ns;
 
+        ns = Compilation.GlobalNamespace.LookupNamespace(name);
+        if (ns != null)
+            return ns;
+
         return ParentBinder?.LookupNamespace(name);
     }
 
