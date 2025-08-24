@@ -223,12 +223,35 @@ public partial class SemanticModel
         }
 
         // Step 2: Handle imports
-        var imports = cu.DescendantNodes().OfType<ImportDirectiveSyntax>()
-            .Select(i => Compilation.GetNamespaceSymbol(i.NamespaceOrType.ToString()))
-            .OfType<INamespaceSymbol>()
-            .ToList();
+        var namespaceImports = new List<INamespaceSymbol>();
+        var typeImports = new Dictionary<string, ITypeSymbol>();
 
-        var importBinder = new ImportBinder(namespaceBinder, imports);
+        foreach (var import in cu.DescendantNodes().OfType<ImportDirectiveSyntax>())
+        {
+            var name = import.Name.ToString();
+
+            if (IsWildcard(import.Name, out var nsName))
+            {
+                var nsImport = ResolveNamespace(targetNamespace, nsName.ToString());
+                if (nsImport != null)
+                    namespaceImports.Add(nsImport);
+                continue;
+            }
+
+            var typeSymbol = ResolveType(targetNamespace, name);
+            if (typeSymbol != null)
+            {
+                var alias = import.Alias?.Name.Identifier.Text ?? GetRightmostIdentifier(import.Name);
+                typeImports[alias] = typeSymbol;
+                continue;
+            }
+
+            var nsSymbol = ResolveNamespace(targetNamespace, name);
+            if (nsSymbol != null)
+                namespaceImports.Add(nsSymbol);
+        }
+
+        var importBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports);
         parentBinder = importBinder;
 
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
@@ -239,6 +262,46 @@ public partial class SemanticModel
         _binderCache[cu] = namespaceBinder;
 
         return namespaceBinder;
+
+        INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
+        {
+            var full = Combine(current, name);
+            return Compilation.GetNamespaceSymbol(full) ?? Compilation.GetNamespaceSymbol(name);
+        }
+
+        ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
+        {
+            var full = Combine(current, name);
+            return Compilation.GetTypeByMetadataName(full) ?? Compilation.GetTypeByMetadataName(name);
+        }
+
+        static string Combine(INamespaceSymbol current, string name)
+        {
+            var currentName = current.ToString();
+            return string.IsNullOrEmpty(currentName) ? name : currentName + "." + name;
+        }
+
+        static string GetRightmostIdentifier(NameSyntax nameSyntax)
+        {
+            return nameSyntax switch
+            {
+                IdentifierNameSyntax id => id.Identifier.Text,
+                QualifiedNameSyntax qn => GetRightmostIdentifier(qn.Right),
+                _ => nameSyntax.ToString()
+            };
+        }
+
+        static bool IsWildcard(NameSyntax nameSyntax, out NameSyntax baseName)
+        {
+            if (nameSyntax is QualifiedNameSyntax { Right: WildcardNameSyntax, Left: var left })
+            {
+                baseName = left;
+                return true;
+            }
+
+            baseName = default!;
+            return false;
+        }
     }
 
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, INamespaceSymbol namespaceSymbol, Binder parentBinder)

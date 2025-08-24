@@ -161,15 +161,22 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     public override SyntaxNode? VisitImportDirective(ImportDirectiveSyntax node)
     {
         var importKeyword = node.ImportKeyword.WithTrailingTrivia(SyntaxFactory.Space);
+        NameEqualsSyntax? alias = null;
+        if (node.Alias is { } aliasNode)
+        {
+            var name = (IdentifierNameSyntax)VisitIdentifierName(aliasNode.Name)!;
+            var equals = aliasNode.EqualsToken.WithTrailingTrivia(SyntaxFactory.Space);
+            alias = aliasNode.Update(name, equals);
+        }
 
-        var ns = (IdentifierNameSyntax)VisitType(node.NamespaceOrType)!;
+        var nameSyntax = (NameSyntax)VisitName(node.Name)!;
 
         var terminatorToken = node.TerminatorToken
             .WithTrailingTrivia(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(importKeyword, ns, terminatorToken);
+        return node.Update(importKeyword, alias, nameSyntax, terminatorToken);
     }
 
     public override SyntaxNode? VisitFileScopedNamespaceDeclaration(FileScopedNamespaceDeclarationSyntax node)

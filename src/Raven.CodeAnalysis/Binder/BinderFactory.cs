@@ -58,17 +58,74 @@ class BinderFactory
 
     private Binder CreateNamespaceBinder(NamespaceDeclarationSyntax nsSyntax, Binder parentBinder)
     {
-        var nsSymbol = _compilation.GlobalNamespace.LookupNamespace(nsSyntax.Name.ToString());
+        var nsSymbol = _compilation.GetNamespaceSymbol(nsSyntax.Name.ToString());
         var nsBinder = new NamespaceBinder(parentBinder, nsSymbol!);
 
-        // Register `import` directives
         foreach (var importDirective in nsSyntax.Imports)
         {
-            var importedNamespace = _compilation.GlobalNamespace.LookupNamespace(importDirective.NamespaceOrType.ToString());
-            if (importedNamespace != null)
-                nsBinder.AddUsingDirective(importedNamespace);
+            var importName = importDirective.Name.ToString();
+
+            if (IsWildcard(importDirective.Name, out var nsName))
+            {
+                var nsImport = ResolveNamespace(nsSymbol!, nsName.ToString());
+                if (nsImport != null)
+                    nsBinder.AddUsingDirective(nsImport);
+                continue;
+            }
+
+            var typeSymbol = ResolveType(nsSymbol!, importName);
+            if (typeSymbol != null)
+            {
+                var alias = importDirective.Alias?.Name.Identifier.Text ?? GetRightmostIdentifier(importDirective.Name);
+                nsBinder.AddTypeImport(alias, typeSymbol);
+                continue;
+            }
+
+            var namespaceSymbol = ResolveNamespace(nsSymbol!, importName);
+            if (namespaceSymbol != null)
+                nsBinder.AddUsingDirective(namespaceSymbol);
         }
 
         return nsBinder;
+
+        INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
+        {
+            var full = Combine(current, name);
+            return _compilation.GetNamespaceSymbol(full) ?? _compilation.GetNamespaceSymbol(name);
+        }
+
+        ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
+        {
+            var full = Combine(current, name);
+            return _compilation.GetTypeByMetadataName(full) ?? _compilation.GetTypeByMetadataName(name);
+        }
+
+        static string Combine(INamespaceSymbol current, string name)
+        {
+            var currentName = current.ToString();
+            return string.IsNullOrEmpty(currentName) ? name : currentName + "." + name;
+        }
+
+        static string GetRightmostIdentifier(NameSyntax nameSyntax)
+        {
+            return nameSyntax switch
+            {
+                IdentifierNameSyntax id => id.Identifier.Text,
+                QualifiedNameSyntax qn => GetRightmostIdentifier(qn.Right),
+                _ => nameSyntax.ToString()
+            };
+        }
+
+        static bool IsWildcard(NameSyntax nameSyntax, out NameSyntax baseName)
+        {
+            if (nameSyntax is QualifiedNameSyntax { Right: WildcardNameSyntax, Left: var left })
+            {
+                baseName = left;
+                return true;
+            }
+
+            baseName = default!;
+            return false;
+        }
     }
 }

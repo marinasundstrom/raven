@@ -143,13 +143,13 @@ public static class CompletionProvider
         }
 
         var qualifiedName = token.GetAncestor<QualifiedNameSyntax>();
-        if (qualifiedName is not null)
+        if (qualifiedName is not null && qualifiedName.Right is SimpleNameSyntax simple)
         {
             var symbolInfo = model.GetSymbolInfo(qualifiedName.Left);
             if (symbolInfo.Symbol is INamespaceOrTypeSymbol nsOrType)
             {
-                var prefix = qualifiedName.Right.Identifier.Text;
-                var nameSpan = qualifiedName.Right.Identifier.Span;
+                var prefix = simple.Identifier.Text;
+                var nameSpan = simple.Identifier.Span;
 
                 foreach (var member in nsOrType.GetMembers()
                     .Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))

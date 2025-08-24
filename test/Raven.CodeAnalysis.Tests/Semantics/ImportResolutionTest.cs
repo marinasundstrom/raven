@@ -82,4 +82,50 @@ public class ImportResolutionTest : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void SpecificTypeImport_MakesTypeAvailable()
+    {
+        string testCode =
+            """
+            import System.Text.StringBuilder;
+
+            StringBuilder;
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void WildcardImport_MakesAllTypesAvailable()
+    {
+        string testCode =
+            """
+            import System.Text.*;
+
+            StringBuilder;
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void AliasImport_UsesAlias()
+    {
+        string testCode =
+            """
+            import SB = System.Text.StringBuilder;
+
+            SB;
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
 }

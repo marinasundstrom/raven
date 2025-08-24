@@ -25,7 +25,8 @@ cd ../../..
 
 # Build and run tests for the main project
 dotnet build              # build all projects
-dotnet test               # run unit tests
+dotnet test               # run unit tests (avoid `Sample_should_compile_and_run` until final verification)
+dotnet test --filter Sample_should_compile_and_run # run slow sample test only at the end
 ```
 
 ## Coding Guidelines

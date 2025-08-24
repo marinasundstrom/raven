@@ -141,7 +141,8 @@
   </Node>
   <Node Name="Type" Inherits="Expression" IsAbstract="true" />
   <Node Name="Name" Inherits="Type" IsAbstract="true" />
-  <Node Name="SimpleName" Inherits="Name" IsAbstract="true">
+  <Node Name="UnqualifiedName" Inherits="Name" IsAbstract="true" />
+  <Node Name="SimpleName" Inherits="UnqualifiedName" IsAbstract="true">
     <Slot Name="Identifier" Type="Token" IsAbstract="true" />
   </Node>
   <Node Name="IdentifierName" Inherits="SimpleName">
@@ -154,12 +155,19 @@
   <Node Name="QualifiedName" Inherits="Name">
     <Slot Name="Left" Type="Name" />
     <Slot Name="DotToken" Type="Token" />
-    <Slot Name="Right" Type="SimpleName" />
+    <Slot Name="Right" Type="UnqualifiedName" />
   </Node>
   <Node Name="AliasQualifiedName" Inherits="Name">
     <Slot Name="Alias" Type="IdentifierName" />
     <Slot Name="ColonColonToken" Type="Token" />
     <Slot Name="Name" Type="SimpleName" />
+  </Node>
+  <Node Name="WildcardName" Inherits="UnqualifiedName">
+    <Slot Name="StartToken" Type="Token" />
+  </Node>
+  <Node Name="NameEquals" Inherits="Node">
+    <Slot Name="Name" Type="IdentifierName" />
+    <Slot Name="EqualsToken" Type="Token" />
   </Node>
   <Node Name="NullableType" Inherits="Type">
     <Slot Name="ElementType" Type="Type" />
@@ -221,7 +229,8 @@
   <Node Name="Statement" Inherits="Node" IsAbstract="true" />
   <Node Name="ImportDirective" Inherits="Node">
     <Slot Name="ImportKeyword" Type="Token" />
-    <Slot Name="NamespaceOrType" Type="Type" />
+    <Slot Name="Alias" Type="NameEquals" IsNullable="true" />
+    <Slot Name="Name" Type="Name" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="ElseClause" Inherits="Node">

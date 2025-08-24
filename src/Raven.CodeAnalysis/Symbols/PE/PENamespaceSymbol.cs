@@ -60,7 +60,12 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     public ITypeSymbol? LookupType(string name)
     {
         EnsureMembersLoaded();
-        return _members.OfType<ITypeSymbol>().FirstOrDefault(t => t.Name == name);
+        var type = _members.OfType<ITypeSymbol>().FirstOrDefault(t => t.Name == name);
+        if (type != null)
+            return type;
+
+        var fullName = string.IsNullOrEmpty(MetadataName) ? name : MetadataName + "." + name;
+        return (ContainingAssembly as PEAssemblySymbol)?.GetTypeByMetadataName(fullName);
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
@@ -103,14 +108,14 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
                 this,
                 [new MetadataLocation(ContainingModule!)]);
 
-            //AddMember(typeSymbol);
+            AddMember(typeSymbol);
         }
 
         foreach (var nsName in FindNestedNamespaces(assemblyInfo))
         {
             var childName = nsName.Split('.').Last(); // e.g., for "System.IO", take "IO"
             var nestedNamespace = new PENamespaceSymbol(_typeResolver, _module, childName, this, this);
-            //AddMember(nestedNamespace);
+            AddMember(nestedNamespace);
         }
     }
 

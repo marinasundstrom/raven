@@ -6,6 +6,7 @@ class NamespaceBinder : Binder
 {
     private readonly INamespaceSymbol _namespaceSymbol;
     private readonly List<INamespaceSymbol> _imports = new(); // Stores `using` directives
+    private readonly Dictionary<string, ITypeSymbol> _typeImports = new();
     private readonly List<SourceNamedTypeSymbol> _declaredTypes = [];
 
     public NamespaceBinder(Binder parent, INamespaceSymbol ns)
@@ -23,17 +24,24 @@ class NamespaceBinder : Binder
             _imports.Add(importedNamespace);
     }
 
+    public void AddTypeImport(string alias, ITypeSymbol type)
+    {
+        if (!_typeImports.ContainsKey(alias))
+            _typeImports[alias] = type;
+    }
+
     /// <summary>
     /// Looks up a type, checking imported namespaces before the current namespace.
     /// </summary>
     public override ITypeSymbol? LookupType(string name)
     {
-        // 1. Check the current namespace
+        if (_typeImports.TryGetValue(name, out var importedType))
+            return importedType;
+
         var type = NamespaceSymbol.LookupType(name);
         if (type != null)
             return type;
 
-        // 2. Check imported namespaces (from `using` statements)
         foreach (var ns in _imports)
         {
             type = ns.LookupType(name);
@@ -41,8 +49,15 @@ class NamespaceBinder : Binder
                 return type;
         }
 
-        // 3. Finally, check global namespace for metadata types
         return Compilation.GlobalNamespace.LookupType(name) ?? base.LookupType(name);
+    }
+
+    public override ISymbol? LookupSymbol(string name)
+    {
+        if (_typeImports.TryGetValue(name, out var type))
+            return type;
+
+        return base.LookupSymbol(name);
     }
 
     public void DeclareType(SourceNamedTypeSymbol type)
