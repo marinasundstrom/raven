@@ -21,6 +21,17 @@ import System.StringBuilder
 import System.*
 ```
 
+### Import members of a type
+
+Applying the wildcard to a type name brings its nested types and static
+members into scope:
+
+```raven
+import System.Math.*
+
+let pi = PI
+```
+
 ### Resolution
 
 Resolution works like this:

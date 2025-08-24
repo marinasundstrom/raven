@@ -193,6 +193,15 @@ import System.*
 // Members here
 ```
 
+The wildcard may also be applied to a type name to bring its static members
+and nested types into scope:
+
+```raven
+import System.Math.*
+
+let pi = PI
+```
+
 ### Scoped namespaces
 
 You may define multiple namespaces (including nested) in one file using
