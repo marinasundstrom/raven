@@ -13,7 +13,7 @@ public class SemanticModelDiagnosticsTests
     {
         var source = """
 class Test {
-    M() -> void {
+    M() {
         1();
     }
 }

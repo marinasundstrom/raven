@@ -362,7 +362,7 @@
     <Slot Name="FuncKeyword" Type="Token" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" />
-    <Slot Name="ReturnType" Type="ArrowTypeClause" />
+    <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="Block" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsNullable="true" />
   </Node>
@@ -375,7 +375,7 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
-    <Slot Name="ReturnType" Type="ArrowTypeClause" />
+    <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" IsNullable="true" />
