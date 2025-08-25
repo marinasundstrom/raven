@@ -24,25 +24,25 @@ public class VersionStampTests
     [Fact]
     public void GetNewerVersion_InSameTick_IncrementsLocal()
     {
-        var s1 = VersionStamp.Create();
+        var ctor = typeof(VersionStamp).GetConstructor(
+            BindingFlags.NonPublic | BindingFlags.Instance,
+            binder: null,
+            types: [typeof(DateTime), typeof(int), typeof(int)],
+            modifiers: null);
 
-        // We try a few times to catch calls within the same system tick (UtcNow often has ~0.5–1ms granularity).
-        // As soon as we observe local increasing, we pass.
-        var attempts = 0;
-        var prev = s1;
-        while (attempts++ < 10_000)
-        {
-            var next = prev.GetNewerVersion();
-            int l0 = GetLocal(prev);
-            int l1 = GetLocal(next);
+        Assert.NotNull(ctor);
 
-            if (next > prev && (l1 == l0 + 1 || (l0 == 1023 && l1 == 0)))
-                return; // success
+        // Force the timestamp slightly into the future so that the current
+        // UtcNow value is considered to be within the same tick. This lets us
+        // deterministically exercise the local increment path without relying
+        // on the system clock's resolution.
+        var future = DateTime.UtcNow.AddMilliseconds(1);
+        var s1 = (VersionStamp)ctor!.Invoke([future, 0, 0]);
 
-            prev = next;
-        }
+        var s2 = s1.GetNewerVersion();
 
-        throw new Xunit.Sdk.XunitException("Could not observe local increment within the same tick.");
+        Assert.True(s2 > s1);
+        Assert.Equal(GetLocal(s1) + 1, GetLocal(s2));
     }
 
     [Fact]
