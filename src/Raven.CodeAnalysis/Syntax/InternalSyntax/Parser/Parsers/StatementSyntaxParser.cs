@@ -153,7 +153,7 @@ internal class StatementSyntaxParser : SyntaxParser
             return EmptyStatement(terminatorToken2);
         }
 
-        if (expression is IfExpressionSyntax or WhileExpressionSyntax or BlockSyntax)
+        if (expression is IfExpressionSyntax or WhileExpressionSyntax or ForExpressionSyntax or BlockSyntax)
         {
             SetTreatNewlinesAsTokens(true);
 

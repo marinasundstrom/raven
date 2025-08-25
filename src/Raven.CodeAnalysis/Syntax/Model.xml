@@ -320,6 +320,14 @@
     <Slot Name="Condition" Type="Expression" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="ForExpression" Inherits="Expression">
+    <Slot Name="ForKeyword" Type="Token" />
+    <Slot Name="EachKeyword" Type="Token" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="InKeyword" Type="Token" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="Body" Type="Expression" />
+  </Node>
   <Node Name="ArgumentList" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" />
     <Slot Name="Arguments" Type="SeparatedList" ElementType="Argument" />

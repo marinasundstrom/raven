@@ -281,6 +281,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseWhileExpressionSyntax();
                 break;
 
+            case SyntaxKind.ForKeyword:
+                expr = ParseForExpressionSyntax();
+                break;
+
             case SyntaxKind.OpenBraceToken:
                 expr = ParseBlockSyntax();
                 break;
@@ -777,6 +781,27 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
 
         return WhileExpression(whileKeyword, condition!, expression!, Diagnostics);
+    }
+
+    private ForExpressionSyntax ParseForExpressionSyntax()
+    {
+        var forKeyword = ReadToken();
+
+        SyntaxToken eachKeyword;
+        var next = PeekToken();
+        if (next.IsKind(SyntaxKind.EachKeyword))
+            eachKeyword = ReadToken();
+        else
+            eachKeyword = Token(SyntaxKind.None);
+
+        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+        ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        var body = new ExpressionSyntaxParser(this).ParseExpression();
+
+        return ForExpression(forKeyword, eachKeyword, identifier, inKeyword, expression, body, Diagnostics);
     }
 
     internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()

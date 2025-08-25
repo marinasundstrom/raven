@@ -224,6 +224,7 @@ partial class BlockBinder : Binder
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
+            ForExpressionSyntax forExpression => BindForExpression(forExpression),
             BlockSyntax block => BindBlock(block),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
@@ -455,6 +456,23 @@ partial class BlockBinder : Binder
         var expression = expressionBinder.BindExpression(whileExpression.Expression) as BoundExpression;
 
         return new BoundWhileExpression(condition, expression!);
+    }
+
+    private BoundExpression BindForExpression(ForExpressionSyntax forExpression)
+    {
+        var loopBinder = (BlockBinder)SemanticModel.GetBinder(forExpression, this)!;
+
+        var collection = BindExpression(forExpression.Expression);
+
+        ITypeSymbol elementType = collection.Type is IArrayTypeSymbol array
+            ? array.ElementType
+            : Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var local = loopBinder.CreateLocalSymbol(forExpression, forExpression.Identifier.Text, isMutable: false, elementType);
+
+        var body = loopBinder.BindExpression(forExpression.Body) as BoundExpression;
+
+        return new BoundForExpression(local, collection, body!);
     }
 
     private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)

@@ -67,4 +67,42 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
 
         testOutputHelper.WriteLine(root.GetSyntaxTreeRepresentation(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = false, IncludeLocations = true, Colorize = true, ExpandListsAsProperties = true }));
     }
+
+    [Fact]
+    public void ParseForInExpression()
+    {
+        var code = """
+                   let arr = [1, 2, 3];
+                   for x in arr {
+                       x
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forExpr = root.DescendantNodes().OfType<ForExpressionSyntax>().FirstOrDefault();
+        forExpr.ShouldNotBeNull();
+        forExpr!.Identifier.Text.ShouldBe("x");
+        forExpr.EachKeyword.Kind.ShouldBe(SyntaxKind.None);
+    }
+
+    [Fact]
+    public void ParseForEachInExpression()
+    {
+        var code = """
+                   let arr = [1, 2, 3];
+                   for each x in arr {
+                       x
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forExpr = root.DescendantNodes().OfType<ForExpressionSyntax>().FirstOrDefault();
+        forExpr.ShouldNotBeNull();
+        forExpr!.Identifier.Text.ShouldBe("x");
+        forExpr.EachKeyword.Kind.ShouldBe(SyntaxKind.EachKeyword);
+    }
 }

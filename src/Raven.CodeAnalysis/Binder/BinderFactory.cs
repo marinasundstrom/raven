@@ -29,6 +29,7 @@ class BinderFactory
             IfExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
+            ForExpressionSyntax expr => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
             LocalFunctionStatementSyntax localFunc => new LocalFunctionBinder(parentBinder!, localFunc),
             // ClassDeclarationSyntax binders are created and cached by SemanticModel
             ClassDeclarationSyntax => parentBinder,

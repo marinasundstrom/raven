@@ -13,7 +13,6 @@ WriteLine(list.Count)
 
 var i = 0
 
-while i < list.Count {
-    let item = list[i]
-    WriteLine(item); i = i + 1
+for each item in list {
+    WriteLine(item)
 }
