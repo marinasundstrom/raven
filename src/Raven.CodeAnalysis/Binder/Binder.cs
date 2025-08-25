@@ -145,6 +145,11 @@ internal abstract class Binder
         return ParentBinder?.LookupSymbol(name);
     }
 
+    public virtual IEnumerable<ISymbol> LookupSymbols(string name)
+    {
+        return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
+    }
+
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)
     {
         if (TryGetCachedBoundNode(expression) is BoundExpression cached)
