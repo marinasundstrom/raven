@@ -37,6 +37,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _invalidEscapeSequence;
     private static DiagnosticDescriptor? _memberAccessRequiresTargetType;
     private static DiagnosticDescriptor? _typeRequiresTypeArguments;
+    private static DiagnosticDescriptor? _nullableTypeInUnion;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -463,6 +464,19 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV0400: Nullable types are not allowed in union types
+    /// </summary>
+    public static DiagnosticDescriptor NullableTypeInUnion => _nullableTypeInUnion ??= DiagnosticDescriptor.Create(
+        id: "RAV0400",
+        title: "Nullable type not allowed in union",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Nullable types are not allowed in union types",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -496,7 +510,8 @@ internal class CompilerDiagnostics
         NumericLiteralOutOfRange,
         UnterminatedCharacterLiteral,
         InvalidEscapeSequence,
-        MemberAccessRequiresTargetType
+        MemberAccessRequiresTargetType,
+        NullableTypeInUnion
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -535,6 +550,7 @@ internal class CompilerDiagnostics
             "RAV2003" => InvalidEscapeSequence,
             "RAV2010" => MemberAccessRequiresTargetType,
             "RAV0305" => TypeRequiresTypeArguments,
+            "RAV0400" => NullableTypeInUnion,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

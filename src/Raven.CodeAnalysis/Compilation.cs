@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Reflection;
 
 using Raven.CodeAnalysis.CodeGen;
@@ -54,6 +55,8 @@ public class Compilation
     internal SymbolFactory SymbolFactory { get; } = new SymbolFactory();
 
     public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= new ErrorTypeSymbol(this, "Error", null, [], []);
+
+    public ITypeSymbol NullTypeSymbol => _nullTypeSymbol ??= new NullTypeSymbol(this);
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
@@ -196,6 +199,7 @@ public class Compilation
     private GlobalBinder _globalBinder;
     private bool setup;
     private ErrorTypeSymbol _errorTypeSymbol;
+    private NullTypeSymbol _nullTypeSymbol;
     private TypeResolver _typeResolver;
 
     internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
@@ -318,10 +322,59 @@ public class Compilation
         // Temporary
         if (destination is null) return Conversion.None;
 
-        if (SymbolEqualityComparer.Default.Equals(source, destination))
+        if (SymbolEqualityComparer.Default.Equals(source, destination) &&
+            source is not NullableTypeSymbol &&
+            destination is not NullableTypeSymbol)
         {
             // Identity conversion
             return new Conversion(isImplicit: true, isIdentity: true);
+        }
+
+        if (source.TypeKind == TypeKind.Null)
+        {
+            if (destination.TypeKind == TypeKind.Nullable || destination.TypeKind == TypeKind.Union)
+                return new Conversion(isImplicit: true, isReference: true);
+
+            return Conversion.None;
+        }
+
+        if (source is NullableTypeSymbol nullableSource)
+        {
+            var conv = ClassifyConversion(nullableSource.UnderlyingType, destination);
+            if (conv.Exists)
+            {
+                var isImplicit = !SymbolEqualityComparer.Default.Equals(nullableSource.UnderlyingType, destination) && conv.IsImplicit;
+                return new Conversion(
+                    isImplicit: isImplicit,
+                    isIdentity: conv.IsIdentity,
+                    isNumeric: conv.IsNumeric,
+                    isReference: conv.IsReference,
+                    isBoxing: conv.IsBoxing,
+                    isUnboxing: conv.IsUnboxing,
+                    isUserDefined: conv.IsUserDefined);
+            }
+        }
+
+        if (destination is NullableTypeSymbol nullableDest)
+        {
+            if (source is IUnionTypeSymbol unionSource &&
+                unionSource.Types.Count() == 2 &&
+                unionSource.Types.Any(t => t.TypeKind == TypeKind.Null) &&
+                unionSource.Types.Any(t => SymbolEqualityComparer.Default.Equals(t, nullableDest.UnderlyingType)))
+            {
+                return new Conversion(isImplicit: true, isReference: true);
+            }
+
+            var conv = ClassifyConversion(source, nullableDest.UnderlyingType);
+            if (conv.Exists)
+                return new Conversion(
+                    isImplicit: true,
+                    isIdentity: false,
+                    isNumeric: conv.IsNumeric,
+                    isReference: conv.IsReference || !source.IsValueType,
+                    isBoxing: conv.IsBoxing,
+                    isUnboxing: conv.IsUnboxing,
+                    isUserDefined: conv.IsUserDefined);
         }
 
         if (source.SpecialType == SpecialType.System_Void)
@@ -336,8 +389,11 @@ public class Compilation
                 return Conversion.None;
             }
 
-            // Assigning to
-            return new Conversion(isImplicit: true, isBoxing: source.IsValueType);
+            // Assigning to object
+            return new Conversion(
+                isImplicit: true,
+                isReference: !source.IsValueType,
+                isBoxing: source.IsValueType);
         }
 
         if (destination is IUnionTypeSymbol unionType)
@@ -420,8 +476,15 @@ public class Compilation
         if (SymbolEqualityComparer.Default.Equals(source, destination))
             return false;
 
-        // Class-to-base, interface-implementation, etc.
-        ///return ClassifyConversion(source, destination).IsReference;
+        // Walk base types to see if destination is in the chain
+        var current = source.BaseType;
+        while (current is not null)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, destination))
+                return true;
+
+            current = current.BaseType;
+        }
 
         return false;
     }

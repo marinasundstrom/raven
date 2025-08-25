@@ -110,4 +110,6 @@ public static class DiagnosticBagExtensions
     internal static void ReportMemberAccessRequiresTargetType(this DiagnosticBag diagnostics, string memberName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MemberAccessRequiresTargetType, location, memberName));
 
+    public static void ReportNullableTypeInUnion(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NullableTypeInUnion, location));
 }

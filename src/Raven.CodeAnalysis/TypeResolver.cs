@@ -7,6 +7,7 @@ namespace Raven.CodeAnalysis;
 internal class TypeResolver(Compilation compilation)
 {
     private readonly Dictionary<Type, ITypeSymbol> _cache = new();
+    private readonly NullabilityInfoContext _nullabilityContext = new();
 
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
@@ -18,9 +19,10 @@ internal class TypeResolver(Compilation compilation)
             return CreateUnionTypeSymbol(unionAttribute);
         }
 
-        return ResolveType(parameterInfo.ParameterType);
+        var type = ResolveType(parameterInfo.ParameterType);
+        var nullInfo = _nullabilityContext.Create(parameterInfo);
+        return ApplyNullability(type!, nullInfo);
     }
-
 
     public ITypeSymbol? ResolveType(FieldInfo fieldInfo)
     {
@@ -29,7 +31,9 @@ internal class TypeResolver(Compilation compilation)
             return unionType;
         }
 
-        return ResolveType(fieldInfo.FieldType);
+        var type = ResolveType(fieldInfo.FieldType);
+        var nullInfo = _nullabilityContext.Create(fieldInfo);
+        return ApplyNullability(type!, nullInfo);
     }
 
     public ITypeSymbol? ResolveType(PropertyInfo propertyInfo)
@@ -39,7 +43,9 @@ internal class TypeResolver(Compilation compilation)
             return unionType;
         }
 
-        return ResolveType(propertyInfo.PropertyType);
+        var type = ResolveType(propertyInfo.PropertyType);
+        var nullInfo = _nullabilityContext.Create(propertyInfo);
+        return ApplyNullability(type!, nullInfo);
     }
 
     private bool TryGetUnion(MemberInfo memberInfo, out IUnionTypeSymbol? unionType)
@@ -67,6 +73,12 @@ internal class TypeResolver(Compilation compilation)
     {
         if (_cache.TryGetValue(type, out var cached))
             return cached;
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
+            var underlying = ResolveType(type.GetGenericArguments()[0]);
+            return new NullableTypeSymbol(underlying!, null, null, null, []);
+        }
 
         // TODO: Return immediately if built in type
 
@@ -101,6 +113,41 @@ internal class TypeResolver(Compilation compilation)
         _cache[type] = symbol!;
 
         return symbol;
+    }
+
+    private ITypeSymbol ApplyNullability(ITypeSymbol typeSymbol, System.Reflection.NullabilityInfo nullInfo)
+    {
+        if (typeSymbol is IArrayTypeSymbol array && nullInfo.ElementType is not null)
+        {
+            var element = ApplyNullability(array.ElementType, nullInfo.ElementType);
+            if (!ReferenceEquals(element, array.ElementType))
+                typeSymbol = compilation.CreateArrayTypeSymbol(element);
+        }
+        else if (typeSymbol is INamedTypeSymbol named && nullInfo.GenericTypeArguments.Length > 0)
+        {
+            var typeArgs = named.TypeArguments.ToArray();
+            var changed = false;
+            var len = Math.Min(typeArgs.Length, nullInfo.GenericTypeArguments.Length);
+            for (int i = 0; i < len; i++)
+            {
+                var newArg = ApplyNullability(typeArgs[i], nullInfo.GenericTypeArguments[i]);
+                if (!ReferenceEquals(newArg, typeArgs[i]))
+                {
+                    typeArgs[i] = newArg;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+                typeSymbol = named.Construct(typeArgs);
+        }
+
+        if (nullInfo.ReadState == NullabilityState.Nullable && typeSymbol is not NullableTypeSymbol && !typeSymbol.IsValueType)
+        {
+            typeSymbol = new NullableTypeSymbol(typeSymbol, null, null, null, []);
+        }
+
+        return typeSymbol;
     }
 
     protected ITypeSymbol? ResolveTypeCore(Type type)

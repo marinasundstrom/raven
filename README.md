@@ -118,6 +118,9 @@ Command:
 dotnet run --project src/Raven.Compiler -- <path-to-file> -o <output-file-path>
 ```
 
+Options:
+
+
 > ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and and hardcoded output file path (`test.dll`).
 
 ---

@@ -27,6 +27,7 @@ var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : "te
 var shouldPrintSyntaxTree = args.Contains("-s");
 var shouldDumpSyntax = args.Contains("-d");
 
+
 var shouldDumpRawSyntax = false;
 var shouldDumpBinders = false;
 

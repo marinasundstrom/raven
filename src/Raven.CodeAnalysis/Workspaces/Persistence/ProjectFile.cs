@@ -36,8 +36,12 @@ internal static class ProjectFile
         var projectElement = new XElement("Project",
             new XAttribute("Name", project.Name),
             targetFramework is string tfm ? new XAttribute("TargetFramework", tfm) : null,
-            project.AssemblyName is string asm ? new XAttribute("Output", asm) : null,
-            project.CompilationOptions is { } opts ? new XAttribute("OutputKind", opts.OutputKind) : null);
+            project.AssemblyName is string asm ? new XAttribute("Output", asm) : null);
+
+        if (project.CompilationOptions is { } opts)
+        {
+            projectElement.Add(new XAttribute("OutputKind", opts.OutputKind));
+        }
 
         foreach (var projRef in project.ProjectReferences)
         {
