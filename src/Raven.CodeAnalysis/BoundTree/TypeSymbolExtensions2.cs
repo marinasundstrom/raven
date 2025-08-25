@@ -7,5 +7,10 @@ public static class TypeSymbolExtensions2
     //public static bool IsByRef(this ITypeSymbol type) => type.TypeKind == TypeKind.ByRef;
 
     public static ITypeSymbol? GetElementType(this ITypeSymbol type)
-        => type is ByRefTypeSymbol byRef ? byRef.ElementType : null;
+    {
+        if (type is ArrayTypeSymbol arrayType)
+            return arrayType.ElementType;
+
+        return type is ByRefTypeSymbol byRef ? byRef.ElementType : null;
+    }
 }

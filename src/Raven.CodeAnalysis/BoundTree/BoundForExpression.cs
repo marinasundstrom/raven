@@ -9,7 +9,7 @@ internal partial class BoundForExpression : BoundExpression
     public BoundExpression Body { get; }
 
     public BoundForExpression(ILocalSymbol local, BoundExpression collection, BoundExpression body)
-        : base(collection.Type.ContainingAssembly.GetTypeByMetadataName("System.Void"), null, BoundExpressionReason.None)
+        : base(collection.Type.GetElementType().ContainingAssembly.GetTypeByMetadataName("System.Void"), null, BoundExpressionReason.None)
     {
         Local = local;
         Collection = collection;
