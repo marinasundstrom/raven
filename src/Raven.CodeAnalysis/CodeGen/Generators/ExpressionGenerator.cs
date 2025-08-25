@@ -1281,11 +1281,13 @@ internal class ExpressionGenerator : Generator
         }
         else
         {
-            ILGenerator.Emit(OpCodes.Castclass, typeof(IEnumerable));
-            var getEnumerator = typeof(IEnumerable).GetMethod(nameof(IEnumerable.GetEnumerator))!;
-            ILGenerator.Emit(OpCodes.Callvirt, getEnumerator);
+            var enumerable = Compilation.GetTypeByMetadataName("System.Collections.IEnumerable");
+            var clrType = ResolveClrType(enumerable);
+            ILGenerator.Emit(OpCodes.Castclass, clrType);
+            var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
+            ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
             var enumeratorType = getEnumerator.ReturnType;
-            var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorType);
+            var enumeratorLocal = ILGenerator.DeclareLocal(clrType);
             ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
 
             var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
@@ -1293,14 +1295,14 @@ internal class ExpressionGenerator : Generator
 
             ILGenerator.MarkLabel(beginLabel);
 
-            var moveNext = enumeratorType.GetMethod(nameof(IEnumerator.MoveNext))!;
+            var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
             ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-            ILGenerator.Emit(OpCodes.Callvirt, moveNext);
+            ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
             ILGenerator.Emit(OpCodes.Brfalse, endLabel);
 
-            var currentProp = enumeratorType.GetProperty(nameof(IEnumerator.Current))!.GetMethod!;
+            var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
             ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-            ILGenerator.Emit(OpCodes.Callvirt, currentProp);
+            ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
 
             var localClr = ResolveClrType(forStatement.Local.Type);
             if (localClr.IsValueType)
