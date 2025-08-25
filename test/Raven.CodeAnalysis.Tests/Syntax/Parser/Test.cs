@@ -106,6 +106,7 @@ public class ParserNewlineTests
     [InlineData("let x = 1;", SyntaxKind.SemicolonToken)]
     [InlineData("let x = 1\n", SyntaxKind.NewLineToken)]
     [InlineData("let x = 1", SyntaxKind.EndOfFileToken)]
+    [InlineData("let x = 1}", SyntaxKind.None)]
     public void Statement_Terminators_AreRecognizedCorrectly(string source, SyntaxKind expectedKind)
     {
         var lexer = new Lexer(new StringReader(source));
@@ -122,5 +123,22 @@ public class ParserNewlineTests
 
         Assert.True(parser.TryConsumeTerminator(out var terminator));
         Assert.Equal(expectedKind, terminator.Kind);
+    }
+
+    [Fact]
+    public void Block_LastStatementWithoutTerminator_UsesNoneToken()
+    {
+        var source = "{ return \"\" }";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        var block = (BlockSyntax)parser.ParseBlockSyntax().CreateRed();
+
+        var returnStatement = block.Statements.OfType<ReturnStatementSyntax>().Single();
+
+        var terminator = returnStatement.TerminatorToken;
+        Assert.True(terminator.HasValue);
+        Assert.Equal(SyntaxKind.None, terminator.GetValueOrDefault().Kind);
     }
 }
