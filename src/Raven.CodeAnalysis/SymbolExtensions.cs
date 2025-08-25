@@ -1,3 +1,5 @@
+using System.IO.Pipelines;
+
 namespace Raven.CodeAnalysis;
 
 public static partial class SymbolExtensions

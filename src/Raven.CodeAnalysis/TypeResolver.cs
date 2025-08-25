@@ -20,6 +20,10 @@ internal class TypeResolver(Compilation compilation)
         }
 
         var type = ResolveType(parameterInfo.ParameterType);
+
+        if (type is ITypeParameterSymbol typeParameterSymbol)
+            return type;
+
         var nullInfo = _nullabilityContext.Create(parameterInfo);
         return ApplyNullability(type!, nullInfo);
     }
@@ -32,6 +36,10 @@ internal class TypeResolver(Compilation compilation)
         }
 
         var type = ResolveType(fieldInfo.FieldType);
+
+        if (type is ITypeParameterSymbol typeParameterSymbol)
+            return type;
+
         var nullInfo = _nullabilityContext.Create(fieldInfo);
         return ApplyNullability(type!, nullInfo);
     }
@@ -44,6 +52,10 @@ internal class TypeResolver(Compilation compilation)
         }
 
         var type = ResolveType(propertyInfo.PropertyType);
+
+        if (type is ITypeParameterSymbol typeParameterSymbol)
+            return type;
+
         var nullInfo = _nullabilityContext.Create(propertyInfo);
         return ApplyNullability(type!, nullInfo);
     }
