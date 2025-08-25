@@ -1294,7 +1294,7 @@ partial class BlockBinder : Binder
             // Import namespaces
             if (current is ImportBinder importBinder)
             {
-                foreach (var ns in importBinder.GetImportedNamespaces())
+                foreach (var ns in importBinder.GetImportedNamespacesOrTypeScopes())
                 {
                     foreach (var member in ns.GetMembers())
                     {

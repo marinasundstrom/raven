@@ -224,7 +224,7 @@ public partial class SemanticModel
         }
 
         // Step 2: Handle imports
-        var namespaceImports = new List<INamespaceSymbol>();
+        var namespaceImports = new List<INamespaceOrTypeSymbol>();
         var typeImports = new List<ITypeSymbol>();
         var aliases = new Dictionary<string, ITypeSymbol>();
 
@@ -234,7 +234,9 @@ public partial class SemanticModel
 
             if (IsWildcard(import.Name, out var nsName))
             {
-                var nsImport = ResolveNamespace(targetNamespace, nsName.ToString());
+                INamespaceOrTypeSymbol? nsImport =
+                    (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, nsName.ToString())
+                    ?? ResolveType(targetNamespace, nsName.ToString());
                 if (nsImport != null)
                     namespaceImports.Add(nsImport);
                 continue;

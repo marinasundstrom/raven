@@ -2,18 +2,18 @@
  * Generics - instantiation of generic type and accessing members
  * * * */
 
-import System.*
-import System.Collections.Generic.*
+import System.Console.*
+import System.Collections.Generic.List<>
 
 let list = new List<int>()
 list.Add(2)
 list.Add(3)
 
-Console.WriteLine(list.Count)
+WriteLine(list.Count)
 
 var i = 0
 
 while i < list.Count {
     let item = list[i]
-    Console.WriteLine(item); i = i + 1
+    WriteLine(item); i = i + 1
 }

@@ -4,14 +4,14 @@ namespace Raven.CodeAnalysis;
 
 class ImportBinder : Binder
 {
-    private readonly IReadOnlyList<INamespaceSymbol> _namespaceImports;
+    private readonly IReadOnlyList<INamespaceOrTypeSymbol> _namespaceOrTypeScopeImports;
     private readonly IReadOnlyList<ITypeSymbol> _typeImports;
     private readonly IReadOnlyDictionary<string, ITypeSymbol> _typeAliases;
 
-    public ImportBinder(Binder parent, IReadOnlyList<INamespaceSymbol> namespaceImports, IReadOnlyList<ITypeSymbol> typeImports, IReadOnlyDictionary<string, ITypeSymbol> typeAliases)
+    public ImportBinder(Binder parent, IReadOnlyList<INamespaceOrTypeSymbol> namespaceOrTypeScopeImports, IReadOnlyList<ITypeSymbol> typeImports, IReadOnlyDictionary<string, ITypeSymbol> typeAliases)
         : base(parent)
     {
-        _namespaceImports = namespaceImports;
+        _namespaceOrTypeScopeImports = namespaceOrTypeScopeImports;
         _typeImports = typeImports;
         _typeAliases = typeAliases;
     }
@@ -22,7 +22,7 @@ class ImportBinder : Binder
         if (type is not null)
             return type;
 
-        foreach (var ns in _namespaceImports)
+        foreach (var ns in _namespaceOrTypeScopeImports)
         {
             var t = ns.LookupType(name);
             if (t != null)
@@ -41,7 +41,7 @@ class ImportBinder : Binder
         if (matchingType is not null)
             return matchingType;
 
-        foreach (var ns in _namespaceImports)
+        foreach (var ns in _namespaceOrTypeScopeImports)
         {
             var t = ns.LookupType(name);
             if (t != null)
@@ -51,9 +51,18 @@ class ImportBinder : Binder
         return ParentBinder?.LookupSymbol(name);
     }
 
-    public IEnumerable<INamespaceSymbol> GetImportedNamespaces() => _namespaceImports;
+    /// <summary>
+    /// Gets namespaces and types whose members are in scope.
+    /// </summary>
+    public IEnumerable<INamespaceOrTypeSymbol> GetImportedNamespacesOrTypeScopes() => _namespaceOrTypeScopeImports;
 
+    /// <summary>
+    /// Get types that have been explicitly imported.
+    /// </summary>
     public IEnumerable<ITypeSymbol> GetImportedTypes() => _typeImports;
 
+    /// <summary>
+    /// Gets a dictionary with the mapping from alias to resolved type.
+    /// </summary>
     public IReadOnlyDictionary<string, ITypeSymbol> GetAliases() => _typeAliases;
 }
