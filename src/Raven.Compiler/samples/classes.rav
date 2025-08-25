@@ -6,7 +6,8 @@
 
 import System.Console.*
 import System.Collections.Generic.List<>
-//alias StringList = System.Collections.Generic.List<string>
+alias StringList = System.Collections.Generic.List<string>
+alias PrintLine = System.Console.WriteLine
 
 WriteLine("Hello"); let x = 2
 
@@ -16,7 +17,7 @@ user.AddRole("admin")
 let user2 = Person.WithName("John")
     .AddRole("admin");
 
-WriteLine(user2.Name)
+PrintLine(user2.Name)
 
 class Person {
     let species = "Homo sapiens"
