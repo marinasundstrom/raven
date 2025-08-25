@@ -444,6 +444,7 @@ internal class ExpressionGenerator : Generator
 
         var getter = indexerProperty switch
         {
+            SourcePropertySymbol sp => (MethodInfo)GetMemberBuilder((SourceSymbol)sp.GetMethod!)!,
             PEPropertySymbol pe => pe.GetPropertyInfo().GetMethod!,
             SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).GetMethod!,
             _ => throw new NotSupportedException("Unsupported indexer")
@@ -578,13 +579,20 @@ internal class ExpressionGenerator : Generator
                     var receiver = propertyAssignmentExpression.Receiver;
 
                     // Load receiver (unless static)
-                    if (!propertySymbol.IsStatic && receiver is not null)
+                    if (!propertySymbol.IsStatic)
                     {
-                        EmitExpression(receiver);
-
-                        if (propertySymbol.ContainingType!.IsValueType)
+                        if (receiver is not null)
                         {
-                            EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                            EmitExpression(receiver);
+
+                            if (propertySymbol.ContainingType!.IsValueType)
+                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                        }
+                        else
+                        {
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                            if (propertySymbol.ContainingType!.IsValueType)
+                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
                         }
                     }
 
@@ -600,6 +608,7 @@ internal class ExpressionGenerator : Generator
                     // Resolve setter
                     var setter = propertySymbol switch
                     {
+                        SourcePropertySymbol sp => (MethodInfo)GetMemberBuilder((SourceSymbol)sp.SetMethod!)!,
                         PEPropertySymbol pe => pe.GetPropertyInfo().SetMethod!,
                         SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).SetMethod!,
                         _ => throw new NotSupportedException("Unsupported property symbol")
@@ -633,6 +642,7 @@ internal class ExpressionGenerator : Generator
 
                 var setter2 = (IPropertySymbol)indexer.Left.Symbol! switch
                 {
+                    SourcePropertySymbol sp => (MethodInfo)GetMemberBuilder((SourceSymbol)sp.SetMethod!)!,
                     PEPropertySymbol pe => pe.GetPropertyInfo().SetMethod!,
                     SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).SetMethod!,
                     _ => throw new NotSupportedException("Unsupported indexer property")
@@ -721,25 +731,22 @@ internal class ExpressionGenerator : Generator
                     return;
                 }
 
-                var propertyInfo = propertySymbol switch
+                MethodInfo getter = propertySymbol switch
                 {
-                    PEPropertySymbol pe => pe.GetPropertyInfo(),
-                    SubstitutedPropertySymbol sp => sp.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
+                    SourcePropertySymbol sp => (MethodInfo)GetMemberBuilder((SourceSymbol)sp.GetMethod!)!,
+                    PEPropertySymbol pe => pe.GetPropertyInfo().GetMethod!,
+                    SubstitutedPropertySymbol sp2 => sp2.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).GetMethod!,
                     _ => throw new NotSupportedException($"Unsupported property symbol type: {symbol.GetType()}")
                 };
 
-                if (propertyInfo.GetMethod is null)
-                    throw new Exception($"Cannot resolve getter for property {propertySymbol.Name}");
-
                 if (!propertySymbol.IsStatic)
                 {
-                    // Before calling the method, we may need to box the value type if calling System.Object methods
                     EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType!);
 
-                    EmitBoxIfNeeded(propertySymbol.ContainingType!, propertyInfo.GetMethod!);
+                    EmitBoxIfNeeded(propertySymbol.ContainingType!, getter);
                 }
 
-                ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, propertyInfo.GetMethod);
+                ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, getter);
                 break;
 
             case IFieldSymbol fieldSymbol:
@@ -999,21 +1006,22 @@ internal class ExpressionGenerator : Generator
         }
         else
         {
-            var metadataPropertySymbol = propertySymbol as PEPropertySymbol;
-            var getMethod = metadataPropertySymbol.GetMethod as PEMethodSymbol;
-
-            if (!propertySymbol.IsStatic
-                && propertySymbol.ContainingType.IsValueType)
+            if (!propertySymbol.IsStatic)
             {
-                var clrType = ResolveClrType(propertySymbol.ContainingType);
-                var builder = ILGenerator.DeclareLocal(clrType);
-                //_localBuilders[symbol] = builder;
-
-                ILGenerator.Emit(OpCodes.Stloc, builder);
-                ILGenerator.Emit(OpCodes.Ldloca, builder);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                if (propertySymbol.ContainingType.IsValueType)
+                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
             }
 
-            ILGenerator.Emit(OpCodes.Callvirt, getMethod.GetMethodInfo());
+            MethodInfo getter = propertySymbol switch
+            {
+                SourcePropertySymbol sp => (MethodInfo)GetMemberBuilder((SourceSymbol)sp.GetMethod!)!,
+                PEPropertySymbol pe => pe.GetPropertyInfo().GetMethod!,
+                SubstitutedPropertySymbol sub => sub.GetPropertyInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen).GetMethod!,
+                _ => throw new NotSupportedException("Unsupported property symbol"),
+            };
+
+            ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, getter);
         }
     }
 

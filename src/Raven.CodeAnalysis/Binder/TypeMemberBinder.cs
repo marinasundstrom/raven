@@ -34,6 +34,9 @@ internal class TypeMemberBinder : Binder
             MethodDeclarationSyntax method => BindMethodSymbol(method),
             ConstructorDeclarationSyntax ctor => BindConstructorSymbol(ctor),
             NamedConstructorDeclarationSyntax namedCtor => BindConstructorSymbol(namedCtor),
+            PropertyDeclarationSyntax property => BindPropertySymbol(property),
+            IndexerDeclarationSyntax indexer => BindIndexerSymbol(indexer),
+            AccessorDeclarationSyntax accessor => BindAccessorSymbol(accessor),
             VariableDeclaratorSyntax variable => BindFieldSymbol(variable),
             _ => base.BindDeclaredSymbol(node)
         };
@@ -65,6 +68,31 @@ internal class TypeMemberBinder : Binder
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.Name == name &&
                                  m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == ctor));
+    }
+
+    private ISymbol? BindPropertySymbol(PropertyDeclarationSyntax property)
+    {
+        return _containingType.GetMembers()
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(p => !p.IsIndexer &&
+                                 p.Name == property.Identifier.Text &&
+                                 p.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == property));
+    }
+
+    private ISymbol? BindIndexerSymbol(IndexerDeclarationSyntax indexer)
+    {
+        return _containingType.GetMembers()
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(p => p.IsIndexer &&
+                                 p.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == indexer));
+    }
+
+    private ISymbol? BindAccessorSymbol(AccessorDeclarationSyntax accessor)
+    {
+        return _containingType.GetMembers()
+            .OfType<IPropertySymbol>()
+            .SelectMany(p => new[] { p.GetMethod, p.SetMethod }.Where(m => m is not null))
+            .FirstOrDefault(m => m!.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == accessor));
     }
 
     public void BindFieldDeclaration(FieldDeclarationSyntax fieldDecl)
@@ -193,6 +221,157 @@ internal class TypeMemberBinder : Binder
 
         ctorSymbol.SetParameters(parameters);
         return new MethodBinder(ctorSymbol, this);
+    }
+
+    public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
+    {
+        var propertyType = ResolveType(propertyDecl.Type.Type);
+
+        var propertySymbol = new SourcePropertySymbol(
+            propertyDecl.Identifier.Text,
+            propertyType,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [propertyDecl.GetLocation()],
+            [propertyDecl.GetReference()]);
+
+        var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
+
+        SourceMethodSymbol? getMethod = null;
+        SourceMethodSymbol? setMethod = null;
+
+        if (propertyDecl.AccessorList is not null)
+        {
+            foreach (var accessor in propertyDecl.AccessorList.Accessors)
+            {
+                bool isGet = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
+                var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Void);
+                var name = (isGet ? "get_" : "set_") + propertySymbol.Name;
+
+                var methodSymbol = new SourceMethodSymbol(
+                    name,
+                    returnType,
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    propertySymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [accessor.GetLocation()],
+                    [accessor.GetReference()],
+                    isStatic: false,
+                    methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet);
+
+                var parameters = new List<SourceParameterSymbol>();
+                if (!isGet)
+                {
+                    parameters.Add(new SourceParameterSymbol(
+                        "value",
+                        propertyType,
+                        methodSymbol,
+                        _containingType,
+                        CurrentNamespace!.AsSourceNamespace(),
+                        [accessor.GetLocation()],
+                        [accessor.GetReference()]));
+                }
+                methodSymbol.SetParameters(parameters);
+
+                var binder = new MethodBinder(methodSymbol, this);
+                binders[accessor] = binder;
+
+                if (isGet)
+                    getMethod = methodSymbol;
+                else
+                    setMethod = methodSymbol;
+            }
+        }
+
+        propertySymbol.SetAccessors(getMethod, setMethod);
+
+        return binders;
+    }
+
+    public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindIndexerDeclaration(IndexerDeclarationSyntax indexerDecl)
+    {
+        var propertyType = ResolveType(indexerDecl.Type.Type);
+
+        var propertySymbol = new SourcePropertySymbol(
+            indexerDecl.Identifier.Text,
+            propertyType,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [indexerDecl.GetLocation()],
+            [indexerDecl.GetReference()],
+            isIndexer: true);
+
+        var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
+
+        // Prepare indexer parameters
+        var indexerParameters = indexerDecl.ParameterList.Parameters
+            .Select(p => new { Syntax = p, Type = ResolveType(p.TypeAnnotation!.Type) })
+            .ToArray();
+
+        SourceMethodSymbol? getMethod = null;
+        SourceMethodSymbol? setMethod = null;
+
+        if (indexerDecl.AccessorList is not null)
+        {
+            foreach (var accessor in indexerDecl.AccessorList.Accessors)
+            {
+                bool isGet = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
+                var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Void);
+                var name = (isGet ? "get_" : "set_") + propertySymbol.Name;
+
+                var methodSymbol = new SourceMethodSymbol(
+                    name,
+                    returnType,
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    propertySymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [accessor.GetLocation()],
+                    [accessor.GetReference()],
+                    isStatic: false,
+                    methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet);
+
+                var parameters = new List<SourceParameterSymbol>();
+                foreach (var param in indexerParameters)
+                {
+                    parameters.Add(new SourceParameterSymbol(
+                        param.Syntax.Identifier.Text,
+                        param.Type,
+                        methodSymbol,
+                        _containingType,
+                        CurrentNamespace!.AsSourceNamespace(),
+                        [param.Syntax.GetLocation()],
+                        [param.Syntax.GetReference()]));
+                }
+                if (!isGet)
+                {
+                    parameters.Add(new SourceParameterSymbol(
+                        "value",
+                        propertyType,
+                        methodSymbol,
+                        _containingType,
+                        CurrentNamespace!.AsSourceNamespace(),
+                        [accessor.GetLocation()],
+                        [accessor.GetReference()]));
+                }
+                methodSymbol.SetParameters(parameters);
+
+                var binder = new MethodBinder(methodSymbol, this);
+                binders[accessor] = binder;
+
+                if (isGet)
+                    getMethod = methodSymbol;
+                else
+                    setMethod = methodSymbol;
+            }
+        }
+
+        propertySymbol.SetAccessors(getMethod, setMethod);
+
+        return binders;
     }
 }
 

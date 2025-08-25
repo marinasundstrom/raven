@@ -1211,6 +1211,9 @@ partial class BlockBinder : Binder
         if (left is BoundMemberAccessExpression pa)
             return pa.Receiver;
 
+        if (left is BoundPropertyAccess or BoundFieldAccess)
+            return null;
+
         return left;
     }
 

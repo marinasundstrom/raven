@@ -2,14 +2,38 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 {
-    public SourcePropertySymbol(string name, ITypeSymbol propertyType, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
+    private readonly bool _isStatic;
+
+    public SourcePropertySymbol(
+        string name,
+        ITypeSymbol propertyType,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations,
+        SyntaxReference[] declaringSyntaxReferences,
+        bool isIndexer = false,
+        bool isStatic = false)
         : base(SymbolKind.Property, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Type = propertyType;
+        IsIndexer = isIndexer;
+        _isStatic = isStatic;
     }
 
     public ITypeSymbol Type { get; }
-    public IMethodSymbol? GetMethod { get; }
-    public IMethodSymbol? SetMethod { get; }
-    public bool IsIndexer => false;
+
+    public IMethodSymbol? GetMethod { get; private set; }
+
+    public IMethodSymbol? SetMethod { get; private set; }
+
+    public bool IsIndexer { get; }
+
+    public override bool IsStatic => _isStatic;
+
+    internal void SetAccessors(IMethodSymbol? getMethod, IMethodSymbol? setMethod)
+    {
+        GetMethod = getMethod;
+        SetMethod = setMethod;
+    }
 }
