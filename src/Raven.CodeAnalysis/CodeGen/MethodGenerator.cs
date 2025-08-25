@@ -50,25 +50,36 @@ internal class MethodGenerator
                     parameterTypes);
         }
 
+        if (MethodSymbol.ReturnType.IsUnion)
+        {
+            var type = MethodSymbol.ReturnType;
+
+            if (MethodBase is MethodBuilder mb)
+            {
+                var returnParam = mb.DefineParameter(0, ParameterAttributes.Retval, null);
+
+                CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);
+                returnParam.SetCustomAttribute(customAttributeBuilder);
+            }
+        }
+
         int i = 1;
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {
-            ParameterBuilder methodBuilder;
+            ParameterBuilder parameterBuilder;
             if (MethodBase is MethodBuilder mb)
-                methodBuilder = mb.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
+                parameterBuilder = mb.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
             else
-                methodBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
+                parameterBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
 
             if (parameterSymbol.Type.IsUnion)
             {
-                var types = (parameterSymbol.Type as IUnionTypeSymbol).Types.Select(x => ResolveClrType(x)).ToArray();
-                var construtor = TypeGenerator.CodeGen.TypeUnionAttributeType!.
-                    GetConstructor(new[] { typeof(Type[]) });
-                CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(construtor!, [types]);
-                methodBuilder.SetCustomAttribute(customAttributeBuilder);
+                var type = parameterSymbol.Type;
+                CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);
+                parameterBuilder.SetCustomAttribute(customAttributeBuilder);
             }
 
-            _parameterBuilders[parameterSymbol] = methodBuilder;
+            _parameterBuilders[parameterSymbol] = parameterBuilder;
             i++;
         }
 
@@ -76,6 +87,15 @@ internal class MethodGenerator
         {
             IsEntryPointCandidate = true;
         }
+    }
+
+    private CustomAttributeBuilder CreateUnionTypeAttribute(ITypeSymbol type)
+    {
+        var types = (type as IUnionTypeSymbol).Types.Select(x => ResolveClrType(x)).ToArray();
+        var constructor = TypeGenerator.CodeGen.TypeUnionAttributeType!.
+            GetConstructor(new[] { typeof(Type[]) });
+        CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(constructor!, [types]);
+        return customAttributeBuilder;
     }
 
     public IEnumerable<ParameterBuilder> GetParameterBuilders() => _parameterBuilders.Values;
