@@ -67,12 +67,6 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
         run.WaitForExit(TimeSpan.FromSeconds(2));
         testOutput.WriteLine(await run.StandardOutput.ReadToEndAsync());
 
-        if (run.ExitCode == 134 && fileName is "classes.rav")
-        {
-            // Assume this is case worked
-            return;
-        }
-
         Assert.Equal(0, run.ExitCode);
     }
 
