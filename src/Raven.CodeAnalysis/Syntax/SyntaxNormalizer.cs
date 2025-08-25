@@ -218,8 +218,10 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        var returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        ArrowTypeClauseSyntax? returnType = null;
+        if (node.ReturnType is not null)
+            returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
+                .WithTrailingTrivia(SyntaxFactory.Space);
 
         return node.Update(node.Modifiers, identifier, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body), null, node.TerminatorToken)
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
