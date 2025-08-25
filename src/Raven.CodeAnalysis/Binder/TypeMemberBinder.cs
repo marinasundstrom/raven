@@ -1,6 +1,7 @@
-using System.Collections.Immutable;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -107,7 +108,13 @@ internal class TypeMemberBinder : Binder
 
             BoundExpression? initializer = null;
             if (decl.Initializer is not null)
-                initializer = BindExpression(decl.Initializer.Value);
+            {
+                var exprBinder = new BlockBinder(_containingType, this);
+                initializer = exprBinder.BindExpression(decl.Initializer.Value);
+
+                foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
+                    _diagnostics.Report(diag);
+            }
 
             _ = new SourceFieldSymbol(
                 decl.Identifier.Text,
