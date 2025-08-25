@@ -322,7 +322,9 @@ public class Compilation
         // Temporary
         if (destination is null) return Conversion.None;
 
-        if (SymbolEqualityComparer.Default.Equals(source, destination))
+        if (SymbolEqualityComparer.Default.Equals(source, destination) &&
+            source is not NullableTypeSymbol &&
+            destination is not NullableTypeSymbol)
         {
             // Identity conversion
             return new Conversion(isImplicit: true, isIdentity: true);
@@ -334,6 +336,23 @@ public class Compilation
                 return new Conversion(isImplicit: true, isReference: true);
 
             return Conversion.None;
+        }
+
+        if (source is NullableTypeSymbol nullableSource)
+        {
+            var conv = ClassifyConversion(nullableSource.UnderlyingType, destination);
+            if (conv.Exists)
+            {
+                var isImplicit = !SymbolEqualityComparer.Default.Equals(nullableSource.UnderlyingType, destination) && conv.IsImplicit;
+                return new Conversion(
+                    isImplicit: isImplicit,
+                    isIdentity: conv.IsIdentity,
+                    isNumeric: conv.IsNumeric,
+                    isReference: conv.IsReference,
+                    isBoxing: conv.IsBoxing,
+                    isUnboxing: conv.IsUnboxing,
+                    isUserDefined: conv.IsUserDefined);
+            }
         }
 
         if (destination is NullableTypeSymbol nullableDest)
@@ -350,8 +369,12 @@ public class Compilation
             if (conv.Exists)
                 return new Conversion(
                     isImplicit: true,
-                    isIdentity: conv.IsIdentity,
-                    isReference: conv.IsReference);
+                    isIdentity: false,
+                    isNumeric: conv.IsNumeric,
+                    isReference: conv.IsReference || !source.IsValueType,
+                    isBoxing: conv.IsBoxing,
+                    isUnboxing: conv.IsUnboxing,
+                    isUserDefined: conv.IsUserDefined);
         }
 
         if (source.SpecialType == SpecialType.System_Void)

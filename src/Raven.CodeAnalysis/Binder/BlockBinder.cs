@@ -707,7 +707,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
     {
-        if (syntax.Kind == SyntaxKind.NullKeyword)
+        if (syntax.Kind == SyntaxKind.NullLiteralExpression)
         {
             return new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
         }
