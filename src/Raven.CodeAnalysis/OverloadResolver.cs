@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 internal sealed class OverloadResolver
@@ -61,6 +63,9 @@ internal sealed class OverloadResolver
                 }
 
                 score += GetConversionScore(conversion);
+
+                if (param.Type is NullableTypeSymbol && arg.Type is not NullableTypeSymbol)
+                    score++;
             }
 
             if (allMatch)
@@ -73,12 +78,61 @@ internal sealed class OverloadResolver
                 }
                 else if (score == bestScore)
                 {
-                    ambiguous = true;
+                    if (IsMoreSpecific(method, bestMatch!, arguments))
+                    {
+                        bestMatch = method;
+                        ambiguous = false;
+                    }
+                    else if (!IsMoreSpecific(bestMatch!, method, arguments))
+                    {
+                        ambiguous = true;
+                    }
                 }
             }
         }
 
         return ambiguous ? null : bestMatch;
+    }
+
+    private static bool IsMoreSpecific(IMethodSymbol candidate, IMethodSymbol current, BoundExpression[] arguments)
+    {
+        bool better = false;
+        var candParams = candidate.Parameters;
+        var currentParams = current.Parameters;
+
+        for (int i = 0; i < arguments.Length; i++)
+        {
+            var argType = GetUnderlying(arguments[i].Type);
+            var candType = GetUnderlying(candParams[i].Type);
+            var currentType = GetUnderlying(currentParams[i].Type);
+
+            var candDist = GetInheritanceDistance(argType, candType);
+            var currDist = GetInheritanceDistance(argType, currentType);
+
+            if (candDist < currDist)
+                better = true;
+            else if (currDist < candDist)
+                return false;
+        }
+
+        return better;
+    }
+
+    private static ITypeSymbol GetUnderlying(ITypeSymbol type) =>
+        type is NullableTypeSymbol nt ? nt.UnderlyingType : type;
+
+    private static int GetInheritanceDistance(ITypeSymbol? derived, ITypeSymbol baseType)
+    {
+        int distance = 0;
+        var current = derived;
+        while (current is not null)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, baseType))
+                return distance;
+            current = current.BaseType;
+            distance++;
+        }
+        return int.MaxValue;
     }
 
     private static int GetConversionScore(Conversion conversion)
