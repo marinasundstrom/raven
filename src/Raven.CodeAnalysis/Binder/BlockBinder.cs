@@ -1,8 +1,5 @@
 using System.Collections.Immutable;
 using System.Linq;
-using System.Reflection.Metadata;
-using System.Security.Cryptography.X509Certificates;
-
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -228,6 +225,7 @@ partial class BlockBinder : Binder
             BlockSyntax block => BindBlock(block),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
+            InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
@@ -771,6 +769,38 @@ partial class BlockBinder : Binder
         };
 
         return new BoundLiteralExpression(kind, value, type);
+    }
+
+    private BoundExpression BindInterpolatedStringExpression(InterpolatedStringExpressionSyntax syntax)
+    {
+        BoundExpression? result = null;
+        foreach (var content in syntax.Contents)
+        {
+            BoundExpression expr = content switch
+            {
+                InterpolatedStringTextSyntax text => new BoundLiteralExpression(
+                    BoundLiteralExpressionKind.StringLiteral,
+                    text.Token.Text,
+                    Compilation.GetSpecialType(SpecialType.System_String)),
+                InterpolationSyntax interpolation => BindExpression(interpolation.Expression),
+                _ => throw new InvalidOperationException("Unknown interpolated string content")
+            };
+
+            if (result is null)
+            {
+                result = expr;
+            }
+            else
+            {
+                var concatMethod = ResolveStringConcatMethod(result, expr);
+                result = new BoundInvocationExpression(concatMethod, [result, expr]);
+            }
+        }
+
+        return result ?? new BoundLiteralExpression(
+            BoundLiteralExpressionKind.StringLiteral,
+            string.Empty,
+            Compilation.GetSpecialType(SpecialType.System_String));
     }
 
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax)

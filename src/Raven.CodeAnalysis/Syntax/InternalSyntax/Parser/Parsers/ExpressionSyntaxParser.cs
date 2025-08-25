@@ -2,6 +2,8 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+using System.Text;
+using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
@@ -563,7 +565,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             case SyntaxKind.StringLiteralToken:
                 ReadToken();
-                expr = LiteralExpression(SyntaxKind.StringLiteralExpression, token);
+                var str = token.GetValueText() ?? string.Empty;
+                expr = str.Contains("${")
+                    ? ParseInterpolatedStringExpression(str)
+                    : LiteralExpression(SyntaxKind.StringLiteralExpression, token);
                 break;
 
             case SyntaxKind.CharacterLiteralToken:
@@ -813,5 +818,56 @@ internal class ExpressionSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(true);
 
         return ArrowExpressionClause(arrowToken, expression);
+    }
+
+    private InterpolatedStringExpressionSyntax ParseInterpolatedStringExpression(string text)
+    {
+        var contents = new List<InterpolatedStringContentSyntax>();
+        var sb = new StringBuilder();
+        for (int i = 0; i < text.Length;)
+        {
+            if (text[i] == '$' && i + 1 < text.Length && text[i + 1] == '{')
+            {
+                if (sb.Length > 0)
+                {
+                    var segment = sb.ToString();
+                    sb.Clear();
+                    contents.Add(InterpolatedStringText(new Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
+                }
+
+                i += 2; // skip ${
+                int depth = 1;
+                int start = i;
+                while (i < text.Length && depth > 0)
+                {
+                    if (text[i] == '{') depth++;
+                    else if (text[i] == '}') depth--;
+                    i++;
+                }
+                int end = i - 1;
+                var exprText = text.Substring(start, end - start);
+                var exprSyntax = ParseExpressionFromText(exprText);
+                contents.Add(Interpolation(new Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken(SyntaxKind.OpenBraceToken, "{"), exprSyntax, new Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken(SyntaxKind.CloseBraceToken, "}")));
+            }
+            else
+            {
+                sb.Append(text[i]);
+                i++;
+            }
+        }
+
+        if (sb.Length > 0)
+        {
+            var segment = sb.ToString();
+            contents.Add(InterpolatedStringText(new Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
+        }
+
+        return InterpolatedStringExpression(List(contents));
+    }
+
+    private static ExpressionSyntax ParseExpressionFromText(string text)
+    {
+        var parser = new LanguageParser(null, new Raven.CodeAnalysis.ParseOptions());
+        return (ExpressionSyntax)parser.ParseSyntax(typeof(Raven.CodeAnalysis.Syntax.ExpressionSyntax), SourceText.From(text), 0)!;
     }
 }
