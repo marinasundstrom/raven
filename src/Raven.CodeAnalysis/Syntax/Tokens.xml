@@ -21,6 +21,8 @@
   <TokenKind Name="IfKeyword" Text="if" IsReservedWord="true" />
   <TokenKind Name="ElseKeyword" Text="else" IsReservedWord="true" />
   <TokenKind Name="WhileKeyword" Text="while" IsReservedWord="true" />
+  <TokenKind Name="ForKeyword" Text="for" IsReservedWord="true" />
+  <TokenKind Name="EachKeyword" Text="each" IsReservedWord="true" />
   <TokenKind Name="ReturnKeyword" Text="return" IsReservedWord="true" />
   <TokenKind Name="NewKeyword" Text="new" IsReservedWord="true" />
   <TokenKind Name="TrueKeyword" Text="true" IsReservedWord="true" />

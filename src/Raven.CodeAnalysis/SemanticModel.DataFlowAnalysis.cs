@@ -260,6 +260,17 @@ internal sealed class DataFlowWalker : SyntaxWalker
         Visit(node.Expression);
     }
 
+    public override void VisitForExpression(ForExpressionSyntax node)
+    {
+        Visit(node.Expression);
+        var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet();
+
+        _assignedOnEntry = assignedBefore;
+        _writtenInside = assignedBefore.ToHashSet();
+
+        Visit(node.Body);
+    }
+
     public void SetInitialAssigned(HashSet<ISymbol> assigned)
     {
         _assignedOnEntry = assigned;

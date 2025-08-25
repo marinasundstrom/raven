@@ -76,6 +76,9 @@ internal class ExpressionGenerator : Generator
             case BoundWhileExpression whileStatement:
                 EmitWhileExpression(whileStatement);
                 break;
+            case BoundForExpression forStatement:
+                EmitForExpression(forStatement);
+                break;
 
             case BoundBlockExpression block:
                 EmitBlock(block);
@@ -1227,6 +1230,55 @@ internal class ExpressionGenerator : Generator
         // If true, loop again
         ILGenerator.Emit(OpCodes.Br_S, beginLabel);
 
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private void EmitForExpression(BoundForExpression forStatement)
+    {
+        var beginLabel = ILGenerator.DefineLabel();
+        var endLabel = ILGenerator.DefineLabel();
+
+        var scope = new Scope(this);
+
+        // store collection in local
+        new ExpressionGenerator(scope, forStatement.Collection).Emit();
+        var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Collection.Type));
+        ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
+
+        // index local
+        var indexLocal = ILGenerator.DeclareLocal(ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Int32)));
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+        // iteration variable local
+        var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
+        scope.AddLocal(forStatement.Local, elementLocal);
+
+        ILGenerator.MarkLabel(beginLabel);
+
+        // condition: index < collection.Length
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Ldlen);
+        ILGenerator.Emit(OpCodes.Conv_I4);
+        ILGenerator.Emit(OpCodes.Bge, endLabel);
+
+        // load element
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        EmitLoadElement(forStatement.Local.Type);
+        ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+
+        // body
+        new ExpressionGenerator(scope, forStatement.Body).Emit();
+
+        // index++
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+        ILGenerator.Emit(OpCodes.Br_S, beginLabel);
         ILGenerator.MarkLabel(endLabel);
     }
 
