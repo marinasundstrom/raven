@@ -468,7 +468,8 @@ partial class BlockBinder : Binder
 
             if (expectedType is not null)
             {
-                var member = expectedType.GetMembers(memberName).FirstOrDefault();
+                var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
+                    .Lookup(this).FirstOrDefault();
 
                 if (member is null)
                 {
@@ -508,7 +509,8 @@ partial class BlockBinder : Binder
 
         if (receiver is BoundTypeExpression typeExpr)
         {
-            var member = typeExpr.Type.GetMembers(name).FirstOrDefault();
+            var member = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+                .Lookup(this).FirstOrDefault();
 
             if (member is null)
             {
@@ -525,7 +527,9 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
-        var instanceMember = receiver.Type?.ResolveMembers(name).FirstOrDefault();
+        var instanceMember = receiver.Type is null
+            ? null
+            : new SymbolQuery(name, receiver.Type, IsStatic: false).Lookup(this).FirstOrDefault();
 
         if (instanceMember == null)
         {
@@ -902,9 +906,8 @@ partial class BlockBinder : Binder
 
         if (receiver is BoundTypeExpression typeReceiver)
         {
-            var candidateMethods = typeReceiver.Type
-                .ResolveMembers(methodName)
-                .OfType<IMethodSymbol>()
+            var candidateMethods = new SymbolQuery(methodName, typeReceiver.Type, IsStatic: true)
+                .LookupMethods(this)
                 .ToArray();
 
             if (candidateMethods.Length > 0)
@@ -940,9 +943,8 @@ partial class BlockBinder : Binder
 
         if (receiver != null)
         {
-            var candidates = receiver.Type
-                .ResolveMembers(methodName)
-                .OfType<IMethodSymbol>()
+            var candidates = new SymbolQuery(methodName, receiver.Type, IsStatic: false)
+                .LookupMethods(this)
                 .ToArray();
 
             if (candidates.Length == 0)
@@ -962,7 +964,7 @@ partial class BlockBinder : Binder
         }
 
         // No receiver -> try methods first, then constructors
-        var methodCandidates = LookupSymbols(methodName).OfType<IMethodSymbol>().ToArray();
+        var methodCandidates = new SymbolQuery(methodName).LookupMethods(this).ToArray();
 
         if (methodCandidates.Length > 0)
         {
@@ -1262,7 +1264,7 @@ partial class BlockBinder : Binder
         return new BoundCollectionExpression(arrayType, elements.ToArray(), elementType);
     }
 
-    private IEnumerable<ISymbol> LookupSymbols(string name)
+    public override IEnumerable<ISymbol> LookupSymbols(string name)
     {
         var seen = new HashSet<ISymbol>();
         Binder? current = this;
