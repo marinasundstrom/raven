@@ -535,14 +535,15 @@ internal class ExpressionGenerator : Generator
 
     private void EmitLoadElement(ITypeSymbol elementType)
     {
-        if (!elementType.IsValueType)
+        var clrType = ResolveClrType(elementType);
+
+        if (clrType.IsValueType)
         {
-            ILGenerator.Emit(OpCodes.Ldelem_Ref);
+            ILGenerator.Emit(OpCodes.Ldelem, clrType);
         }
         else
         {
-            // Fallback: treat all structs as int for now
-            ILGenerator.Emit(OpCodes.Ldelem_I4);
+            ILGenerator.Emit(OpCodes.Ldelem_Ref);
         }
     }
 
