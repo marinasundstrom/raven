@@ -138,7 +138,6 @@ public class ParserNewlineTests
         var returnStatement = block.Statements.OfType<ReturnStatementSyntax>().Single();
 
         var terminator = returnStatement.TerminatorToken;
-        Assert.True(terminator.HasValue);
-        Assert.Equal(SyntaxKind.None, terminator.GetValueOrDefault().Kind);
+        Assert.Equal(SyntaxKind.None, terminator.Kind);
     }
 }
