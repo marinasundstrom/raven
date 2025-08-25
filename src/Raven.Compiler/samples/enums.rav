@@ -7,7 +7,7 @@ let x : string = .Empty
 
 Console.WriteLine(foo)
 Console.WriteLine(foo.GetType())
+Console.WriteLine(Grades.B)
+Console.WriteLine(Grades.B.GetType())
 
 enum Grades { A, B, C }
-
-Console.WriteLine(Grades.B.GetType())
