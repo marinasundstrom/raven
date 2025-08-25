@@ -1,5 +1,7 @@
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -21,11 +23,10 @@ class Foo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
         MetadataReference[] references = [
-            MetadataReference.CreateFromFile(runtimePath)
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
         ];
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -36,18 +37,29 @@ class Foo {
         var result = compilation.Emit(peStream);
         Assert.True(result.Success);
 
-        peStream.Seek(0, SeekOrigin.Begin);
+        peStream.Position = 0;
 
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var mlc = new MetadataLoadContext(resolver);
+        var refPaths = references
+            .Select(r => ((PortableExecutableReference)r).FilePath)
+            .ToArray();
 
-        var assembly = mlc.LoadFromStream(peStream);
-        var type = assembly.GetType("Foo", true);
-        var instance = Activator.CreateInstance(type!);
-        var xProp = type!.GetProperty("X");
-        var yProp = type!.GetProperty("Y");
+        var alc = new AssemblyLoadContext("RavenTests", isCollectible: true);
+        alc.Resolving += (context, name) =>
+        {
+            var candidate = refPaths.FirstOrDefault(p =>
+                string.Equals(Path.GetFileNameWithoutExtension(p), name.Name, StringComparison.OrdinalIgnoreCase));
+            return candidate is not null ? context.LoadFromAssemblyPath(candidate) : null;
+        };
 
-        Assert.Equal(42, (int)xProp!.GetValue(instance)!);
-        Assert.Equal(100, (int)yProp!.GetValue(null)!);
+        var runtimeAssembly = alc.LoadFromStream(peStream);
+        var type = runtimeAssembly.GetType("Foo", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var xProp = type.GetProperty("X", BindingFlags.Public | BindingFlags.Instance)!;
+        var yProp = type.GetProperty("Y", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal(42, (int)xProp.GetValue(instance)!);
+        Assert.Equal(100, (int)yProp.GetValue(null)!);
+
+        alc.Unload();
     }
 }

@@ -32,24 +32,59 @@ public static class ReferenceAssemblyPaths
             if (!Directory.Exists(packRoot))
                 continue;
 
-            // pick version
-            var versionDir = ResolveVersionDirectory(packRoot, sdkVersion);
-            if (versionDir is null)
-                continue;
+            // Enumerate candidate versions (filtered by sdkVersion if provided), newest-first
+            foreach (var versionDir in EnumerateCandidateVersionDirs(packRoot, sdkVersion))
+            {
+                var refRoot = Path.Combine(versionDir, "ref");
+                if (!Directory.Exists(refRoot))
+                    continue;
 
-            // pick TFM under ref/
-            var refRoot = Path.Combine(versionDir, "ref");
-            if (!Directory.Exists(refRoot))
-                continue;
-
-            var tfmDir = ResolveTfmDirectory(refRoot, targetFramework);
-            if (tfmDir is null)
-                continue;
-
-            return tfmDir;
+                var tfmDir = ResolveTfmDirectory(refRoot, targetFramework);
+                if (tfmDir is not null)
+                    return tfmDir; // <-- pick the first version that actually has the requested TFM
+            }
         }
 
         return null;
+    }
+
+    private static IEnumerable<string> EnumerateCandidateVersionDirs(string packRoot, string? sdkVersion)
+    {
+        var versions = Directory.GetDirectories(packRoot)
+                                .Select(Path.GetFileName)
+                                .Where(n => !string.IsNullOrEmpty(n))
+                                .Select(n => n!)
+                                .ToArray()!;
+        if (versions.Length == 0)
+            yield break;
+
+        // Apply version filter (supports exact, wildcard, or null/"*" = no filter)
+        IEnumerable<string> candidates = versions;
+        if (!string.IsNullOrWhiteSpace(sdkVersion) && sdkVersion != "*")
+        {
+            if (sdkVersion.IndexOf('*') >= 0 || sdkVersion.IndexOf('?') >= 0)
+            {
+                var re = WildcardToRegex(sdkVersion!);
+                candidates = versions.Where(v => Regex.IsMatch(v, re, RegexOptions.IgnoreCase));
+            }
+            else
+            {
+                var exact = versions.Where(v => string.Equals(v, sdkVersion, StringComparison.OrdinalIgnoreCase)).ToArray();
+                candidates = exact.Length > 0
+                    ? exact
+                    : versions.Where(v => Regex.IsMatch(v, WildcardToRegex(sdkVersion + "*"), RegexOptions.IgnoreCase));
+            }
+        }
+
+        // Sort semver desc (stable > prerelease), then yield full paths newest-first
+        foreach (var v in candidates
+            .Select(v => (name: v, sem: SemVer.TryParse(v)))
+            .Where(x => x.sem is not null)
+            .OrderByDescending(x => x.sem, SemVer.Comparer)
+            .Select(x => x.name))
+        {
+            yield return Path.Combine(packRoot, v);
+        }
     }
 
     public static string GetRuntimeDll(string? sdkVersion = null, string? targetFramework = null, string packId = "Microsoft.NETCore.App.Ref")

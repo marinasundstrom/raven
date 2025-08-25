@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Reflection.Metadata;
 using System.Security.Cryptography.X509Certificates;
 
@@ -1230,41 +1231,75 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindCollectionExpression(CollectionExpressionSyntax syntax)
     {
-        var elements = ImmutableArray.CreateBuilder<BoundExpression>();
-        ITypeSymbol? elementType = null;
+        var targetType = GetTargetType(syntax);
 
+        // Empty collection: defer to target type if available
         if (syntax.Elements.Count == 0)
         {
-            // Empty collection: default to object[]
-            elementType = Compilation.GetSpecialType(SpecialType.System_Object);
+            if (targetType != null)
+                return new BoundEmptyCollectionExpression(targetType);
 
             return new BoundEmptyCollectionExpression();
         }
+
+        var elements = ImmutableArray.CreateBuilder<BoundExpression>();
 
         foreach (var expr in syntax.Elements)
         {
             var boundElement = BindExpression(expr.Expression);
             elements.Add(boundElement);
-
-            if (elementType == null)
-            {
-                elementType = boundElement.Type!;
-            }
-            else if (!SymbolEqualityComparer.Default.Equals(elementType, boundElement.Type))
-            {
-                // TODO: Add implicit conversion or report error for heterogeneous types
-            }
         }
 
-        if (elementType == null)
+        if (targetType is IArrayTypeSymbol arrayType)
         {
-            // Empty collection: default to object[]
-            elementType = Compilation.GetSpecialType(SpecialType.System_Object);
+            var elementType = arrayType.ElementType;
+
+            foreach (var element in elements)
+            {
+                if (!IsAssignable(elementType, element.Type!))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(element.Type!, elementType, syntax.GetLocation());
+                }
+            }
+
+            return new BoundCollectionExpression(arrayType, elements.ToImmutable());
         }
 
-        var arrayType = Compilation.CreateArrayTypeSymbol(elementType);
+        if (targetType is INamedTypeSymbol namedType)
+        {
+            // Look for an Add method to infer element type
+            var addMethod = new SymbolQuery("Add", namedType, IsStatic: false)
+                .Lookup(this)
+                .FirstOrDefault() as IMethodSymbol;
 
-        return new BoundCollectionExpression(arrayType, elements.ToArray(), elementType);
+            var elementType = addMethod?.Parameters.Length == 1
+                ? addMethod.Parameters[0].Type
+                : null;
+
+            if (elementType is null && namedType.TypeArguments.Length == 1)
+                elementType = namedType.TypeArguments[0];
+
+            elementType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+            foreach (var element in elements)
+            {
+                if (!IsAssignable(elementType, element.Type!))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(element.Type!, elementType, syntax.GetLocation());
+                }
+            }
+
+            return new BoundCollectionExpression(namedType, elements.ToImmutable(), addMethod);
+        }
+
+        // Fallback to array if target type couldn't be determined
+        ITypeSymbol? inferredElementType = elements.Count > 0
+            ? elements[0].Type
+            : Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType!);
+
+        return new BoundCollectionExpression(fallbackArray, elements.ToImmutable());
     }
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)

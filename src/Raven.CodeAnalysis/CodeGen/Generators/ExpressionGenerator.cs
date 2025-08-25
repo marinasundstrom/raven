@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -419,6 +421,47 @@ internal class ExpressionGenerator : Generator
                 index++;
             }
         }
+        else if (target is INamedTypeSymbol namedType)
+        {
+            // Create the collection instance using the parameterless constructor
+            var ctor = namedType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
+            if (ctor is null)
+                throw new NotSupportedException("Collection type requires a parameterless constructor");
+
+            ConstructorInfo ctorInfo = ctor switch
+            {
+                SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
+                PEMethodSymbol pem => pem.GetConstructorInfo(),
+                SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
+                _ => throw new NotSupportedException()
+            };
+
+            ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
+
+            var addMethod = collectionExpression.CollectionSymbol as IMethodSymbol;
+
+            if (addMethod is not null)
+            {
+                foreach (var element in collectionExpression.Elements)
+                {
+                    ILGenerator.Emit(OpCodes.Dup);
+                    EmitExpression(element);
+
+                    var paramType = addMethod.Parameters[0].Type;
+                    if (element.Type is { IsValueType: true } && !paramType.IsValueType)
+                    {
+                        ILGenerator.Emit(OpCodes.Box, ResolveClrType(element.Type));
+                    }
+
+                    var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
+
+                    if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
+                        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+                    else
+                        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+                }
+            }
+        }
     }
 
     private void EmitEmptyCollectionExpression(BoundEmptyCollectionExpression emptyCollectionExpression)
@@ -431,6 +474,22 @@ internal class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Ldc_I4, 0);
             ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
+        }
+        else if (target is INamedTypeSymbol namedType)
+        {
+            var ctor = namedType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
+            if (ctor is null)
+                throw new NotSupportedException("Collection type requires a parameterless constructor");
+
+            ConstructorInfo ctorInfo = ctor switch
+            {
+                SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
+                PEMethodSymbol pem => pem.GetConstructorInfo(),
+                SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
+                _ => throw new NotSupportedException()
+            };
+
+            ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         }
     }
 

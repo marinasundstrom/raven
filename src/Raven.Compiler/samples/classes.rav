@@ -16,6 +16,8 @@ user.AddRole("admin")
 let user2 = Person.WithName("John")
     .AddRole("admin");
 
+WriteLine(user2.Name)
+
 class Person {
     let species = "Homo sapiens"
     var age: int = 0
