@@ -36,6 +36,11 @@ public static class TypeSymbolExtensionsForCodeGen
             return tupleClrType.MakeGenericType(tupleSymbol.TupleElements.Select(e => e.Type.GetClrType(codeGen)).ToArray());
         }
 
+        if (typeSymbol is NullTypeSymbol)
+        {
+            return codeGen.NullType;
+        }
+
         /*
         // Handle pointer types
         if (typeSymbol is IPointerTypeSymbol pointerType)

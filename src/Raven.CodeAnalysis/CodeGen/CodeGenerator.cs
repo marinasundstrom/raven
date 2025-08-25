@@ -5,8 +5,8 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 
-using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
@@ -29,6 +29,7 @@ internal class CodeGenerator
     private MethodBase EntryPoint { get; set; }
 
     public Type TypeUnionAttributeType { get; private set; }
+    public Type NullType { get; private set; }
 
     public CodeGenerator(Compilation compilation)
     {
@@ -55,6 +56,7 @@ internal class CodeGenerator
         var globalNamespace = _compilation.SourceGlobalNamespace;
 
         CreateTypeUnionAttribute();
+        CreateNullClass();
 
         DefineTypeBuilders();
 
@@ -164,6 +166,17 @@ internal class CodeGenerator
         TypeUnionAttributeType = attrBuilder.CreateType();
     }
 
+    private void CreateNullClass()
+    {
+        var nullBuilder = ModuleBuilder.DefineType(
+            "Null",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed);
+
+        nullBuilder.DefineDefaultConstructor(MethodAttributes.Private);
+
+        NullType = nullBuilder.CreateType();
+    }
+
     private void DefineTypeBuilders()
     {
         var types = Compilation.Module.GlobalNamespace
@@ -172,6 +185,8 @@ internal class CodeGenerator
 
         foreach (var typeSymbol in types)
         {
+            if (typeSymbol.DeclaringSyntaxReferences.Length == 0)
+                continue;
             var generator = new TypeGenerator(this, typeSymbol);
             _typeGenerators[typeSymbol] = generator;
             generator.DefineTypeBuilder();

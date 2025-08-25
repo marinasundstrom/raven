@@ -86,6 +86,9 @@ internal class TypeResolver(Compilation compilation)
         if (_cache.TryGetValue(type, out var cached))
             return cached;
 
+        if (type.Name == "Null")
+            return compilation.NullTypeSymbol;
+
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
             var underlying = ResolveType(type.GetGenericArguments()[0]);

@@ -1,0 +1,43 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
+
+using Xunit;
+
+namespace Raven.CodeAnalysis.Semantics.Tests;
+
+public class NullShimTests
+{
+    [Fact]
+    public void NullShimType_EmittedInUnionAttribute()
+    {
+        var source = """
+class C {
+    M(x: string | null) -> void { }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        Assert.NotNull(assembly.GetType("Null"));
+
+        var parameter = assembly.GetType("C")!.GetMethod("M")!.GetParameters()[0];
+        var attr = parameter.GetCustomAttributesData().Single(a => a.AttributeType.Name == "TypeUnionAttribute");
+        var attrTypes = ((IEnumerable<CustomAttributeTypedArgument>)attr.ConstructorArguments[0].Value!)
+            .Select(a => (Type)a.Value!);
+        Assert.Contains(attrTypes, t => t.Name == "Null");
+    }
+}
