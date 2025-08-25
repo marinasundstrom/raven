@@ -1353,6 +1353,20 @@ partial class BlockBinder : Binder
                         if (seen.Add(member))
                             yield return member;
                 }
+
+                foreach (var type in importBinder.GetImportedTypes())
+                {
+                    if (type.Name == name && seen.Add(type))
+                        yield return type;
+                }
+
+                var aliasMap = importBinder.GetAliases();
+                if (aliasMap.TryGetValue(name, out var symbols))
+                {
+                    foreach (var symbol in symbols)
+                        if (seen.Add(symbol))
+                            yield return symbol;
+                }
             }
 
             current = current.ParentBinder;

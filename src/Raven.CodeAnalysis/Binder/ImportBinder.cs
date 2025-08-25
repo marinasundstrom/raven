@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
@@ -6,18 +8,25 @@ class ImportBinder : Binder
 {
     private readonly IReadOnlyList<INamespaceOrTypeSymbol> _namespaceOrTypeScopeImports;
     private readonly IReadOnlyList<ITypeSymbol> _typeImports;
-    private readonly IReadOnlyDictionary<string, ITypeSymbol> _typeAliases;
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<ISymbol>> _aliases;
 
-    public ImportBinder(Binder parent, IReadOnlyList<INamespaceOrTypeSymbol> namespaceOrTypeScopeImports, IReadOnlyList<ITypeSymbol> typeImports, IReadOnlyDictionary<string, ITypeSymbol> typeAliases)
+    public ImportBinder(
+        Binder parent,
+        IReadOnlyList<INamespaceOrTypeSymbol> namespaceOrTypeScopeImports,
+        IReadOnlyList<ITypeSymbol> typeImports,
+        IReadOnlyDictionary<string, IReadOnlyList<ISymbol>> aliases)
         : base(parent)
     {
         _namespaceOrTypeScopeImports = namespaceOrTypeScopeImports;
         _typeImports = typeImports;
-        _typeAliases = typeAliases;
+        _aliases = aliases;
     }
 
     public override ITypeSymbol? LookupType(string name)
     {
+        if (_aliases.TryGetValue(name, out var aliasSymbols))
+            return aliasSymbols.OfType<ITypeSymbol>().FirstOrDefault();
+
         var type = _typeImports.FirstOrDefault(x => x.Name == name);
         if (type is not null)
             return type;
@@ -34,8 +43,8 @@ class ImportBinder : Binder
 
     public override ISymbol? LookupSymbol(string name)
     {
-        if (_typeAliases.TryGetValue(name, out var type))
-            return type;
+        if (_aliases.TryGetValue(name, out var symbols))
+            return symbols.FirstOrDefault();
 
         var matchingType = _typeImports.FirstOrDefault(x => x.Name == name);
         if (matchingType is not null)
@@ -62,7 +71,26 @@ class ImportBinder : Binder
     public IEnumerable<ITypeSymbol> GetImportedTypes() => _typeImports;
 
     /// <summary>
-    /// Gets a dictionary with the mapping from alias to resolved type.
+    /// Gets a dictionary with the mapping from alias to resolved symbols.
     /// </summary>
-    public IReadOnlyDictionary<string, ITypeSymbol> GetAliases() => _typeAliases;
+    public IReadOnlyDictionary<string, IReadOnlyList<ISymbol>> GetAliases() => _aliases;
+
+    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    {
+        if (_aliases.TryGetValue(name, out var symbols))
+            return symbols;
+
+        var type = _typeImports.FirstOrDefault(x => x.Name == name);
+        if (type != null)
+            return [type];
+
+        foreach (var ns in _namespaceOrTypeScopeImports)
+        {
+            var t = ns.LookupType(name);
+            if (t != null)
+                return [t];
+        }
+
+        return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
+    }
 }

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -89,19 +91,16 @@ class BinderFactory
             if (typeSymbol != null)
             {
                 var alias = GetRightmostIdentifier(importDirective.Name);
-                nsBinder.AddTypeImport(alias, typeSymbol);
+                nsBinder.AddAlias(alias, [typeSymbol]);
             }
         }
 
         foreach (var aliasDirective in nsSyntax.Aliases)
         {
-            ITypeSymbol? typeSymbol = HasTypeArguments(aliasDirective.Name)
-                ? ResolveGenericType(nsSymbol!, aliasDirective.Name)
-                : ResolveType(nsSymbol!, aliasDirective.Name.ToString());
-
-            if (typeSymbol != null)
+            var symbols = ResolveAlias(nsSymbol!, aliasDirective.Name);
+            if (symbols.Count > 0)
             {
-                nsBinder.AddTypeImport(aliasDirective.Identifier.Text, typeSymbol);
+                nsBinder.AddAlias(aliasDirective.Identifier.Text, symbols);
             }
         }
 
@@ -117,6 +116,38 @@ class BinderFactory
         {
             var full = Combine(current, name);
             return _compilation.GetTypeByMetadataName(full) ?? _compilation.GetTypeByMetadataName(name);
+        }
+
+        IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
+        {
+            // First, attempt to resolve as a type
+            ITypeSymbol? typeSymbol = HasTypeArguments(name)
+                ? ResolveGenericType(current, name)
+                : ResolveType(current, name.ToString());
+            if (typeSymbol != null)
+                return [typeSymbol];
+
+            // Otherwise, attempt to resolve as a static member of a type
+            if (name is QualifiedNameSyntax qn)
+            {
+                var memberName = GetRightmostIdentifier(name);
+                var left = qn.Left;
+
+                ITypeSymbol? containingType = HasTypeArguments(left)
+                    ? ResolveGenericType(current, left)
+                    : ResolveType(current, left.ToString());
+
+                if (containingType != null)
+                {
+                    var members = containingType.GetMembers(memberName)
+                        .Where(m => m.IsStatic)
+                        .ToArray();
+                    if (members.Length > 0)
+                        return members;
+                }
+            }
+
+            return Array.Empty<ISymbol>();
         }
 
         static bool HasTypeArguments(NameSyntax nameSyntax)

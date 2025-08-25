@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -6,7 +8,7 @@ class NamespaceBinder : Binder
 {
     private readonly INamespaceSymbol _namespaceSymbol;
     private readonly List<INamespaceSymbol> _imports = new(); // Stores `using` directives
-    private readonly Dictionary<string, ITypeSymbol> _typeImports = new();
+    private readonly Dictionary<string, IReadOnlyList<ISymbol>> _aliases = new();
     private readonly List<SourceNamedTypeSymbol> _declaredTypes = [];
 
     public NamespaceBinder(Binder parent, INamespaceSymbol ns)
@@ -24,10 +26,10 @@ class NamespaceBinder : Binder
             _imports.Add(importedNamespace);
     }
 
-    public void AddTypeImport(string alias, ITypeSymbol type)
+    public void AddAlias(string alias, IEnumerable<ISymbol> symbols)
     {
-        if (!_typeImports.ContainsKey(alias))
-            _typeImports[alias] = type;
+        if (!_aliases.ContainsKey(alias))
+            _aliases[alias] = symbols.ToArray();
     }
 
     /// <summary>
@@ -35,8 +37,8 @@ class NamespaceBinder : Binder
     /// </summary>
     public override ITypeSymbol? LookupType(string name)
     {
-        if (_typeImports.TryGetValue(name, out var importedType))
-            return importedType;
+        if (_aliases.TryGetValue(name, out var importedSymbols))
+            return importedSymbols.OfType<ITypeSymbol>().FirstOrDefault();
 
         var type = NamespaceSymbol.LookupType(name);
         if (type != null)
@@ -54,10 +56,18 @@ class NamespaceBinder : Binder
 
     public override ISymbol? LookupSymbol(string name)
     {
-        if (_typeImports.TryGetValue(name, out var type))
-            return type;
+        if (_aliases.TryGetValue(name, out var symbols))
+            return symbols.FirstOrDefault();
 
         return base.LookupSymbol(name);
+    }
+
+    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    {
+        if (_aliases.TryGetValue(name, out var symbols))
+            return symbols;
+
+        return base.LookupSymbols(name);
     }
 
     public void DeclareType(SourceNamedTypeSymbol type)

@@ -34,4 +34,19 @@ public class AliasResolutionTest : DiagnosticTestBase
         verifier.Verify();
     }
 
+    [Fact]
+    public void AliasDirective_UsesMemberAlias_Method()
+    {
+        string testCode =
+            """
+            alias PrintLine = System.Console.WriteLine
+
+            PrintLine(123)
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
 }
