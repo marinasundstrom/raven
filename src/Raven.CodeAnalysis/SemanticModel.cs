@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -226,7 +228,7 @@ public partial class SemanticModel
         // Step 2: Handle imports
         var namespaceImports = new List<INamespaceOrTypeSymbol>();
         var typeImports = new List<ITypeSymbol>();
-        var aliases = new Dictionary<string, ITypeSymbol>();
+        var aliases = new Dictionary<string, IReadOnlyList<ISymbol>>();
 
         foreach (var import in cu.DescendantNodes().OfType<ImportDirectiveSyntax>())
         {
@@ -261,13 +263,10 @@ public partial class SemanticModel
 
         foreach (var alias in cu.DescendantNodes().OfType<AliasDirectiveSyntax>())
         {
-            ITypeSymbol? typeSymbol = HasTypeArguments(alias.Name)
-                ? ResolveGenericType(targetNamespace, alias.Name)
-                : ResolveType(targetNamespace, alias.Name.ToString());
-
-            if (typeSymbol != null)
+            var symbols = ResolveAlias(targetNamespace, alias.Name);
+            if (symbols.Count > 0)
             {
-                aliases[alias.Identifier.Text] = typeSymbol;
+                aliases[alias.Identifier.Text] = symbols;
             }
         }
 
@@ -293,6 +292,36 @@ public partial class SemanticModel
         {
             var full = Combine(current, name);
             return Compilation.GetTypeByMetadataName(full) ?? Compilation.GetTypeByMetadataName(name);
+        }
+
+        IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
+        {
+            ITypeSymbol? typeSymbol = HasTypeArguments(name)
+                ? ResolveGenericType(current, name)
+                : ResolveType(current, name.ToString());
+            if (typeSymbol != null)
+                return [typeSymbol];
+
+            if (name is QualifiedNameSyntax qn)
+            {
+                var memberName = GetRightmostIdentifier(name);
+                var left = qn.Left;
+
+                ITypeSymbol? containingType = HasTypeArguments(left)
+                    ? ResolveGenericType(current, left)
+                    : ResolveType(current, left.ToString());
+
+                if (containingType != null)
+                {
+                    var members = containingType.GetMembers(memberName)
+                        .Where(m => m.IsStatic)
+                        .ToArray();
+                    if (members.Length > 0)
+                        return members;
+                }
+            }
+
+            return Array.Empty<ISymbol>();
         }
 
         static bool HasTypeArguments(NameSyntax nameSyntax)
