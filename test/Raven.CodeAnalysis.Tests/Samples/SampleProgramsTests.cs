@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 using Raven.CodeAnalysis.Syntax;
-
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -88,7 +88,7 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
         if (File.Exists(testDep))
             File.Copy(testDep, testDepOutputPath, overwrite: true);
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
@@ -113,7 +113,7 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
 
         var tree = SyntaxTree.ParseText(source);
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("samples", [tree], new CompilationOptions(OutputKind.ConsoleApplication))

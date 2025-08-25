@@ -40,3 +40,9 @@
       href: development/cil.md
     - name: Resources
       href: development/resources.md
+    - name: Testing
+      items:
+        - name: Verifying diagnostics
+          href: development/testing/verifying-diagnostics.md
+        - name: Runtime assembly loading
+          href: development/testing/runtime-assembly-loading.md

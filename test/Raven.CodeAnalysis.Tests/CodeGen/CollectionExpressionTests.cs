@@ -1,4 +1,4 @@
-using System.Linq;
+using System.IO;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
@@ -26,13 +26,7 @@ class Foo {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
-
-        MetadataReference[] references = [
-            MetadataReference.CreateFromFile(runtimePath)
-        ];
+        var references = TestMetadataReferences.Default;
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddSyntaxTrees(syntaxTree)
@@ -42,12 +36,8 @@ class Foo {
         var result = compilation.Emit(peStream);
         Assert.True(result.Success);
 
-        peStream.Seek(0, SeekOrigin.Begin);
-
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var mlc = new MetadataLoadContext(resolver);
-
-        var assembly = mlc.LoadFromStream(peStream);
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
         var type = assembly.GetType("Foo", true);
         var instance = Activator.CreateInstance(type!);
         var itemsCountProp = type!.GetProperty("ItemsCount");

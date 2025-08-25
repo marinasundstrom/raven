@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
+using Raven.CodeAnalysis.Testing;
 
 using Xunit;
 
@@ -92,7 +93,7 @@ public class DocumentTests
         solution = solution.AddDocument(docId, "Test.rvn", source);
         var document = solution.GetDocument(docId)!;
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var project = document.Project.AddMetadataReference(

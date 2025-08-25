@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
@@ -62,7 +63,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         #region Compilation
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -110,7 +111,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -141,7 +142,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -174,7 +175,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))

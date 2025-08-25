@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -19,7 +20,7 @@ class Foo {
 
         var syntaxTree = SyntaxTree.ParseText(code);
 
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
 
         var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
 
