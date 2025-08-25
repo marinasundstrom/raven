@@ -4,10 +4,11 @@
  
 //namespace Test
 
-import System.*
-import System.Collections.Generic.*
+import System.Console.*
+import System.Collections.Generic.List<>
+//alias StringList = System.Collections.Generic.List<string>
 
-Console.WriteLine("Hello"); let x = 2
+WriteLine("Hello"); let x = 2
 
 let user = Person(42)
 user.AddRole("admin")
