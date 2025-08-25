@@ -126,6 +126,29 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Statement_MissingTerminator_ReturnsMissingNewLineToken()
+    {
+        var source = "let x = 1 let y = 2";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        context.SetTreatNewlinesAsTokens(true);
+
+        var parser = new SyntaxParser(context);
+
+        parser.ExpectToken(SyntaxKind.LetKeyword);
+        parser.ExpectToken(SyntaxKind.IdentifierToken);
+        parser.ExpectToken(SyntaxKind.EqualsToken);
+        parser.ExpectToken(SyntaxKind.NumericLiteralToken);
+
+        var result = parser.TryConsumeTerminator(out var terminator);
+
+        Assert.False(result);
+        Assert.Equal(SyntaxKind.NewLineToken, terminator.Kind);
+        var diagnostic = Assert.Single(parser.Diagnostics);
+        Assert.Equal(CompilerDiagnostics.SemicolonExpected, diagnostic.Descriptor);
+    }
+
+    [Fact]
     public void Block_LastStatementWithoutTerminator_UsesNoneToken()
     {
         var source = "{ return \"\" }";

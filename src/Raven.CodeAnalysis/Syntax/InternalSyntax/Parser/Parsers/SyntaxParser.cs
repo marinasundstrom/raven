@@ -124,7 +124,11 @@ internal class SyntaxParser : ParseContext
             }
         }
 
-        token = MissingToken(SyntaxKind.SemicolonToken);
+        token = MissingToken(SyntaxKind.NewLineToken);
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.SemicolonExpected,
+                GetEndOfLastToken()));
         return false;
     }
 

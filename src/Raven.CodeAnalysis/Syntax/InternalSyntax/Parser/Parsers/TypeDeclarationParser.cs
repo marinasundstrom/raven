@@ -407,13 +407,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(true);
 
-        if (!TryConsumeTerminator(out var terminatorToken))
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()));
-        }
+        TryConsumeTerminator(out var terminatorToken);
 
         return FieldDeclaration(modifiers, declaration, terminatorToken, Diagnostics);
     }
