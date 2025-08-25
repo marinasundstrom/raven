@@ -962,38 +962,26 @@ partial class BlockBinder : Binder
         }
 
         // No receiver -> try methods first, then constructors
-        var sym = LookupSymbol(methodName);
+        var methodCandidates = LookupSymbols(methodName).OfType<IMethodSymbol>().ToArray();
 
-        if (sym is IMethodSymbol m)
+        if (methodCandidates.Length > 0)
         {
-            var candidates = new[] { m };
-            var method = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
+            var method = OverloadResolver.ResolveOverload(methodCandidates, boundArguments, Compilation);
             if (method is not null)
                 return new BoundInvocationExpression(method, boundArguments.ToArray(), null);
 
             // Fall back to type if overload resolution failed
-            var typeSym = LookupType(methodName) as INamedTypeSymbol;
-            if (typeSym is not null)
-                return BindConstructorInvocation(typeSym, boundArguments, syntax);
+            var typeFallback = LookupType(methodName) as INamedTypeSymbol;
+            if (typeFallback is not null)
+                return BindConstructorInvocation(typeFallback, boundArguments, syntax);
 
             _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        if (sym is INamedTypeSymbol namedType)
-        {
-            return BindConstructorInvocation(namedType, boundArguments, syntax);
-        }
-
-        if (sym is null)
-        {
-            var typeSym = LookupType(methodName) as INamedTypeSymbol;
-            if (typeSym is not null)
-                return BindConstructorInvocation(typeSym, boundArguments, syntax);
-
-            _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-        }
+        var typeSymbol = LookupType(methodName) as INamedTypeSymbol;
+        if (typeSymbol is not null)
+            return BindConstructorInvocation(typeSymbol, boundArguments, syntax);
 
         _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
@@ -1272,6 +1260,61 @@ partial class BlockBinder : Binder
         var arrayType = Compilation.CreateArrayTypeSymbol(elementType);
 
         return new BoundCollectionExpression(arrayType, elements.ToArray(), elementType);
+    }
+
+    private IEnumerable<ISymbol> LookupSymbols(string name)
+    {
+        var seen = new HashSet<ISymbol>();
+        Binder? current = this;
+
+        while (current is not null)
+        {
+            if (current is BlockBinder block)
+            {
+                if (block._locals.TryGetValue(name, out var local) && seen.Add(local))
+                    yield return local;
+
+                if (block._localFunctions.TryGetValue(name, out var func) && seen.Add(func))
+                    yield return func;
+            }
+
+            if (current is TopLevelBinder topLevelBinder)
+            {
+                foreach (var param in topLevelBinder.GetParameters())
+                    if (param.Name == name && seen.Add(param))
+                        yield return param;
+            }
+
+            if (current is MethodBinder methodBinder)
+            {
+                foreach (var param in methodBinder.GetMethodSymbol().Parameters)
+                    if (param.Name == name && seen.Add(param))
+                        yield return param;
+            }
+
+            if (current is TypeMemberBinder typeMemberBinder)
+            {
+                foreach (var member in typeMemberBinder.ContainingSymbol.GetMembers(name))
+                    if (seen.Add(member))
+                        yield return member;
+            }
+
+            if (current is ImportBinder importBinder)
+            {
+                foreach (var ns in importBinder.GetImportedNamespacesOrTypeScopes())
+                {
+                    foreach (var member in ns.GetMembers(name))
+                        if (seen.Add(member))
+                            yield return member;
+                }
+            }
+
+            current = current.ParentBinder;
+        }
+
+        foreach (var member in Compilation.GlobalNamespace.GetMembers(name))
+            if (seen.Add(member))
+                yield return member;
     }
 
     public override IEnumerable<ISymbol> LookupAvailableSymbols()

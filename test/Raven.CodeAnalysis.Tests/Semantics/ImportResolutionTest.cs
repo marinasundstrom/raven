@@ -166,4 +166,19 @@ public class ImportResolutionTest : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void WildcardTypeImport_MakesStaticMembersAvailable()
+    {
+        string testCode =
+            """
+            import System.Console.*
+
+            WriteLine("test")
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
