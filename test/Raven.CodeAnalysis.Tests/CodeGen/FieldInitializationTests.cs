@@ -1,7 +1,6 @@
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Loader;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -37,21 +36,8 @@ class Foo {
         var result = compilation.Emit(peStream);
         Assert.True(result.Success);
 
-        peStream.Position = 0;
-
-        var refPaths = references
-            .Select(r => ((PortableExecutableReference)r).FilePath)
-            .ToArray();
-
-        var alc = new AssemblyLoadContext("RavenTests", isCollectible: true);
-        alc.Resolving += (context, name) =>
-        {
-            var candidate = refPaths.FirstOrDefault(p =>
-                string.Equals(Path.GetFileNameWithoutExtension(p), name.Name, StringComparison.OrdinalIgnoreCase));
-            return candidate is not null ? context.LoadFromAssemblyPath(candidate) : null;
-        };
-
-        var runtimeAssembly = alc.LoadFromStream(peStream);
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
         var type = runtimeAssembly.GetType("Foo", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
         var xProp = type.GetProperty("X", BindingFlags.Public | BindingFlags.Instance)!;
@@ -59,7 +45,5 @@ class Foo {
 
         Assert.Equal(42, (int)xProp.GetValue(instance)!);
         Assert.Equal(100, (int)yProp.GetValue(null)!);
-
-        alc.Unload();
     }
 }

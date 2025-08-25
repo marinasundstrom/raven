@@ -6,10 +6,11 @@ using Raven.CodeAnalysis;
 
 class Program
 {
+    private const string TargetFramework = "net9.0";
     static void Main()
     {
         var compilation = Compilation.Create("test", options: new CompilationOptions(OutputKind.ConsoleApplication));
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TargetFramework);
         var refDir = TargetFrameworkResolver.GetDirectoryPath(version);
         var references = new[]
         {

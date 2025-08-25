@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests.Bugs;
 
@@ -7,7 +8,7 @@ public class MetadataReferenceLoadingTests
     [Fact]
     public void GetTypeByMetadataName_LoadsReferences_WhenNoSyntaxTrees()
     {
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var referencePaths = TargetFrameworkResolver.GetReferenceAssemblies(version);
         var references = referencePaths.Select(MetadataReference.CreateFromFile).ToArray();
 
