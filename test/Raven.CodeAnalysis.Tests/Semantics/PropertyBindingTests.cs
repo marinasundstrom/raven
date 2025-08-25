@@ -14,11 +14,11 @@ public class PropertyBindingTests : DiagnosticTestBase
                     get => 0
                 }
             }
-            Foo.Bar;
+            Foo.Bar
             """;
 
         var verifier = CreateVerifier(testCode,
-            [new DiagnosticResult("RAV0117").WithLocation(6, 1).WithArguments("Foo", "Bar")]);
+            [new DiagnosticResult("RAV0117").WithLocation(6, 5).WithArguments("Foo", "Bar")]);
 
         verifier.Verify();
     }
@@ -33,12 +33,12 @@ public class PropertyBindingTests : DiagnosticTestBase
                     get => 0
                 }
             }
-            Foo f = Foo();
+            let f = Foo()
             f.Bar;
             """;
 
         var verifier = CreateVerifier(testCode,
-            [new DiagnosticResult("RAV0103").WithLocation(7, 1).WithArguments("Bar")]);
+            [new DiagnosticResult("RAV0103").WithLocation(7, 3).WithArguments("Bar")]);
 
         verifier.Verify();
     }

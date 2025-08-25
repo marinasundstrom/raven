@@ -515,7 +515,8 @@ partial class BlockBinder : Binder
 
             if (member is null)
             {
-                _diagnostics.ReportMemberDoesNotContainDefinition(name, memberAccess.Name.ToString(), memberAccess.Name.GetLocation());
+                var typeName = typeExpr.Symbol!.Name;
+                _diagnostics.ReportMemberDoesNotContainDefinition(typeName, memberAccess.Name.ToString(), memberAccess.Name.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
