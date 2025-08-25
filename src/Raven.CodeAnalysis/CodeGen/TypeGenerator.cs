@@ -82,36 +82,74 @@ internal class TypeGenerator
 
         foreach (var memberSymbol in TypeSymbol.GetMembers())
         {
-            if (memberSymbol is IMethodSymbol methodSymbol)
+            switch (memberSymbol)
             {
-                var methodGenerator = new MethodGenerator(this, methodSymbol);
-                _methodGenerators[methodSymbol] = methodGenerator;
-                methodGenerator.DefineMethodBuilder();
+                case IMethodSymbol methodSymbol:
+                    {
+                        var methodGenerator = new MethodGenerator(this, methodSymbol);
+                        _methodGenerators[methodSymbol] = methodGenerator;
+                        methodGenerator.DefineMethodBuilder();
 
-                CodeGen.AddMemberBuilder((SourceSymbol)methodSymbol, methodGenerator.MethodBase);
-            }
-            else if (memberSymbol is IFieldSymbol fieldSymbol)
-            {
-                var type = fieldSymbol.Type.Equals(TypeSymbol, SymbolEqualityComparer.Default) ? TypeBuilder : ResolveClrType(fieldSymbol.Type);
+                        CodeGen.AddMemberBuilder((SourceSymbol)methodSymbol, methodGenerator.MethodBase);
+                        break;
+                    }
+                case IFieldSymbol fieldSymbol:
+                    {
+                        var type = fieldSymbol.Type.Equals(TypeSymbol, SymbolEqualityComparer.Default) ? TypeBuilder : ResolveClrType(fieldSymbol.Type);
 
-                FieldAttributes attr = FieldAttributes.Public;
+                        FieldAttributes attr = FieldAttributes.Public;
 
-                if (fieldSymbol.IsLiteral)
-                {
-                    attr |= FieldAttributes.Literal;
-                }
+                        if (fieldSymbol.IsLiteral)
+                        {
+                            attr |= FieldAttributes.Literal;
+                        }
 
-                if (fieldSymbol.IsStatic)
-                {
-                    attr |= FieldAttributes.Static;
-                }
+                        if (fieldSymbol.IsStatic)
+                        {
+                            attr |= FieldAttributes.Static;
+                        }
 
-                var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, type, attr);
-                if (fieldSymbol.IsLiteral)
-                    fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
-                _fieldBuilders[fieldSymbol] = fieldBuilder;
+                        var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, type, attr);
+                        if (fieldSymbol.IsLiteral)
+                            fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
+                        _fieldBuilders[fieldSymbol] = fieldBuilder;
 
-                CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);
+                        CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);
+                        break;
+                    }
+                case IPropertySymbol propertySymbol:
+                    {
+                        MethodGenerator? getGen = null;
+                        MethodGenerator? setGen = null;
+
+                        if (propertySymbol.GetMethod is IMethodSymbol getMethod)
+                        {
+                            getGen = new MethodGenerator(this, getMethod);
+                            _methodGenerators[getMethod] = getGen;
+                            getGen.DefineMethodBuilder();
+                            CodeGen.AddMemberBuilder((SourceSymbol)getMethod, getGen.MethodBase);
+                        }
+
+                        if (propertySymbol.SetMethod is IMethodSymbol setMethod)
+                        {
+                            setGen = new MethodGenerator(this, setMethod);
+                            _methodGenerators[setMethod] = setGen;
+                            setGen.DefineMethodBuilder();
+                            CodeGen.AddMemberBuilder((SourceSymbol)setMethod, setGen.MethodBase);
+                        }
+
+                        var propertyType = ResolveClrType(propertySymbol.Type);
+                        var paramTypes = propertySymbol.GetMethod?.Parameters.Select(p => ResolveClrType(p.Type)).ToArray() ?? Type.EmptyTypes;
+                        var propBuilder = TypeBuilder.DefineProperty(propertySymbol.Name, PropertyAttributes.None, propertyType, paramTypes);
+
+                        if (getGen != null)
+                            propBuilder.SetGetMethod((MethodBuilder)getGen.MethodBase);
+                        if (setGen != null)
+                            propBuilder.SetSetMethod((MethodBuilder)setGen.MethodBase);
+
+                        CodeGen.AddMemberBuilder((SourceSymbol)propertySymbol, propBuilder);
+                        break;
+                    }
             }
         }
     }

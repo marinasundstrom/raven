@@ -47,6 +47,7 @@ internal class MethodBodyGenerator
             MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockExpression,
             LocalFunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockExpression,
             BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockExpression,
+            AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body) as BoundBlockExpression,
             _ => null
         };
 
@@ -117,6 +118,13 @@ internal class MethodBodyGenerator
                 {
                     ILGenerator.Emit(OpCodes.Ret);
                 }
+                break;
+
+            case AccessorDeclarationSyntax accessorDeclaration:
+                if (boundBody != null)
+                    EmitBoundBlock(boundBody);
+                else
+                    ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             case ClassDeclarationSyntax:

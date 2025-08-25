@@ -506,6 +506,22 @@ public partial class SemanticModel
                     _binderCache[methodDecl] = methodBinder;
                     break;
 
+                case PropertyDeclarationSyntax propDecl:
+                    var propMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var accessorBinders = propMemberBinder.BindPropertyDeclaration(propDecl);
+                    _binderCache[propDecl] = propMemberBinder;
+                    foreach (var kv in accessorBinders)
+                        _binderCache[kv.Key] = kv.Value;
+                    break;
+
+                case IndexerDeclarationSyntax indexerDecl:
+                    var indexerMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var indexerAccessorBinders = indexerMemberBinder.BindIndexerDeclaration(indexerDecl);
+                    _binderCache[indexerDecl] = indexerMemberBinder;
+                    foreach (var kv in indexerAccessorBinders)
+                        _binderCache[kv.Key] = kv.Value;
+                    break;
+
                 case ConstructorDeclarationSyntax ctorDecl:
                     var ctorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
                     var ctorBinder = ctorMemberBinder.BindConstructorDeclaration(ctorDecl);

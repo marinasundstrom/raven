@@ -36,8 +36,12 @@ class MethodBinder : TypeMemberBinder
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {
-        if (node is MethodDeclarationSyntax or ConstructorDeclarationSyntax or NamedConstructorDeclarationSyntax)
+        if (node is MethodDeclarationSyntax
+            or ConstructorDeclarationSyntax
+            or NamedConstructorDeclarationSyntax
+            or AccessorDeclarationSyntax)
             return _methodSymbol;
+
         return base.BindDeclaredSymbol(node);
     }
 
