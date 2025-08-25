@@ -685,6 +685,21 @@ partial class BlockBinder : Binder
 
         if (symbol is ITypeSymbol type && type is INamedTypeSymbol named)
         {
+            // If the resolved symbol is already a constructed generic type (e.g., from an alias
+            // like `alias StringList = System.Collections.Generic.List<string>`), then we don't
+            // expect any additional type arguments when the alias is used. Return the constructed
+            // type directly.
+            if (named.ConstructedFrom is not null)
+            {
+                if (!typeArguments.IsEmpty)
+                {
+                    //_diagnostics.ReportTypeArityMismatch(name, named.Arity, typeArguments.Length, location);
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                return new BoundTypeExpression(named);
+            }
+
             if (named.Arity != typeArguments.Length)
             {
                 //_diagnostics.ReportTypeArityMismatch(name, named.Arity, typeArguments.Length, location);

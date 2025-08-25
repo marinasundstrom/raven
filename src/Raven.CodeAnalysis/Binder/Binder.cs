@@ -214,10 +214,17 @@ internal abstract class Binder
         if (typeSyntax is IdentifierNameSyntax ident)
         {
             var type = LookupType(ident.Identifier.Text);
-            if (type is INamedTypeSymbol named && named.Arity > 0)
+            if (type is INamedTypeSymbol named)
             {
-                _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, ident.Identifier.GetLocation());
-                return Compilation.ErrorTypeSymbol;
+                // Allow constructed generic types (e.g., from aliases) to be used without
+                // specifying additional type arguments.
+                if (named.Arity > 0 && named.ConstructedFrom is null)
+                {
+                    _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, ident.Identifier.GetLocation());
+                    return Compilation.ErrorTypeSymbol;
+                }
+
+                return named;
             }
 
             if (type is not null)
