@@ -888,6 +888,28 @@ partial class BlockBinder : Binder
             receiver = null;
             methodName = id.Identifier.Text;
         }
+        else if (syntax.Expression is GenericNameSyntax generic)
+        {
+            var genericBoundArguments = new BoundExpression[syntax.ArgumentList.Arguments.Count];
+            bool genericHasErrors = false;
+            int genericIndex = 0;
+            foreach (var arg in syntax.ArgumentList.Arguments)
+            {
+                var boundArg = BindExpression(arg.Expression);
+                if (boundArg is BoundErrorExpression)
+                    genericHasErrors = true;
+                genericBoundArguments[genericIndex++] = boundArg;
+            }
+
+            if (genericHasErrors)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+
+            var typeExpr = BindTypeSyntax(generic);
+            if (typeExpr is BoundTypeExpression type && type.Type is INamedTypeSymbol namedType)
+                return BindConstructorInvocation(namedType, genericBoundArguments, syntax);
+
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
         else
         {
             _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());

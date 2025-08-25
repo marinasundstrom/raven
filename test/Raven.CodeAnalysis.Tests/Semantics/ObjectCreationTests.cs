@@ -103,5 +103,21 @@ public class ObjectCreationTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void GenericTypeInvocationCreatesObject()
+    {
+        string testCode =
+            """
+            import System.Collections.Generic.List<>
+
+            let list = List<int>()
+            list.Add(1)
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
 
