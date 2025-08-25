@@ -117,6 +117,25 @@ public class Person {
 }
 ```
 
+### Static properties
+
+Properties can be marked `static` to associate them with the type rather than an instance.
+
+```raven
+public class Logger {
+    static var level: int = 0
+
+    public static Level: int {
+        get => level
+        set => level = value
+    }
+}
+
+Logger.Level = 3
+```
+
+Static properties are accessed through the type name and cannot be used on an instance.
+
 ### Element access operators (a.k.a. Indexers)
 
 Indexers are a special kind of properties that give element access semantics to objects:

@@ -226,6 +226,7 @@ internal class TypeMemberBinder : Binder
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
     {
         var propertyType = ResolveType(propertyDecl.Type.Type);
+        var isStatic = propertyDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
 
         var propertySymbol = new SourcePropertySymbol(
             propertyDecl.Identifier.Text,
@@ -234,7 +235,8 @@ internal class TypeMemberBinder : Binder
             _containingType,
             CurrentNamespace!.AsSourceNamespace(),
             [propertyDecl.GetLocation()],
-            [propertyDecl.GetReference()]);
+            [propertyDecl.GetReference()],
+            isStatic: isStatic);
 
         var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
 
@@ -258,7 +260,7 @@ internal class TypeMemberBinder : Binder
                     CurrentNamespace!.AsSourceNamespace(),
                     [accessor.GetLocation()],
                     [accessor.GetReference()],
-                    isStatic: false,
+                    isStatic: isStatic,
                     methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet);
 
                 var parameters = new List<SourceParameterSymbol>();

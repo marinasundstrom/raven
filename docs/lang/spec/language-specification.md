@@ -373,6 +373,7 @@ class Counter
 * Fields use `let`/`var` and require `;` after declarators.
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
+* Members can be marked `static` to associate them with the type rather than an instance.
 
 ## Operators (precedence summary)
 
