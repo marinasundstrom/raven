@@ -5,7 +5,7 @@
 import System.Console.*
 import System.Collections.Generic.List<>
 
-let list = new List<int>()
+let list = List<int>()
 list.Add(2)
 list.Add(3)
 
