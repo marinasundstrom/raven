@@ -732,6 +732,7 @@ partial class BlockBinder : Binder
             SyntaxKind.CharacterLiteralExpression => BoundLiteralExpressionKind.CharLiteral,
             SyntaxKind.TrueLiteralExpression => BoundLiteralExpressionKind.TrueLiteral,
             SyntaxKind.FalseLiteralExpression => BoundLiteralExpressionKind.FalseLiteral,
+            SyntaxKind.NullLiteralExpression => BoundLiteralExpressionKind.NullLiteral,
 
             _ => throw new Exception("Unsupported literal type")
         };

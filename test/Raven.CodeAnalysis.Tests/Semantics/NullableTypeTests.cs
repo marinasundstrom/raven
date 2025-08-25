@@ -93,12 +93,12 @@ public class NullableTypeTests
     {
         var source = """
         func f(x: string) -> int { 0 }
-        func f(x: string?) -> int { 1 }
+        func f2(x: string?) -> int { 1 }
         let s: string = ""
         let n: string? = null
         let a = f(s)
-        let b = f(n)
-        let c = f(null)
+        let b = f2(n)
+        let c = f2(null)
         """;
 
         var tree = SyntaxTree.ParseText(source);
