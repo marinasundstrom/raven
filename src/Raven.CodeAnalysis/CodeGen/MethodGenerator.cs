@@ -91,4 +91,6 @@ internal class MethodGenerator
     {
         return typeSymbol.GetClrType(TypeGenerator.CodeGen);
     }
+
+    public override string ToString() => this.MethodSymbol.ToDisplayString();
 }

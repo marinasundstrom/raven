@@ -95,6 +95,10 @@ internal class ExpressionGenerator : Generator
                 EmitCollectionExpression(collectionExpression);
                 break;
 
+            case BoundEmptyCollectionExpression emptyCollectionExpression:
+                EmitEmptyCollectionExpression(emptyCollectionExpression);
+                break;
+
             case BoundArrayAccessExpression boundArrayAccessExpression:
                 EmitArrayAccessExpression(boundArrayAccessExpression);
                 break;
@@ -414,6 +418,19 @@ internal class ExpressionGenerator : Generator
 
                 index++;
             }
+        }
+    }
+
+    private void EmitEmptyCollectionExpression(BoundEmptyCollectionExpression emptyCollectionExpression)
+    {
+        var target = emptyCollectionExpression.Type;
+
+        if (target is IArrayTypeSymbol arrayTypeSymbol)
+        {
+            // TODO: Use Array.Empty<T>() or Enumerable.Empty<T>().
+
+            ILGenerator.Emit(OpCodes.Ldc_I4, 0);
+            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
         }
     }
 
