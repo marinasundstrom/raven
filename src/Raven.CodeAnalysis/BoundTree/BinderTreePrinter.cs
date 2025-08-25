@@ -73,7 +73,7 @@ public static class BinderTreePrinter
             ImportBinder => "ImportBinder",
             TopLevelBinder => "TopLevelBinder (synthesized Main)",
             TypeDeclarationBinder td => $"TypeDeclarationBinder ({td.ContainingSymbol?.Name ?? "?"})",
-            MethodBinder m => $"MethodBinder", // ({m.MethodSymbol?.Name ?? "?"})"
+            MethodBinder m => $"MethodBinder ({m.GetMethodSymbol()?.Name ?? "?"})",
             MethodBodyBinder => "MethodBodyBinder",
             BlockBinder => "BlockBinder",
             LocalScopeBinder => "LocalScopeBinder",
