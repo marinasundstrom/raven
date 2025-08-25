@@ -178,15 +178,31 @@ internal abstract class Binder
 
     public virtual ITypeSymbol ResolveType(TypeSyntax typeSyntax)
     {
+        if (typeSyntax is NullTypeSyntax)
+        {
+            return Compilation.NullTypeSymbol;
+        }
+
         if (typeSyntax is NullableTypeSyntax nb)
         {
-            // INFO: Temporary workaround
-            typeSyntax = nb.ElementType;
+            var elementType = ResolveType(nb.ElementType);
+            return new NullableTypeSymbol(elementType, null, null, null, []);
         }
 
         if (typeSyntax is UnionTypeSyntax ut)
         {
-            var types = ut.Types.Select(x => ResolveType(x)).ToArray();
+            var types = new List<ITypeSymbol>();
+            foreach (var t in ut.Types)
+            {
+                if (t is NullableTypeSyntax nt)
+                {
+                    _diagnostics.ReportNullableTypeInUnion(nt.GetLocation());
+                    return Compilation.ErrorTypeSymbol;
+                }
+
+                types.Add(ResolveType(t));
+            }
+
             return new UnionTypeSymbol(types, null, null, null, []);
         }
 

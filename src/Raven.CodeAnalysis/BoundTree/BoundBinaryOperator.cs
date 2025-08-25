@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
@@ -101,7 +102,7 @@ internal partial class BoundBinaryOperator
                     lifted.OperatorKind | BinaryOperatorKind.Lifted,
                     left,
                     right,
-                    compilation.GetSpecialType(SpecialType.System_Nullable_T).Construct(lifted.ResultType));
+                    new NullableTypeSymbol(lifted.ResultType, null, null, null, []));
             }
         }
 
@@ -130,10 +131,10 @@ internal partial class BoundBinaryOperator
 public static class TypeSymbolExtension3
 {
     internal static bool IsNullable(this ITypeSymbol type) =>
-        type.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T;
+        type.TypeKind == TypeKind.Nullable;
 
     internal static ITypeSymbol GetNullableUnderlyingType(this ITypeSymbol type) =>
-        ((INamedTypeSymbol)type).TypeArguments[0];
+        ((NullableTypeSymbol)type).UnderlyingType;
 }
 
 [Flags]

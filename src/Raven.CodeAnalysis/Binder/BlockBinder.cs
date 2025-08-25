@@ -707,6 +707,11 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
     {
+        if (syntax.Kind == SyntaxKind.NullKeyword)
+        {
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
+        }
+
         var value = syntax.Token.Value ?? syntax.Token.Text!;
         ITypeSymbol type = value switch
         {
@@ -727,7 +732,6 @@ partial class BlockBinder : Binder
             SyntaxKind.CharacterLiteralExpression => BoundLiteralExpressionKind.CharLiteral,
             SyntaxKind.TrueLiteralExpression => BoundLiteralExpressionKind.TrueLiteral,
             SyntaxKind.FalseLiteralExpression => BoundLiteralExpressionKind.FalseLiteral,
-            SyntaxKind.NullKeyword => BoundLiteralExpressionKind.NullLiteral,
 
             _ => throw new Exception("Unsupported literal type")
         };

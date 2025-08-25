@@ -336,7 +336,9 @@ public enum TypeKind
     TypeParameter,
     FunctionPointer,
     Union,
-    Tuple
+    Tuple,
+    Nullable,
+    Null
 }
 
 public interface INamedTypeSymbol : ITypeSymbol

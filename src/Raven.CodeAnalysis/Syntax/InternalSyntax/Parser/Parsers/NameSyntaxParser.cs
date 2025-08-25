@@ -55,11 +55,24 @@ internal class NameSyntaxParser : SyntaxParser
     private TypeSyntax ParseNameCore()
     {
         var peek = PeekToken();
+        if (peek.IsKind(SyntaxKind.NullKeyword))
+        {
+            ReadToken();
+            return NullType(peek);
+        }
+
         if (IsPredefinedTypeKeyword(peek))
         {
             ReadToken();
 
-            return PredefinedType(peek);
+            TypeSyntax type = PredefinedType(peek);
+
+            if (ConsumeToken(SyntaxKind.QuestionToken, out var qToken))
+            {
+                type = NullableType(type, qToken);
+            }
+
+            return type;
         }
 
         TypeSyntax left = ParseUnqualifiedName();
