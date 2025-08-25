@@ -126,9 +126,29 @@ internal class MethodBodyGenerator
 
             case AccessorDeclarationSyntax accessorDeclaration:
                 if (boundBody != null)
+                {
                     EmitBoundBlock(boundBody);
-                else
+                }
+                else if (accessorDeclaration.ExpressionBody is not null)
+                {
+                    var boundExpr = (BoundExpression)semanticModel.GetBoundNode(accessorDeclaration.ExpressionBody.Expression)!;
+
+                    if (MethodSymbol.MethodKind == MethodKind.PropertyGet)
+                    {
+                        new ExpressionGenerator(baseGenerator, boundExpr).Emit();
+                    }
+                    else
+                    {
+                        var stmt = new BoundExpressionStatement(boundExpr);
+                        new StatementGenerator(baseGenerator, stmt).Emit();
+                    }
+
                     ILGenerator.Emit(OpCodes.Ret);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ret);
+                }
                 break;
 
             case ClassDeclarationSyntax:

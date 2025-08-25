@@ -1201,7 +1201,7 @@ partial class BlockBinder : Binder
             return new BoundPropertyAssignmentExpression(GetReceiver(left), propertySymbol, right2);
         }
 
-        throw new Exception();
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
     private BoundExpression? GetReceiver(BoundExpression left)
