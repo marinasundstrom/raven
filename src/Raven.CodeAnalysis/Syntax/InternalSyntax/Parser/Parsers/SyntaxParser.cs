@@ -105,6 +105,13 @@ internal class SyntaxParser : ParseContext
         if (ConsumeToken(SyntaxKind.EndOfFileToken, out token))
             return true;
 
+        // Allow end of block when statement is last in a block
+        if (IsNextToken(SyntaxKind.CloseBraceToken))
+        {
+            token = Token(SyntaxKind.None);
+            return true;
+        }
+
         // If newlines are tokens, check if it's a valid terminator
         if (TreatNewlinesAsTokens && IsNewLineToken(PeekToken()))
         {
@@ -117,7 +124,11 @@ internal class SyntaxParser : ParseContext
             }
         }
 
-        token = null!;
+        token = MissingToken(SyntaxKind.NewLineToken);
+        AddDiagnostic(
+            DiagnosticInfo.Create(
+                CompilerDiagnostics.SemicolonExpected,
+                GetEndOfLastToken()));
         return false;
     }
 

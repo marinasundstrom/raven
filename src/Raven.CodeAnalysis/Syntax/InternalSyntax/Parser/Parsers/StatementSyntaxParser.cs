@@ -55,10 +55,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
 
-        if (!TryConsumeTerminator(out var terminatorToken))
-        {
-
-        }
+        TryConsumeTerminator(out var terminatorToken);
 
         return LocalFunctionStatement(funcKeyword, identifier, parameterList, returnParameterAnnotation, block, terminatorToken);
     }
@@ -118,12 +115,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         if (!TryConsumeTerminator(out var terminatorToken))
         {
-            terminatorToken = SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
-
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetFullSpanOfLastToken()));
+            SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
         }
 
         return ReturnStatement(returnKeyword, expression, terminatorToken, Diagnostics);
@@ -204,7 +196,7 @@ internal class StatementSyntaxParser : SyntaxParser
             return ExpressionStatement(expression, terminatorToken2, Diagnostics);
         }
 
-        SyntaxToken? terminatorToken = ConsumeTerminator();
+        var terminatorToken = ConsumeTerminator();
 
         return ExpressionStatement(expression, terminatorToken, Diagnostics);
     }
@@ -215,7 +207,7 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var declaration = ParseVariableDeclarationSyntax();
 
-        SyntaxToken? terminatorToken = ConsumeTerminator();
+        var terminatorToken = ConsumeTerminator();
 
         return LocalDeclarationStatement(declaration, terminatorToken, Diagnostics);
     }
@@ -231,13 +223,7 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             SetTreatNewlinesAsTokens(true);
 
-            if (!TryConsumeTerminator(out terminatorToken))
-            {
-                AddDiagnostic(
-                    DiagnosticInfo.Create(
-                        CompilerDiagnostics.SemicolonExpected,
-                        GetEndOfLastToken()));
-            }
+            TryConsumeTerminator(out terminatorToken);
         }
 
         return terminatorToken;

@@ -106,6 +106,7 @@ public class ParserNewlineTests
     [InlineData("let x = 1;", SyntaxKind.SemicolonToken)]
     [InlineData("let x = 1\n", SyntaxKind.NewLineToken)]
     [InlineData("let x = 1", SyntaxKind.EndOfFileToken)]
+    [InlineData("let x = 1}", SyntaxKind.None)]
     public void Statement_Terminators_AreRecognizedCorrectly(string source, SyntaxKind expectedKind)
     {
         var lexer = new Lexer(new StringReader(source));
@@ -122,5 +123,44 @@ public class ParserNewlineTests
 
         Assert.True(parser.TryConsumeTerminator(out var terminator));
         Assert.Equal(expectedKind, terminator.Kind);
+    }
+
+    [Fact]
+    public void Statement_MissingTerminator_ReturnsMissingNewLineToken()
+    {
+        var source = "let x = 1 let y = 2";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        context.SetTreatNewlinesAsTokens(true);
+
+        var parser = new SyntaxParser(context);
+
+        parser.ExpectToken(SyntaxKind.LetKeyword);
+        parser.ExpectToken(SyntaxKind.IdentifierToken);
+        parser.ExpectToken(SyntaxKind.EqualsToken);
+        parser.ExpectToken(SyntaxKind.NumericLiteralToken);
+
+        var result = parser.TryConsumeTerminator(out var terminator);
+
+        Assert.False(result);
+        Assert.Equal(SyntaxKind.NewLineToken, terminator.Kind);
+        var diagnostic = Assert.Single(parser.Diagnostics);
+        Assert.Equal(CompilerDiagnostics.SemicolonExpected, diagnostic.Descriptor);
+    }
+
+    [Fact]
+    public void Block_LastStatementWithoutTerminator_UsesNoneToken()
+    {
+        var source = "{ return \"\" }";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        var block = (BlockSyntax)parser.ParseBlockSyntax().CreateRed();
+
+        var returnStatement = block.Statements.OfType<ReturnStatementSyntax>().Single();
+
+        var terminator = returnStatement.TerminatorToken;
+        Assert.Equal(SyntaxKind.None, terminator.Kind);
     }
 }

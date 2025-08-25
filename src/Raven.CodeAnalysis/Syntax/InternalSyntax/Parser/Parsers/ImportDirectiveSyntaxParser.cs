@@ -31,13 +31,7 @@ internal class ImportDirectiveSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(true);
 
-        if (!TryConsumeTerminator(out var terminatorToken))
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    GetEndOfLastToken()));
-        }
+        TryConsumeTerminator(out var terminatorToken);
 
         SetTreatNewlinesAsTokens(false);
 
