@@ -476,7 +476,8 @@ public partial class SemanticModel
                                 enumSymbol,
                                 parentNamespace.AsSourceNamespace(),
                                 [enumMember.GetLocation()],
-                                [enumMember.GetReference()]
+                                [enumMember.GetReference()],
+                                null
                             );
                         }
 
@@ -583,7 +584,8 @@ public partial class SemanticModel
                             enumSymbol,
                             classBinder.CurrentNamespace!.AsSourceNamespace(),
                             [enumMember.GetLocation()],
-                            [enumMember.GetReference()]
+                            [enumMember.GetReference()],
+                            null
                         );
                     }
                     break;

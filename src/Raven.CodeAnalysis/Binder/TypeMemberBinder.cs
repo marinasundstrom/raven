@@ -1,6 +1,7 @@
-using System.Collections.Immutable;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -97,23 +98,36 @@ internal class TypeMemberBinder : Binder
 
     public void BindFieldDeclaration(FieldDeclarationSyntax fieldDecl)
     {
+        var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+
         foreach (var decl in fieldDecl.Declaration.Declarators)
         {
             var fieldType = decl.TypeAnnotation is null
                 ? Compilation.GetSpecialType(SpecialType.System_Object)
                 : ResolveType(decl.TypeAnnotation.Type);
 
+            BoundExpression? initializer = null;
+            if (decl.Initializer is not null)
+            {
+                var exprBinder = new BlockBinder(_containingType, this);
+                initializer = exprBinder.BindExpression(decl.Initializer.Value);
+
+                foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
+                    _diagnostics.Report(diag);
+            }
+
             _ = new SourceFieldSymbol(
                 decl.Identifier.Text,
                 fieldType,
-                isStatic: false,
+                isStatic: isStatic,
                 isLiteral: false,
                 constantValue: null,
                 _containingType,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
                 [decl.GetLocation()],
-                [decl.GetReference()]
+                [decl.GetReference()],
+                initializer
             );
         }
     }
@@ -157,6 +171,8 @@ internal class TypeMemberBinder : Binder
 
     public MethodBinder BindConstructorDeclaration(ConstructorDeclarationSyntax ctorDecl)
     {
+        var isStatic = ctorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+
         var ctorSymbol = new SourceMethodSymbol(
             ".ctor",
             Compilation.GetSpecialType(SpecialType.System_Void),
@@ -166,7 +182,7 @@ internal class TypeMemberBinder : Binder
             CurrentNamespace!.AsSourceNamespace(),
             [ctorDecl.GetLocation()],
             [ctorDecl.GetReference()],
-            isStatic: false,
+            isStatic: isStatic,
             methodKind: MethodKind.Constructor);
 
         var parameters = new List<SourceParameterSymbol>();

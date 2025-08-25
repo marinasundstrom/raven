@@ -156,9 +156,9 @@ internal class TypeGenerator
 
     public void EmitMemberILBodies()
     {
-        foreach (var methodGenerators in _methodGenerators.Values.ToList())
+        foreach (var methodGenerator in _methodGenerators.Values.ToList())
         {
-            methodGenerators.EmitBody();
+            methodGenerator.EmitBody();
         }
     }
 

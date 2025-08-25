@@ -95,6 +95,10 @@ internal class ExpressionGenerator : Generator
                 EmitCollectionExpression(collectionExpression);
                 break;
 
+            case BoundEmptyCollectionExpression emptyCollectionExpression:
+                EmitEmptyCollectionExpression(emptyCollectionExpression);
+                break;
+
             case BoundArrayAccessExpression boundArrayAccessExpression:
                 EmitArrayAccessExpression(boundArrayAccessExpression);
                 break;
@@ -417,6 +421,19 @@ internal class ExpressionGenerator : Generator
         }
     }
 
+    private void EmitEmptyCollectionExpression(BoundEmptyCollectionExpression emptyCollectionExpression)
+    {
+        var target = emptyCollectionExpression.Type;
+
+        if (target is IArrayTypeSymbol arrayTypeSymbol)
+        {
+            // TODO: Use Array.Empty<T>() or Enumerable.Empty<T>().
+
+            ILGenerator.Emit(OpCodes.Ldc_I4, 0);
+            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
+        }
+    }
+
     private void EmitArrayAccessExpression(BoundArrayAccessExpression boundArrayAccessExpression)
     {
         var arrayType = boundArrayAccessExpression.Receiver.Type as IArrayTypeSymbol;
@@ -568,7 +585,7 @@ internal class ExpressionGenerator : Generator
                         ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
                     }
 
-                    ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
+                    ILGenerator.Emit(fieldSymbol.IsStatic ? OpCodes.Stsfld : OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
                     break;
                 }
 

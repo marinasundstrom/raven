@@ -32,6 +32,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundLocalAccess local:
                 VisitLocalAccess(local);
                 break;
+            case BoundFieldAccess field:
+                VisitFieldAccess(field);
+                break;
             case BoundParameterAccess par:
                 VisitParameterAccess(par);
                 break;

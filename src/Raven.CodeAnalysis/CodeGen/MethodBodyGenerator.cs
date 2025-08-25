@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -104,12 +106,14 @@ internal class MethodBodyGenerator
             case BaseConstructorDeclarationSyntax constructorDeclaration:
                 var ordinaryConstr = !MethodSymbol.IsNamedConstructor;
 
-                if (ordinaryConstr)
+                if (ordinaryConstr && !MethodSymbol.IsStatic)
                 {
                     ILGenerator.Emit(OpCodes.Ldarg_0);
                     var baseCtor = ResolveClrType(MethodSymbol.ContainingType!.BaseType!).GetConstructor(Type.EmptyTypes);
                     ILGenerator.Emit(OpCodes.Call, baseCtor);
                 }
+
+                EmitFieldInitializers(MethodSymbol.IsStatic);
 
                 if (boundBody != null)
                     EmitBoundBlock(boundBody, false);
@@ -128,14 +132,39 @@ internal class MethodBodyGenerator
                 break;
 
             case ClassDeclarationSyntax:
-                ILGenerator.Emit(OpCodes.Ldarg_0);
-                var baseCtor2 = ResolveClrType(MethodSymbol.ContainingType!.BaseType!).GetConstructor(Type.EmptyTypes);
-                ILGenerator.Emit(OpCodes.Call, baseCtor2);
+                if (!MethodSymbol.IsStatic)
+                {
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    var baseCtor2 = ResolveClrType(MethodSymbol.ContainingType!.BaseType!).GetConstructor(Type.EmptyTypes);
+                    ILGenerator.Emit(OpCodes.Call, baseCtor2);
+                }
+
+                EmitFieldInitializers(MethodSymbol.IsStatic);
+
                 ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             default:
                 throw new InvalidOperationException($"Unsupported syntax node in MethodBodyGenerator: {syntax.GetType().Name}");
+        }
+    }
+
+    private void EmitFieldInitializers(bool isStatic)
+    {
+        var fields = MethodSymbol.ContainingType!
+            .GetMembers()
+            .OfType<SourceFieldSymbol>()
+            .Where(f => f.IsStatic == isStatic && f.Initializer is not null);
+
+        foreach (var field in fields)
+        {
+            BoundExpression assignment = new BoundFieldAssignmentExpression(
+                isStatic ? null : new BoundSelfExpression(MethodSymbol.ContainingType!),
+                field,
+                field.Initializer!);
+
+            var statement = new BoundExpressionStatement(assignment);
+            new StatementGenerator(baseGenerator, statement).Emit();
         }
     }
 
