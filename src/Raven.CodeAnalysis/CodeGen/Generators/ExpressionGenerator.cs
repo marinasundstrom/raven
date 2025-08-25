@@ -1284,7 +1284,8 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Castclass, typeof(IEnumerable));
             var getEnumerator = typeof(IEnumerable).GetMethod(nameof(IEnumerable.GetEnumerator))!;
             ILGenerator.Emit(OpCodes.Callvirt, getEnumerator);
-            var enumeratorLocal = ILGenerator.DeclareLocal(typeof(IEnumerator));
+            var enumeratorType = getEnumerator.ReturnType;
+            var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorType);
             ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
 
             var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
@@ -1292,12 +1293,12 @@ internal class ExpressionGenerator : Generator
 
             ILGenerator.MarkLabel(beginLabel);
 
-            var moveNext = typeof(IEnumerator).GetMethod(nameof(IEnumerator.MoveNext))!;
+            var moveNext = enumeratorType.GetMethod(nameof(IEnumerator.MoveNext))!;
             ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
             ILGenerator.Emit(OpCodes.Callvirt, moveNext);
             ILGenerator.Emit(OpCodes.Brfalse, endLabel);
 
-            var currentProp = typeof(IEnumerator).GetProperty(nameof(IEnumerator.Current))!.GetMethod!;
+            var currentProp = enumeratorType.GetProperty(nameof(IEnumerator.Current))!.GetMethod!;
             ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
             ILGenerator.Emit(OpCodes.Callvirt, currentProp);
 
