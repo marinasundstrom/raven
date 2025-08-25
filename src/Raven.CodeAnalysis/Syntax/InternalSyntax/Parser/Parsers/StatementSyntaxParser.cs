@@ -148,43 +148,9 @@ internal class StatementSyntaxParser : SyntaxParser
 
         if (expression.IsMissing)
         {
-            var unexpectedToken = ReadToken();
+            var terminatorToken2 = ConsumeTerminator();
 
-            var unexpectedTokenNoTrivia = unexpectedToken
-                .WithLeadingTrivia()
-                .WithTrailingTrivia();
-
-            var span = GetStartOfLastToken();
-            var unexpectedTokenLeadingTriviaWidth = unexpectedToken.LeadingTrivia.Width;
-
-            var trailingTrivia = LastStatement?.GetTrailingTrivia() ?? SyntaxTriviaList.Empty;
-            IEnumerable<SyntaxTrivia> trivia = [.. trailingTrivia, .. unexpectedToken.GetLeadingTrivia(), Trivia(SkippedTokensTrivia(TokenList(unexpectedTokenNoTrivia))), .. unexpectedToken.TrailingTrivia];
-
-            if (LastStatement is not null)
-            {
-                var lastTerminal = LastStatement.GetLastToken();
-
-                var oldLast = LastStatement;
-                var lastStatement = (StatementSyntax)LastStatement.ReplaceNode(
-                    lastTerminal, lastTerminal.WithTrailingTrivia(trivia));
-
-                //Block.ReplaceStatement(oldLast, lastStatement);
-            }
-
-            // INFO: Remember
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.InvalidExpressionTerm,
-                    new TextSpan(span.Start + unexpectedTokenLeadingTriviaWidth, span.Length),
-                    [unexpectedToken.GetValueText()]
-                ));
-
-            if (LastStatement is null)
-            {
-                return ExpressionStatement(new ExpressionSyntax.Missing(), null, Diagnostics);
-            }
-
-            return null;
+            return EmptyStatement(terminatorToken2);
         }
 
         if (expression is IfExpressionSyntax or WhileExpressionSyntax or BlockSyntax)

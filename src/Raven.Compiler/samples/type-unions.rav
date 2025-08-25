@@ -43,7 +43,11 @@ func test (input : int | bool) -> void {
 }
 
 func test2 (input : int | null) -> void {
+    
+}
 
+func test3 () -> int | null {
+    return null
 }
 
 /*func f () -> void {
