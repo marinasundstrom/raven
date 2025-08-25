@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -1240,46 +1241,77 @@ internal class ExpressionGenerator : Generator
 
         var scope = new Scope(this);
 
-        // store collection in local
         new ExpressionGenerator(scope, forStatement.Collection).Emit();
-        var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Collection.Type));
-        ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
 
-        // index local
-        var indexLocal = ILGenerator.DeclareLocal(ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Int32)));
-        ILGenerator.Emit(OpCodes.Ldc_I4_0);
-        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+        if (forStatement.Collection.Type is IArrayTypeSymbol)
+        {
+            var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Collection.Type));
+            ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
 
-        // iteration variable local
-        var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
-        scope.AddLocal(forStatement.Local, elementLocal);
+            var indexLocal = ILGenerator.DeclareLocal(ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Int32)));
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Stloc, indexLocal);
 
-        ILGenerator.MarkLabel(beginLabel);
+            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
+            scope.AddLocal(forStatement.Local, elementLocal);
 
-        // condition: index < collection.Length
-        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        ILGenerator.Emit(OpCodes.Ldlen);
-        ILGenerator.Emit(OpCodes.Conv_I4);
-        ILGenerator.Emit(OpCodes.Bge, endLabel);
+            ILGenerator.MarkLabel(beginLabel);
 
-        // load element
-        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        EmitLoadElement(forStatement.Local.Type);
-        ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+            ILGenerator.Emit(OpCodes.Ldlen);
+            ILGenerator.Emit(OpCodes.Conv_I4);
+            ILGenerator.Emit(OpCodes.Bge, endLabel);
 
-        // body
-        new ExpressionGenerator(scope, forStatement.Body).Emit();
+            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+            EmitLoadElement(forStatement.Local.Type);
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
 
-        // index++
-        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        ILGenerator.Emit(OpCodes.Ldc_I4_1);
-        ILGenerator.Emit(OpCodes.Add);
-        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+            new ExpressionGenerator(scope, forStatement.Body).Emit();
 
-        ILGenerator.Emit(OpCodes.Br_S, beginLabel);
-        ILGenerator.MarkLabel(endLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Add);
+            ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+            ILGenerator.Emit(OpCodes.Br_S, beginLabel);
+            ILGenerator.MarkLabel(endLabel);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Castclass, typeof(IEnumerable));
+            var getEnumerator = typeof(IEnumerable).GetMethod(nameof(IEnumerable.GetEnumerator))!;
+            ILGenerator.Emit(OpCodes.Callvirt, getEnumerator);
+            var enumeratorLocal = ILGenerator.DeclareLocal(typeof(IEnumerator));
+            ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
+            scope.AddLocal(forStatement.Local, elementLocal);
+
+            ILGenerator.MarkLabel(beginLabel);
+
+            var moveNext = typeof(IEnumerator).GetMethod(nameof(IEnumerator.MoveNext))!;
+            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, moveNext);
+            ILGenerator.Emit(OpCodes.Brfalse, endLabel);
+
+            var currentProp = typeof(IEnumerator).GetProperty(nameof(IEnumerator.Current))!.GetMethod!;
+            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, currentProp);
+
+            var localClr = ResolveClrType(forStatement.Local.Type);
+            if (localClr.IsValueType)
+                ILGenerator.Emit(OpCodes.Unbox_Any, localClr);
+            else
+                ILGenerator.Emit(OpCodes.Castclass, localClr);
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+
+            new ExpressionGenerator(scope, forStatement.Body).Emit();
+
+            ILGenerator.Emit(OpCodes.Br_S, beginLabel);
+            ILGenerator.MarkLabel(endLabel);
+        }
     }
 
     private void EmitBranchOpForCondition(BoundExpression expression, Label end)

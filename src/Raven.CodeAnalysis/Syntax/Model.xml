@@ -322,6 +322,7 @@
   </Node>
   <Node Name="ForExpression" Inherits="Expression">
     <Slot Name="ForKeyword" Type="Token" />
+    <Slot Name="EachKeyword" Type="Token" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="InKeyword" Type="Token" />
     <Slot Name="Expression" Type="Expression" />

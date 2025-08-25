@@ -787,10 +787,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         var forKeyword = ReadToken();
 
-        // Optional "each" keyword is ignored
+        SyntaxToken eachKeyword;
         var next = PeekToken();
         if (next.IsKind(SyntaxKind.EachKeyword))
-            ReadToken();
+            eachKeyword = ReadToken();
+        else
+            eachKeyword = Token(SyntaxKind.None);
 
         ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
         ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
@@ -799,7 +801,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 
-        return ForExpression(forKeyword, identifier, inKeyword, expression, body, Diagnostics);
+        return ForExpression(forKeyword, eachKeyword, identifier, inKeyword, expression, body, Diagnostics);
     }
 
     internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()

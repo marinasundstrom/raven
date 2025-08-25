@@ -84,6 +84,7 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         var forExpr = root.DescendantNodes().OfType<ForExpressionSyntax>().FirstOrDefault();
         forExpr.ShouldNotBeNull();
         forExpr!.Identifier.Text.ShouldBe("x");
+        forExpr.EachKeyword.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]
@@ -102,5 +103,6 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         var forExpr = root.DescendantNodes().OfType<ForExpressionSyntax>().FirstOrDefault();
         forExpr.ShouldNotBeNull();
         forExpr!.Identifier.Text.ShouldBe("x");
+        forExpr.EachKeyword.Kind.ShouldBe(SyntaxKind.EachKeyword);
     }
 }
