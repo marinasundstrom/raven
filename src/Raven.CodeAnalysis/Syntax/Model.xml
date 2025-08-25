@@ -137,6 +137,18 @@
   <Node Name="LiteralExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Token" Type="Token" />
   </Node>
+  <Node Name="InterpolatedStringExpression" Inherits="Expression">
+    <Slot Name="Contents" Type="List" ElementType="InterpolatedStringContent" />
+  </Node>
+  <Node Name="InterpolatedStringContent" Inherits="Node" IsAbstract="true" />
+  <Node Name="InterpolatedStringText" Inherits="InterpolatedStringContent">
+    <Slot Name="Token" Type="Token" />
+  </Node>
+  <Node Name="Interpolation" Inherits="InterpolatedStringContent">
+    <Slot Name="OpenBraceToken" Type="Token" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="CloseBraceToken" Type="Token" />
+  </Node>
   <Node Name="BaseNamespaceDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
     <Slot Name="Name" Type="Name" IsAbstract="true" />
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" IsAbstract="true" />

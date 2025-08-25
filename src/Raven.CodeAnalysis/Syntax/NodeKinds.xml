@@ -8,6 +8,9 @@
   <NodeKind Name="CharacterLiteralExpression" Type="LiteralExpression" />
   <NodeKind Name="StringLiteralExpression" Type="LiteralExpression" />
   <NodeKind Name="NullLiteralExpression" Type="LiteralExpression" />
+  <NodeKind Name="InterpolatedStringExpression" Type="Expression" />
+  <NodeKind Name="InterpolatedStringText" Type="InterpolatedStringContent" />
+  <NodeKind Name="Interpolation" Type="InterpolatedStringContent" />
   <NodeKind Name="UnaryPlusExpression" Type="UnaryExpression" />
   <NodeKind Name="UnaryMinusExpression" Type="UnaryExpression" />
   <NodeKind Name="LogicalNotExpression" Type="UnaryExpression" />
