@@ -35,8 +35,11 @@ internal class MethodGenerator
 
         if (MethodSymbol.IsConstructor && !MethodSymbol.IsNamedConstructor)
         {
-            MethodBase = TypeGenerator.TypeBuilder!
-                .DefineConstructor(attributes, CallingConventions.Standard, parameterTypes);
+            if (MethodSymbol.IsStatic)
+                MethodBase = TypeGenerator.TypeBuilder!.DefineTypeInitializer();
+            else
+                MethodBase = TypeGenerator.TypeBuilder!
+                    .DefineConstructor(attributes, CallingConventions.Standard, parameterTypes);
         }
         else
         {

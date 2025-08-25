@@ -568,7 +568,7 @@ internal class ExpressionGenerator : Generator
                         ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
                     }
 
-                    ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
+                    ILGenerator.Emit(fieldSymbol.IsStatic ? OpCodes.Stsfld : OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
                     break;
                 }
 
