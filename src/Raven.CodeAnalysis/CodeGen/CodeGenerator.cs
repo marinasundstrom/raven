@@ -28,8 +28,11 @@ internal class CodeGenerator
 
     private MethodBase EntryPoint { get; set; }
 
-    public Type TypeUnionAttributeType { get; private set; }
-    public Type NullType { get; private set; }
+    public Type? TypeUnionAttributeType { get; private set; }
+    public Type? NullType { get; private set; }
+
+    bool _emitTypeUnionAttribute;
+    bool _emitNullType;
 
     public CodeGenerator(Compilation compilation)
     {
@@ -53,10 +56,12 @@ internal class CodeGenerator
         AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly);
         ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
-        var globalNamespace = _compilation.SourceGlobalNamespace;
+        DetermineShimTypeRequirements();
 
-        CreateTypeUnionAttribute();
-        CreateNullClass();
+        if (_emitTypeUnionAttribute)
+            CreateTypeUnionAttribute();
+        if (_emitNullType)
+            CreateNullStruct();
 
         DefineTypeBuilders();
 
@@ -93,6 +98,69 @@ internal class CodeGenerator
         peBuilder.Serialize(peBlob);
 
         peBlob.WriteContentTo(peStream);
+    }
+
+    private void DetermineShimTypeRequirements()
+    {
+        var types = Compilation.Module.GlobalNamespace
+            .GetAllMembersRecursive()
+            .OfType<ITypeSymbol>()
+            .Where(t => t.DeclaringSyntaxReferences.Length > 0);
+
+        foreach (var type in types)
+        {
+            foreach (var member in type.GetMembers())
+            {
+                switch (member)
+                {
+                    case IMethodSymbol method:
+                        CheckType(method.ReturnType);
+                        foreach (var p in method.Parameters)
+                            CheckType(p.Type);
+                        break;
+                    case IPropertySymbol prop:
+                        CheckType(prop.Type);
+                        break;
+                    case IFieldSymbol field:
+                        CheckType(field.Type);
+                        break;
+                }
+            }
+        }
+
+        void CheckType(ITypeSymbol typeSymbol)
+        {
+            if (typeSymbol is null)
+                return;
+
+            if (typeSymbol.IsUnion && typeSymbol is IUnionTypeSymbol union)
+            {
+                _emitTypeUnionAttribute = true;
+                foreach (var t in union.Types)
+                {
+                    if (t.TypeKind == TypeKind.Null)
+                        _emitNullType = true;
+                    CheckType(t);
+                }
+                return;
+            }
+
+            if (typeSymbol.TypeKind == TypeKind.Null)
+            {
+                _emitNullType = true;
+                return;
+            }
+
+            if (typeSymbol is INamedTypeSymbol named && named.IsGenericType)
+            {
+                foreach (var arg in named.TypeArguments)
+                    CheckType(arg);
+            }
+            else if (typeSymbol is IArrayTypeSymbol array)
+            {
+                CheckType(array.ElementType);
+            }
+        }
     }
 
     private void CreateTypeUnionAttribute()
@@ -166,13 +234,12 @@ internal class CodeGenerator
         TypeUnionAttributeType = attrBuilder.CreateType();
     }
 
-    private void CreateNullClass()
+    private void CreateNullStruct()
     {
         var nullBuilder = ModuleBuilder.DefineType(
             "Null",
-            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed);
-
-        nullBuilder.DefineDefaultConstructor(MethodAttributes.Private);
+            TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,
+            typeof(ValueType));
 
         NullType = nullBuilder.CreateType();
     }

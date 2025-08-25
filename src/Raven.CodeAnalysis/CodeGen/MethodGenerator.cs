@@ -62,8 +62,9 @@ internal class MethodGenerator
             if (parameterSymbol.Type.IsUnion)
             {
                 var types = (parameterSymbol.Type as IUnionTypeSymbol).Types.Select(x => ResolveClrType(x)).ToArray();
-                var construtor = TypeGenerator.CodeGen.TypeUnionAttributeType.GetConstructor(new[] { typeof(Type[]) });
-                CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(construtor, [types]);
+                var construtor = TypeGenerator.CodeGen.TypeUnionAttributeType!.
+                    GetConstructor(new[] { typeof(Type[]) });
+                CustomAttributeBuilder customAttributeBuilder = new CustomAttributeBuilder(construtor!, [types]);
                 methodBuilder.SetCustomAttribute(customAttributeBuilder);
             }
 

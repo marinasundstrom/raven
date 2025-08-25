@@ -38,6 +38,8 @@ public static class TypeSymbolExtensionsForCodeGen
 
         if (typeSymbol is NullTypeSymbol)
         {
+            if (codeGen.NullType is null)
+                throw new InvalidOperationException("Null type was not emitted.");
             return codeGen.NullType;
         }
 
