@@ -23,6 +23,7 @@ class BinderFactory
             NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
             MethodDeclarationSyntax => parentBinder,
             BlockSyntax => CreateBlockBinder(parentBinder),
+            ArrowExpressionClauseSyntax => CreateBlockBinder(parentBinder),
             IfExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),

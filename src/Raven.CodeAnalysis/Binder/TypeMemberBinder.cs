@@ -313,7 +313,7 @@ internal class TypeMemberBinder : Binder
         var propertyType = ResolveType(indexerDecl.Type.Type);
 
         var propertySymbol = new SourcePropertySymbol(
-            indexerDecl.Identifier.Text,
+            "Item",
             propertyType,
             _containingType,
             _containingType,
