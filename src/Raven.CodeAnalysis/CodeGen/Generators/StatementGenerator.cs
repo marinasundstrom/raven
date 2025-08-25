@@ -38,7 +38,7 @@ internal class StatementGenerator : Generator
             new ExpressionGenerator(this, returnStatement.Expression).Emit();
         }
 
-        //ILGenerator.Emit(OpCodes.Ret);
+        ILGenerator.Emit(OpCodes.Ret);
     }
 
     private void EmitExpressionStatement(BoundExpressionStatement expressionStatement)
