@@ -84,7 +84,7 @@ internal class TypeGenerator
         {
             switch (memberSymbol)
             {
-                case IMethodSymbol methodSymbol:
+                case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
                     {
                         var methodGenerator = new MethodGenerator(this, methodSymbol);
                         _methodGenerators[methodSymbol] = methodGenerator;
