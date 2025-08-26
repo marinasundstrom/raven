@@ -261,14 +261,16 @@ public partial class SemanticModel
             }
         }
 
-        foreach (var alias in cu.DescendantNodes().OfType<AliasDirectiveSyntax>())
+        foreach (var alias in cu.Aliases)
         {
             var symbols = ResolveAlias(targetNamespace, alias.Name);
             if (symbols.Count > 0)
             {
-                aliases[alias.Identifier.Text] = symbols
+                var aliasSymbols = symbols
                     .Select(s => AliasSymbolFactory.Create(alias.Identifier.Text, s))
                     .ToArray();
+                aliases[alias.Identifier.Text] = aliasSymbols;
+                namespaceBinder.AddAlias(alias.Identifier.Text, aliasSymbols);
             }
         }
 
