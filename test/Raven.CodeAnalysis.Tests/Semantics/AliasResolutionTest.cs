@@ -114,4 +114,34 @@ public class AliasResolutionTest : DiagnosticTestBase
         Assert.Equal("ST", alias.Name);
         Assert.Equal(SymbolKind.Namespace, alias.UnderlyingSymbol.Kind);
     }
+
+    [Fact]
+    public void AliasDirective_UsesAlias_InsideClass()
+    {
+        string testCode =
+            """
+            alias SB = System.Text.StringBuilder
+
+            class C
+            {
+                let sb: SB
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        var result = verifier.GetResult();
+        verifier.Verify();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var identifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(id => id.Identifier.Text == "SB");
+        var symbol = model.GetSymbolInfo(identifier).Symbol;
+        Assert.NotNull(symbol);
+        Assert.True(symbol!.IsAlias);
+        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        Assert.Equal("StringBuilder", alias.UnderlyingSymbol.Name);
+    }
 }

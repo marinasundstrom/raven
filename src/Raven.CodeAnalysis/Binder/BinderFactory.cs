@@ -66,15 +66,23 @@ class BinderFactory
         var nsSymbol = _compilation.GetNamespaceSymbol(nsSyntax.Name.ToString());
         var nsBinder = new NamespaceBinder(parentBinder, nsSymbol!);
 
+        var namespaceImports = new List<INamespaceOrTypeSymbol>();
+        var typeImports = new List<ITypeSymbol>();
+        var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
+
+        var provisionalImportBinder = new ImportBinder(nsBinder, namespaceImports, typeImports, aliases);
+
         foreach (var importDirective in nsSyntax.Imports)
         {
             var importName = importDirective.Name.ToString();
 
             if (IsWildcard(importDirective.Name, out var nsName))
             {
-                var nsImport = ResolveNamespace(nsSymbol!, nsName.ToString());
+                INamespaceOrTypeSymbol? nsImport =
+                    (INamespaceOrTypeSymbol?)ResolveNamespace(nsSymbol!, nsName.ToString())
+                    ?? ResolveType(nsSymbol!, nsName.ToString());
                 if (nsImport != null)
-                    nsBinder.AddUsingDirective(nsImport);
+                    namespaceImports.Add(nsImport);
                 continue;
             }
 
@@ -86,14 +94,11 @@ class BinderFactory
             }
 
             ITypeSymbol? typeSymbol = HasTypeArguments(importDirective.Name)
-                ? ResolveGenericType(nsSymbol!, importDirective.Name)
+                ? ResolveOpenGenericType(nsSymbol!, importDirective.Name)
                 : ResolveType(nsSymbol!, importName);
 
             if (typeSymbol != null)
-            {
-                var alias = GetRightmostIdentifier(importDirective.Name);
-                nsBinder.AddAlias(alias, [AliasSymbolFactory.Create(alias, typeSymbol)]);
-            }
+                typeImports.Add(typeSymbol);
         }
 
         foreach (var aliasDirective in nsSyntax.Aliases)
@@ -104,11 +109,16 @@ class BinderFactory
                 var aliasSymbols = symbols
                     .Select(s => AliasSymbolFactory.Create(aliasDirective.Identifier.Text, s))
                     .ToArray();
-                nsBinder.AddAlias(aliasDirective.Identifier.Text, aliasSymbols);
+                aliases[aliasDirective.Identifier.Text] = aliasSymbols;
             }
         }
 
-        return nsBinder;
+        var importBinder = new ImportBinder(nsBinder, namespaceImports, typeImports, aliases);
+
+        foreach (var diagnostic in nsBinder.Diagnostics.AsEnumerable())
+            importBinder.Diagnostics.Report(diagnostic);
+
+        return importBinder;
 
         INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
         {
@@ -128,14 +138,12 @@ class BinderFactory
             if (nsSymbol != null)
                 return [nsSymbol];
 
-            // First, attempt to resolve as a type
             ITypeSymbol? typeSymbol = HasTypeArguments(name)
                 ? ResolveGenericType(current, name)
                 : ResolveType(current, name.ToString());
             if (typeSymbol != null)
                 return [typeSymbol];
 
-            // Otherwise, attempt to resolve as a static member of a type
             if (name is QualifiedNameSyntax qn)
             {
                 var memberName = GetRightmostIdentifier(name);
@@ -173,7 +181,7 @@ class BinderFactory
                     return null;
 
                 var args = g.TypeArgumentList.Arguments
-                    .Select(a => nsBinder.ResolveType(a.Type))
+                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
                     .ToArray();
                 return _compilation.ConstructGenericType(unconstructed, args);
             }
@@ -189,9 +197,40 @@ class BinderFactory
                     return null;
 
                 var args = gen.TypeArgumentList.Arguments
-                    .Select(a => nsBinder.ResolveType(a.Type))
+                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
                     .ToArray();
                 return _compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            return null;
+        }
+
+        ITypeSymbol? ResolveOpenGenericType(INamespaceSymbol current, NameSyntax name)
+        {
+            if (name is GenericNameSyntax g)
+            {
+                var baseName = g.Identifier.Text + "`" + g.TypeArgumentList.Arguments.SeparatorCount + 1;
+                var full = Combine(current, baseName);
+                var unconstructed = (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(full)
+                    ?? (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(baseName);
+                if (unconstructed is null)
+                    return null;
+
+                var args = g.TypeArgumentList.Arguments
+                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
+                    .ToArray();
+                return _compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
+            {
+                var leftName = ((QualifiedNameSyntax)name).Left.ToString();
+                var baseName = leftName + "." + gen.Identifier.Text + "`" + gen.TypeArgumentList.Arguments.SeparatorCount + 1;
+                var full = Combine(current, baseName);
+                var unconstructed = (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(full)
+                    ?? (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(baseName);
+                if (unconstructed is not null)
+                    return unconstructed;
             }
 
             return null;

@@ -216,7 +216,6 @@ public partial class SemanticModel
 
             namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace);
             parentBinder = namespaceBinder;
-            _binderCache[fileScopedNamespace] = namespaceBinder;
         }
         else
         {
@@ -229,6 +228,8 @@ public partial class SemanticModel
         var namespaceImports = new List<INamespaceOrTypeSymbol>();
         var typeImports = new List<ITypeSymbol>();
         var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
+
+        var provisionalImportBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);
 
         foreach (var import in cu.DescendantNodes().OfType<ImportDirectiveSyntax>())
         {
@@ -270,7 +271,6 @@ public partial class SemanticModel
                     .Select(s => AliasSymbolFactory.Create(alias.Identifier.Text, s))
                     .ToArray();
                 aliases[alias.Identifier.Text] = aliasSymbols;
-                namespaceBinder.AddAlias(alias.Identifier.Text, aliasSymbols);
             }
         }
 
@@ -287,6 +287,8 @@ public partial class SemanticModel
         CreateTopLevelBinder(cu, targetNamespace, importBinder);
 
         _binderCache[cu] = importBinder;
+        if (fileScopedNamespace != null)
+            _binderCache[fileScopedNamespace] = importBinder;
 
         return importBinder;
 
@@ -351,7 +353,7 @@ public partial class SemanticModel
                     return null;
 
                 var args = g.TypeArgumentList.Arguments
-                    .Select(a => namespaceBinder.ResolveType(a.Type))
+                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
                     .ToArray();
                 return Compilation.ConstructGenericType(unconstructed, args);
             }
@@ -367,7 +369,7 @@ public partial class SemanticModel
                     return null;
 
                 var args = gen.TypeArgumentList.Arguments
-                    .Select(a => namespaceBinder.ResolveType(a.Type))
+                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
                     .ToArray();
                 return Compilation.ConstructGenericType(unconstructed, args);
             }
@@ -387,7 +389,7 @@ public partial class SemanticModel
                     return null;
 
                 var args = g.TypeArgumentList.Arguments
-                    .Select(a => namespaceBinder.ResolveType(a.Type))
+                    .Select(a => provisionalImportBinder.ResolveType(a.Type))
                     .ToArray();
                 return Compilation.ConstructGenericType(unconstructed, args);
             }
@@ -461,7 +463,7 @@ public partial class SemanticModel
                         var nsSymbol = Compilation.GetNamespaceSymbol(nsDecl.Name.ToString())
                                         ?? throw new Exception($"Namespace not found: {nsDecl.Name}");
 
-                        var nsBinder = new NamespaceBinder(parentBinder, nsSymbol);
+                        var nsBinder = Compilation.BinderFactory.GetBinder(nsDecl, parentBinder)!;
                         _binderCache[nsDecl] = nsBinder;
 
                         RegisterNamespaceMembers(nsDecl, nsBinder, nsSymbol);
