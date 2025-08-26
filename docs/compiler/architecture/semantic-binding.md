@@ -38,6 +38,10 @@ From the outermost scope inward, binders typically appear in the following order
 
 `GlobalBinder → NamespaceBinder → ImportBinder → CompilationUnitBinder → [TopLevelBinder] → TypeDeclarationBinder → MethodBinder → MethodBodyBinder → BlockBinder → LocalScopeBinder`
 
+### Visualizing binder hierarchy
+For debugging, a semantic model instance can print the active binder chain with `semanticModel.PrintBinderTree();`.
+The method produces a textual tree that shows how binders are nested for the current syntax tree.
+
 ## Bound tree
 
 The semantic analysis of a syntax tree results in a Bound tree. It's the binders that create bound nodes.
