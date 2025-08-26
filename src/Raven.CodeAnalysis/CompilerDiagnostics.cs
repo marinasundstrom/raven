@@ -328,14 +328,14 @@ internal class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// RAV0815: Cannot assign void to an implicitly-typed variable
+    /// RAV0815: Cannot assign unit to an implicitly-typed variable
     /// </summary>
     public static DiagnosticDescriptor CannotAssignVoidToAnImplicitlyTypedVariable => _cannotAssignVoidToAnImplicitlyTypedVariable ??= DiagnosticDescriptor.Create(
         id: "RAV0815",
-        title: "Cannot assign void to an implicitly-typed variable",
+        title: "Cannot assign unit to an implicitly-typed variable",
         description: "",
         helpLinkUri: "",
-        messageFormat: "Cannot assign void to an implicitly-typed variable",
+        messageFormat: "Cannot assign unit to an implicitly-typed variable",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -461,7 +461,7 @@ internal class CompilerDiagnostics
         title: "Invalid alias target",
         description: "",
         helpLinkUri: "",
-        messageFormat: "Invalid alias target. Supported targets are types, namespaces, unions, tuples, and predefined types like bool, char, int, string, and void.",
+        messageFormat: "Invalid alias target. Supported targets are types, namespaces, unions, tuples, and predefined types like bool, char, int, string, and unit.",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);

@@ -137,7 +137,7 @@ internal class TypeMemberBinder : Binder
     public MethodBinder BindMethodDeclaration(MethodDeclarationSyntax methodDecl)
     {
         var returnType = methodDecl.ReturnType is null
-            ? Compilation.GetSpecialType(SpecialType.System_Void)
+            ? Compilation.UnitTypeSymbol
             : ResolveType(methodDecl.ReturnType.Type);
 
         var name = methodDecl.Identifier.Kind == SyntaxKind.SelfKeyword ? "Invoke" : methodDecl.Identifier.Text;

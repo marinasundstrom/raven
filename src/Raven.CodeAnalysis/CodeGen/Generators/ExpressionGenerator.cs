@@ -125,7 +125,8 @@ internal class ExpressionGenerator : Generator
             case BoundTypeExpression:
                 break;
 
-            case BoundVoidExpression:
+            case BoundUnitExpression unitExpr:
+                EmitUnitExpression(unitExpr);
                 break;
 
             case BoundLambdaExpression lambdaExpression:
@@ -139,6 +140,15 @@ internal class ExpressionGenerator : Generator
             default:
                 throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
         }
+    }
+
+    private void EmitUnitExpression(BoundUnitExpression unitExpression)
+    {
+        var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
+            ?? throw new InvalidOperationException("Unit type was not emitted.");
+        var valueField = unitType.GetField("Value")
+            ?? throw new InvalidOperationException("Unit.Value field missing.");
+        ILGenerator.Emit(OpCodes.Ldsfld, valueField);
     }
 
     private void EmitSelfExpression(BoundSelfExpression selfExpression)

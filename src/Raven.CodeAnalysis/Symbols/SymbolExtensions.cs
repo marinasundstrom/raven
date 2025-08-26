@@ -21,7 +21,8 @@ public static partial class SymbolExtensions
         ["System.Double"] = "double",
         ["System.Decimal"] = "decimal",
         ["System.Char"] = "char",
-        ["System.Void"] = "void"
+        ["System.Void"] = "void",
+        ["Unit"] = "unit"
     };
 
     public static string ToDisplayStringKeywordAware(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)

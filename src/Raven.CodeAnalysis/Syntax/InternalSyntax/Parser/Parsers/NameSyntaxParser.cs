@@ -255,6 +255,7 @@ internal class NameSyntaxParser : SyntaxParser
             case SyntaxKind.CharKeyword:
             case SyntaxKind.IntKeyword:
             case SyntaxKind.VoidKeyword:
+            case SyntaxKind.UnitKeyword:
                 return true;
         }
 

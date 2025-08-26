@@ -20,14 +20,14 @@ public static class SemanticDiagnostics
         defaultSeverity: DiagnosticSeverity.Error);
 
     /// <summary>
-    /// RAV1526: Cannot access member '{0}' on a value of type 'void'
+    /// RAV1526: Cannot access member '{0}' on a value of type 'unit'
     /// </summary>
     public static DiagnosticDescriptor MemberAccessOnVoid => _memberAccessOnVoid ??= DiagnosticDescriptor.Create(
         id: "RAV1526",
-        title: "Member access on void value",
-        description: "Cannot access a member on a value of type 'void'.",
+        title: "Member access on unit value",
+        description: "Cannot access a member on a value of type 'unit'.",
         helpLinkUri: "",
-        messageFormat: "Cannot access member '{0}' on a value of type 'void'.",
+        messageFormat: "Cannot access member '{0}' on a value of type 'unit'.",
         category: "compiler",
         defaultSeverity: DiagnosticSeverity.Error);
 

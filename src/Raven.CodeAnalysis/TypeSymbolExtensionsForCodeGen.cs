@@ -50,6 +50,12 @@ public static class TypeSymbolExtensionsForCodeGen
                 throw new InvalidOperationException("Null type was not emitted.");
             return codeGen.NullType;
         }
+        if (typeSymbol is UnitTypeSymbol)
+        {
+            if (codeGen.UnitType is null)
+                throw new InvalidOperationException("Unit type was not emitted.");
+            return codeGen.UnitType;
+        }
 
         /*
         // Handle pointer types

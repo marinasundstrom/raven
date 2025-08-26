@@ -210,7 +210,7 @@ PrimaryType              ::= TupleType
 NullType                 ::= 'null' ;
 
 SimpleType               ::= BuiltinType | QualifiedName ;
-BuiltinType              ::= 'int' | 'string' | 'bool' | 'void' | 'char' ;
+BuiltinType              ::= 'int' | 'string' | 'bool' | 'unit' | 'void' | 'char' ;
 
 GenericType              ::= QualifiedName '<' TypeList '>' ;
 TypeList                 ::= Type {',' Type} ;
