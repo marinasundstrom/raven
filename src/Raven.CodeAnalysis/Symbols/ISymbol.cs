@@ -229,7 +229,7 @@ public interface ILambdaSymbol : IMethodSymbol
 
 public interface IAliasSymbol : ISymbol
 {
-    new ISymbol UnderlyingSymbol { get; }
+
 }
 
 public interface IMethodSymbol : ISymbol
