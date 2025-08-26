@@ -7,13 +7,13 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class ForExpressionTests
 {
-    [Fact(Skip = "Array iteration not yet fully supported")]
+    [Fact]
     public void ForEach_OverArray_UsesTypedElement()
     {
         var code = """
 class Foo {
     Run() -> int {
-        var items: int[] = [1, 2, 3]
+        var items = [1, 2, 3]
         var total: int = 0
         for each item in items {
             total = total + item
