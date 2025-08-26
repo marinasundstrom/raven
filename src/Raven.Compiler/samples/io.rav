@@ -10,14 +10,10 @@ if args.Length != 1 {
     let fullPath = Path.GetFullPath(args[0])
     let files = Directory.GetFiles(fullPath)
 
-    var i = 0
-
-    while i < files.Length {
-        let file = files[i]
+    for each file in files {
         let path = Path.GetRelativePath(Environment.CurrentDirectory, file)
         Console.WriteLine(path)
         fileList.Add(file)
-        i = i + 1
     }
 }
 
