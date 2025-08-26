@@ -1,116 +1,51 @@
-# Proposal: Unit type
+# Proposal: Unit type (MVP)
 
-> ⚠️ This proposal has **NOT** been implemented
+⚠️ This proposal has **NOT** been implemented
 
-This document outlines the `unit` type.
+The `unit` type represents a value in absence of a value. It can be seen as `void` but the difference is that it is a real type with exactly one value.
 
-The `unit` type represents a value in absence of a value. It can be seen as `void` but the difference is that its a real type, and not just discarded.
-
-The keyword `unit` maps to type `System.Unit` (see definition below)
+The keyword `unit` maps to the type `System.Unit` (see definition below).
 
 ## Purpose
 
-Help types flow. Being implicit by handling a concrete value for empty, that is not `null` or `void`.
+- Enable type flow where `void` cannot be used (generics, tuples, unions).
+- Provide a concrete value for "empty", distinct from `null` or `void`.
 
 ## Syntax
 
 ```raven
-let v = Foo(); //v == unit
+let v = Foo()   // v : unit
 
 func Foo() -> unit {
     unit // return unit
 }
-```
+````
 
+* `unit` is a valid type specifier.
+* Functions without explicit return type default to `unit`.
+* The literal `unit` refers to the single value of this type.
 
-### `unit` type
+## Semantics
 
-Unit can be specified as a type specifier.
-
-```raven
-let x : unit
-func Foo() {} // defaults to -> unit
-func Foo() -> unit {} // explicitly unit
-func Foo(x: unit) {} // unit in an argument
-```
-
-The specifier can be aliased:
-
-```raven
-alias MyUnit = unit 
-```
-
-And is valid in any other type syntax, such as type unions:
+* `unit` is a builtin type with one value.
+* Control-flow and block expressions return `unit` when no other type is inferred.
+* `unit` may appear in unions and tuples.
 
 ```raven
 func Foo(ok: bool) -> int | unit {
-    if ok {. 
+    if ok {
         return 42
     }
     return unit
 }
 ```
 
-Even tuples.
-
-### `unit` literal expression
-
-For cases when you want to be explicit with `unit`.
-
-```raven
-let x = unit
-```
-
-## Semantics
-
-`unit` is to be regarded as a builtin type, with one value.
-
-### Expressions
-
-Control flow expressions (`if`, `while`, `for` etc) and block implicitly returns `unit` unless there is another type, or `unit` is explicit in any of the flows.
-
-### Type unions
-
-`unit` participates in type unions.
-
-```raven
-var ok = true
-let result = if ok { return 42 } else { return unit } 
-
-// the type of 'result' is a union between int and unit (int | unit).
-```
-
 ## Interop
 
-### From Raven
-
-Return parameters with type `void` will be projected as `unit` inside of Raven. The developer will see `unit` and handle it as such.
-
-### To C# and other .NET languages
-
-By default, Raven will be the outwards type expose `unit` (`System.Unit`).
-
-```raven
-func Foo() { // returns unit
-    
-}
-```
-
-But if you want a method to return `void` you explicitly tell Raven to do so.
-
-```raven
-func Foo() -> void { // returns void
-    
-}
-```
-
-Raven will still handle `void` as if it was `unit`, but the generated IL will use `void`. This is an advantage when building class libraries shared by other languages.
+* **From Raven**: Methods that return `unit` emit as `void` by default, unless a real type is required (e.g. generics).
+* **To Raven**: External `void` return types are projected as `unit`.
 
 ## `Unit` struct definition
-
-The `unit` keyword maps to the `System.Unit` struct.
-
-The definition of `Unit` in C#:
 
 ```csharp
 public readonly struct Unit : IEquatable<Unit>
@@ -123,6 +58,6 @@ public readonly struct Unit : IEquatable<Unit>
 }
 ```
 
-The default instance of `Unit` is `Unit.Value`. And literal expression `unit` maps to `Unit.Value`.
+The literal `unit` maps to `Unit.Value`.
 
-> This type will in the future live in a shared assembly (such as `Raven.Core`). But will be initially generated and embedded in the output assembly.
+> Initially this type will be embedded in Raven assemblies, later moved to a shared core library.
