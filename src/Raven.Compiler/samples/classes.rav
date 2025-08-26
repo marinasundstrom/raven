@@ -19,6 +19,9 @@ let user2 = Person.WithName("John")
 
 PrintLine(user2.Name)
 
+user2(2003);
+user2("test");
+
 class Person {
     let species = "Homo sapiens"
     var age: int = 0
@@ -59,12 +62,12 @@ class Person {
         set => roles[index] = value
     }
 
-    /*
-
     // Invocation operator: e.g., person(2025)
     public self(year: int) -> string {
-        return $"Name: {name}, Age in {year}: {year - (System.DateTime.Now.Year - age)}"
+        return "Name: ${name}, Age in ${year}: ${year - (System.DateTime.Now.Year - age)}"
     }
 
-    */
+    public self(str: string) {
+
+    }
 }
