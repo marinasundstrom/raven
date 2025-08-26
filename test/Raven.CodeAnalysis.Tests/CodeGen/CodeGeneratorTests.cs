@@ -5,11 +5,11 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public class CodeGeneratorTests
-{
-    [Fact]
-    public void Emit_ShouldGenerateClass()
+    public class CodeGeneratorTests
     {
+        [Fact]
+        public void Emit_ShouldGenerateClass()
+        {
         var code = """
 class Foo {
     Test() -> void {
@@ -44,5 +44,34 @@ class Foo {
         var assembly = mlc.LoadFromStream(peStream);
 
         Assert.NotNull(assembly.GetType("Foo", true));
+    }
+
+    [Fact]
+    public void DiscardedReturnValue_DoesNotRequireExplicitUnitType()
+    {
+        var code = """
+import System.Text.*
+
+let sb = new StringBuilder()
+sb.AppendLine("test")
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references = [
+                MetadataReference.CreateFromFile(runtimePath)];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success);
     }
 }

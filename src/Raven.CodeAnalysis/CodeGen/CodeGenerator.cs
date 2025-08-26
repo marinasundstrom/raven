@@ -37,7 +37,9 @@ internal class CodeGenerator
 
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
-    bool _emitUnitType;
+    // Always emit the Unit struct since expressions may implicitly
+    // require it even when no member explicitly references Unit.
+    bool _emitUnitType = true;
 
     internal CustomAttributeBuilder? CreateNullableAttribute(ITypeSymbol type)
     {
