@@ -1,6 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
@@ -32,7 +33,16 @@ internal class NameSyntaxParser : SyntaxParser
             return ByRefType(ampToken, elementType);
         }
 
-        var name = ParseNameCore();
+        TypeSyntax name;
+
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            name = ParseTupleType();
+        }
+        else
+        {
+            name = ParseNameCore();
+        }
 
         SyntaxList types = SyntaxList.Empty;
 
@@ -47,7 +57,7 @@ internal class NameSyntaxParser : SyntaxParser
         while (ConsumeToken(SyntaxKind.BarToken, out var barToken))
         {
             types = types.Add(barToken);
-            types = types.Add(ParseNameCore());
+            types = types.Add(ParseTypeName());
         }
 
         if (isUnion)
@@ -155,6 +165,47 @@ internal class NameSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
 
         return TypeArgumentList(lessThanToken, List(argumentList.ToArray()), greaterThanToken);
+    }
+
+    private TupleTypeSyntax ParseTupleType()
+    {
+        var openParenToken = ReadToken();
+
+        List<GreenNode> elements = new List<GreenNode>();
+
+        while (true)
+        {
+            var t = PeekToken();
+
+            if (t.IsKind(SyntaxKind.CloseParenToken))
+                break;
+
+            NameColonSyntax? nameColon = null;
+
+            if (PeekToken(1).IsKind(SyntaxKind.ColonToken) && PeekToken().IsKind(SyntaxKind.IdentifierToken))
+            {
+                var name = ReadToken();
+                var colon = ReadToken();
+                nameColon = NameColon(IdentifierName(name), colon);
+            }
+
+            var type = ParseTypeName();
+            if (type is null)
+                break;
+
+            elements.Add(TupleElement(nameColon, type));
+
+            var commaToken = PeekToken();
+            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            {
+                ReadToken();
+                elements.Add(commaToken);
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return TupleType(openParenToken, List(elements.ToArray()), closeParenToken);
     }
 
     private bool LooksLikeTypeArgumentList()

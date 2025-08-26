@@ -211,6 +211,14 @@ internal abstract class Binder
             return new UnionTypeSymbol(types, null, null, null, []);
         }
 
+        if (typeSyntax is TupleTypeSyntax tupleTypeSyntax)
+        {
+            var elements = tupleTypeSyntax.Elements
+                .Select(e => (e.NameColon?.Name.ToString(), ResolveType(e.Type)))
+                .ToArray();
+            return Compilation.CreateTupleTypeSymbol(elements);
+        }
+
         if (typeSyntax is PredefinedTypeSyntax predefinedTypeSyntax)
         {
             return Compilation.ResolvePredefinedType(predefinedTypeSyntax);

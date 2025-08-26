@@ -94,8 +94,17 @@
     <Slot Name="Arguments" Type="SeparatedList" ElementType="Argument" />
     <Slot Name="CloseParenToken" Type="Token" />
   </Node>
+  <Node Name="TupleElement" Inherits="Node">
+    <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
+    <Slot Name="Type" Type="Type" />
+  </Node>
   <Node Name="PredefinedType" Inherits="Type">
     <Slot Name="Keyword" Type="Token" />
+  </Node>
+  <Node Name="TupleType" Inherits="Type">
+    <Slot Name="OpenParenToken" Type="Token" />
+    <Slot Name="Elements" Type="SeparatedList" ElementType="TupleElement" />
+    <Slot Name="CloseParenToken" Type="Token" />
   </Node>
   <Node Name="CollectionExpression" Inherits="Expression">
     <Slot Name="OpenBracketToken" Type="Token" />

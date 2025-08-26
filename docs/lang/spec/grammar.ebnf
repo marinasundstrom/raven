@@ -215,7 +215,8 @@ BuiltinType              ::= 'int' | 'string' | 'bool' | 'void' | 'char' ;
 GenericType              ::= QualifiedName '<' TypeList '>' ;
 TypeList                 ::= Type {',' Type} ;
 
-TupleType                ::= '(' Type {',' Type} ')' ;
+TupleType                ::= '(' TupleTypeElement {',' TupleTypeElement} ')' ;
+TupleTypeElement         ::= [Identifier ':'] Type ;
 ParenthesizedType        ::= '(' Type ')' ;
 
 QualifiedName            ::= Identifier {'.' Identifier} ;

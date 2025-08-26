@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -719,6 +720,35 @@ public class Compilation
 
         // Construct the generic Func<> or Action<> with type arguments
         return delegateType.Construct(allTypes.ToArray());
+    }
+
+    public ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, ITypeSymbol type)> elements)
+    {
+        var systemNamespace = GlobalNamespace.LookupNamespace("System");
+        var elementArray = elements.ToArray();
+
+        var tupleDefinition = systemNamespace?.GetMembers("ValueTuple")
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault(t => t.Arity == elementArray.Length);
+
+        if (tupleDefinition is null)
+            return ErrorTypeSymbol;
+
+        var underlying = (INamedTypeSymbol)tupleDefinition.Construct(elementArray.Select(e => e.type).ToArray());
+        var tuple = new TupleTypeSymbol(underlying, null, null, null, []);
+
+        var fields = new List<IFieldSymbol>();
+        int i = 0;
+        foreach (var tupleField in underlying.GetMembers().OfType<SubstitutedFieldSymbol>())
+        {
+            var name = elementArray[i].name ?? $"Item{i + 1}";
+            fields.Add(new TupleFieldSymbol(name, tupleField, underlying, []));
+            i++;
+        }
+
+        tuple.SetTupleElements(fields);
+
+        return tuple;
     }
 
     public ITypeSymbol ConstructGenericType(INamedTypeSymbol genericDefinition, ITypeSymbol[] typeArgs)

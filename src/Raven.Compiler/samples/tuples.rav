@@ -9,3 +9,7 @@ let foo = tuple.a; System.Console
 System.Console.WriteLine(tuple.Item1)
 
 System.Console.WriteLine(tuple.GetType())
+
+let tuple2 : (id: int, name: string) = (42, "Bar")
+
+let name = tuple2.name
