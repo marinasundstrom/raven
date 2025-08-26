@@ -130,6 +130,10 @@ internal abstract class Symbol : ISymbol
 
     public virtual bool IsStatic => false;
 
+    public virtual ISymbol UnderlyingSymbol => this;
+
+    public virtual bool IsAlias => false;
+
     public virtual bool CanBeReferencedByName { get; } = false;
 
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)

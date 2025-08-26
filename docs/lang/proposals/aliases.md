@@ -2,11 +2,21 @@
 
 > ⚠️ 🧩 This proposal has been partly implemented
 
-This document outlines aliases - which allows you to define alternative names for types (incl. closed generic types) and static members.
+This document outlines aliases - which allow you to define alternative names for
+namespaces, types (including closed generic types), and static members.
 
 ## Syntax
 
-The `alias` directive appears at the top of a file, either outside or inside a namespace declaration.
+The `alias` directive appears at the top of a file, either outside or inside a
+namespace declaration.
+
+### Namespace alias
+
+```raven
+alias IO = System.IO
+```
+
+The name `IO` will be an alias for the `System.IO` namespace.
 
 ### Type alias
 
@@ -18,14 +28,18 @@ alias IntList = System.Collections.Generic.List<int>
 
 The name `SB` will be an alias for `System.StringBuilder`.
 
-The type aliased is required to be specified in fully qualified form (`System.StringBuilder`). This is to resolve ambiguities.
+The type aliased is required to be specified in fully qualified form
+(`System.StringBuilder`). This is to resolve ambiguities.
 
 ### Member alias
 
-For static members such as: methods, fields, or properties.
+For static members such as methods, fields, or properties. Aliasing a method
+binds a specific overload; repeat the directive with the same alias name to
+alias additional overloads.
 
 ```raven
 alias PrintLine = System.Console.WriteLine
 
 PrintLine("Test")
 ```
+
