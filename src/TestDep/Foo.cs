@@ -37,4 +37,10 @@ public class Foo
         return true;
         //return 2f;
     }
+
+    [return: TypeUnion(typeof(int), typeof(Null))]
+    public static object? Test4(bool flag)
+    {
+        return flag ? 42 : null;
+    }
 }
