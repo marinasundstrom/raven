@@ -34,6 +34,18 @@ internal class CodeGenerator
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
 
+    internal CustomAttributeBuilder? CreateNullableAttribute(ITypeSymbol type)
+    {
+        if (type is NullableTypeSymbol nt && !nt.UnderlyingType.IsValueType)
+        {
+            var attrType = typeof(System.Runtime.CompilerServices.NullableAttribute);
+            var ctor = attrType.GetConstructor(new[] { typeof(byte) });
+            return new CustomAttributeBuilder(ctor!, new object[] { (byte)2 });
+        }
+
+        return null;
+    }
+
     public CodeGenerator(Compilation compilation)
     {
         _compilation = compilation;
