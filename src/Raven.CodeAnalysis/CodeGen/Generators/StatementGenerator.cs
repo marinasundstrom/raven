@@ -45,12 +45,16 @@ internal class StatementGenerator : Generator
     private void EmitExpressionStatement(BoundExpressionStatement expressionStatement)
     {
         var expression = expressionStatement.Expression;
+        // If the expression is the unit literal and its value is discarded,
+        // there's nothing to emit.
+        if (expression is BoundUnitExpression)
+            return;
 
         new ExpressionGenerator(this, expression).Emit();
 
         ISymbol? symbol = expressionStatement.Symbol;
 
-        if (expressionStatement.Expression is BoundInvocationExpression invocationExpression)
+        if (expression is BoundInvocationExpression invocationExpression)
         {
             symbol = ((IMethodSymbol)expressionStatement.Symbol).ReturnType;
         }
