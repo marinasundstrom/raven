@@ -191,7 +191,7 @@ ParenthesizedExpression  ::= '(' Expression ')' ;
 
 Literal                  ::= NumericLiteral
                            | StringLiteral
-                           | 'true' | 'false' | 'null' ;
+                           | 'true' | 'false' | 'null' | 'unit' ;
 
 (* ---------- Types ---------- *)
 
