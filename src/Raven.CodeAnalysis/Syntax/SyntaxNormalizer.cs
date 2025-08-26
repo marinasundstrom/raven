@@ -175,13 +175,13 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         var aliasKeyword = node.AliasKeyword.WithTrailingTrivia(SyntaxFactory.Space);
         var identifier = node.Identifier.WithTrailingTrivia(SyntaxFactory.Space);
         var equalsToken = node.EqualsToken.WithTrailingTrivia(SyntaxFactory.Space);
-        var nameSyntax = (NameSyntax)VisitName(node.Name)!;
+        var target = (TypeSyntax)VisitType(node.Target)!;
         var terminatorToken = node.TerminatorToken
             .WithTrailingTrivia(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(aliasKeyword, identifier, equalsToken, nameSyntax, terminatorToken);
+        return node.Update(aliasKeyword, identifier, equalsToken, target, terminatorToken);
     }
 
     public override SyntaxNode? VisitFileScopedNamespaceDeclaration(FileScopedNamespaceDeclarationSyntax node)

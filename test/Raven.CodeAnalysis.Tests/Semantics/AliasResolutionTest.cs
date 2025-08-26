@@ -64,6 +64,50 @@ public class AliasResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void AliasDirective_UsesAlias_Tuple()
+    {
+        string testCode =
+            """
+            alias Pair = (x: int, y: int)
+
+            let p: Pair
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        var result = verifier.GetResult();
+        verifier.Verify();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().First(id => id.Identifier.Text == "Pair");
+        var symbol = model.GetSymbolInfo(identifier).Symbol;
+        Assert.NotNull(symbol);
+        Assert.True(symbol!.IsAlias);
+    }
+
+    [Fact]
+    public void AliasDirective_UsesAlias_Union()
+    {
+        string testCode =
+            """
+            alias Number = int | string
+
+            let n: Number
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        var result = verifier.GetResult();
+        verifier.Verify();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().First(id => id.Identifier.Text == "Number");
+        var symbol = model.GetSymbolInfo(identifier).Symbol;
+        Assert.NotNull(symbol);
+        Assert.True(symbol!.IsAlias);
+    }
+
+    [Fact]
     public void AliasDirective_UsesMemberAlias_Method()
     {
         string testCode =

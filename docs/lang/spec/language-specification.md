@@ -238,12 +238,15 @@ let pi = PI
 ### Alias directive
 
 The `alias` directive assigns an alternative name to a fully qualified
-**namespace**, type, or static member.
+**namespace**, type, static member, or to any type expression such as tuples
+and type unions.
 
 ```raven
 alias IO = System.IO
 alias SB = System.Text.StringBuilder
 alias PrintLine = System.Console.WriteLine
+alias Pair = (x: int, y: int)
+alias Number = int | string
 
 let sb = SB()
 PrintLine("Hi")
@@ -254,8 +257,9 @@ Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
 
-Aliases require fully qualified names to avoid ambiguity and may appear at the
-top of a file or inside a namespace alongside import directives.
+Aliases require fully qualified names for namespaces, types, and members to
+avoid ambiguity; type expressions are written directly. Alias directives may
+appear at the top of a file or inside a namespace alongside import directives.
 
 ### Scoped namespaces
 
