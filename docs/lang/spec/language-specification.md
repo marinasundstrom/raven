@@ -260,7 +260,7 @@ same alias name may appear to alias additional overloads, forming an overload
 set.
 
 Predefined types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, and `void`.
-If the type expression after `=` is invalid, the compiler emits diagnostic `RAV2020`, which lists these predefined types.
+If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, and these predefined types.
 
 Aliases require fully qualified names for namespaces, types, and members to
 avoid ambiguity; type expressions are written directly. Alias directives may

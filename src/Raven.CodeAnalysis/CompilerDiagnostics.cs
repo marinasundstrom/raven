@@ -454,14 +454,14 @@ internal class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// RAV2020: Invalid type syntax for alias target
+    /// RAV2020: Invalid alias target
     /// </summary>
     public static DiagnosticDescriptor InvalidAliasType => _invalidAliasType ??= DiagnosticDescriptor.Create(
         id: "RAV2020",
         title: "Invalid alias target",
         description: "",
         helpLinkUri: "",
-        messageFormat: "Invalid type syntax for alias target. Supported predefined types: bool, char, int, string, void.",
+        messageFormat: "Invalid alias target. Supported targets are types, namespaces, unions, tuples, and predefined types like bool, char, int, string, and void.",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
