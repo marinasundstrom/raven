@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class ExpressionSemanticTest : DiagnosticTestBase
 {
     [Fact]
-    public void NestedWriteLine_WithUnitArgument_ProducesDiagnostic()
+    public void NestedWriteLine_WithUnitArgument_IsAllowed()
     {
         string testCode =
             """
@@ -14,11 +14,7 @@ public class ExpressionSemanticTest : DiagnosticTestBase
             Console.WriteLine(Console.WriteLine("Test"));
             """;
 
-        var verifier = CreateVerifier(
-                    testCode,
-                    [
-                         new DiagnosticResult("RAV1501").WithLocation(3, 1).WithArguments("WriteLine", "1")
-                    ]);
+        var verifier = CreateVerifier(testCode);
 
         verifier.Verify();
     }

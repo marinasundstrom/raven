@@ -19,6 +19,8 @@ internal sealed class UnitTypeSymbol : SourceSymbol, ITypeSymbol
 
     public SpecialType SpecialType => SpecialType.None;
 
+    public bool IsValueType => true;
+
     public bool IsNamespace => false;
 
     public bool IsType => true;

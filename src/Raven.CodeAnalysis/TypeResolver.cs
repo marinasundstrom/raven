@@ -90,6 +90,8 @@ internal class TypeResolver(Compilation compilation)
             return compilation.NullTypeSymbol;
         if (type.Name == "Unit")
             return compilation.UnitTypeSymbol;
+        if (type == typeof(void) || type.FullName == "System.Void")
+            return compilation.UnitTypeSymbol;
 
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
