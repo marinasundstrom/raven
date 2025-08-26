@@ -5,13 +5,13 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class ExpressionSemanticTest : DiagnosticTestBase
 {
     [Fact]
-    public void Foo_Should_ProduceDiagnostic()
+    public void NestedWriteLine_WithUnitArgument_ProducesDiagnostic()
     {
         string testCode =
             """
             import System.*
 
-            Console.WriteLine(Console.WriteLine());
+            Console.WriteLine(Console.WriteLine("Test"));
             """;
 
         var verifier = CreateVerifier(
