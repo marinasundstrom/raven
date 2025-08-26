@@ -264,7 +264,19 @@ public partial class SemanticModel
 
         foreach (var alias in cu.Aliases)
         {
-            var symbols = ResolveAlias(targetNamespace, alias.Name);
+            IReadOnlyList<ISymbol> symbols;
+            if (alias.Target is NameSyntax name)
+            {
+                symbols = ResolveAlias(targetNamespace, name);
+            }
+            else
+            {
+                var typeSymbol = provisionalImportBinder.ResolveType(alias.Target);
+                symbols = typeSymbol == Compilation.ErrorTypeSymbol
+                    ? Array.Empty<ISymbol>()
+                    : new ISymbol[] { typeSymbol };
+            }
+
             if (symbols.Count > 0)
             {
                 var aliasSymbols = symbols

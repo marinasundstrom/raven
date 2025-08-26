@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -144,6 +145,43 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => _type.Construct(typeArguments);
 }
 
+internal sealed class AliasUnionTypeSymbol : AliasSymbol, IUnionTypeSymbol
+{
+    private readonly IUnionTypeSymbol _type;
+
+    public AliasUnionTypeSymbol(string name, IUnionTypeSymbol underlying)
+        : base(name, underlying)
+    {
+        _type = underlying;
+    }
+
+    public bool IsNamespace => _type.IsNamespace;
+
+    public bool IsType => _type.IsType;
+
+    public ImmutableArray<ISymbol> GetMembers() => _type.GetMembers();
+
+    public ImmutableArray<ISymbol> GetMembers(string name) => _type.GetMembers(name);
+
+    public ITypeSymbol? LookupType(string name) => _type.LookupType(name);
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol) => _type.IsMemberDefined(name, out symbol);
+
+    public INamedTypeSymbol? BaseType => _type.BaseType;
+
+    public ITypeSymbol? OriginalDefinition => _type.OriginalDefinition;
+
+    public SpecialType SpecialType => _type.SpecialType;
+
+    public TypeKind TypeKind => _type.TypeKind;
+
+    public bool IsReferenceType => _type.IsReferenceType;
+
+    public bool IsValueType => _type.IsValueType;
+
+    public IEnumerable<ITypeSymbol> Types => _type.Types;
+}
+
 internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
 {
     private readonly IMethodSymbol _method;
@@ -226,6 +264,7 @@ internal static class AliasSymbolFactory
     public static IAliasSymbol Create(string name, ISymbol underlying) => underlying switch
     {
         INamespaceSymbol n => new AliasNamespaceSymbol(name, n),
+        IUnionTypeSymbol u => new AliasUnionTypeSymbol(name, u),
         INamedTypeSymbol t => new AliasNamedTypeSymbol(name, t),
         IMethodSymbol m => new AliasMethodSymbol(name, m),
         IPropertySymbol p => new AliasPropertySymbol(name, p),

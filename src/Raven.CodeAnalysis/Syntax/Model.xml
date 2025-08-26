@@ -268,7 +268,7 @@
     <Slot Name="AliasKeyword" Type="Token" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="EqualsToken" Type="Token" />
-    <Slot Name="Name" Type="Name" />
+    <Slot Name="Target" Type="Type" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="ElseClause" Inherits="Node">

@@ -103,7 +103,19 @@ class BinderFactory
 
         foreach (var aliasDirective in nsSyntax.Aliases)
         {
-            var symbols = ResolveAlias(nsSymbol!, aliasDirective.Name);
+            IReadOnlyList<ISymbol> symbols;
+            if (aliasDirective.Target is NameSyntax name)
+            {
+                symbols = ResolveAlias(nsSymbol!, name);
+            }
+            else
+            {
+                var typeSymbol = provisionalImportBinder.ResolveType(aliasDirective.Target);
+                symbols = typeSymbol == _compilation.ErrorTypeSymbol
+                    ? Array.Empty<ISymbol>()
+                    : new ISymbol[] { typeSymbol };
+            }
+
             if (symbols.Count > 0)
             {
                 var aliasSymbols = symbols

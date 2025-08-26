@@ -14,7 +14,7 @@ internal class AliasDirectiveSyntaxParser : SyntaxParser
         var identifier = ReadToken();
         var equalsToken = ReadToken();
 
-        NameSyntax nameSyntax;
+        TypeSyntax target;
         if (PeekToken().Kind == SyntaxKind.SemicolonToken)
         {
             var missing = MissingToken(SyntaxKind.IdentifierToken);
@@ -22,11 +22,11 @@ internal class AliasDirectiveSyntaxParser : SyntaxParser
                 DiagnosticInfo.Create(
                     CompilerDiagnostics.IdentifierExpected,
                     GetEndOfLastToken()));
-            nameSyntax = IdentifierName(missing);
+            target = IdentifierName(missing);
         }
         else
         {
-            nameSyntax = new NameSyntaxParser(this).ParseName();
+            target = new NameSyntaxParser(this).ParseTypeName();
         }
 
         SetTreatNewlinesAsTokens(true);
@@ -35,6 +35,6 @@ internal class AliasDirectiveSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
-        return AliasDirective(aliasKeyword, identifier, equalsToken, nameSyntax, terminatorToken);
+        return AliasDirective(aliasKeyword, identifier, equalsToken, target, terminatorToken);
     }
 }
