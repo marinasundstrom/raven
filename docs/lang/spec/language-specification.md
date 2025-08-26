@@ -369,6 +369,18 @@ let b: int = 2
 func add(a: int, b: int) -> int { a + b }
 ```
 
+### Tuple types
+
+Tuple types use parentheses with comma-separated element types and map to
+`System.ValueTuple`:
+
+```raven
+let pair: (int, string) = (42, "answer")
+```
+
+Elements are accessed positionally (e.g. `Item1`, `Item2`). Tuple types may
+nest or participate in other type constructs such as unions or nullability.
+
 ### Union types
 
 Unions express multiple possible types (e.g., `int | string`).

@@ -252,9 +252,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindTupleExpression(TupleExpressionSyntax tupleExpression)
     {
         var elements = new List<BoundExpression>(tupleExpression.Arguments.Count);
-        var elementTypes = new List<ITypeSymbol>();
-        var elementNames = new List<string?>();
-        var dict = new Dictionary<string, ITypeSymbol>();
+        var tupleElements = new List<(string? name, ITypeSymbol type)>();
 
         foreach (var node in tupleExpression.Arguments)
         {
@@ -262,52 +260,19 @@ partial class BlockBinder : Binder
             {
                 var boundExpr = BindExpression(arg.Expression);
                 elements.Add(boundExpr);
-                elementTypes.Add(boundExpr.Type ?? Compilation.ErrorTypeSymbol);
 
-                string? name = arg.NameColon?.Name.ToString(); // might be null
-                elementNames.Add(name);
-
-                dict.Add(name, boundExpr.Type ?? Compilation.ErrorTypeSymbol);
+                var type = boundExpr.Type ?? Compilation.ErrorTypeSymbol;
+                string? name = arg.NameColon?.Name.ToString();
+                tupleElements.Add((name, type));
             }
         }
 
-        var tupleType = CreateTupleTypeSymbol(
-           dict.Select(x =>
-           {
-               return (x.Key, x.Value);
-           }).ToArray()
-        );
+        var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
 
         return new BoundTupleExpression(
             elements.ToImmutableArray(),
             tupleType
         );
-    }
-
-    internal ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string, ITypeSymbol)> typeArgs)
-    {
-        var systemNamespace = Compilation.GlobalNamespace.LookupNamespace("System");
-
-        var delegateType = systemNamespace?.GetMembers("ValueTuple")
-            .OfType<INamedTypeSymbol>()
-            .FirstOrDefault(t => t.Arity == typeArgs.Count());
-
-        var tupleType = (INamedTypeSymbol)delegateType.Construct(typeArgs.Select(x => x.Item2).ToArray());
-
-        var tuple = new TupleTypeSymbol(tupleType, null, null, null, []);
-
-        List<IFieldSymbol> elements = new List<IFieldSymbol>();
-
-        int i = 0;
-        foreach (var tupleField in tupleType.GetMembers().OfType<SubstitutedFieldSymbol>())
-        {
-            elements.Add(new TupleFieldSymbol(typeArgs.ElementAt(i).Item1, tupleField, tupleType, []));
-            i++;
-        }
-
-        tuple.SetTupleElements(elements);
-
-        return tuple;
     }
 
     private BoundExpression BindUnaryExpression(UnaryExpressionSyntax unaryExpression)
@@ -630,7 +595,7 @@ partial class BlockBinder : Binder
             if (boundTypes.Count != tupleTypeSyntax.Types.Count)
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
-            var tupleType = CreateTupleTypeSymbol(boundTypes.Select((t, i) => ($"Item{i + 1}", t)));
+            var tupleType = Compilation.CreateTupleTypeSymbol(boundTypes.Select((t, i) => ($"Item{i + 1}", t)));
 
             return new BoundTypeExpression(tupleType);
         }
