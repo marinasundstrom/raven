@@ -46,6 +46,22 @@ let a = 42
 let b = 1; b = 3
 ```
 
+### Variable bindings
+
+`let` introduces an immutable binding while `var` introduces a mutable one. A binding
+may declare its type explicitly or rely on the compiler to infer it from the
+initializer expression.
+
+```raven
+let answer = 42        // inferred int
+var name = "Alice"   // inferred string, mutable
+let count: long = 0    // explicit type
+```
+
+If the type annotation is omitted, an initializer is required so the compiler can
+determine the variable's type. With an explicit type, the initializer may be
+omitted.
+
 Control-flow constructs such as `if`, `while`, and `for` are expressions.
 When used for their side effects in statement position, they appear as expression statements.
 
@@ -68,6 +84,14 @@ Any expression can appear as a statement.
 > on their own line, they form an `ExpressionStatement`.
 
 ## Expressions
+
+### Target typing
+
+Many expressions rely on the type expected by their context, called the **target type**.
+For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type
+`Grades` to resolve the member. Numeric literals and `null` similarly adapt to their
+target types. Type inference for `let` and `var` bindings uses this mechanism to
+determine the variable's type from its initializer.
 
 ### String literals
 
@@ -462,13 +486,28 @@ Nullable types participate in the type system and overload resolution.
 
 ### Enums
 
-Enum members can be referenced with a **leading dot** when the type is known.
+An enum declaration introduces a distinct type whose instances are one of a
+fixed set of named constants. Each member is implicitly static and has an
+underlying integer value starting at `0` and increasing by one. Explicit numeric
+values are not yet supported.
+
+```raven
+enum Grades { A, B, C }
+```
+
+Enum members can be referenced with the type name or, when the target type is
+known, with a **leading dot**:
 
 ```raven
 var grade: Grades = .B
-grade = .C
+grade = Grades.C
+```
 
-enum Grades { A, B, C }
+Importing the members of an enum brings them into scope:
+
+```raven
+import Grades.*
+let best = A
 ```
 
 ## Members (classes/structs)
