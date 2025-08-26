@@ -123,6 +123,10 @@ class BinderFactory
                     .ToArray();
                 aliases[aliasDirective.Identifier.Text] = aliasSymbols;
             }
+            else
+            {
+                nsBinder.Diagnostics.ReportInvalidAliasType(aliasDirective.Target.GetLocation());
+            }
         }
 
         var importBinder = new ImportBinder(nsBinder, namespaceImports, typeImports, aliases);

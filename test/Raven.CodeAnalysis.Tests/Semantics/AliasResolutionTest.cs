@@ -1,5 +1,6 @@
 using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -187,5 +188,40 @@ public class AliasResolutionTest : DiagnosticTestBase
         Assert.True(symbol!.IsAlias);
         var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
         Assert.Equal("StringBuilder", alias.UnderlyingSymbol.Name);
+    }
+
+    [Fact]
+    public void AliasDirective_UsesAlias_PredefinedType()
+    {
+        string testCode =
+            """
+            alias MyInt = int
+
+            let x: MyInt
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        var result = verifier.GetResult();
+        verifier.Verify();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().First(id => id.Identifier.Text == "MyInt");
+        var symbol = model.GetSymbolInfo(identifier).Symbol;
+        Assert.NotNull(symbol);
+        Assert.True(symbol!.IsAlias);
+    }
+
+    [Fact]
+    public void AliasDirective_InvalidTypeSyntax_ReportsDiagnostic()
+    {
+        string testCode = "alias Bad = notatype";
+
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [new DiagnosticResult("RAV2020").WithSeverity(DiagnosticSeverity.Error).WithLocation(1, 13)],
+            disabledDiagnostics: ["RAV0103"]);
+
+        verifier.Verify();
     }
 }

@@ -36,6 +36,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _unterminatedCharacterLiteral;
     private static DiagnosticDescriptor? _invalidEscapeSequence;
     private static DiagnosticDescriptor? _memberAccessRequiresTargetType;
+    private static DiagnosticDescriptor? _invalidAliasType;
     private static DiagnosticDescriptor? _typeRequiresTypeArguments;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeAlreadyDefinesMember;
@@ -453,6 +454,19 @@ internal class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV2020: Invalid type syntax for alias target
+    /// </summary>
+    public static DiagnosticDescriptor InvalidAliasType => _invalidAliasType ??= DiagnosticDescriptor.Create(
+        id: "RAV2020",
+        title: "Invalid alias target",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Invalid type syntax for alias target. Supported predefined types: bool, char, int, string, void.",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV0305: The type '{0}' requires {1} type argument(s)
     /// </summary>
     public static DiagnosticDescriptor TypeRequiresTypeArguments => _typeRequiresTypeArguments ??= DiagnosticDescriptor.Create(
@@ -524,6 +538,7 @@ internal class CompilerDiagnostics
         NumericLiteralOutOfRange,
         UnterminatedCharacterLiteral,
         InvalidEscapeSequence,
+        InvalidAliasType,
         MemberAccessRequiresTargetType,
         NullableTypeInUnion,
         TypeAlreadyDefinesMember
@@ -564,6 +579,7 @@ internal class CompilerDiagnostics
             "RAV2002" => UnterminatedCharacterLiteral,
             "RAV2003" => InvalidEscapeSequence,
             "RAV2010" => MemberAccessRequiresTargetType,
+            "RAV2020" => InvalidAliasType,
             "RAV0305" => TypeRequiresTypeArguments,
             "RAV0400" => NullableTypeInUnion,
             "RAV0111" => TypeAlreadyDefinesMember,
