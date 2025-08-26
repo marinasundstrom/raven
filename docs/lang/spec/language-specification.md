@@ -112,6 +112,15 @@ let msg = "Name: ${name}, Age: ${age}"
 Console.WriteLine(msg)
 ```
 
+### Unit literal
+
+`unit` is both a keyword and a literal expression representing the single value of the
+`unit` type.
+
+```raven
+let nothing = unit
+```
+
 ### Array literals and element access
 
 ```raven
