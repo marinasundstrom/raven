@@ -37,9 +37,10 @@ internal sealed class OverloadResolver
                 // Handle ref/in/out
                 if (param.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
                 {
-                    if (arg is not BoundAddressOfExpression ||
-                        !SymbolEqualityComparer.Default.Equals(arg.Type, param.Type) ||
-                        arg.Type.SpecialType == SpecialType.System_Void) // extra guard for safety
+                    if (arg is not BoundAddressOfExpression addr ||
+                        addr.Type is not ByRefTypeSymbol argByRef ||
+                        !SymbolEqualityComparer.Default.Equals(argByRef.ElementType, param.Type) ||
+                        arg.Type.SpecialType == SpecialType.System_Void)
                     {
                         allMatch = false;
                         break;
