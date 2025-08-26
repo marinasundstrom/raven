@@ -180,17 +180,9 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private SyntaxToken ConsumeTerminator()
     {
-        var terminatorToken = PeekToken();
-        if (terminatorToken.IsKind(SyntaxKind.EndOfFileToken))
-        {
-            return ReadToken();
-        }
-        else
-        {
-            SetTreatNewlinesAsTokens(true);
+        SetTreatNewlinesAsTokens(true);
 
-            TryConsumeTerminator(out terminatorToken);
-        }
+        TryConsumeTerminator(out var terminatorToken);
 
         return terminatorToken;
     }

@@ -30,8 +30,8 @@ public class ParserNewlineTests
 
         var firstToken = firstStatement.GetLastToken();
         Assert.Equal(SyntaxKind.NewLineToken, firstToken.Kind);
-        Assert.Equal(SyntaxKind.EndOfFileToken, secondStatement.GetLastToken(true).Kind);
-        Assert.Equal(SyntaxKind.EndOfFileToken, context.LastToken?.Kind); // newline was consumed as terminator
+        Assert.Equal(SyntaxKind.NewLineToken, secondStatement.GetLastToken(true).Kind);
+        Assert.Equal(SyntaxKind.NewLineToken, context.LastToken?.Kind); // newline was consumed as terminator
     }
 
     [Fact]
@@ -57,8 +57,8 @@ public class ParserNewlineTests
 
         var firstToken = firstStatement.GetLastToken();
         Assert.Equal(SyntaxKind.SemicolonToken, firstToken.Kind);
-        Assert.Equal(SyntaxKind.EndOfFileToken, secondStatement.GetLastToken(true).Kind);
-        Assert.Equal(SyntaxKind.EndOfFileToken, context.LastToken?.Kind); // semicolon was consumed as terminator
+        Assert.Equal(SyntaxKind.NewLineToken, secondStatement.GetLastToken(true).Kind);
+        Assert.Equal(SyntaxKind.NewLineToken, context.LastToken?.Kind); // semicolon was consumed as terminator
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class ParserNewlineTests
     [Theory]
     [InlineData("let x = 1;", SyntaxKind.SemicolonToken)]
     [InlineData("let x = 1\n", SyntaxKind.NewLineToken)]
-    [InlineData("let x = 1", SyntaxKind.EndOfFileToken)]
+    [InlineData("let x = 1", SyntaxKind.None)]
     [InlineData("let x = 1}", SyntaxKind.None)]
     public void Statement_Terminators_AreRecognizedCorrectly(string source, SyntaxKind expectedKind)
     {

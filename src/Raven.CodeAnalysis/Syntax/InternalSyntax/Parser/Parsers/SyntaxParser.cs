@@ -94,6 +94,8 @@ internal class SyntaxParser : ParseContext
 
     internal bool TryConsumeTerminator(out SyntaxToken token)
     {
+        SetTreatNewlinesAsTokens(true);
+
         if (ConsumeToken(SyntaxKind.NewLineToken, out token))
             return true;
 
@@ -102,8 +104,11 @@ internal class SyntaxParser : ParseContext
             return true;
 
         // Allow End of File
-        if (ConsumeToken(SyntaxKind.EndOfFileToken, out token))
+        if (IsNextToken(SyntaxKind.EndOfFileToken))
+        {
+            token = Token(SyntaxKind.None);
             return true;
+        }
 
         // Allow end of block when statement is last in a block
         if (IsNextToken(SyntaxKind.CloseBraceToken))
