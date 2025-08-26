@@ -59,8 +59,7 @@ internal class StatementGenerator : Generator
 
         var type = symbol?.UnwrapType();
         if (type is not null &&
-            type.SpecialType is not SpecialType.System_Void &&
-            type is not UnitTypeSymbol)
+            type.SpecialType is not SpecialType.System_Void)
         {
             // The value is not used, pop it from the stack.
             ILGenerator.Emit(OpCodes.Pop);
