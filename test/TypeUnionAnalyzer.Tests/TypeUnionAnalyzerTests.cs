@@ -105,4 +105,25 @@ public static class External {
         var diagnostics = await GetDiagnosticsAsync(testSource, libRef);
         Assert.Contains(diagnostics, d => d.Id == "TU005");
     }
+
+    [Fact]
+    public async Task VariableDeclarationAndUsage_ReportInfoDiagnostics()
+    {
+        var source = @"
+using System;
+[AttributeUsage(AttributeTargets.ReturnValue | AttributeTargets.Parameter)]
+class TypeUnionAttribute : Attribute { public TypeUnionAttribute(params Type[] types) {} }
+class C {
+    [return: TypeUnion(typeof(int), typeof(string))]
+    static object M() => 1;
+    static void Test() {
+        object x = M();
+        var y = x;
+        Console.WriteLine(y);
+    }
+}";
+        var diagnostics = await GetDiagnosticsAsync(source);
+        Assert.Contains(diagnostics, d => d.Id == "TU001" && d.GetMessage().Contains("Variable 'x'"));
+        Assert.Contains(diagnostics, d => d.Id == "TU001" && d.GetMessage().Contains("Variable 'y'"));
+    }
 }
