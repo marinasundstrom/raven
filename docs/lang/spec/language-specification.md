@@ -114,8 +114,9 @@ Console.WriteLine(msg)
 
 ### Unit literal
 
-`unit` is both a keyword and a literal expression representing the single value of the
-`unit` type.
+`unit` is both a keyword and the literal expression for the sole value of the [`unit` type`](#unit-type).
+It denotes "no useful value" and is used when an expression must have a type but
+no data needs to be returned.
 
 ```raven
 let nothing = unit
@@ -410,6 +411,27 @@ let b: int = 2
 
 func add(a: int, b: int) -> int { a + b }
 ```
+
+### Unit type
+
+`unit` is a built-in type with exactly one inhabitant: `unit`. It represents the
+absence of a meaningful value. Every expression in Raven has a type; when an
+expression or function does not produce data, it yields `unit` instead.
+
+Functions without an explicit return type default to `unit`, and a function
+returning `unit` may omit a `return` statement:
+
+```raven
+func log(msg: string) -> unit {
+    Console.WriteLine(msg) // implicitly returns unit
+}
+
+let u: unit = unit
+```
+
+`unit` can appear anywhere a type is expected, including generics and tuples.
+The `void` type remains for interop with existing .NET APIs but should generally
+be avoided in favor of `unit`.
 
 ### Tuple types
 
