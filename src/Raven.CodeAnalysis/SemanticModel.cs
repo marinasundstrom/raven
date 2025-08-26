@@ -282,9 +282,9 @@ public partial class SemanticModel
 
         CreateTopLevelBinder(cu, targetNamespace, importBinder);
 
-        _binderCache[cu] = namespaceBinder;
+        _binderCache[cu] = importBinder;
 
-        return namespaceBinder;
+        return importBinder;
 
         INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
         {

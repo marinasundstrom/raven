@@ -103,7 +103,10 @@ public class AliasResolutionTest : DiagnosticTestBase
         verifier.Verify();
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
-        var identifier = (IdentifierNameSyntax)((QualifiedNameSyntax)tree.GetRoot().DescendantNodes().OfType<QualifiedNameSyntax>().First()).Left;
+        var identifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(id => id.Identifier.Text == "ST");
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
