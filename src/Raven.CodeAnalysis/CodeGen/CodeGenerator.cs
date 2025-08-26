@@ -303,7 +303,7 @@ internal class CodeGenerator
         var nullBuilder = ModuleBuilder.DefineType(
             "Null",
             TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,
-            typeof(ValueType));
+            Compilation.GetTypeByMetadataName("System.ValueType").GetClrType(this));
 
         NullType = nullBuilder.CreateType();
     }
@@ -313,7 +313,7 @@ internal class CodeGenerator
         var unitBuilder = ModuleBuilder.DefineType(
             "Unit",
             TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,
-            typeof(ValueType));
+            Compilation.GetTypeByMetadataName("System.ValueType").GetClrType(this));
 
         var valueField = unitBuilder.DefineField(
             "Value",
@@ -323,7 +323,7 @@ internal class CodeGenerator
         var equalsMethod = unitBuilder.DefineMethod(
             "Equals",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual | MethodAttributes.Final,
-            typeof(bool),
+            Compilation.GetTypeByMetadataName("System.Boolean").GetClrType(this),
             new[] { unitBuilder });
         var ilEquals = equalsMethod.GetILGenerator();
         ilEquals.Emit(OpCodes.Ldc_I4_1);
@@ -332,8 +332,8 @@ internal class CodeGenerator
         var equalsObjMethod = unitBuilder.DefineMethod(
             "Equals",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual | MethodAttributes.Final,
-            typeof(bool),
-            new[] { typeof(object) });
+            Compilation.GetTypeByMetadataName("System.Boolean").GetClrType(this),
+            new[] { Compilation.GetTypeByMetadataName("System.Object").GetClrType(this) });
         var ilEqualsObj = equalsObjMethod.GetILGenerator();
         ilEqualsObj.Emit(OpCodes.Ldarg_1);
         ilEqualsObj.Emit(OpCodes.Isinst, unitBuilder);
@@ -344,7 +344,7 @@ internal class CodeGenerator
         var getHashCodeMethod = unitBuilder.DefineMethod(
             "GetHashCode",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
-            typeof(int),
+            Compilation.GetTypeByMetadataName("System.Int32").GetClrType(this),
             Type.EmptyTypes);
         var ilHash = getHashCodeMethod.GetILGenerator();
         ilHash.Emit(OpCodes.Ldc_I4_0);
@@ -353,7 +353,7 @@ internal class CodeGenerator
         var toStringMethod = unitBuilder.DefineMethod(
             "ToString",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
-            typeof(string),
+            Compilation.GetTypeByMetadataName("System.String").GetClrType(this),
             Type.EmptyTypes);
         var ilToString = toStringMethod.GetILGenerator();
         ilToString.Emit(OpCodes.Ldstr, "()");

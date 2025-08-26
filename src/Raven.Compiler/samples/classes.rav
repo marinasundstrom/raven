@@ -21,6 +21,7 @@ PrintLine(user2.Name)
 
 user2(2003);
 user2("test");
+WriteLine(user2("2005"))
 
 class Person {
     let species = "Homo sapiens"
