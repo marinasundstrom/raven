@@ -246,14 +246,31 @@ Arrow bodies are allowed:
 func add(a: int, b: int) -> int => a + b
 ```
 
-### `ref`/`out` arguments
+### Local functions
 
-Raven uses the **address operator** `&` at call sites. (Exact rules are
-contextual; the binder enforces that the target is assignable.)
+Functions may be declared inside other functions. A local function is
+scoped to its containing body and can capture local variables.
 
 ```raven
+func outer() {
+    func inner(x: int) -> int { x + 1 }
+    let y = inner(2)
+}
+```
+
+### `ref`/`out` arguments
+
+Parameters can be declared by reference using `&Type`. Use `out` before
+the parameter name to indicate that the value must be assigned by the
+callee. At call sites, pass the argument with the address operator `&`.
+(Exact rules are contextual; the binder enforces that the target is
+assignable.)
+
+```raven
+func TryParse(text: string, out result: &int) -> bool { /* ... */ }
+
 var total = 0
-if !int.TryParse(arg, &total) {
+if !TryParse(arg, &total) {
     Console.WriteLine("Expected number")
 }
 ```
@@ -326,6 +343,18 @@ else if y is bool b {
 
 > **Note:** Representation is an implementation detail; conceptually, unions
 > are first-class in the type system even if lowered to `object` at runtime.
+
+### Nullable types
+
+Appending `?` to a type denotes that it may also be `null`. This works for
+both reference and value types.
+
+```raven
+let s: string? = null
+let i: int? = null
+```
+
+Nullable types participate in the type system and overload resolution.
 
 ### Enums
 

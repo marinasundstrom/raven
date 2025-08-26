@@ -42,7 +42,7 @@ FunctionDeclaration      ::= FunctionModifiers?
 ReturnTypeClause         ::= '->' Type ;
 
 ParameterList            ::= Parameter {',' Parameter} ;
-Parameter                ::= Identifier ':' Type ;
+Parameter                ::= ['out'] Identifier ':' Type ;
 
 EnumDeclaration          ::= TypeModifiers?
                              'enum' Identifier '{' EnumMembers? '}' ;
@@ -92,6 +92,7 @@ BracketedParameterList   ::= '[' ParameterList? ']' ;
 
 Statement                ::= LocalDeclaration
                            | ReturnStatement
+                           | LocalFunctionStatement
                            | ExpressionStatement ;
 
 LocalDeclaration         ::= ('let' | 'var') LocalVariableDeclarators ;
@@ -99,6 +100,8 @@ LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarato
 LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 
 ReturnStatement          ::= 'return' Expression? ;
+
+LocalFunctionStatement   ::= 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
 
 ExpressionStatement      ::= Expression ;
 
@@ -177,11 +180,11 @@ Literal                  ::= NumericLiteral
 
 (* ---------- Types ---------- *)
 
-Type                     ::= UnionType ;
+Type                     ::= '&'? UnionType ;
 
-UnionType                ::= Intersection {'|' Intersection} ;     (* left-assoc *)
+UnionType                ::= NullableType {'|' NullableType} ;     (* left-assoc *)
 
-Intersection             ::= PrimaryType ;                         (* reserved for future '&' *)
+NullableType             ::= PrimaryType ['?'] ;
 
 PrimaryType              ::= TupleType
                            | GenericType
