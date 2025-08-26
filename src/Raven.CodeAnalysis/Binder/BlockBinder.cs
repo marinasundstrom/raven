@@ -149,7 +149,7 @@ partial class BlockBinder : Binder
             ExpressionStatementSyntax expressionStmt => new BoundExpressionStatement(BindExpression(expressionStmt.Expression)),
             LocalFunctionStatementSyntax localFunction => BindLocalFunction(localFunction),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
-            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundVoidExpression(Compilation.GetSpecialType(SpecialType.System_Void))),
+            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.UnitTypeSymbol)),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
 
@@ -162,7 +162,7 @@ partial class BlockBinder : Binder
     {
         var expr = returnStatement.Expression is not null
             ? BindExpression(returnStatement.Expression)
-            : new BoundVoidExpression(Compilation.GetSpecialType(SpecialType.System_Void));
+            : new BoundUnitExpression(Compilation.UnitTypeSymbol);
 
         return new BoundReturnStatement(expr);
     }
@@ -534,7 +534,7 @@ partial class BlockBinder : Binder
             return new BoundMemberAccessExpression(typeExpr, member);
         }
 
-        if (receiver.Type?.SpecialType == SpecialType.System_Void)
+        if (receiver.Type?.SpecialType == SpecialType.System_Void || SymbolEqualityComparer.Default.Equals(receiver.Type, Compilation.UnitTypeSymbol))
         {
             _diagnostics.ReportMemberAccessOnVoid(name, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
@@ -754,6 +754,10 @@ partial class BlockBinder : Binder
         {
             return new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
         }
+        if (syntax.Kind == SyntaxKind.UnitLiteralExpression)
+        {
+            return new BoundUnitExpression(Compilation.UnitTypeSymbol);
+        }
 
         var value = syntax.Token.Value ?? syntax.Token.Text!;
         ITypeSymbol type = value switch
@@ -935,7 +939,7 @@ partial class BlockBinder : Binder
             if (receiver is BoundErrorExpression)
                 return receiver;
 
-            if (receiver.Type?.SpecialType is SpecialType.System_Void)
+            if (receiver.Type?.SpecialType is SpecialType.System_Void || SymbolEqualityComparer.Default.Equals(receiver.Type, Compilation.UnitTypeSymbol))
             {
                 _diagnostics.ReportMemberAccessOnVoid(memberAccess.Name.Identifier.Text, memberAccess.Name.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);

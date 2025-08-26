@@ -20,8 +20,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         switch (node)
         {
-            case BoundVoidExpression self:
-                VisitVoidExpression(self);
+            case BoundUnitExpression self:
+                VisitUnitExpression(self);
                 break;
             case BoundSelfExpression self:
                 VisitSelfExpression(self);
@@ -69,6 +69,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitLocalAccess(BoundLocalAccess node) { }
     public override void VisitParameterAccess(BoundParameterAccess node) { }
     public override void VisitSelfExpression(BoundSelfExpression self) { }
+    public virtual void VisitUnitExpression(BoundUnitExpression self) { }
 
 
     public virtual void VisitStatement(BoundStatement statement)

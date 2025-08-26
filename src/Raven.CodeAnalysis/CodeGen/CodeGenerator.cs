@@ -31,11 +31,13 @@ internal class CodeGenerator
 
     public Type? TypeUnionAttributeType { get; private set; }
     public Type? NullType { get; private set; }
+    public Type? UnitType { get; private set; }
     public Type? NullableAttributeType { get; private set; }
     ConstructorInfo? _nullableCtor;
 
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
+    bool _emitUnitType;
 
     internal CustomAttributeBuilder? CreateNullableAttribute(ITypeSymbol type)
     {
@@ -117,6 +119,8 @@ internal class CodeGenerator
             CreateTypeUnionAttribute();
         if (_emitNullType)
             CreateNullStruct();
+        if (_emitUnitType)
+            CreateUnitStruct();
 
         DefineTypeBuilders();
 
@@ -203,6 +207,11 @@ internal class CodeGenerator
             if (typeSymbol.TypeKind == TypeKind.Null)
             {
                 _emitNullType = true;
+                return;
+            }
+            if (SymbolEqualityComparer.Default.Equals(typeSymbol, Compilation.UnitTypeSymbol))
+            {
+                _emitUnitType = true;
                 return;
             }
 
@@ -297,6 +306,60 @@ internal class CodeGenerator
             typeof(ValueType));
 
         NullType = nullBuilder.CreateType();
+    }
+
+    private void CreateUnitStruct()
+    {
+        var unitBuilder = ModuleBuilder.DefineType(
+            "Unit",
+            TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,
+            typeof(ValueType));
+
+        var valueField = unitBuilder.DefineField(
+            "Value",
+            unitBuilder,
+            FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.InitOnly);
+
+        var equalsMethod = unitBuilder.DefineMethod(
+            "Equals",
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual | MethodAttributes.Final,
+            typeof(bool),
+            new[] { unitBuilder });
+        var ilEquals = equalsMethod.GetILGenerator();
+        ilEquals.Emit(OpCodes.Ldc_I4_1);
+        ilEquals.Emit(OpCodes.Ret);
+
+        var equalsObjMethod = unitBuilder.DefineMethod(
+            "Equals",
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual | MethodAttributes.Final,
+            typeof(bool),
+            new[] { typeof(object) });
+        var ilEqualsObj = equalsObjMethod.GetILGenerator();
+        ilEqualsObj.Emit(OpCodes.Ldarg_1);
+        ilEqualsObj.Emit(OpCodes.Isinst, unitBuilder);
+        ilEqualsObj.Emit(OpCodes.Ldnull);
+        ilEqualsObj.Emit(OpCodes.Cgt_Un);
+        ilEqualsObj.Emit(OpCodes.Ret);
+
+        var getHashCodeMethod = unitBuilder.DefineMethod(
+            "GetHashCode",
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
+            typeof(int),
+            Type.EmptyTypes);
+        var ilHash = getHashCodeMethod.GetILGenerator();
+        ilHash.Emit(OpCodes.Ldc_I4_0);
+        ilHash.Emit(OpCodes.Ret);
+
+        var toStringMethod = unitBuilder.DefineMethod(
+            "ToString",
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
+            typeof(string),
+            Type.EmptyTypes);
+        var ilToString = toStringMethod.GetILGenerator();
+        ilToString.Emit(OpCodes.Ldstr, "()");
+        ilToString.Emit(OpCodes.Ret);
+
+        UnitType = unitBuilder.CreateType();
     }
 
     private void DefineTypeBuilders()

@@ -2,6 +2,7 @@
 <Tokens>
   <!-- Keywords -->
   <TokenKind Name="VoidKeyword" Text="void" IsReservedWord="true" />
+  <TokenKind Name="UnitKeyword" Text="unit" IsReservedWord="true" />
   <TokenKind Name="NullKeyword" Text="null" IsReservedWord="true" />
   <TokenKind Name="IntKeyword" Text="int" IsReservedWord="true" />
   <TokenKind Name="StringKeyword" Text="string" IsReservedWord="true" />

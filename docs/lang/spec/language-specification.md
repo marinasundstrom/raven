@@ -170,7 +170,7 @@ Console.WriteLine(tuple.Item1)  // positional
 ### Block expression
 
 A block is an expression; its value is the value of its last expression
-(or `void` if none).
+(or `unit` if none).
 
 ```raven
 {
@@ -283,7 +283,7 @@ Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
 
-Predefined types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, and `void`.
+Predefined types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, `unit`, and `void`.
 If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, and these predefined types.
 
 Aliases require fully qualified names for namespaces, types, and members to
@@ -447,7 +447,7 @@ Conversely, explicitly including a nullable type in a union—`string? | int`
 Explicit annotations follow the same rules:
 
 ```raven
-func test(x: int | string) -> void { /* ... */ }
+func test(x: int | string) -> unit { /* ... */ }
 ```
 
 Unions also arise naturally from control flow:
@@ -536,7 +536,7 @@ class Counter
         get => _value + i
     }
 
-    public Increment() -> void => _value = _value + 1
+    public Increment() -> unit => _value = _value + 1
 }
 ```
 
@@ -557,8 +557,8 @@ diagnostic.
 ```raven
 class Printer
 {
-    public Print(x: int) -> void => Console.WriteLine(x)
-    public Print(x: string) -> void => Console.WriteLine(x)
+    public Print(x: int) -> unit => Console.WriteLine(x)
+    public Print(x: string) -> unit => Console.WriteLine(x)
 }
 
 Print(42)

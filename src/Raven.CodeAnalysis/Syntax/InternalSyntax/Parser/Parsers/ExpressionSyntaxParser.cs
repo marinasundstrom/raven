@@ -580,6 +580,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 ReadToken();
                 expr = LiteralExpression(SyntaxKind.NullLiteralExpression, token);
                 break;
+            case SyntaxKind.UnitKeyword:
+                ReadToken();
+                expr = LiteralExpression(SyntaxKind.UnitLiteralExpression, token);
+                break;
 
             case SyntaxKind.OpenParenToken:
                 expr = ParseParenthesisOrTupleExpression();
