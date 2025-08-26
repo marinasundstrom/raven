@@ -367,11 +367,30 @@ func add(a: int, b: int) -> int { a + b }
 
 Unions express multiple possible types (e.g., `int | string`).
 
+Union members are normalized: nested unions flatten, duplicates are removed,
+and order is irrelevant. `int | (string | int)` therefore simplifies to
+`int | string`.
+
+The special `null` type may appear as a union member, usually via control
+flow:
+
+```raven
+let maybe = if flag { 1 } else { null }
+// maybe is inferred as: int | null
+```
+
+If a union contains `null` and exactly one non-nullable type, it implicitly
+converts to that type's nullable form (`int | null` converts to `int?`).
+Conversely, explicitly including a nullable type in a union—`string? | int`
+—is a compile-time error.
+
+Explicit annotations follow the same rules:
+
 ```raven
 func test(x: int | string) -> void { /* ... */ }
 ```
 
-Unions arise naturally from control flow:
+Unions also arise naturally from control flow:
 
 ```raven
 let x = 3

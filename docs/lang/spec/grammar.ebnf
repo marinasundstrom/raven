@@ -204,7 +204,10 @@ NullableType             ::= PrimaryType ['?'] ;
 PrimaryType              ::= TupleType
                            | GenericType
                            | SimpleType
+                           | NullType
                            | ParenthesizedType ;
+
+NullType                 ::= 'null' ;
 
 SimpleType               ::= BuiltinType | QualifiedName ;
 BuiltinType              ::= 'int' | 'string' | 'bool' | 'void' | 'char' ;
