@@ -10,10 +10,10 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class TupleTypeSemanticTests
 {
     [Fact]
-    public void TupleTypeSyntax_BindsToTupleTypeSymbol()
+    public void TupleTypeSyntax_BindsToTupleTypeSymbol_WithNames()
     {
         var source = """
-        let t: (int, string) = (1, "")
+        let t: (id: int, name: string) = (1, "")
         """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -26,15 +26,15 @@ public class TupleTypeSemanticTests
 
         var tuple = Assert.IsAssignableFrom<ITupleTypeSymbol>(type);
         Assert.Collection(tuple.TupleElements,
-            e => Assert.Equal(SpecialType.System_Int32, e.Type.SpecialType),
-            e => Assert.Equal(SpecialType.System_String, e.Type.SpecialType));
+            e => { Assert.Equal("id", e.Name); Assert.Equal(SpecialType.System_Int32, e.Type.SpecialType); },
+            e => { Assert.Equal("name", e.Name); Assert.Equal(SpecialType.System_String, e.Type.SpecialType); });
     }
 
     [Fact]
-    public void TupleExpression_TargetTyped_UsesDeclaredType()
+    public void TupleExpression_TargetTyped_UsesDeclaredType_IgnoringNames()
     {
         var source = """
-        let pair: (int, string) = (42, "answer")
+        let pair: (id: int, name: string) = (no: 42, identifier: "answer")
         """;
 
         var tree = SyntaxTree.ParseText(source);

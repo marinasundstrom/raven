@@ -171,7 +171,7 @@ internal class NameSyntaxParser : SyntaxParser
     {
         var openParenToken = ReadToken();
 
-        List<GreenNode> types = new List<GreenNode>();
+        List<GreenNode> elements = new List<GreenNode>();
 
         while (true)
         {
@@ -180,23 +180,32 @@ internal class NameSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
+            NameColonSyntax? nameColon = null;
+
+            if (PeekToken(1).IsKind(SyntaxKind.ColonToken) && PeekToken().IsKind(SyntaxKind.IdentifierToken))
+            {
+                var name = ReadToken();
+                var colon = ReadToken();
+                nameColon = NameColon(IdentifierName(name), colon);
+            }
+
             var type = ParseTypeName();
             if (type is null)
                 break;
 
-            types.Add(type);
+            elements.Add(TupleElement(nameColon, type));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
             {
                 ReadToken();
-                types.Add(commaToken);
+                elements.Add(commaToken);
             }
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return TupleType(openParenToken, List(types.ToArray()), closeParenToken);
+        return TupleType(openParenToken, List(elements.ToArray()), closeParenToken);
     }
 
     private bool LooksLikeTypeArgumentList()

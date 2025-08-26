@@ -607,16 +607,17 @@ partial class BlockBinder : Binder
 
         if (syntax is TupleTypeSyntax tupleTypeSyntax)
         {
-            var boundTypes = tupleTypeSyntax.Types
-                .Select(t => BindTypeSyntax(t))
-                .OfType<BoundTypeExpression>()
-                .Select(b => b.Type)
-                .ToList();
+            var boundElements = new List<(string? name, ITypeSymbol type)>();
 
-            if (boundTypes.Count != tupleTypeSyntax.Types.Count)
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+            foreach (var element in tupleTypeSyntax.Elements)
+            {
+                if (BindTypeSyntax(element.Type) is not BoundTypeExpression bt)
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
-            var tupleType = Compilation.CreateTupleTypeSymbol(boundTypes.Select((t, i) => ($"Item{i + 1}", t)));
+                boundElements.Add((element.NameColon?.Name.ToString(), bt.Type));
+            }
+
+            var tupleType = Compilation.CreateTupleTypeSymbol(boundElements);
 
             return new BoundTypeExpression(tupleType);
         }

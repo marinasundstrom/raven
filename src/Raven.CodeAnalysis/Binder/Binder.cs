@@ -213,8 +213,10 @@ internal abstract class Binder
 
         if (typeSyntax is TupleTypeSyntax tupleTypeSyntax)
         {
-            var elementTypes = tupleTypeSyntax.Types.Select(t => ResolveType(t)).ToArray();
-            return Compilation.CreateTupleTypeSymbol(elementTypes.Select((t, i) => ($"Item{i + 1}", t)));
+            var elements = tupleTypeSyntax.Elements
+                .Select(e => (e.NameColon?.Name.ToString(), ResolveType(e.Type)))
+                .ToArray();
+            return Compilation.CreateTupleTypeSymbol(elements);
         }
 
         if (typeSyntax is PredefinedTypeSyntax predefinedTypeSyntax)
