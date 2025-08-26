@@ -1,5 +1,5 @@
-﻿using System.Security.Cryptography;
-using System.Text;
+using System.Reflection;
+using System.Security.Cryptography;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -16,8 +16,8 @@ string hash = await GetHashAsync(model, tokens, nodeKinds);
 var force = args.Contains("-f");
 
 // Compare to .stamp
-const string stampPath = "./generated/.stamp";
-if (File.Exists(stampPath) && File.ReadAllText(stampPath) == hash && !force)
+var stampPath = Path.GetFullPath(Path.Combine("generated", ".stamp"));
+if (File.Exists(stampPath) && File.ReadAllText(stampPath).Trim() == hash && !force)
 {
     Console.WriteLine("Model unchanged. Skipping generation.");
     return;
@@ -38,34 +38,51 @@ if (force)
     Console.WriteLine("Forcing generation");
 }
 
-await GenerateCode(model, tokens, nodeKinds);
+var stats = await GenerateCode(model, tokens, nodeKinds);
 
 // Write new hash to .stamp
+Directory.CreateDirectory(Path.GetDirectoryName(stampPath)!);
 File.WriteAllText(stampPath, hash);
 
-static async Task GenerateGreenNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node)
+Console.WriteLine("Generation summary:");
+Console.WriteLine($"  Green nodes: {stats.GreenNodes}");
+Console.WriteLine($"  Green factories: {stats.GreenFactories}");
+Console.WriteLine($"  Red nodes: {stats.RedNodes}");
+Console.WriteLine($"  Red factories: {stats.RedFactories}");
+Console.WriteLine($"  Token files: {stats.TokenFiles}");
+Console.WriteLine($"  Syntax facts: {stats.SyntaxFacts}");
+Console.WriteLine($"  Syntax kind: {stats.SyntaxKind}");
+Console.WriteLine($"  Visitor files: {stats.Visitors}");
+Console.WriteLine($"  Rewriter files: {stats.Rewriters}");
+Console.WriteLine($"Total: {stats.Total}");
+
+static async Task GenerateGreenNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node, GenerationStats stats)
 {
     var source = GreenNodeGenerator.GenerateGreenNode(node, nodesByName);
 
     await File.WriteAllTextAsync($"./InternalSyntax/generated/{node.Name}Syntax.g.cs", source);
+    stats.GreenNodes++;
 
     var unit = GreenNodeGenerator.GenerateFactoryMethod(node);
     if (unit is not null)
     {
         await File.WriteAllTextAsync($"./InternalSyntax/generated/{node.Name}Syntax.SyntaxFactory.g.cs", unit.ToFullString());
+        stats.GreenFactories++;
     }
 }
 
-static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node)
+static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node, GenerationStats stats)
 {
     var source = RedNodeGenerator.GenerateRedNode(node);
 
     await File.WriteAllTextAsync($"./generated/{node.Name}Syntax.g.cs", source.ToFullString());
+    stats.RedNodes++;
 
     var unit = RedNodeGenerator.GenerateRedFactoryMethod(node);
     if (unit is not null)
     {
         await File.WriteAllTextAsync($"./generated/{node.Name}Syntax.SyntaxFactory.g.cs", unit.ToFullString());
+        stats.RedFactories++;
     }
 }
 
@@ -73,9 +90,11 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKi
 {
     using var memoryStream = new MemoryStream();
 
-    using var xmlWriter = XmlWriter.Create(memoryStream, new XmlWriterSettings { Async = true, Indent = true });
-
-    await Serialization.SerializeAsXml(model, xmlWriter);
+    await using (var xmlWriter = XmlWriter.Create(memoryStream, new XmlWriterSettings { Async = true, Indent = true }))
+    {
+        await Serialization.SerializeAsXml(model, xmlWriter);
+        await xmlWriter.FlushAsync();
+    }
 
     var tokensDoc = new XDocument(new XElement("Tokens", tokens.Select(t =>
         new XElement("TokenKind",
@@ -97,12 +116,19 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKi
     using var nodeKindsStream = new MemoryStream();
     nodeKindsDoc.Save(nodeKindsStream);
 
-    var combined = memoryStream.ToArray().Concat(tokensStream.ToArray()).Concat(nodeKindsStream.ToArray()).ToArray();
+    var assemblyBytes = File.ReadAllBytes(Assembly.GetExecutingAssembly().Location);
+
+    var combined = memoryStream.ToArray()
+        .Concat(tokensStream.ToArray())
+        .Concat(nodeKindsStream.ToArray())
+        .Concat(assemblyBytes)
+        .ToArray();
+
     string hash = Convert.ToHexString(SHA256.HashData(combined));
     return hash;
 }
 
-static async Task GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds)
+static async Task<GenerationStats> GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds)
 {
     if (!Directory.Exists("InternalSyntax/generated"))
         Directory.CreateDirectory("InternalSyntax/generated");
@@ -110,65 +136,77 @@ static async Task GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel>
     if (!Directory.Exists("generated"))
         Directory.CreateDirectory("generated");
 
+    var stats = new GenerationStats();
     var nodesByName = model.ToDictionary(n => n.Name);
     foreach (var node in model)
     {
-        await GenerateGreenNode(nodesByName, node);
-        await GenerateRedNode(nodesByName, node);
+        await GenerateGreenNode(nodesByName, node, stats);
+        await GenerateRedNode(nodesByName, node, stats);
     }
 
     var internalTokens = TokenGenerator.GenerateInternalFactory(tokens);
     await File.WriteAllTextAsync("./InternalSyntax/generated/SyntaxFactory.Tokens.g.cs", internalTokens);
+    stats.TokenFiles++;
 
     var redTokens = TokenGenerator.GenerateRedFactory(tokens);
     await File.WriteAllTextAsync("./generated/SyntaxFactory.Tokens.g.cs", redTokens);
+    stats.TokenFiles++;
 
     var factsTokens = TokenGenerator.GenerateSyntaxFacts(tokens);
     await File.WriteAllTextAsync("./generated/SyntaxFacts.Tokens.g.cs", factsTokens);
+    stats.SyntaxFacts++;
 
     var factsNodes = NodeFactsGenerator.GenerateSyntaxFacts(model, nodeKinds);
     await File.WriteAllTextAsync("./generated/SyntaxFacts.Nodes.g.cs", factsNodes);
+    stats.SyntaxFacts++;
 
     var syntaxKind = SyntaxKindGenerator.Generate(model, nodeKinds, tokens);
     await File.WriteAllTextAsync("./generated/SyntaxKind.g.cs", syntaxKind);
+    stats.SyntaxKind++;
 
     var unit = VisitorGenerator.GenerateVisitorClass(model);
     if (unit is not null)
     {
         await File.WriteAllTextAsync($"./generated/SyntaxVisitor.g.cs", unit.ToFullString());
+        stats.Visitors++;
     }
 
     var unit2 = VisitorGenerator.GenerateVisitorClass(model, false, "Raven.CodeAnalysis.Syntax.InternalSyntax");
     if (unit2 is not null)
     {
         await File.WriteAllTextAsync($"./InternalSyntax/generated/SyntaxVisitor.g.cs", unit2.ToFullString());
+        stats.Visitors++;
     }
 
     var unit3 = VisitorGenerator.GenerateGenericVisitorClass(model);
     if (unit3 is not null)
     {
         await File.WriteAllTextAsync($"./generated/SyntaxVisitor`1.g.cs", unit3.ToFullString());
+        stats.Visitors++;
     }
 
     var unit4 = VisitorGenerator.GenerateGenericVisitorClass(model, false, "Raven.CodeAnalysis.Syntax.InternalSyntax");
     if (unit4 is not null)
     {
         await File.WriteAllTextAsync($"./InternalSyntax/generated/SyntaxVisitor`1.g.cs", unit4.ToFullString());
+        stats.Visitors++;
     }
 
     var unit5 = VisitorGenerator.GenerateSyntaxRewriterClass(model);
     if (unit5 is not null)
     {
         await File.WriteAllTextAsync($"./generated/SyntaxRewriter`1.g.cs", unit5.ToFullString());
+        stats.Rewriters++;
     }
 
     var unit6 = VisitorGenerator.GenerateSyntaxRewriterClass(model, false, "Raven.CodeAnalysis.Syntax.InternalSyntax");
     if (unit6 is not null)
     {
         await File.WriteAllTextAsync($"./InternalSyntax/generated/SyntaxRewriter`1.g.cs", unit6.ToFullString());
+        stats.Rewriters++;
     }
 
-    Console.WriteLine($"{model.Count * 2} files were generated for {model.Count} nodes");
+    return stats;
 }
 
 List<SyntaxNodeModel> LoadSyntaxNodesFromXml(string path)
@@ -263,4 +301,18 @@ record NodeKindModel
 {
     public required string Name { get; init; }
     public required string Type { get; init; }
+}
+
+record GenerationStats
+{
+    public int GreenNodes;
+    public int GreenFactories;
+    public int RedNodes;
+    public int RedFactories;
+    public int TokenFiles;
+    public int SyntaxFacts;
+    public int SyntaxKind;
+    public int Visitors;
+    public int Rewriters;
+    public int Total => GreenNodes + GreenFactories + RedNodes + RedFactories + TokenFiles + SyntaxFacts + SyntaxKind + Visitors + Rewriters;
 }

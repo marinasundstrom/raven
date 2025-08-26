@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -27,7 +27,9 @@
   </ItemGroup>
 
   <Target Name="RunNodeGenerator"
-    BeforeTargets="CoreCompile">
+    BeforeTargets="CoreCompile"
+    Inputs="Syntax/Model.xml;Syntax/Tokens.xml;Syntax/NodeKinds.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
+    Outputs="Syntax/generated/.stamp">
     <Exec Command="dotnet run --project ../../../tools/NodeGenerator"
       WorkingDirectory="Syntax" />
   </Target>
