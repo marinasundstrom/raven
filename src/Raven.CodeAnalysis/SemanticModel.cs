@@ -284,6 +284,10 @@ public partial class SemanticModel
                     .ToArray();
                 aliases[alias.Identifier.Text] = aliasSymbols;
             }
+            else
+            {
+                namespaceBinder.Diagnostics.ReportInvalidAliasType(alias.Target.GetLocation());
+            }
         }
 
         var importBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);

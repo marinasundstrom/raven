@@ -247,6 +247,8 @@ alias SB = System.Text.StringBuilder
 alias PrintLine = System.Console.WriteLine
 alias Pair = (x: int, y: int)
 alias Number = int | string
+alias Flag = bool
+alias Text = string
 
 let sb = SB()
 PrintLine("Hi")
@@ -256,6 +258,9 @@ let tmp = IO.Path.GetTempPath()
 Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
+
+Predefined types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, and `void`.
+If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, and these predefined types.
 
 Aliases require fully qualified names for namespaces, types, and members to
 avoid ambiguity; type expressions are written directly. Alias directives may
