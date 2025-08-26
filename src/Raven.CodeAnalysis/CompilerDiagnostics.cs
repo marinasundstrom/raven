@@ -38,6 +38,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _memberAccessRequiresTargetType;
     private static DiagnosticDescriptor? _typeRequiresTypeArguments;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
+    private static DiagnosticDescriptor? _typeAlreadyDefinesMember;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -477,6 +478,19 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV0111: Type '{0}' already defines a member called '{1}' with the same parameter types
+    /// </summary>
+    public static DiagnosticDescriptor TypeAlreadyDefinesMember => _typeAlreadyDefinesMember ??= DiagnosticDescriptor.Create(
+        id: "RAV0111",
+        title: "Member already defined",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Type '{0}' already defines a member called '{1}' with the same parameter types",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -511,7 +525,8 @@ internal class CompilerDiagnostics
         UnterminatedCharacterLiteral,
         InvalidEscapeSequence,
         MemberAccessRequiresTargetType,
-        NullableTypeInUnion
+        NullableTypeInUnion,
+        TypeAlreadyDefinesMember
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -551,6 +566,7 @@ internal class CompilerDiagnostics
             "RAV2010" => MemberAccessRequiresTargetType,
             "RAV0305" => TypeRequiresTypeArguments,
             "RAV0400" => NullableTypeInUnion,
+            "RAV0111" => TypeAlreadyDefinesMember,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

@@ -12,7 +12,7 @@ internal class TypeMemberBinder : Binder
     private readonly INamedTypeSymbol _containingType;
 
     public TypeMemberBinder(Binder parent, INamedTypeSymbol containingType)
-        : base(parent)
+        : base(parent, parent.Diagnostics)
     {
         _containingType = containingType;
     }
@@ -142,6 +142,23 @@ internal class TypeMemberBinder : Binder
 
         var name = methodDecl.Identifier.Kind == SyntaxKind.SelfKeyword ? "Invoke" : methodDecl.Identifier.Text;
 
+        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
+        foreach (var p in methodDecl.ParameterList.Parameters)
+        {
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKind = RefKind.None;
+            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+            {
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                typeSyntax = byRefSyntax.ElementType;
+            }
+
+            var pType = ResolveType(typeSyntax);
+            paramInfos.Add((p.Identifier.Text, pType, refKind, p));
+        }
+
+        CheckForDuplicateSignature(name, name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), methodDecl.Identifier.GetLocation());
+
         var methodSymbol = new SourceMethodSymbol(
             name,
             returnType,
@@ -154,25 +171,16 @@ internal class TypeMemberBinder : Binder
             isStatic: false);
 
         var parameters = new List<SourceParameterSymbol>();
-        foreach (var p in methodDecl.ParameterList.Parameters)
+        foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
         {
-            var typeSyntax = p.TypeAnnotation!.Type;
-            var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-            {
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                typeSyntax = byRefSyntax.ElementType;
-            }
-
-            var pType = ResolveType(typeSyntax);
             var pSymbol = new SourceParameterSymbol(
-                p.Identifier.Text,
-                pType,
+                paramName,
+                paramType,
                 methodSymbol,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
-                [p.GetLocation()],
-                [p.GetReference()],
+                [syntax.GetLocation()],
+                [syntax.GetReference()],
                 refKind
             );
             parameters.Add(pSymbol);
@@ -185,6 +193,23 @@ internal class TypeMemberBinder : Binder
     public MethodBinder BindConstructorDeclaration(ConstructorDeclarationSyntax ctorDecl)
     {
         var isStatic = ctorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+
+        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
+        foreach (var p in ctorDecl.ParameterList.Parameters)
+        {
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKind = RefKind.None;
+            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+            {
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                typeSyntax = byRefSyntax.ElementType;
+            }
+
+            var pType = ResolveType(typeSyntax);
+            paramInfos.Add((p.Identifier.Text, pType, refKind, p));
+        }
+
+        CheckForDuplicateSignature(".ctor", _containingType.Name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.GetLocation());
 
         var ctorSymbol = new SourceMethodSymbol(
             ".ctor",
@@ -199,25 +224,16 @@ internal class TypeMemberBinder : Binder
             methodKind: MethodKind.Constructor);
 
         var parameters = new List<SourceParameterSymbol>();
-        foreach (var p in ctorDecl.ParameterList.Parameters)
+        foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
         {
-            var typeSyntax = p.TypeAnnotation!.Type;
-            var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-            {
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                typeSyntax = byRefSyntax.ElementType;
-            }
-
-            var pType = ResolveType(typeSyntax);
             var pSymbol = new SourceParameterSymbol(
-                p.Identifier.Text,
-                pType,
+                paramName,
+                paramType,
                 ctorSymbol,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
-                [p.GetLocation()],
-                [p.GetReference()],
+                [syntax.GetLocation()],
+                [syntax.GetReference()],
                 refKind
             );
             parameters.Add(pSymbol);
@@ -229,6 +245,23 @@ internal class TypeMemberBinder : Binder
 
     public MethodBinder BindNamedConstructorDeclaration(NamedConstructorDeclarationSyntax ctorDecl)
     {
+        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
+        foreach (var p in ctorDecl.ParameterList.Parameters)
+        {
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKind = RefKind.None;
+            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+            {
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                typeSyntax = byRefSyntax.ElementType;
+            }
+
+            var pType = ResolveType(typeSyntax);
+            paramInfos.Add((p.Identifier.Text, pType, refKind, p));
+        }
+
+        CheckForDuplicateSignature(ctorDecl.Identifier.Text, ctorDecl.Identifier.Text, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.Identifier.GetLocation());
+
         var ctorSymbol = new SourceMethodSymbol(
             ctorDecl.Identifier.Text,
             _containingType,
@@ -242,25 +275,16 @@ internal class TypeMemberBinder : Binder
             methodKind: MethodKind.NamedConstructor);
 
         var parameters = new List<SourceParameterSymbol>();
-        foreach (var p in ctorDecl.ParameterList.Parameters)
+        foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
         {
-            var typeSyntax = p.TypeAnnotation!.Type;
-            var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-            {
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                typeSyntax = byRefSyntax.ElementType;
-            }
-
-            var pType = ResolveType(typeSyntax);
             var pSymbol = new SourceParameterSymbol(
-                p.Identifier.Text,
-                pType,
+                paramName,
+                paramType,
                 ctorSymbol,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
-                [p.GetLocation()],
-                [p.GetReference()],
+                [syntax.GetLocation()],
+                [syntax.GetReference()],
                 refKind
             );
             parameters.Add(pSymbol);
@@ -268,6 +292,49 @@ internal class TypeMemberBinder : Binder
 
         ctorSymbol.SetParameters(parameters);
         return new MethodBinder(ctorSymbol, this);
+    }
+
+    private void CheckForDuplicateSignature(string searchName, string displayName, (ITypeSymbol type, RefKind refKind)[] parameters, Location location)
+    {
+        foreach (var method in _containingType.GetMembers(searchName).OfType<IMethodSymbol>())
+        {
+            if (SignaturesMatch(method, parameters))
+            {
+                _diagnostics.ReportTypeAlreadyDefinesMember(_containingType.Name, displayName, location);
+                break;
+            }
+        }
+    }
+
+    private static bool SignaturesMatch(IMethodSymbol existing, (ITypeSymbol type, RefKind refKind)[] parameters)
+    {
+        if (existing.Parameters.Length != parameters.Length)
+            return false;
+
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var existingParam = existing.Parameters[i];
+            var newParam = parameters[i];
+
+            if (existingParam.RefKind != newParam.refKind)
+                return false;
+
+            var existingType = StripNullableReference(existingParam.Type);
+            var newType = StripNullableReference(newParam.type);
+
+            if (!SymbolEqualityComparer.Default.Equals(existingType, newType))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static ITypeSymbol StripNullableReference(ITypeSymbol type)
+    {
+        if (type is NullableTypeSymbol nt && !nt.UnderlyingType.IsValueType)
+            return StripNullableReference(nt.UnderlyingType);
+
+        return type;
     }
 
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
