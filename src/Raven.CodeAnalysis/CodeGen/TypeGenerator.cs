@@ -112,6 +112,9 @@ internal class TypeGenerator
                         var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, type, attr);
                         if (fieldSymbol.IsLiteral)
                             fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
+                        var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
+                        if (nullableAttr is not null)
+                            fieldBuilder.SetCustomAttribute(nullableAttr);
                         _fieldBuilders[fieldSymbol] = fieldBuilder;
 
                         CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);
@@ -146,6 +149,10 @@ internal class TypeGenerator
                             propBuilder.SetGetMethod((MethodBuilder)getGen.MethodBase);
                         if (setGen != null)
                             propBuilder.SetSetMethod((MethodBuilder)setGen.MethodBase);
+
+                        var nullableAttr = CodeGen.CreateNullableAttribute(propertySymbol.Type);
+                        if (nullableAttr is not null)
+                            propBuilder.SetCustomAttribute(nullableAttr);
 
                         CodeGen.AddMemberBuilder((SourceSymbol)propertySymbol, propBuilder);
                         break;

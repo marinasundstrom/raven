@@ -58,18 +58,20 @@ internal class MethodGenerator
                     parameterTypes);
         }
 
+        ParameterBuilder? returnParamBuilder = MethodBase is MethodBuilder methodBuilder
+            ? methodBuilder.DefineParameter(0, ParameterAttributes.Retval, null)
+            : ((ConstructorBuilder)MethodBase).DefineParameter(0, ParameterAttributes.Retval, null);
+
         if (MethodSymbol.ReturnType.IsUnion)
         {
             var type = MethodSymbol.ReturnType;
-
-            if (MethodBase is MethodBuilder mb)
-            {
-                var returnParam = mb.DefineParameter(0, ParameterAttributes.Retval, null);
-
-                CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);
-                returnParam.SetCustomAttribute(customAttributeBuilder);
-            }
+            CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);
+            returnParamBuilder.SetCustomAttribute(customAttributeBuilder);
         }
+
+        var nullableReturnAttr = TypeGenerator.CodeGen.CreateNullableAttribute(MethodSymbol.ReturnType);
+        if (nullableReturnAttr is not null)
+            returnParamBuilder.SetCustomAttribute(nullableReturnAttr);
 
         int i = 1;
         foreach (var parameterSymbol in MethodSymbol.Parameters)
@@ -92,6 +94,10 @@ internal class MethodGenerator
                 CustomAttributeBuilder customAttributeBuilder = CreateUnionTypeAttribute(type);
                 parameterBuilder.SetCustomAttribute(customAttributeBuilder);
             }
+
+            var nullableAttr = TypeGenerator.CodeGen.CreateNullableAttribute(parameterSymbol.Type);
+            if (nullableAttr is not null)
+                parameterBuilder.SetCustomAttribute(nullableAttr);
 
             _parameterBuilders[parameterSymbol] = parameterBuilder;
             i++;

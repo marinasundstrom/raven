@@ -15,6 +15,14 @@ public static class TypeSymbolExtensionsForCodeGen
         if (codeGen == null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        if (typeSymbol is NullableTypeSymbol nullableType)
+        {
+            var underlying = nullableType.UnderlyingType.GetClrType(codeGen);
+            if (nullableType.UnderlyingType.IsValueType)
+                return typeof(Nullable<>).MakeGenericType(underlying);
+            return underlying;
+        }
+
         if (typeSymbol is PENamedTypeSymbol namedTypeSymbol)
         {
             return namedTypeSymbol.GetTypeInfo();
