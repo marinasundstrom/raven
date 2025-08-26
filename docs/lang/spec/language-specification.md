@@ -46,7 +46,7 @@ let a = 42
 let b = 1; b = 3
 ```
 
-Control-flow constructs such as `if` and `while` are expressions.
+Control-flow constructs such as `if`, `while`, and `for` are expressions.
 When used for their side effects in statement position, they appear as expression statements.
 
 ### Top-level statements
@@ -63,7 +63,7 @@ Console.WriteLine("Hello, World!")
 
 Any expression can appear as a statement.
 
-> **Note:** Control flow such as `if` and `while` are **expressions**. When used
+> **Note:** Control flow such as `if`, `while`, and `for` are **expressions**. When used
 > on their own line, they form an `ExpressionStatement`.
 
 ## Expressions
@@ -74,6 +74,17 @@ Any expression can appear as a statement.
 let hello = "Hello, "
 Console.WriteLine(hello + "World!")
 Console.WriteLine("Hello, " + 2)
+```
+
+### String interpolation
+
+Embed expressions directly into strings using `${...}` without requiring a prefix.
+
+```raven
+let name = "Alice"
+let age = 30
+let msg = "Name: ${name}, Age: ${age}"
+Console.WriteLine(msg)
 ```
 
 ### Array literals and element access
@@ -169,6 +180,25 @@ while i < list.Length {
     let item = list[i]
     Console.WriteLine(item)
     i = i + 1
+}
+```
+
+### `for` expression
+
+Iterates over each element of a collection, binding it to a fresh local. The optional
+`each` keyword improves readability.
+
+```raven
+for each item in items {
+    Console.WriteLine(item)
+}
+```
+
+The `each` keyword may be omitted:
+
+```raven
+for item in items {
+    doSomething(item)
 }
 ```
 

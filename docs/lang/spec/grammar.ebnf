@@ -160,12 +160,19 @@ PrimaryExpression        ::= Literal
                            | ParenthesizedExpression
                            | Block
                            | IfExpression
-                           | WhileExpression ;
+                           | WhileExpression
+                           | ForExpression
+                           | InterpolatedStringExpression ;
 
 Block                    ::= '{' {Statement} '}' ;
 
 IfExpression             ::= 'if' Expression Expression ['else' Expression] ;
 WhileExpression          ::= 'while' Expression Expression ;
+ForExpression            ::= 'for' 'each'? Identifier 'in' Expression Expression ;
+InterpolatedStringExpression ::= '"' {InterpolatedStringContent} '"' ;
+InterpolatedStringContent ::= InterpolatedStringText | Interpolation ;
+InterpolatedStringText   ::= /* text segment without ${ or closing quote */ ;
+Interpolation            ::= '${' Expression '}' ;
 
 ObjectCreationExpression ::= 'new' Type '(' [Argument {',' Argument}] ')' ;
 
