@@ -13,8 +13,10 @@ public class UnitTypeTests
     public void FunctionWithoutReturnType_DefaultsToUnit()
     {
         var source = """
-        func Foo() { }
-        """;
+class C {
+    Foo() { }
+}
+""";
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);

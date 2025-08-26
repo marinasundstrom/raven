@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class LocalFunctionTests
 {
     [Fact]
-    public void LocalFunction_WithoutReturnType_DefaultsToVoid()
+    public void LocalFunction_WithoutReturnType_DefaultsToUnit()
     {
         var source = """
 func outer() {
@@ -22,6 +22,6 @@ func outer() {
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<LocalFunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
-        Assert.Equal(SpecialType.System_Void, symbol.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(symbol.ReturnType, compilation.UnitTypeSymbol));
     }
 }

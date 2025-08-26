@@ -25,7 +25,9 @@ internal class MethodGenerator
 
     internal void DefineMethodBuilder()
     {
-        var returnType = ResolveClrType(MethodSymbol.ReturnType);
+        var returnType = MethodSymbol.ReturnType is UnitTypeSymbol
+            ? typeof(void)
+            : ResolveClrType(MethodSymbol.ReturnType);
 
         var parameterTypes = MethodSymbol.Parameters
             .Select(p =>
