@@ -46,7 +46,7 @@ let a = 42
 let b = 1; b = 3
 ```
 
-Control-flow constructs such as `if` and `while` are expressions.
+Control-flow constructs such as `if`, `while`, and `for` are expressions.
 When used for their side effects in statement position, they appear as expression statements.
 
 ### Top-level statements
@@ -55,15 +55,16 @@ Top-level statements are supported—no `Main` method is required.
 
 ```raven
 import System.*
+alias print = System.Console.WriteLine
 
-Console.WriteLine("Hello, World!")
+print("Hello, World!")
 ```
 
 ### Expression statements
 
 Any expression can appear as a statement.
 
-> **Note:** Control flow such as `if` and `while` are **expressions**. When used
+> **Note:** Control flow such as `if`, `while`, and `for` are **expressions**. When used
 > on their own line, they form an `ExpressionStatement`.
 
 ## Expressions
@@ -74,6 +75,17 @@ Any expression can appear as a statement.
 let hello = "Hello, "
 Console.WriteLine(hello + "World!")
 Console.WriteLine("Hello, " + 2)
+```
+
+### String interpolation
+
+Embed expressions directly into strings using `${...}` without requiring a prefix.
+
+```raven
+let name = "Alice"
+let age = 30
+let msg = "Name: ${name}, Age: ${age}"
+Console.WriteLine(msg)
 ```
 
 ### Array literals and element access
@@ -90,7 +102,9 @@ Foo(1, 2)
 Console.WriteLine("Test")
 ```
 
-Here’s a fixed and polished version of that section for the spec:
+The `()` call operator invokes a function-valued expression. If the target
+expression's type defines an invocation operator via a `self` method, that
+member is invoked instead; see [Invocation operator](#invocation-operator).
 
 ### Object creation
 
@@ -172,6 +186,25 @@ while i < list.Length {
 }
 ```
 
+### `for` expression
+
+Iterates over each element of a collection, binding it to a fresh local. The optional
+`each` keyword improves readability.
+
+```raven
+for each item in items {
+    Console.WriteLine(item)
+}
+```
+
+The `each` keyword may be omitted:
+
+```raven
+for item in items {
+    doSomething(item)
+}
+```
+
 ## Namespace declaration
 
 Each file may define a namespace:
@@ -201,6 +234,22 @@ import System.Math.*
 
 let pi = PI
 ```
+
+### Alias directive
+
+The `alias` directive assigns an alternative name to a fully qualified type or
+static member.
+
+```raven
+alias SB = System.Text.StringBuilder
+alias PrintLine = System.Console.WriteLine
+
+let sb = SB()
+PrintLine("Hi")
+```
+
+Aliases require fully qualified names to avoid ambiguity and may appear at the
+top of a file or inside a namespace alongside import directives.
 
 ### Scoped namespaces
 
@@ -246,14 +295,31 @@ Arrow bodies are allowed:
 func add(a: int, b: int) -> int => a + b
 ```
 
-### `ref`/`out` arguments
+### Local functions
 
-Raven uses the **address operator** `&` at call sites. (Exact rules are
-contextual; the binder enforces that the target is assignable.)
+Functions may be declared inside other functions. A local function is
+scoped to its containing body and can capture local variables.
 
 ```raven
+func outer() {
+    func inner(x: int) -> int { x + 1 }
+    let y = inner(2)
+}
+```
+
+### `ref`/`out` arguments
+
+Parameters can be declared by reference using `&Type`. Use `out` before
+the parameter name to indicate that the value must be assigned by the
+callee. At call sites, pass the argument with the address operator `&`.
+(Exact rules are contextual; the binder enforces that the target is
+assignable.)
+
+```raven
+func TryParse(text: string, out result: &int) -> bool { /* ... */ }
+
 var total = 0
-if !int.TryParse(arg, &total) {
+if !TryParse(arg, &total) {
     Console.WriteLine("Expected number")
 }
 ```
@@ -301,11 +367,30 @@ func add(a: int, b: int) -> int { a + b }
 
 Unions express multiple possible types (e.g., `int | string`).
 
+Union members are normalized: nested unions flatten, duplicates are removed,
+and order is irrelevant. `int | (string | int)` therefore simplifies to
+`int | string`.
+
+The special `null` type may appear as a union member, usually via control
+flow:
+
+```raven
+let maybe = if flag { 1 } else { null }
+// maybe is inferred as: int | null
+```
+
+If a union contains `null` and exactly one non-nullable type, it implicitly
+converts to that type's nullable form (`int | null` converts to `int?`).
+Conversely, explicitly including a nullable type in a union—`string? | int`
+—is a compile-time error.
+
+Explicit annotations follow the same rules:
+
 ```raven
 func test(x: int | string) -> void { /* ... */ }
 ```
 
-Unions arise naturally from control flow:
+Unions also arise naturally from control flow:
 
 ```raven
 let x = 3
@@ -326,6 +411,18 @@ else if y is bool b {
 
 > **Note:** Representation is an implementation detail; conceptually, unions
 > are first-class in the type system even if lowered to `object` at runtime.
+
+### Nullable types
+
+Appending `?` to a type denotes that it may also be `null`. This works for
+both reference and value types.
+
+```raven
+let s: string? = null
+let i: int? = null
+```
+
+Nullable types participate in the type system and overload resolution.
 
 ### Enums
 
@@ -374,6 +471,42 @@ class Counter
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
+
+### Method overloading
+
+Functions and methods may share a name as long as their parameter counts or
+types differ. Overload resolution selects the best match based on argument
+types, `out`/by-ref modifiers, and nullability. Ambiguous calls produce a
+diagnostic.
+
+```raven
+class Printer
+{
+    public Print(x: int) -> void => Console.WriteLine(x)
+    public Print(x: string) -> void => Console.WriteLine(x)
+}
+
+Print(42)
+Print("hi")
+```
+
+### Invocation operator
+
+Declaring a method named `self` makes instances of the type invocable with the
+call operator `()`.
+
+```raven
+class Adder
+{
+    public self(x: int, y: int) -> int => x + y
+}
+
+let add = Adder()
+let sum = add(1, 2) // calls self(1, 2)
+```
+
+Invocation operators can themselves be overloaded by providing multiple `self`
+methods with different parameter signatures.
 
 ## Operators (precedence summary)
 

@@ -29,6 +29,8 @@ dotnet test               # run unit tests (avoid `Sample_should_compile_and_run
 dotnet test --filter Sample_should_compile_and_run # run slow sample test only at the end
 ```
 
+If your changes touch documentation only, you may skip `dotnet build` and `dotnet test` unless they are needed to verify an example or behavior.
+
 ## Coding Guidelines
 * Use idiomatic C# style, following .NET conventions.
 * All compiler components are immutable; avoid in-place mutation.
@@ -37,7 +39,7 @@ dotnet test --filter Sample_should_compile_and_run # run slow sample test only a
 
 ## Contribution Checklist
 * Format each changed file using `dotnet format <path to dir of solution or project file> --include <comma separated list with file paths>` to respect `.editorconfig` rules.
-* Run `dotnet build` and `dotnet test`.
+* Run `dotnet build` and `dotnet test` (omit for documentation-only changes unless verification is required).
 * Ensure generated files (e.g., via `tools/NodeGenerator`) are up to date. (Required for building Raven.CodeAnalysis)
 * Add or update unit tests for every fix or feature.
 * Include concise commit messages (`feat:`, `fix:`, `docs:` etc.).
