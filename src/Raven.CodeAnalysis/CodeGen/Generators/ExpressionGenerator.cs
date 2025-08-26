@@ -1013,6 +1013,15 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
 
+        if (invocationExpression.Type is UnitTypeSymbol)
+        {
+            var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
+                ?? throw new InvalidOperationException("Unit type was not emitted.");
+            var valueField = unitType.GetField("Value")
+                ?? throw new InvalidOperationException("Unit.Value field missing.");
+            ILGenerator.Emit(OpCodes.Ldsfld, valueField);
+        }
+
         // Special cast for Object.GetType() to MemberInfo
         if (target.Name == "GetType"
             && target.ContainingType.Name == "Object"
