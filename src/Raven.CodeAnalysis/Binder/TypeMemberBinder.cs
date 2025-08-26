@@ -53,9 +53,11 @@ internal class TypeMemberBinder : Binder
 
     private ISymbol? BindMethodSymbol(MethodDeclarationSyntax method)
     {
+        var name = method.Identifier.Kind == SyntaxKind.SelfKeyword ? "Invoke" : method.Identifier.Text;
+
         return _containingType.GetMembers()
             .OfType<IMethodSymbol>()
-            .FirstOrDefault(m => m.Name == method.Identifier.Text &&
+            .FirstOrDefault(m => m.Name == name &&
                                  m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == method));
     }
 
@@ -138,8 +140,10 @@ internal class TypeMemberBinder : Binder
             ? Compilation.GetSpecialType(SpecialType.System_Void)
             : ResolveType(methodDecl.ReturnType.Type);
 
+        var name = methodDecl.Identifier.Kind == SyntaxKind.SelfKeyword ? "Invoke" : methodDecl.Identifier.Text;
+
         var methodSymbol = new SourceMethodSymbol(
-            methodDecl.Identifier.Text,
+            name,
             returnType,
             ImmutableArray<SourceParameterSymbol>.Empty,
             _containingType,

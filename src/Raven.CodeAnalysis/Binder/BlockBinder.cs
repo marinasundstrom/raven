@@ -933,8 +933,21 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is IdentifierNameSyntax id)
         {
-            receiver = null;
-            methodName = id.Identifier.Text;
+            var symbol = LookupSymbol(id.Identifier.Text);
+
+            if (symbol is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol)
+            {
+                receiver = BindIdentifierName(id);
+                if (receiver is BoundErrorExpression)
+                    return receiver;
+
+                methodName = "Invoke";
+            }
+            else
+            {
+                receiver = null;
+                methodName = id.Identifier.Text;
+            }
         }
         else if (syntax.Expression is GenericNameSyntax generic)
         {
@@ -960,8 +973,11 @@ partial class BlockBinder : Binder
         }
         else
         {
-            _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            receiver = BindExpression(syntax.Expression);
+            if (receiver is BoundErrorExpression)
+                return receiver;
+
+            methodName = "Invoke";
         }
 
         // Bind arguments
@@ -1041,7 +1057,11 @@ partial class BlockBinder : Binder
 
             if (candidates.Length == 0)
             {
-                _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+                if (methodName == "Invoke")
+                    _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
+                else
+                    _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
