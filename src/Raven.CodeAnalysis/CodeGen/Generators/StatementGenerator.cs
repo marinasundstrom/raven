@@ -1,5 +1,6 @@
 using System.Reflection.Emit;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -33,9 +34,9 @@ internal class StatementGenerator : Generator
 
     private void EmitReturnStatement(BoundReturnStatement returnStatement)
     {
-        if (returnStatement.Expression is not null)
+        if (returnStatement.Expression is { } expr && expr is not BoundUnitExpression)
         {
-            new ExpressionGenerator(this, returnStatement.Expression).Emit();
+            new ExpressionGenerator(this, expr).Emit();
         }
 
         ILGenerator.Emit(OpCodes.Ret);
@@ -56,10 +57,12 @@ internal class StatementGenerator : Generator
 
         // TODO: Handle the case that Pop is required. If not Void, and not assigned anywhere.
 
-        if (symbol is not null && symbol?.UnwrapType()?.SpecialType is not SpecialType.System_Void)
+        var type = symbol?.UnwrapType();
+        if (type is not null &&
+            type.SpecialType is not SpecialType.System_Void &&
+            type is not UnitTypeSymbol)
         {
             // The value is not used, pop it from the stack.
-
             ILGenerator.Emit(OpCodes.Pop);
         }
     }

@@ -65,7 +65,12 @@ public readonly struct VersionStamp : IEquatable<VersionStamp>, IComparable<Vers
     #endregion
 
     /// <summary>Creates a new monotonically increasing stamp.</summary>
-    public static VersionStamp Create() => new(DateTime.UtcNow);
+    public static VersionStamp Create()
+    {
+        var now = DateTime.UtcNow;
+        now = new DateTime(now.Ticks - (now.Ticks % TimeSpan.TicksPerMillisecond), DateTimeKind.Utc);
+        return new VersionStamp(now);
+    }
 
     private static int GetNextGlobalVersion() => Interlocked.Increment(ref s_globalVersion);
 
@@ -77,6 +82,7 @@ public readonly struct VersionStamp : IEquatable<VersionStamp>, IComparable<Vers
     {
         const int localBits = 10;
         DateTime utcNow = DateTime.UtcNow;
+        utcNow = new DateTime(utcNow.Ticks - (utcNow.Ticks % TimeSpan.TicksPerMillisecond), DateTimeKind.Utc);
         int nextLocal;
 
         if (utcNow <= _utcLastModified)
