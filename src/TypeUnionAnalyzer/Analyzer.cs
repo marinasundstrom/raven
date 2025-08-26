@@ -175,6 +175,16 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             if (unionAttr == null)
                 continue;
 
+            if (!parameter.Locations.Any(l => l.IsInSource) &&
+                IsNotUnionCompatibleType(parameter.Type, context.SemanticModel.Compilation))
+            {
+                var diag = Diagnostic.Create(
+                    MustBeObjectTypeRule,
+                    argExpr.GetLocation(),
+                    $"Parameter '{parameter.Name}'");
+                context.ReportDiagnostic(diag);
+            }
+
             var allowedTypes = unionAttr.ConstructorArguments.FirstOrDefault();
             if (allowedTypes.Kind != TypedConstantKind.Array)
                 continue;
@@ -261,6 +271,16 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             {
                 if (IsTypeUnion(attr, out var unionTypes))
                 {
+                    if (!methodSymbol.Locations.Any(l => l.IsInSource) &&
+                        IsNotUnionCompatibleType(methodSymbol.ReturnType, context.SemanticModel.Compilation))
+                    {
+                        var diag = Diagnostic.Create(
+                            MustBeObjectTypeRule,
+                            GetExpression(invocation.Expression).GetLocation(),
+                            $"Return type of method '{methodSymbol.Name}'");
+                        context.ReportDiagnostic(diag);
+                    }
+
                     var typeList = FormatTypeList(unionTypes);
                     var diagnostic = Diagnostic.Create(
                         Rule,
@@ -654,6 +674,16 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 .FirstOrDefault(a => IsTypeUnion(a, out _));
             if (attr == null || !IsTypeUnion(attr, out var allowedTypes))
                 return;
+
+            if (!targetSymbol.Locations.Any(l => l.IsInSource) &&
+                IsNotUnionCompatibleType((targetSymbol as IFieldSymbol)?.Type ?? (targetSymbol as IPropertySymbol)?.Type!, context.SemanticModel.Compilation))
+            {
+                var diag = Diagnostic.Create(
+                    MustBeObjectTypeRule,
+                    assignment.Left.GetLocation(),
+                    $"{(targetSymbol is IPropertySymbol ? "Property" : "Field")} '{targetSymbol.Name}'");
+                context.ReportDiagnostic(diag);
+            }
 
             var rightType = context.SemanticModel.GetTypeInfo(assignment.Right).Type;
 
