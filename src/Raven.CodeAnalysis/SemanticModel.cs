@@ -275,6 +275,10 @@ public partial class SemanticModel
         }
 
         var importBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);
+
+        foreach (var diagnostic in namespaceBinder.Diagnostics.AsEnumerable())
+            importBinder.Diagnostics.Report(diagnostic);
+
         parentBinder = importBinder;
 
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
