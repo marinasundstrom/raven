@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
@@ -36,7 +37,18 @@ internal class CodeGenerator
 
     internal CustomAttributeBuilder? CreateNullableAttribute(ITypeSymbol type)
     {
+        var needsNullable = false;
+
         if (type is NullableTypeSymbol nt && !nt.UnderlyingType.IsValueType)
+        {
+            needsNullable = true;
+        }
+        else if (type is IUnionTypeSymbol u && u.Types.Any(t => t.TypeKind == TypeKind.Null))
+        {
+            needsNullable = true;
+        }
+
+        if (needsNullable)
         {
             var attrType = typeof(System.Runtime.CompilerServices.NullableAttribute);
             var ctor = attrType.GetConstructor(new[] { typeof(byte) });
