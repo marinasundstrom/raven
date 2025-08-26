@@ -29,4 +29,37 @@ public class TupleTypeSemanticTests
             e => Assert.Equal(SpecialType.System_Int32, e.Type.SpecialType),
             e => Assert.Equal(SpecialType.System_String, e.Type.SpecialType));
     }
+
+    [Fact]
+    public void TupleExpression_TargetTyped_UsesDeclaredType()
+    {
+        var source = """
+        let pair: (int, string) = (42, "answer")
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var initializerType = model.GetTypeInfo(declarator.Initializer!.Value).Type;
+        var annotationType = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type;
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(annotationType, initializerType));
+    }
+
+    [Fact]
+    public void TupleExpression_TargetTypedMismatch_ReportsDiagnostic()
+    {
+        var source = "let t: (int, string) = (1, 2)";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.CannotConvertFromTypeToType, diagnostic.Descriptor);
+    }
 }

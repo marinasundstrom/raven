@@ -93,26 +93,28 @@ partial class BlockBinder : Binder
         var isMutable = decl!.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
 
         ITypeSymbol type = Compilation.ErrorTypeSymbol;
-
         BoundExpression? boundInitializer = null;
+
+        var initializer = variableDeclarator.Initializer;
+        if (initializer is not null)
+        {
+            boundInitializer = BindExpression(initializer.Value);
+        }
 
         if (variableDeclarator.TypeAnnotation is null)
         {
-            var initializer = variableDeclarator.Initializer;
-            if (initializer is not null)
-            {
-                var initializerExpr = initializer.Value;
-                boundInitializer = BindExpression(initializerExpr);
+            if (boundInitializer is not null)
                 type = boundInitializer.Type!;
-            }
-            else
-            {
-                //Diagnostics.ReportMemberAccessOnVoid();    
-            }
         }
         else
         {
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
+
+            if (boundInitializer is not null && type.TypeKind != TypeKind.Error && !IsAssignable(type, boundInitializer.Type!))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(boundInitializer.Type!, type, initializer!.Value.GetLocation());
+                boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
+            }
         }
 
         var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer!);
@@ -252,6 +254,25 @@ partial class BlockBinder : Binder
     private BoundExpression BindTupleExpression(TupleExpressionSyntax tupleExpression)
     {
         var elements = new List<BoundExpression>(tupleExpression.Arguments.Count);
+
+        if (GetTargetType(tupleExpression) is ITupleTypeSymbol target && target.TupleElements.Length == tupleExpression.Arguments.Count)
+        {
+            for (int i = 0; i < tupleExpression.Arguments.Count; i++)
+            {
+                var arg = tupleExpression.Arguments[i];
+                var boundExpr = BindExpression(arg.Expression);
+                elements.Add(boundExpr);
+
+                var expected = target.TupleElements[i].Type;
+                if (!IsAssignable(expected, boundExpr.Type!))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(boundExpr.Type!, expected, arg.GetLocation());
+                }
+            }
+
+            return new BoundTupleExpression(elements.ToImmutableArray(), target);
+        }
+
         var tupleElements = new List<(string? name, ITypeSymbol type)>();
 
         foreach (var node in tupleExpression.Arguments)

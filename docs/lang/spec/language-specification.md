@@ -378,8 +378,10 @@ Tuple types use parentheses with comma-separated element types and map to
 let pair: (int, string) = (42, "answer")
 ```
 
-Elements are accessed positionally (e.g. `Item1`, `Item2`). Tuple types may
-nest or participate in other type constructs such as unions or nullability.
+When a tuple expression is assigned to an explicitly annotated tuple type, each
+element is validated against the corresponding element type. Elements are
+accessed positionally (e.g. `Item1`, `Item2`). Tuple types may nest or
+participate in other type constructs such as unions or nullability.
 
 ### Union types
 
