@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -1404,6 +1405,9 @@ internal class ExpressionGenerator : Generator
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
     {
+        if (methodSymbol.IsAlias && methodSymbol is IAliasSymbol alias)
+            return GetMethodInfo((IMethodSymbol)alias.UnderlyingSymbol);
+
         if (methodSymbol is PEMethodSymbol pEMethodSymbol)
             return pEMethodSymbol.GetMethodInfo();
 

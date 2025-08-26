@@ -90,6 +90,16 @@ public interface ISymbol : IEquatable<ISymbol?>
     /// </summary>
     bool IsStatic { get; }
 
+    /// <summary>
+    /// Gets the symbol that this symbol ultimately represents. For non-alias symbols, this returns <c>this</c>.
+    /// </summary>
+    ISymbol UnderlyingSymbol { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether this symbol is an alias.
+    /// </summary>
+    bool IsAlias { get; }
+
     bool CanBeReferencedByName => this switch
     {
         INamespaceOrTypeSymbol => true,
@@ -215,6 +225,11 @@ public interface INamespaceSymbol : INamespaceOrTypeSymbol
 public interface ILambdaSymbol : IMethodSymbol
 {
     ITypeSymbol? DelegateType { get; }
+}
+
+public interface IAliasSymbol : ISymbol
+{
+
 }
 
 public interface IMethodSymbol : ISymbol
