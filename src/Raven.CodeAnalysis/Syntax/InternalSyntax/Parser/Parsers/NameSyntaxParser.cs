@@ -26,6 +26,12 @@ internal class NameSyntaxParser : SyntaxParser
 
     public TypeSyntax ParseTypeName()
     {
+        if (ConsumeToken(SyntaxKind.AmpersandToken, out var ampToken))
+        {
+            var elementType = ParseTypeName();
+            return ByRefType(ampToken, elementType);
+        }
+
         var name = ParseNameCore();
 
         SyntaxList types = SyntaxList.Empty;

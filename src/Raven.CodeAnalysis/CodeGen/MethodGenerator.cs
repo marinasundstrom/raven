@@ -27,7 +27,15 @@ internal class MethodGenerator
     {
         var returnType = ResolveClrType(MethodSymbol.ReturnType);
 
-        var parameterTypes = MethodSymbol.Parameters.Select(p => ResolveClrType(p.Type)).ToArray();
+        var parameterTypes = MethodSymbol.Parameters
+            .Select(p =>
+            {
+                var clrType = ResolveClrType(p.Type);
+                if (p.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+                    return clrType.MakeByRefType();
+                return clrType;
+            })
+            .ToArray();
 
         MethodAttributes attributes = MethodAttributes.HideBySig | MethodAttributes.Public;
         if (MethodSymbol.IsStatic)
@@ -66,11 +74,17 @@ internal class MethodGenerator
         int i = 1;
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {
+            ParameterAttributes attrs = ParameterAttributes.None;
+            if (parameterSymbol.RefKind == RefKind.Out)
+                attrs |= ParameterAttributes.Out;
+            else if (parameterSymbol.RefKind == RefKind.In)
+                attrs |= ParameterAttributes.In;
+
             ParameterBuilder parameterBuilder;
             if (MethodBase is MethodBuilder mb)
-                parameterBuilder = mb.DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
+                parameterBuilder = mb.DefineParameter(i, attrs, parameterSymbol.Name);
             else
-                parameterBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, ParameterAttributes.None, parameterSymbol.Name);
+                parameterBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, attrs, parameterSymbol.Name);
 
             if (parameterSymbol.Type.IsUnion)
             {

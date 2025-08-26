@@ -351,7 +351,15 @@ partial class BlockBinder : Binder
         var parameterSymbols = new List<IParameterSymbol>();
         foreach (var p in parameterSyntaxes)
         {
-            var type = ResolveType(p.TypeAnnotation.Type);
+            var typeSyntax = p.TypeAnnotation.Type;
+            var refKind = RefKind.None;
+            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+            {
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                typeSyntax = byRefSyntax.ElementType;
+            }
+
+            var type = ResolveType(typeSyntax);
             var symbol = new SourceParameterSymbol(
                 p.Identifier.Text,
                 type,
@@ -359,7 +367,8 @@ partial class BlockBinder : Binder
                 _containingSymbol.ContainingType as INamedTypeSymbol,
                 _containingSymbol.ContainingNamespace,
                 [p.GetLocation()],
-                [p.GetReference()]
+                [p.GetReference()],
+                refKind
             );
 
             parameterSymbols.Add(symbol);
@@ -981,19 +990,20 @@ partial class BlockBinder : Binder
         }
 
         // Bind arguments
-        var boundArguments = new BoundExpression[syntax.ArgumentList.Arguments.Count];
+        var boundArgumentsList = new List<BoundExpression>();
         bool hasErrors = false;
-        int i = 0;
         foreach (var arg in syntax.ArgumentList.Arguments)
         {
             var boundArg = BindExpression(arg.Expression);
             if (boundArg is BoundErrorExpression)
                 hasErrors = true;
-            boundArguments[i++] = boundArg;
+            boundArgumentsList.Add(boundArg);
         }
 
         if (hasErrors)
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+
+        var boundArguments = boundArgumentsList.ToArray();
 
         // Handle different receiver kinds
         if (receiver is BoundNamespaceExpression nsReceiver)

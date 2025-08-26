@@ -192,6 +192,10 @@
   <Node Name="NullType" Inherits="Type">
     <Slot Name="NullKeyword" Type="Token" />
   </Node>
+  <Node Name="ByRefType" Inherits="Type">
+    <Slot Name="AmpersandToken" Type="Token" />
+    <Slot Name="ElementType" Type="Type" />
+  </Node>
   <Node Name="UnionType" Inherits="Type">
     <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
   </Node>

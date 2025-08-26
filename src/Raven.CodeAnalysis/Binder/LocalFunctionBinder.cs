@@ -49,15 +49,27 @@ class LocalFunctionBinder : Binder
             isStatic: true);
 
         var parameters = _syntax.ParameterList.Parameters
-            .Select(p => new SourceParameterSymbol(
-                p.Identifier.Text,
-                ResolveType(p.TypeAnnotation.Type),
-                _methodSymbol,
-                container.ContainingType,
-                container.ContainingNamespace,
-                [p.GetLocation()],
-                [p.GetReference()]
-            ))
+            .Select(p =>
+            {
+                var typeSyntax = p.TypeAnnotation.Type;
+                var refKind = RefKind.None;
+                if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+                {
+                    refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                    typeSyntax = byRefSyntax.ElementType;
+                }
+
+                var type = ResolveType(typeSyntax);
+                return new SourceParameterSymbol(
+                    p.Identifier.Text,
+                    type,
+                    _methodSymbol,
+                    container.ContainingType,
+                    container.ContainingNamespace,
+                    [p.GetLocation()],
+                    [p.GetReference()],
+                    refKind);
+            })
             .ToArray();
 
         _methodSymbol.SetParameters(parameters);

@@ -183,6 +183,11 @@ internal abstract class Binder
             return Compilation.NullTypeSymbol;
         }
 
+        if (typeSyntax is ByRefTypeSyntax byRef)
+        {
+            return ResolveType(byRef.ElementType);
+        }
+
         if (typeSyntax is NullableTypeSyntax nb)
         {
             var elementType = ResolveType(nb.ElementType);

@@ -156,7 +156,15 @@ internal class TypeMemberBinder : Binder
         var parameters = new List<SourceParameterSymbol>();
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
-            var pType = ResolveType(p.TypeAnnotation!.Type);
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKind = RefKind.None;
+            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+            {
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                typeSyntax = byRefSyntax.ElementType;
+            }
+
+            var pType = ResolveType(typeSyntax);
             var pSymbol = new SourceParameterSymbol(
                 p.Identifier.Text,
                 pType,
@@ -164,7 +172,8 @@ internal class TypeMemberBinder : Binder
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
                 [p.GetLocation()],
-                [p.GetReference()]
+                [p.GetReference()],
+                refKind
             );
             parameters.Add(pSymbol);
         }
@@ -192,7 +201,15 @@ internal class TypeMemberBinder : Binder
         var parameters = new List<SourceParameterSymbol>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
-            var pType = ResolveType(p.TypeAnnotation!.Type);
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKind = RefKind.None;
+            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+            {
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                typeSyntax = byRefSyntax.ElementType;
+            }
+
+            var pType = ResolveType(typeSyntax);
             var pSymbol = new SourceParameterSymbol(
                 p.Identifier.Text,
                 pType,
@@ -200,7 +217,8 @@ internal class TypeMemberBinder : Binder
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
                 [p.GetLocation()],
-                [p.GetReference()]
+                [p.GetReference()],
+                refKind
             );
             parameters.Add(pSymbol);
         }
@@ -226,7 +244,15 @@ internal class TypeMemberBinder : Binder
         var parameters = new List<SourceParameterSymbol>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
-            var pType = ResolveType(p.TypeAnnotation!.Type);
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKind = RefKind.None;
+            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+            {
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                typeSyntax = byRefSyntax.ElementType;
+            }
+
+            var pType = ResolveType(typeSyntax);
             var pSymbol = new SourceParameterSymbol(
                 p.Identifier.Text,
                 pType,
@@ -234,7 +260,8 @@ internal class TypeMemberBinder : Binder
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
                 [p.GetLocation()],
-                [p.GetReference()]
+                [p.GetReference()],
+                refKind
             );
             parameters.Add(pSymbol);
         }
@@ -330,7 +357,19 @@ internal class TypeMemberBinder : Binder
 
         // Prepare indexer parameters
         var indexerParameters = indexerDecl.ParameterList.Parameters
-            .Select(p => new { Syntax = p, Type = ResolveType(p.TypeAnnotation!.Type) })
+            .Select(p =>
+            {
+                var typeSyntax = p.TypeAnnotation!.Type;
+                var refKind = RefKind.None;
+                if (typeSyntax is ByRefTypeSyntax byRefSyntax)
+                {
+                    refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                    typeSyntax = byRefSyntax.ElementType;
+                }
+
+                var type = ResolveType(typeSyntax);
+                return new { Syntax = p, Type = type, RefKind = refKind };
+            })
             .ToArray();
 
         SourceMethodSymbol? getMethod = null;
@@ -366,7 +405,8 @@ internal class TypeMemberBinder : Binder
                         _containingType,
                         CurrentNamespace!.AsSourceNamespace(),
                         [param.Syntax.GetLocation()],
-                        [param.Syntax.GetReference()]));
+                        [param.Syntax.GetReference()],
+                        param.RefKind));
                 }
                 if (!isGet)
                 {
