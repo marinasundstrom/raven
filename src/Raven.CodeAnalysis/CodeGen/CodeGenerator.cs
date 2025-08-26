@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
@@ -31,6 +31,8 @@ internal class CodeGenerator
 
     public Type? TypeUnionAttributeType { get; private set; }
     public Type? NullType { get; private set; }
+    public Type? NullableAttributeType { get; private set; }
+    ConstructorInfo? _nullableCtor;
 
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
@@ -48,14 +50,43 @@ internal class CodeGenerator
             needsNullable = true;
         }
 
-        if (needsNullable)
-        {
-            var attrType = typeof(System.Runtime.CompilerServices.NullableAttribute);
-            var ctor = attrType.GetConstructor(new[] { typeof(byte) });
-            return new CustomAttributeBuilder(ctor!, new object[] { (byte)2 });
-        }
+        if (!needsNullable)
+            return null;
 
-        return null;
+        EnsureNullableAttributeType();
+        return new CustomAttributeBuilder(_nullableCtor!, new object[] { (byte)2 });
+    }
+
+    void EnsureNullableAttributeType()
+    {
+        if (NullableAttributeType is not null)
+            return;
+
+        var attrBuilder = ModuleBuilder.DefineType(
+            "System.Runtime.CompilerServices.NullableAttribute",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            typeof(Attribute));
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            new[] { typeof(byte) });
+
+        var il = ctorBuilder.GetILGenerator();
+        var baseCtor = typeof(Attribute).GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            null,
+            Type.EmptyTypes,
+            null);
+        if (baseCtor is null)
+            throw new InvalidOperationException("Missing Attribute base constructor.");
+
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Call, baseCtor);
+        il.Emit(OpCodes.Ret);
+
+        NullableAttributeType = attrBuilder.CreateType();
+        _nullableCtor = NullableAttributeType.GetConstructor(new[] { typeof(byte) });
     }
 
     public CodeGenerator(Compilation compilation)
