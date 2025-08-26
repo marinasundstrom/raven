@@ -1,10 +1,10 @@
 # Proposal: Invocation operator
 
-> ℹ️ This proposal has **NOT** been implemented
+> ℹ️ This feature has been implemented
 
 This document outlines how to define an invocation operator which makes an object behave like a callable function object.
 
-Yoy can define one or more unique invocation operators for your type.
+You can define one or more unique invocation operators for your type.
 
 ## Syntax
 
@@ -50,3 +50,4 @@ var x = test.Invoke(2);
 ## Notes
 
 The `Invoke` method mirrors the one of delegates.
+
