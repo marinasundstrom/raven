@@ -92,7 +92,7 @@ class BinderFactory
             if (typeSymbol != null)
             {
                 var alias = GetRightmostIdentifier(importDirective.Name);
-                nsBinder.AddAlias(alias, [typeSymbol]);
+                nsBinder.AddAlias(alias, [AliasSymbolFactory.Create(alias, typeSymbol)]);
             }
         }
 
@@ -101,7 +101,10 @@ class BinderFactory
             var symbols = ResolveAlias(nsSymbol!, aliasDirective.Name);
             if (symbols.Count > 0)
             {
-                nsBinder.AddAlias(aliasDirective.Identifier.Text, symbols);
+                var aliasSymbols = symbols
+                    .Select(s => AliasSymbolFactory.Create(aliasDirective.Identifier.Text, s))
+                    .ToArray();
+                nsBinder.AddAlias(aliasDirective.Identifier.Text, aliasSymbols);
             }
         }
 
@@ -121,6 +124,10 @@ class BinderFactory
 
         IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
         {
+            var nsSymbol = ResolveNamespace(current, name.ToString());
+            if (nsSymbol != null)
+                return [nsSymbol];
+
             // First, attempt to resolve as a type
             ITypeSymbol? typeSymbol = HasTypeArguments(name)
                 ? ResolveGenericType(current, name)

@@ -228,7 +228,7 @@ public partial class SemanticModel
         // Step 2: Handle imports
         var namespaceImports = new List<INamespaceOrTypeSymbol>();
         var typeImports = new List<ITypeSymbol>();
-        var aliases = new Dictionary<string, IReadOnlyList<ISymbol>>();
+        var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
 
         foreach (var import in cu.DescendantNodes().OfType<ImportDirectiveSyntax>())
         {
@@ -266,7 +266,9 @@ public partial class SemanticModel
             var symbols = ResolveAlias(targetNamespace, alias.Name);
             if (symbols.Count > 0)
             {
-                aliases[alias.Identifier.Text] = symbols;
+                aliases[alias.Identifier.Text] = symbols
+                    .Select(s => AliasSymbolFactory.Create(alias.Identifier.Text, s))
+                    .ToArray();
             }
         }
 
@@ -296,6 +298,10 @@ public partial class SemanticModel
 
         IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
         {
+            var nsSymbol = ResolveNamespace(current, name.ToString());
+            if (nsSymbol != null)
+                return [nsSymbol];
+
             ITypeSymbol? typeSymbol = HasTypeArguments(name)
                 ? ResolveGenericType(current, name)
                 : ResolveType(current, name.ToString());

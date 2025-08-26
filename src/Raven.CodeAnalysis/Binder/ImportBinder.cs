@@ -8,13 +8,13 @@ class ImportBinder : Binder
 {
     private readonly IReadOnlyList<INamespaceOrTypeSymbol> _namespaceOrTypeScopeImports;
     private readonly IReadOnlyList<ITypeSymbol> _typeImports;
-    private readonly IReadOnlyDictionary<string, IReadOnlyList<ISymbol>> _aliases;
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<IAliasSymbol>> _aliases;
 
     public ImportBinder(
         Binder parent,
         IReadOnlyList<INamespaceOrTypeSymbol> namespaceOrTypeScopeImports,
         IReadOnlyList<ITypeSymbol> typeImports,
-        IReadOnlyDictionary<string, IReadOnlyList<ISymbol>> aliases)
+        IReadOnlyDictionary<string, IReadOnlyList<IAliasSymbol>> aliases)
         : base(parent)
     {
         _namespaceOrTypeScopeImports = namespaceOrTypeScopeImports;
@@ -60,6 +60,21 @@ class ImportBinder : Binder
         return ParentBinder?.LookupSymbol(name);
     }
 
+    public override INamespaceSymbol? LookupNamespace(string name)
+    {
+        if (_aliases.TryGetValue(name, out var aliasSymbols))
+            return aliasSymbols.OfType<INamespaceSymbol>().FirstOrDefault();
+
+        foreach (var ns in _namespaceOrTypeScopeImports.OfType<INamespaceSymbol>())
+        {
+            var result = ns.LookupNamespace(name);
+            if (result != null)
+                return result;
+        }
+
+        return ParentBinder?.LookupNamespace(name);
+    }
+
     /// <summary>
     /// Gets namespaces and types whose members are in scope.
     /// </summary>
@@ -73,7 +88,7 @@ class ImportBinder : Binder
     /// <summary>
     /// Gets a dictionary with the mapping from alias to resolved symbols.
     /// </summary>
-    public IReadOnlyDictionary<string, IReadOnlyList<ISymbol>> GetAliases() => _aliases;
+    public IReadOnlyDictionary<string, IReadOnlyList<IAliasSymbol>> GetAliases() => _aliases;
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)
     {

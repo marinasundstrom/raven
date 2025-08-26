@@ -76,6 +76,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public bool CanBeReferencedByName => true;
     public ImmutableArray<Location> Locations => _originalDefinition.Locations;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => ImmutableArray<SyntaxReference>.Empty;
+    public ISymbol UnderlyingSymbol => this;
+    public bool IsAlias => false;
     public int Arity => TypeArguments.Length;
     public ImmutableArray<ITypeSymbol> GetTypeArguments() => TypeArguments;
     public ITypeSymbol? OriginalDefinition => _originalDefinition;
@@ -164,6 +166,8 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => _original.IsStatic;
+    public ISymbol UnderlyingSymbol => this;
+    public bool IsAlias => false;
 
     public void Accept(SymbolVisitor visitor)
     {
@@ -256,6 +260,8 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => _original.IsStatic;
+    public ISymbol UnderlyingSymbol => this;
+    public bool IsAlias => false;
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitField(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitField(this);
@@ -306,6 +312,8 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => _original.IsStatic;
+    public ISymbol UnderlyingSymbol => this;
+    public bool IsAlias => false;
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitProperty(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitProperty(this);
@@ -351,6 +359,8 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
     public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
     public bool IsStatic => false;
+    public ISymbol UnderlyingSymbol => this;
+    public bool IsAlias => false;
     public bool IsParams => _original.IsParams;
     public RefKind RefKind => _original.RefKind;
 
