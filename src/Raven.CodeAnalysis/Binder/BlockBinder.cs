@@ -619,6 +619,22 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(type);
         }
 
+        if (syntax is TupleTypeSyntax tupleTypeSyntax)
+        {
+            var boundTypes = tupleTypeSyntax.Types
+                .Select(t => BindTypeSyntax(t))
+                .OfType<BoundTypeExpression>()
+                .Select(b => b.Type)
+                .ToList();
+
+            if (boundTypes.Count != tupleTypeSyntax.Types.Count)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+            var tupleType = CreateTupleTypeSymbol(boundTypes.Select((t, i) => ($"Item{i + 1}", t)));
+
+            return new BoundTypeExpression(tupleType);
+        }
+
         if (syntax is IdentifierNameSyntax id)
         {
             return BindTypeName(id.Identifier.Text, id.GetLocation(), []);
