@@ -55,6 +55,7 @@ ClassBody                ::= '{' {ClassMember} '}' ;
 
 ClassMember              ::= FieldDeclaration
                            | MethodDeclaration
+                           | InvocationOperatorDeclaration
                            | ConstructorDeclaration
                            | PropertyDeclaration
                            | IndexerDeclaration ;
@@ -73,6 +74,12 @@ MethodDeclaration        ::= MemberModifiers?
                              Identifier '(' ParameterList? ')'
                              ReturnTypeClause?
                              ( Block | '=>' Expression ) ;
+
+InvocationOperatorDeclaration
+                           ::= MemberModifiers?
+                               'self' '(' ParameterList? ')'
+                               ReturnTypeClause?
+                               ( Block | '=>' Expression ) ;
 
 PropertyDeclaration      ::= MemberModifiers?
                              Identifier ':' Type AccessorList ;

@@ -101,7 +101,9 @@ Foo(1, 2)
 Console.WriteLine("Test")
 ```
 
-Here’s a fixed and polished version of that section for the spec:
+The `()` call operator invokes a function-valued expression. If the target
+expression's type defines an invocation operator via a `self` method, that
+member is invoked instead; see [Invocation operator](#invocation-operator).
 
 ### Object creation
 
@@ -433,6 +435,42 @@ class Counter
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
+
+### Method overloading
+
+Functions and methods may share a name as long as their parameter counts or
+types differ. Overload resolution selects the best match based on argument
+types, `out`/by-ref modifiers, and nullability. Ambiguous calls produce a
+diagnostic.
+
+```raven
+class Printer
+{
+    public Print(x: int) -> void => Console.WriteLine(x)
+    public Print(x: string) -> void => Console.WriteLine(x)
+}
+
+Print(42)
+Print("hi")
+```
+
+### Invocation operator
+
+Declaring a method named `self` makes instances of the type invocable with the
+call operator `()`.
+
+```raven
+class Adder
+{
+    public self(x: int, y: int) -> int => x + y
+}
+
+let add = Adder()
+let sum = add(1, 2) // calls self(1, 2)
+```
+
+Invocation operators can themselves be overloaded by providing multiple `self`
+methods with different parameter signatures.
 
 ## Operators (precedence summary)
 
