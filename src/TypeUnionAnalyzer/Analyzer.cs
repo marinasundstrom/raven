@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
+using System.Collections.Generic;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace TypeUnionAnalyzer;
 
@@ -74,6 +76,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeFieldDeclaration, SyntaxKind.FieldDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzePropertyDeclaration, SyntaxKind.PropertyDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeAssignmentExpression, SyntaxKind.SimpleAssignmentExpression);
+        context.RegisterOperationBlockStartAction(AnalyzeOperationBlock);
     }
 
     private void AnalyzeParameter(SyntaxNodeAnalysisContext context)
@@ -700,6 +703,116 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             }
         }
     }
+
+    private void AnalyzeOperationBlock(OperationBlockStartAnalysisContext context)
+    {
+        var locals = new Dictionary<ILocalSymbol, ImmutableArray<ITypeSymbol>>(SymbolEqualityComparer.Default);
+
+        context.RegisterOperationAction(ctx =>
+        {
+            var declarator = (IVariableDeclaratorOperation)ctx.Operation;
+            if (declarator.Initializer != null &&
+                TryGetUnionTypesFromExpression(declarator.Initializer.Value, ctx.Compilation, locals, out var types))
+            {
+                locals[declarator.Symbol] = types;
+                if (declarator.Syntax is VariableDeclaratorSyntax vds)
+                {
+                    var diag = Diagnostic.Create(
+                        Rule,
+                        vds.Identifier.GetLocation(),
+                        $"Variable '{declarator.Symbol.Name}' is",
+                        FormatTypeList(types));
+                    ctx.ReportDiagnostic(diag);
+                }
+            }
+        }, OperationKind.VariableDeclarator);
+
+        context.RegisterOperationAction(ctx =>
+        {
+            var assignment = (ISimpleAssignmentOperation)ctx.Operation;
+            if (assignment.Target is ILocalReferenceOperation localRef &&
+                TryGetUnionTypesFromExpression(assignment.Value, ctx.Compilation, locals, out var types))
+            {
+                locals[localRef.Local] = types;
+                var diag = Diagnostic.Create(
+                    Rule,
+                    assignment.Target.Syntax.GetLocation(),
+                    $"Variable '{localRef.Local.Name}' is",
+                    FormatTypeList(types));
+                ctx.ReportDiagnostic(diag);
+            }
+        }, OperationKind.SimpleAssignment);
+
+        context.RegisterOperationAction(ctx =>
+        {
+            var localRef = (ILocalReferenceOperation)ctx.Operation;
+            if (locals.TryGetValue(localRef.Local, out var types))
+            {
+                var diag = Diagnostic.Create(
+                    Rule,
+                    localRef.Syntax.GetLocation(),
+                    $"Variable '{localRef.Local.Name}' is",
+                    FormatTypeList(types));
+                ctx.ReportDiagnostic(diag);
+            }
+        }, OperationKind.LocalReference);
+    }
+
+    private static bool TryGetUnionTypes(ISymbol symbol, out ImmutableArray<ITypeSymbol> types)
+    {
+        IEnumerable<AttributeData> attrs = symbol switch
+        {
+            IMethodSymbol m => m.GetReturnTypeAttributes().Concat(m.GetAttributes()),
+            _ => symbol.GetAttributes()
+        };
+
+        foreach (var attr in attrs)
+        {
+            if (IsTypeUnion(attr, out var tc))
+            {
+                types = tc.Values
+                    .Select(v => v.Value as ITypeSymbol)
+                    .OfType<ITypeSymbol>()
+                    .ToImmutableArray();
+                return true;
+            }
+        }
+
+        types = default;
+        return false;
+    }
+
+    private static bool TryGetUnionTypesFromExpression(IOperation op, Compilation compilation, Dictionary<ILocalSymbol, ImmutableArray<ITypeSymbol>> locals, out ImmutableArray<ITypeSymbol> types)
+    {
+        switch (op)
+        {
+            case IInvocationOperation invocation when TryGetUnionTypes(invocation.TargetMethod, out types):
+                return true;
+            case ILocalReferenceOperation localRef when locals.TryGetValue(localRef.Local, out types):
+                return true;
+            case IParameterReferenceOperation paramRef when TryGetUnionTypes(paramRef.Parameter, out types):
+                return true;
+            case IPropertyReferenceOperation propRef when TryGetUnionTypes(propRef.Property, out types):
+                return true;
+            case IFieldReferenceOperation fieldRef when TryGetUnionTypes(fieldRef.Field, out types):
+                return true;
+            case IConditionalOperation cond:
+                var hasTrue = TryGetUnionTypesFromExpression(cond.WhenTrue, compilation, locals, out var trueTypes);
+                var hasFalse = TryGetUnionTypesFromExpression(cond.WhenFalse, compilation, locals, out var falseTypes);
+                if (hasTrue || hasFalse)
+                {
+                    types = trueTypes.Concat(falseTypes).Distinct<ITypeSymbol>(SymbolEqualityComparer.Default).ToImmutableArray();
+                    return types.Length > 0;
+                }
+                break;
+        }
+
+        types = default;
+        return false;
+    }
+
+    private static string FormatTypeList(ImmutableArray<ITypeSymbol> types)
+        => string.Join(" or ", types.Select(t => $"'{FormatTypeName(t)}'"));
 
     private static bool IsNullShim(ITypeSymbol type)
         => type.Name == "Null" && type.ContainingNamespace?.IsGlobalNamespace == true;
