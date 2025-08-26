@@ -55,8 +55,9 @@ Top-level statements are supported—no `Main` method is required.
 
 ```raven
 import System.*
+alias print = System.Console.WriteLine
 
-Console.WriteLine("Hello, World!")
+print("Hello, World!")
 ```
 
 ### Expression statements
@@ -233,6 +234,22 @@ import System.Math.*
 
 let pi = PI
 ```
+
+### Alias directive
+
+The `alias` directive assigns an alternative name to a fully qualified type or
+static member.
+
+```raven
+alias SB = System.Text.StringBuilder
+alias PrintLine = System.Console.WriteLine
+
+let sb = SB()
+PrintLine("Hi")
+```
+
+Aliases require fully qualified names to avoid ambiguity and may appear at the
+top of a file or inside a namespace alongside import directives.
 
 ### Scoped namespaces
 
