@@ -97,6 +97,8 @@ Any expression can appear as a statement.
 
 The `return` keyword exits a function, lambda, or property accessor. Because control-flow constructs are expressions, using `return` inside an expression that itself produces a value is not allowed. Explicit `return` statements may appear only in statement positions, such as within a function body or as their own expression statement. When a `return` occurs in a value context—for example, within an `if` expression assigned to a variable—the compiler reports diagnostic `RAV1900` and the block should rely on an implicit return instead.
 
+A `return` statement may omit its expression when the surrounding function or accessor returns `unit` (projected as `void` in IL). This is equivalent to returning the `()` value explicitly.
+
 ```raven
 func choose(flag: bool) -> int | () {
     if flag {
@@ -108,6 +110,11 @@ func choose(flag: bool) -> int | () {
 
 if flag {
     return 42          // allowed: expression used as a statement
+}
+
+func log(msg: string) {
+    Console.WriteLine(msg)
+    return            // equivalent to returning ()
 }
 ```
 

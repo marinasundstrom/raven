@@ -166,16 +166,23 @@ partial class BlockBinder : Binder
 
     private BoundStatement BindReturnStatement(ReturnStatementSyntax returnStatement)
     {
-        var expr = returnStatement.Expression is not null
-            ? BindExpression(returnStatement.Expression)
-            : new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+        BoundExpression? expr = null;
 
-        if (_allowReturnsInExpression &&
-            _containingSymbol is IMethodSymbol method &&
-            expr.Type is not null &&
-            !IsAssignable(method.ReturnType, expr.Type))
+        if (returnStatement.Expression is not null)
+            expr = BindExpression(returnStatement.Expression);
+
+        if (_allowReturnsInExpression && _containingSymbol is IMethodSymbol method)
         {
-            _diagnostics.ReportCannotConvertFromTypeToType(expr.Type, method.ReturnType, returnStatement.Expression?.GetLocation() ?? returnStatement.GetLocation());
+            if (expr is null)
+            {
+                var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+                if (!IsAssignable(method.ReturnType, unit))
+                    _diagnostics.ReportCannotConvertFromTypeToType(unit, method.ReturnType, returnStatement.GetLocation());
+            }
+            else if (expr.Type is not null && !IsAssignable(method.ReturnType, expr.Type))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(expr.Type, method.ReturnType, returnStatement.Expression!.GetLocation());
+            }
         }
 
         return new BoundReturnStatement(expr);
