@@ -36,6 +36,14 @@ internal class StatementGenerator : Generator
         if (returnStatement.Expression is not null)
         {
             new ExpressionGenerator(this, returnStatement.Expression).Emit();
+
+            var expressionType = returnStatement.Expression.Type;
+            var returnType = MethodSymbol.ReturnType;
+
+            if (expressionType.IsValueType && (returnType.SpecialType is SpecialType.System_Object || returnType is IUnionTypeSymbol))
+            {
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+            }
         }
 
         ILGenerator.Emit(OpCodes.Ret);
