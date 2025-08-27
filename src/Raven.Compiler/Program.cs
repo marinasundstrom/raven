@@ -9,9 +9,6 @@ using Spectre.Console;
 using static Raven.AppHostBuilder;
 using static Raven.ConsoleEx;
 
-// ONLY FOR DEVELOPMENT
-bool debug = true;
-
 var stopwatch = Stopwatch.StartNew();
 
 // ravc test.rav [-o test.exe]
@@ -20,16 +17,18 @@ var stopwatch = Stopwatch.StartNew();
 // Options:
 // -s - display the syntax tree
 // -d - dump syntax (highlighted)
+// -r - print the source
+// -b - print binder tree
 
 var filePath = args.Length > 0 ? args[0] : $"../../../samples/main{RavenFileExtensions.Raven}";
 var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : "test.dll"; //: null;
 
-var shouldPrintSyntaxTree = args.Contains("-s");
-var shouldDumpSyntax = args.Contains("-d");
+var debug = DebugFileExists();
 
-
-var shouldDumpRawSyntax = false;
-var shouldDumpBinders = false;
+var shouldPrintSyntaxTree = debug || args.Contains("-s");
+var shouldDumpSyntax = debug || args.Contains("-d");
+var shouldDumpRawSyntax = debug || args.Contains("-r");
+var shouldDumpBinders = debug || args.Contains("-b");
 
 filePath = Path.GetFullPath(filePath);
 
@@ -105,7 +104,7 @@ using (var stream = File.OpenWrite($"{outputPath}"))
 
 stopwatch.Stop();
 
-if (shouldDumpRawSyntax || debug)
+if (shouldDumpRawSyntax)
 {
     var str = root.ToFullString();
     Console.WriteLine(str);
@@ -113,13 +112,13 @@ if (shouldDumpRawSyntax || debug)
     Console.WriteLine();
 }
 
-if (shouldPrintSyntaxTree || debug)
+if (shouldPrintSyntaxTree)
 {
     var includeLocations = true;
     root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = includeLocations, Colorize = true, ExpandListsAsProperties = true });
 }
 
-if (shouldDumpSyntax || debug)
+if (shouldDumpSyntax)
 {
     ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
@@ -128,7 +127,7 @@ if (shouldDumpSyntax || debug)
     Console.WriteLine();
 }
 
-if (shouldDumpBinders || debug)
+if (shouldDumpBinders)
 {
     var semanticModel = compilation.GetSemanticModel(syntaxTree);
     semanticModel.PrintBinderTree();
@@ -170,4 +169,19 @@ if (result is not null)
 static bool IsProjectFolder(string path)
 {
     return Directory.EnumerateFiles(path, "*.csproj", SearchOption.TopDirectoryOnly).Any();
+}
+
+static bool DebugFileExists()
+{
+    var dir = Environment.CurrentDirectory;
+    while (dir is not null)
+    {
+        var debug = Path.Combine(dir, ".debug");
+        if (File.Exists(debug))
+            return true;
+
+        dir = Path.GetDirectoryName(dir);
+    }
+
+    return false;
 }

@@ -1,12 +1,11 @@
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public partial class SampleProgramsTests(ITestOutputHelper testOutput)
+public class SampleProgramsTests
 {
     public static IEnumerable<object[]> SamplePrograms =>
     [
@@ -44,7 +43,8 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
         })!;
 
         build.WaitForExit(TimeSpan.FromSeconds(3));
-        testOutput.WriteLine(StripAnsi((await build.StandardOutput.ReadToEndAsync())));
+        _ = await build.StandardOutput.ReadToEndAsync();
+        build.WaitForExit();
 
         Assert.Equal(0, build.ExitCode);
 
@@ -65,7 +65,8 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
         })!;
 
         run.WaitForExit(TimeSpan.FromSeconds(2));
-        testOutput.WriteLine(await run.StandardOutput.ReadToEndAsync());
+        _ = await run.StandardOutput.ReadToEndAsync();
+        run.WaitForExit();
 
         Assert.Equal(0, run.ExitCode);
     }
@@ -126,12 +127,4 @@ public partial class SampleProgramsTests(ITestOutputHelper testOutput)
         Assert.Empty(diagnostics);
     }
 
-    static string StripAnsi(string input)
-    {
-        // Matches ANSI escape codes like \x1b[32m
-        return MyRegex().Replace(input, "");
-    }
-
-    [GeneratedRegex(@"\x1B\[[0-9;]*[A-Za-z]")]
-    private static partial Regex MyRegex();
 }
