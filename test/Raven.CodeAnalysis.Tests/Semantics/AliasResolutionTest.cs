@@ -219,7 +219,7 @@ public class AliasResolutionTest : DiagnosticTestBase
 
         var verifier = CreateVerifier(
             testCode,
-            expectedDiagnostics: [new DiagnosticResult("RAV2020").WithSeverity(DiagnosticSeverity.Error).WithLocation(1, 13)],
+            expectedDiagnostics: [new DiagnosticResult("RAV2020").WithSeverity(DiagnosticSeverity.Error).WithSpan(1, 13, 1, 21)],
             disabledDiagnostics: ["RAV0103"]);
 
         verifier.Verify();

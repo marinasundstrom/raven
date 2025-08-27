@@ -24,8 +24,8 @@ class Foo {
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1900").WithLocation(4, 13),
-                new DiagnosticResult("RAV1900").WithLocation(6, 13)
+                new DiagnosticResult("RAV1900").WithSpan(4, 13, 4, 13),
+                new DiagnosticResult("RAV1900").WithSpan(6, 13, 6, 13)
             ]);
 
         var result = verifier.GetResult();
@@ -53,8 +53,8 @@ let x = if true {
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1900").WithLocation(2, 5),
-                new DiagnosticResult("RAV1900").WithLocation(4, 5)
+                new DiagnosticResult("RAV1900").WithSpan(2, 5, 2, 5),
+                new DiagnosticResult("RAV1900").WithSpan(4, 5, 4, 5)
             ]);
 
         var result = verifier.GetResult();

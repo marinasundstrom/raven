@@ -29,7 +29,7 @@ public class NamespaceResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
                testCode,
                [
-                    new DiagnosticResult("RAV0234").WithLocation(1, 8).WithArguments("Foo", "System"),
+                    new DiagnosticResult("RAV0234").WithSpan(1, 8, 1, 11).WithArguments("Foo", "System"),
                ]);
 
         verifier.Verify();
@@ -59,7 +59,7 @@ public class NamespaceResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
                     testCode,
                     [
-                         new DiagnosticResult("RAV0117").WithLocation(1, 1).WithArguments("Console", "WriteLine2"),
+                         new DiagnosticResult("RAV0117").WithSpan(1, 1, 1, 26).WithArguments("Console", "WriteLine2"),
                     ]);
 
         verifier.Verify();
@@ -76,7 +76,7 @@ public class NamespaceResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
                     testCode,
                     [
-                         new DiagnosticResult("RAV0103").WithLocation(1, 1).WithArguments("Console"),
+                         new DiagnosticResult("RAV0103").WithSpan(1, 1, 1, 8).WithArguments("Console"),
                     ]);
 
         verifier.Verify();

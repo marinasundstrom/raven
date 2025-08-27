@@ -19,7 +19,7 @@ class C {
         var verifier = CreateAnalyzerVerifier<MissingReturnTypeAnnotationAnalyzer>(code,
             expectedDiagnostics: [
                 new DiagnosticResult(MissingReturnTypeAnnotationAnalyzer.DiagnosticId)
-                    .WithLocation(2, 5)
+                    .WithSpan(2, 5, 2, 9)
                     .WithArguments("Test", "Unit")
             ],
             disabledDiagnostics: ["RAV1503"]);

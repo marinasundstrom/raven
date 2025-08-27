@@ -18,7 +18,7 @@ public class PropertyBindingTests : DiagnosticTestBase
             """;
 
         var verifier = CreateVerifier(testCode,
-            [new DiagnosticResult("RAV0117").WithLocation(6, 5).WithArguments("Foo", "Bar")]);
+            [new DiagnosticResult("RAV0117").WithSpan(6, 5, 6, 8).WithArguments("Foo", "Bar")]);
 
         verifier.Verify();
     }
@@ -38,7 +38,7 @@ public class PropertyBindingTests : DiagnosticTestBase
             """;
 
         var verifier = CreateVerifier(testCode,
-            [new DiagnosticResult("RAV0103").WithLocation(7, 3).WithArguments("Bar")]);
+            [new DiagnosticResult("RAV0103").WithSpan(7, 3, 7, 6).WithArguments("Bar")]);
 
         verifier.Verify();
     }

@@ -17,7 +17,7 @@ public class SymbolQueryTests : DiagnosticTestBase
             """;
 
         var verifier = CreateVerifier(testCode,
-            [new DiagnosticResult("RAV0117").WithLocation(5, 1).WithArguments("Foo", "M")]);
+            [new DiagnosticResult("RAV0117").WithSpan(5, 1, 5, 6).WithArguments("Foo", "M")]);
 
         verifier.Verify();
     }
