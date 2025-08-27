@@ -37,8 +37,8 @@ func Foo() -> unit {
 * `unit` may appear in unions and tuples.
 * Declaring parameters of type `unit` is discouraged and may be disallowed; fields and properties cannot be solely `unit`, though they may use unions that include it.
 * The `unit` type typically arises from control flow and type inference rather than explicit user annotations.
-* The `()` literal may only appear as an explicit `return ()` or as the implicit result of a block; standalone expressions such as `[()]` or `(1, ())` are invalid.
-* Because `unit` is a concrete value, `return` statements must supply an expression; `return;` is invalid. Use `return ()` for an explicit unit or fall through to return it implicitly.
+* The `()` literal may appear as an explicit `return ()` or as the implicit result of a block; standalone expressions such as `[()]` or `(1, ())` are invalid.
+* Although `unit` has a concrete value, `return` may omit an expression when a function returns `unit` or .NET `void`, in which case `()` is returned implicitly.
 * `unit` participates in pattern matching like any other value. A dedicated `match` expression is a separate proposal; existing `if`-expression pattern syntax (`if x is () { ... }`) already works.
 
 ```raven

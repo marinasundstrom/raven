@@ -1,11 +1,6 @@
-import System.*
-
-let x = test(false)
-Console.WriteLine(x);
-
-func test(flag: bool) -> int | () {
-    if flag {
-        return 42
+let a = 2
+let x = if a == 2 {
+        42
+    } else {
+        ()
     }
-    ()
-}
