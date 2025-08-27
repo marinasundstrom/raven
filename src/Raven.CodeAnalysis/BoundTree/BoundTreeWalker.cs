@@ -75,8 +75,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         switch (statement)
         {
-            case BoundLocalFunctionStatement localFunctionStatement:
-                VisitLocalFunctionStatement(localFunctionStatement);
+            case BoundFunctionStatement functionStatement:
+                VisitFunctionStatement(functionStatement);
                 break;
             case BoundExpressionStatement expressionStatement:
                 VisitExpressionStatement(expressionStatement);

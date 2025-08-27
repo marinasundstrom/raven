@@ -26,12 +26,12 @@ Binders are chained together so that each scope can fall back to its parent. The
 | `TopLevelBinder` | Binds global statements and synthesizes the entry point. | When a file contains top‑level statements. | `ImportBinder` |
 | `TypeDeclarationBinder` | Base binder for type declarations, establishing member scope. | For each type (class, enum, etc.). | `ImportBinder` or containing `TypeDeclarationBinder` |
 | `TypeMemberBinder` | Base binder for members declared in a type. | When binding a member. | `TypeDeclarationBinder` |
-| `MethodBinder` | Provides parameter symbols and method context. | Entering a method or local function declaration. | `TypeMemberBinder` |
+| `MethodBinder` | Provides parameter symbols and method context. | Entering a method or function declaration. | `TypeMemberBinder` |
 | `MethodBodyBinder` | Binds statements and locals inside a method body. | When binding a method's block. | `MethodBinder` |
 | `BlockBinder` | Represents a block scope. | Encountering a `{}` block. | `MethodBinder` or another `BlockBinder` |
 | `LocalScopeBinder` | Tracks nested scopes such as `if`, `while`, or `for` statements. | Entering a nested statement scope. | `BlockBinder` |
 | `LambdaBinder` | Binds lambda expressions. | Encountering a lambda expression. | `BlockBinder` or `MethodBinder` |
-| `LocalFunctionBinder` | Binds local function declarations. | Encountering a local function. | `BlockBinder` |
+| `FunctionBinder` | Binds function declarations inside other functions. | Encountering a function. | `BlockBinder` |
 
 ### Typical order
 From the outermost scope inward, binders typically appear in the following order:

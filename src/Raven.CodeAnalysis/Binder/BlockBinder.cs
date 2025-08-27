@@ -24,7 +24,7 @@ partial class BlockBinder : Binder
             VariableDeclaratorSyntax v => BindLocalDeclaration(v).Symbol,
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
             SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation).Local,
-            LocalFunctionStatementSyntax localFunctionStatement => BindLocalFunction(localFunctionStatement).Method,
+            FunctionStatementSyntax functionStatement => BindFunction(functionStatement).Method,
             _ => base.BindDeclaredSymbol(node)
         };
     }
@@ -59,7 +59,7 @@ partial class BlockBinder : Binder
         if (_locals.TryGetValue(name, out var sym))
             return sym;
 
-        if (_localFunctions.TryGetValue(name, out var func))
+        if (_functions.TryGetValue(name, out var func))
             return func;
 
         var parentSymbol = ParentBinder?.LookupSymbol(name);
@@ -147,7 +147,7 @@ partial class BlockBinder : Binder
         {
             LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclaration(localDeclaration.Declaration.Declarators[0]),
             ExpressionStatementSyntax expressionStmt => new BoundExpressionStatement(BindExpression(expressionStmt.Expression)),
-            LocalFunctionStatementSyntax localFunction => BindLocalFunction(localFunction),
+            FunctionStatementSyntax function => BindFunction(function),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
@@ -167,7 +167,7 @@ partial class BlockBinder : Binder
         return new BoundReturnStatement(expr);
     }
 
-    public Dictionary<string, IMethodSymbol> _localFunctions = new();
+    public Dictionary<string, IMethodSymbol> _functions = new();
 
     protected static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second)
     {
@@ -188,19 +188,19 @@ partial class BlockBinder : Binder
         if (TryGetCachedBoundNode(block) is BoundExpression cached)
             return (BoundBlockExpression)cached;
 
-        // Step 1: Pre-declare all local functions
+        // Step 1: Pre-declare all functions
         foreach (var stmt in block.Statements)
         {
-            if (stmt is LocalFunctionStatementSyntax localFunc)
+            if (stmt is FunctionStatementSyntax func)
             {
-                var localFuncBinder = SemanticModel.GetBinder(localFunc, this);
-                if (localFuncBinder is LocalFunctionBinder lfBinder)
+                var functionBinder = SemanticModel.GetBinder(func, this);
+                if (functionBinder is FunctionBinder lfBinder)
                 {
                     var symbol = lfBinder.GetMethodSymbol();
-                    if (_localFunctions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
-                        _diagnostics.ReportLocalFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
+                    if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
                     else
-                        _localFunctions[symbol.Name] = symbol;
+                        _functions[symbol.Name] = symbol;
                 }
             }
         }
@@ -1467,7 +1467,7 @@ partial class BlockBinder : Binder
                 if (block._locals.TryGetValue(name, out var local) && seen.Add(local))
                     yield return local;
 
-                if (block._localFunctions.TryGetValue(name, out var func) && seen.Add(func))
+                if (block._functions.TryGetValue(name, out var func) && seen.Add(func))
                     yield return func;
             }
 
@@ -1574,22 +1574,22 @@ partial class BlockBinder : Binder
         }
     }
 
-    public override BoundLocalFunctionStatement BindLocalFunction(LocalFunctionStatementSyntax localFunction)
+    public override BoundFunctionStatement BindFunction(FunctionStatementSyntax function)
     {
         // Get the binder from the factory
-        var binder = SemanticModel.GetBinder(localFunction, this);
+        var binder = SemanticModel.GetBinder(function, this);
 
-        if (binder is not LocalFunctionBinder localFunctionBinder)
-            throw new InvalidOperationException("Expected LocalFunctionBinder");
+        if (binder is not FunctionBinder functionBinder)
+            throw new InvalidOperationException("Expected FunctionBinder");
 
         // Register the symbol in the current scope
-        var symbol = localFunctionBinder.GetMethodSymbol();
+        var symbol = functionBinder.GetMethodSymbol();
 
         // Bind the body with method binder
-        var methodBinder = localFunctionBinder.GetMethodBodyBinder();
-        var blockBinder = SemanticModel.GetBinder(localFunction.Body, methodBinder);
-        var body = blockBinder.BindExpression(localFunction.Body);
+        var methodBinder = functionBinder.GetMethodBodyBinder();
+        var blockBinder = SemanticModel.GetBinder(function.Body, methodBinder);
+        var body = blockBinder.BindExpression(function.Body);
 
-        return new BoundLocalFunctionStatement(symbol); // Possibly include body here if needed
+        return new BoundFunctionStatement(symbol); // Possibly include body here if needed
     }
 }

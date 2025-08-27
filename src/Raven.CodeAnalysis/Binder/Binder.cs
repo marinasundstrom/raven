@@ -401,10 +401,10 @@ internal abstract class Binder
         return LookupSymbol(name);
     }
 
-    public virtual BoundLocalFunctionStatement BindLocalFunction(LocalFunctionStatementSyntax localFunction)
+    public virtual BoundFunctionStatement BindFunction(FunctionStatementSyntax function)
     {
-        return ParentBinder?.BindLocalFunction(localFunction)
-             ?? throw new NotImplementedException("BindLocalFunction not implemented in root binder.");
+        return ParentBinder?.BindFunction(function)
+             ?? throw new NotImplementedException("BindFunction not implemented in root binder.");
     }
 
     protected BoundNode? TryGetCachedBoundNode(SyntaxNode node)
