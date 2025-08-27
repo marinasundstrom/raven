@@ -125,7 +125,7 @@ if (shouldDumpSyntax)
 {
     ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
-    Console.WriteLine(root.WriteNodeToText(compilation));
+    Console.WriteLine(root.WriteNodeToText(compilation, includeDiagnostics: true));
 
     Console.WriteLine();
 }
