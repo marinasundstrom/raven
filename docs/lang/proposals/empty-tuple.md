@@ -2,25 +2,27 @@
 
 > ⚠️ This proposal has **NOT** been implemented
 
-Both empty tuple and and unit ar represented by `()` both as type specifier and expression.
+Both the empty tuple and the unit value are represented by `()` in type annotations and expressions. This mirrors languages such as F# and Swift, where `()` denotes a value carrying no information.
 
 ## Tuples in .NET
 
-The preferred way of creating tuples in C#/.NET is using `ValueTuple` using one of the `Create` methods. Each returning an instance of specialized `ValueType<T>`, `ValueType<T1, T2>` etc. 
-
-There is an overload for empty tuple (`ValueTuple`): `ValueTuple.Create()`
-
-You don't create empty tuples, or singleton tuples, in normal cases.
+In C#/.NET, tuples are typically created via `System.ValueTuple` and its `Create` methods. Each overload returns a specialized structure such as `ValueTuple<T1, T2>`. An overload `ValueTuple.Create()` yields the empty tuple. In practice, developers rarely create empty or singleton tuples.
 
 ## Details
 
-* Tuples aren't meant to be exposed via public APIs.
-* The specific behavior is isolated to code written in Raven so it won't leak.
+* Mapping the empty tuple to `Unit` avoids introducing a separate runtime type.
+* Tuples aren't meant to be exposed via public APIs, so this behavior remains internal to Raven code and has no impact on interoperability.
 
 ## Conclusion
 
 An empty tuple is `Unit`.
 
-Project `System.ValueTuple` as `System.Unit`. Treat those types as interchangeable.
+Project `System.ValueTuple` as `System.Unit` and treat those types as interchangeable. Languages such as F# and Haskell also use `()` to denote a unit value, providing precedent for this design.
 
-When you defined `()` you will get `Unit`.
+When `()` appears in code, the compiler produces a value of type `Unit`:
+
+```raven
+let complete : () -> Unit = () => ()
+let pair : (Int, Unit) = (42, ())
+```
+
