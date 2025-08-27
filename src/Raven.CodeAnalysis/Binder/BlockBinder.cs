@@ -9,6 +9,7 @@ partial class BlockBinder : Binder
 {
     private readonly ISymbol _containingSymbol;
     protected readonly Dictionary<string, ILocalSymbol> _locals = new();
+    private bool _allowReturnsInExpression;
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
@@ -146,7 +147,7 @@ partial class BlockBinder : Binder
         BoundStatement boundNode = statement switch
         {
             LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclaration(localDeclaration.Declaration.Declarators[0]),
-            ExpressionStatementSyntax expressionStmt => new BoundExpressionStatement(BindExpression(expressionStmt.Expression)),
+            ExpressionStatementSyntax expressionStmt => new BoundExpressionStatement(BindExpression(expressionStmt.Expression, allowReturn: true)),
             FunctionStatementSyntax function => BindFunction(function),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))),
@@ -190,7 +191,7 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    public virtual BoundBlockExpression BindBlock(BlockSyntax block)
+    public virtual BoundBlockExpression BindBlock(BlockSyntax block, bool allowReturn = true)
     {
         if (TryGetCachedBoundNode(block) is BoundExpression cached)
             return (BoundBlockExpression)cached;
@@ -217,6 +218,12 @@ partial class BlockBinder : Binder
         foreach (var stmt in block.Statements)
         {
             var bound = BindStatement(stmt);
+            if (!allowReturn && bound is BoundReturnStatement br)
+            {
+                _diagnostics.ReportReturnNotAllowedInExpression(stmt.GetLocation());
+                var expr = br.Expression ?? new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+                bound = new BoundExpressionStatement(expr);
+            }
             boundStatements.Add(bound);
         }
 
@@ -224,6 +231,20 @@ partial class BlockBinder : Binder
         var blockExpr = new BoundBlockExpression(boundStatements.ToArray());
         CacheBoundNode(block, blockExpr);
         return blockExpr;
+    }
+
+    public BoundExpression BindExpression(ExpressionSyntax syntax, bool allowReturn)
+    {
+        var previous = _allowReturnsInExpression;
+        _allowReturnsInExpression = allowReturn;
+        try
+        {
+            return BindExpression(syntax);
+        }
+        finally
+        {
+            _allowReturnsInExpression = previous;
+        }
     }
 
     public override BoundExpression BindExpression(ExpressionSyntax syntax)
@@ -248,7 +269,7 @@ partial class BlockBinder : Binder
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
             ForExpressionSyntax forExpression => BindForExpression(forExpression),
-            BlockSyntax block => BindBlock(block),
+            BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
@@ -406,7 +427,7 @@ partial class BlockBinder : Binder
         foreach (var param in parameterSymbols)
             lambdaBinder.DeclareParameter(param);
 
-        var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody);
+        var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
 
         lambdaBinder.SetLambdaBody(bodyExpr);
 
@@ -465,13 +486,17 @@ partial class BlockBinder : Binder
         var condition = BindExpression(ifExpression.Condition);
 
         var thenBinder = SemanticModel.GetBinder(ifExpression, this);
-        var thenExpr = thenBinder.BindExpression(ifExpression.Expression);
+        var thenExpr = thenBinder is BlockBinder bb
+            ? bb.BindExpression(ifExpression.Expression, _allowReturnsInExpression)
+            : thenBinder.BindExpression(ifExpression.Expression);
 
         BoundExpression? elseExpr = null;
         if (ifExpression.ElseClause != null)
         {
             var elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
-            elseExpr = elseBinder.BindExpression(ifExpression.ElseClause.Expression);
+            elseExpr = elseBinder is BlockBinder ebb
+                ? ebb.BindExpression(ifExpression.ElseClause.Expression, _allowReturnsInExpression)
+                : elseBinder.BindExpression(ifExpression.ElseClause.Expression);
         }
 
         return new BoundIfExpression(condition, thenExpr, elseExpr);
@@ -482,7 +507,9 @@ partial class BlockBinder : Binder
         var condition = BindExpression(whileExpression.Condition);
 
         var expressionBinder = SemanticModel.GetBinder(whileExpression, this);
-        var expression = expressionBinder.BindExpression(whileExpression.Expression) as BoundExpression;
+        var expression = expressionBinder is BlockBinder wb
+            ? wb.BindExpression(whileExpression.Expression, _allowReturnsInExpression) as BoundExpression
+            : expressionBinder.BindExpression(whileExpression.Expression) as BoundExpression;
 
         return new BoundWhileExpression(condition, expression!);
     }
@@ -499,7 +526,7 @@ partial class BlockBinder : Binder
 
         var local = loopBinder.CreateLocalSymbol(forExpression, forExpression.Identifier.Text, isMutable: false, elementType);
 
-        var body = loopBinder.BindExpression(forExpression.Body) as BoundExpression;
+        var body = loopBinder.BindExpression(forExpression.Body, _allowReturnsInExpression) as BoundExpression;
 
         return new BoundForExpression(local, collection, body!);
     }
@@ -1605,8 +1632,8 @@ partial class BlockBinder : Binder
 
         // Bind the body with method binder
         var methodBinder = functionBinder.GetMethodBodyBinder();
-        var blockBinder = SemanticModel.GetBinder(function.Body, methodBinder);
-        var body = blockBinder.BindExpression(function.Body);
+        var blockBinder = (BlockBinder)SemanticModel.GetBinder(function.Body, methodBinder);
+        var body = blockBinder.BindExpression(function.Body, allowReturn: true);
 
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
     }

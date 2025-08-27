@@ -41,6 +41,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeAlreadyDefinesMember;
     private static DiagnosticDescriptor? _functionAlreadyDefined;
+    private static DiagnosticDescriptor? _returnStatementInExpression;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -519,6 +520,19 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV1900: Return statements are not valid in expressions
+    /// </summary>
+    public static DiagnosticDescriptor ReturnStatementInExpression => _returnStatementInExpression ??= DiagnosticDescriptor.Create(
+        id: "RAV1900",
+        title: "Return statement not allowed here",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Return statements are not valid in expressions; use an implicit return instead",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -556,7 +570,8 @@ internal class CompilerDiagnostics
         MemberAccessRequiresTargetType,
         NullableTypeInUnion,
         TypeAlreadyDefinesMember,
-        FunctionAlreadyDefined
+        FunctionAlreadyDefined,
+        ReturnStatementInExpression
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -599,6 +614,7 @@ internal class CompilerDiagnostics
             "RAV0400" => NullableTypeInUnion,
             "RAV0111" => TypeAlreadyDefinesMember,
             "RAV0112" => FunctionAlreadyDefined,
+            "RAV1900" => ReturnStatementInExpression,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

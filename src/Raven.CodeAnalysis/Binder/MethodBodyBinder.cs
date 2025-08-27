@@ -15,9 +15,9 @@ class MethodBodyBinder : BlockBinder
         _methodSymbol = methodSymbol;
     }
 
-    public override BoundBlockExpression BindBlock(BlockSyntax block)
+    public override BoundBlockExpression BindBlock(BlockSyntax block, bool allowReturn = true)
     {
-        var bound = base.BindBlock(block);
+        var bound = base.BindBlock(block, allowReturn);
 
         if (_methodSymbol.IsNamedConstructor)
         {

@@ -121,4 +121,7 @@ public static class DiagnosticBagExtensions
 
     public static void ReportFunctionAlreadyDefined(this DiagnosticBag diagnostics, string name, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.FunctionAlreadyDefined, location, name));
+
+    public static void ReportReturnNotAllowedInExpression(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ReturnStatementInExpression, location));
 }
