@@ -99,7 +99,12 @@ partial class BlockBinder : Binder
         var initializer = variableDeclarator.Initializer;
         if (initializer is not null)
         {
-            boundInitializer = BindExpression(initializer.Value);
+            // Initializers are always evaluated for their value; return statements
+            // are not permitted within them since they would escape the enclosing
+            // context. Bind the initializer with returns disallowed so explicit
+            // `return` keywords trigger diagnostics rather than method return
+            // validation.
+            boundInitializer = BindExpression(initializer.Value, allowReturn: false);
         }
 
         if (variableDeclarator.TypeAnnotation is null)
