@@ -36,6 +36,8 @@
       href: development/debugging.md
     - name: Source generation
       href: development/source-generation.md
+    - name: Analyzers
+      href: development/analyzers.md
     - name: CIL
       href: development/cil.md
     - name: Resources
@@ -44,5 +46,7 @@
       items:
         - name: Verifying diagnostics
           href: development/testing/verifying-diagnostics.md
+        - name: Analyzer verifier
+          href: development/testing/analyzer-verifier.md
         - name: Runtime assembly loading
           href: development/testing/runtime-assembly-loading.md
