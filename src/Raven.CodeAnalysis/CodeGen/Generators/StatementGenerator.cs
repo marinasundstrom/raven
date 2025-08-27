@@ -48,7 +48,8 @@ internal class StatementGenerator : Generator
         new ExpressionGenerator(this, expression).Emit(false);
 
         var type = expression.Type?.UnwrapType();
-        if (type is not null &&
+        if (expression is not BoundAssignmentExpression &&
+            type is not null &&
             type.SpecialType is not SpecialType.System_Void &&
             type is not UnitTypeSymbol)
         {
