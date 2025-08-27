@@ -283,9 +283,7 @@ internal class ExpressionGenerator : Generator
             var typeSymbol = declarationPattern.Type;
             var clrType = ResolveClrType(typeSymbol);
 
-            EmitDesignation(declarationPattern.Designator);
-
-            var patternLocal = GetLocal(declarationPattern.Designator);
+            var patternLocal = EmitDesignation(declarationPattern.Designator);
 
             // [expr]
             if (typeSymbol.IsValueType)
@@ -383,18 +381,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private LocalBuilder GetLocal(BoundDesignator designation)
-    {
-        // Create or retrieve a LocalBuilder for the variable name
-        if (designation is BoundSingleVariableDesignator single)
-        {
-            return GetLocal(single.Local); // assuming `locals` is a dictionary
-        }
-
-        throw new NotSupportedException("Unsupported designation");
-    }
-
-    private void EmitDesignation(BoundDesignator designation)
+    private LocalBuilder EmitDesignation(BoundDesignator designation)
     {
         if (designation is BoundSingleVariableDesignator single)
         {
@@ -404,7 +391,11 @@ internal class ExpressionGenerator : Generator
             local.SetLocalSymInfo(single.Local.Name);
 
             base.AddLocal(symbol, local);
+
+            return local;
         }
+
+        throw new NotSupportedException("Unsupported designation");
     }
 
     private void EmitCollectionExpression(BoundCollectionExpression collectionExpression)
