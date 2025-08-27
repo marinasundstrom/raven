@@ -606,6 +606,12 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(type);
         }
 
+        if (syntax is UnitTypeSyntax)
+        {
+            var type = Compilation.GetSpecialType(SpecialType.System_Unit);
+            return new BoundTypeExpression(type);
+        }
+
         if (syntax is TupleTypeSyntax tupleTypeSyntax)
         {
             var boundElements = new List<(string? name, ITypeSymbol type)>();

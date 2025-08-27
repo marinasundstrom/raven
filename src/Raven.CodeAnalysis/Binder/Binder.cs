@@ -224,6 +224,11 @@ internal abstract class Binder
             return Compilation.ResolvePredefinedType(predefinedTypeSyntax);
         }
 
+        if (typeSyntax is UnitTypeSyntax)
+        {
+            return Compilation.GetSpecialType(SpecialType.System_Unit);
+        }
+
         if (typeSyntax is IdentifierNameSyntax ident)
         {
             var type = LookupType(ident.Identifier.Text);

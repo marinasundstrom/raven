@@ -38,11 +38,12 @@ as outlined in this specification.
 ## Unit type
 
 Raven has no `void` type. The absence of a meaningful value is represented by the
-`unit` type, which has exactly one value written `()`. Functions without an explicit
-return type implicitly return `unit`. When interacting with .NET, methods that
-return `void` are projected as returning `unit`, and Raven's `unit` emits as `void`
-unless the value is observed. Because `unit` is a real type, it participates in
-generics, tuples, and unions like any other type.
+`unit` type, which has exactly one value written `()`. The type itself may be
+spelled `unit` or `()`. Functions without an explicit return type implicitly
+return `unit`. When interacting with .NET, methods that return `void` are
+projected as returning `unit`, and Raven's `unit` emits as `void` unless the
+value is observed. Because `unit` is a real type, it participates in generics,
+tuples, and unions like any other type.
 
 ## Statements
 
@@ -292,7 +293,7 @@ Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
 
-Predefined types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, and `unit`.
+Predefined types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, and `unit` (spelled `unit` or `()`).
 Raven has no `void`; `unit` is projected to and from .NET `void`.
 If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, and these predefined types.
 
@@ -457,7 +458,7 @@ Conversely, explicitly including a nullable type in a union—`string? | int`
 Explicit annotations follow the same rules:
 
 ```raven
-func test(x: int | string) -> unit { /* ... */ }
+func test(x: int | string) -> () { /* ... */ }
 ```
 
 Unions also arise naturally from control flow:
@@ -546,7 +547,7 @@ class Counter
         get => _value + i
     }
 
-    public Increment() -> unit => _value = _value + 1
+    public Increment() -> () => _value = _value + 1
 }
 ```
 
@@ -567,8 +568,8 @@ diagnostic.
 ```raven
 class Printer
 {
-    public Print(x: int) -> unit => Console.WriteLine(x)
-    public Print(x: string) -> unit => Console.WriteLine(x)
+    public Print(x: int) -> () => Console.WriteLine(x)
+    public Print(x: string) -> () => Console.WriteLine(x)
 }
 
 Print(42)

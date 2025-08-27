@@ -9,6 +9,7 @@
   <NodeKind Name="StringLiteralExpression" Type="LiteralExpression" />
   <NodeKind Name="NullLiteralExpression" Type="LiteralExpression" />
   <NodeKind Name="UnitExpression" Type="UnitExpression" />
+  <NodeKind Name="UnitType" Type="UnitType" />
   <NodeKind Name="InterpolatedStringExpression" Type="Expression" />
   <NodeKind Name="InterpolatedStringText" Type="InterpolatedStringContent" />
   <NodeKind Name="Interpolation" Type="InterpolatedStringContent" />
