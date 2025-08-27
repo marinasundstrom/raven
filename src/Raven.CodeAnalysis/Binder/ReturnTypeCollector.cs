@@ -1,59 +1,54 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
 internal static class ReturnTypeCollector
 {
-    public static ITypeSymbol? Infer(BoundExpression body)
+    public static ITypeSymbol? Infer(BoundNode node)
     {
         var collector = new Collector();
-        collector.Visit(body);
+        collector.Visit(node);
         return collector.GetResult();
     }
 
-    private sealed class Collector
+    private sealed class Collector : BoundTreeWalker
     {
         private readonly HashSet<ITypeSymbol> _types = new(SymbolEqualityComparer.Default);
 
-        public void Visit(BoundNode node)
+        public override void VisitExpression(BoundExpression node)
         {
-            switch (node)
+            if (node is BoundIfExpression ifExpr)
             {
-                case BoundReturnStatement ret:
-                    if (ret.Expression?.Type is ITypeSymbol type)
-                        AddType(type);
-                    break;
-                case BoundLambdaExpression:
-                    // Don't traverse into nested lambdas
-                    break;
-                default:
-                    foreach (var child in GetChildren(node))
-                        Visit(child);
-                    break;
+                VisitExpression(ifExpr.Condition);
+                VisitExpression(ifExpr.ThenBranch);
+                if (ifExpr.ElseBranch is not null)
+                    VisitExpression(ifExpr.ElseBranch);
+            }
+            else
+            {
+                base.VisitExpression(node);
             }
         }
 
-        private static IEnumerable<BoundNode> GetChildren(BoundNode node)
+        public override void VisitReturnStatement(BoundReturnStatement node)
         {
-            foreach (var prop in node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
-            {
-                var value = prop.GetValue(node);
-                switch (value)
-                {
-                    case BoundNode child:
-                        yield return child;
-                        break;
-                    case IEnumerable enumerable when value is not string:
-                        foreach (var item in enumerable)
-                            if (item is BoundNode b)
-                                yield return b;
-                        break;
-                }
-            }
+            if (node.Expression?.Type is ITypeSymbol type)
+                AddType(type);
+
+            base.VisitReturnStatement(node);
+        }
+
+        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        {
+            // Don't traverse into nested lambdas
+        }
+
+        public override void VisitExpressionStatement(BoundExpressionStatement node)
+        {
+            VisitExpression(node.Expression);
         }
 
         private void AddType(ITypeSymbol type)
