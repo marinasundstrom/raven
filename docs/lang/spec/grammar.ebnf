@@ -100,7 +100,7 @@ BracketedParameterList   ::= '[' ParameterList? ']' ;
 
 Statement                ::= LocalDeclaration
                            | ReturnStatement
-                           | LocalFunctionStatement
+                           | FunctionStatement
                            | ExpressionStatement ;
 
 LocalDeclaration         ::= ('let' | 'var') LocalVariableDeclarators ;
@@ -109,7 +109,7 @@ LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 
 ReturnStatement          ::= 'return' Expression? ;
 
-LocalFunctionStatement   ::= 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
+FunctionStatement        ::= 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
 
 ExpressionStatement      ::= Expression ;
 

@@ -40,7 +40,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _typeRequiresTypeArguments;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeAlreadyDefinesMember;
-    private static DiagnosticDescriptor? _localFunctionAlreadyDefined;
+    private static DiagnosticDescriptor? _functionAlreadyDefined;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -507,14 +507,14 @@ internal class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// RAV0112: Local function '{0}' already defined with the same parameter types
+    /// RAV0112: Function '{0}' already defined with the same parameter types
     /// </summary>
-    public static DiagnosticDescriptor LocalFunctionAlreadyDefined => _localFunctionAlreadyDefined ??= DiagnosticDescriptor.Create(
+    public static DiagnosticDescriptor FunctionAlreadyDefined => _functionAlreadyDefined ??= DiagnosticDescriptor.Create(
         id: "RAV0112",
-        title: "Local function already defined",
+        title: "Function already defined",
         description: "",
         helpLinkUri: "",
-        messageFormat: "A local function named '{0}' is already defined with the same parameter types",
+        messageFormat: "A function named '{0}' is already defined with the same parameter types",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -556,7 +556,7 @@ internal class CompilerDiagnostics
         MemberAccessRequiresTargetType,
         NullableTypeInUnion,
         TypeAlreadyDefinesMember,
-        LocalFunctionAlreadyDefined
+        FunctionAlreadyDefined
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -598,7 +598,7 @@ internal class CompilerDiagnostics
             "RAV0305" => TypeRequiresTypeArguments,
             "RAV0400" => NullableTypeInUnion,
             "RAV0111" => TypeAlreadyDefinesMember,
-            "RAV0112" => LocalFunctionAlreadyDefined,
+            "RAV0112" => FunctionAlreadyDefined,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

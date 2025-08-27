@@ -47,7 +47,7 @@ internal class MethodBodyGenerator
         BoundBlockExpression? boundBody = syntax switch
         {
             MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockExpression,
-            LocalFunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockExpression,
+            FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockExpression,
             BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockExpression,
             AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body) as BoundBlockExpression,
             _ => null
@@ -76,14 +76,14 @@ internal class MethodBodyGenerator
                     }
                 }
 
-                foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
+                foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<FunctionStatementSyntax>())
                 {
                     var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
                     if (methodSymbol is null)
                         continue;
                     if (MethodGenerator.TypeGenerator.HasMethodGenerator(methodSymbol))
                         continue;
-                    EmitLocalFunction(localFunctionStmt);
+                    EmitFunction(localFunctionStmt);
                 }
 
                 var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
@@ -91,7 +91,7 @@ internal class MethodBodyGenerator
                 EmitIL(statements);
                 break;
 
-            case LocalFunctionStatementSyntax localFunctionStatement:
+            case FunctionStatementSyntax functionStatement:
                 if (boundBody != null)
                     EmitBoundBlock(boundBody);
                 else
@@ -190,7 +190,7 @@ internal class MethodBodyGenerator
         }
     }
 
-    private void EmitLocalFunction(LocalFunctionStatementSyntax localFunctionStmt)
+    private void EmitFunction(FunctionStatementSyntax localFunctionStmt)
     {
         var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
         if (methodSymbol is null)

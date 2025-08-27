@@ -20,7 +20,7 @@ internal class StatementSyntaxParser : SyntaxParser
         switch (token.Kind)
         {
             case SyntaxKind.FuncKeyword:
-                statement = ParseLocalFunctionSyntax();
+                statement = ParseFunctionSyntax();
                 break;
 
             case SyntaxKind.ReturnKeyword:
@@ -40,7 +40,7 @@ internal class StatementSyntaxParser : SyntaxParser
         return statement;
     }
 
-    private StatementSyntax? ParseLocalFunctionSyntax()
+    private StatementSyntax? ParseFunctionSyntax()
     {
         var funcKeyword = ReadToken();
 
@@ -57,7 +57,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return LocalFunctionStatement(funcKeyword, identifier, parameterList, returnParameterAnnotation, block, terminatorToken);
+        return FunctionStatement(funcKeyword, identifier, parameterList, returnParameterAnnotation, block, terminatorToken);
     }
 
     public ParameterListSyntax ParseParameterList()

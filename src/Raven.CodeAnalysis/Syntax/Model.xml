@@ -402,7 +402,7 @@
     <Slot Name="ArrowToken" Type="Token" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="Expression" IsInherited="true" />
   </Node>
-  <Node Name="LocalFunctionStatement" Inherits="Statement">
+  <Node Name="FunctionStatement" Inherits="Statement">
     <Slot Name="FuncKeyword" Type="Token" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" />

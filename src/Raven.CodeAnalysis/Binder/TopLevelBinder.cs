@@ -18,19 +18,19 @@ class TopLevelBinder : BlockBinder
 
     public void BindGlobalStatements(IEnumerable<GlobalStatementSyntax> statements)
     {
-        // Declare all local functions first so they are available to subsequent statements
+        // Declare all functions first so they are available to subsequent statements
         foreach (var stmt in statements)
         {
-            if (stmt.Statement is LocalFunctionStatementSyntax localFunc)
+            if (stmt.Statement is FunctionStatementSyntax localFunc)
             {
                 var binder = SemanticModel.GetBinder(localFunc, this);
-                if (binder is LocalFunctionBinder lfBinder)
+                if (binder is FunctionBinder lfBinder)
                 {
                     var symbol = lfBinder.GetMethodSymbol();
-                    if (_localFunctions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
-                        _diagnostics.ReportLocalFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
+                    if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
                     else
-                        DeclareLocalFunction(symbol);
+                        DeclareFunction(symbol);
                 }
             }
         }
@@ -38,8 +38,8 @@ class TopLevelBinder : BlockBinder
         // Bind each statement
         foreach (var stmt in statements)
         {
-            if (stmt.Statement is LocalFunctionStatementSyntax localFunction)
-                BindStatement(localFunction);
+            if (stmt.Statement is FunctionStatementSyntax function)
+                BindStatement(function);
             else
                 BindStatement(stmt.Statement);
         }
@@ -63,8 +63,8 @@ class TopLevelBinder : BlockBinder
         return MainMethod.Parameters;
     }
 
-    public void DeclareLocalFunction(IMethodSymbol symbol)
+    public void DeclareFunction(IMethodSymbol symbol)
     {
-        _localFunctions[symbol.Name] = symbol;
+        _functions[symbol.Name] = symbol;
     }
 }

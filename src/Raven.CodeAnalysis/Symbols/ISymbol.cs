@@ -273,7 +273,7 @@ public enum MethodKind
     ReducedExtension,
     StaticConstructor,
     BuiltinOperator,
-    LocalFunction,
+    Function,
     FunctionPointerSignature
 }
 

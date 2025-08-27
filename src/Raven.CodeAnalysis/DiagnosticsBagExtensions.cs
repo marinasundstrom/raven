@@ -119,6 +119,6 @@ public static class DiagnosticBagExtensions
     public static void ReportTypeAlreadyDefinesMember(this DiagnosticBag diagnostics, string typeName, string memberName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.TypeAlreadyDefinesMember, location, typeName, memberName));
 
-    public static void ReportLocalFunctionAlreadyDefined(this DiagnosticBag diagnostics, string name, Location location)
-        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LocalFunctionAlreadyDefined, location, name));
+    public static void ReportFunctionAlreadyDefined(this DiagnosticBag diagnostics, string name, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.FunctionAlreadyDefined, location, name));
 }

@@ -80,7 +80,7 @@ class C {
     }
 
     [Fact]
-    public void LocalFunctionParameter_WithAmpersand_HasRefKindRef()
+    public void FunctionParameter_WithAmpersand_HasRefKindRef()
     {
         var source = """
 func outer() {
@@ -90,14 +90,14 @@ func outer() {
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
-        var inner = tree.GetRoot().DescendantNodes().OfType<LocalFunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
+        var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
         Assert.Equal(RefKind.Ref, parameter.RefKind);
     }
 
     [Fact]
-    public void LocalFunction_OutParameter_HasRefKindOut()
+    public void Function_OutParameter_HasRefKindOut()
     {
         var source = """
 func outer() {
@@ -107,7 +107,7 @@ func outer() {
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
-        var inner = tree.GetRoot().DescendantNodes().OfType<LocalFunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
+        var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
         Assert.Equal(RefKind.Out, parameter.RefKind);

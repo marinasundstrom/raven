@@ -21,7 +21,7 @@ let u = ping()
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
-        var ping = tree.GetRoot().DescendantNodes().OfType<LocalFunctionStatementSyntax>().Single();
+        var ping = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         var pingSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ping)!;
         Assert.Equal(SpecialType.System_Unit, pingSymbol.ReturnType.SpecialType);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
@@ -41,7 +41,7 @@ let x: () = ping()
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
-        var ping = tree.GetRoot().DescendantNodes().OfType<LocalFunctionStatementSyntax>().Single();
+        var ping = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         var pingSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ping)!;
         Assert.Equal(SpecialType.System_Unit, pingSymbol.ReturnType.SpecialType);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();

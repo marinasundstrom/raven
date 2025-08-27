@@ -123,7 +123,7 @@ public static class BinderTreePrinter
             MethodBodyBinder => "MethodBodyBinder",
             BlockBinder => "BlockBinder",
             LocalScopeBinder => "LocalScopeBinder",
-            LocalFunctionBinder => $"LocalFunctionBinder{DescribeSymbol(binder, binderNodes, parentToChildren)}",
+            FunctionBinder => $"FunctionBinder{DescribeSymbol(binder, binderNodes, parentToChildren)}",
             _ => binder.GetType().Name
         };
     }

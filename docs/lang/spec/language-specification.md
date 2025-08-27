@@ -345,9 +345,9 @@ Arrow bodies are allowed:
 func add(a: int, b: int) -> int => a + b
 ```
 
-### Local functions
+### Nested functions
 
-Functions may be declared inside other functions. A local function is
+Functions may be declared inside other functions. Such a function is
 scoped to its containing body and can capture local variables.
 
 ```raven

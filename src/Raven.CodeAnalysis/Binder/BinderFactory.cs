@@ -30,7 +30,7 @@ class BinderFactory
             ElseClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             ForExpressionSyntax expr => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
-            LocalFunctionStatementSyntax localFunc => new LocalFunctionBinder(parentBinder!, localFunc),
+            FunctionStatementSyntax localFunc => new FunctionBinder(parentBinder!, localFunc),
             // ClassDeclarationSyntax binders are created and cached by SemanticModel
             ClassDeclarationSyntax => parentBinder,
             //FieldDeclarationSyntax => parent, // Fields are handled during symbol declaration
@@ -55,8 +55,8 @@ class BinderFactory
         if (parentBinder is MethodBinder methodBinder)
             return methodBinder?.GetMethodSymbol()!;
 
-        if (parentBinder is LocalFunctionBinder localFunctionBinder)
-            return localFunctionBinder?.GetMethodSymbol()!;
+        if (parentBinder is FunctionBinder functionBinder)
+            return functionBinder?.GetMethodSymbol()!;
 
         return null;
     }

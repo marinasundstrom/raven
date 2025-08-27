@@ -152,7 +152,7 @@ void Outer() {
 ### Implementation details
 
 * `UnitTypeSymbol` is its own symbol.
-* Functions and local functions without an explicit return type are bound to return `unit`.
+* Functions without an explicit return type are bound to return `unit`.
 * `unit` is a keyword token for the type; the literal value is spelled `()`.
 * The parser treats a standalone `()` in expression position as a `UnitLiteralExpression`; parenthesized expressions must contain an inner expression, and `()` following an expression denotes an empty argument list.
 * Control-flow statements without an explicit value produce `unit`.
@@ -163,7 +163,7 @@ void Outer() {
 When reintroducing the feature:
 
 * Reserve the `unit` keyword in the lexer and parser.
-* Ensure binder defaults missing return types to `unit` for top-level and local functions.
+* Ensure binder defaults missing return types to `unit` for top-level and nested functions.
 * Introduce a built-in `UnitTypeSymbol` and a `UnitLiteralExpression` syntax node.
 * Contextually parse `()` as the unit literal when it appears on its own rather than as an argument list or grouped expression.
 * Remove the `return` statement form without an expression.

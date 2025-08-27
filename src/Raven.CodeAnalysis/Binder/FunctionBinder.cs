@@ -3,13 +3,13 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-class LocalFunctionBinder : Binder
+class FunctionBinder : Binder
 {
-    private readonly LocalFunctionStatementSyntax _syntax;
+    private readonly FunctionStatementSyntax _syntax;
     private MethodBinder? _methodBodyBinder;
     private SourceMethodSymbol? _methodSymbol;
 
-    public LocalFunctionBinder(Binder parent, LocalFunctionStatementSyntax syntax)
+    public FunctionBinder(Binder parent, FunctionStatementSyntax syntax)
         : base(parent)
     {
         _syntax = syntax;
