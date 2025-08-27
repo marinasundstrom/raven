@@ -1,6 +1,6 @@
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -219,15 +219,15 @@ internal class MethodBodyGenerator
 
     private void EmitBoundBlock(BoundBlockExpression block, bool withReturn = true)
     {
-        for (var i = 0; i < block.Statements.Length; i++)
+        for (var i = 0; i < block.Statements.Count(); i++)
         {
-            var statement = block.Statements[i];
+            var statement = block.Statements.ElementAt(i);
 
             // If this is the last statement in the block and the method expects a
             // value, treat a bare expression statement as an implicit return. This
             // allows functions to omit an explicit `return` for the final
             // expression, while still emitting any required boxing.
-            var isLast = i == block.Statements.Length - 1;
+            var isLast = i == block.Statements.Count() - 1;
             if (withReturn && isLast &&
                 MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void &&
                 statement is BoundExpressionStatement exprStmt)
@@ -237,7 +237,8 @@ internal class MethodBodyGenerator
                 var expressionType = exprStmt.Expression.Type;
                 var returnType = MethodSymbol.ReturnType;
 
-                if (expressionType.IsValueType &&
+                if (expressionType is not null &&
+                    expressionType.IsValueType &&
                     (returnType.SpecialType is SpecialType.System_Object ||
                      returnType is IUnionTypeSymbol))
                 {
