@@ -65,6 +65,8 @@ internal class MethodBodyGenerator
                     foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
                     {
                         var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
+                        if (localSymbol?.Type is null)
+                            continue;
 
                         var clrType = ResolveClrType(localSymbol.Type);
                         var builder = ILGenerator.DeclareLocal(clrType);
@@ -210,6 +212,11 @@ internal class MethodBodyGenerator
 
         foreach (var localSymbol in collector.Locals)
         {
+            // Skip locals without a type. This can occur when the initializer
+            // contains an early return, making the declaration unreachable.
+            if (localSymbol.Type is null)
+                continue;
+
             var clrType = ResolveClrType(localSymbol.Type);
             var builder = ILGenerator.DeclareLocal(clrType);
             builder.SetLocalSymInfo(localSymbol.Name);

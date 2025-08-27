@@ -87,14 +87,20 @@ internal class StatementGenerator : Generator
             new ExpressionGenerator(this, declarator.Initializer).Emit();
 
             var localBuilder = GetLocal(declarator.Local);
-
-            var s = declarator.Initializer.Type;
-
+            var expressionType = declarator.Initializer.Type;
             var localSymbol = declarator.Local;
 
-            if (s.IsValueType && (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            // If the local wasn't declared (e.g., the initializer returns early),
+            // there's nothing to store.
+            if (localBuilder is null)
+                return;
+
+            if (expressionType is not null &&
+                localSymbol.Type is not null &&
+                expressionType.IsValueType &&
+                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
             {
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(s));
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
             }
 
             ILGenerator.Emit(OpCodes.Stloc, localBuilder);
