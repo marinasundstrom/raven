@@ -408,7 +408,7 @@ partial class BlockBinder : Binder
         // 6. Infer return type if not explicitly given
         var returnType = returnTypeSyntax is not null
             ? inferredReturnType
-            : bodyExpr.Type ?? Compilation.ErrorTypeSymbol;
+            : bodyExpr.Type ?? ReturnTypeCollector.Infer(bodyExpr) ?? Compilation.ErrorTypeSymbol;
 
         // 7. Construct delegate type (e.g., Func<...> or custom delegate)
         var delegateType = Compilation.CreateFunctionTypeSymbol(
