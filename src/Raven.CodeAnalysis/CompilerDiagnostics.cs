@@ -40,6 +40,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _typeRequiresTypeArguments;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeAlreadyDefinesMember;
+    private static DiagnosticDescriptor? _localFunctionAlreadyDefined;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -505,6 +506,19 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV0112: Local function '{0}' already defined with the same parameter types
+    /// </summary>
+    public static DiagnosticDescriptor LocalFunctionAlreadyDefined => _localFunctionAlreadyDefined ??= DiagnosticDescriptor.Create(
+        id: "RAV0112",
+        title: "Local function already defined",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "A local function named '{0}' is already defined with the same parameter types",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -541,7 +555,8 @@ internal class CompilerDiagnostics
         InvalidAliasType,
         MemberAccessRequiresTargetType,
         NullableTypeInUnion,
-        TypeAlreadyDefinesMember
+        TypeAlreadyDefinesMember,
+        LocalFunctionAlreadyDefined
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId)
@@ -583,6 +598,7 @@ internal class CompilerDiagnostics
             "RAV0305" => TypeRequiresTypeArguments,
             "RAV0400" => NullableTypeInUnion,
             "RAV0111" => TypeAlreadyDefinesMember,
+            "RAV0112" => LocalFunctionAlreadyDefined,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }
