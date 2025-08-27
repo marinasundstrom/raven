@@ -103,6 +103,48 @@ For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declar
 target types. Type inference for `let` and `var` bindings uses this mechanism to
 determine the variable's type from its initializer.
 
+### Type inference
+
+When an expression or declaration omits an explicit type, Raven infers one from
+the expression. If multiple different types can flow to a location—through
+conditional branches or early `return` statements—the inferred result becomes a
+**union** of those types. The compiler does not collapse distinct types to their
+nearest common base; returning `Dog` and `Cat` infers `Dog | Cat`, not `Animal`.
+
+```raven
+let pet = if flag { Dog() } else { Cat() }
+// pet has type: Dog | Cat
+```
+
+Functions and lambdas without an annotated return type infer their result by
+collecting the types of all explicit `return` statements and the final expression
+of the body. If no value-returning path exists, the type defaults to `unit`.
+
+```raven
+func example(x: int) -> {
+    if x > 0 { return x }
+    "neg"
+}
+// inferred return type: int | string
+```
+
+### Union conversions
+
+Assigning or returning a union to an explicitly typed target succeeds only when
+**every** member of the source union can convert to the target type. The compiler
+checks each constituent individually.
+
+```raven
+let maybe = if flag { 0 } else { 1.0 } // int | float
+
+let n: int = maybe    // error: float not assignable to int
+let o: object = maybe // ok: both int and float convert to object
+
+let pet = if flag { Dog() } else { Cat() } // Dog | Cat
+let a: Animal = pet   // ok: Dog and Cat derive from Animal
+let s: string = pet   // error: neither member converts to string
+```
+
 ### String literals
 
 ```raven
@@ -468,6 +510,9 @@ let x = 3
 let y = if x > 2 { 40 + w; } else { true; }
 // y is inferred as: int | bool
 ```
+
+See [Union conversions](#union-conversions) for how union values interact with
+explicit target types and return annotations.
 
 Discrimination via `is`:
 

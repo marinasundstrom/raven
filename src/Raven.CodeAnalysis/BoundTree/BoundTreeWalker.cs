@@ -56,9 +56,31 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundMemberAccessExpression memberAccess:
                 VisitMemberAccessExpression(memberAccess);
                 break;
+            case BoundObjectCreationExpression creation:
+                foreach (var arg in creation.Arguments)
+                    VisitExpression(arg);
+                break;
+            case BoundWhileExpression whileExpr:
+                VisitExpression(whileExpr.Condition);
+                VisitExpression(whileExpr.Body);
+                break;
+            case BoundForExpression forExpr:
+                VisitExpression(forExpr.Collection);
+                VisitExpression(forExpr.Body);
+                break;
+            case BoundAssignmentExpression assign:
+                VisitExpression(assign.Right);
+                break;
+            case BoundUnaryExpression unary:
+                VisitExpression(unary.Operand);
+                break;
+            case BoundTupleExpression tuple:
+                foreach (var e in tuple.Elements)
+                    VisitExpression(e);
+                break;
             // Add others as needed
             default:
-                throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}");
+                break;
         }
     }
 
