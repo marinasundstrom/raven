@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Collections.Immutable;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -41,31 +43,39 @@ if (!File.Exists(filePath))
 using var file = File.OpenRead(filePath);
 var sourceText = SourceText.From(file);
 
-var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, filePath: filePath);
-var root = syntaxTree.GetRoot();
-
-//var block = root.DescendantNodes().OfType<BlockSyntax>().ElementAt(2);
-//var props = block?.GetChildrenGroupedByProperty(true);
-
 var assemblyName = Path.GetFileNameWithoutExtension(filePath);
 
 var targetFramework = "net9.0";
-
-//var tfm = TargetFrameworkUtil.GetLatestFramework();
-//var tfm = TargetFrameworkMoniker.Parse(targetFramework);
 
 var options = new CompilationOptions(OutputKind.ConsoleApplication);
 var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
 var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version /* version.Moniker.Version.ToString() + ".*" */);
 
-var compilation = Compilation.Create(assemblyName, options)
-    .AddSyntaxTrees(syntaxTree)
-    .AddReferences([
-        MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
-        MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Collections.dll")),
-        MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-        MetadataReference.CreateFromFile(IsProjectFolder(Environment.CurrentDirectory) ? "TestDep.dll" : "../../../TestDep.dll")
-    ]);
+var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
+var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
+var documentId = DocumentId.CreateNew(projectId);
+var solution = workspace.CurrentSolution.AddDocument(documentId, Path.GetFileName(filePath), sourceText, filePath);
+workspace.TryApplyChanges(solution);
+
+var project = workspace.CurrentSolution.GetProject(projectId)!;
+foreach (var reference in new[]
+{
+    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Collections.dll")),
+    MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+    MetadataReference.CreateFromFile(IsProjectFolder(Environment.CurrentDirectory) ? "TestDep.dll" : "../../../TestDep.dll")
+})
+    project = project.AddMetadataReference(reference);
+
+project = project.AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
+workspace.TryApplyChanges(project.Solution);
+
+var document = project.Documents.Single();
+var syntaxTree = document.GetSyntaxTreeAsync().Result!;
+var root = syntaxTree.GetRoot();
+
+var compilation = workspace.GetCompilation(projectId);
+var diagnostics = workspace.GetDiagnostics(projectId);
 
 //var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
@@ -88,19 +98,12 @@ outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
 
 EmitResult? result = null;
 
-//try
-//{
 using (var stream = File.OpenWrite($"{outputPath}"))
 {
     result = compilation.Emit(stream);
 }
-//}
-/*catch (Exception e)
-{
-    Console.WriteLine($"Code generation failed: {e}");
 
-    //return;
-} */
+diagnostics = diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray();
 
 stopwatch.Stop();
 
@@ -135,20 +138,22 @@ if (shouldDumpBinders)
     Console.WriteLine();
 }
 
+if (diagnostics.Length > 0)
+{
+    PrintDiagnostics(diagnostics);
+    Console.WriteLine();
+}
+
 if (result is not null)
 {
     // Check the result
-    if (!result.Success)
+    if (diagnostics.Any(d => d.Descriptor.DefaultSeverity == DiagnosticSeverity.Error))
     {
-        PrintDiagnostics(result.Diagnostics);
-
-        Console.WriteLine();
-
         Failed(result);
     }
     else
     {
-        var warningsCount = result.Diagnostics
+        var warningsCount = diagnostics
             .Count(x => x.Descriptor.DefaultSeverity == DiagnosticSeverity.Warning);
 
         if (warningsCount > 0)
