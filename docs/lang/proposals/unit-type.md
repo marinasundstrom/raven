@@ -1,6 +1,6 @@
 # Proposal: Unit type
 
-⚠️ This proposal has **NOT** been implemented
+> ℹ️ This feature has been implemented
 
 The `unit` type represents a value in absence of a value. It can be seen as `void` but the difference is that it is a real type with exactly one value. Once the feature is reintroduced, `unit` will wholly replace the language's `void` concept so that every callable returns a concrete type.
 
