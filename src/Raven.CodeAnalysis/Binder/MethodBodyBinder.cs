@@ -48,6 +48,14 @@ class MethodBodyBinder : BlockBinder
         return bound;
     }
 
+    public override BoundNode GetOrBind(SyntaxNode node)
+    {
+        if (node is BlockSyntax block)
+            return BindBlock(block, allowReturn: true);
+
+        return base.GetOrBind(node);
+    }
+
     private sealed class NamedConstructorRewriter : BoundTreeRewriter
     {
         private readonly IMethodSymbol _methodSymbol;

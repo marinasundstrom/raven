@@ -109,7 +109,10 @@ internal class StatementSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
-        var expression = new ExpressionSyntaxParser(this).ParseExpressionOrNull();
+        ExpressionSyntax? expression = null;
+        var next = PeekToken();
+        if (next.Kind is not (SyntaxKind.SemicolonToken or SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken))
+            expression = new ExpressionSyntaxParser(this).ParseExpression();
 
         SetTreatNewlinesAsTokens(true);
 
