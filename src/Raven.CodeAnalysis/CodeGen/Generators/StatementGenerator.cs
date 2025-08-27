@@ -50,6 +50,9 @@ internal class StatementGenerator : Generator
         if (expression is BoundUnitExpression)
             return;
 
+        if (expression is BoundInvocationExpression bie && bie.Type is UnitTypeSymbol)
+            return;
+
         new ExpressionGenerator(this, expression).Emit();
 
         ISymbol? symbol = expressionStatement.Symbol;
