@@ -16,7 +16,7 @@ public class ByRefParameterTests
     {
         var source = """
 class C {
-    test(x: &int) -> void { }
+    test(x: &int) -> unit { }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
@@ -33,7 +33,7 @@ class C {
     {
         var source = """
 class C {
-    test(out x: &int) -> void { x = 1 }
+    test(out x: &int) -> unit { x = 1 }
 }
 """;
         var tree = SyntaxTree.ParseText(source);

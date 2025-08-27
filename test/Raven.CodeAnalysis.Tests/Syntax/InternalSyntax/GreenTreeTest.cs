@@ -26,7 +26,7 @@ public class GreenTreeTest
     [Fact]
     public void Node_FullWidth_Equals_Sum_Of_Children()
     {
-        var text = "class C { M () -> void {} }";
+        var text = "class C { M () -> unit {} }";
         var green = SyntaxTree.ParseText(text).GetRoot().Green;
 
         static void Check(GreenNode n)

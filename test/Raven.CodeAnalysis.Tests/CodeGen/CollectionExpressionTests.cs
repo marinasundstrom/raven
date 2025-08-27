@@ -13,7 +13,7 @@ public class CollectionExpressionTests
         var code = """
 class MyList {
     var count: int = 0
-    public Add(int item) -> void { count = count + 1 }
+    public Add(int item) -> unit { count = count + 1 }
     public Count: int { get => count }
 }
 

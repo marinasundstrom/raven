@@ -12,7 +12,7 @@ public class CodeGeneratorTests
     {
         var code = """
 class Foo {
-    Test() -> void {
+    Test() -> unit {
         return;
     }
 }

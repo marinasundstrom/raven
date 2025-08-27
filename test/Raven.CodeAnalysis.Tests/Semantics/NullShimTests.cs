@@ -19,7 +19,7 @@ public class NullShimTests
     {
         var source = """
 class C {
-    M(x: string | null) -> void { }
+    M(x: string | null) -> unit { }
 }
 """;
 
@@ -46,7 +46,7 @@ class C {
     {
         var source = """
 class C {
-    M(x: string) -> void { }
+    M(x: string) -> unit { }
 }
 """;
 
@@ -68,7 +68,7 @@ class C {
     {
         var source = """
 class C {
-    M(x: string | int) -> void { }
+    M(x: string | int) -> unit { }
 }
 """;
 
