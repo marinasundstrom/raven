@@ -165,7 +165,8 @@ partial class BlockBinder : Binder
             ? BindExpression(returnStatement.Expression)
             : new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
 
-        if (_containingSymbol is IMethodSymbol method &&
+        if (_allowReturnsInExpression &&
+            _containingSymbol is IMethodSymbol method &&
             expr.Type is not null &&
             !IsAssignable(method.ReturnType, expr.Type))
         {

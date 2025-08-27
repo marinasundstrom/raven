@@ -36,8 +36,7 @@ internal class CodeGenerator
     ConstructorInfo? _nullableCtor;
 
     bool _emitTypeUnionAttribute;
-    bool _emitNullType;
-    bool _emitUnitType = true;
+    readonly bool _emitUnitType = true;
 
     internal CustomAttributeBuilder? CreateNullableAttribute(ITypeSymbol type)
     {
@@ -119,8 +118,7 @@ internal class CodeGenerator
             CreateTypeUnionAttribute();
         if (_emitNullType)
             CreateNullStruct();
-        if (_emitUnitType)
-            CreateUnitStruct();
+        CreateUnitStruct();
 
         DefineTypeBuilders();
 
@@ -199,8 +197,6 @@ internal class CodeGenerator
                 {
                     if (t.TypeKind == TypeKind.Null)
                         _emitNullType = true;
-                    if (t.SpecialType == SpecialType.System_Unit)
-                        _emitUnitType = true;
                     CheckType(t);
                 }
                 return;
@@ -209,12 +205,6 @@ internal class CodeGenerator
             if (typeSymbol.TypeKind == TypeKind.Null)
             {
                 _emitNullType = true;
-                return;
-            }
-
-            if (typeSymbol.SpecialType == SpecialType.System_Unit)
-            {
-                _emitUnitType = true;
                 return;
             }
 
