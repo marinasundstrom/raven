@@ -1,0 +1,11 @@
+import System.*
+
+let x = test(false)
+Console.WriteLine(x);
+
+func test(flag: bool) -> int | () {
+    if flag {
+        return 42
+    }
+    ()
+}
