@@ -41,7 +41,7 @@ class Person {
     // Regular method
     public AddRole(role: string) -> Person {
         roles.Add(role)
-        return self
+        self
     }
 
     // public Test() -> int => 2
@@ -49,7 +49,7 @@ class Person {
     // Computed property
     public Name: string {
         get {
-            return name
+            name
         }
         set {
             name = value
@@ -64,7 +64,7 @@ class Person {
 
     // Invocation operator: e.g., person(2025)
     public self(year: int) -> string {
-        return "Name: ${name}, Age in ${year}: ${year - (System.DateTime.Now.Year - age)}"
+        "Name: ${name}, Age in ${year}: ${year - (System.DateTime.Now.Year - age)}"
     }
 
     public self(str: string) {

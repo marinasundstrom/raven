@@ -93,6 +93,24 @@ Any expression can appear as a statement.
 > **Note:** Control flow such as `if`, `while`, and `for` are **expressions**. When used
 > on their own line, they form an `ExpressionStatement`.
 
+### Return statements
+
+The `return` keyword exits a function, lambda, or property accessor. Because control-flow constructs are expressions, using `return` inside an expression that itself produces a value is not allowed. Explicit `return` statements may appear only in statement positions, such as within a function body or as their own expression statement. When a `return` occurs in a value context—for example, within an `if` expression assigned to a variable—the compiler reports diagnostic `RAV1900` and the block should rely on an implicit return instead.
+
+```raven
+func choose(flag: bool) -> int | () {
+    if flag {
+        42            // implicit return
+    } else {
+        ()             // implicit return
+    }
+}
+
+if flag {
+    return 42          // allowed: expression used as a statement
+}
+```
+
 ## Expressions
 
 ### Target typing
