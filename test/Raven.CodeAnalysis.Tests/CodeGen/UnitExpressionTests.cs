@@ -65,4 +65,34 @@ class Foo {
         Assert.DoesNotContain(il, b => b == OpCodes.Ldsfld.Value);
         Assert.DoesNotContain(il, b => b == OpCodes.Pop.Value);
     }
+
+    [Fact]
+    public void UnitReturningCall_AsArgument_EmitsValue()
+    {
+        var code = """
+class Foo {
+    Bar() -> unit { }
+    Baz(x: unit) -> void { }
+    Test() -> void {
+        Baz(Bar());
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly.GetType("Foo")!.GetMethod("Test")!;
+        var il = method.GetMethodBody()!.GetILAsByteArray();
+
+        Assert.Contains(il, b => b == OpCodes.Ldsfld.Value);
+        Assert.DoesNotContain(il, b => b == OpCodes.Pop.Value);
+    }
 }
