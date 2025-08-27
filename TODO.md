@@ -3,33 +3,6 @@
 ## Semantic analysis
 
 ## Code generator
-
-### Bug: Box values in type unions when directly returning from a method
-
-Value types in a union should be boxed when returning since they are passed as `object`.
-
-```raven
-func test(flag: bool) -> int | () {
-    if flag {
-        return 42
-    } else {
-        return ()
-    }
-}
-```
-
-This works as intended when assigning a variable:
-
-```
-let x = if true {
-        42
-    } else {
-        ()
-    }
-```
-
-The 42 gets boxed.
-
 ### Bug: Issue with implicit vs explicit return
 
 This fails.
