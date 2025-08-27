@@ -38,7 +38,7 @@ public class DiagnosticVerifierTest
             var verifier = CreateVerifier(
                  testCode,
                  [
-                    new DiagnosticResult("RAV1002").WithLocation(1, 47)
+                    new DiagnosticResult("RAV1002").WithSpan(1, 47, 1, 48)
                  ]);
 
             verifier.Verify();
@@ -62,7 +62,7 @@ public class DiagnosticVerifierTest
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV1010").WithLocation(1, 36),
+                new DiagnosticResult("RAV1010").WithSpan(1, 36, 1, 36),
             ]);
 
         var result = verifier.GetResult();
@@ -83,7 +83,7 @@ public class DiagnosticVerifierTest
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV1010").WithLocation(1, 36)
+                new DiagnosticResult("RAV1010").WithSpan(1, 36, 1, 36)
             ],
             ["RAV1002"]);
 
