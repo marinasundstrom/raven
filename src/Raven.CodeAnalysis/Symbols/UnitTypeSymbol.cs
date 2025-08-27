@@ -25,6 +25,8 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public TypeKind TypeKind { get; }
 
+    public bool IsValueType => true;
+
     public ITypeSymbol? OriginalDefinition => this;
 
     public ImmutableArray<ISymbol> GetMembers() => [];

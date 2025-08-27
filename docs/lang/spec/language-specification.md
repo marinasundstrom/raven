@@ -42,8 +42,8 @@ Raven has no `void` type. The absence of a meaningful value is represented by th
 spelled `unit` or `()`. Functions without an explicit return type implicitly
 return `unit`. When interacting with .NET, methods that return `void` are
 projected as returning `unit`, and Raven's `unit` emits as `void` unless the
-value is observed. Because `unit` is a real type, it participates in generics,
-tuples, and unions like any other type.
+value is observed. The `unit` type is a value type (struct). Because `unit` is a
+real type, it participates in generics, tuples, and unions like any other type.
 
 ## Statements
 
