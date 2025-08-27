@@ -219,8 +219,37 @@ internal class MethodBodyGenerator
 
     private void EmitBoundBlock(BoundBlockExpression block, bool withReturn = true)
     {
-        foreach (var statement in block.Statements)
+        for (var i = 0; i < block.Statements.Length; i++)
+        {
+            var statement = block.Statements[i];
+
+            // If this is the last statement in the block and the method expects a
+            // value, treat a bare expression statement as an implicit return. This
+            // allows functions to omit an explicit `return` for the final
+            // expression, while still emitting any required boxing.
+            var isLast = i == block.Statements.Length - 1;
+            if (withReturn && isLast &&
+                MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void &&
+                statement is BoundExpressionStatement exprStmt)
+            {
+                new ExpressionGenerator(baseGenerator, exprStmt.Expression).Emit();
+
+                var expressionType = exprStmt.Expression.Type;
+                var returnType = MethodSymbol.ReturnType;
+
+                if (expressionType.IsValueType &&
+                    (returnType.SpecialType is SpecialType.System_Object ||
+                     returnType is IUnionTypeSymbol))
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+                }
+
+                ILGenerator.Emit(OpCodes.Ret);
+                return;
+            }
+
             EmitStatement(statement);
+        }
 
         if (withReturn)
         {
