@@ -153,7 +153,7 @@ public class SyntaxReference
     public SyntaxReference(SyntaxTree syntaxTree, SyntaxNode node)
     {
         SyntaxTree = syntaxTree;
-        Span = node.Span;
+        Span = node.EffectiveSpan;
         _node = node;
     }
 

@@ -62,6 +62,8 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         }
     }
 
+    public virtual TextSpan EffectiveSpan => Span;
+
     /// <summary>
     /// Gets a list of the child nodes in prefix document order.
     /// </summary>
@@ -206,7 +208,7 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         {
             return default!;
         }
-        return SyntaxTree!.GetLocation(Span);
+        return SyntaxTree!.GetLocation(EffectiveSpan);
     }
 
     public static bool operator ==(SyntaxNode left, SyntaxNode? right) => Equals(left, right);
