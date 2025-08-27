@@ -45,4 +45,36 @@ class Foo {
 
         Assert.NotNull(assembly.GetType("Foo", true));
     }
+
+    [Fact]
+    public void Emit_ShouldAlwaysIncludeUnitType()
+    {
+        var code = """
+func main() {
+    let x = if true {
+        42
+    } else {
+        ()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references = [
+                MetadataReference.CreateFromFile(runtimePath)];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success);
+    }
 }
