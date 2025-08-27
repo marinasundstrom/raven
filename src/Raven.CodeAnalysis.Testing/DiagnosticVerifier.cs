@@ -2,10 +2,6 @@ using System;
 using System.Collections.Immutable;
 using System.Text;
 
-using Castle.DynamicProxy.Generators.Emitters;
-
-using NSubstitute;
-
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -59,7 +55,7 @@ public class DiagnosticVerifier
             var isExpected = expectedDiagnostics.Any(expected =>
                 expected.Id == diagnostic.Descriptor.Id &&
                 expected.Arguments.Select(x => x.ToString()).SequenceEqual(diagnostic.GetMessageArgs().Select(x => x.ToString())) &&
-                expected.Location.Span.StartLinePosition == lineSpan.StartLinePosition);
+                LocationMatches(expected.Location, lineSpan));
 
             if (isExpected)
             {
@@ -76,11 +72,11 @@ public class DiagnosticVerifier
         {
             var isFound = actualDiagnostics.Any(actual =>
             {
-                var expectedSpan = expected.Location.Span;
+                var span = actual.Location.GetLineSpan();
 
                 return actual.Descriptor.Id == expected.Id &&
                     actual.GetMessageArgs().Select(x => x.ToString()).SequenceEqual(expected.Arguments.Select(x => x.ToString())) &&
-                    actual.Location.GetLineSpan().StartLinePosition == expectedSpan.StartLinePosition;
+                    LocationMatches(expected.Location, span);
             });
 
             if (!isFound)
@@ -113,6 +109,18 @@ public class DiagnosticVerifier
         }
     }
 
+    private static bool LocationMatches(DiagnosticLocation expected, FileLinePositionSpan actual)
+    {
+        if (expected.Options.HasFlag(DiagnosticLocationOptions.IgnoreLocation))
+            return true;
+
+        if (expected.Options.HasFlag(DiagnosticLocationOptions.IgnoreLength))
+            return actual.StartLinePosition == expected.Span.StartLinePosition;
+
+        return actual.StartLinePosition == expected.Span.StartLinePosition &&
+               actual.EndLinePosition == expected.Span.EndLinePosition;
+    }
+
     private string BuildErrorMessage(List<Diagnostic> unexpected, List<DiagnosticResult> missing)
     {
         var message = new StringBuilder();
@@ -139,8 +147,11 @@ public class DiagnosticVerifier
                 var m = string.Format(descriptor!.MessageFormat, expected.Arguments);
 
                 var start = expected.Location.Span.StartLinePosition;
+                var loc = expected.Location.Options.HasFlag(DiagnosticLocationOptions.IgnoreLocation)
+                    ? "?:?"
+                    : $"{start.Line + 1},{start.Character + 1}";
 
-                message.AppendLine($"  ({start.Line + 1},{start.Character + 1}): {expected.Id} - {m}");
+                message.AppendLine($"  ({loc}): {expected.Id} - {m}");
             }
         }
 
@@ -179,6 +190,7 @@ public class DiagnosticResult
     public DiagnosticResult(string id)
     {
         Id = id;
+        Location = new DiagnosticLocation(default, DiagnosticLocationOptions.IgnoreLocation);
     }
 
     public DiagnosticResult WithSeverity(DiagnosticSeverity severity)
@@ -189,7 +201,29 @@ public class DiagnosticResult
 
     public DiagnosticResult WithLocation(int line, int column)
     {
-        Location = new DiagnosticLocation(new FileLinePositionSpan(string.Empty, new LinePosition(line - 1, column - 1), new LinePosition()), DiagnosticLocationOptions.None);
+        Location = new DiagnosticLocation(
+            new FileLinePositionSpan(
+                string.Empty,
+                new LinePosition(line - 1, column - 1),
+                new LinePosition(line - 1, column - 1)),
+            DiagnosticLocationOptions.IgnoreLength);
+        return this;
+    }
+
+    public DiagnosticResult WithSpan(int startLine, int startColumn, int endLine, int endColumn)
+    {
+        Location = new DiagnosticLocation(
+            new FileLinePositionSpan(
+                string.Empty,
+                new LinePosition(startLine - 1, startColumn - 1),
+                new LinePosition(endLine - 1, endColumn - 1)),
+            DiagnosticLocationOptions.None);
+        return this;
+    }
+
+    public DiagnosticResult WithAnySpan()
+    {
+        Location = new DiagnosticLocation(default, DiagnosticLocationOptions.IgnoreLocation);
         return this;
     }
 
@@ -228,6 +262,7 @@ public enum DiagnosticLocationOptions
     IgnoreLength = 1,
     InterpretAsMarkupKey = 2,
     UnnecessaryCode = 4,
+    IgnoreLocation = 8,
 }
 
 public static class ReferenceAssemblies

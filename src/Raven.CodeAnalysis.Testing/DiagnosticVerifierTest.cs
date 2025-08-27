@@ -94,6 +94,48 @@ public class DiagnosticVerifierTest
         Assert.Empty(result.UnexpectedDiagnostics);
     }
 
+    [Fact]
+    public void GetResult_WithSpan()
+    {
+        string testCode =
+            """
+            String
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult("RAV0103").WithSpan(1, 1, 1, 7).WithArguments("String")
+            ]);
+
+        var result = verifier.GetResult();
+
+        result.MatchedDiagnostics.Count.ShouldBe(1);
+        Assert.Empty(result.MissingDiagnostics);
+        Assert.Empty(result.UnexpectedDiagnostics);
+    }
+
+    [Fact]
+    public void GetResult_WithAnySpan()
+    {
+        string testCode =
+            """
+            String
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult("RAV0103").WithAnySpan().WithArguments("String")
+            ]);
+
+        var result = verifier.GetResult();
+
+        result.MatchedDiagnostics.Count.ShouldBe(1);
+        Assert.Empty(result.MissingDiagnostics);
+        Assert.Empty(result.UnexpectedDiagnostics);
+    }
+
     private DiagnosticVerifier CreateVerifier(string testCode, IList<DiagnosticResult>? expectedDiagnostics = null, IList<string>? disabledDiagnostics = null)
     {
         return new DiagnosticVerifier

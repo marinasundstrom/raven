@@ -27,7 +27,8 @@ public class DiagnosticVerifierTest
         var verifier = CreateVerifier(
             testCode,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1010").WithLocation(1, 36)
+                // Validate the full span of the diagnostic
+                new DiagnosticResult("RAV1010").WithSpan(1, 36, 1, 46)
             ],
             disabledDiagnostics: [ "RAV1002" ]);
 
@@ -52,3 +53,7 @@ public class DiagnosticVerifierTest
     }
 }
 ```
+
+`WithSpan` verifies both the start and end of the diagnostic. Use `WithLocation` to
+check only the start position, or `WithAnySpan()` (or omit a location entirely)
+to match a diagnostic regardless of its span.
