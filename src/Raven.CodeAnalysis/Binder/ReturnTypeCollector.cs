@@ -41,6 +41,19 @@ internal static class ReturnTypeCollector
             base.VisitReturnStatement(node);
         }
 
+        public override void VisitBlockExpression(BoundBlockExpression node)
+        {
+            BoundStatement? last = null;
+            foreach (var statement in node.Statements)
+            {
+                VisitStatement(statement);
+                last = statement;
+            }
+
+            if (last is BoundExpressionStatement exprStmt && exprStmt.Expression.Type is ITypeSymbol type)
+                AddType(type);
+        }
+
         public override void VisitLambdaExpression(BoundLambdaExpression node)
         {
             // Don't traverse into nested lambdas

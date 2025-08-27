@@ -49,3 +49,20 @@ The semantic analysis of a syntax tree results in a Bound tree. It's the binders
 The Bound tree contains Bound nodes that represent meaning in the program, such as expressions and their bound symbols an child expressions. This tree is not tied to the syntax, but the units of meaning.
 
 The code generator is using this bound tree when generating the actual IL (bytecode).
+
+## Bound tree walkers
+
+Analyses that operate on bound nodes use `BoundTreeWalker`, a base class that provides
+virtual `Visit*` methods for the bound expressions and statements.  Subclasses can
+override these methods to traverse or gather information without modifying the bound
+tree.
+
+### Return type inference
+
+`ReturnTypeCollector` is a specialized `BoundTreeWalker` used by the binder to infer
+return types for blocks and lambdas when no explicit return type is declared.  It
+collects the types from all `return` statements and, if a block ends with a final
+expression, includes that expression's type as an implicit return.  When multiple
+distinct types are observed, the collector produces a union type; otherwise the single
+type is returned.  The inferred union is used as the default type when assigning the
+result to a declaration without an explicit annotation.
