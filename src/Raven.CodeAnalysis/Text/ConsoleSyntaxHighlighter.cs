@@ -1,5 +1,8 @@
 using System.Text;
+using System.Collections.Generic;
+using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Text;
@@ -16,6 +19,9 @@ public class ColorScheme
     public AnsiColor Comment { get; internal set; }
     public AnsiColor Field { get; internal set; }
     public AnsiColor Parameter { get; internal set; }
+    public AnsiColor Error { get; internal set; }
+    public AnsiColor Warning { get; internal set; }
+    public AnsiColor Info { get; internal set; }
 
     public static ColorScheme Light { get; } = new ColorScheme()
     {
@@ -28,7 +34,10 @@ public class ColorScheme
         NumericLiteral = AnsiColor.Yellow,
         Comment = AnsiColor.Green,
         Field = AnsiColor.Cyan,
-        Parameter = AnsiColor.Blue
+        Parameter = AnsiColor.Blue,
+        Error = AnsiColor.BrightRed,
+        Warning = AnsiColor.BrightGreen,
+        Info = AnsiColor.BrightBlue
     };
 
     public static ColorScheme Dark { get; } = new ColorScheme()
@@ -42,7 +51,10 @@ public class ColorScheme
         NumericLiteral = AnsiColor.Red,
         Comment = AnsiColor.BrightGreen,
         Field = AnsiColor.Cyan,
-        Parameter = AnsiColor.Blue
+        Parameter = AnsiColor.Blue,
+        Error = AnsiColor.BrightRed,
+        Warning = AnsiColor.BrightGreen,
+        Info = AnsiColor.BrightBlue
     };
 }
 
@@ -56,7 +68,13 @@ public static class ConsoleSyntaxHighlighter
     private static Dictionary<SyntaxToken, SemanticClassification> _classificationMap;
     private static Dictionary<SyntaxTrivia, SemanticClassification> _triviaClassificationMap;
 
-    public static string WriteNodeToText(this SyntaxNode node, Compilation compilation)
+    private static Dictionary<int, List<DiagnosticSpan>>? _diagnosticMap;
+    private static string[] _lines = Array.Empty<string>();
+    private static int _currentLine;
+
+    private readonly record struct DiagnosticSpan(int Start, int End, DiagnosticSeverity Severity);
+
+    public static string WriteNodeToText(this SyntaxNode node, Compilation compilation, bool includeDiagnostics = false)
     {
         Compilation = compilation;
         SemanticModel = compilation.GetSemanticModel(node.SyntaxTree);
@@ -65,9 +83,43 @@ public static class ConsoleSyntaxHighlighter
         _classificationMap = result.Tokens;
         _triviaClassificationMap = result.Trivia;
 
+        _currentLine = 0;
+        _lines = node.SyntaxTree.GetText()!.ToString().Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+
+        _diagnosticMap = includeDiagnostics
+            ? BuildDiagnosticMap(compilation, node.SyntaxTree)
+            : null;
+
         var sb = new StringBuilder();
         WriteNode(node, sb);
+        AppendUnderlineForLine(_currentLine, sb);
         return sb.ToString();
+    }
+
+    private static Dictionary<int, List<DiagnosticSpan>> BuildDiagnosticMap(Compilation compilation, SyntaxTree tree)
+    {
+        var map = new Dictionary<int, List<DiagnosticSpan>>();
+        foreach (var diagnostic in compilation.GetDiagnostics().Where(d => d.Location.SourceTree == tree))
+        {
+            var lineSpan = diagnostic.Location.GetLineSpan();
+            var severity = diagnostic.Descriptor.DefaultSeverity;
+
+            for (var line = lineSpan.StartLinePosition.Line; line <= lineSpan.EndLinePosition.Line; line++)
+            {
+                var start = line == lineSpan.StartLinePosition.Line ? lineSpan.StartLinePosition.Character : 0;
+                var end = line == lineSpan.EndLinePosition.Line ? lineSpan.EndLinePosition.Character : _lines[line].Length;
+
+                if (!map.TryGetValue(line, out var list))
+                {
+                    list = new List<DiagnosticSpan>();
+                    map[line] = list;
+                }
+
+                list.Add(new DiagnosticSpan(start, end, severity));
+            }
+        }
+
+        return map;
     }
 
     private static void WriteNode(SyntaxNode node, StringBuilder sb)
@@ -87,7 +139,7 @@ public static class ConsoleSyntaxHighlighter
 
         var color = GetColorForToken(token);
         AppendAnsiColor(sb, color);
-        sb.Append(token.Text);
+        AppendText(sb, token.Text);
         AppendAnsiColor(sb, AnsiColor.Reset);
 
         WriteTriviaList(token.TrailingTrivia, sb);
@@ -105,7 +157,7 @@ public static class ConsoleSyntaxHighlighter
             {
                 var color = GetColorForTrivia(trivia);
                 AppendAnsiColor(sb, color);
-                sb.Append(trivia.Text);
+                AppendText(sb, trivia.Text);
                 AppendAnsiColor(sb, AnsiColor.Reset);
             }
         }
@@ -154,6 +206,61 @@ public static class ConsoleSyntaxHighlighter
         }
 
         return ColorScheme.Default;
+    }
+
+    private static void AppendText(StringBuilder sb, string text)
+    {
+        var index = 0;
+        while (index < text.Length)
+        {
+            var newlineIndex = text.IndexOf('\n', index);
+            if (newlineIndex == -1)
+            {
+                sb.Append(text.Substring(index));
+                break;
+            }
+
+            sb.Append(text.Substring(index, newlineIndex - index + 1));
+            AppendUnderlineForLine(_currentLine, sb);
+            _currentLine++;
+            index = newlineIndex + 1;
+        }
+    }
+
+    private static void AppendUnderlineForLine(int lineNumber, StringBuilder sb)
+    {
+        if (_diagnosticMap is null)
+            return;
+        if (!_diagnosticMap.TryGetValue(lineNumber, out var spans))
+            return;
+        var lineText = lineNumber < _lines.Length ? _lines[lineNumber] : string.Empty;
+
+        foreach (var span in spans)
+        {
+            for (var i = 0; i < span.Start && i < lineText.Length; i++)
+            {
+                var ch = lineText[i];
+                sb.Append(ch == '\t' ? '\t' : ' ');
+            }
+
+            var color = GetColorForSeverity(span.Severity);
+            AppendAnsiColor(sb, color);
+            var length = Math.Max(span.End - span.Start, 1);
+            sb.Append(new string('~', length));
+            AppendAnsiColor(sb, AnsiColor.Reset);
+            sb.AppendLine();
+        }
+    }
+
+    private static AnsiColor GetColorForSeverity(DiagnosticSeverity severity)
+    {
+        return severity switch
+        {
+            DiagnosticSeverity.Error => ColorScheme.Error,
+            DiagnosticSeverity.Warning => ColorScheme.Warning,
+            DiagnosticSeverity.Info => ColorScheme.Info,
+            _ => ColorScheme.Info
+        };
     }
 
     private static void AppendAnsiColor(StringBuilder sb, AnsiColor color)
