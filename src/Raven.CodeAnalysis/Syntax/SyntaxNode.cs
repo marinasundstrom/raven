@@ -45,6 +45,10 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
 
     internal int FullWidth => Green.FullWidth;
 
+    /// <summary>
+    /// Gets the portion of source text occupied by this node, excluding any
+    /// leading or trailing trivia.
+    /// </summary>
     public TextSpan Span
     {
         get
@@ -54,6 +58,10 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         }
     }
 
+    /// <summary>
+    /// Gets the portion of source text occupied by this node including its
+    /// leading and trailing trivia.
+    /// </summary>
     public TextSpan FullSpan
     {
         get
@@ -62,6 +70,11 @@ public abstract partial class SyntaxNode : IEquatable<SyntaxNode>
         }
     }
 
+    /// <summary>
+    /// Gets the span used for diagnostics and symbol locations. This is
+    /// equivalent to <see cref="Span"/> but excludes a trailing newline
+    /// terminator token when present.
+    /// </summary>
     public virtual TextSpan EffectiveSpan => Span;
 
     /// <summary>
