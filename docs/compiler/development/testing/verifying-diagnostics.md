@@ -4,6 +4,9 @@ You can verify reported or missing diagnostics using the built-in testing framew
 
 Behind the scenes, a `Compilation` is created, from which the diagnostics is being fetched.
 
+For analyzer scenarios, see the [Analyzer verifier](analyzer-verifier.md) which runs
+analyzers through the workspace to capture diagnostics.
+
 This example shows how to use the testing framework:
 
 ```csharp
