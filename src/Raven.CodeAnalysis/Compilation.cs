@@ -238,7 +238,7 @@ public class Compilation
     {
         if (memberDeclaration is BaseNamespaceDeclarationSyntax namespaceDeclarationSyntax)
         {
-            Location[] locations = [syntaxTree.GetLocation(namespaceDeclarationSyntax.Span)];
+            Location[] locations = [syntaxTree.GetLocation(namespaceDeclarationSyntax.EffectiveSpan)];
 
             SyntaxReference[] references = [namespaceDeclarationSyntax.GetReference()];
 
@@ -253,7 +253,7 @@ public class Compilation
         }
         else if (memberDeclaration is ClassDeclarationSyntax classDeclaration)
         {
-            Location[] locations = [syntaxTree.GetLocation(classDeclaration.Span)];
+            Location[] locations = [syntaxTree.GetLocation(classDeclaration.EffectiveSpan)];
 
             SyntaxReference[] references = [classDeclaration.GetReference()];
 
@@ -281,7 +281,7 @@ public class Compilation
         }
         else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
-            Location[] locations = [syntaxTree.GetLocation(methodDeclaration.Span)];
+            Location[] locations = [syntaxTree.GetLocation(methodDeclaration.EffectiveSpan)];
 
             SyntaxReference[] references = [methodDeclaration.GetReference()];
 

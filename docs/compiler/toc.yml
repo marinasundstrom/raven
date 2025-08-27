@@ -24,6 +24,8 @@
       href: design/semantic-analysis.md
     - name: Symbols
       href: design/symbols.md
+    - name: Spans
+      href: design/spans.md
 - name: Development
   items:
     - name: Adding new syntax

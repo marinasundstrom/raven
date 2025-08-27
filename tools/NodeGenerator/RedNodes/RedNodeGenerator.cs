@@ -297,6 +297,21 @@ public static class RedNodeGenerator
         }
         members.AddRange(properties);
 
+        if (!node.IsAbstract && node.Slots.Any(s => s.Name == "TerminatorToken"))
+        {
+            var effectiveSpanProp = ParseMemberDeclaration(@"public override TextSpan EffectiveSpan
+{
+    get
+    {
+        var span = Span;
+        return TerminatorToken.Kind == SyntaxKind.NewLineToken
+            ? new TextSpan(span.Start, TerminatorToken.Span.Start - span.Start)
+            : span;
+    }
+}");
+            members.Add(effectiveSpanProp);
+        }
+
         if (getNodeSwitchArms.Count > 0)
         {
             members.Add(MethodGetNodeSlot(getNodeSwitchArms));
