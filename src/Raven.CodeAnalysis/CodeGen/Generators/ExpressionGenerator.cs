@@ -88,7 +88,7 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case BoundBlockExpression block:
-                EmitBlock(block);
+                EmitBlock(block, used);
                 break;
 
             case BoundTupleExpression tupleExpression:
@@ -1422,11 +1422,44 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBlock(BoundBlockExpression block)
+    private void EmitBlock(BoundBlockExpression block, bool used)
     {
-        foreach (var s in block.Statements)
+        var statements = block.Statements.ToArray();
+        for (int i = 0; i < statements.Length; i++)
         {
-            EmitStatement(s);
+            var statement = statements[i];
+            var isLast = i == statements.Length - 1;
+
+            if (isLast && statement is BoundExpressionStatement expressionStatement)
+            {
+                new ExpressionGenerator(this, expressionStatement.Expression).Emit(used);
+
+                if (!used)
+                {
+                    var type = expressionStatement.Expression.Type?.UnwrapType();
+
+                    if (expressionStatement.Expression is not BoundAssignmentExpression &&
+                        type is not null &&
+                        type.SpecialType is not SpecialType.System_Void &&
+                        type is not UnitTypeSymbol)
+                    {
+                        ILGenerator.Emit(OpCodes.Pop);
+                    }
+                }
+            }
+            else
+            {
+                EmitStatement(statement);
+            }
+        }
+
+        if (statements.Length == 0 && used)
+        {
+            var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
+                ?? throw new InvalidOperationException("Unit type was not emitted.");
+            var valueField = unitType.GetField("Value")
+                ?? throw new InvalidOperationException("Unit.Value field missing.");
+            ILGenerator.Emit(OpCodes.Ldsfld, valueField);
         }
     }
 
