@@ -15,7 +15,7 @@ public class ImportResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
                     testCode,
                     [
-                         new DiagnosticResult("RAV0103").WithLocation(1, 1).WithArguments("String")
+                         new DiagnosticResult("RAV0103").WithSpan(1, 1, 1, 7).WithArguments("String")
                     ]);
 
         verifier.Verify();
@@ -49,7 +49,7 @@ public class ImportResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV0103").WithLocation(2, 16).WithArguments("String")
+                new DiagnosticResult("RAV0103").WithSpan(2, 16, 2, 22).WithArguments("String")
             ]);
 
         verifier.Verify();
@@ -111,7 +111,7 @@ public class ImportResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV0305").WithLocation(3, 8).WithArguments("List", 1)
+                new DiagnosticResult("RAV0305").WithSpan(3, 8, 3, 12).WithArguments("List", 1)
             ]);
 
         verifier.Verify();
@@ -160,8 +160,8 @@ public class ImportResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
             testCode,
             [
-                new DiagnosticResult("RAV0235").WithLocation(1, 8),
-                new DiagnosticResult("RAV0103").WithLocation(3, 1).WithArguments("String"),
+                new DiagnosticResult("RAV0235").WithSpan(1, 8, 1, 14),
+                new DiagnosticResult("RAV0103").WithSpan(3, 1, 3, 7).WithArguments("String"),
             ]);
 
         verifier.Verify();

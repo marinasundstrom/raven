@@ -134,7 +134,9 @@ public class DiagnosticVerifier
                 var lineSpan = diag.Location.GetLineSpan();
                 var line = lineSpan.StartLinePosition.Line + 1;
                 var column = lineSpan.StartLinePosition.Character + 1;
-                message.AppendLine($"  ({line},{column}): {diag.Descriptor.Id} - {diag.GetDescription()}");
+                var endLine = lineSpan.EndLinePosition.Line + 1;
+                var endColumn = lineSpan.EndLinePosition.Character + 1;
+                message.AppendLine($"  ({line},{column} - {endLine},{endColumn}): {diag.Descriptor.Id} - {diag.GetDescription()}");
             }
         }
 

@@ -1,4 +1,5 @@
 using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -24,8 +25,8 @@ class Foo {
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1900").WithLocation(4, 13),
-                new DiagnosticResult("RAV1900").WithLocation(6, 13)
+                new DiagnosticResult("RAV1900").WithSpan(4, 13, 5, 1),
+                new DiagnosticResult("RAV1900").WithSpan(6, 13, 7, 1)
             ]);
 
         var result = verifier.GetResult();
@@ -53,8 +54,8 @@ let x = if true {
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1900").WithLocation(2, 5),
-                new DiagnosticResult("RAV1900").WithLocation(4, 5)
+                new DiagnosticResult("RAV1900").WithSpan(2, 5, 3, 1),
+                        new DiagnosticResult("RAV1900").WithSpan(4, 5, 5, 1)
             ]);
 
         var result = verifier.GetResult();

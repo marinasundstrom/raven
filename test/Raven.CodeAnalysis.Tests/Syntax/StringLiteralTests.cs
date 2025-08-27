@@ -28,7 +28,7 @@ public class StringLiteralTests : DiagnosticTestBase
         var verifier = CreateVerifier(
                testCode,
                [
-                    new DiagnosticResult("RAV1010").WithLocation(1, 1)
+                    new DiagnosticResult("RAV1010").WithSpan(1, 1, 1, 1)
                ]);
 
         verifier.Verify();

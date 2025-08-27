@@ -17,7 +17,7 @@ public class ExpressionSemanticTest : DiagnosticTestBase
         var verifier = CreateVerifier(
                     testCode,
                     [
-                         new DiagnosticResult("RAV1501").WithLocation(3, 1).WithArguments("WriteLine", "1")
+                         new DiagnosticResult("RAV1501").WithSpan(3, 1, 3, 39).WithArguments("WriteLine", "1")
                     ]);
 
         verifier.Verify();
