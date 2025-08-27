@@ -37,7 +37,7 @@ internal class CodeGenerator
 
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
-    bool _emitUnitType;
+    bool _emitUnitType = true;
 
     internal CustomAttributeBuilder? CreateNullableAttribute(ITypeSymbol type)
     {
