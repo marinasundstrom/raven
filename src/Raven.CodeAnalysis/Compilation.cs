@@ -58,6 +58,7 @@ public class Compilation
     public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= new ErrorTypeSymbol(this, "Error", null, [], []);
 
     public ITypeSymbol NullTypeSymbol => _nullTypeSymbol ??= new NullTypeSymbol(this);
+    public INamedTypeSymbol UnitTypeSymbol => _unitTypeSymbol ??= new UnitTypeSymbol(this);
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
@@ -201,6 +202,7 @@ public class Compilation
     private bool setup;
     private ErrorTypeSymbol _errorTypeSymbol;
     private NullTypeSymbol _nullTypeSymbol;
+    private UnitTypeSymbol _unitTypeSymbol;
     private TypeResolver _typeResolver;
 
     internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
@@ -291,7 +293,7 @@ public class Compilation
                 _ => null
             };
 
-            var returnType = GetSpecialType(SpecialType.System_Void);
+            var returnType = GetSpecialType(SpecialType.System_Unit);
 
             var symbol = new SourceMethodSymbol(
                 methodDeclaration.Identifier.Text.ToString(), returnType,
@@ -378,7 +380,7 @@ public class Compilation
                     isUserDefined: conv.IsUserDefined);
         }
 
-        if (source.SpecialType == SpecialType.System_Void)
+        if (source.SpecialType == SpecialType.System_Void || source.SpecialType == SpecialType.System_Unit)
             return Conversion.None;
 
         var objType = GetSpecialType(SpecialType.System_Object);
@@ -533,7 +535,11 @@ public class Compilation
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
     {
-        if (specialType is SpecialType.System_Void)
+        if (specialType is SpecialType.System_Unit)
+        {
+            return UnitTypeSymbol;
+        }
+        else if (specialType is SpecialType.System_Void)
         {
             return GetTypeByMetadataName("System.Void");
         }
@@ -602,7 +608,7 @@ public class Compilation
             //SyntaxKind.UIntKeyword => SpecialType.System_UInt32,
             //SyntaxKind.ULongKeyword => SpecialType.System_UInt64,
             //SyntaxKind.UShortKeyword => SpecialType.System_UInt16,
-            SyntaxKind.VoidKeyword => SpecialType.System_Void,
+            SyntaxKind.UnitKeyword => SpecialType.System_Unit,
             _ => throw new Exception($"Unexpected predefined keyword: {keywordKind}")
         };
 
@@ -704,7 +710,7 @@ public class Compilation
         var systemNamespace = GlobalNamespace.LookupNamespace("System");
 
         var allTypes = parameterTypes.ToList();
-        bool isAction = returnType.SpecialType == SpecialType.System_Void;
+        bool isAction = returnType.SpecialType == SpecialType.System_Void || returnType.SpecialType == SpecialType.System_Unit;
 
         if (!isAction)
             allTypes.Add(returnType);

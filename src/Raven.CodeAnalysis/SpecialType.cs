@@ -70,5 +70,6 @@ public enum SpecialType
     System_ValueTuple_T7 = 57,
     System_ValueTuple_TRest = 58,
 
-    System_Type
+    System_Type,
+    System_Unit = 60,
 }

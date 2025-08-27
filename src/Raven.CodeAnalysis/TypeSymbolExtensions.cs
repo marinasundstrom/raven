@@ -94,6 +94,7 @@ public static class TypeSymbolExtensions
             SpecialType.System_Boolean => FromCoreAssembly(compilation, "System.Boolean"),
             SpecialType.System_Object => FromCoreAssembly(compilation, "System.Object"),
             SpecialType.System_Void => FromCoreAssembly(compilation, "System.Void"),
+            SpecialType.System_Unit => FromCoreAssembly(compilation, "System.Void"),
             SpecialType.System_Double => FromCoreAssembly(compilation, "System.Double"),
             SpecialType.System_Char => FromCoreAssembly(compilation, "System.Char"),
             SpecialType.System_Int64 => FromCoreAssembly(compilation, "System.Int64"),

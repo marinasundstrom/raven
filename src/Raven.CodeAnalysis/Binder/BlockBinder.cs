@@ -149,7 +149,7 @@ partial class BlockBinder : Binder
             ExpressionStatementSyntax expressionStmt => new BoundExpressionStatement(BindExpression(expressionStmt.Expression)),
             LocalFunctionStatementSyntax localFunction => BindLocalFunction(localFunction),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
-            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundVoidExpression(Compilation.GetSpecialType(SpecialType.System_Void))),
+            EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
 
@@ -162,7 +162,7 @@ partial class BlockBinder : Binder
     {
         var expr = returnStatement.Expression is not null
             ? BindExpression(returnStatement.Expression)
-            : new BoundVoidExpression(Compilation.GetSpecialType(SpecialType.System_Void));
+            : new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
 
         return new BoundReturnStatement(expr);
     }
@@ -230,6 +230,7 @@ partial class BlockBinder : Binder
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
+            UnitExpressionSyntax unitExpression => BindUnitExpression(unitExpression),
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
@@ -534,7 +535,7 @@ partial class BlockBinder : Binder
             return new BoundMemberAccessExpression(typeExpr, member);
         }
 
-        if (receiver.Type?.SpecialType == SpecialType.System_Void)
+        if (receiver.Type?.SpecialType == SpecialType.System_Void || receiver.Type?.SpecialType == SpecialType.System_Unit)
         {
             _diagnostics.ReportMemberAccessOnVoid(name, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
@@ -602,6 +603,12 @@ partial class BlockBinder : Binder
         if (syntax is PredefinedTypeSyntax predefinedType)
         {
             var type = Compilation.ResolvePredefinedType(predefinedType);
+            return new BoundTypeExpression(type);
+        }
+
+        if (syntax is UnitTypeSyntax)
+        {
+            var type = Compilation.GetSpecialType(SpecialType.System_Unit);
             return new BoundTypeExpression(type);
         }
 
@@ -783,6 +790,11 @@ partial class BlockBinder : Binder
         return new BoundLiteralExpression(kind, value, type);
     }
 
+    private BoundExpression BindUnitExpression(UnitExpressionSyntax syntax)
+    {
+        return new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+    }
+
     private BoundExpression BindInterpolatedStringExpression(InterpolatedStringExpressionSyntax syntax)
     {
         BoundExpression? result = null;
@@ -935,7 +947,7 @@ partial class BlockBinder : Binder
             if (receiver is BoundErrorExpression)
                 return receiver;
 
-            if (receiver.Type?.SpecialType is SpecialType.System_Void)
+            if (receiver.Type?.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             {
                 _diagnostics.ReportMemberAccessOnVoid(memberAccess.Name.Identifier.Text, memberAccess.Name.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);

@@ -33,7 +33,7 @@ else if v is bool b {
     Console.WriteLine(b)
 }
 
-func test (input : int | bool) -> void {
+func test (input : int | bool) -> () {
     if input is int a {
         Console.WriteLine(a)
     }
@@ -42,7 +42,7 @@ func test (input : int | bool) -> void {
     }
 }
 
-func test2 (input : int | null) -> void {
+func test2 (input : int | null) -> () {
     
 }
 
@@ -50,6 +50,6 @@ func test3 () -> int | null {
     return null
 }
 
-/*func f () -> void {
+/*func f () -> () {
 
 }*/

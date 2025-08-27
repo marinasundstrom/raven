@@ -51,6 +51,13 @@ public static class TypeSymbolExtensionsForCodeGen
             return codeGen.NullType;
         }
 
+        if (typeSymbol.SpecialType == SpecialType.System_Unit)
+        {
+            if (codeGen.UnitType is null)
+                throw new InvalidOperationException("Unit type was not emitted.");
+            return codeGen.UnitType;
+        }
+
         /*
         // Handle pointer types
         if (typeSymbol is IPointerTypeSymbol pointerType)

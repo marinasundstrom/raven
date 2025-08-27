@@ -153,6 +153,7 @@ public static class PrettySyntaxTreePrinter
             LiteralExpressionSyntax le => $"{le.Token.Value} ",
             IdentifierNameSyntax ine => $"{ine.Identifier.Text} ",
             PredefinedTypeSyntax pt => $"{pt.Keyword.Text} ",
+            UnitTypeSyntax _ => "() ",
             _ => string.Empty
         };
     }

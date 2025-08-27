@@ -34,7 +34,7 @@ class LocalFunctionBinder : Binder
         var container = Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
 
         var returnType = _syntax.ReturnType is null
-            ? Compilation.GetSpecialType(SpecialType.System_Void)
+            ? Compilation.GetSpecialType(SpecialType.System_Unit)
             : ResolveType(_syntax.ReturnType.Type);
 
         _methodSymbol = new SourceMethodSymbol(

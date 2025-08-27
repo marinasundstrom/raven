@@ -353,7 +353,8 @@ public enum TypeKind
     Union,
     Tuple,
     Nullable,
-    Null
+    Null,
+    Unit
 }
 
 public interface INamedTypeSymbol : ITypeSymbol

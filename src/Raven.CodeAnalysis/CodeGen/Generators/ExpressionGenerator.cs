@@ -125,7 +125,8 @@ internal class ExpressionGenerator : Generator
             case BoundTypeExpression:
                 break;
 
-            case BoundVoidExpression:
+            case BoundUnitExpression unitExpression:
+                EmitUnitExpression(unitExpression);
                 break;
 
             case BoundLambdaExpression lambdaExpression:
@@ -144,6 +145,15 @@ internal class ExpressionGenerator : Generator
     private void EmitSelfExpression(BoundSelfExpression selfExpression)
     {
         ILGenerator.Emit(OpCodes.Ldarg_0);
+    }
+
+    private void EmitUnitExpression(BoundUnitExpression unitExpression)
+    {
+        var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
+            ?? throw new InvalidOperationException("Unit type was not emitted.");
+        var valueField = unitType.GetField("Value")
+            ?? throw new InvalidOperationException("Unit.Value field missing.");
+        ILGenerator.Emit(OpCodes.Ldsfld, valueField);
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
@@ -1013,6 +1023,15 @@ internal class ExpressionGenerator : Generator
                 .GetTypeByMetadataName("System.Reflection.MemberInfo");
 
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
+        }
+
+        if (invocationExpression.Type.SpecialType == SpecialType.System_Unit)
+        {
+            var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
+                ?? throw new InvalidOperationException("Unit type was not emitted.");
+            var valueField = unitType.GetField("Value")
+                ?? throw new InvalidOperationException("Unit.Value field missing.");
+            ILGenerator.Emit(OpCodes.Ldsfld, valueField);
         }
     }
 

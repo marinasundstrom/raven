@@ -101,6 +101,10 @@
   <Node Name="PredefinedType" Inherits="Type">
     <Slot Name="Keyword" Type="Token" />
   </Node>
+  <Node Name="UnitType" Inherits="Type">
+    <Slot Name="OpenParenToken" Type="Token" />
+    <Slot Name="CloseParenToken" Type="Token" />
+  </Node>
   <Node Name="TupleType" Inherits="Type">
     <Slot Name="OpenParenToken" Type="Token" />
     <Slot Name="Elements" Type="SeparatedList" ElementType="TupleElement" />
@@ -145,6 +149,10 @@
   </Node>
   <Node Name="LiteralExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Token" Type="Token" />
+  </Node>
+  <Node Name="UnitExpression" Inherits="Expression">
+    <Slot Name="OpenParenToken" Type="Token" />
+    <Slot Name="CloseParenToken" Type="Token" />
   </Node>
   <Node Name="InterpolatedStringExpression" Inherits="Expression">
     <Slot Name="Contents" Type="List" ElementType="InterpolatedStringContent" />

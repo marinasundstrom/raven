@@ -53,7 +53,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 init (x: int) {} 
             }
 
-            func Foo() -> void {}
+            func Foo() -> unit {}
             
             let i = Foo(1);
             """;

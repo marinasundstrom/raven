@@ -37,7 +37,16 @@ internal class NameSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            name = ParseTupleType();
+            if (PeekToken(1).IsKind(SyntaxKind.CloseParenToken))
+            {
+                var open = ReadToken();
+                var close = ReadToken();
+                name = UnitType(open, close);
+            }
+            else
+            {
+                name = ParseTupleType();
+            }
         }
         else
         {
@@ -254,7 +263,7 @@ internal class NameSyntaxParser : SyntaxParser
             case SyntaxKind.BoolKeyword:
             case SyntaxKind.CharKeyword:
             case SyntaxKind.IntKeyword:
-            case SyntaxKind.VoidKeyword:
+            case SyntaxKind.UnitKeyword:
                 return true;
         }
 
