@@ -39,8 +39,12 @@ class Foo {
         var type = assembly.GetType("Foo", true)!;
         var instance = Activator.CreateInstance(type)!;
         var method = type.GetMethod("Test")!;
-        var value = method.Invoke(instance, new object[] { true });
+        var intResult = method.Invoke(instance, new object[] { true });
+        Assert.Equal(42, (int)intResult!);
 
-        Assert.Equal(42, (int)value!);
+        var unitResult = method.Invoke(instance, new object[] { false });
+        Assert.NotNull(unitResult);
+        Assert.Equal("Unit", unitResult!.GetType().Name);
+        Assert.Equal("()", unitResult.ToString());
     }
 }
