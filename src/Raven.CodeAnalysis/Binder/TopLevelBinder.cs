@@ -25,7 +25,13 @@ class TopLevelBinder : BlockBinder
             {
                 var binder = SemanticModel.GetBinder(localFunc, this);
                 if (binder is LocalFunctionBinder lfBinder)
-                    DeclareLocalFunction(lfBinder.GetMethodSymbol());
+                {
+                    var symbol = lfBinder.GetMethodSymbol();
+                    if (_localFunctions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        _diagnostics.ReportLocalFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
+                    else
+                        DeclareLocalFunction(symbol);
+                }
             }
         }
 

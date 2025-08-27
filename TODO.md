@@ -2,19 +2,6 @@
 
 ## Semantic analysis
 
-### Bug: Allows for multiple local functions with same signature, and crashes
-
-You should not be able to define another local function in global scope using the same signature as an existing one.
-
-Right now, the compiler crashes at code generation:
-
-```raven
-func test () {}
-func test () {}
-```
-
-There should be a diagnostic for the second one telling that there already is a function with the same signature.
-
 ## Code generator
 
 ### Bug: Box values in type unions when directly returning from a method

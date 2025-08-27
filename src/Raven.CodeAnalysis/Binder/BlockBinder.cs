@@ -169,6 +169,20 @@ partial class BlockBinder : Binder
 
     public Dictionary<string, IMethodSymbol> _localFunctions = new();
 
+    protected static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second)
+    {
+        if (first.Parameters.Length != second.Parameters.Length)
+            return false;
+
+        for (int i = 0; i < first.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(first.Parameters[i].Type, second.Parameters[i].Type))
+                return false;
+        }
+
+        return true;
+    }
+
     public virtual BoundBlockExpression BindBlock(BlockSyntax block)
     {
         if (TryGetCachedBoundNode(block) is BoundExpression cached)
@@ -183,7 +197,10 @@ partial class BlockBinder : Binder
                 if (localFuncBinder is LocalFunctionBinder lfBinder)
                 {
                     var symbol = lfBinder.GetMethodSymbol();
-                    _localFunctions[symbol.Name] = symbol;
+                    if (_localFunctions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        _diagnostics.ReportLocalFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
+                    else
+                        _localFunctions[symbol.Name] = symbol;
                 }
             }
         }
