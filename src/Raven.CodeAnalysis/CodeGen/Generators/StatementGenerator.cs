@@ -45,28 +45,12 @@ internal class StatementGenerator : Generator
     private void EmitExpressionStatement(BoundExpressionStatement expressionStatement)
     {
         var expression = expressionStatement.Expression;
-        // If the expression is the unit literal and its value is discarded,
-        // there's nothing to emit.
-        if (expression is BoundUnitExpression)
-            return;
+        new ExpressionGenerator(this, expression).Emit(false);
 
-        if (expression is BoundInvocationExpression bie && bie.Type is UnitTypeSymbol)
-            return;
-
-        new ExpressionGenerator(this, expression).Emit();
-
-        ISymbol? symbol = expressionStatement.Symbol;
-
-        if (expression is BoundInvocationExpression invocationExpression)
-        {
-            symbol = ((IMethodSymbol)expressionStatement.Symbol).ReturnType;
-        }
-
-        // TODO: Handle the case that Pop is required. If not Void, and not assigned anywhere.
-
-        var type = symbol?.UnwrapType();
+        var type = expression.Type?.UnwrapType();
         if (type is not null &&
-            type.SpecialType is not SpecialType.System_Void)
+            type.SpecialType is not SpecialType.System_Void &&
+            type is not UnitTypeSymbol)
         {
             // The value is not used, pop it from the stack.
             ILGenerator.Emit(OpCodes.Pop);

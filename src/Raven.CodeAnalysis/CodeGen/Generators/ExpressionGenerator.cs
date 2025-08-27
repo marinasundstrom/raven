@@ -20,10 +20,15 @@ internal class ExpressionGenerator : Generator
 
     public override void Emit()
     {
-        EmitExpression(_expression);
+        EmitExpression(_expression, used: true);
     }
 
-    private void EmitExpression(BoundExpression expression)
+    public void Emit(bool used)
+    {
+        EmitExpression(_expression, used);
+    }
+
+    private void EmitExpression(BoundExpression expression, bool used = true)
     {
         switch (expression)
         {
@@ -60,7 +65,7 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case BoundInvocationExpression invocationExpression:
-                EmitInvocationExpression(invocationExpression);
+                EmitInvocationExpression(invocationExpression, used);
                 break;
 
             case BoundLiteralExpression literalExpression:
@@ -68,11 +73,11 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case BoundParenthesizedExpression parenthesized:
-                EmitExpression(parenthesized.Expression);
+                EmitExpression(parenthesized.Expression, used);
                 break;
 
             case BoundIfExpression ifStatement:
-                EmitIfExpression(ifStatement);
+                EmitIfExpression(ifStatement, used);
                 break;
 
             case BoundWhileExpression whileStatement:
@@ -126,7 +131,8 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case BoundUnitExpression unitExpr:
-                EmitUnitExpression(unitExpr);
+                if (used)
+                    EmitUnitExpression(unitExpr);
                 break;
 
             case BoundLambdaExpression lambdaExpression:
@@ -921,7 +927,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitInvocationExpression(BoundInvocationExpression invocationExpression)
+    private void EmitInvocationExpression(BoundInvocationExpression invocationExpression, bool used)
     {
         var target = invocationExpression.Method;
         var receiver = invocationExpression.Receiver;
@@ -933,7 +939,14 @@ internal class ExpressionGenerator : Generator
                 && target.ContainingType?.Name == "Object"
                 && target.ContainingNamespace?.Name == "System";
 
-            EmitExpression(receiver);
+            if (receiver is not null)
+            {
+                EmitExpression(receiver);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+            }
 
             if (receiver?.Type?.IsValueType == true)
             {
@@ -1013,7 +1026,7 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
         }
 
-        if (invocationExpression.Type is UnitTypeSymbol)
+        if (used && invocationExpression.Type is UnitTypeSymbol)
         {
             var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
                 ?? throw new InvalidOperationException("Unit type was not emitted.");
@@ -1181,14 +1194,14 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitIfExpression(BoundIfExpression ifStatement)
+    private void EmitIfExpression(BoundIfExpression ifStatement, bool used)
     {
         var elseLabel = ILGenerator.DefineLabel();
 
         EmitBranchOpForCondition(ifStatement.Condition, elseLabel);
 
         var scope = new Scope(this);
-        new ExpressionGenerator(scope, ifStatement.ThenBranch).Emit();
+        new ExpressionGenerator(scope, ifStatement.ThenBranch).Emit(used);
 
         var thenType = ifStatement.ThenBranch.Type;
 
@@ -1211,7 +1224,7 @@ internal class ExpressionGenerator : Generator
 
             // Emit the 'else' block
             var scope2 = new Scope(this);
-            new ExpressionGenerator(scope2, ifStatement.ElseBranch).Emit();
+            new ExpressionGenerator(scope2, ifStatement.ElseBranch).Emit(used);
 
             var elseType = ifStatement.ElseBranch.Type;
 
