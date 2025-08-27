@@ -164,6 +164,13 @@ partial class BlockBinder : Binder
             ? BindExpression(returnStatement.Expression)
             : new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
 
+        if (_containingSymbol is IMethodSymbol method &&
+            expr.Type is not null &&
+            !IsAssignable(method.ReturnType, expr.Type))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(expr.Type, method.ReturnType, returnStatement.Expression?.GetLocation() ?? returnStatement.GetLocation());
+        }
+
         return new BoundReturnStatement(expr);
     }
 
@@ -405,10 +412,21 @@ partial class BlockBinder : Binder
 
         var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
 
-        // 6. Infer return type if not explicitly given
-        var returnType = returnTypeSyntax is not null
-            ? inferredReturnType
-            : bodyExpr.Type ?? ReturnTypeCollector.Infer(bodyExpr) ?? Compilation.ErrorTypeSymbol;
+        var inferred = bodyExpr.Type ?? ReturnTypeCollector.Infer(bodyExpr);
+
+        ITypeSymbol returnType;
+        if (returnTypeSyntax is not null)
+        {
+            returnType = inferredReturnType;
+            if (inferred is not null && !IsAssignable(returnType, inferred))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(inferred, returnType, syntax.ExpressionBody.GetLocation());
+            }
+        }
+        else
+        {
+            returnType = inferred ?? Compilation.ErrorTypeSymbol;
+        }
 
         // 7. Construct delegate type (e.g., Func<...> or custom delegate)
         var delegateType = Compilation.CreateFunctionTypeSymbol(
@@ -1371,7 +1389,7 @@ partial class BlockBinder : Binder
         return left;
     }
 
-    private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)
+    protected bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)
     {
         // Trivial exact match
         if (SymbolEqualityComparer.Default.Equals(targetType, sourceType))

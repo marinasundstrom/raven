@@ -380,7 +380,31 @@ public class Compilation
                     isUserDefined: conv.IsUserDefined);
         }
 
-        if (source.SpecialType == SpecialType.System_Void || source.SpecialType == SpecialType.System_Unit)
+        if (source is IUnionTypeSymbol unionSource2)
+        {
+            var conversions = unionSource2.Types.Select(t => ClassifyConversion(t, destination)).ToArray();
+            if (conversions.All(c => c.Exists))
+            {
+                var isImplicit = conversions.All(c => c.IsImplicit);
+                var isReference = conversions.Any(c => c.IsReference);
+                var isBoxing = conversions.Any(c => c.IsBoxing);
+                return new Conversion(
+                    isImplicit: isImplicit,
+                    isReference: isReference,
+                    isBoxing: isBoxing);
+            }
+
+            return Conversion.None;
+        }
+
+        if (source.SpecialType == SpecialType.System_Unit)
+        {
+            if (destination is IUnionTypeSymbol unionDest && unionDest.Types.Any(t => t.SpecialType == SpecialType.System_Unit))
+                return new Conversion(isImplicit: true, isReference: true);
+            return Conversion.None;
+        }
+
+        if (source.SpecialType == SpecialType.System_Void)
             return Conversion.None;
 
         var objType = GetSpecialType(SpecialType.System_Object);

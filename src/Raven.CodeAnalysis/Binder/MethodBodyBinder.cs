@@ -35,6 +35,15 @@ class MethodBodyBinder : BlockBinder
             bound = rewriter.Rewrite(bound);
         }
 
+        var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+        if (!SymbolEqualityComparer.Default.Equals(_methodSymbol.ReturnType, unit))
+        {
+            if (bound.Statements.LastOrDefault() is BoundExpressionStatement exprStmt && exprStmt.Expression.Type is ITypeSymbol t && !IsAssignable(_methodSymbol.ReturnType, t))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(t, _methodSymbol.ReturnType, block.Statements.Last().GetLocation());
+            }
+        }
+
         CacheBoundNode(block, bound);
         return bound;
     }
