@@ -23,7 +23,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
             {
                 _ = new SourceMethodSymbol(
                     ".ctor",
-                    Compilation.GetSpecialType(SpecialType.System_Void),
+                    Compilation.GetSpecialType(SpecialType.System_Unit),
                     ImmutableArray<SourceParameterSymbol>.Empty,
                     ContainingSymbol,
                     ContainingSymbol,
@@ -48,7 +48,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                 {
                     _ = new SourceMethodSymbol(
                         ".cctor",
-                        Compilation.GetSpecialType(SpecialType.System_Void),
+                        Compilation.GetSpecialType(SpecialType.System_Unit),
                         ImmutableArray<SourceParameterSymbol>.Empty,
                         ContainingSymbol,
                         ContainingSymbol,

@@ -20,8 +20,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         switch (node)
         {
-            case BoundVoidExpression self:
-                VisitVoidExpression(self);
+            case BoundUnitExpression self:
+                VisitUnitExpression(self);
                 break;
             case BoundSelfExpression self:
                 VisitSelfExpression(self);

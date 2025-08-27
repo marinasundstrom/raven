@@ -137,7 +137,7 @@ internal class TypeMemberBinder : Binder
     public MethodBinder BindMethodDeclaration(MethodDeclarationSyntax methodDecl)
     {
         var returnType = methodDecl.ReturnType is null
-            ? Compilation.GetSpecialType(SpecialType.System_Void)
+            ? Compilation.GetSpecialType(SpecialType.System_Unit)
             : ResolveType(methodDecl.ReturnType.Type);
 
         var name = methodDecl.Identifier.Kind == SyntaxKind.SelfKeyword ? "Invoke" : methodDecl.Identifier.Text;
@@ -213,7 +213,7 @@ internal class TypeMemberBinder : Binder
 
         var ctorSymbol = new SourceMethodSymbol(
             ".ctor",
-            Compilation.GetSpecialType(SpecialType.System_Void),
+            Compilation.GetSpecialType(SpecialType.System_Unit),
             ImmutableArray<SourceParameterSymbol>.Empty,
             _containingType,
             _containingType,
@@ -362,7 +362,7 @@ internal class TypeMemberBinder : Binder
             foreach (var accessor in propertyDecl.AccessorList.Accessors)
             {
                 bool isGet = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
-                var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Void);
+                var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Unit);
                 var name = (isGet ? "get_" : "set_") + propertySymbol.Name;
 
                 var methodSymbol = new SourceMethodSymbol(
@@ -447,7 +447,7 @@ internal class TypeMemberBinder : Binder
             foreach (var accessor in indexerDecl.AccessorList.Accessors)
             {
                 bool isGet = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
-                var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Void);
+                var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Unit);
                 var name = (isGet ? "get_" : "set_") + propertySymbol.Name;
 
                 var methodSymbol = new SourceMethodSymbol(

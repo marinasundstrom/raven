@@ -22,6 +22,6 @@ func outer() {
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<LocalFunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
-        Assert.Equal(SpecialType.System_Void, symbol.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_Unit, symbol.ReturnType.SpecialType);
     }
 }

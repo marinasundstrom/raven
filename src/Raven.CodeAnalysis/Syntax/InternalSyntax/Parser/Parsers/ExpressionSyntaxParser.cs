@@ -601,6 +601,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         var openParenToken = ReadToken(); // Consumes '('
 
+        if (PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        {
+            var close = ReadToken();
+            return UnitExpression(openParenToken, close);
+        }
+
         var expressions = new List<GreenNode>();
 
         var firstExpr = new ExpressionSyntaxParser(this).ParseArgument();
