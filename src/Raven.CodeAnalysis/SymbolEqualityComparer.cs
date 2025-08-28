@@ -11,11 +11,24 @@ public class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         // Compare kinds
         if (x.Kind != y.Kind) return false;
 
+        // Special handling for parameters to avoid recursive containment checks
+        if (x is IParameterSymbol px && y is IParameterSymbol py)
+        {
+            if (px.RefKind != py.RefKind)
+                return false;
+
+            return px.Type.Equals(py.Type, Default);
+        }
+
         // Compare names
         if (x.Name != y.Name) return false;
 
         // Compare containing namespaces
         if (!Equals(x.ContainingNamespace?.ToDisplayString(), y.ContainingNamespace?.ToDisplayString()))
+            return false;
+
+        // Compare containing symbols (e.g., enclosing types)
+        if (!Equals(x.ContainingSymbol, y.ContainingSymbol))
             return false;
 
         // Compare parameters (for methods)
@@ -45,6 +58,7 @@ public class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         int hash = obj.Kind.GetHashCode();
         hash = (hash * 31) + (obj.Name?.GetHashCode() ?? 0);
         hash = (hash * 31) + (obj.ContainingNamespace?.ToDisplayString().GetHashCode() ?? 0);
+        hash = (hash * 31) + (obj.ContainingSymbol?.GetHashCode() ?? 0);
         return hash;
     }
 }
