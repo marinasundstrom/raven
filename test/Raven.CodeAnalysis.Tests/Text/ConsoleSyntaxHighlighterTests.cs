@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -43,5 +44,19 @@ class Test {
 
         Assert.Contains('$', text);
         Assert.Contains('"', text);
+    }
+
+    [Fact]
+    public void FullyQualifiedNamespace_IsColorized()
+    {
+        var source = "import System.Collections.Generic.*";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var text = root.WriteNodeToText(compilation);
+
+        var matches = Regex.Matches(text, "\u001b\\[9[56]m");
+        Assert.Equal(3, matches.Count);
     }
 }

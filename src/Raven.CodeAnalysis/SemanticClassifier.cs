@@ -1,3 +1,4 @@
+using System.Linq;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -38,6 +39,8 @@ public static class SemanticClassifier
 
                     if (symbol != null)
                         tokenMap[descendant] = ClassifySymbol(symbol);
+                    else if (descendant.Parent.AncestorsAndSelf().OfType<ImportDirectiveSyntax>().Any())
+                        tokenMap[descendant] = SemanticClassification.Namespace;
                     else
                         tokenMap[descendant] = SemanticClassification.Default;
                 }
@@ -80,7 +83,7 @@ public static class SemanticClassifier
         {
             if (node.Parent is MemberAccessExpressionSyntax ma && ma.Name == node)
                 node = ma;
-            else if (node.Parent is QualifiedNameSyntax qn && qn.Right == node)
+            else if (node.Parent is QualifiedNameSyntax qn && (qn.Left == node || qn.Right == node))
                 node = qn;
             else if (node.Parent is InvocationExpressionSyntax inv && inv.Expression == node)
                 node = inv;
