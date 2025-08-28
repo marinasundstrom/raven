@@ -149,9 +149,10 @@ public class DiagnosticVerifier
                 var m = string.Format(descriptor!.MessageFormat, expected.Arguments);
 
                 var start = expected.Location.Span.StartLinePosition;
+                var end = expected.Location.Span.EndLinePosition;
                 var loc = expected.Location.Options.HasFlag(DiagnosticLocationOptions.IgnoreLocation)
-                    ? "?:?"
-                    : $"{start.Line + 1},{start.Character + 1}";
+                    ? "?:? - ?:?"
+                    : $"{start.Line + 1},{start.Character + 1} - {end.Line + 1},{end.Character + 1}";
 
                 message.AppendLine($"  ({loc}): {expected.Id} - {m}");
             }
