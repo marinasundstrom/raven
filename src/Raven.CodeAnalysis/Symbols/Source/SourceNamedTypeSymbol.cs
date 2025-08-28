@@ -49,9 +49,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
         _allInterfaces ??=
             _interfaces
-                .SelectMany(i => i.AllInterfaces.Prepend(i))
+                .Concat(_interfaces.SelectMany(i => i.AllInterfaces))
                 .Concat(BaseType?.AllInterfaces ?? ImmutableArray<INamedTypeSymbol>.Empty)
-                .Distinct(SymbolEqualityComparer.Default)
+                .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
                 .ToImmutableArray();
 
     public bool IsValueType => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum;

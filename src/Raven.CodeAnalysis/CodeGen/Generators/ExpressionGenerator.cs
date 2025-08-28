@@ -537,7 +537,6 @@ internal class ExpressionGenerator : Generator
 
     private void EmitSpreadElement(LocalBuilder collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, IMethodSymbol addMethod)
     {
-        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
         EmitExpression(spread.Expression);
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
