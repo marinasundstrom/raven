@@ -368,6 +368,7 @@ public interface INamedTypeSymbol : ITypeSymbol
     ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
     ITypeSymbol? ConstructedFrom { get; }
     bool IsAbstract { get; }
+    bool IsSealed { get; }
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
 

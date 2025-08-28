@@ -124,4 +124,7 @@ public static class DiagnosticBagExtensions
 
     public static void ReportReturnNotAllowedInExpression(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ReturnStatementInExpression, location));
+
+    public static void ReportCannotInheritFromSealedType(this DiagnosticBag diagnostics, string typeName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotInheritFromSealedType, location, typeName));
 }

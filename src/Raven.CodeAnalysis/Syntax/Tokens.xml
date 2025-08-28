@@ -41,6 +41,7 @@
   <TokenKind Name="StaticKeyword" Text="static" IsReservedWord="true" />
   <TokenKind Name="AbstractKeyword" Text="abstract" IsReservedWord="true" />
   <TokenKind Name="SealedKeyword" Text="sealed" IsReservedWord="true" />
+  <TokenKind Name="OpenKeyword" Text="open" IsReservedWord="true" />
   <TokenKind Name="OverrideKeyword" Text="override" IsReservedWord="true" />
   <TokenKind Name="GetKeyword" Text="get" IsReservedWord="true" />
   <TokenKind Name="SetKeyword" Text="set" IsReservedWord="true" />

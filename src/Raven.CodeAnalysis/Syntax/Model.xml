@@ -69,6 +69,7 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Keyword" Type="Token" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
+    <Slot Name="BaseType" Type="TypeAnnotationClause" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" IsInherited="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />

@@ -22,6 +22,8 @@ internal class TypeDeclarationParser : SyntaxParser
 
         }
 
+        var baseType = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+
         List<GreenNode> memberList = new List<GreenNode>();
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
@@ -52,7 +54,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return ClassDeclaration(modifiers, structOrClassKeyword, identifier, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(modifiers, structOrClassKeyword, identifier, baseType, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
     private SyntaxList ParseModifiers()
@@ -70,6 +72,7 @@ internal class TypeDeclarationParser : SyntaxParser
                      SyntaxKind.StaticKeyword or
                      SyntaxKind.AbstractKeyword or
                      SyntaxKind.SealedKeyword or
+                     SyntaxKind.OpenKeyword or
                      SyntaxKind.OverrideKeyword)
             {
                 modifiers = modifiers.Add(ReadToken());

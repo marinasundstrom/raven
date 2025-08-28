@@ -488,20 +488,30 @@ public partial class SemanticModel
 
                 case ClassDeclarationSyntax classDecl:
                     {
+                        var baseType = classDecl.BaseType is not null
+                            ? (parentBinder.ResolveType(classDecl.BaseType.Type) as INamedTypeSymbol)
+                              ?? Compilation.GetTypeByMetadataName("System.Object")
+                            : Compilation.GetTypeByMetadataName("System.Object");
+
+                        var isSealed = !classDecl.Modifiers.Any(m =>
+                            m.Kind == SyntaxKind.OpenKeyword || m.Kind == SyntaxKind.AbstractKeyword);
+
                         var classSymbol = new SourceNamedTypeSymbol(
                             classDecl.Identifier.Text,
-                            Compilation.GetTypeByMetadataName("System.Object"),
+                            baseType!,
                             TypeKind.Class,
                             parentNamespace.AsSourceNamespace(),
                             null,
                             parentNamespace.AsSourceNamespace(),
                             [classDecl.GetLocation()],
-                            [classDecl.GetReference()]
-                        );
+                            [classDecl.GetReference()],
+                            isSealed);
 
                         var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
                         _binderCache[classDecl] = classBinder;
                         RegisterClassSymbol(classDecl, classSymbol);
+                        if (classDecl.BaseType is not null && baseType!.IsSealed)
+                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(baseType.Name, classDecl.BaseType.Type.GetLocation());
                         RegisterClassMembers(classDecl, classBinder);
                         break;
                     }
@@ -516,7 +526,8 @@ public partial class SemanticModel
                             null,
                             parentNamespace.AsSourceNamespace(),
                             [enumDecl.GetLocation()],
-                            [enumDecl.GetReference()]
+                            [enumDecl.GetReference()],
+                            true
                         );
 
                         var enumBinder = new EnumDeclarationBinder(parentBinder, enumSymbol, enumDecl);
@@ -596,20 +607,29 @@ public partial class SemanticModel
 
                 case ClassDeclarationSyntax nestedClass:
                     var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
+                    var nestedBaseType = nestedClass.BaseType is not null
+                        ? (classBinder.ResolveType(nestedClass.BaseType.Type) as INamedTypeSymbol)
+                          ?? Compilation.GetTypeByMetadataName("System.Object")
+                        : Compilation.GetTypeByMetadataName("System.Object");
+                    var nestedSealed = !nestedClass.Modifiers.Any(m =>
+                        m.Kind == SyntaxKind.OpenKeyword || m.Kind == SyntaxKind.AbstractKeyword);
                     var nestedSymbol = new SourceNamedTypeSymbol(
                         nestedClass.Identifier.Text,
-                        Compilation.GetTypeByMetadataName("System.Object"),
+                        nestedBaseType!,
                         TypeKind.Class,
                         parentType,
                         parentType,
                         classBinder.CurrentNamespace!.AsSourceNamespace(),
                         [nestedClass.GetLocation()],
-                        [nestedClass.GetReference()]
+                        [nestedClass.GetReference()],
+                        nestedSealed
                     );
 
                     var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
                     _binderCache[nestedClass] = nestedBinder;
                     RegisterClassSymbol(nestedClass, nestedSymbol);
+                    if (nestedClass.BaseType is not null && nestedBaseType!.IsSealed)
+                        nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(nestedBaseType.Name, nestedClass.BaseType.Type.GetLocation());
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
                     break;
@@ -624,7 +644,8 @@ public partial class SemanticModel
                         parentTypeForEnum,
                         classBinder.CurrentNamespace!.AsSourceNamespace(),
                         [enumDecl.GetLocation()],
-                        [enumDecl.GetReference()]
+                        [enumDecl.GetReference()],
+                        true
                     );
 
                     var enumBinder = new EnumDeclarationBinder(classBinder, enumSymbol, enumDecl);
