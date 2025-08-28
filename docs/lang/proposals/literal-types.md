@@ -11,7 +11,7 @@ let flag: true | false = true
 let token: 0 | 1 | "admin" = 1
 
 import System.Math
-let angle: Pi | () = Pi
+let angle: PI | () = Pi
 ```
 
 A *literal-value type* is written with the literal itself. Literals may include numbers, strings, characters, booleans, or constant identifiers that resolve to compile‑time constants.
@@ -103,3 +103,21 @@ match token with
 - Should numeric literals respect implicit conversions when used as types?
 - How are large or non-primitive constants encoded in metadata?
 
+## Implementation details
+
+>*This is just a concept*
+
+The representation in the semantic model:
+
+```csharp
+sealed class LiteralTypeSymbol : ITypeSymbol
+{
+    public TypeSymbol UnderlyingType { get; } // Inherited
+    public object ConstantValue { get; } // boxed, incl. enum constants
+
+    // Equals/GetHashCode on (Underlying, ConstantValue)
+    // SpecialType: None; IsReferenceType/IsValueType mirrors Underlying
+}
+```
+
+We need conversions as well.
