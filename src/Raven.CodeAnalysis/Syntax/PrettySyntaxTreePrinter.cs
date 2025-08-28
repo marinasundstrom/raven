@@ -236,7 +236,7 @@ public static class PrettySyntaxTreePrinter
 
     private static string Span(TextSpan span)
     {
-        return $"[{span}]";
+        return span.ToString();
     }
 
     private static string TriviaToString(SyntaxTrivia trivia)
