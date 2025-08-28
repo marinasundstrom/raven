@@ -31,6 +31,14 @@ Appending `?` creates a nullable type. Value types are emitted as `System.Nullab
 
 `A | B` represents a value that may be either type. Each branch retains its own CLR representation and the union's base type is inferred from the operands.
 
+When assigning to a union, the expression must convert to at least one branch. Literal branches are matched by value rather than by type.
+
+```raven
+let a: "true" | 1 = 1   // ok
+let b: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
+let c: "true" | int = 1 // ok: 1 matches int
+```
+
 ### Generics
 
 Generic parameters compile directly to .NET generics:
