@@ -649,11 +649,25 @@ internal class ExpressionSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseBracketToken))
                 break;
 
-            var expression = new ExpressionSyntaxParser(this).ParseExpression();
-            if (expression is null)
-                break;
+            CollectionElementSyntax element;
 
-            elementList.Add(CollectionElement(expression));
+            if (t.IsKind(SyntaxKind.DotDotToken))
+            {
+                var dotDotToken = ReadToken();
+                var spreadExpr = new ExpressionSyntaxParser(this).ParseExpression();
+                if (spreadExpr is null)
+                    break;
+                element = SpreadElement(dotDotToken, spreadExpr);
+            }
+            else
+            {
+                var expression = new ExpressionSyntaxParser(this).ParseExpression();
+                if (expression is null)
+                    break;
+                element = ExpressionElement(expression);
+            }
+
+            elementList.Add(element);
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

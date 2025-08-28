@@ -144,6 +144,10 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
 
     public bool IsUnboundGenericType => _type.IsUnboundGenericType;
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => _type.AllInterfaces;
+
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => _type.Construct(typeArguments);
 }
 

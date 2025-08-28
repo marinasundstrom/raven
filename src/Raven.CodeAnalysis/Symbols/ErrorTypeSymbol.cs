@@ -28,6 +28,9 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
     public bool IsGenericType { get; }
     public bool IsUnboundGenericType { get; }
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => [];
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
+
     public SpecialType SpecialType => SpecialType.None;
 
     public bool IsNamespace => false;

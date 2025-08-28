@@ -372,6 +372,9 @@ public interface INamedTypeSymbol : ITypeSymbol
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
 
+    ImmutableArray<INamedTypeSymbol> Interfaces { get; }
+    ImmutableArray<INamedTypeSymbol> AllInterfaces { get; }
+
     ITypeSymbol Construct(params ITypeSymbol[] typeArguments);
 }
 

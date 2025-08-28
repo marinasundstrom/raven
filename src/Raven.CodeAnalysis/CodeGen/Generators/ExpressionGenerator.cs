@@ -408,32 +408,38 @@ internal class ExpressionGenerator : Generator
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
-            ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count());
-            ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
-
-            int index = 0;
-            foreach (var element in collectionExpression.Elements)
+            if (!collectionExpression.Elements.OfType<BoundSpreadElement>().Any())
             {
-                ILGenerator.Emit(OpCodes.Dup);
-                ILGenerator.Emit(OpCodes.Ldc_I4, index);
+                ILGenerator.Emit(OpCodes.Ldc_I4, collectionExpression.Elements.Count());
+                ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(arrayTypeSymbol.ElementType));
 
-                EmitExpression(element);
-
-                if (!arrayTypeSymbol.ElementType.IsValueType)
+                int index = 0;
+                foreach (var element in collectionExpression.Elements)
                 {
-                    ILGenerator.Emit(OpCodes.Stelem_Ref);
-                }
-                else
-                {
-                    ILGenerator.Emit(OpCodes.Stelem_I4);
-                }
+                    ILGenerator.Emit(OpCodes.Dup);
+                    ILGenerator.Emit(OpCodes.Ldc_I4, index);
 
-                index++;
+                    EmitExpression(element);
+
+                    if (!arrayTypeSymbol.ElementType.IsValueType)
+                    {
+                        ILGenerator.Emit(OpCodes.Stelem_Ref);
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Stelem_I4);
+                    }
+
+                    index++;
+                }
+            }
+            else
+            {
+                EmitArrayWithSpreads(arrayTypeSymbol, collectionExpression);
             }
         }
         else if (target is INamedTypeSymbol namedType)
         {
-            // Create the collection instance using the parameterless constructor
             var ctor = namedType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
@@ -447,31 +453,134 @@ internal class ExpressionGenerator : Generator
             };
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
+            var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(namedType));
+            ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
 
             var addMethod = collectionExpression.CollectionSymbol as IMethodSymbol;
 
             if (addMethod is not null)
             {
+                var paramType = addMethod.Parameters[0].Type;
                 foreach (var element in collectionExpression.Elements)
                 {
-                    ILGenerator.Emit(OpCodes.Dup);
-                    EmitExpression(element);
-
-                    var paramType = addMethod.Parameters[0].Type;
-                    if (element.Type is { IsValueType: true } && !paramType.IsValueType)
+                    if (element is BoundSpreadElement spread)
                     {
-                        ILGenerator.Emit(OpCodes.Box, ResolveClrType(element.Type));
+                        EmitSpreadElement(collectionLocal, spread, paramType, addMethod);
                     }
-
-                    var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
-
-                    if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
-                        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
                     else
-                        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+                    {
+                        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+                        EmitExpression(element);
+
+                        if (element.Type is { IsValueType: true } && !paramType.IsValueType)
+                        {
+                            ILGenerator.Emit(OpCodes.Box, ResolveClrType(element.Type));
+                        }
+
+                        var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
+
+                        if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
+                            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+                        else
+                            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+                    }
                 }
             }
+
+            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
         }
+    }
+
+    private void EmitArrayWithSpreads(IArrayTypeSymbol arrayTypeSymbol, BoundCollectionExpression collectionExpression)
+    {
+        var elementType = arrayTypeSymbol.ElementType;
+        var listTypeDef = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+
+        var ctor = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
+        ConstructorInfo ctorInfo = ctor switch
+        {
+            PEMethodSymbol pem => pem.GetConstructorInfo(),
+            _ => throw new NotSupportedException()
+        };
+
+        ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
+        var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
+        ILGenerator.Emit(OpCodes.Stloc, listLocal);
+
+        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First(m => m.Parameters.Length == 1);
+
+        foreach (var element in collectionExpression.Elements)
+        {
+            if (element is BoundSpreadElement spread)
+            {
+                EmitSpreadElement(listLocal, spread, elementType, addMethod);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+                EmitExpression(element);
+
+                if (element.Type is { IsValueType: true } && !elementType.IsValueType)
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(element.Type));
+                }
+
+                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+            }
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, listLocal);
+        var toArray = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First(m => m.Parameters.Length == 0);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(toArray));
+    }
+
+    private void EmitSpreadElement(LocalBuilder collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, IMethodSymbol addMethod)
+    {
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        EmitExpression(spread.Expression);
+
+        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
+        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var enumeratorType = getEnumerator.ReturnType;
+        var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
+        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+        var loopStart = ILGenerator.DefineLabel();
+        var loopEnd = ILGenerator.DefineLabel();
+
+        ILGenerator.MarkLabel(loopStart);
+        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
+
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+
+        var clrElement = ResolveClrType(elementType);
+        if (elementType.IsValueType)
+            ILGenerator.Emit(OpCodes.Unbox_Any, clrElement);
+        else
+            ILGenerator.Emit(OpCodes.Castclass, clrElement);
+
+        var paramType = addMethod.Parameters[0].Type;
+        if (elementType.IsValueType && !paramType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, clrElement);
+
+        var isInterfaceCall = addMethod.ContainingType?.TypeKind == TypeKind.Interface;
+
+        if (!addMethod.ContainingType!.IsValueType && (addMethod.IsVirtual || isInterfaceCall))
+            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+        else
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+        ILGenerator.MarkLabel(loopEnd);
     }
 
     private void EmitEmptyCollectionExpression(BoundEmptyCollectionExpression emptyCollectionExpression)

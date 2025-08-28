@@ -73,6 +73,10 @@ internal partial class TupleTypeSymbol : PESymbol, ITupleTypeSymbol
 
     public bool IsUnboundGenericType => false;
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => UnderlyingTupleType.Interfaces;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => UnderlyingTupleType.AllInterfaces;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         IEnumerable<ISymbol> symbols = UnderlyingTupleType.GetMembers();
