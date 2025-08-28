@@ -7,8 +7,11 @@ warnings for code that compiles but might benefit from additional annotations or
 Currently available analyzers:
 
 - **MissingReturnTypeAnnotationAnalyzer** – reports a diagnostic when a function omits an
-  explicit return type. The analyzer computes the inferred type and suggests annotating the
-  method for clarity.
+  explicit return type. By surfacing the inferred type, the analyzer nudges developers to
+  weigh the clarity of explicit annotations often favored in object-oriented code against
+  the brevity and flexibility of functional style. Teams can then deliberately pick the
+  approach that best fits their codebase. When the inferred type is `Unit` (the language's
+  `void`), the analyzer suppresses the suggestion.
 
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
