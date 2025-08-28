@@ -193,7 +193,11 @@ internal class ExpressionGenerator : Generator
     }
     private void EmitLocalAccess(BoundLocalAccess localAccess)
     {
-        ILGenerator.Emit(OpCodes.Ldloc, GetLocal(localAccess.Local));
+        var localBuilder = GetLocal(localAccess.Local);
+        if (localBuilder is null)
+            throw new InvalidOperationException($"Missing local builder for '{localAccess.Local.Name}'");
+
+        ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
     }
 
     private void EmitParameterAccess(BoundParameterAccess parameterAccess)
@@ -1176,9 +1180,12 @@ internal class ExpressionGenerator : Generator
     {
         var elseLabel = ILGenerator.DefineLabel();
 
-        EmitBranchOpForCondition(ifStatement.Condition, elseLabel);
-
+        // Create a scope upfront so any pattern variables introduced in the
+        // condition are available within the "then" branch.
         var scope = new Scope(this);
+        new ExpressionGenerator(scope, ifStatement.Condition)
+            .EmitBranchOpForCondition(ifStatement.Condition, elseLabel);
+
         new ExpressionGenerator(scope, ifStatement.ThenBranch).Emit();
 
         var thenType = ifStatement.ThenBranch.Type;
