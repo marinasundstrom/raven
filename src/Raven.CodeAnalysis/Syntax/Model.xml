@@ -215,6 +215,9 @@
     <Slot Name="ElementType" Type="Type" />
     <Slot Name="QuestionToken" Type="Token" />
   </Node>
+  <Node Name="LiteralType" Inherits="Type" HasExplicitKind="true">
+    <Slot Name="Token" Type="Token" />
+  </Node>
   <Node Name="NullType" Inherits="Type">
     <Slot Name="NullKeyword" Type="Token" />
   </Node>

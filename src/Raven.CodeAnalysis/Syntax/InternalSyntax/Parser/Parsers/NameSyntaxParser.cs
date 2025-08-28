@@ -86,6 +86,24 @@ internal class NameSyntaxParser : SyntaxParser
             return NullType(peek);
         }
 
+        if (peek.Kind is SyntaxKind.TrueKeyword or SyntaxKind.FalseKeyword or
+            SyntaxKind.NumericLiteralToken or SyntaxKind.StringLiteralToken or
+            SyntaxKind.CharacterLiteralToken)
+        {
+            ReadToken();
+            var kind = peek.Kind switch
+            {
+                SyntaxKind.TrueKeyword => SyntaxKind.TrueLiteralType,
+                SyntaxKind.FalseKeyword => SyntaxKind.FalseLiteralType,
+                SyntaxKind.NumericLiteralToken => SyntaxKind.NumericLiteralType,
+                SyntaxKind.StringLiteralToken => SyntaxKind.StringLiteralType,
+                SyntaxKind.CharacterLiteralToken => SyntaxKind.CharacterLiteralType,
+                _ => SyntaxKind.LiteralType,
+            };
+
+            return LiteralType(kind, peek);
+        }
+
         if (IsPredefinedTypeKeyword(peek))
         {
             ReadToken();

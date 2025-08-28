@@ -24,6 +24,11 @@ internal partial class BoundBinaryOperator
 
     public static BoundBinaryOperator? Lookup(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right)
     {
+        if (left is LiteralTypeSymbol litLeft)
+            left = litLeft.UnderlyingType;
+        if (right is LiteralTypeSymbol litRight)
+            right = litRight.UnderlyingType;
+
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var int64 = compilation.GetSpecialType(SpecialType.System_Int64);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);

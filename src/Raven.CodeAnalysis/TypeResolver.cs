@@ -75,10 +75,24 @@ internal class TypeResolver(Compilation compilation)
 
     private IUnionTypeSymbol CreateUnionTypeSymbol(CustomAttributeData unionAttribute)
     {
-        var types = ((IEnumerable<CustomAttributeTypedArgument>)unionAttribute
-            .ConstructorArguments.First().Value).Select(x => (Type)x.Value);
+        var args = (IEnumerable<CustomAttributeTypedArgument>)unionAttribute
+            .ConstructorArguments.First().Value!;
 
-        return new UnionTypeSymbol(types.Select(x => ResolveType(x)!).ToArray(), null, null, null, []);
+        var types = new List<ITypeSymbol>();
+        foreach (var arg in args)
+        {
+            if (arg.Value is Type t)
+            {
+                types.Add(ResolveType(t)!);
+            }
+            else
+            {
+                var underlying = ResolveType(arg.ArgumentType)!;
+                types.Add(new LiteralTypeSymbol(underlying, arg.Value!, compilation));
+            }
+        }
+
+        return new UnionTypeSymbol(types.ToArray(), null, null, null, []);
     }
 
     public ITypeSymbol? ResolveType(Type type)

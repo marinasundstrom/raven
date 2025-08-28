@@ -190,6 +190,12 @@ internal class CodeGenerator
             if (typeSymbol is null)
                 return;
 
+            if (typeSymbol is LiteralTypeSymbol literal)
+            {
+                CheckType(literal.UnderlyingType);
+                return;
+            }
+
             if (typeSymbol.IsUnion && typeSymbol is IUnionTypeSymbol union)
             {
                 _emitTypeUnionAttribute = true;
@@ -233,23 +239,23 @@ internal class CodeGenerator
         var attrUsageBuilder = new CustomAttributeBuilder(attrUsageCtor, [AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.ReturnValue | AttributeTargets.Property]);
         attrBuilder.SetCustomAttribute(attrUsageBuilder);
 
-        // Define a private readonly field: private readonly Type[] _types;
+        // Define a private readonly field: private readonly object[] _types;
         var typesField = attrBuilder.DefineField(
             "_types",
-            typeof(Type[]),
+            typeof(object[]),
             FieldAttributes.Private | FieldAttributes.InitOnly);
 
-        // Define the public property: public Type[] Types { get; }
+        // Define the public property: public object[] Types { get; }
         var propBuilder = attrBuilder.DefineProperty(
             "Types",
             PropertyAttributes.None,
-            typeof(Type[]),
+            typeof(object[]),
             null);
 
         var getterMethod = attrBuilder.DefineMethod(
             "get_Types",
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
-            typeof(Type[]),
+            typeof(object[]),
             Type.EmptyTypes);
 
         var ilGet = getterMethod.GetILGenerator();
@@ -260,11 +266,11 @@ internal class CodeGenerator
         // Attach the getter to the property
         propBuilder.SetGetMethod(getterMethod);
 
-        // Define the constructor: public TypeUnionAttribute(params Type[] types)
+        // Define the constructor: public TypeUnionAttribute(params object[] types)
         var ctorBuilder = attrBuilder.DefineConstructor(
             MethodAttributes.Public,
             CallingConventions.Standard,
-            new[] { typeof(Type[]) });
+            new[] { typeof(object[]) });
 
         // Add [ParamArray] attribute to the parameter
         var paramArrayAttrCtor = typeof(ParamArrayAttribute).GetConstructor(Type.EmptyTypes);

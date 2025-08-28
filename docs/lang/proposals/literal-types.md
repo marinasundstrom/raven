@@ -1,6 +1,6 @@
 # Proposal: Literal-Value Types and Literal Union Types
 
-> ⚠️ This proposal has NOT been implemented
+> ✅ This proposal has been implemented
 
 ## Summary
 Allow literal values and constants to appear directly in type positions and participate in union types. Each literal-value type represents exactly one value, enabling precise exhaustiveness checks and clearer APIs. Type unions already exist in Raven and semantically hold type elements; this proposal extends them so they may also include literal-value types.
@@ -23,6 +23,8 @@ A *literal union* combines multiple literal-value types or mixes them with ordin
 - The compiler treats a union containing literals as a finite set of possible values.
 - Type inference and pattern matching respect these singleton types.
 - Existing type unions contain only type members; to include literals we treat each literal as its own type, using the literal's value when evaluating patterns.
+- Literal expressions themselves are typed with their corresponding singleton type and implicitly convert to their underlying primitive type.
+- Diagnostics display boolean literals using lowercase keywords (`true`/`false`), while string and character literals retain their quotes.
 
 ## Metadata Representation
 Literal unions are emitted using `TypeUnionAttribute`. Each union member becomes a constructor argument. To support literal values, `TypeUnionAttribute` must accept `object` arguments rather than only `Type` instances:
