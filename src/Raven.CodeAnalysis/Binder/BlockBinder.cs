@@ -1455,9 +1455,22 @@ partial class BlockBinder : Binder
 
         var elements = ImmutableArray.CreateBuilder<BoundExpression>();
 
-        foreach (var expr in syntax.Elements)
+        foreach (var elementSyntax in syntax.Elements)
         {
-            var boundElement = BindExpression(expr.Expression);
+            BoundExpression boundElement;
+            switch (elementSyntax)
+            {
+                case ExpressionElementSyntax exprElem:
+                    boundElement = BindExpression(exprElem.Expression);
+                    break;
+                case SpreadElementSyntax spreadElem:
+                    var spreadExpr = BindExpression(spreadElem.Expression);
+                    boundElement = new BoundSpreadElement(spreadExpr);
+                    break;
+                default:
+                    continue;
+            }
+
             elements.Add(boundElement);
         }
 
@@ -1467,9 +1480,13 @@ partial class BlockBinder : Binder
 
             foreach (var element in elements)
             {
-                if (!IsAssignable(elementType, element.Type!))
+                var sourceType = element is BoundSpreadElement spread && spread.Expression.Type is IArrayTypeSymbol arr
+                    ? arr.ElementType
+                    : element.Type!;
+
+                if (!IsAssignable(elementType, sourceType))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(element.Type!, elementType, syntax.GetLocation());
+                    _diagnostics.ReportCannotConvertFromTypeToType(sourceType, elementType, syntax.GetLocation());
                 }
             }
 
@@ -1494,9 +1511,13 @@ partial class BlockBinder : Binder
 
             foreach (var element in elements)
             {
-                if (!IsAssignable(elementType, element.Type!))
+                var sourceType = element is BoundSpreadElement spread && spread.Expression.Type is IArrayTypeSymbol arr
+                    ? arr.ElementType
+                    : element.Type!;
+
+                if (!IsAssignable(elementType, sourceType))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(element.Type!, elementType, syntax.GetLocation());
+                    _diagnostics.ReportCannotConvertFromTypeToType(sourceType, elementType, syntax.GetLocation());
                 }
             }
 
