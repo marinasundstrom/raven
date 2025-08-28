@@ -78,10 +78,26 @@ class MethodBodyBinder : BlockBinder
             statements.Insert(0, declaration);
             statements.Add(new BoundReturnStatement(new BoundLocalAccess(_self)));
 
-            var or = (BoundFieldAssignmentExpression)((BoundExpressionStatement)statements[1]).Expression;
+            // Rewrite field and property assignments that implicitly target `self`.
+            // The binder leaves such assignments with a null receiver. After introducing
+            // the `__self` local, these assignments should explicitly reference it.
+            for (var i = 1; i < statements.Count - 1; i++)
+            {
+                if (statements[i] is not BoundExpressionStatement exprStmt)
+                    continue;
 
-            statements[1] = new BoundExpressionStatement(
-                new BoundFieldAssignmentExpression(new BoundLocalAccess(_self), or.Field, or.Right));
+                switch (exprStmt.Expression)
+                {
+                    case BoundFieldAssignmentExpression fieldAssignment when fieldAssignment.Receiver is null:
+                        statements[i] = new BoundExpressionStatement(
+                            new BoundFieldAssignmentExpression(new BoundLocalAccess(_self), fieldAssignment.Field, fieldAssignment.Right));
+                        break;
+                    case BoundPropertyAssignmentExpression propertyAssignment when propertyAssignment.Receiver is null:
+                        statements[i] = new BoundExpressionStatement(
+                            new BoundPropertyAssignmentExpression(new BoundLocalAccess(_self), propertyAssignment.Property, propertyAssignment.Right));
+                        break;
+                }
+            }
 
             return new BoundBlockExpression(statements);
         }
