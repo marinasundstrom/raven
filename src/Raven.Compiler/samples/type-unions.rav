@@ -21,6 +21,7 @@ var prop = TestDep.Foo.TestProp
 
 TestDep.Foo.TestProp = 2
 //TestDep.Foo.TestProp = true
+TestDep.Foo.TestProp = "OK"
 
 let v = TestDep.Foo.Test2(true)
 
@@ -33,7 +34,7 @@ else if v is bool b {
     Console.WriteLine(b)
 }
 
-func test (input : int | bool) -> () {
+func test (input : int | bool) {
     if input is int a {
         Console.WriteLine(a)
     }
@@ -46,7 +47,7 @@ func test2 (input : int | null) -> () {
     
 }
 
-func test3 () -> int | null {
+func test3 () {
     return null
 }
 
