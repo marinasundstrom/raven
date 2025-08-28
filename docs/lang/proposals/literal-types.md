@@ -9,7 +9,8 @@ Allow literal values and constants to appear directly in type positions and part
 ```raven
 let flag: true | false = true
 let token: 0 | 1 | "admin" = 1
-open System.Math
+
+import System.Math
 let angle: Pi | () = Pi
 ```
 
@@ -27,10 +28,41 @@ A *literal union* combines multiple literal-value types or mixes them with ordin
 Literal unions are emitted using `TypeUnionAttribute`. Each union member becomes a constructor argument. To support literal values, `TypeUnionAttribute` must accept `object` arguments rather than only `Type` instances:
 
 ```csharp
-[TypeUnion(typeof(int), "yes", 'c', 0.2, false)]
+public void Foo([TypeUnion(typeof(int), "yes", 'c', 0.2, false)] object arg) 
+{
+    
+}
 ```
 
 Constant identifiers are lowered to their literal values before emission. Consumers can reflect over `TypeUnionAttribute` to discover both type and literal members.
+
+For named constants, we might also need to encode names and position of argument.
+
+```csharp
+[return: TypeUnion(Placeholder.P1, typeof(Unit)]]
+[return: TypeUnionElement(Placeholder.P1, "Math.PI"]]
+public object Foo() 
+{
+
+}
+
+[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.ReturnValue | AttributeTargets.Property)]
+public sealed class TypeUnionElementAttribute : Attribute
+{
+    public TypeUnionElementAttribute(Placeholder placeholder, string memberPath)
+    {
+        
+    }
+}
+
+enum Placeholder 
+{
+    P1,
+    P2,
+    P3,
+    // ...
+}
+```
 
 ## Pattern Matching
 Literal-value types participate in pattern matching. Any context that accepts a pattern—including the future `match` expression—may use literal patterns:
