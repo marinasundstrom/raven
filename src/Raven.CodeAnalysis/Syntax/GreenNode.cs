@@ -260,6 +260,24 @@ public abstract class GreenNode
         return _diagnostics ?? Array.Empty<DiagnosticInfo>();
     }
 
+    internal GreenNode WithAdditionalDiagnostics(params DiagnosticInfo[] diagnostics)
+    {
+        if (diagnostics is null || diagnostics.Length == 0)
+        {
+            return this;
+        }
+
+        if (_diagnostics is null || _diagnostics.Length == 0)
+        {
+            return SetDiagnostics(diagnostics);
+        }
+
+        var merged = new DiagnosticInfo[_diagnostics.Length + diagnostics.Length];
+        _diagnostics.CopyTo(merged, 0);
+        diagnostics.CopyTo(merged, _diagnostics.Length);
+        return SetDiagnostics(merged);
+    }
+
     public IEnumerable<SyntaxAnnotation> GetAnnotations(IEnumerable<string> annotationKinds)
     {
         if (_annotations is null)

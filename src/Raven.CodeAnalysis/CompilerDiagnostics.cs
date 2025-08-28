@@ -9,6 +9,8 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _semicolonExpected;
     private static DiagnosticDescriptor? _characterExpected;
     private static DiagnosticDescriptor? _duplicateModifier;
+    private static DiagnosticDescriptor? _importDirectiveOutOfOrder;
+    private static DiagnosticDescriptor? _aliasDirectiveOutOfOrder;
     private static DiagnosticDescriptor? _unrecognizedEscapeSequence;
     private static DiagnosticDescriptor? _newlineInConstant;
     private static DiagnosticDescriptor? _methodNameExpected;
@@ -92,6 +94,32 @@ internal class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "Duplicate '{0}' modifier",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV1005: Import directive out of order
+    /// </summary>
+    public static DiagnosticDescriptor ImportDirectiveOutOfOrder => _importDirectiveOutOfOrder ??= DiagnosticDescriptor.Create(
+        id: "RAV1005",
+        title: "Import directive out of order",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Import directives must appear before alias directives and member declarations",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV1006: Alias directive out of order
+    /// </summary>
+    public static DiagnosticDescriptor AliasDirectiveOutOfOrder => _aliasDirectiveOutOfOrder ??= DiagnosticDescriptor.Create(
+        id: "RAV1006",
+        title: "Alias directive out of order",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Alias directives must appear before member declarations",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -553,6 +581,8 @@ internal class CompilerDiagnostics
         SemicolonExpected,
         CharacterExpected,
         DuplicateModifier,
+        ImportDirectiveOutOfOrder,
+        AliasDirectiveOutOfOrder,
         UnrecognizedEscapeSequence,
         NewlineInConstant,
         MethodNameExpected,
@@ -596,6 +626,8 @@ internal class CompilerDiagnostics
             "RAV1002" => SemicolonExpected,
             "RAV1003" => CharacterExpected,
             "RAV1004" => DuplicateModifier,
+            "RAV1005" => ImportDirectiveOutOfOrder,
+            "RAV1006" => AliasDirectiveOutOfOrder,
             "RAV1009" => UnrecognizedEscapeSequence,
             "RAV1010" => NewlineInConstant,
             "RAV0149" => MethodNameExpected,
