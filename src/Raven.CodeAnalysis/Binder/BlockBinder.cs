@@ -107,23 +107,30 @@ partial class BlockBinder : Binder
             boundInitializer = BindExpression(initializer.Value, allowReturn: false);
         }
 
-        if (variableDeclarator.TypeAnnotation is null)
+        if (initializer is null)
         {
-            if (boundInitializer is not null)
-                type = boundInitializer.Type!;
+            if (variableDeclarator.TypeAnnotation is not null)
+                type = ResolveType(variableDeclarator.TypeAnnotation.Type);
+
+            _diagnostics.ReportLocalVariableMustBeInitialized(name, variableDeclarator.Identifier.GetLocation());
+            boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.OtherError);
+        }
+        else if (variableDeclarator.TypeAnnotation is null)
+        {
+            type = boundInitializer!.Type!;
         }
         else
         {
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
 
-            if (boundInitializer is not null && type.TypeKind != TypeKind.Error && !IsAssignable(type, boundInitializer.Type!))
+            if (type.TypeKind != TypeKind.Error && !IsAssignable(type, boundInitializer!.Type!))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(boundInitializer.Type!, type, initializer!.Value.GetLocation());
+                _diagnostics.ReportCannotAssignFromTypeToType(boundInitializer.Type!, type, initializer.Value.GetLocation());
                 boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
             }
         }
 
-        var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer!);
+        var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer);
 
         return new BoundLocalDeclarationStatement([declarator]);
     }
@@ -1381,7 +1388,7 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(localSymbol.Type, right2.Type!))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(right2.Type!, localSymbol.Type, syntax.RightHandSide.GetLocation());
+                _diagnostics.ReportCannotAssignFromTypeToType(right2.Type!, localSymbol.Type, syntax.RightHandSide.GetLocation());
                 return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -1404,7 +1411,7 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(fieldSymbol.Type, right2.Type!))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(right2.Type!, fieldSymbol.Type, syntax.RightHandSide.GetLocation());
+                _diagnostics.ReportCannotAssignFromTypeToType(right2.Type!, fieldSymbol.Type, syntax.RightHandSide.GetLocation());
                 return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -1427,7 +1434,7 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(propertySymbol.Type, right2.Type!))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(right2.Type!, propertySymbol.Type, syntax.RightHandSide.GetLocation());
+                _diagnostics.ReportCannotAssignFromTypeToType(right2.Type!, propertySymbol.Type, syntax.RightHandSide.GetLocation());
                 return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 

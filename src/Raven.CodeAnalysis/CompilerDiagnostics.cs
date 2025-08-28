@@ -21,11 +21,13 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _unassignedOutParameter;
     private static DiagnosticDescriptor? _variableUsedLikeAType;
     private static DiagnosticDescriptor? _useOfUnassignedVariable;
+    private static DiagnosticDescriptor? _localVariableMustBeInitialized;
     private static DiagnosticDescriptor? _memberDoesNotContainDefinition;
     private static DiagnosticDescriptor? _operatorCannotBeAppliedToOperandOfType;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
     private static DiagnosticDescriptor? _callIsAmbiguous;
     private static DiagnosticDescriptor? _cannotConvertFromTypeToType;
+    private static DiagnosticDescriptor? _cannotAssignFromTypeToType;
     private static DiagnosticDescriptor? _noOverloadForMethod;
     private static DiagnosticDescriptor? _typeOrNamespaceNameDoesNotExistInTheNamespace;
     private static DiagnosticDescriptor? _typeExpectedWithoutWildcard;
@@ -258,6 +260,19 @@ internal class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV0166: Local variable '{0}' must be initialized
+    /// </summary>
+    public static DiagnosticDescriptor LocalVariableMustBeInitialized => _localVariableMustBeInitialized ??= DiagnosticDescriptor.Create(
+        id: "RAV0166",
+        title: "Local variable must be initialized",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Local variable '{0}' must be initialized",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV0117: '{0}' does not contain a definition for '{1}'
     /// </summary>
     public static DiagnosticDescriptor MemberDoesNotContainDefinition => _memberDoesNotContainDefinition ??= DiagnosticDescriptor.Create(
@@ -323,7 +338,7 @@ internal class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// RAV1503: Cannot convert from '{0}' to {1}
+    /// RAV1503: Cannot convert from '{0}' to '{1}'
     /// </summary>
     public static DiagnosticDescriptor CannotConvertFromTypeToType => _cannotConvertFromTypeToType ??= DiagnosticDescriptor.Create(
         id: "RAV1503",
@@ -331,6 +346,19 @@ internal class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "Cannot convert from '{0}' to '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV1504: Cannot assign '{0}' to '{1}'
+    /// </summary>
+    public static DiagnosticDescriptor CannotAssignFromTypeToType => _cannotAssignFromTypeToType ??= DiagnosticDescriptor.Create(
+        id: "RAV1504",
+        title: "Cannot assign to type",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Cannot assign '{0}' to '{1}'",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -635,11 +663,13 @@ internal class CompilerDiagnostics
         UnassignedOutParameter,
         VariableUsedLikeAType,
         UseOfUnassignedVariable,
+        LocalVariableMustBeInitialized,
         MemberDoesNotContainDefinition,
         OperatorCannotBeAppliedToOperandOfType,
         TypeNameDoesNotExistInType,
         CallIsAmbiguous,
         CannotConvertFromTypeToType,
+        CannotAssignFromTypeToType,
         NoOverloadForMethod,
         TypeOrNamespaceNameDoesNotExistInTheNamespace,
         TypeExpectedWithoutWildcard,
@@ -683,11 +713,13 @@ internal class CompilerDiagnostics
             "RAV0269" => UnassignedOutParameter,
             "RAV0118" => VariableUsedLikeAType,
             "RAV0165" => UseOfUnassignedVariable,
+            "RAV0166" => LocalVariableMustBeInitialized,
             "RAV0117" => MemberDoesNotContainDefinition,
             "RAV0023" => OperatorCannotBeAppliedToOperandOfType,
             "RAV0426" => TypeNameDoesNotExistInType,
             "RAV0121" => CallIsAmbiguous,
             "RAV1503" => CannotConvertFromTypeToType,
+            "RAV1504" => CannotAssignFromTypeToType,
             "RAV1501" => NoOverloadForMethod,
             "RAV0234" => TypeOrNamespaceNameDoesNotExistInTheNamespace,
             "RAV0235" => TypeExpectedWithoutWildcard,

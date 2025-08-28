@@ -561,7 +561,7 @@ literal itself in keyword form. For example:
 
 ```raven
 let x: "true" | 1 = true
-// error: Cannot convert from 'true' to '"true" | 1'
+// error: Cannot assign 'true' to '"true" | 1'
 ```
 
 Boolean literals appear lowercase (`true`/`false`) to align with their

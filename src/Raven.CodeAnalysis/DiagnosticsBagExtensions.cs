@@ -35,6 +35,9 @@ public static class DiagnosticBagExtensions
     public static void ReportUseOfUnassignedVariable(this DiagnosticBag diagnostics, string name, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.UseOfUnassignedVariable, location, name));
 
+    public static void ReportLocalVariableMustBeInitialized(this DiagnosticBag diagnostics, string name, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LocalVariableMustBeInitialized, location, name));
+
     public static void ReportMemberDoesNotContainDefinition(this DiagnosticBag diagnostics, string container, string member, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MemberDoesNotContainDefinition, location, container, member));
 
@@ -49,6 +52,9 @@ public static class DiagnosticBagExtensions
 
     public static void ReportCannotConvertFromTypeToType(this DiagnosticBag diagnostics, ITypeSymbol fromType, ITypeSymbol toType, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotConvertFromTypeToType, location, fromType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat), toType));
+
+    public static void ReportCannotAssignFromTypeToType(this DiagnosticBag diagnostics, ITypeSymbol fromType, ITypeSymbol toType, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotAssignFromTypeToType, location, fromType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat), toType));
 
     public static void ReportNoOverloadForMethod(this DiagnosticBag diagnostics, string method, int count, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NoOverloadForMethod, location, method, count));

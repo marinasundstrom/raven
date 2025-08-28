@@ -57,7 +57,7 @@ class Baz {
     {
         var code = "let x: \"true\" | 1 = true";
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("true", "\"true\" | 1")
+            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("true", "\"true\" | 1")
         ]);
         verifier.Verify();
     }
