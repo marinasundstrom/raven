@@ -27,6 +27,14 @@ A *literal union* combines multiple literal-value types or mixes them with ordin
 ## Metadata Representation
 Literal unions are emitted using `TypeUnionAttribute`. Each union member becomes a constructor argument. To support literal values, `TypeUnionAttribute` must accept `object` arguments rather than only `Type` instances:
 
+```raven
+func Foo(arg: (int | "yes" | 'c' | .2 | false)) {
+
+}
+```
+
+In C#:
+
 ```csharp
 public void Foo([TypeUnion(typeof(int), "yes", 'c', 0.2, false)] object arg) 
 {
@@ -36,31 +44,44 @@ public void Foo([TypeUnion(typeof(int), "yes", 'c', 0.2, false)] object arg)
 
 Constant identifiers are lowered to their literal values before emission. Consumers can reflect over `TypeUnionAttribute` to discover both type and literal members.
 
-For named constants, we might also need to encode names and position of argument.
+For named constants, we might also need to encode names of constants, and position of element.
+
+```raven
+import System.Math.*
+
+func Foo() -> PI | () {
+    
+}
+```
+
+In C#:
 
 ```csharp
-[return: TypeUnion(Placeholder.P1, typeof(Unit)]]
-[return: TypeUnionElement(Placeholder.P1, "Math.PI"]]
-public object Foo() 
-{
+public enum TUPlaceholder { I0, I1, /* ... */ }
 
+[AttributeUsage(AttributeTargets.ReturnValue, AllowMultiple = true)]
+public sealed class TypeUnionAttribute : Attribute
+{
+    public TypeUnionAttribute(TUPlaceholder slot, Type type) { /* store */ }
 }
 
-[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.ReturnValue | AttributeTargets.Property)]
-public sealed class TypeUnionElementAttribute : Attribute
+[AttributeUsage(AttributeTargets.ReturnValue, AllowMultiple = true)]
+public sealed class TypeUnionConstantAttribute : Attribute
 {
-    public TypeUnionElementAttribute(Placeholder placeholder, string memberPath)
-    {
-        
-    }
+    public TypeUnionConstantAttribute(
+        TUPlaceholder slot,
+        string source,          // e.g., "System.Math.PI" or "literal"
+        Type type,              // the constant's type
+        object value)           // boxed compile-time constant
+    { /* store */ }
 }
 
-enum Placeholder 
+[return: TypeUnion(TUPlaceholder.I0, typeof(Unit))]
+[return: TypeUnionConstant(TUPlaceholder.I0, "System.Math.PI", typeof(double), 3.1415926535897931)]
+public object Foo()
 {
-    P1,
-    P2,
-    P3,
     // ...
+    return default!;
 }
 ```
 
