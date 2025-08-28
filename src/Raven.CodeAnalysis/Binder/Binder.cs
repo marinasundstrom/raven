@@ -183,6 +183,24 @@ internal abstract class Binder
             return Compilation.NullTypeSymbol;
         }
 
+        if (typeSyntax is LiteralTypeSyntax literalType)
+        {
+            var token = literalType.Token;
+            var value = token.Value ?? token.Text!;
+            ITypeSymbol underlying = value switch
+            {
+                int => Compilation.GetSpecialType(SpecialType.System_Int32),
+                long => Compilation.GetSpecialType(SpecialType.System_Int64),
+                float => Compilation.GetSpecialType(SpecialType.System_Single),
+                double => Compilation.GetSpecialType(SpecialType.System_Double),
+                bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
+                char => Compilation.GetSpecialType(SpecialType.System_Char),
+                string => Compilation.GetSpecialType(SpecialType.System_String),
+                _ => Compilation.ErrorTypeSymbol
+            };
+            return new LiteralTypeSymbol(underlying, value, Compilation);
+        }
+
         if (typeSyntax is ByRefTypeSyntax byRef)
         {
             return ResolveType(byRef.ElementType);

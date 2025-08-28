@@ -1,6 +1,6 @@
 # Proposal: Literal-Value Types and Literal Union Types
 
-> ⚠️ This proposal has NOT been implemented
+> ✅ This proposal has been implemented
 
 ## Summary
 Allow literal values and constants to appear directly in type positions and participate in union types. Each literal-value type represents exactly one value, enabling precise exhaustiveness checks and clearer APIs. Type unions already exist in Raven and semantically hold type elements; this proposal extends them so they may also include literal-value types.

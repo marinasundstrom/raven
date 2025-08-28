@@ -58,6 +58,11 @@ public static class TypeSymbolExtensionsForCodeGen
             return codeGen.UnitType;
         }
 
+        if (typeSymbol is LiteralTypeSymbol literalType)
+        {
+            return literalType.UnderlyingType.GetClrType(codeGen);
+        }
+
         /*
         // Handle pointer types
         if (typeSymbol is IPointerTypeSymbol pointerType)

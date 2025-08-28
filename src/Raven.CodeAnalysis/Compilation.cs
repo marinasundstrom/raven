@@ -361,6 +361,11 @@ public class Compilation
         // Temporary
         if (destination is null) return Conversion.None;
 
+        if (source is LiteralTypeSymbol litSrc)
+            return ClassifyConversion(litSrc.UnderlyingType, destination);
+        if (destination is LiteralTypeSymbol litDest)
+            return ClassifyConversion(source, litDest.UnderlyingType);
+
         if (SymbolEqualityComparer.Default.Equals(source, destination) &&
             source is not NullableTypeSymbol &&
             destination is not NullableTypeSymbol)
