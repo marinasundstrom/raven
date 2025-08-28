@@ -43,14 +43,14 @@ static class ConsoleEx
 
             var fileLocation = $"({location.StartLinePosition.Line + 1},{location.StartLinePosition.Character + 1})";
 
-            var color = diagnostic.Descriptor.DefaultSeverity switch
+            var color = diagnostic.Severity switch
             {
                 DiagnosticSeverity.Warning => ConsoleColor.Green,
                 DiagnosticSeverity.Error => ConsoleColor.Red,
                 _ => ConsoleColor.Black
             };
 
-            AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{descriptor.DefaultSeverity.ToString().ToLower()} {descriptor.Id}[/]: {Markup.Escape(diagnostic.GetMessage())}");
+            AnsiConsole.MarkupLine($"{fileDirectory}[bold]{fileName}[/]{fileLocation}: [bold {color}]{diagnostic.Severity.ToString().ToLower()} {descriptor.Id}[/]: {Markup.Escape(diagnostic.GetMessage())}");
         }
     }
 }

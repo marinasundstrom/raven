@@ -102,7 +102,7 @@ public static class ConsoleSyntaxHighlighter
         foreach (var diagnostic in compilation.GetDiagnostics().Where(d => d.Location.SourceTree == tree))
         {
             var lineSpan = diagnostic.Location.GetLineSpan();
-            var severity = diagnostic.Descriptor.DefaultSeverity;
+            var severity = diagnostic.Severity;
 
             for (var line = lineSpan.StartLinePosition.Line; line <= lineSpan.EndLinePosition.Line; line++)
             {

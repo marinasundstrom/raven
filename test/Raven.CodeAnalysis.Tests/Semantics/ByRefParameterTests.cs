@@ -125,6 +125,6 @@ class C {
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var diagnostics = compilation.GetDiagnostics();
-        Assert.DoesNotContain(diagnostics, d => d.Descriptor.DefaultSeverity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
     }
 }

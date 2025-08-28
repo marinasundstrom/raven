@@ -8,13 +8,16 @@ public class Diagnostic : IEquatable<Diagnostic>
 
     public Location Location { get; }
 
+    public DiagnosticSeverity Severity { get; }
+
     public object[] GetMessageArgs() => _messageArgs ?? [];
 
-    public Diagnostic(DiagnosticDescriptor descriptor, Location location, object[]? messageArgs)
+    public Diagnostic(DiagnosticDescriptor descriptor, Location location, object[]? messageArgs, DiagnosticSeverity? severity = null)
     {
         Descriptor = descriptor;
         Location = location;
         _messageArgs = messageArgs;
+        Severity = severity ?? descriptor.DefaultSeverity;
     }
 
     public override string ToString() => GetDescription();
@@ -24,8 +27,13 @@ public class Diagnostic : IEquatable<Diagnostic>
         return new Diagnostic(descriptor, location, messageArgs);
     }
 
+    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, DiagnosticSeverity severity, params object[]? messageArgs)
+    {
+        return new Diagnostic(descriptor, location, messageArgs, severity);
+    }
+
     public string GetDescription()
-        => $"{Descriptor.DefaultSeverity.ToString().ToLower()} {Descriptor.Id}: {GetMessage()}";
+        => $"{Severity.ToString().ToLower()} {Descriptor.Id}: {GetMessage()}";
 
     public string GetMessage()
         => string.Format(Descriptor.MessageFormat, _messageArgs is not null ? ProcessArgs(_messageArgs).ToArray() : []);
@@ -62,6 +70,9 @@ public class Diagnostic : IEquatable<Diagnostic>
         if (!Equals(Location, other.Location))
             return false;
 
+        if (Severity != other.Severity)
+            return false;
+
         // Compare the fully formatted message (args normalized via ProcessArgs)
         return string.Equals(GetMessage(), other.GetMessage(), StringComparison.Ordinal);
     }
@@ -73,6 +84,7 @@ public class Diagnostic : IEquatable<Diagnostic>
         var hash = new HashCode();
         hash.Add(Descriptor);
         hash.Add(Location);
+        hash.Add(Severity);
         // Hash by final formatted message to align with Equals
         hash.Add(GetMessage(), StringComparer.Ordinal);
         return hash.ToHashCode();
@@ -80,4 +92,7 @@ public class Diagnostic : IEquatable<Diagnostic>
 
     public static bool operator ==(Diagnostic? left, Diagnostic? right) => Equals(left, right);
     public static bool operator !=(Diagnostic? left, Diagnostic? right) => !Equals(left, right);
+
+    internal Diagnostic WithSeverity(DiagnosticSeverity severity)
+        => new Diagnostic(Descriptor, Location, GetMessageArgs(), severity);
 }
