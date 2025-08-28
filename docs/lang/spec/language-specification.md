@@ -556,6 +556,17 @@ let y = if x > 2 { 40 + w; } else { true; }
 See [Union conversions](#union-conversions) for how union values interact with
 explicit target types and return annotations.
 
+If a literal value does not match the annotated union, diagnostics show the
+literal itself in keyword form. For example:
+
+```raven
+let x: "true" | 1 = true
+// error: Cannot convert from 'true' to '"true" | 1'
+```
+
+Boolean literals appear lowercase (`true`/`false`) to align with their
+keywords, and string or character literals retain their quotes.
+
 Discrimination via `is`:
 
 ```raven

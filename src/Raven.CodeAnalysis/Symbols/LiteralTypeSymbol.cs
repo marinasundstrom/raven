@@ -12,6 +12,7 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, ITypeSymbol
         {
             string s => "\"" + s + "\"",
             char c => "'" + c + "'",
+            bool b => b ? "true" : "false",
             _ => value?.ToString() ?? string.Empty
         };
 

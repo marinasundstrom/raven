@@ -53,11 +53,11 @@ class Baz {
     }
 
     [Fact]
-    public void StringLiteralUnion_ShowsQuotesInDiagnostic()
+    public void BooleanLiteral_UsesKeywordInDiagnostic()
     {
-        var code = "let x: \"true\" | \"false\" = true";
+        var code = "let x: \"true\" | 1 = true";
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("bool", "\"true\" | \"false\"")
+            new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("true", "\"true\" | 1")
         ]);
         verifier.Verify();
     }

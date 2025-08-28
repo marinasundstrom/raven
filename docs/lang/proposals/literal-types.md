@@ -24,6 +24,7 @@ A *literal union* combines multiple literal-value types or mixes them with ordin
 - Type inference and pattern matching respect these singleton types.
 - Existing type unions contain only type members; to include literals we treat each literal as its own type, using the literal's value when evaluating patterns.
 - Literal expressions themselves are typed with their corresponding singleton type and implicitly convert to their underlying primitive type.
+- Diagnostics display boolean literals using lowercase keywords (`true`/`false`), while string and character literals retain their quotes.
 
 ## Metadata Representation
 Literal unions are emitted using `TypeUnionAttribute`. Each union member becomes a constructor argument. To support literal values, `TypeUnionAttribute` must accept `object` arguments rather than only `Type` instances:
