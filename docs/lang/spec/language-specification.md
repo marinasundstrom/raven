@@ -404,6 +404,10 @@ namespace A.B
 
 The outermost undeclared namespace is the **global namespace**.
 
+### File-scope code
+
+Files may start with executable statements that aren't enclosed in a function or type. This file-scope code forms the application's entry point and is translated into `Program.Main`. Only console applications may include file-scope code, and it may appear in at most one file per compilation. When present, these statements must come before any other declarations in the file or its file-scoped namespace.
+
 ## Functions
 
 ```raven

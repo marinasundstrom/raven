@@ -11,6 +11,9 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _duplicateModifier;
     private static DiagnosticDescriptor? _importDirectiveOutOfOrder;
     private static DiagnosticDescriptor? _aliasDirectiveOutOfOrder;
+    private static DiagnosticDescriptor? _fileScopedCodeOutOfOrder;
+    private static DiagnosticDescriptor? _fileScopedCodeRequiresConsole;
+    private static DiagnosticDescriptor? _fileScopedCodeMultipleFiles;
     private static DiagnosticDescriptor? _unrecognizedEscapeSequence;
     private static DiagnosticDescriptor? _newlineInConstant;
     private static DiagnosticDescriptor? _methodNameExpected;
@@ -120,6 +123,45 @@ internal class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "Alias directives must appear before member declarations",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV1011: File-scope code must appear before declarations
+    /// </summary>
+    public static DiagnosticDescriptor FileScopedCodeOutOfOrder => _fileScopedCodeOutOfOrder ??= DiagnosticDescriptor.Create(
+        id: "RAV1011",
+        title: "File-scope code out of order",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "File-scope code must appear before any declarations",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV1012: File-scope code requires a console application
+    /// </summary>
+    public static DiagnosticDescriptor FileScopedCodeRequiresConsole => _fileScopedCodeRequiresConsole ??= DiagnosticDescriptor.Create(
+        id: "RAV1012",
+        title: "File-scope code requires console application",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Only console applications may contain file-scope code",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV1013: File-scope code may only appear in one file
+    /// </summary>
+    public static DiagnosticDescriptor FileScopedCodeMultipleFiles => _fileScopedCodeMultipleFiles ??= DiagnosticDescriptor.Create(
+        id: "RAV1013",
+        title: "File-scope code may only appear in one file",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "File-scope code may only appear in one file",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -583,6 +625,9 @@ internal class CompilerDiagnostics
         DuplicateModifier,
         ImportDirectiveOutOfOrder,
         AliasDirectiveOutOfOrder,
+        FileScopedCodeOutOfOrder,
+        FileScopedCodeRequiresConsole,
+        FileScopedCodeMultipleFiles,
         UnrecognizedEscapeSequence,
         NewlineInConstant,
         MethodNameExpected,
@@ -628,6 +673,9 @@ internal class CompilerDiagnostics
             "RAV1004" => DuplicateModifier,
             "RAV1005" => ImportDirectiveOutOfOrder,
             "RAV1006" => AliasDirectiveOutOfOrder,
+            "RAV1011" => FileScopedCodeOutOfOrder,
+            "RAV1012" => FileScopedCodeRequiresConsole,
+            "RAV1013" => FileScopedCodeMultipleFiles,
             "RAV1009" => UnrecognizedEscapeSequence,
             "RAV1010" => NewlineInConstant,
             "RAV0149" => MethodNameExpected,

@@ -127,4 +127,13 @@ public static class DiagnosticBagExtensions
 
     public static void ReportCannotInheritFromSealedType(this DiagnosticBag diagnostics, string typeName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotInheritFromSealedType, location, typeName));
+
+    public static void ReportFileScopedCodeOutOfOrder(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.FileScopedCodeOutOfOrder, location));
+
+    public static void ReportFileScopedCodeRequiresConsole(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.FileScopedCodeRequiresConsole, location));
+
+    public static void ReportFileScopedCodeMultipleFiles(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.FileScopedCodeMultipleFiles, location));
 }
