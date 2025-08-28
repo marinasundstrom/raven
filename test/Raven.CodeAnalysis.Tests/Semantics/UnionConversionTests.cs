@@ -61,4 +61,14 @@ class Baz {
         ]);
         verifier.Verify();
     }
+
+    [Fact]
+    public void NumericLiteralNotInUnion_ProducesDiagnostic()
+    {
+        var code = "let x: \"true\" | 1 = 2";
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("2", "\"true\" | 1")
+        ]);
+        verifier.Verify();
+    }
 }
