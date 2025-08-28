@@ -22,7 +22,9 @@ PrintLine(user2.Name)
 user2(2003);
 user2("test");
 
-class Person {
+open class Base {}
+
+class Person : Base {
     let species = "Homo sapiens"
     var age: int = 0
     var name: string
