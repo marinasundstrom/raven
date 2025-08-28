@@ -120,8 +120,21 @@ dotnet run --project src/Raven.Compiler -- <path-to-file> -o <output-file-path>
 
 Options:
 
+- `--framework <tfm>` &ndash; target framework
+- `--refs <path>` &ndash; additional metadata reference (repeatable)
+- `-o <path>` &ndash; output assembly path
+- `-s` &ndash; display the syntax tree (single file only)
+- `-d` &ndash; dump syntax with highlighting (single file only)
+- `-r` &ndash; print the raw source (single file only)
+- `-b` &ndash; print the binder tree (single file only)
+- `-h`, `--help` &ndash; show help
 
-> ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and and hardcoded output file path (`test.dll`).
+Creating a `.debug/` directory in the current or parent folder causes the
+compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,
+and binder tree) into that directory. The debug options above will additionally
+write to the console when compiling a single file.
+
+> ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and a hardcoded output file path (`test.dll`).
 
 ---
 

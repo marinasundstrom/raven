@@ -1,5 +1,6 @@
-using System.Diagnostics;
 using System.Collections.Immutable;
+using System.Diagnostics;
+using System.IO;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
@@ -13,85 +14,126 @@ using static Raven.ConsoleEx;
 
 var stopwatch = Stopwatch.StartNew();
 
-// ravc test.rav [-o test.exe]
-// dotnet run -- test.rav [-o test.exe]
-
 // Options:
-// -s - display the syntax tree
-// -d - dump syntax (highlighted)
-// -r - print the source
-// -b - print binder tree
+// --framework <tfm> - target framework
+// --refs <path>     - additional metadata reference (repeatable)
+// -o <path>         - output assembly path
+// -s                - display the syntax tree (single file only)
+// -d                - dump syntax with highlighting (single file only)
+// -r                - print the source (single file only)
+// -b                - print binder tree (single file only)
+// -h, --help        - display help
 
-var filePath = args.Length > 0 ? args[0] : $"../../../samples/main{RavenFileExtensions.Raven}";
-var outputPath = args.Contains("-o") ? args[Array.IndexOf(args, "-o") + 1] : "test.dll"; //: null;
+var sourceFiles = new List<string>();
+var additionalRefs = new List<string>();
+string? targetFrameworkTfm = null;
+string? outputPath = null;
 
-var debug = DebugFileExists();
+var printSyntaxTree = false;
+var printSyntax = false;
+var printRawSyntax = false;
+var printBinders = false;
+var showHelp = false;
 
-var shouldPrintSyntaxTree = debug || args.Contains("-s");
-var shouldDumpSyntax = debug || args.Contains("-d");
-var shouldDumpRawSyntax = debug || args.Contains("-r");
-var shouldDumpBinders = debug || args.Contains("-b");
-
-filePath = Path.GetFullPath(filePath);
-
-if (!File.Exists(filePath))
+for (int i = 0; i < args.Length; i++)
 {
-    AnsiConsole.MarkupLine($"[red]Input file '{filePath}' doesn't exist.[/]");
+    switch (args[i])
+    {
+        case "-o":
+            if (i + 1 < args.Length)
+                outputPath = args[++i];
+            break;
+        case "-s":
+            printSyntaxTree = true;
+            break;
+        case "-d":
+            printSyntax = true;
+            break;
+        case "-r":
+            printRawSyntax = true;
+            break;
+        case "-b":
+            printBinders = true;
+            break;
+        case "--ref":
+        case "--refs":
+            if (i + 1 < args.Length)
+                additionalRefs.Add(args[++i]);
+            break;
+        case "--framework":
+            if (i + 1 < args.Length)
+                targetFrameworkTfm = args[++i];
+            break;
+        case "-h":
+        case "--help":
+            showHelp = true;
+            break;
+        default:
+            if (!args[i].StartsWith('-'))
+                sourceFiles.Add(args[i]);
+            break;
+    }
+}
+
+if (showHelp)
+{
+    PrintHelp();
     return;
 }
 
-using var file = File.OpenRead(filePath);
-var sourceText = SourceText.From(file);
+if (sourceFiles.Count == 0)
+    sourceFiles.Add($"../../../samples/main{RavenFileExtensions.Raven}");
 
-var assemblyName = Path.GetFileNameWithoutExtension(filePath);
+for (int i = 0; i < sourceFiles.Count; i++)
+{
+    sourceFiles[i] = Path.GetFullPath(sourceFiles[i]);
+    if (!File.Exists(sourceFiles[i]))
+    {
+        AnsiConsole.MarkupLine($"[red]Input file '{sourceFiles[i]}' doesn't exist.[/]");
+        return;
+    }
+}
 
-var targetFramework = "net9.0";
+var assemblyName = Path.GetFileNameWithoutExtension(sourceFiles[0]);
+
+var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
+var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
+var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
 var options = new CompilationOptions(OutputKind.ConsoleApplication);
-var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
-var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version /* version.Moniker.Version.ToString() + ".*" */);
-
 var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
 var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
-var documentId = DocumentId.CreateNew(projectId);
-var solution = workspace.CurrentSolution.AddDocument(documentId, Path.GetFileName(filePath), sourceText, filePath);
-workspace.TryApplyChanges(solution);
-
 var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+foreach (var filePath in sourceFiles)
+{
+    using var file = File.OpenRead(filePath);
+    var sourceText = SourceText.From(file);
+    var document = project.AddDocument(Path.GetFileName(filePath), sourceText, filePath);
+    project = document.Project;
+}
+
 foreach (var reference in new[]
 {
     MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
     MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Collections.dll")),
     MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-    MetadataReference.CreateFromFile(IsProjectFolder(Environment.CurrentDirectory) ? "TestDep.dll" : "../../../TestDep.dll")
+    MetadataReference.CreateFromFile(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../TestDep.dll")))
 })
     project = project.AddMetadataReference(reference);
 
+foreach (var r in additionalRefs)
+{
+    var full = Path.GetFullPath(r);
+    project = project.AddMetadataReference(MetadataReference.CreateFromFile(full));
+}
+
 project = project.AddAnalyzerReference(new AnalyzerReference(new MissingReturnTypeAnnotationAnalyzer()));
 workspace.TryApplyChanges(project.Solution);
-
-var document = project.Documents.Single();
-var syntaxTree = document.GetSyntaxTreeAsync().Result!;
-var root = syntaxTree.GetRoot();
+project = workspace.CurrentSolution.GetProject(projectId)!;
 
 var compilation = workspace.GetCompilation(projectId);
 var diagnostics = workspace.GetDiagnostics(projectId);
-
-//var semanticModel = compilation.GetSemanticModel(syntaxTree);
-
-//var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
-//var typeSymbol = methodSymbol?.ContainingType;
-
-//var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First()) as ILocalSymbol;
-
-/*
-var result1 = semanticModel.AnalyzeControlFlow(root.DescendantNodes().OfType<ExpressionStatementSyntax>().ElementAt(2));
-var result2 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<BlockSyntax>().First());
-var result3 = semanticModel.AnalyzeDataFlow(root.DescendantNodes().OfType<AssignmentExpressionSyntax>().Last());
-*/
-
-//var service = new CompletionService();
-//var items = service.GetCompletions(compilation, syntaxTree, 28);
 
 outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
@@ -107,35 +149,86 @@ diagnostics = diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArra
 
 stopwatch.Stop();
 
-if (shouldDumpRawSyntax)
-{
-    var str = root.ToFullString();
-    Console.WriteLine(str);
+var allowConsoleOutput = sourceFiles.Count == 1;
+var debugDir = FindDebugDirectory();
 
-    Console.WriteLine();
+if (debugDir is not null)
+{
+    Directory.CreateDirectory(debugDir);
+
+    foreach (var document in project.Documents)
+    {
+        var syntaxTree = document.GetSyntaxTreeAsync().Result!;
+        var root = syntaxTree.GetRoot();
+        var name = Path.GetFileNameWithoutExtension(document.FilePath) ?? document.Name;
+
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.raw.rav"), root.ToFullString());
+
+        var treeText = root.GetSyntaxTreeRepresentation(new PrinterOptions
+        {
+            IncludeNames = true,
+            IncludeTokens = true,
+            IncludeTrivia = true,
+            IncludeSpans = true,
+            IncludeLocations = true,
+            Colorize = true,
+            ExpandListsAsProperties = true
+        }).StripAnsiCodes();
+
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax-tree.txt"), treeText);
+
+        ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+        var syntax = root.WriteNodeToText(compilation, includeDiagnostics: true).StripAnsiCodes();
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax.txt"), syntax);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        using var sw = new StringWriter();
+        var original = Console.Out;
+        Console.SetOut(sw);
+        semanticModel.PrintBinderTree();
+        Console.SetOut(original);
+        File.WriteAllText(Path.Combine(debugDir, $"{name}.binders.txt"), sw.ToString());
+    }
+
+    AnsiConsole.MarkupLine($"[yellow]Debug output written to '{debugDir}'.[/]");
 }
 
-if (shouldPrintSyntaxTree)
+if (allowConsoleOutput)
 {
-    var includeLocations = true;
-    root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = includeLocations, Colorize = true, ExpandListsAsProperties = true });
+    var document = project.Documents.Single();
+    var syntaxTree = document.GetSyntaxTreeAsync().Result!;
+    var root = syntaxTree.GetRoot();
+
+    if (printRawSyntax)
+    {
+        Console.WriteLine(root.ToFullString());
+        Console.WriteLine();
+    }
+
+    if (printSyntaxTree)
+    {
+        var includeLocations = true;
+        root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = includeLocations, Colorize = true, ExpandListsAsProperties = true });
+    }
+
+    if (printSyntax)
+    {
+        ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+        Console.WriteLine(root.WriteNodeToText(compilation, includeDiagnostics: true));
+        Console.WriteLine();
+    }
+
+    if (printBinders)
+    {
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        semanticModel.PrintBinderTree();
+        Console.WriteLine();
+    }
 }
-
-if (shouldDumpSyntax)
+else if (printRawSyntax || printSyntaxTree || printSyntax || printBinders)
 {
-    ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
-
-    Console.WriteLine(root.WriteNodeToText(compilation, includeDiagnostics: true));
-
-    Console.WriteLine();
-}
-
-if (shouldDumpBinders)
-{
-    var semanticModel = compilation.GetSemanticModel(syntaxTree);
-    semanticModel.PrintBinderTree();
-
-    Console.WriteLine();
+    if (debugDir is null)
+        AnsiConsole.MarkupLine("[yellow]Create a '.debug' directory to capture debug output.[/]");
 }
 
 if (diagnostics.Length > 0)
@@ -146,47 +239,49 @@ if (diagnostics.Length > 0)
 
 if (result is not null)
 {
-    // Check the result
-    if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
+    var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error && d.Descriptor.Id != "RAV1011");
+    if (errors.Any())
     {
         Failed(result);
     }
     else
     {
-        var warningsCount = diagnostics
-            .Count(x => x.Severity == DiagnosticSeverity.Warning);
-
+        var warningsCount = diagnostics.Count(x => x.Severity == DiagnosticSeverity.Warning);
         if (warningsCount > 0)
-        {
             SucceededWithWarnings(warningsCount, stopwatch.Elapsed);
-        }
         else
-        {
             Succeeded(stopwatch.Elapsed);
-        }
 
         CreateAppHost(compilation, outputPath, targetFramework);
     }
 }
 
-//Console.WriteLine(compilation.GlobalNamespace.ToSymbolHierarchyString());
-
-static bool IsProjectFolder(string path)
-{
-    return Directory.EnumerateFiles(path, "*.csproj", SearchOption.TopDirectoryOnly).Any();
-}
-
-static bool DebugFileExists()
+static string? FindDebugDirectory()
 {
     var dir = Environment.CurrentDirectory;
     while (dir is not null)
     {
         var debug = Path.Combine(dir, ".debug");
-        if (File.Exists(debug))
-            return true;
+        if (Directory.Exists(debug))
+            return debug;
 
         dir = Path.GetDirectoryName(dir);
     }
 
-    return false;
+    return null;
+}
+
+static void PrintHelp()
+{
+    Console.WriteLine("Usage: ravenc [options] <source-files>");
+    Console.WriteLine();
+    Console.WriteLine("Options:");
+    Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
+    Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
+    Console.WriteLine("  -o <path>          Output assembly path");
+    Console.WriteLine("  -s                 Display the syntax tree (single file only)");
+    Console.WriteLine("  -d                 Dump syntax with highlighting (single file only)");
+    Console.WriteLine("  -r                 Print the source (single file only)");
+    Console.WriteLine("  -b                 Print binder tree (single file only)");
+    Console.WriteLine("  -h, --help         Display help");
 }
