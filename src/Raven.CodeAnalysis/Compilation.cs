@@ -117,7 +117,7 @@ public class Compilation
     {
         var diagnostics = GetDiagnostics();
 
-        if (diagnostics.Any(x => x.Descriptor.DefaultSeverity == DiagnosticSeverity.Error))
+        if (diagnostics.Any(x => x.Severity == DiagnosticSeverity.Error))
         {
             return new EmitResult(false, diagnostics);
         }
@@ -305,19 +305,54 @@ public class Compilation
         }
     }
 
-    public ImmutableArray<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
+    public ImmutableArray<Diagnostic> GetDiagnostics(CompilationWithAnalyzersOptions? analyzerOptions = null, CancellationToken cancellationToken = default)
     {
-        HashSet<Diagnostic> diagnostics = new HashSet<Diagnostic>();
+        var diagnostics = new List<Diagnostic>();
 
         foreach (var syntaxTree in SyntaxTrees)
         {
-            diagnostics.AddRange(syntaxTree.GetDiagnostics(cancellationToken));
+            foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
+                Add(diagnostic);
 
             var model = GetSemanticModel(syntaxTree);
-            diagnostics.AddRange(model.GetDiagnostics(cancellationToken));
+            foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
+                Add(diagnostic);
         }
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
+
+        void Add(Diagnostic diagnostic)
+        {
+            var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
+            if (mapped is not null)
+                diagnostics.Add(mapped);
+        }
+    }
+
+    internal Diagnostic? ApplyCompilationOptions(Diagnostic diagnostic, bool reportSuppressedDiagnostics = false)
+    {
+        if (Options.SpecificDiagnosticOptions.TryGetValue(diagnostic.Descriptor.Id, out var report))
+        {
+            if (report == ReportDiagnostic.Suppress)
+                return reportSuppressedDiagnostics ? diagnostic.WithSuppression(true) : null;
+
+            if (report != ReportDiagnostic.Default)
+            {
+                var severity = report switch
+                {
+                    ReportDiagnostic.Error => DiagnosticSeverity.Error,
+                    ReportDiagnostic.Warn => DiagnosticSeverity.Warning,
+                    ReportDiagnostic.Info => DiagnosticSeverity.Info,
+                    ReportDiagnostic.Hidden => DiagnosticSeverity.Hidden,
+                    _ => diagnostic.Severity
+                };
+
+                if (severity != diagnostic.Severity)
+                    return diagnostic.WithSeverity(severity);
+            }
+        }
+
+        return diagnostic;
     }
 
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)

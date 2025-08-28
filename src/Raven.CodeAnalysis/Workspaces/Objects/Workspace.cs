@@ -209,19 +209,30 @@ public class Workspace
     /// <summary>
     /// Gets diagnostics for the specified project, including analyzer diagnostics.
     /// </summary>
-    public ImmutableArray<Diagnostic> GetDiagnostics(ProjectId projectId, CancellationToken cancellationToken = default)
+    public ImmutableArray<Diagnostic> GetDiagnostics(
+        ProjectId projectId,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
     {
         var project = CurrentSolution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var compilation = GetCompilation(projectId);
-        var diagnostics = compilation.GetDiagnostics(cancellationToken).ToHashSet();
+        var diagnostics = compilation.GetDiagnostics(analyzerOptions, cancellationToken).ToHashSet();
 
-        foreach (var reference in project.AnalyzerReferences)
+        if (project.CompilationOptions?.RunAnalyzers != false)
         {
-            foreach (var analyzer in reference.GetAnalyzers())
+            foreach (var reference in project.AnalyzerReferences)
             {
-                diagnostics.AddRange(analyzer.Analyze(compilation, cancellationToken));
+                foreach (var analyzer in reference.GetAnalyzers())
+                {
+                    foreach (var diagnostic in analyzer.Analyze(compilation, cancellationToken))
+                    {
+                        var mapped = compilation.ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
+                        if (mapped is not null)
+                            diagnostics.Add(mapped);
+                    }
+                }
             }
         }
 

@@ -147,14 +147,14 @@ if (diagnostics.Length > 0)
 if (result is not null)
 {
     // Check the result
-    if (diagnostics.Any(d => d.Descriptor.DefaultSeverity == DiagnosticSeverity.Error))
+    if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
     {
         Failed(result);
     }
     else
     {
         var warningsCount = diagnostics
-            .Count(x => x.Descriptor.DefaultSeverity == DiagnosticSeverity.Warning);
+            .Count(x => x.Severity == DiagnosticSeverity.Warning);
 
         if (warningsCount > 0)
         {
