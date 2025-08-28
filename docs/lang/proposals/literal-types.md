@@ -44,6 +44,10 @@ public void Foo([TypeUnion(typeof(int), "yes", 'c', 0.2, false)] object arg)
 
 Constant identifiers are lowered to their literal values before emission. Consumers can reflect over `TypeUnionAttribute` to discover both type and literal members.
 
+### Named constant values
+
+> **Consider in future**
+
 For named constants, we might also need to encode names of constants, and position of element.
 
 ```raven
