@@ -567,7 +567,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 ReadToken();
                 var str = token.GetValueText() ?? string.Empty;
                 expr = str.Contains("${")
-                    ? ParseInterpolatedStringExpression(str)
+                    ? ParseInterpolatedStringExpression(token, str)
                     : LiteralExpression(SyntaxKind.StringLiteralExpression, token);
                 break;
 
@@ -826,7 +826,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return ArrowExpressionClause(arrowToken, expression);
     }
 
-    private InterpolatedStringExpressionSyntax ParseInterpolatedStringExpression(string text)
+    private InterpolatedStringExpressionSyntax ParseInterpolatedStringExpression(SyntaxToken token, string text)
     {
         var contents = new List<InterpolatedStringContentSyntax>();
         var sb = new StringBuilder();
@@ -872,8 +872,18 @@ internal class ExpressionSyntaxParser : SyntaxParser
             contents.Add(InterpolatedStringText(new SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
         }
 
-        var startToken = new SyntaxToken(SyntaxKind.StringStartToken, "\"");
-        var endToken = new SyntaxToken(SyntaxKind.StringEndToken, "\"");
+        var startToken = new SyntaxToken(
+            SyntaxKind.StringStartToken,
+            "\"",
+            token.LeadingTrivia,
+            SyntaxTriviaList.Empty);
+
+        var endToken = new SyntaxToken(
+            SyntaxKind.StringEndToken,
+            "\"",
+            SyntaxTriviaList.Empty,
+            token.TrailingTrivia);
+
         return InterpolatedStringExpression(startToken, List(contents), endToken);
     }
 
