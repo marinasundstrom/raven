@@ -42,6 +42,9 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             case BoundInvocationExpression call:
                 VisitInvocationExpression(call);
                 break;
+            case BoundObjectCreationExpression objectCreation:
+                VisitObjectCreationExpression(objectCreation);
+                break;
             case BoundLambdaExpression lambda:
                 VisitLambdaExpression(lambda);
                 break;
