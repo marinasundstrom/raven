@@ -858,7 +858,7 @@ partial class BlockBinder : Binder
         }
 
         var value = syntax.Token.Value ?? syntax.Token.Text!;
-        ITypeSymbol type = value switch
+        var underlying = value switch
         {
             int => Compilation.GetSpecialType(SpecialType.System_Int32),
             long => Compilation.GetSpecialType(SpecialType.System_Int64),
@@ -869,6 +869,7 @@ partial class BlockBinder : Binder
             string => Compilation.GetSpecialType(SpecialType.System_String),
             _ => throw new Exception("Unsupported literal type")
         };
+        ITypeSymbol type = new LiteralTypeSymbol(underlying, value, Compilation);
 
         BoundLiteralExpressionKind kind = syntax.Kind switch
         {
