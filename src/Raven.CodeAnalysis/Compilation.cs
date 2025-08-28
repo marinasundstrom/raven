@@ -368,8 +368,8 @@ public class Compilation
 
         if (source is LiteralTypeSymbol litSrc2)
             return ClassifyConversion(litSrc2.UnderlyingType, destination);
-        if (destination is LiteralTypeSymbol litDest2)
-            return ClassifyConversion(source, litDest2.UnderlyingType);
+        if (destination is LiteralTypeSymbol)
+            return Conversion.None;
 
         if (SymbolEqualityComparer.Default.Equals(source, destination) &&
             source is not NullableTypeSymbol &&
