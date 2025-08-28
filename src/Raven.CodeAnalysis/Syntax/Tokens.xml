@@ -67,6 +67,7 @@
   <TokenKind Name="ExclamationToken" Text="!" IsUnaryOperator="true" />
   <TokenKind Name="QuestionToken" Text="?" />
   <TokenKind Name="DotToken" Text="." />
+  <TokenKind Name="DotDotToken" Text=".." />
   <TokenKind Name="CommaToken" Text="," />
   <TokenKind Name="ColonToken" Text=":" />
   <TokenKind Name="SemicolonToken" Text=";" />

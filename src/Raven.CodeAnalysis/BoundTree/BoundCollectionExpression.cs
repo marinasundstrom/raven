@@ -28,3 +28,14 @@ internal partial class BoundEmptyCollectionExpression : BoundExpression
 
     }
 }
+
+internal partial class BoundSpreadElement : BoundExpression
+{
+    public BoundSpreadElement(BoundExpression expression)
+        : base(expression.Type!, expression.Symbol, expression.Reason)
+    {
+        Expression = expression;
+    }
+
+    public BoundExpression Expression { get; }
+}

@@ -13,6 +13,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     private readonly PENamedTypeSymbol _originalDefinition;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
     private ImmutableArray<ISymbol>? _members;
+    private ImmutableArray<INamedTypeSymbol>? _interfaces;
+    private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
 
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
 
@@ -88,6 +90,14 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public bool IsSealed => _originalDefinition.IsSealed;
     public bool IsGenericType => true;
     public bool IsUnboundGenericType => false;
+    public ImmutableArray<INamedTypeSymbol> Interfaces =>
+        _interfaces ??= _originalDefinition.Interfaces
+            .Select(i => (INamedTypeSymbol)Substitute(i))
+            .ToImmutableArray();
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
+        _allInterfaces ??= _originalDefinition.AllInterfaces
+            .Select(i => (INamedTypeSymbol)Substitute(i))
+            .ToImmutableArray();
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers().OfType<IMethodSymbol>().Where(x => !x.IsStatic && x.IsConstructor).ToImmutableArray();
     public IMethodSymbol? StaticConstructor => GetMembers().OfType<IMethodSymbol>().Where(x => x.IsStatic && x.IsConstructor).FirstOrDefault();
 

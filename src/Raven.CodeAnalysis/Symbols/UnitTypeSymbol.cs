@@ -70,4 +70,7 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
     public bool IsUnboundGenericType => false;
 
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => this;
+
+    public ImmutableArray<INamedTypeSymbol> Interfaces => [];
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
 }

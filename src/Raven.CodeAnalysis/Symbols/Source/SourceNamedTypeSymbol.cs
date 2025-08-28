@@ -1,10 +1,13 @@
 using System.Collections.Immutable;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 {
     private readonly List<ISymbol> _members = new List<ISymbol>();
+    private ImmutableArray<INamedTypeSymbol> _interfaces = ImmutableArray<INamedTypeSymbol>.Empty;
+    private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
 
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
@@ -41,6 +44,15 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public bool IsSealed { get; }
     public bool IsGenericType { get; }
     public bool IsUnboundGenericType { get; }
+
+    public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
+        _allInterfaces ??=
+            _interfaces
+                .Concat(_interfaces.SelectMany(i => i.AllInterfaces))
+                .Concat(BaseType?.AllInterfaces ?? ImmutableArray<INamedTypeSymbol>.Empty)
+                .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
+                .ToImmutableArray();
 
     public bool IsValueType => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum;
 
@@ -84,6 +96,12 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     internal void AddMember(ISymbol member)
     {
         _members.Add(member);
+    }
+
+    internal void SetInterfaces(IEnumerable<INamedTypeSymbol> interfaces)
+    {
+        _interfaces = interfaces.ToImmutableArray();
+        _allInterfaces = null;
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)

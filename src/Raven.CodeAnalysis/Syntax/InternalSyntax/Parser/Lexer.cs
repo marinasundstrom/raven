@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -300,6 +300,11 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.PercentToken, chStr);
 
                     case '.':
+                        if (PeekChar(out ch2) && ch2 == '.')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.DotDotToken, "..");
+                        }
                         return new Token(SyntaxKind.DotToken, chStr);
 
                     case ',':

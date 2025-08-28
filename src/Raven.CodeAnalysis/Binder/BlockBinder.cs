@@ -1455,9 +1455,22 @@ partial class BlockBinder : Binder
 
         var elements = ImmutableArray.CreateBuilder<BoundExpression>();
 
-        foreach (var expr in syntax.Elements)
+        foreach (var elementSyntax in syntax.Elements)
         {
-            var boundElement = BindExpression(expr.Expression);
+            BoundExpression boundElement;
+            switch (elementSyntax)
+            {
+                case ExpressionElementSyntax exprElem:
+                    boundElement = BindExpression(exprElem.Expression);
+                    break;
+                case SpreadElementSyntax spreadElem:
+                    var spreadExpr = BindExpression(spreadElem.Expression);
+                    boundElement = new BoundSpreadElement(spreadExpr);
+                    break;
+                default:
+                    continue;
+            }
+
             elements.Add(boundElement);
         }
 
@@ -1467,9 +1480,13 @@ partial class BlockBinder : Binder
 
             foreach (var element in elements)
             {
-                if (!IsAssignable(elementType, element.Type!))
+                var sourceType = element is BoundSpreadElement spread
+                    ? GetSpreadElementType(spread.Expression.Type!)
+                    : element.Type!;
+
+                if (!IsAssignable(elementType, sourceType))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(element.Type!, elementType, syntax.GetLocation());
+                    _diagnostics.ReportCannotConvertFromTypeToType(sourceType, elementType, syntax.GetLocation());
                 }
             }
 
@@ -1494,9 +1511,13 @@ partial class BlockBinder : Binder
 
             foreach (var element in elements)
             {
-                if (!IsAssignable(elementType, element.Type!))
+                var sourceType = element is BoundSpreadElement spread
+                    ? GetSpreadElementType(spread.Expression.Type!)
+                    : element.Type!;
+
+                if (!IsAssignable(elementType, sourceType))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(element.Type!, elementType, syntax.GetLocation());
+                    _diagnostics.ReportCannotConvertFromTypeToType(sourceType, elementType, syntax.GetLocation());
                 }
             }
 
@@ -1505,12 +1526,32 @@ partial class BlockBinder : Binder
 
         // Fallback to array if target type couldn't be determined
         ITypeSymbol? inferredElementType = elements.Count > 0
-            ? elements[0].Type
+            ? (elements[0] is BoundSpreadElement firstSpread ? GetSpreadElementType(firstSpread.Expression.Type!) : elements[0].Type)
             : Compilation.GetSpecialType(SpecialType.System_Object);
 
         var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType!);
 
         return new BoundCollectionExpression(fallbackArray, elements.ToImmutable());
+    }
+
+    private ITypeSymbol GetSpreadElementType(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol named)
+        {
+            foreach (var iface in named.AllInterfaces)
+            {
+                if (iface.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T && iface.TypeArguments.Length == 1)
+                    return iface.TypeArguments[0];
+            }
+        }
+
+        if (type is IArrayTypeSymbol array)
+            return array.ElementType;
+
+        if (type is INamedTypeSymbol namedType && namedType.TypeArguments.Length == 1)
+            return namedType.TypeArguments[0];
+
+        return Compilation.GetSpecialType(SpecialType.System_Object);
     }
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)

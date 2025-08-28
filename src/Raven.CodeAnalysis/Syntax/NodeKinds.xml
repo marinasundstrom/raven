@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- This mappings is only required by syntax kinds that don't have their own syntax class, but are
-passed into an existing syntax class that take explicit syntax kind -->
-<!-- This will aid in generating methods for SyntaxFacts -->
+<!--
+  This mapping is only required for syntax kinds that don't have a dedicated syntax class,
+  but are represented by an existing class that accepts an explicit SyntaxKind. It aids in
+  generating helper methods for SyntaxFacts.
+-->
 <NodeKinds>
   <NodeKind Name="GetAccessorDeclaration" Type="AccessorDeclaration" />
   <NodeKind Name="SetAccessorDeclaration" Type="AccessorDeclaration" />

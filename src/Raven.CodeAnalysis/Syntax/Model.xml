@@ -36,7 +36,12 @@
   <Node Name="SingleVariableDesignation" Inherits="VariableDesignation">
     <Slot Name="Identifier" Type="Token" />
   </Node>
-  <Node Name="CollectionElement" Inherits="Node">
+  <Node Name="CollectionElement" Inherits="Node" IsAbstract="true" />
+  <Node Name="ExpressionElement" Inherits="CollectionElement">
+    <Slot Name="Expression" Type="Expression" />
+  </Node>
+  <Node Name="SpreadElement" Inherits="CollectionElement">
+    <Slot Name="DotDotToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="Argument" Inherits="Node">

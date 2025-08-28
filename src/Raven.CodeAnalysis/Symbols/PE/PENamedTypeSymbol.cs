@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -13,6 +14,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private bool _membersLoaded;
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
     private string _name;
+    private ImmutableArray<INamedTypeSymbol>? _interfaces;
+    private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
 
     public PENamedTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -68,6 +71,26 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public bool IsSealed => _typeInfo.IsSealed;
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;
+    public ImmutableArray<INamedTypeSymbol> Interfaces
+    {
+        get
+        {
+            if (_interfaces is null)
+            {
+                var all = AllInterfaces;
+                _interfaces = all
+                    .Where(i => (BaseType is null || !BaseType.AllInterfaces.Contains(i, SymbolEqualityComparer.Default)) &&
+                                !all.Any(other => !SymbolEqualityComparer.Default.Equals(i, other) &&
+                                                 other.AllInterfaces.Contains(i, SymbolEqualityComparer.Default)))
+                    .ToImmutableArray();
+            }
+            return _interfaces.Value;
+        }
+    }
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
+        _allInterfaces ??= _typeInfo.GetInterfaces()
+            .Select(i => (INamedTypeSymbol)_typeResolver.ResolveType(i)!)
+            .ToImmutableArray();
 
     public SpecialType SpecialType
     {
