@@ -10,8 +10,10 @@ using Raven.Generators;
 var model = LoadSyntaxNodesFromXml("Model.xml");
 var tokens = LoadTokenKindsFromXml("Tokens.xml");
 var nodeKinds = LoadNodeKindsFromXml("NodeKinds.xml");
+var diagnosticsPath = Path.Combine("..", "DiagnosticDescriptors.xml");
+var diagnostics = LoadDiagnosticDescriptorsFromXml(diagnosticsPath);
 
-string hash = await GetHashAsync(model, tokens, nodeKinds);
+string hash = await GetHashAsync(model, tokens, nodeKinds, diagnosticsPath);
 
 var force = args.Contains("-f");
 
@@ -33,12 +35,18 @@ foreach (var file in Directory.GetFiles("./InternalSyntax/generated/", "*.g.cs",
     File.Delete(file);
 }
 
+var diagnosticsOutputPath = Path.GetFullPath(Path.Combine("..", "CompilerDiagnostics.g.cs"));
+if (File.Exists(diagnosticsOutputPath))
+{
+    File.Delete(diagnosticsOutputPath);
+}
+
 if (force)
 {
     Console.WriteLine("Forcing generation");
 }
 
-var stats = await GenerateCode(model, tokens, nodeKinds);
+var stats = await GenerateCode(model, tokens, nodeKinds, diagnostics);
 
 // Write new hash to .stamp
 Directory.CreateDirectory(Path.GetDirectoryName(stampPath)!);
@@ -54,6 +62,7 @@ Console.WriteLine($"  Syntax facts: {stats.SyntaxFacts}");
 Console.WriteLine($"  Syntax kind: {stats.SyntaxKind}");
 Console.WriteLine($"  Visitor files: {stats.Visitors}");
 Console.WriteLine($"  Rewriter files: {stats.Rewriters}");
+Console.WriteLine($"  Diagnostics: {stats.Diagnostics}");
 Console.WriteLine($"Total: {stats.Total}");
 
 static async Task GenerateGreenNode(Dictionary<string, SyntaxNodeModel> nodesByName, SyntaxNodeModel node, GenerationStats stats)
@@ -86,7 +95,7 @@ static async Task GenerateRedNode(Dictionary<string, SyntaxNodeModel> nodesByNam
     }
 }
 
-static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds)
+static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds, string diagnosticsPath)
 {
     using var memoryStream = new MemoryStream();
 
@@ -111,6 +120,8 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKi
             new XAttribute("Name", n.Name),
             new XAttribute("Type", n.Type)))));
 
+    var diagnosticsBytes = await File.ReadAllBytesAsync(diagnosticsPath);
+
     using var tokensStream = new MemoryStream();
     tokensDoc.Save(tokensStream);
     using var nodeKindsStream = new MemoryStream();
@@ -122,19 +133,22 @@ static async Task<string> GetHashAsync(List<SyntaxNodeModel> model, List<TokenKi
         .Concat(tokensStream.ToArray())
         .Concat(nodeKindsStream.ToArray())
         .Concat(assemblyBytes)
+        .Concat(diagnosticsBytes)
         .ToArray();
 
     string hash = Convert.ToHexString(SHA256.HashData(combined));
     return hash;
 }
 
-static async Task<GenerationStats> GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds)
+static async Task<GenerationStats> GenerateCode(List<SyntaxNodeModel> model, List<TokenKindModel> tokens, List<NodeKindModel> nodeKinds, List<DiagnosticDescriptorModel> diagnostics)
 {
     if (!Directory.Exists("InternalSyntax/generated"))
         Directory.CreateDirectory("InternalSyntax/generated");
 
     if (!Directory.Exists("generated"))
         Directory.CreateDirectory("generated");
+
+    var diagnosticsOutput = Path.GetFullPath(Path.Combine("..", "CompilerDiagnostics.g.cs"));
 
     var stats = new GenerationStats();
     var nodesByName = model.ToDictionary(n => n.Name);
@@ -205,6 +219,10 @@ static async Task<GenerationStats> GenerateCode(List<SyntaxNodeModel> model, Lis
         await File.WriteAllTextAsync($"./InternalSyntax/generated/SyntaxRewriter`1.g.cs", unit6.ToFullString());
         stats.Rewriters++;
     }
+
+    var diagnosticsSource = DiagnosticDescriptorGenerator.GenerateCompilerDiagnostics(diagnostics);
+    await File.WriteAllTextAsync(diagnosticsOutput, diagnosticsSource);
+    stats.Diagnostics = diagnostics.Count;
 
     return stats;
 }
@@ -286,6 +304,30 @@ List<NodeKindModel> LoadNodeKindsFromXml(string path)
     return result;
 }
 
+List<DiagnosticDescriptorModel> LoadDiagnosticDescriptorsFromXml(string path)
+{
+    var doc = XDocument.Load(path);
+    var result = new List<DiagnosticDescriptorModel>();
+
+    foreach (var descriptor in doc.Descendants("Descriptor"))
+    {
+        var model = new DiagnosticDescriptorModel(
+            Id: descriptor.Attribute("Id")!.Value,
+            Identifier: descriptor.Attribute("Identifier")!.Value,
+            Title: descriptor.Attribute("Title")?.Value ?? string.Empty,
+            Message: descriptor.Attribute("Message")?.Value ?? string.Empty,
+            Category: descriptor.Attribute("Category")?.Value ?? string.Empty,
+            Severity: descriptor.Attribute("Severity")?.Value ?? "Error",
+            EnabledByDefault: bool.Parse(descriptor.Attribute("EnabledByDefault")?.Value ?? "true"),
+            Description: descriptor.Attribute("Description")?.Value ?? string.Empty,
+            HelpLinkUri: descriptor.Attribute("HelpLinkUri")?.Value ?? string.Empty);
+
+        result.Add(model);
+    }
+
+    return result;
+}
+
 record TokenKindModel
 {
     public required string Name { get; init; }
@@ -314,5 +356,6 @@ record GenerationStats
     public int SyntaxKind;
     public int Visitors;
     public int Rewriters;
-    public int Total => GreenNodes + GreenFactories + RedNodes + RedFactories + TokenFiles + SyntaxFacts + SyntaxKind + Visitors + Rewriters;
+    public int Diagnostics;
+    public int Total => GreenNodes + GreenFactories + RedNodes + RedFactories + TokenFiles + SyntaxFacts + SyntaxKind + Visitors + Rewriters + Diagnostics;
 }

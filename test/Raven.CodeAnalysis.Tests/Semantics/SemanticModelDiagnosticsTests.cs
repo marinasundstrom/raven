@@ -24,6 +24,6 @@ class Test {
 
         var diagnostics = model.GetDiagnostics();
 
-        Assert.Contains(diagnostics, d => d.Descriptor == SemanticDiagnostics.InvalidInvocation);
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.InvalidInvocation);
     }
 }

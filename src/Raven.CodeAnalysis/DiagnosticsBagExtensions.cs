@@ -93,10 +93,10 @@ public static class DiagnosticBagExtensions
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotApplyIndexingWithToAnExpressionOfType, location, typeName));
 
     public static void ReportInvalidInvocation(this DiagnosticBag diagnostics, Location location)
-        => diagnostics.Report(Diagnostic.Create(SemanticDiagnostics.InvalidInvocation, location));
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.InvalidInvocation, location));
 
     public static void ReportMemberAccessOnVoid(this DiagnosticBag diagnostics, string memberName, Location location)
-        => diagnostics.Report(Diagnostic.Create(SemanticDiagnostics.MemberAccessOnVoid, location, memberName));
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MemberAccessOnVoid, location, memberName));
 
     public static void ReportUndefinedIndexer(this DiagnosticBag diagnostics, ITypeSymbol receiverType, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotApplyIndexingWithToAnExpressionOfType, location, receiverType.Name));
