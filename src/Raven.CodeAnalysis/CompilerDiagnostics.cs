@@ -42,6 +42,7 @@ internal class CompilerDiagnostics
     private static DiagnosticDescriptor? _typeAlreadyDefinesMember;
     private static DiagnosticDescriptor? _functionAlreadyDefined;
     private static DiagnosticDescriptor? _returnStatementInExpression;
+    private static DiagnosticDescriptor? _cannotInheritFromSealedType;
 
     /// <summary>
     /// RAV1001: Identifier; expected
@@ -533,6 +534,19 @@ internal class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV0306: Type '{0}' is sealed and cannot be inherited
+    /// </summary>
+    public static DiagnosticDescriptor CannotInheritFromSealedType => _cannotInheritFromSealedType ??= DiagnosticDescriptor.Create(
+        id: "RAV0306",
+        title: "Cannot inherit from sealed type",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Type '{0}' is sealed and cannot be inherited",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         IdentifierExpected,
@@ -615,6 +629,7 @@ internal class CompilerDiagnostics
             "RAV0111" => TypeAlreadyDefinesMember,
             "RAV0112" => FunctionAlreadyDefined,
             "RAV1900" => ReturnStatementInExpression,
+            "RAV0306" => CannotInheritFromSealedType,
             _ => null // Return null if the diagnostic ID is not recognized
         };
     }

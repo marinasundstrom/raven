@@ -63,6 +63,8 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool IsAbstract => false;
 
+    public bool IsSealed => true;
+
     public bool IsGenericType => false;
 
     public bool IsUnboundGenericType => false;
