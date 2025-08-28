@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -111,7 +112,7 @@ internal class MethodBodyGenerator
                 if (ordinaryConstr && !MethodSymbol.IsStatic)
                 {
                     ILGenerator.Emit(OpCodes.Ldarg_0);
-                    var baseCtor = ResolveClrType(MethodSymbol.ContainingType!.BaseType!).GetConstructor(Type.EmptyTypes);
+                    var baseCtor = GetBaseConstructor();
                     ILGenerator.Emit(OpCodes.Call, baseCtor);
                 }
 
@@ -157,7 +158,7 @@ internal class MethodBodyGenerator
                 if (!MethodSymbol.IsStatic)
                 {
                     ILGenerator.Emit(OpCodes.Ldarg_0);
-                    var baseCtor2 = ResolveClrType(MethodSymbol.ContainingType!.BaseType!).GetConstructor(Type.EmptyTypes);
+                    var baseCtor2 = GetBaseConstructor();
                     ILGenerator.Emit(OpCodes.Call, baseCtor2);
                 }
 
@@ -322,6 +323,21 @@ internal class MethodBodyGenerator
         return Compilation
                         .GetSemanticModel(syntaxNode.SyntaxTree)
                         .GetDeclaredSymbol(syntaxNode) as TNode;
+    }
+
+    private ConstructorInfo GetBaseConstructor()
+    {
+        var baseType = MethodSymbol.ContainingType!.BaseType!;
+        var ctorSymbol = baseType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0)
+            ?? throw new NotSupportedException("Base type requires a parameterless constructor");
+
+        return ctorSymbol switch
+        {
+            SourceMethodSymbol sm => (ConstructorInfo)MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sm)!,
+            PEMethodSymbol pem => pem.GetConstructorInfo(),
+            SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodGenerator.TypeGenerator.CodeGen),
+            _ => ResolveClrType(baseType).GetConstructor(Type.EmptyTypes)!
+        };
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
