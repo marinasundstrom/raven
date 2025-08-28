@@ -1480,8 +1480,8 @@ partial class BlockBinder : Binder
 
             foreach (var element in elements)
             {
-                var sourceType = element is BoundSpreadElement spread && spread.Expression.Type is IArrayTypeSymbol arr
-                    ? arr.ElementType
+                var sourceType = element is BoundSpreadElement spread
+                    ? GetSpreadElementType(spread.Expression.Type!)
                     : element.Type!;
 
                 if (!IsAssignable(elementType, sourceType))
@@ -1511,8 +1511,8 @@ partial class BlockBinder : Binder
 
             foreach (var element in elements)
             {
-                var sourceType = element is BoundSpreadElement spread && spread.Expression.Type is IArrayTypeSymbol arr
-                    ? arr.ElementType
+                var sourceType = element is BoundSpreadElement spread
+                    ? GetSpreadElementType(spread.Expression.Type!)
                     : element.Type!;
 
                 if (!IsAssignable(elementType, sourceType))
@@ -1526,12 +1526,23 @@ partial class BlockBinder : Binder
 
         // Fallback to array if target type couldn't be determined
         ITypeSymbol? inferredElementType = elements.Count > 0
-            ? elements[0].Type
+            ? (elements[0] is BoundSpreadElement firstSpread ? GetSpreadElementType(firstSpread.Expression.Type!) : elements[0].Type)
             : Compilation.GetSpecialType(SpecialType.System_Object);
 
         var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType!);
 
         return new BoundCollectionExpression(fallbackArray, elements.ToImmutable());
+    }
+
+    private ITypeSymbol GetSpreadElementType(ITypeSymbol type)
+    {
+        if (type is IArrayTypeSymbol array)
+            return array.ElementType;
+
+        if (type is INamedTypeSymbol named && named.TypeArguments.Length == 1)
+            return named.TypeArguments[0];
+
+        return Compilation.GetSpecialType(SpecialType.System_Object);
     }
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)
