@@ -838,8 +838,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 {
                     var segment = sb.ToString();
                     sb.Clear();
-                    contents.Add(InterpolatedStringText(new Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
+                    contents.Add(InterpolatedStringText(new SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
                 }
+
+                var dollarToken = new SyntaxToken(SyntaxKind.DollarToken, "$");
+                var openBraceToken = new SyntaxToken(SyntaxKind.OpenBraceToken, "{");
 
                 i += 2; // skip ${
                 int depth = 1;
@@ -853,7 +856,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 int end = i - 1;
                 var exprText = text.Substring(start, end - start);
                 var exprSyntax = ParseExpressionFromText(exprText);
-                contents.Add(Interpolation(new Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken(SyntaxKind.OpenBraceToken, "{"), exprSyntax, new Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken(SyntaxKind.CloseBraceToken, "}")));
+                var closeBraceToken = new SyntaxToken(SyntaxKind.CloseBraceToken, "}");
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
             }
             else
             {
@@ -865,10 +869,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
         if (sb.Length > 0)
         {
             var segment = sb.ToString();
-            contents.Add(InterpolatedStringText(new Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
+            contents.Add(InterpolatedStringText(new SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
         }
 
-        return InterpolatedStringExpression(List(contents));
+        var startToken = new SyntaxToken(SyntaxKind.StringStartToken, "\"");
+        var endToken = new SyntaxToken(SyntaxKind.StringEndToken, "\"");
+        return InterpolatedStringExpression(startToken, List(contents), endToken);
     }
 
     private static ExpressionSyntax ParseExpressionFromText(string text)

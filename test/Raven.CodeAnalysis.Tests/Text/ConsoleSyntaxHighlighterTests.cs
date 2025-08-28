@@ -24,4 +24,24 @@ Console.WriteLine(Console.WriteLine());
         Assert.Contains("\u001b[91m", text);
         Assert.Contains("~", text);
     }
+
+    [Fact]
+    public void InterpolatedString_WritesDelimiters()
+    {
+        var source = """
+class Test {
+    GetInfo(name: string) -> string {
+        return "Hello ${name}";
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var text = root.WriteNodeToText(compilation);
+
+        Assert.Contains('$', text);
+        Assert.Contains('"', text);
+    }
 }

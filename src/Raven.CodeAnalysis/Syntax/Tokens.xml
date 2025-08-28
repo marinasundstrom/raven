@@ -75,6 +75,9 @@
   <TokenKind Name="CloseBraceToken" Text="}" />
   <TokenKind Name="OpenBracketToken" Text="[" />
   <TokenKind Name="CloseBracketToken" Text="]" />
+  <TokenKind Name="DollarToken" Text="$" />
+  <TokenKind Name="StringStartToken" Text="&quot;" />
+  <TokenKind Name="StringEndToken" Text="&quot;" />
 
   <!-- Trivia and specials -->
   <TokenKind Name="WhitespaceTrivia" Text=" " IsTrivia="true" />
