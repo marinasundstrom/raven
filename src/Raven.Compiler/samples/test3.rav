@@ -2,5 +2,5 @@ let a = 2
 let x = if a == 2 {
         42
     } else {
-        ()
+        return ()
     }
