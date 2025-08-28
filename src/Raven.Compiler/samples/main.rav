@@ -2,7 +2,7 @@ import System.*
 import System.Text.*
 
 let data = [3, 27, 51]
-let builder = new StringBuilder()
+let builder = StringBuilder()
 
 for each value in data {
     let status = getStatus(value)
