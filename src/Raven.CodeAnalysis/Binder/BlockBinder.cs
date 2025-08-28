@@ -99,6 +99,9 @@ partial class BlockBinder : Binder
             return new BoundLocalDeclarationStatement([new BoundVariableDeclarator(existing.Symbol, existingInitializer)]);
         }
 
+        if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            _diagnostics.ReportVariableShadowed(name, variableDeclarator.Identifier.GetLocation());
+
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
         var isMutable = decl!.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
 

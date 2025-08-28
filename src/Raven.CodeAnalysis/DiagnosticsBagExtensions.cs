@@ -41,6 +41,9 @@ public static class DiagnosticBagExtensions
     public static void ReportVariableAlreadyDefined(this DiagnosticBag diagnostics, string name, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.VariableAlreadyDefined, location, name));
 
+    public static void ReportVariableShadowed(this DiagnosticBag diagnostics, string name, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.VariableShadowsOuterScope, location, name));
+
     public static void ReportMemberDoesNotContainDefinition(this DiagnosticBag diagnostics, string container, string member, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MemberDoesNotContainDefinition, location, container, member));
 
