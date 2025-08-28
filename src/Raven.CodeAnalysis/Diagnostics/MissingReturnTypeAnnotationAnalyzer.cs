@@ -30,19 +30,25 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
         var semanticModel = context.Compilation.GetSemanticModel(context.SyntaxTree);
         var root = context.SyntaxTree.GetRoot();
 
-        foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+        void AnalyzeNode(SyntaxNode node, SyntaxToken identifier, SyntaxNode? returnType)
         {
-            if (method.ReturnType is not null)
-                continue;
+            if (returnType is not null)
+                return;
 
-            var symbol = semanticModel.GetDeclaredSymbol(method) as IMethodSymbol;
+            var symbol = semanticModel.GetDeclaredSymbol(node) as IMethodSymbol;
             if (symbol is null)
-                continue;
+                return;
 
             var typeDisplay = symbol.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            var location = method.Identifier.GetLocation();
+            var location = identifier.GetLocation();
             var diagnostic = Diagnostic.Create(Descriptor, location, symbol.Name, typeDisplay);
             context.ReportDiagnostic(diagnostic);
         }
+
+        foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            AnalyzeNode(method, method.Identifier, method.ReturnType);
+
+        foreach (var function in root.DescendantNodes().OfType<FunctionStatementSyntax>())
+            AnalyzeNode(function, function.Identifier, function.ReturnType);
     }
 }
