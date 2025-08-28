@@ -366,8 +366,6 @@ public class Compilation
                 ? new Conversion(isImplicit: true, isIdentity: true)
                 : Conversion.None;
 
-        if (source is LiteralTypeSymbol litSrc2)
-            return ClassifyConversion(litSrc2.UnderlyingType, destination);
         if (destination is LiteralTypeSymbol)
             return Conversion.None;
 
@@ -477,6 +475,9 @@ public class Compilation
 
             return new Conversion(isImplicit: true, isBoxing: source.IsValueType);
         }
+
+        if (source is LiteralTypeSymbol litSrc2)
+            return ClassifyConversion(litSrc2.UnderlyingType, destination);
 
         if (IsReferenceConversion(source, destination))
         {
