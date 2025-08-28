@@ -47,7 +47,7 @@ func test2 (input : int | null) -> () {
     
 }
 
-func test3 () {
+func test3 () -> int | null {
     return null
 }
 
