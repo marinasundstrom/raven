@@ -501,6 +501,8 @@ internal class ExpressionGenerator : Generator
         ConstructorInfo ctorInfo = ctor switch
         {
             PEMethodSymbol pem => pem.GetConstructorInfo(),
+            SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
+            SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
             _ => throw new NotSupportedException()
         };
 
@@ -508,13 +510,13 @@ internal class ExpressionGenerator : Generator
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
         ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
-        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First(m => m.Parameters.Length == 1);
+        var addMethodInfo = ResolveClrType(listType).GetMethod("Add")!;
 
         foreach (var element in collectionExpression.Elements)
         {
             if (element is BoundSpreadElement spread)
             {
-                EmitSpreadElement(listLocal, spread, elementType, addMethod);
+                EmitSpreadElement(listLocal, spread, elementType, addMethodInfo);
             }
             else
             {
@@ -526,13 +528,13 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(element.Type));
                 }
 
-                ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
+                ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
             }
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-        var toArray = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First(m => m.Parameters.Length == 0);
-        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(toArray));
+        var toArrayInfo = ResolveClrType(listType).GetMethod("ToArray")!;
+        ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
     }
 
     private void EmitSpreadElement(LocalBuilder collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, IMethodSymbol addMethod)
@@ -577,6 +579,44 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(addMethod));
         else
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(addMethod));
+
+        ILGenerator.Emit(OpCodes.Br, loopStart);
+        ILGenerator.MarkLabel(loopEnd);
+    }
+
+    private void EmitSpreadElement(LocalBuilder collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, MethodInfo addMethodInfo)
+    {
+        EmitExpression(spread.Expression);
+
+        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
+        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var enumeratorType = getEnumerator.ReturnType;
+        var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
+        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+        var loopStart = ILGenerator.DefineLabel();
+        var loopEnd = ILGenerator.DefineLabel();
+
+        ILGenerator.MarkLabel(loopStart);
+        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
+
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+
+        var clrElement = ResolveClrType(elementType);
+        if (elementType.IsValueType)
+            ILGenerator.Emit(OpCodes.Unbox_Any, clrElement);
+        else
+            ILGenerator.Emit(OpCodes.Castclass, clrElement);
+
+        ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
 
         ILGenerator.Emit(OpCodes.Br, loopStart);
         ILGenerator.MarkLabel(loopEnd);

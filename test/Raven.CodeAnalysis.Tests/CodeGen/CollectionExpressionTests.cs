@@ -48,15 +48,16 @@ class Foo {
     }
 
     [Fact]
-    public void ListCollectionExpressions_SpreadEnumerates()
+    public void ArrayCollectionExpressions_SpreadEnumerates()
     {
         var code = """
-import System.Collections.Generic.List<>
-
 class Foo {
-    var other: List<int> = [2, 3]
-    var items: List<int> = [1, ..other, 4]
-    public Count: int { get => items.Count }
+    public static GetCount() -> int {
+        let marvel = ["Tony Stark", "Spiderman", "Thor"]
+        let dc = ["Superman", "Batman", "Flash"]
+        let characters = [..marvel, "Black Widow", ..dc]
+        return characters.Length
+    }
 }
 """;
 
@@ -74,9 +75,9 @@ class Foo {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var assembly = loaded.Assembly;
         var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount");
         var instance = Activator.CreateInstance(type!);
-        var countProp = type!.GetProperty("Count");
 
-        Assert.Equal(4, (int)countProp!.GetValue(instance)!);
+        Assert.Equal(7, (int)method!.Invoke(instance, null)!);
     }
 }
