@@ -3,7 +3,7 @@
 > ⚠️ This proposal has NOT been implemented
 
 ## Summary
-Allow literal values and constants to appear directly in type positions and participate in union types. Each literal-value type represents exactly one value, enabling precise exhaustiveness checks and clearer APIs.
+Allow literal values and constants to appear directly in type positions and participate in union types. Each literal-value type represents exactly one value, enabling precise exhaustiveness checks and clearer APIs. Type unions already exist in Raven and semantically hold type elements; this proposal extends them so they may also include literal-value types.
 
 ## Syntax
 ```raven
@@ -21,9 +21,10 @@ A *literal union* combines multiple literal-value types or mixes them with ordin
 - Each literal-value type is a singleton subtype inhabited only by the literal itself.
 - The compiler treats a union containing literals as a finite set of possible values.
 - Type inference and pattern matching respect these singleton types.
+- Existing type unions contain only type members; to include literals we treat each literal as its own type, using the literal's value when evaluating patterns.
 
 ## Metadata Representation
-Literal unions are emitted using `TypeUnionAttribute`. Each union member becomes a constructor argument:
+Literal unions are emitted using `TypeUnionAttribute`. Each union member becomes a constructor argument. To support literal values, `TypeUnionAttribute` must accept `object` arguments rather than only `Type` instances:
 
 ```csharp
 [TypeUnion(typeof(int), "yes", 'c', 0.2, false)]
