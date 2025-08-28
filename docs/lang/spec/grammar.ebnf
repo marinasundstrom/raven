@@ -20,7 +20,7 @@ AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 AccessorModifier         ::= AccessModifier ;
 
 TypeModifiers            ::= { TypeModifier } ;
-TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'static' ;
+TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'static' ;
 
 FunctionModifiers        ::= { FunctionModifier } ;
 FunctionModifier         ::= AccessModifier | 'async' | 'extern' | 'static' ;
@@ -50,7 +50,8 @@ EnumDeclaration          ::= TypeModifiers?
 EnumMembers              ::= EnumMember {',' EnumMember} ;
 EnumMember               ::= Identifier ['=' Expression] ;
 
-ClassDeclaration         ::= TypeModifiers? 'class' Identifier ClassBody ;
+ClassDeclaration         ::= TypeModifiers? 'class' Identifier BaseTypeClause? ClassBody ;
+BaseTypeClause           ::= ':' Type ;
 StructDeclaration        ::= TypeModifiers? 'struct' Identifier ClassBody ;
 ClassBody                ::= '{' {ClassMember} '}' ;
 

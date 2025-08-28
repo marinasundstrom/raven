@@ -1,6 +1,6 @@
 # Proposal: Class inheritance
 
-> ⚠️ This proposal has **NOT** been implemented
+> ⚠️ 🧩 This proposal has been partly implemented
 
 This document outlines minimal support for class-based inheritance to enable testing scenarios that require a type hierarchy.
 
@@ -27,6 +27,14 @@ If a derived class omits a constructor, the base class' default constructor is c
 ### Access modifiers
 
 Classes and their members support the existing access modifiers (`public`, `internal`, `protected`, `private`). A `protected` member is accessible within the declaring class and its subclasses.
+
+## Progress
+
+- ✅ `open` classes and base type syntax
+- ✅ Default constructor chaining to the base default constructor
+- ✅ Access modifiers on classes and members
+- ⚠️ Explicit base constructor invocation
+- ⚠️ Advanced inheritance features (interfaces, abstract classes, etc.)
 
 ## Limitations
 

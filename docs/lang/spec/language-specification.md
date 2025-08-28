@@ -628,6 +628,22 @@ class Counter
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
 
+### Class inheritance
+
+Classes are sealed by default. Marking a class `open` allows it to be used as a base type. A base class is specified with a colon
+followed by the type name:
+
+```raven
+open class Parent {}
+class Child : Parent {}
+```
+
+If a derived class omits a constructor, the base class' parameterless constructor is invoked automatically. Access modifiers
+(`public`, `internal`, `protected`, `private`) apply as usual; `protected` members are accessible to derived classes.
+
+> **Limitations:** Only single inheritance is supported. Derived classes may currently chain only to parameterless base
+> constructors. Interfaces and abstract classes are planned for future versions.
+
 ### Method overloading
 
 Functions and methods may share a name as long as their parameter counts or
