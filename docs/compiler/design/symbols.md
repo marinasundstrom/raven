@@ -5,7 +5,7 @@
 * **Source symbols** - Represents symbols in source code
 * **PE symbols** - Wraps metadata representing types in referenced assemblies
 * **Constructed symbols** - Represents close generic types, array types, type unions, tuple types and fields etc.
-* **Synthesized symbols** - Represents concepts that are created as part of semantic analysis. Such as the implicit `Program` class and `Main` method for top-level statements, or symbols used when rewriting the Bound Tree.
+* **Synthesized symbols** - Represents concepts that are created as part of semantic analysis. Such as the implicit `Program` class and `Main` method synthesized for file-scope code, or symbols used when rewriting the Bound Tree.
 
 ## Symbol equality
 

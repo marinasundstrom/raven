@@ -459,10 +459,53 @@ public partial class SemanticModel
         var mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()]);
         var topLevelBinder = new TopLevelBinder(parentBinder, this, mainMethod);
 
-        var globals = cu.DescendantNodes().OfType<GlobalStatementSyntax>().ToList();
-        topLevelBinder.BindGlobalStatements(globals);
+        var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
 
-        foreach (var stmt in globals)
+        var allGlobals = cu.DescendantNodes().OfType<GlobalStatementSyntax>().ToList();
+        var bindableGlobals = new List<GlobalStatementSyntax>();
+
+        foreach (var global in allGlobals)
+        {
+            if (global.Parent is CompilationUnitSyntax || global.Parent is FileScopedNamespaceDeclarationSyntax)
+                bindableGlobals.Add(global);
+        }
+
+        void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
+        {
+            var seenNonGlobal = false;
+            foreach (var member in members)
+            {
+                if (member is GlobalStatementSyntax gs)
+                {
+                    if (seenNonGlobal)
+                        parentBinder.Diagnostics.ReportFileScopedCodeOutOfOrder(gs.GetLocation());
+                }
+                else
+                {
+                    seenNonGlobal = true;
+                }
+            }
+        }
+
+        if (fileScopedNamespace != null)
+            CheckOrder(fileScopedNamespace.Members);
+        else
+            CheckOrder(cu.Members);
+
+        if (bindableGlobals.Count > 0)
+        {
+            if (Compilation.Options.OutputKind != OutputKind.ConsoleApplication)
+                parentBinder.Diagnostics.ReportFileScopedCodeRequiresConsole(bindableGlobals[0].GetLocation());
+
+            if (Compilation.SyntaxTreeWithFileScopedCode is null)
+                Compilation.SyntaxTreeWithFileScopedCode = cu.SyntaxTree;
+            else if (Compilation.SyntaxTreeWithFileScopedCode != cu.SyntaxTree)
+                parentBinder.Diagnostics.ReportFileScopedCodeMultipleFiles(bindableGlobals[0].GetLocation());
+        }
+
+        topLevelBinder.BindGlobalStatements(bindableGlobals);
+
+        foreach (var stmt in bindableGlobals)
             _binderCache[stmt] = topLevelBinder;
 
         return topLevelBinder;

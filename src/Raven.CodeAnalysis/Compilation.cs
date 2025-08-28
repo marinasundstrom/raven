@@ -14,6 +14,7 @@ public class Compilation
     private INamespaceSymbol? _globalNamespace;
     private readonly SyntaxTree[] _syntaxTrees;
     private readonly MetadataReference[] _references;
+    internal SyntaxTree? SyntaxTreeWithFileScopedCode;
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, IAssemblySymbol>();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new Dictionary<Assembly, IAssemblySymbol>();

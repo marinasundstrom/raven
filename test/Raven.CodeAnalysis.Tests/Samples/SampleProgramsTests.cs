@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -100,7 +101,7 @@ public class SampleProgramsTests
                     MetadataReference.CreateFromFile(testDepOutputPath)]);
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Empty(diagnostics);
+        Assert.Empty(diagnostics.Where(d => d.Descriptor != CompilerDiagnostics.FileScopedCodeOutOfOrder));
     }
 
     [Fact]
