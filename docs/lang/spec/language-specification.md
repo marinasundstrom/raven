@@ -556,11 +556,18 @@ let y = if x > 2 { 40 + w; } else { true; }
 See [Union conversions](#union-conversions) for how union values interact with
 explicit target types and return annotations.
 
-If a literal value does not match the annotated union, diagnostics show the
-literal itself in keyword form. For example:
+Assigning to an explicitly typed union checks each member individually. The expression is accepted if it can convert to at least one member. Literal members compare against literal expressions by value:
 
 ```raven
-let x: "true" | 1 = true
+let x: "true" | 1 = 1   // ok
+let y: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
+let z: "true" | int = 1 // ok
+```
+
+Diagnostic messages include the mismatched literal in keyword form. For example:
+
+```raven
+let a: "true" | 1 = true
 // error: Cannot assign 'true' to '"true" | 1'
 ```
 
