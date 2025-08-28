@@ -120,8 +120,18 @@ dotnet run --project src/Raven.Compiler -- <path-to-file> -o <output-file-path>
 
 Options:
 
+- `-s` &ndash; display the syntax tree (single file only)
+- `-d` &ndash; dump syntax with highlighting (single file only)
+- `-r` &ndash; print the raw source (single file only)
+- `-b` &ndash; print the binder tree (single file only)
+- `--ref <path>` &ndash; additional metadata reference
+- `--framework <tfm>` &ndash; target framework
+- `-o <path>` &ndash; output assembly path
 
-> ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and and hardcoded output file path (`test.dll`).
+Debug flags write their output to a `debug/` directory when multiple files are
+compiled or a `.debug` marker file is present.
+
+> ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and a hardcoded output file path (`test.dll`).
 
 ---
 

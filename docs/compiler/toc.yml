@@ -1,5 +1,7 @@
 - name: Overview
   href: index.md
+- name: Raven.Compiler CLI
+  href: raven-compiler.md
 - name: Architecture
   items:
     - name: Overview
