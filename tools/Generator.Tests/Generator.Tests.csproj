@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Generator\Generator.csproj" />
-    <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
+    <ProjectReference Include="..\..\src\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -550,8 +550,59 @@ else if y is bool b {
 }
 ```
 
-> **Note:** Representation is an implementation detail; conceptually, unions
-> are first-class in the type system even if lowered to `object` at runtime.
+#### Metadata projection
+
+When emitted to .NET metadata, a union is projected as the narrowest common
+denominator of its members. If every member shares a base class, that base type
+becomes the metadata type; otherwise, `object` is used. Including `null` in the
+union marks the emitted type as nullable.
+
+For example:
+
+```raven
+let pet = if flag { Dog() } else { Cat() } // Dog | Cat
+```
+
+Emits `Animal` because both `Dog` and `Cat` derive from it. In contrast:
+
+```raven
+let value = if flag { 0 } else { "hi" } // int | string | null
+```
+
+Emits `object?` since `int` and `string` share no base class other than
+`object`, and `null` is included.
+
+This narrowing makes unions friendlier to inheritance-based languages such as
+C#, and it gives the runtime a smaller set of types to resolve. The
+`TypeUnionsAnalyzer` provides additional hints about possible targets so that
+consumers can work with the projected type more effectively.
+
+To preserve the original union members, the compiler also attaches a
+`TypeUnionAttribute` to the parameter or return type in metadata. The attribute
+lists the CLR `Type` for each member in the union. The method signature itself
+uses the narrowed base type (or `object`) as described above.
+
+Raven emits shim types so that every union member has a concrete `Type`:
+
+* `Unit` represents the Raven `unit` value and is emitted into every assembly.
+* `Null` represents the `null` literal and is emitted only when a union includes
+  `null`.
+
+When `null` participates, the signature type is additionally marked as nullable.
+
+For example:
+
+```raven
+func f(x: string | unit | null) -> unit { }
+```
+
+Emits a parameter of type `object?` with:
+
+```csharp
+[TypeUnionAttribute(typeof(string), typeof(Unit), typeof(Null))]
+```
+
+attached, indicating the full set of possible values.
 
 ### Nullable types
 
