@@ -1,4 +1,6 @@
-# Pattern Matching
+# Proposal: Patterns
+
+> ⚠️ 🧩 This proposal has been partly implemented
 
 Raven supports pattern matching to destructure values and test for specific shapes.
 
