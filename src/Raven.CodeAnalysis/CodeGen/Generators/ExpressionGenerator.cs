@@ -1301,6 +1301,16 @@ internal class ExpressionGenerator : Generator
                     break;
                 }
 
+            case BoundLiteralExpressionKind.CharLiteral:
+                {
+                    if (literalExpression.Value is char)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldc_I4, Convert.ToInt32(literalExpression.Value));
+                        ILGenerator.Emit(OpCodes.Conv_U2);
+                    }
+                    break;
+                }
+
             case BoundLiteralExpressionKind.TrueLiteral:
                 {
                     ILGenerator.Emit(OpCodes.Ldc_I4_1);

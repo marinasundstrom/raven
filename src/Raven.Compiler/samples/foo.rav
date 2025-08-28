@@ -1,0 +1,6 @@
+import System.Console.*
+
+let x : 'a' | 1 = 1
+let x : 'a' | 1 = 'b'
+
+WriteLine(x)
