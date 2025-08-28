@@ -51,4 +51,14 @@ class Baz {
         ]);
         verifier.Verify();
     }
+
+    [Fact]
+    public void StringLiteralUnion_ShowsQuotesInDiagnostic()
+    {
+        var code = "let x: \"true\" | \"false\" = true";
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult("RAV1503").WithAnySpan().WithArguments("bool", "\"true\" | \"false\"")
+        ]);
+        verifier.Verify();
+    }
 }

@@ -7,15 +7,23 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, ITypeSymbol
     public ITypeSymbol UnderlyingType { get; }
     public object ConstantValue { get; }
 
+    private static string GetDisplayName(object? value)
+        => value switch
+        {
+            string s => "\"" + s + "\"",
+            char c => "'" + c + "'",
+            _ => value?.ToString() ?? string.Empty
+        };
+
     public LiteralTypeSymbol(ITypeSymbol underlyingType, object constantValue, Compilation compilation)
-        : base(SymbolKind.Type, constantValue?.ToString() ?? string.Empty, compilation.Assembly, null, compilation.Assembly.GlobalNamespace, [], [])
+        : base(SymbolKind.Type, GetDisplayName(constantValue), compilation.Assembly, null, compilation.Assembly.GlobalNamespace, [], [])
     {
         UnderlyingType = underlyingType;
         ConstantValue = constantValue;
         TypeKind = underlyingType.TypeKind;
     }
 
-    public override string Name => ConstantValue?.ToString() ?? string.Empty;
+    public override string Name => GetDisplayName(ConstantValue);
 
     public INamedTypeSymbol? BaseType => UnderlyingType.BaseType;
 
