@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Diagnostics;
 using System.Formats.Asn1;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
@@ -51,7 +52,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         if (trivia == null) throw new ArgumentNullException(nameof(trivia));
 
         var newTrivias = _trivias.Concat(new[] { trivia }).ToArray();
-        return new SyntaxTriviaList(newTrivias);
+        return new SyntaxTriviaList(newTrivias, _diagnostics, _annotations);
     }
 
     public SyntaxTriviaList AddRange(SyntaxTriviaList readTriviaForSkippedNewlines)
@@ -59,7 +60,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         if (readTriviaForSkippedNewlines == null) throw new ArgumentNullException(nameof(readTriviaForSkippedNewlines));
 
         var newTrivias = _trivias.Concat(readTriviaForSkippedNewlines).ToArray();
-        return new SyntaxTriviaList(newTrivias);
+        return new SyntaxTriviaList(newTrivias, _diagnostics, _annotations);
     }
 
     /// <summary>
@@ -70,7 +71,7 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
         if (trivia == null) throw new ArgumentNullException(nameof(trivia));
 
         var newTrivias = _trivias.Where(t => !Equals(t, trivia)).ToArray();
-        return new SyntaxTriviaList(newTrivias);
+        return new SyntaxTriviaList(newTrivias, _diagnostics, _annotations);
     }
 
     /// <summary>
@@ -94,12 +95,12 @@ internal class SyntaxTriviaList : GreenNode, IEnumerable<SyntaxTrivia>
 
     internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
-        return new SyntaxList(children);
+        return new SyntaxTriviaList(children.Cast<SyntaxTrivia>().ToArray(), diagnostics ?? _diagnostics, annotations ?? _annotations);
     }
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
-        return new SyntaxList(_trivias, _diagnostics);
+        return new SyntaxTriviaList(_trivias, diagnostics, _annotations);
     }
 
     internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()

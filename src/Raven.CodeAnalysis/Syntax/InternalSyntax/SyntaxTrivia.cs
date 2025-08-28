@@ -58,12 +58,27 @@ internal class SyntaxTrivia : GreenNode
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
-        return new SyntaxTrivia(Kind, Text, _diagnostics);
+        if (_structuredTrivia is null)
+        {
+            return new SyntaxTrivia(Kind, Text, diagnostics);
+        }
+
+        return new SyntaxTrivia(_structuredTrivia, diagnostics, _annotations);
     }
 
     internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
-        return this;
+        if (diagnostics is null && annotations is null)
+        {
+            return this;
+        }
+
+        if (_structuredTrivia is null)
+        {
+            return new SyntaxTrivia(Kind, Text, diagnostics ?? _diagnostics);
+        }
+
+        return new SyntaxTrivia(_structuredTrivia, diagnostics ?? _diagnostics, annotations ?? _annotations);
     }
 
     private string GetDebuggerDisplay() => $"{GetType().Name} {GetValueText()}";

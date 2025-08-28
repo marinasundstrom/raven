@@ -1,4 +1,6 @@
-﻿namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
+﻿using System;
+
+namespace Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 internal abstract class SyntaxNode : GreenNode
 {
@@ -44,12 +46,12 @@ internal abstract class SyntaxNode : GreenNode
 
     internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
-        return null; // new SyntaxNode(Kind, newChildren, _diagnostics);
+        throw new NotImplementedException("Override method");
     }
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
-        return null; // new SyntaxNode(Kind, _slots, _diagnostics);
+        return With(_slots, diagnostics, _annotations);
     }
 
     internal override GreenNode WithAdditionalAnnotations(params SyntaxAnnotation[] annotations)

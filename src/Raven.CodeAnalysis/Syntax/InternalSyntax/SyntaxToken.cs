@@ -57,12 +57,12 @@ internal class SyntaxToken : GreenNode
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
-        return new SyntaxToken(Kind, Text, SyntaxTriviaList.Create(trivias.ToArray()), TrailingTrivia); ;
+        return new SyntaxToken(Kind, _text, _value, Width, SyntaxTriviaList.Create(trivias.ToArray()), TrailingTrivia, _diagnostics, _annotations);
     }
 
     public SyntaxToken WithTrailingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {
-        return new SyntaxToken(Kind, Text, LeadingTrivia, SyntaxTriviaList.Create(trivias.ToArray())); ;
+        return new SyntaxToken(Kind, _text, _value, Width, LeadingTrivia, SyntaxTriviaList.Create(trivias.ToArray()), _diagnostics, _annotations);
     }
 
     public override int GetLeadingTriviaWidth() => LeadingTrivia.Width;
@@ -81,7 +81,12 @@ internal class SyntaxToken : GreenNode
 
     internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
-        return this;
+        if (diagnostics is null && annotations is null)
+        {
+            return this;
+        }
+
+        return new SyntaxToken(Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, diagnostics ?? _diagnostics, annotations ?? _annotations);
     }
 
     internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()
@@ -107,7 +112,7 @@ internal class SyntaxToken : GreenNode
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
-        return new SyntaxToken(Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, _diagnostics);
+        return new SyntaxToken(Kind, _text, _value, Width, LeadingTrivia, TrailingTrivia, diagnostics, _annotations);
     }
 
     private string GetDebuggerDisplay()

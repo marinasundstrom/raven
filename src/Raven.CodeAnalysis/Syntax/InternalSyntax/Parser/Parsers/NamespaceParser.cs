@@ -10,6 +10,13 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
     }
 
+    private enum MemberOrder
+    {
+        Imports,
+        Aliases,
+        Members
+    }
+
     public MemberDeclarationSyntax ParseNamespaceDeclaration()
     {
         List<ImportDirectiveSyntax> importDirectives = [];
@@ -22,9 +29,11 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
         if (ConsumeToken(SyntaxKind.OpenBraceToken, out var openBraceToken))
         {
+            var order = MemberOrder.Imports;
+
             while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) && nextToken.Kind != SyntaxKind.CloseBraceToken)
             {
-                ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations);
+                ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations, ref order);
             }
 
             if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
@@ -51,17 +60,17 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
     private MemberDeclarationSyntax ParseFileScopedNamespaceDeclarationCore(SyntaxToken namespaceKeyword, NameSyntax name, List<ImportDirectiveSyntax> importDirectives, List<AliasDirectiveSyntax> aliasDirectives, List<MemberDeclarationSyntax> memberDeclarations)
     {
-        DiagnosticInfo[]? diagnostics = null;
-
         SetTreatNewlinesAsTokens(true);
 
         TryConsumeTerminator(out var terminatorToken);
 
         SetTreatNewlinesAsTokens(false);
 
+        var order = MemberOrder.Imports;
+
         while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken))
         {
-            ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations);
+            ParseNamespaceMemberDeclarations(nextToken, importDirectives, aliasDirectives, memberDeclarations, ref order);
 
             SetTreatNewlinesAsTokens(false);
         }
@@ -69,40 +78,68 @@ internal class NamespaceDeclarationParser : SyntaxParser
         return FileScopedNamespaceDeclaration(
             SyntaxList.Empty,
             namespaceKeyword, name, terminatorToken,
-            List(importDirectives), List(aliasDirectives), List(memberDeclarations), diagnostics);
+            List(importDirectives), List(aliasDirectives), List(memberDeclarations), Diagnostics);
     }
 
-    private void ParseNamespaceMemberDeclarations(SyntaxToken nextToken, List<ImportDirectiveSyntax> importDirectives, List<AliasDirectiveSyntax> aliasDirectives, List<MemberDeclarationSyntax> memberDeclarations)
+    private void ParseNamespaceMemberDeclarations(
+        SyntaxToken nextToken,
+        List<ImportDirectiveSyntax> importDirectives,
+        List<AliasDirectiveSyntax> aliasDirectives,
+        List<MemberDeclarationSyntax> memberDeclarations,
+        ref MemberOrder order)
     {
         if (nextToken.IsKind(SyntaxKind.ImportKeyword))
         {
+            var start = Position;
             var importDirective = new ImportDirectiveSyntaxParser(this).ParseImportDirective();
 
+            if (order > MemberOrder.Imports)
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.ImportDirectiveOutOfOrder,
+                        GetActualTextSpan(start, importDirective)));
+            }
+
             importDirectives.Add(importDirective);
+            order = MemberOrder.Imports;
         }
         else if (nextToken.IsKind(Raven.CodeAnalysis.Syntax.SyntaxKind.AliasKeyword))
         {
+            var start = Position;
             var aliasDirective = new AliasDirectiveSyntaxParser(this).ParseAliasDirective();
 
+            if (order > MemberOrder.Aliases)
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.AliasDirectiveOutOfOrder,
+                        GetActualTextSpan(start, aliasDirective)));
+            }
+
             aliasDirectives.Add(aliasDirective);
+            order = MemberOrder.Aliases;
         }
         else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
         {
             var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
             memberDeclarations.Add(namespaceDeclaration);
+            order = MemberOrder.Members;
         }
         else if (nextToken.IsKind(SyntaxKind.EnumKeyword))
         {
             var enumDeclaration = new EnumDeclarationParser(this).Parse();
 
             memberDeclarations.Add(enumDeclaration);
+            order = MemberOrder.Members;
         }
         else if (nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword))
         {
             var typeDeclaration = new TypeDeclarationParser(this).Parse();
 
             memberDeclarations.Add(typeDeclaration);
+            order = MemberOrder.Members;
         }
         else
         {
@@ -116,6 +153,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             var globalStatement = GlobalStatement(SyntaxList.Empty, statement);
 
             memberDeclarations.Add(globalStatement);
+            order = MemberOrder.Members;
         }
     }
 }

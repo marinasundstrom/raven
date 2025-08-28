@@ -25,40 +25,40 @@ internal class SyntaxList : GreenNode
 
     internal override GreenNode With(GreenNode[] children, DiagnosticInfo[]? diagnostics = null, SyntaxAnnotation[]? annotations = null)
     {
-        return new SyntaxList(children);
+        return new SyntaxList(children, diagnostics ?? _diagnostics, annotations ?? _annotations);
     }
 
     internal override GreenNode SetDiagnostics(params DiagnosticInfo[] diagnostics)
     {
-        return new SyntaxList(_items, _diagnostics);
+        return new SyntaxList(_items, diagnostics, _annotations);
     }
 
     public SyntaxList Add(GreenNode green)
     {
         var list = _items.ToList();
         list.Add(green);
-        return new SyntaxList(list.ToArray());
+        return new SyntaxList(list.ToArray(), _diagnostics, _annotations);
     }
 
     public SyntaxList Insert(int index, GreenNode green)
     {
         var list = _items.ToList();
         list.Insert(index, green);
-        return new SyntaxList(list.ToArray());
+        return new SyntaxList(list.ToArray(), _diagnostics, _annotations);
     }
 
     public SyntaxList Remove(GreenNode green)
     {
         var list = _items.ToList();
         list.Remove(green);
-        return new SyntaxList(list.ToArray());
+        return new SyntaxList(list.ToArray(), _diagnostics, _annotations);
     }
 
     public SyntaxList RemoveAt(int index)
     {
         var list = _items.ToList();
         list.RemoveAt(index);
-        return new SyntaxList(list.ToArray());
+        return new SyntaxList(list.ToArray(), _diagnostics, _annotations);
     }
 
     internal override IEnumerable<DiagnosticInfo> GetDiagnosticsRecursive()
