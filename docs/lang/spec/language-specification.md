@@ -75,15 +75,19 @@ omitted.
 Control-flow constructs such as `if`, `while`, and `for` are expressions.
 When used for their side effects in statement position, they appear as expression statements.
 
-### Top-level statements
+### File-scope code
 
-Top-level statements are supported—no `Main` method is required.
+File-scope code is supported—no `Main` function is required.
 
 ```raven
 import System.*
 alias print = System.Console.WriteLine
 
-print("Hello, World!")
+sayHello()
+
+func sayHello() {
+    print("Hello, World!")
+}
 ```
 
 ### Expression statements
@@ -404,9 +408,11 @@ namespace A.B
 
 The outermost undeclared namespace is the **global namespace**.
 
-### File-scope code
+### File-scope code rules
 
 Files may start with executable statements that aren't enclosed in a function or type. This file-scope code forms the application's entry point and is translated into `Program.Main`. Only console applications may include file-scope code, and it may appear in at most one file per compilation. When present, these statements must come before any other declarations in the file or its file-scoped namespace.
+
+Function declarations (local function statements) within file-scope code are hoisted and may be referenced from anywhere in that file-scoped region, regardless of their order.
 
 ## Functions
 
