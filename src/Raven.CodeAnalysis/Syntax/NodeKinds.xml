@@ -13,6 +13,11 @@
   <NodeKind Name="CharacterLiteralExpression" Type="LiteralExpression" />
   <NodeKind Name="StringLiteralExpression" Type="LiteralExpression" />
   <NodeKind Name="NullLiteralExpression" Type="LiteralExpression" />
+  <NodeKind Name="NumericLiteralType" Type="LiteralType" />
+  <NodeKind Name="TrueLiteralType" Type="LiteralType" />
+  <NodeKind Name="FalseLiteralType" Type="LiteralType" />
+  <NodeKind Name="CharacterLiteralType" Type="LiteralType" />
+  <NodeKind Name="StringLiteralType" Type="LiteralType" />
   <NodeKind Name="UnitExpression" Type="UnitExpression" />
   <NodeKind Name="UnitType" Type="UnitType" />
   <NodeKind Name="InterpolatedStringExpression" Type="Expression" />
