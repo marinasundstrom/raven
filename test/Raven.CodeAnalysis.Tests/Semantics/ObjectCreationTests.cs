@@ -88,6 +88,31 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void NamedConstructorWithLocalDeclarationCreatesObject()
+    {
+        string testCode =
+            """
+            class Person {
+                var name: string;
+
+                public init WithName(name: string) {
+                    let temp = name;
+                    self.name = temp;
+                }
+
+                public GetName() -> string => name;
+            }
+
+            let p = Person.WithName("John");
+            let n = p.GetName();
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void DefaultConstructorSynthesizedWhenMissing()
     {
         string testCode =
