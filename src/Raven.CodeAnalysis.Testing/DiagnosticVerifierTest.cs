@@ -49,6 +49,7 @@ public class DiagnosticVerifierTest
         result.MatchedDiagnostics.Count.ShouldBe(0);
         result.MissingDiagnostics.Count.ShouldBe(1);
         result.UnexpectedDiagnostics.Count.ShouldBe(0);
+        exception.Message.ShouldContain("(1,47 - 1,48)");
     }
 
     [Fact]

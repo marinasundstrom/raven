@@ -100,7 +100,9 @@ public class AnalyzerVerifier<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, n
                 var lineSpan = diag.Location.GetLineSpan();
                 var line = lineSpan.StartLinePosition.Line + 1;
                 var column = lineSpan.StartLinePosition.Character + 1;
-                message.AppendLine($"  ({line},{column}): {diag.Descriptor.Id} - {diag.GetDescription()}");
+                var endLine = lineSpan.EndLinePosition.Line + 1;
+                var endColumn = lineSpan.EndLinePosition.Character + 1;
+                message.AppendLine($"  ({line},{column} - {endLine},{endColumn}): {diag.Descriptor.Id} - {diag.GetDescription()}");
             }
         }
 
@@ -115,8 +117,12 @@ public class AnalyzerVerifier<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, n
                     : string.Format(descriptor.MessageFormat, expected.Arguments);
 
                 var start = expected.Location.Span.StartLinePosition;
+                var end = expected.Location.Span.EndLinePosition;
+                var loc = expected.Location.Options.HasFlag(DiagnosticLocationOptions.IgnoreLocation)
+                    ? "?:? - ?:?"
+                    : $"{start.Line + 1},{start.Character + 1} - {end.Line + 1},{end.Character + 1}";
 
-                message.AppendLine($"  ({start.Line + 1},{start.Character + 1}): {expected.Id} - {m}");
+                message.AppendLine($"  ({loc}): {expected.Id} - {m}");
             }
         }
 
