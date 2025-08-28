@@ -48,7 +48,9 @@ internal class CodeGenerator
         }
         else if (type is IUnionTypeSymbol u && u.Types.Any(t => t.TypeKind == TypeKind.Null))
         {
-            needsNullable = true;
+            var nonNull = u.Types.Where(t => t.TypeKind != TypeKind.Null).ToArray();
+            if (!(nonNull.Length == 1 && nonNull[0].IsValueType))
+                needsNullable = true;
         }
 
         if (!needsNullable)

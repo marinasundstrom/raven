@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
 
@@ -102,10 +104,21 @@ public static class TypeSymbolExtensionsForCodeGen
             throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {fullyQualifiedName}");
         }
 
-        // Handle union types (fallback to object)
-        if (typeSymbol is IUnionTypeSymbol)
+        // Handle union types
+        if (typeSymbol is IUnionTypeSymbol union)
         {
-            return GetSpecialClrType(SpecialType.System_Object, compilation);
+            var nonNull = union.Types.Where(t => t.TypeKind != TypeKind.Null).ToArray();
+
+            var common = FindCommonDenominator(nonNull);
+            if (common is null)
+                common = compilation.GetSpecialType(SpecialType.System_Object);
+
+            var clr = common.GetClrType(codeGen);
+
+            if (union.Types.Any(t => t.TypeKind == TypeKind.Null) && common.IsValueType)
+                return typeof(Nullable<>).MakeGenericType(clr);
+
+            return clr;
         }
 
         throw new NotSupportedException($"Unsupported type symbol: {typeSymbol}");
@@ -142,5 +155,48 @@ public static class TypeSymbolExtensionsForCodeGen
             SpecialType.System_ValueTuple_T2 => FromCoreAssembly(compilation, "System.ValueTuple`2"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
+    }
+
+    private static INamedTypeSymbol? FindCommonDenominator(IEnumerable<ITypeSymbol> types)
+    {
+        HashSet<INamedTypeSymbol>? intersection = null;
+
+        foreach (var type in types)
+        {
+            if (type is not INamedTypeSymbol named)
+                return null;
+
+            var candidates = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+            for (INamedTypeSymbol? current = named; current is not null; current = current.BaseType)
+                candidates.Add(current);
+
+            foreach (var iface in named.AllInterfaces)
+                candidates.Add(iface);
+
+            if (intersection is null)
+                intersection = candidates;
+            else
+                intersection.IntersectWith(candidates);
+
+            if (intersection.Count == 0)
+                return null;
+        }
+
+        if (intersection is null || intersection.Count == 0)
+            return null;
+
+        return intersection
+            .OrderByDescending(GetDepth)
+            .ThenByDescending(t => t.TypeKind == TypeKind.Interface ? 1 : 0)
+            .First();
+    }
+
+    private static int GetDepth(INamedTypeSymbol type)
+    {
+        int depth = 0;
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+            depth++;
+        return depth;
     }
 }
