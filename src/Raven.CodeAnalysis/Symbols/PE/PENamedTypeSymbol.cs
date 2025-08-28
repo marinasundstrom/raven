@@ -71,10 +71,22 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public bool IsSealed => _typeInfo.IsSealed;
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;
-    public ImmutableArray<INamedTypeSymbol> Interfaces =>
-        _interfaces ??= AllInterfaces
-            .Where(i => BaseType is null || !BaseType.AllInterfaces.Contains(i, SymbolEqualityComparer.Default))
-            .ToImmutableArray();
+    public ImmutableArray<INamedTypeSymbol> Interfaces
+    {
+        get
+        {
+            if (_interfaces is null)
+            {
+                var all = AllInterfaces;
+                _interfaces = all
+                    .Where(i => (BaseType is null || !BaseType.AllInterfaces.Contains(i, SymbolEqualityComparer.Default)) &&
+                                !all.Any(other => !SymbolEqualityComparer.Default.Equals(i, other) &&
+                                                 other.AllInterfaces.Contains(i, SymbolEqualityComparer.Default)))
+                    .ToImmutableArray();
+            }
+            return _interfaces.Value;
+        }
+    }
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
         _allInterfaces ??= _typeInfo.GetInterfaces()
             .Select(i => (INamedTypeSymbol)_typeResolver.ResolveType(i)!)
