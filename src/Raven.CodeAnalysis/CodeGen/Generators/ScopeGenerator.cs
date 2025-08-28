@@ -11,7 +11,11 @@ class Scope : Generator
 
     }
 
-    public override void AddLocal(ILocalSymbol localSymbol, LocalBuilder builder) => _localBuilders.Add(localSymbol, builder);
+    public override void AddLocal(ILocalSymbol localSymbol, LocalBuilder builder)
+    {
+        if (!_localBuilders.ContainsKey(localSymbol))
+            _localBuilders.Add(localSymbol, builder);
+    }
 
     public override LocalBuilder? GetLocal(ILocalSymbol localSymbol)
     {

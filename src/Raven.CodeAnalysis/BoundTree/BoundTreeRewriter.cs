@@ -23,37 +23,23 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             yield return (T)VisitSymbol(symbol)!;
     }
 
-    public virtual BoundExpression VisitExpression(BoundExpression node)
+    public virtual BoundExpression? VisitExpression(BoundExpression? node)
     {
-        switch (node)
-        {
-            case BoundLiteralExpression lit:
-                VisitLiteralExpression(lit);
-                break;
-            case BoundLocalAccess local:
-                VisitLocalAccess(local);
-                break;
-            case BoundParameterAccess par:
-                VisitParameterAccess(par);
-                break;
-            case BoundBinaryExpression bin:
-                VisitBinaryExpression(bin);
-                break;
-            case BoundInvocationExpression call:
-                VisitInvocationExpression(call);
-                break;
-            case BoundObjectCreationExpression objectCreation:
-                VisitObjectCreationExpression(objectCreation);
-                break;
-            case BoundLambdaExpression lambda:
-                VisitLambdaExpression(lambda);
-                break;
-            case BoundBlockExpression block:
-                VisitBlockExpression(block);
-                break;
-        }
+        if (node is null)
+            return null;
 
-        throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}");
+        return node switch
+        {
+            BoundLiteralExpression lit => (BoundExpression)VisitLiteralExpression(lit)!,
+            BoundLocalAccess local => (BoundExpression)VisitLocalAccess(local)!,
+            BoundParameterAccess par => (BoundExpression)VisitParameterAccess(par)!,
+            BoundBinaryExpression bin => (BoundExpression)VisitBinaryExpression(bin)!,
+            BoundInvocationExpression call => (BoundExpression)VisitInvocationExpression(call)!,
+            BoundObjectCreationExpression objectCreation => (BoundExpression)VisitObjectCreationExpression(objectCreation)!,
+            BoundLambdaExpression lambda => (BoundExpression)VisitLambdaExpression(lambda)!,
+            BoundBlockExpression block => (BoundExpression)VisitBlockExpression(block)!,
+            _ => throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}"),
+        };
     }
 
     public virtual INamespaceSymbol VisitNamespace(INamespaceSymbol @namespace)
