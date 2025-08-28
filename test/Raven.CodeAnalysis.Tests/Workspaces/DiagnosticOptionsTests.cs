@@ -1,4 +1,5 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Text;
@@ -88,5 +89,25 @@ public class DiagnosticOptionsTests
         var diagnostics = workspace.GetDiagnostics(projectId);
         Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV1010");
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == TodoAnalyzer.Descriptor.Id);
+    }
+
+    [Fact]
+    public void ReportSuppressedDiagnostics_True_ReportsSuppressed()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithSpecificDiagnosticOption("RAV1010", ReportDiagnostic.Suppress);
+        var projectId = workspace.AddProject("Test", compilationOptions: options);
+        var docId = DocumentId.CreateNew(projectId);
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(docId, "test.rav", SourceText.From("\"unterminated")));
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDiagnostics(projectId, new CompilationWithAnalyzersOptions(reportSuppressedDiagnostics: true));
+        var diagnostic = Assert.Single(diagnostics, d => d.Descriptor.Id == "RAV1010");
+        Assert.True(diagnostic.IsSuppressed);
     }
 }

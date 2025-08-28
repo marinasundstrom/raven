@@ -305,7 +305,7 @@ public class Compilation
         }
     }
 
-    public ImmutableArray<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
+    public ImmutableArray<Diagnostic> GetDiagnostics(CompilationWithAnalyzersOptions? analyzerOptions = null, CancellationToken cancellationToken = default)
     {
         var diagnostics = new List<Diagnostic>();
 
@@ -323,18 +323,18 @@ public class Compilation
 
         void Add(Diagnostic diagnostic)
         {
-            var mapped = ApplyCompilationOptions(diagnostic);
+            var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
             if (mapped is not null)
                 diagnostics.Add(mapped);
         }
     }
 
-    internal Diagnostic? ApplyCompilationOptions(Diagnostic diagnostic)
+    internal Diagnostic? ApplyCompilationOptions(Diagnostic diagnostic, bool reportSuppressedDiagnostics = false)
     {
         if (Options.SpecificDiagnosticOptions.TryGetValue(diagnostic.Descriptor.Id, out var report))
         {
             if (report == ReportDiagnostic.Suppress)
-                return null;
+                return reportSuppressedDiagnostics ? diagnostic.WithSuppression(true) : null;
 
             if (report != ReportDiagnostic.Default)
             {

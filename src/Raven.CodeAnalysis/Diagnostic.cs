@@ -10,14 +10,22 @@ public class Diagnostic : IEquatable<Diagnostic>
 
     public DiagnosticSeverity Severity { get; }
 
+    public bool IsSuppressed { get; }
+
     public object[] GetMessageArgs() => _messageArgs ?? [];
 
-    public Diagnostic(DiagnosticDescriptor descriptor, Location location, object[]? messageArgs, DiagnosticSeverity? severity = null)
+    public Diagnostic(
+        DiagnosticDescriptor descriptor,
+        Location location,
+        object[]? messageArgs,
+        DiagnosticSeverity? severity = null,
+        bool isSuppressed = false)
     {
         Descriptor = descriptor;
         Location = location;
         _messageArgs = messageArgs;
         Severity = severity ?? descriptor.DefaultSeverity;
+        IsSuppressed = isSuppressed;
     }
 
     public override string ToString() => GetDescription();
@@ -73,6 +81,9 @@ public class Diagnostic : IEquatable<Diagnostic>
         if (Severity != other.Severity)
             return false;
 
+        if (IsSuppressed != other.IsSuppressed)
+            return false;
+
         // Compare the fully formatted message (args normalized via ProcessArgs)
         return string.Equals(GetMessage(), other.GetMessage(), StringComparison.Ordinal);
     }
@@ -85,6 +96,7 @@ public class Diagnostic : IEquatable<Diagnostic>
         hash.Add(Descriptor);
         hash.Add(Location);
         hash.Add(Severity);
+        hash.Add(IsSuppressed);
         // Hash by final formatted message to align with Equals
         hash.Add(GetMessage(), StringComparer.Ordinal);
         return hash.ToHashCode();
@@ -94,5 +106,8 @@ public class Diagnostic : IEquatable<Diagnostic>
     public static bool operator !=(Diagnostic? left, Diagnostic? right) => !Equals(left, right);
 
     internal Diagnostic WithSeverity(DiagnosticSeverity severity)
-        => new Diagnostic(Descriptor, Location, GetMessageArgs(), severity);
+        => new Diagnostic(Descriptor, Location, GetMessageArgs(), severity, IsSuppressed);
+
+    internal Diagnostic WithSuppression(bool isSuppressed)
+        => new Diagnostic(Descriptor, Location, GetMessageArgs(), Severity, isSuppressed);
 }
