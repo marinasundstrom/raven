@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Tests.Bugs;
 public class UninitializedLocalTests : DiagnosticTestBase
 {
     [Fact]
-    public void LocalDeclarationWithoutInitializer_NoDiagnostics()
+    public void VarDeclarationWithoutInitializer_ProducesDiagnostic()
     {
         const string code = """
         class Foo {
@@ -15,7 +15,26 @@ public class UninitializedLocalTests : DiagnosticTestBase
         }
         """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult("RAV0166").WithAnySpan().WithArguments("x")
+        ]);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void LetDeclarationWithoutInitializer_ProducesDiagnostic()
+    {
+        const string code = """
+        class Foo {
+            Test() -> unit {
+                let x: int;
+            }
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult("RAV0166").WithAnySpan().WithArguments("x")
+        ]);
         verifier.Verify();
     }
 }
