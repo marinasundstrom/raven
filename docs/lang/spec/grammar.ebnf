@@ -3,7 +3,7 @@
    Contextual rules and parsing details are described in the language specification.
    NOTE: Non-normative. Context-sensitive parsing and validation live outside this EBNF. *)
 
-CompilationUnit          ::= {ImportDirective | AliasDirective | Declaration | Statement} EOF ;
+CompilationUnit          ::= {ImportDirective} {AliasDirective} {Declaration | Statement} EOF ;
 
 ImportDirective          ::= 'import' QualifiedName ('.' '*')? ; (* Namespace imports require '.*'; applying '.*' to a type imports its static members and nested types *)
 AliasDirective           ::= 'alias' Identifier '=' Type ; (* Target may be a fully qualified name, type expression, or predefined type: bool | char | int | string | unit | '()' *)
@@ -33,7 +33,7 @@ Declaration              ::= NamespaceDeclaration
                            | ClassDeclaration
                            | StructDeclaration ;
 
-NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective | AliasDirective | Declaration | Statement} '}' ;
+NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {Declaration | Statement} '}' ;
 
 FunctionDeclaration      ::= FunctionModifiers?
                              'func' Identifier '(' ParameterList? ')'

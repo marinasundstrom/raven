@@ -336,6 +336,11 @@ import System.Math.*
 let pi = PI
 ```
 
+Import directives appear at the beginning of a compilation unit or namespace. All
+imports for a given scope must come before any alias directives or member
+declarations. Placing an import directive after an alias or member is a
+compile-time error (`RAV1005`).
+
 ### Alias directive
 
 The `alias` directive assigns an alternative name to a fully qualified
@@ -366,7 +371,9 @@ If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which l
 
 Aliases require fully qualified names for namespaces, types, and members to
 avoid ambiguity; type expressions are written directly. Alias directives may
-appear at the top of a file or inside a namespace alongside import directives.
+appear at the top of a file or inside a namespace but must follow all import
+directives and precede any declarations or statements. An alias directive that
+appears after a member declaration produces diagnostic `RAV1006`.
 
 ### Scoped namespaces
 
