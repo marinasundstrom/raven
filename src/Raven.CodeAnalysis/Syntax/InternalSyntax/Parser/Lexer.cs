@@ -119,7 +119,7 @@ internal class Lexer : ILexer
         {
             if (_stringBuilder.Length > 0) _stringBuilder.Clear();
 
-            if (char.IsLetterOrDigit(ch))
+            if (char.IsLetter(ch) || char.IsDigit(ch) || (ch == '.' && PeekChar(out ch2) && char.IsDigit(ch2)))
             {
 
                 _stringBuilder.Append(ch);
@@ -150,24 +150,36 @@ internal class Lexer : ILexer
 
                     return new Token(syntaxKind, GetStringBuilderValue(), diagnostics: diagnostics);
                 }
-                else if (char.IsDigit(ch))
+                else if (char.IsDigit(ch) || ch == '.')
                 {
                     bool isFloat = false;
-                    bool hasDecimal = false;
+                    bool hasDecimal = ch == '.';
                     bool hasExponent = false;
 
-                    // Integer part
-                    while (PeekChar(out ch) && char.IsDigit(ch))
+                    if (ch != '.')
                     {
-                        ReadChar();
-                        _stringBuilder.Append(ch);
-                    }
+                        // Integer part
+                        while (PeekChar(out ch) && char.IsDigit(ch))
+                        {
+                            ReadChar();
+                            _stringBuilder.Append(ch);
+                        }
 
-                    // Decimal point
-                    if (PeekChar(out ch) && ch == '.')
+                        // Decimal point
+                        if (PeekChar(out ch) && ch == '.')
+                        {
+                            hasDecimal = true;
+                            ReadChar(); _stringBuilder.Append('.');
+                            while (PeekChar(out ch) && char.IsDigit(ch))
+                            {
+                                ReadChar();
+                                _stringBuilder.Append(ch);
+                            }
+                        }
+                    }
+                    else
                     {
-                        hasDecimal = true;
-                        ReadChar(); _stringBuilder.Append('.');
+                        // Leading decimal point without integer part
                         while (PeekChar(out ch) && char.IsDigit(ch))
                         {
                             ReadChar();
