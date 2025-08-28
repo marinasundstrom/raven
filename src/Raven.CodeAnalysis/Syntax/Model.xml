@@ -155,13 +155,16 @@
     <Slot Name="CloseParenToken" Type="Token" />
   </Node>
   <Node Name="InterpolatedStringExpression" Inherits="Expression">
+    <Slot Name="StringStartToken" Type="Token" />
     <Slot Name="Contents" Type="List" ElementType="InterpolatedStringContent" />
+    <Slot Name="StringEndToken" Type="Token" />
   </Node>
   <Node Name="InterpolatedStringContent" Inherits="Node" IsAbstract="true" />
   <Node Name="InterpolatedStringText" Inherits="InterpolatedStringContent">
     <Slot Name="Token" Type="Token" />
   </Node>
   <Node Name="Interpolation" Inherits="InterpolatedStringContent">
+    <Slot Name="DollarToken" Type="Token" />
     <Slot Name="OpenBraceToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="CloseBraceToken" Type="Token" />
