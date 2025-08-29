@@ -15,8 +15,19 @@ namespace Raven.Editor;
 /// </summary>
 public class CodeTextView : TextView
 {
+    private readonly RavenWorkspace _workspace;
+    private readonly ProjectId _projectId;
+    private readonly DocumentId _documentId;
+
     private readonly Dictionary<List<Rune>, LineInfo> _lineInfos = new();
     private readonly Dictionary<string, Queue<LineInfo>> _lineInfoCache = new();
+
+    public CodeTextView(RavenWorkspace workspace, ProjectId projectId, DocumentId documentId)
+    {
+        _workspace = workspace;
+        _projectId = projectId;
+        _documentId = documentId;
+    }
 
     private record struct TokenSpan(int Start, int End, SemanticClassification Classification);
     private record struct DiagnosticSpan(int Start, int End, DiagnosticSeverity Severity);
@@ -43,8 +54,13 @@ public class CodeTextView : TextView
 
         var text = Text?.ToString() ?? string.Empty;
         var sourceText = SourceText.From(text);
-        var tree = SyntaxTree.ParseText(sourceText);
-        var compilation = Compilation.Create("Editor", [tree]);
+        var solution = _workspace.CurrentSolution.WithDocumentText(_documentId, sourceText);
+        _workspace.TryApplyChanges(solution);
+
+        var project = solution.GetProject(_projectId)!;
+        var document = project.GetDocument(_documentId)!;
+        var tree = document.GetSyntaxTreeAsync().Result!;
+        var compilation = _workspace.GetCompilation(_projectId);
         var model = compilation.GetSemanticModel(tree);
         var classification = SemanticClassifier.Classify(tree.GetRoot(), model);
 
@@ -66,7 +82,8 @@ public class CodeTextView : TextView
             AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
         }
 
-        foreach (var diagnostic in compilation.GetDiagnostics().Where(d => d.Location.SourceTree == tree))
+        foreach (var diagnostic in _workspace.GetDiagnostics(_projectId)
+                     .Where(d => d.Location.SourceTree == tree))
         {
             AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
                 diagnostic.Location.SourceSpan.End, diagnostic.Severity);
