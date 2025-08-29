@@ -159,7 +159,7 @@ internal class Lexer : ILexer
                     if (ch != '.')
                     {
                         // Integer part
-                        while (PeekChar(out ch) && char.IsDigit(ch))
+                        while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
                         {
                             ReadChar();
                             _stringBuilder.Append(ch);
@@ -170,7 +170,7 @@ internal class Lexer : ILexer
                         {
                             hasDecimal = true;
                             ReadChar(); _stringBuilder.Append('.');
-                            while (PeekChar(out ch) && char.IsDigit(ch))
+                            while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
                             {
                                 ReadChar();
                                 _stringBuilder.Append(ch);
@@ -180,7 +180,7 @@ internal class Lexer : ILexer
                     else
                     {
                         // Leading decimal point without integer part
-                        while (PeekChar(out ch) && char.IsDigit(ch))
+                        while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
                         {
                             ReadChar();
                             _stringBuilder.Append(ch);
@@ -198,7 +198,7 @@ internal class Lexer : ILexer
                             ReadChar(); _stringBuilder.Append(ch);
                         }
 
-                        while (PeekChar(out ch) && char.IsDigit(ch))
+                        while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
                         {
                             ReadChar();
                             _stringBuilder.Append(ch);
@@ -217,7 +217,7 @@ internal class Lexer : ILexer
                     // Float literal
                     if (text.EndsWith("f", StringComparison.OrdinalIgnoreCase))
                     {
-                        var numericText = text[..^1];
+                        var numericText = text[..^1].Replace("_", string.Empty);
                         if (float.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatValue))
                         {
                             return new Token(SyntaxKind.NumericLiteralToken, text, floatValue, text.Length, diagnostics: diagnostics);
@@ -238,6 +238,7 @@ internal class Lexer : ILexer
                         var numericText = text.EndsWith("d", StringComparison.OrdinalIgnoreCase)
                             ? text[..^1]
                             : text;
+                        numericText = numericText.Replace("_", string.Empty);
 
                         if (double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
                         {
@@ -254,12 +255,13 @@ internal class Lexer : ILexer
                     }
 
                     // Integer literal (default case)
-                    if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+                    var numericIntText = text.Replace("_", string.Empty);
+                    if (int.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
                     {
                         return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length, diagnostics: diagnostics);
                     }
                     // Long literal
-                    else if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
+                    else if (long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
                     {
                         return new Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length, diagnostics: diagnostics);
                     }
