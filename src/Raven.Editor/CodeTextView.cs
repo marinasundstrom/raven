@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 using NStack;
@@ -97,6 +98,9 @@ public class CodeTextView : TextView
         catch (Exception ex)
         {
             MessageBox.ErrorQuery("Editor", ex.ToString(), "Ok");
+
+            if (Debugger.IsAttached)
+                throw;
         }
 
         base.OnContentsChanged();
