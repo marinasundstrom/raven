@@ -3,6 +3,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 using System;
 using System.Collections.Generic;
 using System.Text;
+
 using Raven.CodeAnalysis.Text;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -594,7 +595,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 break;
         }
 
-        return expr;
+        return expr ?? new ExpressionSyntax.Missing();
     }
 
     private ExpressionSyntax ParseParenthesisOrTupleExpression()
