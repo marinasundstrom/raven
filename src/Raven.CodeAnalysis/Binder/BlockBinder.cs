@@ -1071,7 +1071,7 @@ partial class BlockBinder : Binder
 
         var opKind = syntax.OperatorToken.Kind;
 
-        // 1. Specialfall: string + any → string.Concat(...)
+        // 1. Specialfall: string + any → string-konkatenering
         if (opKind == SyntaxKind.PlusToken)
         {
             var leftIsString = left.Type.SpecialType == SpecialType.System_String ||
@@ -1079,18 +1079,15 @@ partial class BlockBinder : Binder
             var rightIsString = right.Type.SpecialType == SpecialType.System_String ||
                                  (right.Type is LiteralTypeSymbol rls && rls.UnderlyingType.SpecialType == SpecialType.System_String);
 
-            if (leftIsString && rightIsString)
+            if (left.Type is LiteralTypeSymbol litLeft &&
+                right.Type is LiteralTypeSymbol litRight &&
+                (leftIsString || rightIsString))
             {
-                if (left.Type is LiteralTypeSymbol litLeft && right.Type is LiteralTypeSymbol litRight)
-                {
-                    var value = (string)litLeft.ConstantValue + (string)litRight.ConstantValue;
-                    var stringType = Compilation.GetSpecialType(SpecialType.System_String);
-                    var resultType = new LiteralTypeSymbol(stringType, value, Compilation);
-                    return new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, value, resultType);
-                }
-
-                var concatMethod = ResolveStringConcatMethod(left, right);
-                return new BoundInvocationExpression(concatMethod, [left, right]);
+                var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+                var value = (litLeft.ConstantValue?.ToString() ?? string.Empty) +
+                            (litRight.ConstantValue?.ToString() ?? string.Empty);
+                var resultType = new LiteralTypeSymbol(stringType, value, Compilation);
+                return new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, value, resultType);
             }
 
             if (leftIsString || rightIsString)

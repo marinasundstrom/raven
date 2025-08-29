@@ -188,4 +188,36 @@ let x = if true { "true" } else { 1 }
         Assert.Equal("Hello, World!", literalType.ConstantValue);
     }
 
+    [Fact]
+    public void BinaryExpression_StringLiteralAndNumericLiteralConcatenation_ReturnsLiteralType()
+    {
+        var code = "let result: \"Hello1\" = \"Hello\" + 1";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var literalType = Assert.IsType<LiteralTypeSymbol>(local.Type);
+        Assert.Equal("Hello1", literalType.ConstantValue);
+    }
+
+    [Fact]
+    public void BinaryExpression_NumericLiteralAndStringLiteralConcatenation_ReturnsLiteralType()
+    {
+        var code = "let result: \"1Hello\" = 1 + \"Hello\"";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var literalType = Assert.IsType<LiteralTypeSymbol>(local.Type);
+        Assert.Equal("1Hello", literalType.ConstantValue);
+    }
+
 }
