@@ -155,6 +155,32 @@ let pet = if flag { Dog() } else { Cat() }
 // pet has type: Dog | Cat
 ```
 
+Literal expressions infer the underlying primitive type when used to initialize
+`let` or `var` bindings. To retain a literal's singleton type, an explicit
+annotation is required.
+
+```raven
+var i = 0       // i : int
+let j = 0       // j : int
+var k: 1 = 1    // k : 1
+```
+
+Numeric literals choose an underlying primitive type. Integer literals default
+to `int` but upgrade to `long` when the value exceeds the `int` range.
+Floating-point literals default to `double`; appending `f` or `F` produces a
+`float` literal.
+
+```raven
+var l = 4_000_000_000  // l : long
+var f = 3.14f          // f : float
+var d = 3.14           // d : double
+```
+
+Overload resolution applies the same rule: a literal argument converts to its
+underlying type when selecting among method overloads. For example,
+`Console.WriteLine(1)` binds to `Console.WriteLine(int)` if such an overload
+exists, and `Console.WriteLine("test")` chooses `Console.WriteLine(string)`.
+
 Functions and lambdas without an annotated return type infer their result by
 collecting the types of all explicit `return` statements and the final expression
 of the body. If no value-returning path exists, the type defaults to `unit`.
