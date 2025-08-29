@@ -144,5 +144,21 @@ public class ObjectCreationTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void GenericTypeInvocationWithNamespaceImport_ResolvesMembers()
+    {
+        string testCode =
+            """
+            import System.Collections.Generic.*
+
+            let list = List<int>()
+            list.Add(1)
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
 
