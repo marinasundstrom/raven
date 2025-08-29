@@ -45,8 +45,7 @@ If your changes touch documentation only, you may skip `dotnet build` and `dotne
 * Include concise commit messages (`feat:`, `fix:`, `docs:` etc.).
 * Provide PR summaries referencing relevant diagnostics or examples.
 * For details on diagnostics, see `docs/compiler/diagnostics.md` and `src/Raven.CodeAnalysis/DiagnosticDescriptors.xml`.
-* Update the language specification, grammar, and related docs when necessary.
-_(Only do so if explicitly instructed.)_
+* Update the language specification, grammar, and related docs when features change.
 
 ## Additional Notes
 * Workspace management and incremental compilation are key; favor additive changes.
