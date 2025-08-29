@@ -109,6 +109,30 @@ public class AliasResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void AliasDirective_UsesAlias_Literal()
+    {
+        string testCode =
+            """
+            alias Five = 5
+
+            let x: Five = 5
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        var result = verifier.GetResult();
+        verifier.Verify();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().First(id => id.Identifier.Text == "Five");
+        var symbol = model.GetSymbolInfo(identifier).Symbol;
+        Assert.NotNull(symbol);
+        Assert.True(symbol!.IsAlias);
+        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        Assert.IsType<LiteralTypeSymbol>(alias.UnderlyingSymbol);
+    }
+
+    [Fact]
     public void AliasDirective_UsesMemberAlias_Method()
     {
         string testCode =

@@ -188,6 +188,41 @@ internal sealed class AliasUnionTypeSymbol : AliasSymbol, IUnionTypeSymbol
     public IEnumerable<ITypeSymbol> Types => _type.Types;
 }
 
+internal sealed class AliasLiteralTypeSymbol : AliasSymbol, ITypeSymbol
+{
+    private readonly LiteralTypeSymbol _type;
+
+    public AliasLiteralTypeSymbol(string name, LiteralTypeSymbol underlying)
+        : base(name, underlying)
+    {
+        _type = underlying;
+    }
+
+    public bool IsNamespace => _type.IsNamespace;
+
+    public bool IsType => _type.IsType;
+
+    public ImmutableArray<ISymbol> GetMembers() => _type.GetMembers();
+
+    public ImmutableArray<ISymbol> GetMembers(string name) => _type.GetMembers(name);
+
+    public ITypeSymbol? LookupType(string name) => _type.LookupType(name);
+
+    public bool IsMemberDefined(string name, out ISymbol? symbol) => _type.IsMemberDefined(name, out symbol);
+
+    public INamedTypeSymbol? BaseType => _type.BaseType;
+
+    public ITypeSymbol? OriginalDefinition => _type.OriginalDefinition;
+
+    public SpecialType SpecialType => _type.SpecialType;
+
+    public TypeKind TypeKind => _type.TypeKind;
+
+    public bool IsReferenceType => _type.IsReferenceType;
+
+    public bool IsValueType => _type.IsValueType;
+}
+
 internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
 {
     private readonly IMethodSymbol _method;
@@ -272,6 +307,7 @@ internal static class AliasSymbolFactory
         INamespaceSymbol n => new AliasNamespaceSymbol(name, n),
         IUnionTypeSymbol u => new AliasUnionTypeSymbol(name, u),
         INamedTypeSymbol t => new AliasNamedTypeSymbol(name, t),
+        LiteralTypeSymbol l => new AliasLiteralTypeSymbol(name, l),
         IMethodSymbol m => new AliasMethodSymbol(name, m),
         IPropertySymbol p => new AliasPropertySymbol(name, p),
         IFieldSymbol f => new AliasFieldSymbol(name, f),
