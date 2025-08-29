@@ -20,14 +20,30 @@ internal class Program
         .Select(k => SyntaxFacts.GetSyntaxTokenText(k)!)
         .ToArray();
 
+    private static readonly RavenWorkspace Workspace = RavenWorkspace.Create();
+    private static ProjectId _projectId;
+    private static DocumentId _documentId;
+
     public static void Main(string[] args)
     {
         Application.Init();
 
         var filePath = args.Length > 0 ? args[0] : "";
         var text = File.Exists(filePath) ? File.ReadAllText(filePath) : string.Empty;
+        var sourceText = SourceText.From(text);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
 
-        var editor = new CodeTextView
+        _projectId = Workspace.AddProject("EditorProject", compilationOptions: options);
+        _documentId = DocumentId.CreateNew(_projectId);
+        var solution = Workspace.CurrentSolution.AddDocument(_documentId, "main.rav", sourceText);
+
+        var version = TargetFrameworkResolver.ResolveVersion();
+        foreach (var path in TargetFrameworkResolver.GetReferenceAssemblies(version))
+            solution = solution.AddMetadataReference(_projectId, MetadataReference.CreateFromFile(path));
+
+        Workspace.TryApplyChanges(solution);
+
+        var editor = new CodeTextView(Workspace, _projectId, _documentId)
         {
             Text = text,
             Width = Dim.Fill(),
@@ -105,20 +121,9 @@ internal class Program
 
     private static void Compile(string source)
     {
-        var sourceText = SourceText.From(source);
-        var options = new CompilationOptions(OutputKind.ConsoleApplication);
-        var workspace = RavenWorkspace.Create();
-        var projectId = workspace.AddProject("EditorProject", compilationOptions: options);
-        var project = workspace.CurrentSolution.GetProject(projectId)!;
-        var document = project.AddDocument("main.rav", sourceText);
-        project = document.Project;
-
-        var version = TargetFrameworkResolver.ResolveVersion();
-        foreach (var path in TargetFrameworkResolver.GetReferenceAssemblies(version))
-            project = project.AddMetadataReference(MetadataReference.CreateFromFile(path));
-
-        workspace.TryApplyChanges(project.Solution);
-        var diagnostics = workspace.GetDiagnostics(projectId);
+        var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, SourceText.From(source));
+        Workspace.TryApplyChanges(solution);
+        var diagnostics = Workspace.GetDiagnostics(_projectId);
         if (diagnostics.IsDefaultOrEmpty)
         {
             MessageBox.Query("Compilation", "Compilation succeeded", "Ok");
