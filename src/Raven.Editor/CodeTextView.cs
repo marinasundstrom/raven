@@ -173,7 +173,10 @@ public class CodeTextView : TextView
 
     private Attribute GetAttribute(SemanticClassification classification)
     {
-        var background = ColorScheme.Normal.Background;
+        var scheme = ColorScheme;
+        var attr = HasFocus ? scheme.Focus : scheme.Normal;
+        var background = attr.Background;
+
         return classification switch
         {
             SemanticClassification.Keyword => new(Color.BrightBlue, background),
@@ -191,7 +194,10 @@ public class CodeTextView : TextView
 
     private Attribute GetAttribute(DiagnosticSeverity severity)
     {
-        var background = ColorScheme.Normal.Background;
+        var scheme = ColorScheme;
+        var attr = HasFocus ? scheme.Focus : scheme.Normal;
+        var background = attr.Background;
+
         return severity switch
         {
             DiagnosticSeverity.Error => new(Color.BrightRed, background),
