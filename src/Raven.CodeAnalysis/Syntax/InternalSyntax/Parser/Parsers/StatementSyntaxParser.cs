@@ -1,5 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using System.Collections.Generic;
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class StatementSyntaxParser : SyntaxParser
@@ -27,6 +28,14 @@ internal class StatementSyntaxParser : SyntaxParser
                 statement = ParseReturnStatementSyntax();
                 break;
 
+            case SyntaxKind.IfKeyword:
+                statement = ParseIfStatementSyntax();
+                break;
+
+            case SyntaxKind.OpenBraceToken:
+                statement = ParseBlockStatementSyntax();
+                break;
+
             case SyntaxKind.SemicolonToken:
                 ReadToken();
                 statement = EmptyStatement(token);
@@ -38,6 +47,29 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return statement;
+    }
+
+    private IfStatementSyntax ParseIfStatementSyntax()
+    {
+        var ifKeyword = ReadToken();
+
+        var condition = new ExpressionSyntaxParser(this).ParseExpression();
+
+        var thenStatement = ParseStatement();
+
+        SyntaxToken? elseKeyword = null;
+        StatementSyntax? elseStatement = null;
+
+        if (ConsumeToken(SyntaxKind.ElseKeyword, out var elseTok))
+        {
+            elseKeyword = elseTok;
+            elseStatement = ParseStatement();
+        }
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+
+        return IfStatement(ifKeyword, condition!, thenStatement!, elseKeyword, elseStatement, terminatorToken);
     }
 
     private StatementSyntax? ParseFunctionSyntax()
@@ -53,11 +85,34 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
-        var block = new ExpressionSyntaxParser(this).ParseBlockSyntax();
+        var block = ParseBlockStatementSyntax();
 
         TryConsumeTerminator(out var terminatorToken);
 
         return FunctionStatement(funcKeyword, identifier, parameterList, returnParameterAnnotation, block, terminatorToken);
+    }
+
+    public BlockStatementSyntax ParseBlockStatementSyntax()
+    {
+        var openBrace = ExpectToken(SyntaxKind.OpenBraceToken);
+
+        EnterParens();
+        var statements = new List<StatementSyntax>();
+
+        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        {
+            var stmt = new StatementSyntaxParser(this).ParseStatement();
+            if (stmt is not null)
+                statements.Add(stmt);
+
+            SetTreatNewlinesAsTokens(false);
+        }
+
+        ExitParens();
+
+        var closeBrace = ExpectToken(SyntaxKind.CloseBraceToken);
+
+        return BlockStatement(openBrace, List(statements), closeBrace);
     }
 
     public ParameterListSyntax ParseParameterList()
@@ -156,7 +211,7 @@ internal class StatementSyntaxParser : SyntaxParser
             return EmptyStatement(terminatorToken2);
         }
 
-        if (expression is IfExpressionSyntax or WhileExpressionSyntax or ForExpressionSyntax or BlockSyntax)
+        if (expression is WhileExpressionSyntax or ForExpressionSyntax)
         {
             SetTreatNewlinesAsTokens(true);
 

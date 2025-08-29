@@ -15,9 +15,9 @@ class MethodBodyBinder : BlockBinder
         _methodSymbol = methodSymbol;
     }
 
-    public override BoundBlockExpression BindBlock(BlockSyntax block, bool allowReturn = true)
+    public override BoundBlockStatement BindBlockStatement(BlockStatementSyntax block)
     {
-        var bound = base.BindBlock(block, allowReturn);
+        var bound = base.BindBlockStatement(block);
 
         if (_methodSymbol.IsNamedConstructor)
         {
@@ -31,7 +31,7 @@ class MethodBodyBinder : BlockBinder
                 [block.GetLocation()],
                 [block.GetReference()]);
 
-            var rewriter = new NamedConstructorRewriter(_methodSymbol, selfLocal);
+            var rewriter = new NamedConstructorRewriter(_methodSymbol, selfLocal, Compilation);
             bound = rewriter.Rewrite(bound);
         }
 
@@ -50,6 +50,8 @@ class MethodBodyBinder : BlockBinder
 
     public override BoundNode GetOrBind(SyntaxNode node)
     {
+        if (node is BlockStatementSyntax blockStmt)
+            return BindBlockStatement(blockStmt);
         if (node is BlockSyntax block)
             return BindBlock(block, allowReturn: true);
 
@@ -67,7 +69,16 @@ class MethodBodyBinder : BlockBinder
             _self = self;
         }
 
-        public BoundBlockExpression Rewrite(BoundBlockExpression body)
+        private readonly Compilation _compilation;
+
+        public NamedConstructorRewriter(IMethodSymbol methodSymbol, SourceLocalSymbol self, Compilation compilation)
+        {
+            _methodSymbol = methodSymbol;
+            _self = self;
+            _compilation = compilation;
+        }
+
+        public BoundBlockStatement Rewrite(BoundBlockStatement body)
         {
             var statements = VisitList(body.Statements).Cast<BoundStatement>().ToList();
 
@@ -99,13 +110,20 @@ class MethodBodyBinder : BlockBinder
                 }
             }
 
-            return new BoundBlockExpression(statements);
+            return new BoundBlockStatement(statements);
+        }
+
+        public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
+        {
+            var statements = VisitList(node.Statements).Cast<BoundStatement>().ToList();
+            return new BoundBlockStatement(statements);
         }
 
         public override BoundNode? VisitBlockExpression(BoundBlockExpression node)
         {
             var statements = VisitList(node.Statements).Cast<BoundStatement>().ToList();
-            return new BoundBlockExpression(statements);
+            var unitType = _compilation.GetSpecialType(SpecialType.System_Unit);
+            return new BoundBlockExpression(statements, unitType);
         }
 
         public override BoundNode? VisitExpressionStatement(BoundExpressionStatement node)

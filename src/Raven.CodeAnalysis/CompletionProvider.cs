@@ -184,7 +184,7 @@ public static class CompletionProvider
         }
 
         // Visible symbols (locals, globals, etc.)
-        if (token.Parent is IdentifierNameSyntax { Parent: BlockSyntax or ExpressionStatementSyntax } || token.IsKind(SyntaxKind.IdentifierToken))
+        if (token.Parent is IdentifierNameSyntax { Parent: BlockStatementSyntax or ExpressionStatementSyntax } || token.IsKind(SyntaxKind.IdentifierToken))
         {
             foreach (var symbol in binder.LookupAvailableSymbols())
             {

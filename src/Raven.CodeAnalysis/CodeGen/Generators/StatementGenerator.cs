@@ -1,5 +1,8 @@
+using System.Collections;
+using System.Linq;
 using System.Reflection.Emit;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -28,6 +31,22 @@ internal class StatementGenerator : Generator
             case BoundLocalDeclarationStatement localDeclarationStatement:
                 EmitDeclarationStatement(localDeclarationStatement);
                 break;
+
+            case BoundIfStatement ifStatement:
+                EmitIfStatement(ifStatement);
+                break;
+
+            case BoundWhileStatement whileStatement:
+                EmitWhileStatement(whileStatement);
+                break;
+
+            case BoundForStatement forStatement:
+                EmitForStatement(forStatement);
+                break;
+
+            case BoundBlockStatement blockStatement:
+                EmitBlockStatement(blockStatement);
+                break;
         }
     }
 
@@ -55,21 +74,231 @@ internal class StatementGenerator : Generator
 
         new ExpressionGenerator(this, expression).Emit();
 
-        ISymbol? symbol = expressionStatement.Symbol;
-
-        if (expressionStatement.Expression is BoundInvocationExpression invocationExpression)
-        {
-            symbol = ((IMethodSymbol)expressionStatement.Symbol).ReturnType;
-        }
-
-        // TODO: Handle the case that Pop is required. If not Void, and not assigned anywhere.
-
-        if (symbol is not null && symbol?.UnwrapType()?.SpecialType is not SpecialType.System_Void)
+        if (expression.Type?.SpecialType is not SpecialType.System_Void)
         {
             // The value is not used, pop it from the stack.
-
             ILGenerator.Emit(OpCodes.Pop);
         }
+    }
+
+    private void EmitIfStatement(BoundIfStatement ifStatement)
+    {
+        var elseLabel = ILGenerator.DefineLabel();
+        var endLabel = ILGenerator.DefineLabel();
+
+        var scope = new Scope(this);
+        EmitBranchOpForCondition(ifStatement.Condition, elseLabel, scope);
+
+        EmitNode(scope, ifStatement.ThenNode);
+
+        ILGenerator.Emit(OpCodes.Br_S, endLabel);
+        ILGenerator.MarkLabel(elseLabel);
+
+        if (ifStatement.ElseNode is not null)
+        {
+            var scope2 = new Scope(this);
+            EmitNode(scope2, ifStatement.ElseNode);
+        }
+
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private void EmitNode(Scope scope, BoundNode node)
+    {
+        switch (node)
+        {
+            case BoundStatement statement:
+                new StatementGenerator(scope, statement).Emit();
+                break;
+            case BoundExpression expr:
+                new ExpressionGenerator(scope, expr).Emit();
+                if (expr.Type?.SpecialType is not SpecialType.System_Void)
+                    ILGenerator.Emit(OpCodes.Pop);
+                break;
+        }
+    }
+
+    private void EmitWhileStatement(BoundWhileStatement whileStatement)
+    {
+        var beginLabel = ILGenerator.DefineLabel();
+        var conditionLabel = ILGenerator.DefineLabel();
+        var endLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Br_S, conditionLabel);
+
+        ILGenerator.MarkLabel(beginLabel);
+        ILGenerator.Emit(OpCodes.Nop);
+
+        var scope = new Scope(this);
+        new StatementGenerator(scope, whileStatement.Body).Emit();
+
+        ILGenerator.MarkLabel(conditionLabel);
+        EmitBranchOpForCondition(whileStatement.Condition, endLabel, scope);
+        ILGenerator.Emit(OpCodes.Br_S, beginLabel);
+
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private void EmitForStatement(BoundForStatement forStatement)
+    {
+        var beginLabel = ILGenerator.DefineLabel();
+        var endLabel = ILGenerator.DefineLabel();
+
+        var scope = new Scope(this);
+
+        new ExpressionGenerator(scope, forStatement.Collection).Emit();
+
+        if (forStatement.Collection.Type is IArrayTypeSymbol)
+        {
+            var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Collection.Type));
+            ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
+
+            var indexLocal = ILGenerator.DeclareLocal(ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Int32)));
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
+            scope.AddLocal(forStatement.Local, elementLocal);
+
+            ILGenerator.MarkLabel(beginLabel);
+
+            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+            ILGenerator.Emit(OpCodes.Ldlen);
+            ILGenerator.Emit(OpCodes.Conv_I4);
+            ILGenerator.Emit(OpCodes.Bge, endLabel);
+
+            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+            EmitLoadElement(forStatement.Local.Type);
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+
+            new StatementGenerator(scope, forStatement.Body).Emit();
+
+            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Add);
+            ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+            ILGenerator.Emit(OpCodes.Br_S, beginLabel);
+            ILGenerator.MarkLabel(endLabel);
+        }
+        else
+        {
+            var enumerable = Compilation.GetTypeByMetadataName("System.Collections.IEnumerable");
+            var clrType = ResolveClrType(enumerable);
+            ILGenerator.Emit(OpCodes.Castclass, clrType);
+            var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
+            ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+            var enumeratorType = getEnumerator.ReturnType;
+            var enumeratorLocal = ILGenerator.DeclareLocal(clrType);
+            ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
+            scope.AddLocal(forStatement.Local, elementLocal);
+
+            ILGenerator.MarkLabel(beginLabel);
+
+            var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+            ILGenerator.Emit(OpCodes.Brfalse, endLabel);
+
+            var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+
+            var localClr = ResolveClrType(forStatement.Local.Type);
+            if (localClr.IsValueType)
+                ILGenerator.Emit(OpCodes.Unbox_Any, localClr);
+            else
+                ILGenerator.Emit(OpCodes.Castclass, localClr);
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+
+            new StatementGenerator(scope, forStatement.Body).Emit();
+
+            ILGenerator.Emit(OpCodes.Br_S, beginLabel);
+            ILGenerator.MarkLabel(endLabel);
+        }
+    }
+
+    private void EmitBlockStatement(BoundBlockStatement blockStatement)
+    {
+        foreach (var s in blockStatement.Statements)
+            new StatementGenerator(this, s).Emit();
+    }
+
+    private void EmitBranchOpForCondition(BoundExpression expression, Label end, Scope scope)
+    {
+        if (expression is BoundParenthesizedExpression parenthesizedExpression)
+        {
+            EmitBranchOpForCondition(parenthesizedExpression.Expression, end, scope);
+            return;
+        }
+
+        if (expression is BoundBinaryExpression binaryExpression)
+        {
+            new ExpressionGenerator(scope, binaryExpression.Left).Emit();
+            new ExpressionGenerator(scope, binaryExpression.Right).Emit();
+
+            switch (binaryExpression.Operator.OperatorKind)
+            {
+                case BinaryOperatorKind.Equality:
+                    ILGenerator.Emit(OpCodes.Ceq);
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    break;
+
+                case BinaryOperatorKind.Inequality:
+                    ILGenerator.Emit(OpCodes.Ceq);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                    ILGenerator.Emit(OpCodes.Ceq);
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    break;
+
+                case BinaryOperatorKind.GreaterThan:
+                    ILGenerator.Emit(OpCodes.Cgt);
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    break;
+
+                case BinaryOperatorKind.GreaterThanOrEqual:
+                    ILGenerator.Emit(OpCodes.Clt);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                    ILGenerator.Emit(OpCodes.Ceq);
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    break;
+
+                case BinaryOperatorKind.LessThan:
+                    ILGenerator.Emit(OpCodes.Clt);
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    break;
+
+                case BinaryOperatorKind.LessThanOrEqual:
+                    ILGenerator.Emit(OpCodes.Cgt);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                    ILGenerator.Emit(OpCodes.Ceq);
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    break;
+
+                default:
+                    new ExpressionGenerator(scope, expression).Emit();
+                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    break;
+            }
+            return;
+        }
+
+        new ExpressionGenerator(scope, expression).Emit();
+        ILGenerator.Emit(OpCodes.Brfalse_S, end);
+    }
+
+    private void EmitLoadElement(ITypeSymbol elementType)
+    {
+        var clrType = ResolveClrType(elementType);
+
+        if (clrType.IsValueType)
+            ILGenerator.Emit(OpCodes.Ldelem, clrType);
+        else
+            ILGenerator.Emit(OpCodes.Ldelem_Ref);
     }
 
     private void EmitDeclarationStatement(BoundLocalDeclarationStatement localDeclarationStatement)

@@ -10,7 +10,6 @@ sealed partial class BoundLocalDeclarationStatement : BoundStatement
     }
 
     public override ISymbol Symbol => Declarators.First().Local;
-    public override ITypeSymbol Type => Declarators.First().Type;
 }
 
 sealed partial class BoundVariableDeclarator : BoundNode

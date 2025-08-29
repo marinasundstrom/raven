@@ -29,7 +29,7 @@ public sealed class ControlFlowRegion
 {
     public StatementSyntax? FirstStatement { get; }
     public StatementSyntax? LastStatement { get; }
-    public BlockSyntax? EnclosingBlock { get; }
+    public BlockStatementSyntax? EnclosingBlock { get; }
 
     private readonly HashSet<SyntaxNode> _containedNodes = new();
 
@@ -37,7 +37,7 @@ public sealed class ControlFlowRegion
     public ControlFlowRegion(StatementSyntax singleStatement)
     {
         FirstStatement = LastStatement = singleStatement;
-        EnclosingBlock = singleStatement.Parent as BlockSyntax;
+        EnclosingBlock = singleStatement.Parent as BlockStatementSyntax;
 
         CollectContainedNodes(singleStatement);
     }
@@ -45,7 +45,7 @@ public sealed class ControlFlowRegion
     // For a span of statements within the same block
     public ControlFlowRegion(StatementSyntax first, StatementSyntax last)
     {
-        if (first.Parent != last.Parent || first.Parent is not BlockSyntax block)
+        if (first.Parent != last.Parent || first.Parent is not BlockStatementSyntax block)
             throw new ArgumentException("Region must be a contiguous set of statements in the same block.");
 
         FirstStatement = first;

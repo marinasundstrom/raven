@@ -50,7 +50,7 @@ public partial class SemanticModel
 
     public DataFlowAnalysis AnalyzeDataFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
     {
-        if (firstStatement.Parent != lastStatement.Parent || firstStatement.Parent is not BlockSyntax block)
+        if (firstStatement.Parent != lastStatement.Parent || firstStatement.Parent is not BlockStatementSyntax block)
             return new DataFlowAnalysis { Succeeded = false };
 
         var startIndex = block.Statements.IndexOf(firstStatement);
@@ -147,6 +147,16 @@ internal sealed class DataFlowWalker : SyntaxWalker
     }
 
     public override void VisitBlock(BlockSyntax node)
+    {
+        _definitelyAssignedOnEntry = _writtenInside.Union(_assignedOnEntry).ToHashSet();
+
+        foreach (var statement in node.Statements)
+            Visit(statement);
+
+        _definitelyAssignedOnExit = _writtenInside.ToHashSet();
+    }
+
+    public override void VisitBlockStatement(BlockStatementSyntax node)
     {
         _definitelyAssignedOnEntry = _writtenInside.Union(_assignedOnEntry).ToHashSet();
 
