@@ -121,17 +121,24 @@ internal class Program
 
     private static void Compile(string source)
     {
-        var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, SourceText.From(source));
-        Workspace.TryApplyChanges(solution);
-        var diagnostics = Workspace.GetDiagnostics(_projectId);
-        if (diagnostics.IsDefaultOrEmpty)
+        try
         {
-            MessageBox.Query("Compilation", "Compilation succeeded", "Ok");
+            var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, SourceText.From(source));
+            Workspace.TryApplyChanges(solution);
+            var diagnostics = Workspace.GetDiagnostics(_projectId);
+            if (diagnostics.IsDefaultOrEmpty)
+            {
+                MessageBox.Query("Compilation", "Compilation succeeded", "Ok");
+            }
+            else
+            {
+                var text = string.Join('\n', diagnostics.Select(d => d.ToString()));
+                MessageBox.ErrorQuery("Compilation", text, "Ok");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            var text = string.Join('\n', diagnostics.Select(d => d.ToString()));
-            MessageBox.ErrorQuery("Compilation", text, "Ok");
+            MessageBox.ErrorQuery("Compilation", ex.ToString(), "Ok");
         }
     }
 }

@@ -44,52 +44,59 @@ public class CodeTextView : TextView
         _lineInfos.Clear();
         _lineInfoCache.Clear();
 
-        var text = Text?.ToString() ?? string.Empty;
-        var sourceText = SourceText.From(text);
-        var solution = _workspace.CurrentSolution.WithDocumentText(_documentId, sourceText);
-        _workspace.TryApplyChanges(solution);
-
-        var project = solution.GetProject(_projectId)!;
-        var document = project.GetDocument(_documentId)!;
-        var tree = document.GetSyntaxTreeAsync().Result!;
-        var compilation = _workspace.GetCompilation(_projectId);
-        var model = compilation.GetSemanticModel(tree);
-        var classification = SemanticClassifier.Classify(tree.GetRoot(), model);
-
-        var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-        var lineTokens = new List<TokenSpan>[lines.Length];
-        var lineDiagnostics = new List<DiagnosticSpan>[lines.Length];
-
-        foreach (var kvp in classification.Tokens)
+        try
         {
-            if (kvp.Value == SemanticClassification.Default)
-                continue;
-            AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
-        }
+            var text = Text?.ToString() ?? string.Empty;
+            var sourceText = SourceText.From(text);
+            var solution = _workspace.CurrentSolution.WithDocumentText(_documentId, sourceText);
+            _workspace.TryApplyChanges(solution);
 
-        foreach (var kvp in classification.Trivia)
-        {
-            if (kvp.Value == SemanticClassification.Default)
-                continue;
-            AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
-        }
+            var project = solution.GetProject(_projectId)!;
+            var document = project.GetDocument(_documentId)!;
+            var tree = document.GetSyntaxTreeAsync().Result!;
+            var compilation = _workspace.GetCompilation(_projectId);
+            var model = compilation.GetSemanticModel(tree);
+            var classification = SemanticClassifier.Classify(tree.GetRoot(), model);
 
-        foreach (var diagnostic in _workspace.GetDiagnostics(_projectId)
-                     .Where(d => d.Location.SourceTree == tree))
-        {
-            AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
-                diagnostic.Location.SourceSpan.End, diagnostic.Severity);
-        }
+            var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            var lineTokens = new List<TokenSpan>[lines.Length];
+            var lineDiagnostics = new List<DiagnosticSpan>[lines.Length];
 
-        for (int i = 0; i < lines.Length; i++)
-        {
-            var info = new LineInfo(lineTokens[i] ?? new(), lineDiagnostics[i] ?? new());
-            if (!_lineInfoCache.TryGetValue(lines[i], out var queue))
+            foreach (var kvp in classification.Tokens)
             {
-                queue = new Queue<LineInfo>();
-                _lineInfoCache[lines[i]] = queue;
+                if (kvp.Value == SemanticClassification.Default)
+                    continue;
+                AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
             }
-            queue.Enqueue(info);
+
+            foreach (var kvp in classification.Trivia)
+            {
+                if (kvp.Value == SemanticClassification.Default)
+                    continue;
+                AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
+            }
+
+            foreach (var diagnostic in _workspace.GetDiagnostics(_projectId)
+                         .Where(d => d.Location.SourceTree == tree))
+            {
+                AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
+                    diagnostic.Location.SourceSpan.End, diagnostic.Severity);
+            }
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var info = new LineInfo(lineTokens[i] ?? new(), lineDiagnostics[i] ?? new());
+                if (!_lineInfoCache.TryGetValue(lines[i], out var queue))
+                {
+                    queue = new Queue<LineInfo>();
+                    _lineInfoCache[lines[i]] = queue;
+                }
+                queue.Enqueue(info);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.ErrorQuery("Editor", ex.ToString(), "Ok");
         }
 
         base.OnContentsChanged();
