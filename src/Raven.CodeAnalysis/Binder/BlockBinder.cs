@@ -1174,19 +1174,34 @@ partial class BlockBinder : Binder
 
         if (syntax.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            receiver = BindExpression(memberAccess.Expression);
+            var boundMember = BindMemberAccessExpression(memberAccess);
 
-            // ❗ Early exit if receiver is invalid
-            if (receiver is BoundErrorExpression)
-                return receiver;
-
-            if (receiver.Type?.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
-                _diagnostics.ReportMemberAccessOnVoid(memberAccess.Name.Identifier.Text, memberAccess.Name.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-            }
+                var argExprs = new List<BoundExpression>();
+                bool argErrors = false;
+                foreach (var arg in syntax.ArgumentList.Arguments)
+                {
+                    var boundArg = BindExpression(arg.Expression);
+                    if (boundArg is BoundErrorExpression)
+                        argErrors = true;
+                    argExprs.Add(boundArg);
+                }
 
-            methodName = memberAccess.Name.Identifier.Text;
+                if (argErrors)
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+
+                if (method.Parameters.Length == argExprs.Count)
+                    return new BoundInvocationExpression(method, argExprs.ToArray(), memberExpr.Receiver);
+
+                receiver = memberExpr.Receiver;
+                methodName = method.Name;
+            }
+            else
+            {
+                receiver = boundMember;
+                methodName = "Invoke";
+            }
         }
         else if (syntax.Expression is IdentifierNameSyntax id)
         {
