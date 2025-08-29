@@ -38,14 +38,14 @@ If your changes touch documentation only, you may skip `dotnet build` and `dotne
 * Keep services loosely coupled—prefer interfaces and dependency injection.
 
 ## Contribution Checklist
-* Format each changed file using `dotnet format <path to dir of solution or project file> --include <comma separated list with file paths>` to respect `.editorconfig` rules.
+* Format each changed code file using `dotnet format <path to dir of solution or project file> --include <comma separated list with file paths>` to respect `.editorconfig` rules. Do **not** run `dotnet format` solely to reformat Markdown files.
 * Run `dotnet build` and `dotnet test` (omit for documentation-only changes unless verification is required).
 * Ensure generated files (e.g., via `tools/NodeGenerator`) are up to date. (Required for building Raven.CodeAnalysis)
 * Add or update unit tests for every fix or feature.
 * Include concise commit messages (`feat:`, `fix:`, `docs:` etc.).
 * Provide PR summaries referencing relevant diagnostics or examples.
-* Update the language specification, grammar, and related docs when necessary.
-_(Only do so if explicitly instructed.)_
+* For details on diagnostics, see `docs/compiler/diagnostics.md` and `src/Raven.CodeAnalysis/DiagnosticDescriptors.xml`.
+* Update the language specification, grammar, and related docs when features change.
 
 ## Additional Notes
 * Workspace management and incremental compilation are key; favor additive changes.
