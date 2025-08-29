@@ -6,6 +6,7 @@
 * **PE symbols** - Wraps metadata representing types in referenced assemblies
 * **Constructed symbols** - Represents closed generic types, array types, type unions, tuple types, literal and nullable types, fields etc.
 * **Synthesized symbols** - Represents concepts that are created as part of semantic analysis. Such as the implicit `Program` class and `Main` method synthesized for file-scope code, or symbols used when rewriting the Bound Tree.
+* **Alias symbols** - Wrap an underlying symbol to expose it under a new name through an `alias` directive.
 
 ## Symbol equality
 
@@ -14,6 +15,10 @@ Symbols are not equal by their instance, but requires the use of `SymbolEquality
 ```csharp
 SymbolEqualityComparer.Default.Equals(source, destination)
 ```
+
+## Alias symbols
+
+Alias directives produce `IAliasSymbol` instances. Each alias symbol forwards its members to the underlying symbol while providing an alternate name. Equality comparisons operate on the underlying symbol, so aliases behave identically to their targets aside from the new name.
 
 ## Constructed symbols
 
