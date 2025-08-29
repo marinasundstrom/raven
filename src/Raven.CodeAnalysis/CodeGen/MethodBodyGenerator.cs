@@ -45,12 +45,12 @@ internal class MethodBodyGenerator
 
         var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
 
-        BoundBlockExpression? boundBody = syntax switch
+        BoundBlockStatement? boundBody = syntax switch
         {
-            MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockExpression,
-            FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockExpression,
-            BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockExpression,
-            AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body) as BoundBlockExpression,
+            MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body) as BoundBlockStatement,
+            FunctionStatementSyntax l when l.Body != null => semanticModel.GetBoundNode(l.Body) as BoundBlockStatement,
+            BaseConstructorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body) as BoundBlockStatement,
+            AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body) as BoundBlockStatement,
             _ => null
         };
 
@@ -206,7 +206,7 @@ internal class MethodBodyGenerator
         methodGenerator.EmitBody();
     }
 
-    private void DeclareLocals(BoundBlockExpression block)
+    private void DeclareLocals(BoundBlockStatement block)
     {
         var collector = new LocalCollector();
         collector.Visit(block);
@@ -225,7 +225,7 @@ internal class MethodBodyGenerator
         }
     }
 
-    private void EmitBoundBlock(BoundBlockExpression block, bool withReturn = true)
+    private void EmitBoundBlock(BoundBlockStatement block, bool withReturn = true)
     {
         for (var i = 0; i < block.Statements.Count(); i++)
         {

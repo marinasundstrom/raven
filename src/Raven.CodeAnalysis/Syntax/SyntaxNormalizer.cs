@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Syntax;
 
@@ -33,7 +34,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     {
         var statement = base.VisitStatement(node)!;
 
-        if (node is BlockSyntax && node?.Parent is IfExpressionSyntax)
+        if (node is BlockStatementSyntax && node?.Parent is IfStatementSyntax)
         {
             return statement;
         }
@@ -99,6 +100,22 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, IndentationTrivia());
 
         // Reconstruct the block with normalized components.
+        return node.Update(openBrace, SyntaxFactory.List(statements), closeBrace);
+    }
+
+    public override SyntaxNode? VisitBlockStatement(BlockStatementSyntax node)
+    {
+        var openBrace = node.OpenBraceToken.WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+
+        IncreaseIdent();
+
+        var statements = node.Statements.Select(VisitStatement).OfType<StatementSyntax>().ToList();
+
+        DecreaseIndent();
+
+        var closeBrace = node.CloseBraceToken
+            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed, IndentationTrivia());
+
         return node.Update(openBrace, SyntaxFactory.List(statements), closeBrace);
     }
 
@@ -223,7 +240,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
                 .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(node.Modifiers, identifier, parameterList, returnType, (BlockSyntax?)VisitBlock(node.Body), null, node.TerminatorToken)
+        return node.Update(node.Modifiers, identifier, parameterList, returnType, (BlockStatementSyntax?)VisitBlockStatement(node.Body), null, node.TerminatorToken)
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed

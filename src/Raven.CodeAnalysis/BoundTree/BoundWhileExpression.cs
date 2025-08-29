@@ -6,7 +6,7 @@ internal partial class BoundWhileExpression : BoundExpression
     public BoundExpression Body { get; }
 
     public BoundWhileExpression(BoundExpression condition, BoundExpression body)
-        : base(condition.Type.ContainingAssembly.GetTypeByMetadataName("System.Void"), null, BoundExpressionReason.None)
+        : base(condition.Type.ContainingAssembly.GetTypeByMetadataName("System.Unit"), null, BoundExpressionReason.None)
     {
         Condition = condition;
         Body = body;

@@ -85,6 +85,14 @@
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
+  <Node Name="IfStatement" Inherits="Statement">
+    <Slot Name="IfKeyword" Type="Token" />
+    <Slot Name="Condition" Type="Expression" />
+    <Slot Name="ThenStatement" Type="Statement" />
+    <Slot Name="ElseKeyword" Type="Token" IsNullable="true" />
+    <Slot Name="ElseStatement" Type="Statement" IsNullable="true" />
+    <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
   <Node Name="LocalDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="VariableDeclaration" />
     <Slot Name="TerminatorToken" Type="Token" />
@@ -129,7 +137,7 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="InitKeyword" Type="Token" IsInherited="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
-    <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
+    <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
   </Node>
@@ -138,7 +146,7 @@
     <Slot Name="InitKeyword" Type="Token" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
-    <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
+    <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
   </Node>
@@ -229,6 +237,11 @@
     <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
   </Node>
   <Node Name="Block" Inherits="Expression">
+    <Slot Name="OpenBraceToken" Type="Token" />
+    <Slot Name="Statements" Type="List" ElementType="Statement" />
+    <Slot Name="CloseBraceToken" Type="Token" />
+  </Node>
+  <Node Name="BlockStatement" Inherits="Statement">
     <Slot Name="OpenBraceToken" Type="Token" />
     <Slot Name="Statements" Type="List" ElementType="Statement" />
     <Slot Name="CloseBraceToken" Type="Token" />
@@ -419,7 +432,7 @@
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
-    <Slot Name="Body" Type="Block" IsNullable="true" />
+    <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="ObjectCreationExpression" Inherits="Expression">
@@ -432,7 +445,7 @@
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
-    <Slot Name="Body" Type="Block" IsNullable="true" IsInherited="true" />
+    <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
@@ -454,13 +467,13 @@
   <Node Name="AccessorDeclaration" Inherits="Node" HasExplicitKind="true">
     <Slot Name="Modifiers" Type="TokenList" />
     <Slot Name="Keyword" Type="Token" />
-    <Slot Name="Body" Type="Block" IsNullable="true" />
+    <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="BaseMethodDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
     <Slot Name="ParameterList" Type="ParameterList" IsAbstract="true" />
-    <Slot Name="Body" Type="Block" IsNullable="true" IsAbstract="true" />
+    <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsAbstract="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsAbstract="true" />
   </Node>
   <Node Name="ElementAccessExpression" Inherits="Expression">

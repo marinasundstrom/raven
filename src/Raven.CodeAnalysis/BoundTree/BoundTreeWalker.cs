@@ -109,6 +109,18 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundReturnStatement ret:
                 VisitReturnStatement(ret);
                 break;
+            case BoundIfStatement ifStmt:
+                VisitIfStatement(ifStmt);
+                break;
+            case BoundWhileStatement whileStmt:
+                VisitWhileStatement(whileStmt);
+                break;
+            case BoundForStatement forStmt:
+                VisitForStatement(forStmt);
+                break;
+            case BoundBlockStatement blockStmt:
+                VisitBlockStatement(blockStmt);
+                break;
         }
     }
 
@@ -148,5 +160,39 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitParenthesizedExpression(BoundParenthesizedExpression node)
     {
         VisitExpression(node.Expression);
+    }
+
+    protected void VisitNode(BoundNode node)
+    {
+        if (node is BoundStatement statement)
+            VisitStatement(statement);
+        else if (node is BoundExpression expr)
+            VisitExpression(expr);
+    }
+
+    public virtual void VisitIfStatement(BoundIfStatement node)
+    {
+        VisitExpression(node.Condition);
+        VisitNode(node.ThenNode);
+        if (node.ElseNode is not null)
+            VisitNode(node.ElseNode);
+    }
+
+    public virtual void VisitWhileStatement(BoundWhileStatement node)
+    {
+        VisitExpression(node.Condition);
+        VisitStatement(node.Body);
+    }
+
+    public virtual void VisitForStatement(BoundForStatement node)
+    {
+        VisitExpression(node.Collection);
+        VisitStatement(node.Body);
+    }
+
+    public virtual void VisitBlockStatement(BoundBlockStatement node)
+    {
+        foreach (var s in node.Statements)
+            VisitStatement(s);
     }
 }

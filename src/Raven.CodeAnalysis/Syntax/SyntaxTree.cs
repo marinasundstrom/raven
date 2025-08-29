@@ -246,7 +246,7 @@ public class SyntaxTree
         {
             var parent = nodeToReplace.Parent;
 
-            if (parent is BlockSyntax block)
+            if (parent is BlockStatementSyntax block)
             {
                 //block.ReplaceNode(nodeToReplace, );
 

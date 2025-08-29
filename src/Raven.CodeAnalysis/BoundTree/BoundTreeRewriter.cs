@@ -23,6 +23,22 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             yield return (T)VisitSymbol(symbol)!;
     }
 
+    public virtual BoundStatement VisitStatement(BoundStatement statement)
+    {
+        return statement switch
+        {
+            BoundReturnStatement ret => (BoundStatement)VisitReturnStatement(ret)!,
+            BoundExpressionStatement expr => (BoundStatement)VisitExpressionStatement(expr)!,
+            BoundLocalDeclarationStatement localDecl => (BoundStatement)VisitLocalDeclarationStatement(localDecl)!,
+            BoundFunctionStatement func => (BoundStatement)VisitFunctionStatement(func)!,
+            BoundIfStatement ifStmt => (BoundStatement)VisitIfStatement(ifStmt)!,
+            BoundWhileStatement whileStmt => (BoundStatement)VisitWhileStatement(whileStmt)!,
+            BoundForStatement forStmt => (BoundStatement)VisitForStatement(forStmt)!,
+            BoundBlockStatement blockStmt => (BoundStatement)VisitBlockStatement(blockStmt)!,
+            _ => statement,
+        };
+    }
+
     public virtual BoundExpression? VisitExpression(BoundExpression? node)
     {
         if (node is null)
@@ -101,4 +117,5 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     {
         return designator.Accept(this);
     }
+
 }

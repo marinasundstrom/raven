@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Raven.CodeAnalysis.Symbols;
@@ -173,9 +174,11 @@ partial class BlockBinder : Binder
         BoundStatement boundNode = statement switch
         {
             LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclaration(localDeclaration.Declaration.Declarators[0]),
-            ExpressionStatementSyntax expressionStmt => new BoundExpressionStatement(BindExpression(expressionStmt.Expression, allowReturn: true)),
+            ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
+            IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
             FunctionStatementSyntax function => BindFunction(function),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
+            BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
@@ -183,6 +186,50 @@ partial class BlockBinder : Binder
         CacheBoundNode(statement, boundNode);
 
         return boundNode;
+    }
+
+    private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
+    {
+        var expr = BindExpression(expressionStmt.Expression, allowReturn: true);
+        return ExpressionToStatement(expr);
+    }
+
+    private BoundStatement BindIfStatement(IfStatementSyntax ifStmt)
+    {
+        var condition = BindExpression(ifStmt.Condition);
+        var thenBound = BindStatement(ifStmt.ThenStatement);
+        BoundStatement? elseBound = null;
+        if (ifStmt.ElseStatement is not null)
+            elseBound = BindStatement(ifStmt.ElseStatement);
+        return new BoundIfStatement(condition, thenBound, elseBound);
+    }
+
+    private BoundStatement ExpressionToStatement(BoundExpression expression)
+    {
+        return expression switch
+        {
+            BoundIfExpression ifExpr => new BoundIfStatement(ifExpr.Condition,
+                ExpressionToStatementOrExpression(ifExpr.ThenBranch),
+                ifExpr.ElseBranch is not null ? ExpressionToStatementOrExpression(ifExpr.ElseBranch) : null),
+            BoundWhileExpression whileExpr => new BoundWhileStatement(whileExpr.Condition, ExpressionToStatement(whileExpr.Body)),
+            BoundForExpression forExpr => new BoundForStatement(forExpr.Local, forExpr.Collection, ExpressionToStatement(forExpr.Body)),
+            BoundBlockExpression blockExpr => new BoundBlockStatement(blockExpr.Statements),
+            _ => new BoundExpressionStatement(expression),
+        };
+    }
+
+    private BoundNode ExpressionToStatementOrExpression(BoundExpression expression)
+    {
+        return expression switch
+        {
+            BoundIfExpression ifExpr => new BoundIfStatement(ifExpr.Condition,
+                ExpressionToStatementOrExpression(ifExpr.ThenBranch),
+                ifExpr.ElseBranch is not null ? ExpressionToStatementOrExpression(ifExpr.ElseBranch) : null),
+            BoundWhileExpression whileExpr => new BoundWhileStatement(whileExpr.Condition, ExpressionToStatement(whileExpr.Body)),
+            BoundForExpression forExpr => new BoundForStatement(forExpr.Local, forExpr.Collection, ExpressionToStatement(forExpr.Body)),
+            BoundBlockExpression blockExpr => blockExpr,
+            _ => expression,
+        };
     }
 
     private BoundStatement BindReturnStatement(ReturnStatementSyntax returnStatement)
@@ -225,6 +272,47 @@ partial class BlockBinder : Binder
         return true;
     }
 
+    public virtual BoundBlockStatement BindBlockStatement(BlockStatementSyntax block)
+    {
+        if (TryGetCachedBoundNode(block) is BoundStatement cached)
+            return (BoundBlockStatement)cached;
+
+        _scopeDepth++;
+        var depth = _scopeDepth;
+
+        foreach (var stmt in block.Statements)
+        {
+            if (stmt is FunctionStatementSyntax func)
+            {
+                var functionBinder = SemanticModel.GetBinder(func, this);
+                if (functionBinder is FunctionBinder lfBinder)
+                {
+                    var symbol = lfBinder.GetMethodSymbol();
+                    if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
+                    else
+                        _functions[symbol.Name] = symbol;
+                }
+            }
+        }
+
+        var boundStatements = new List<BoundStatement>(block.Statements.Count);
+        foreach (var stmt in block.Statements)
+        {
+            var bound = BindStatement(stmt);
+            boundStatements.Add(bound);
+        }
+
+        var blockStmt = new BoundBlockStatement(boundStatements.ToArray());
+        CacheBoundNode(block, blockStmt);
+
+        foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+            _locals.Remove(name);
+
+        _scopeDepth--;
+        return blockStmt;
+    }
+
     public virtual BoundBlockExpression BindBlock(BlockSyntax block, bool allowReturn = true)
     {
         if (TryGetCachedBoundNode(block) is BoundExpression cached)
@@ -265,7 +353,8 @@ partial class BlockBinder : Binder
         }
 
         // Step 3: Create and cache the block
-        var blockExpr = new BoundBlockExpression(boundStatements.ToArray());
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType);
         CacheBoundNode(block, blockExpr);
 
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
@@ -1737,7 +1826,7 @@ partial class BlockBinder : Binder
         // Bind the body with method binder
         var methodBinder = functionBinder.GetMethodBodyBinder();
         var blockBinder = (BlockBinder)SemanticModel.GetBinder(function.Body, methodBinder);
-        var body = blockBinder.BindExpression(function.Body, allowReturn: true);
+        blockBinder.BindBlockStatement(function.Body);
 
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
     }

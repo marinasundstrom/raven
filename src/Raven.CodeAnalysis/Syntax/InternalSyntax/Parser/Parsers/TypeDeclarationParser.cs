@@ -1,6 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
 
 using static SyntaxFactory;
 
@@ -129,12 +130,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var token = PeekToken();
 
-        BlockSyntax? body = null;
+        BlockStatementSyntax? body = null;
         ArrowExpressionClauseSyntax? expressionBody = null;
 
         if (token.IsKind(SyntaxKind.OpenBraceToken))
         {
-            body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
+            body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
         }
         else if (token.IsKind(SyntaxKind.FatArrowToken))
         {
@@ -206,12 +207,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var token = PeekToken();
 
-        BlockSyntax? body = null;
+        BlockStatementSyntax? body = null;
         ArrowExpressionClauseSyntax? expressionBody = null;
 
         if (token.IsKind(SyntaxKind.OpenBraceToken))
         {
-            body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
+            body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
         }
         else if (token.IsKind(SyntaxKind.FatArrowToken))
         {
@@ -320,12 +321,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
             var token = PeekToken();
 
-            BlockSyntax? body = null;
+            BlockStatementSyntax? body = null;
             ArrowExpressionClauseSyntax? expressionBody = null;
 
             if (token.IsKind(SyntaxKind.OpenBraceToken))
             {
-                body = new ExpressionSyntaxParser(this).ParseBlockSyntax();
+                body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
             }
             else if (token.IsKind(SyntaxKind.FatArrowToken))
             {
