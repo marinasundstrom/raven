@@ -165,6 +165,17 @@ let j = 0       // j : int
 var k: 1 = 1    // k : 1
 ```
 
+Numeric literals choose an underlying primitive type. Integer literals default
+to `int` but upgrade to `long` when the value exceeds the `int` range.
+Floating-point literals default to `double`; appending `f` or `F` produces a
+`float` literal.
+
+```raven
+var l = 4_000_000_000  // l : long
+var f = 3.14f          // f : float
+var d = 3.14           // d : double
+```
+
 Overload resolution applies the same rule: a literal argument converts to its
 underlying type when selecting among method overloads. For example,
 `Console.WriteLine(1)` binds to `Console.WriteLine(int)` if such an overload
