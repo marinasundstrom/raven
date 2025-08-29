@@ -47,6 +47,11 @@ real type, it participates in generics, tuples, and unions like any other type.
 
 ## Statements
 
+Raven is primarily **expression-based**: most constructs yield values and can
+appear wherever an expression is expected. For clarity and early exits,
+the language nevertheless permits certain imperative statement forms, such as
+the explicit `return` statement.
+
 Statements are terminated by a **newline**, or by an **optional semicolon** `;`
 that may separate multiple statements on one line. Newlines inside
 parentheses/brackets/braces do not terminate statements.
@@ -102,6 +107,11 @@ Any expression can appear as a statement.
 The `return` keyword exits a function, lambda, or property accessor. Because control-flow constructs are expressions, using `return` inside an expression that itself produces a value is not allowed. Explicit `return` statements may appear only in statement positions, such as within a function body or as their own expression statement. When a `return` occurs in a value context—for example, within an `if` expression assigned to a variable—the compiler reports diagnostic `RAV1900` and the block should rely on an implicit return instead.
 
 A `return` statement may omit its expression when the surrounding function or accessor returns `unit` (projected as `void` in IL). This is equivalent to returning the `()` value explicitly.
+
+Within a method-like body, each `return` is validated against the declared
+return type of that body. A `return` without an expression is treated as
+returning `unit`. If the returned expression's type is not assignable to the
+declared return type, the compiler emits a conversion diagnostic.
 
 ```raven
 func choose(flag: bool) -> int | () {
