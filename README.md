@@ -15,9 +15,16 @@
 - **Immutable, service-oriented design** — a compiler built as an API, following the "Compiler-as-a-Service" philosophy  
 
 Raven is primarily a **learning and exploration project**, aimed at:
-- Understanding modern compiler construction  
-- Experimenting with language design  
-- Providing a clean API for syntax manipulation and analysis  
+- Understanding modern compiler construction
+- Experimenting with language design
+- Providing a clean API for syntax manipulation and analysis
+
+
+## 🔰 Language Overview
+
+Raven is a general-purpose, expression-based language that blends functional and imperative paradigms. Its type system supports union and literal types with flow-sensitive typing similar to TypeScript, and it uses `unit` instead of `void`. As a .NET language, Raven interops seamlessly with C#, even shipping a C# analyzer for type unions. The compiler follows the Roslyn "compiler-as-a-service" architecture.
+
+Read the full [Introduction](docs/introduction.md) for a more detailed overview.
 
 ---
 
