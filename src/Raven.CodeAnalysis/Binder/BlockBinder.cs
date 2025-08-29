@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -1070,12 +1071,30 @@ partial class BlockBinder : Binder
 
         var opKind = syntax.OperatorToken.Kind;
 
-        // 1. Specialfall: string + any → string.Concat(...)
-        if (opKind == SyntaxKind.PlusToken &&
-            (left.Type.SpecialType == SpecialType.System_String || right.Type.SpecialType == SpecialType.System_String))
+        // 1. Specialfall: string + any → string-konkatenering
+        if (opKind == SyntaxKind.PlusToken)
         {
-            var concatMethod = ResolveStringConcatMethod(left, right);
-            return new BoundInvocationExpression(concatMethod, [left, right]);
+            var leftIsString = left.Type.SpecialType == SpecialType.System_String ||
+                                (left.Type is LiteralTypeSymbol lls && lls.UnderlyingType.SpecialType == SpecialType.System_String);
+            var rightIsString = right.Type.SpecialType == SpecialType.System_String ||
+                                 (right.Type is LiteralTypeSymbol rls && rls.UnderlyingType.SpecialType == SpecialType.System_String);
+
+            if (left.Type is LiteralTypeSymbol litLeft &&
+                right.Type is LiteralTypeSymbol litRight &&
+                (leftIsString || rightIsString))
+            {
+                var stringType = Compilation.GetSpecialType(SpecialType.System_String);
+                var value = (litLeft.ConstantValue?.ToString() ?? string.Empty) +
+                            (litRight.ConstantValue?.ToString() ?? string.Empty);
+                var resultType = new LiteralTypeSymbol(stringType, value, Compilation);
+                return new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, value, resultType);
+            }
+
+            if (leftIsString || rightIsString)
+            {
+                var concatMethod = ResolveStringConcatMethod(left, right);
+                return new BoundInvocationExpression(concatMethod, [left, right]);
+            }
         }
 
         // 2. Överlagrade operatorer
