@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
+
 using Terminal.Gui;
 
 namespace Raven.Editor;
@@ -94,10 +96,11 @@ internal class Program
         list.OpenSelectedItem += args => Application.RequestStop();
         Application.Run(dialog);
 
-        if (list.SelectedItem >= 0 && list.SelectedItem < matches.Length) {
-        var selected = matches[list.SelectedItem];
-        editor.InsertText(selected.Substring(prefix.Length));
-    }
+        if (list.SelectedItem >= 0 && list.SelectedItem < matches.Length)
+        {
+            var selected = matches[list.SelectedItem];
+            editor.InsertText(selected.Substring(prefix.Length));
+        }
     }
 
     private static void Compile(string source)
@@ -109,6 +112,11 @@ internal class Program
         var project = workspace.CurrentSolution.GetProject(projectId)!;
         var document = project.AddDocument("main.rav", sourceText);
         project = document.Project;
+
+        var version = TargetFrameworkResolver.ResolveVersion();
+        foreach (var path in TargetFrameworkResolver.GetReferenceAssemblies(version))
+            project = project.AddMetadataReference(MetadataReference.CreateFromFile(path));
+
         workspace.TryApplyChanges(project.Solution);
         var diagnostics = workspace.GetDiagnostics(projectId);
         if (diagnostics.IsDefaultOrEmpty)
