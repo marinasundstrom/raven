@@ -29,7 +29,9 @@ internal class Program
         Application.Init();
 
         var filePath = args.Length > 0 ? args[0] : "";
-        var text = File.Exists(filePath) ? File.ReadAllText(filePath) : string.Empty;
+        var text = File.Exists(filePath)
+            ? File.ReadAllText(filePath)
+            : "import System.Console.*\nWriteLine(\"Hello, World!\")\n";
         var sourceText = SourceText.From(text);
         var options = new CompilationOptions(OutputKind.ConsoleApplication);
 
