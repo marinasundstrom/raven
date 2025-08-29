@@ -52,6 +52,27 @@ public class TupleTypeSemanticTests
     }
 
     [Fact]
+    public void TupleExpression_TargetTyped_WithoutNames_Succeeds()
+    {
+        var source = """
+        let pair: (int, string) = (42, "Bar")
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var initializerType = model.GetTypeInfo(declarator.Initializer!.Value).Type;
+        var annotationType = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type;
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(annotationType, initializerType));
+    }
+
+    [Fact]
     public void TupleExpression_TargetTypedMismatch_ReportsDiagnostic()
     {
         var source = "let t: (int, string) = (1, 2)";
