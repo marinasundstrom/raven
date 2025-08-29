@@ -11,6 +11,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundExpression expr:
                 VisitExpression(expr);
                 break;
+            case BoundBlockStatement statement:
+                VisitBlockStatement(statement);
+                break;
             default:
                 throw new NotImplementedException($"Unhandled node type: {node.GetType().Name}");
         }

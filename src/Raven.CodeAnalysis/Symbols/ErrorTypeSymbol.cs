@@ -37,17 +37,16 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 
     public bool IsType => false;
 
-    public INamedTypeSymbol? BaseType => throw new NotImplementedException();
+    public INamedTypeSymbol? BaseType => null;
 
     public TypeKind TypeKind { get; }
 
     public ITypeSymbol? OriginalDefinition { get; }
 
-    public int Arity => throw new NotImplementedException();
+    public int Arity => 0;
 
-    public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
-
-    public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
+    public INamedTypeSymbol UnderlyingTupleType => null;
+    public ImmutableArray<IFieldSymbol> TupleElements => [];
 
     public ImmutableArray<ISymbol> GetMembers() => [];
 
@@ -55,16 +54,17 @@ internal partial class ErrorTypeSymbol : SourceSymbol, IErrorTypeSymbol
 
     public ITypeSymbol? LookupType(string name)
     {
-        throw new NotImplementedException();
+        return null;
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        throw new NotSupportedException();
+        symbol = null;
+        return false;
     }
 
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException();
     }
 }
