@@ -65,7 +65,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
     public IMethodSymbol? StaticConstructor { get; }
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters ??= _typeInfo.GenericTypeParameters.Select(x => (ITypeParameterSymbol)new PETypeParameterSymbol(x, this, this, this.ContainingNamespace, [])).ToImmutableArray();
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters =>
+        _typeParameters ??=
+            _typeInfo.GenericTypeParameters
+                .Select(t => (ITypeParameterSymbol)_typeResolver.ResolveType(t)!)
+                .ToImmutableArray();
     public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract => _typeInfo.IsAbstract;
     public bool IsSealed => _typeInfo.IsSealed;
