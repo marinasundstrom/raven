@@ -21,8 +21,8 @@ Console.WriteLine(Console.WriteLine());
 
         var text = root.WriteNodeToText(compilation, includeDiagnostics: true);
 
-        Assert.Contains("\u001b[91m", text);
-        Assert.Contains("~", text);
+        Assert.Contains("\u001b[4:3m", text);
+        Assert.Contains("\u001b[4:0m", text);
     }
 
     [Fact]
