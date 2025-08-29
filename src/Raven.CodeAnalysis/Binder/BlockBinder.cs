@@ -8,7 +8,8 @@ namespace Raven.CodeAnalysis;
 partial class BlockBinder : Binder
 {
     private readonly ISymbol _containingSymbol;
-    protected readonly Dictionary<string, ILocalSymbol> _locals = new();
+    protected readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals = new();
+    private int _scopeDepth;
     private bool _allowReturnsInExpression;
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
@@ -58,7 +59,7 @@ partial class BlockBinder : Binder
     public override ISymbol? LookupSymbol(string name)
     {
         if (_locals.TryGetValue(name, out var sym))
-            return sym;
+            return sym.Symbol;
 
         if (_functions.TryGetValue(name, out var func))
             return func;
@@ -85,10 +86,21 @@ partial class BlockBinder : Binder
 
     private BoundLocalDeclarationStatement BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
-        //if (_locals.TryGetValue(variableDeclarator.Identifier.Text, out var existingSymbol))
-        //    return existingSymbol;
-
         var name = variableDeclarator.Identifier.Text;
+
+        if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
+        {
+            _diagnostics.ReportVariableAlreadyDefined(name, variableDeclarator.Identifier.GetLocation());
+
+            BoundExpression? existingInitializer = null;
+            if (variableDeclarator.Initializer is { } init)
+                existingInitializer = BindExpression(init.Value, allowReturn: false);
+
+            return new BoundLocalDeclarationStatement([new BoundVariableDeclarator(existing.Symbol, existingInitializer)]);
+        }
+
+        if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            _diagnostics.ReportVariableShadowed(name, variableDeclarator.Identifier.GetLocation());
 
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
         var isMutable = decl!.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
@@ -147,7 +159,7 @@ partial class BlockBinder : Binder
             [declaringSyntax.GetLocation()],
             [declaringSyntax.GetReference()]);
 
-        _locals[name] = symbol;
+        _locals[name] = (symbol, _scopeDepth);
         return symbol;
     }
 
@@ -216,6 +228,9 @@ partial class BlockBinder : Binder
         if (TryGetCachedBoundNode(block) is BoundExpression cached)
             return (BoundBlockExpression)cached;
 
+        _scopeDepth++;
+        var depth = _scopeDepth;
+
         // Step 1: Pre-declare all functions
         foreach (var stmt in block.Statements)
         {
@@ -250,6 +265,11 @@ partial class BlockBinder : Binder
         // Step 3: Create and cache the block
         var blockExpr = new BoundBlockExpression(boundStatements.ToArray());
         CacheBoundNode(block, blockExpr);
+
+        foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+            _locals.Remove(name);
+
+        _scopeDepth--;
         return blockExpr;
     }
 
@@ -1591,8 +1611,8 @@ partial class BlockBinder : Binder
         {
             if (current is BlockBinder block)
             {
-                if (block._locals.TryGetValue(name, out var local) && seen.Add(local))
-                    yield return local;
+                if (block._locals.TryGetValue(name, out var local) && seen.Add(local.Symbol))
+                    yield return local.Symbol;
 
                 if (block._functions.TryGetValue(name, out var func) && seen.Add(func))
                     yield return func;
@@ -1663,8 +1683,8 @@ partial class BlockBinder : Binder
             {
                 foreach (var local in block._locals.Values)
                 {
-                    if (seen.Add(local.Name))
-                        yield return local;
+                    if (seen.Add(local.Symbol.Name))
+                        yield return local.Symbol;
                 }
             }
 
