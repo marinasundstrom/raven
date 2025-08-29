@@ -75,11 +75,81 @@ public class LiteralTypeFlowTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void VariableDeclaration_WithLargeInteger_InferredLong()
+    {
+        var code = "var l = 4_000_000_000"; // exceeds Int32 range
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+
+        Assert.Equal(SpecialType.System_Int64, local.Type.SpecialType);
+    }
+
+    [Fact]
     public void Literal_ImplicitlyConvertsToUnderlyingType()
     {
         var code = "let x: bool = true";
         var verifier = CreateVerifier(code);
         verifier.Verify();
+    }
+
+    [Fact]
+    public void LiteralType_Long_UsesUnderlyingInt64()
+    {
+        var code = "let x: 4_000_000_000 = 4_000_000_000";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var literalType = Assert.IsType<LiteralTypeSymbol>(local.Type);
+
+        Assert.Equal(4_000_000_000L, literalType.ConstantValue);
+        Assert.Equal(SpecialType.System_Int64, literalType.UnderlyingType.SpecialType);
+    }
+
+    [Fact]
+    public void LiteralType_Float_UsesUnderlyingSingle()
+    {
+        var code = "let x: 3.14f = 3.14f";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var literalType = Assert.IsType<LiteralTypeSymbol>(local.Type);
+
+        Assert.Equal(3.14f, literalType.ConstantValue);
+        Assert.Equal(SpecialType.System_Single, literalType.UnderlyingType.SpecialType);
+    }
+
+    [Fact]
+    public void LiteralType_Double_UsesUnderlyingDouble()
+    {
+        var code = "let x: 3.14 = 3.14";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var literalType = Assert.IsType<LiteralTypeSymbol>(local.Type);
+
+        Assert.Equal(3.14d, literalType.ConstantValue);
+        Assert.Equal(SpecialType.System_Double, literalType.UnderlyingType.SpecialType);
     }
 
     [Fact]
