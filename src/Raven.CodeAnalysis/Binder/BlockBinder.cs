@@ -775,8 +775,64 @@ partial class BlockBinder : Binder
                     return BindExpression(binary.LeftHandSide).Type;
 
                 case ArgumentSyntax arg:
-                    // TODO: support inference from parameter types
-                    return null;
+                    {
+                        if (arg.Parent is ArgumentListSyntax argList &&
+                            argList.Parent is InvocationExpressionSyntax invocation)
+                        {
+                            var index = 0;
+                            foreach (var a in argList.Arguments)
+                            {
+                                if (a == arg)
+                                    break;
+                                index++;
+                            }
+
+                            IMethodSymbol? targetMethod = null;
+                            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+                            {
+                                var boundMember = BindMemberAccessExpression(memberAccess);
+                                if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
+                                    targetMethod = m;
+                            }
+                            else if (invocation.Expression is IdentifierNameSyntax id)
+                            {
+                                var candidates = new SymbolQuery(id.Identifier.Text)
+                                    .LookupMethods(this)
+                                    .ToArray();
+                                if (candidates.Length == 1)
+                                {
+                                    targetMethod = candidates[0];
+                                }
+                                else if (candidates.Length > 1)
+                                {
+                                    ITypeSymbol? paramType = null;
+                                    foreach (var cand in candidates)
+                                    {
+                                        if (cand.Parameters.Length <= index)
+                                        {
+                                            paramType = null;
+                                            break;
+                                        }
+                                        var pt = cand.Parameters[index].Type;
+                                        if (paramType is null)
+                                            paramType = pt;
+                                        else if (!SymbolEqualityComparer.Default.Equals(paramType, pt))
+                                        {
+                                            paramType = null;
+                                            break;
+                                        }
+                                    }
+                                    if (paramType is not null)
+                                        return paramType;
+                                }
+                            }
+
+                            if (targetMethod is not null && targetMethod.Parameters.Length > index)
+                                return targetMethod.Parameters[index].Type;
+                        }
+
+                        return null;
+                    }
 
                 case ExpressionStatementSyntax:
                     return null;
