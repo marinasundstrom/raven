@@ -190,7 +190,7 @@ partial class BlockBinder : Binder
         if (returnStatement.Expression is not null)
             expr = BindExpression(returnStatement.Expression);
 
-        if (_allowReturnsInExpression && _containingSymbol is IMethodSymbol method)
+        if (_containingSymbol is IMethodSymbol method)
         {
             if (expr is null)
             {
