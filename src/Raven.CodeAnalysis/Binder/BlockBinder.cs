@@ -130,6 +130,8 @@ partial class BlockBinder : Binder
         else if (variableDeclarator.TypeAnnotation is null)
         {
             type = boundInitializer!.Type!;
+            if (type is LiteralTypeSymbol literal)
+                type = literal.UnderlyingType;
         }
         else
         {
