@@ -1,11 +1,15 @@
+using System.Collections.Generic;
+using System.Linq;
+
 using NStack;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
-using System.Collections.Generic;
-using System.Linq;
+
 using Terminal.Gui;
+
 using Attribute = Terminal.Gui.Attribute;
 
 namespace Raven.Editor;
@@ -33,18 +37,6 @@ public class CodeTextView : TextView
     private record struct DiagnosticSpan(int Start, int End, DiagnosticSeverity Severity);
     private record struct LineInfo(List<TokenSpan> Tokens, List<DiagnosticSpan> Diagnostics);
 
-    private static readonly Attribute KeywordAttr = new(Color.BrightBlue, Color.Black);
-    private static readonly Attribute NumberAttr = new(Color.BrightYellow, Color.Black);
-    private static readonly Attribute StringAttr = new(Color.BrightGreen, Color.Black);
-    private static readonly Attribute CommentAttr = new(Color.Green, Color.Black);
-    private static readonly Attribute MethodAttr = new(Color.BrightYellow, Color.Black);
-    private static readonly Attribute TypeAttr = new(Color.Magenta, Color.Black);
-    private static readonly Attribute NamespaceAttr = new(Color.BrightCyan, Color.Black);
-    private static readonly Attribute FieldAttr = new(Color.Cyan, Color.Black);
-    private static readonly Attribute ParameterAttr = new(Color.Blue, Color.Black);
-    private static readonly Attribute ErrorAttr = new(Color.BrightRed, Color.Black);
-    private static readonly Attribute WarningAttr = new(Color.BrightYellow, Color.Black);
-    private static readonly Attribute InfoAttr = new(Color.BrightBlue, Color.Black);
 
     /// <inheritdoc />
     public override void OnContentsChanged()
@@ -161,12 +153,7 @@ public class CodeTextView : TextView
         {
             if (idx >= span.Start && idx < span.End)
             {
-                var attr = span.Severity switch
-                {
-                    DiagnosticSeverity.Error => ErrorAttr,
-                    DiagnosticSeverity.Warning => WarningAttr,
-                    _ => InfoAttr
-                };
+                var attr = GetAttribute(span.Severity);
                 Driver.SetAttribute(attr);
                 return;
             }
@@ -184,17 +171,32 @@ public class CodeTextView : TextView
         base.SetNormalColor(line, idx);
     }
 
-    private static Attribute GetAttribute(SemanticClassification classification) => classification switch
+    private Attribute GetAttribute(SemanticClassification classification)
     {
-        SemanticClassification.Keyword => KeywordAttr,
-        SemanticClassification.StringLiteral => StringAttr,
-        SemanticClassification.NumericLiteral => NumberAttr,
-        SemanticClassification.Comment => CommentAttr,
-        SemanticClassification.Method => MethodAttr,
-        SemanticClassification.Type => TypeAttr,
-        SemanticClassification.Namespace => NamespaceAttr,
-        SemanticClassification.Field => FieldAttr,
-        SemanticClassification.Parameter => ParameterAttr,
-        _ => InfoAttr
-    };
+        var background = ColorScheme.Normal.Background;
+        return classification switch
+        {
+            SemanticClassification.Keyword => new(Color.BrightBlue, background),
+            SemanticClassification.StringLiteral => new(Color.BrightGreen, background),
+            SemanticClassification.NumericLiteral => new(Color.BrightYellow, background),
+            SemanticClassification.Comment => new(Color.Green, background),
+            SemanticClassification.Method => new(Color.BrightYellow, background),
+            SemanticClassification.Type => new(Color.Magenta, background),
+            SemanticClassification.Namespace => new(Color.BrightCyan, background),
+            SemanticClassification.Field => new(Color.Cyan, background),
+            SemanticClassification.Parameter => new(Color.Blue, background),
+            _ => new(Color.BrightBlue, background)
+        };
+    }
+
+    private Attribute GetAttribute(DiagnosticSeverity severity)
+    {
+        var background = ColorScheme.Normal.Background;
+        return severity switch
+        {
+            DiagnosticSeverity.Error => new(Color.BrightRed, background),
+            DiagnosticSeverity.Warning => new(Color.BrightYellow, background),
+            _ => new(Color.BrightBlue, background)
+        };
+    }
 }
