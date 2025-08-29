@@ -43,9 +43,23 @@ internal class Program
         _documentId = DocumentId.CreateNew(_projectId);
         var solution = Workspace.CurrentSolution.AddDocument(_documentId, "main.rav", sourceText);
 
-        var version = TargetFrameworkResolver.ResolveVersion();
-        foreach (var path in TargetFrameworkResolver.GetReferenceAssemblies(version))
-            solution = solution.AddMetadataReference(_projectId, MetadataReference.CreateFromFile(path));
+        var targetFrameworkTfm = "net9.0";
+
+        var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramework();
+        var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
+
+        foreach (var refPath in new[]
+        {
+            Path.Combine(refAssembliesPath!, "System.Runtime.dll"),
+            Path.Combine(refAssembliesPath!, "System.Collections.dll"),
+            typeof(Console).Assembly.Location,
+            //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../TestDep.dll"))
+        })
+        {
+            var reference = MetadataReference.CreateFromFile(Path.GetFullPath(refPath));
+            solution = solution.AddMetadataReference(_projectId, reference);
+        }
 
         Workspace.TryApplyChanges(solution);
 

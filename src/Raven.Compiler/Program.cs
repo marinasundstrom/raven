@@ -120,7 +120,9 @@ foreach (var reference in new[]
     MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
     MetadataReference.CreateFromFile(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../TestDep.dll")))
 })
+{
     project = project.AddMetadataReference(reference);
+}
 
 foreach (var r in additionalRefs)
 {
