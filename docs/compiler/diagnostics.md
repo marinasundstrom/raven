@@ -394,5 +394,5 @@ let x = .ToString() // RAV2010
 Alias directive targets an unsupported symbol.
 
 ```raven
-alias five = 5 // RAV2020
+alias Bad = notatype // RAV2020
 ```

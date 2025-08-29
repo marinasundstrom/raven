@@ -395,6 +395,7 @@ alias Pair = (x: int, y: int)
 alias Number = int | string
 alias Flag = bool
 alias Text = string
+alias Five = 5
 
 let sb = SB()
 PrintLine("Hi")
@@ -405,9 +406,9 @@ Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
 
-Predefined types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, and `unit` (spelled `unit` or `()`).
+Predefined and literal types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, `unit` (spelled `unit` or `()`), and any literal value.
 Raven has no `void`; `unit` is projected to and from .NET `void`.
-If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, and these predefined types.
+If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, these predefined types, and literal values.
 
 Aliases require fully qualified names for namespaces, types, and members to
 avoid ambiguity; type expressions are written directly. Alias directives may
