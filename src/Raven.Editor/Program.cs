@@ -14,13 +14,8 @@ namespace Raven.Editor;
 
 internal class Program
 {
-    private static readonly string[] Keywords = Enum.GetValues(typeof(SyntaxKind))
-        .Cast<SyntaxKind>()
-        .Where(SyntaxFacts.IsReservedWordKind)
-        .Select(k => SyntaxFacts.GetSyntaxTokenText(k)!)
-        .ToArray();
-
     private static readonly RavenWorkspace Workspace = RavenWorkspace.Create();
+    private static readonly CompletionService CompletionService = new();
     private static ProjectId _projectId;
     private static DocumentId _documentId;
     private static readonly List<string> Output = new();
@@ -29,6 +24,7 @@ internal class Program
     private static ListView? _problemsView;
     private static Window? _completionWin;
     private static ListView? _completionList;
+    private static CompletionItem[] _currentItems = Array.Empty<CompletionItem>();
     private static string[] _currentCompletions = Array.Empty<string>();
     private static string _currentPrefix = string.Empty;
 
@@ -106,10 +102,13 @@ internal class Program
             }
             else if (_completionWin != null && (e.KeyEvent.Key == Key.Enter || e.KeyEvent.Key == Key.Tab))
             {
-                if (_currentCompletions.Length > 0)
+                if (_currentItems.Length > 0)
                 {
-                    var selected = _currentCompletions[_completionList!.SelectedItem];
-                    editor.InsertText(selected.Substring(_currentPrefix.Length));
+                    var item = _currentItems[_completionList!.SelectedItem];
+                    var insertion = item.InsertionText;
+                    if (insertion.StartsWith(_currentPrefix, StringComparison.OrdinalIgnoreCase))
+                        insertion = insertion[_currentPrefix.Length..];
+                    editor.InsertText(insertion);
                 }
                 HideCompletion();
                 e.Handled = true;
@@ -146,27 +145,41 @@ internal class Program
 
     private static void ShowCompletion(CodeTextView editor)
     {
-        var lines = editor.Text?.ToString()?.Split('\n') ?? Array.Empty<string>();
+        var text = editor.Text?.ToString() ?? string.Empty;
+        var lines = text.Split('\n');
         if (editor.CurrentRow >= lines.Length)
         {
             HideCompletion();
             return;
         }
+
         var line = lines[editor.CurrentRow];
         var col = Math.Min(editor.CurrentColumn, line.Length);
+        var position = 0;
+        for (var i = 0; i < editor.CurrentRow; i++)
+            position += lines[i].Length + 1;
+        position += col;
+
         var start = col;
         while (start > 0 && char.IsLetter(line[start - 1]))
             start--;
         _currentPrefix = line[start..col];
-        _currentCompletions = Keywords
-            .Where(k => k.StartsWith(_currentPrefix, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(k => k)
-            .ToArray();
-        if (_currentCompletions.Length == 0)
+
+        var sourceText = SourceText.From(text);
+        var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, sourceText);
+        Workspace.TryApplyChanges(solution);
+        var document = Workspace.CurrentSolution.GetDocument(_documentId)!;
+        var tree = document.GetSyntaxTreeAsync().GetAwaiter().GetResult()!;
+        var compilation = Workspace.GetCompilation(_projectId);
+
+        _currentItems = CompletionService.GetCompletions(compilation, tree, position).ToArray();
+        if (_currentItems.Length == 0)
         {
             HideCompletion();
             return;
         }
+
+        _currentCompletions = _currentItems.Select(i => i.DisplayText).ToArray();
 
         var height = Math.Min(10, _currentCompletions.Length + 1);
         var width = Math.Max(20, _currentCompletions.Max(s => s.Length) + 2);
@@ -202,6 +215,7 @@ internal class Program
             Application.Top.Remove(_completionWin);
             _completionWin = null;
             _completionList = null;
+            _currentItems = Array.Empty<CompletionItem>();
             _currentCompletions = Array.Empty<string>();
             _currentPrefix = string.Empty;
         }
