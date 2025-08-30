@@ -88,6 +88,15 @@ internal sealed class AssignmentCollector : SyntaxWalker
         _semanticModel = semanticModel;
     }
 
+    public override void VisitAssignmentStatement(AssignmentStatementSyntax node)
+    {
+        var bound = _semanticModel.GetBoundNode(node) as BoundExpressionStatement;
+        if (bound?.Expression is BoundAssignmentExpression assignment && assignment.Symbol is ILocalSymbol local)
+            Written.Add(local);
+
+        base.VisitAssignmentStatement(node);
+    }
+
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         var bound = _semanticModel.GetBoundNode(node) as BoundAssignmentExpression;
@@ -254,6 +263,20 @@ internal sealed class DataFlowWalker : SyntaxWalker
         }
 
         Visit(node.RightHandSide);
+    }
+
+    public override void VisitAssignmentStatement(AssignmentStatementSyntax node)
+    {
+        var boundStmt = _semanticModel.GetBoundNode(node) as BoundExpressionStatement;
+        var bound = boundStmt?.Expression as BoundAssignmentExpression;
+
+        if (bound?.Symbol is ILocalSymbol local)
+        {
+            _writtenInside.Add(local);
+            _dataFlowsOut.Add(local);
+        }
+
+        Visit(node.Right);
     }
 
     public override void VisitIfExpression(IfExpressionSyntax node)

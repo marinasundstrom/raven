@@ -1,6 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System.Collections.Generic;
+
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class StatementSyntaxParser : SyntaxParser
@@ -218,6 +219,18 @@ internal class StatementSyntaxParser : SyntaxParser
             TryConsumeTerminator(out var terminatorToken2);
 
             return ExpressionStatement(expression, terminatorToken2, Diagnostics);
+        }
+
+        if (expression is AssignmentExpressionSyntax assignment)
+        {
+            var assignmentTerminatorToken = ConsumeTerminator();
+            var kind = assignment.Kind switch
+            {
+                SyntaxKind.SimpleAssignmentExpression => SyntaxKind.SimpleAssignmentStatement,
+                _ => SyntaxKind.SimpleAssignmentStatement,
+            };
+
+            return AssignmentStatement(kind, assignment.LeftHandSide, assignment.OperatorToken, assignment.RightHandSide, assignmentTerminatorToken, Diagnostics);
         }
 
         var terminatorToken = ConsumeTerminator();
