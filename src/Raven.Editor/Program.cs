@@ -31,6 +31,7 @@ internal class Program
     public static void Main(string[] args)
     {
         Application.Init();
+        Console.CancelKeyPress += HandleCancelKeyPress;
 
         var filePath = args.Length > 0 ? args[0] : string.Empty;
         var documentName = string.IsNullOrEmpty(filePath) ? "main.rav" : Path.GetFileName(filePath);
@@ -143,6 +144,11 @@ internal class Program
                     File.WriteAllText(filePath, editor.Text.ToString());
                 e.Handled = true;
             }
+            else if (e.KeyEvent.Key == (Key.CtrlMask | Key.C))
+            {
+                Application.RequestStop();
+                e.Handled = true;
+            }
             else if (e.KeyEvent.Key == Key.F5)
             {
                 Compile(editor.Text?.ToString() ?? string.Empty);
@@ -160,6 +166,12 @@ internal class Program
 
         Application.Run();
         Application.Shutdown();
+    }
+
+    internal static void HandleCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
+    {
+        e.Cancel = true;
+        Application.RequestStop();
     }
 
     private static void ShowCompletion(CodeTextView editor)
