@@ -28,6 +28,10 @@ internal class StatementGenerator : Generator
                 EmitExpressionStatement(expressionStatement);
                 break;
 
+            case BoundAssignmentStatement assignmentStatement:
+                EmitAssignmentStatement(assignmentStatement);
+                break;
+
             case BoundLocalDeclarationStatement localDeclarationStatement:
                 EmitDeclarationStatement(localDeclarationStatement);
                 break;
@@ -79,6 +83,11 @@ internal class StatementGenerator : Generator
             // The value is not used, pop it from the stack.
             ILGenerator.Emit(OpCodes.Pop);
         }
+    }
+
+    private void EmitAssignmentStatement(BoundAssignmentStatement assignmentStatement)
+    {
+        new ExpressionGenerator(this, assignmentStatement.Expression).Emit();
     }
 
     private void EmitIfStatement(BoundIfStatement ifStatement)

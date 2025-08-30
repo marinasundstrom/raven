@@ -97,18 +97,33 @@ class MethodBodyBinder : BlockBinder
             // the `__self` local, these assignments should explicitly reference it.
             for (var i = 1; i < statements.Count - 1; i++)
             {
-                if (statements[i] is not BoundExpressionStatement exprStmt)
-                    continue;
-
-                switch (exprStmt.Expression)
+                switch (statements[i])
                 {
-                    case BoundFieldAssignmentExpression fieldAssignment when fieldAssignment.Receiver is null:
-                        statements[i] = new BoundExpressionStatement(
-                            new BoundFieldAssignmentExpression(new BoundLocalAccess(_self), fieldAssignment.Field, fieldAssignment.Right));
+                    case BoundAssignmentStatement assignStmt:
+                        switch (assignStmt.Expression)
+                        {
+                            case BoundFieldAssignmentExpression fieldAssignment when fieldAssignment.Receiver is null:
+                                statements[i] = new BoundAssignmentStatement(
+                                    new BoundFieldAssignmentExpression(new BoundLocalAccess(_self), fieldAssignment.Field, fieldAssignment.Right));
+                                break;
+                            case BoundPropertyAssignmentExpression propertyAssignment when propertyAssignment.Receiver is null:
+                                statements[i] = new BoundAssignmentStatement(
+                                    new BoundPropertyAssignmentExpression(new BoundLocalAccess(_self), propertyAssignment.Property, propertyAssignment.Right));
+                                break;
+                        }
                         break;
-                    case BoundPropertyAssignmentExpression propertyAssignment when propertyAssignment.Receiver is null:
-                        statements[i] = new BoundExpressionStatement(
-                            new BoundPropertyAssignmentExpression(new BoundLocalAccess(_self), propertyAssignment.Property, propertyAssignment.Right));
+                    case BoundExpressionStatement exprStmt:
+                        switch (exprStmt.Expression)
+                        {
+                            case BoundFieldAssignmentExpression fieldAssignment when fieldAssignment.Receiver is null:
+                                statements[i] = new BoundAssignmentStatement(
+                                    new BoundFieldAssignmentExpression(new BoundLocalAccess(_self), fieldAssignment.Field, fieldAssignment.Right));
+                                break;
+                            case BoundPropertyAssignmentExpression propertyAssignment when propertyAssignment.Receiver is null:
+                                statements[i] = new BoundAssignmentStatement(
+                                    new BoundPropertyAssignmentExpression(new BoundLocalAccess(_self), propertyAssignment.Property, propertyAssignment.Right));
+                                break;
+                        }
                         break;
                 }
             }
@@ -127,6 +142,12 @@ class MethodBodyBinder : BlockBinder
             var statements = VisitList(node.Statements).Cast<BoundStatement>().ToList();
             var unitType = _compilation.GetSpecialType(SpecialType.System_Unit);
             return new BoundBlockExpression(statements, unitType);
+        }
+
+        public override BoundNode? VisitAssignmentStatement(BoundAssignmentStatement node)
+        {
+            var expression = (BoundAssignmentExpression)Visit(node.Expression)!;
+            return new BoundAssignmentStatement(expression);
         }
 
         public override BoundNode? VisitExpressionStatement(BoundExpressionStatement node)

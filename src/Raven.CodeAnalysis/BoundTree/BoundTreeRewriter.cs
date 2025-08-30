@@ -35,6 +35,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundWhileStatement whileStmt => (BoundStatement)VisitWhileStatement(whileStmt)!,
             BoundForStatement forStmt => (BoundStatement)VisitForStatement(forStmt)!,
             BoundBlockStatement blockStmt => (BoundStatement)VisitBlockStatement(blockStmt)!,
+            BoundAssignmentStatement assignmentStmt => (BoundStatement)VisitAssignmentStatement(assignmentStmt)!,
             _ => statement,
         };
     }
@@ -54,9 +55,12 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundObjectCreationExpression objectCreation => (BoundExpression)VisitObjectCreationExpression(objectCreation)!,
             BoundLambdaExpression lambda => (BoundExpression)VisitLambdaExpression(lambda)!,
             BoundBlockExpression block => (BoundExpression)VisitBlockExpression(block)!,
+            BoundAssignmentExpression assignment => (BoundExpression)VisitAssignmentExpression(assignment)!,
             _ => throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}"),
         };
     }
+
+    public virtual BoundNode? VisitAssignmentExpression(BoundAssignmentExpression node) => node;
 
     public virtual INamespaceSymbol VisitNamespace(INamespaceSymbol @namespace)
     {
