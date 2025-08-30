@@ -293,7 +293,7 @@ internal abstract class Binder
             _ => typeSyntax.ToString()
         };
 
-        _diagnostics.ReportUndefinedName(name, typeSyntax.GetLocation());
+        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, typeSyntax.GetLocation());
         return Compilation.ErrorTypeSymbol;
     }
 

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Collections.Generic;
 
 namespace Raven.Generators
 {
@@ -8,50 +9,81 @@ namespace Raven.Generators
         {
             var sb = new StringBuilder();
             sb.AppendLine("namespace Raven.CodeAnalysis;");
-        sb.AppendLine();
-        sb.AppendLine("internal static partial class CompilerDiagnostics");
-        sb.AppendLine("{");
-        sb.AppendLine("    private static DiagnosticDescriptor[]? _allDescriptors;");
-        foreach (var d in diagnostics)
-        {
-            var fieldName = "_" + char.ToLowerInvariant(d.Identifier[0]) + d.Identifier[1..];
-            sb.AppendLine($"    private static DiagnosticDescriptor? {fieldName};");
-        }
-        sb.AppendLine();
-        foreach (var d in diagnostics)
-        {
-            var fieldName = "_" + char.ToLowerInvariant(d.Identifier[0]) + d.Identifier[1..];
-            sb.AppendLine("    /// <summary>");
-            sb.AppendLine($"    /// {d.Id}: {d.Message}");
-            sb.AppendLine("    /// </summary>");
-            sb.AppendLine($"    public static DiagnosticDescriptor {d.Identifier} => {fieldName} ??= DiagnosticDescriptor.Create(");
-            sb.AppendLine($"        id: \"{d.Id}\",");
-            sb.AppendLine($"        title: \"{d.Title}\",");
-            sb.AppendLine($"        description: \"{d.Description}\",");
-            sb.AppendLine($"        helpLinkUri: \"{d.HelpLinkUri}\",");
-            sb.AppendLine($"        messageFormat: \"{d.Message}\",");
-            sb.AppendLine($"        category: \"{d.Category}\",");
-            sb.AppendLine($"        DiagnosticSeverity.{d.Severity},");
-            sb.AppendLine($"        isEnabledByDefault: {d.EnabledByDefault.ToString().ToLowerInvariant()});");
             sb.AppendLine();
+            sb.AppendLine("internal static partial class CompilerDiagnostics");
+            sb.AppendLine("{");
+            sb.AppendLine("    private static DiagnosticDescriptor[]? _allDescriptors;");
+            foreach (var d in diagnostics)
+            {
+                var fieldName = "_" + char.ToLowerInvariant(d.Identifier[0]) + d.Identifier[1..];
+                sb.AppendLine($"    private static DiagnosticDescriptor? {fieldName};");
+            }
+            sb.AppendLine();
+            foreach (var d in diagnostics)
+            {
+                var fieldName = "_" + char.ToLowerInvariant(d.Identifier[0]) + d.Identifier[1..];
+                sb.AppendLine("    /// <summary>");
+                sb.AppendLine($"    /// {d.Id}: {d.Message}");
+                sb.AppendLine("    /// </summary>");
+                sb.AppendLine($"    public static DiagnosticDescriptor {d.Identifier} => {fieldName} ??= DiagnosticDescriptor.Create(");
+                sb.AppendLine($"        id: \"{d.Id}\",");
+                sb.AppendLine($"        title: \"{d.Title}\",");
+                sb.AppendLine($"        description: \"{d.Description}\",");
+                sb.AppendLine($"        helpLinkUri: \"{d.HelpLinkUri}\",");
+                sb.AppendLine($"        messageFormat: \"{d.Message}\",");
+                sb.AppendLine($"        category: \"{d.Category}\",");
+                sb.AppendLine($"        DiagnosticSeverity.{d.Severity},");
+                sb.AppendLine($"        isEnabledByDefault: {d.EnabledByDefault.ToString().ToLowerInvariant()});");
+                sb.AppendLine();
+            }
+            sb.AppendLine("    public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=");
+            sb.AppendLine("    [");
+            foreach (var d in diagnostics)
+            {
+                sb.AppendLine($"        {d.Identifier},");
+            }
+            sb.AppendLine("    ];");
+            sb.AppendLine();
+            sb.AppendLine("    public static DiagnosticDescriptor? GetDescriptor(string diagnosticId) => diagnosticId switch");
+            sb.AppendLine("    {");
+            foreach (var d in diagnostics)
+            {
+                sb.AppendLine($"        \"{d.Id}\" => {d.Identifier},");
+            }
+            sb.AppendLine("        _ => null");
+            sb.AppendLine("    };");
+            sb.AppendLine("}");
+            return sb.ToString();
         }
-        sb.AppendLine("    public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=");
-        sb.AppendLine("    [");
-        foreach (var d in diagnostics)
+
+        public static string GenerateDiagnosticBagExtensions(List<DiagnosticDescriptorModel> diagnostics)
         {
-            sb.AppendLine($"        {d.Identifier},");
-        }
-        sb.AppendLine("    ];");
-        sb.AppendLine();
-        sb.AppendLine("    public static DiagnosticDescriptor? GetDescriptor(string diagnosticId) => diagnosticId switch");
-        sb.AppendLine("    {");
-        foreach (var d in diagnostics)
-        {
-            sb.AppendLine($"        \"{d.Id}\" => {d.Identifier},");
-        }
-        sb.AppendLine("        _ => null");
-        sb.AppendLine("    };");
-        sb.AppendLine("}");
+            var sb = new StringBuilder();
+            sb.AppendLine("namespace Raven.CodeAnalysis;");
+            sb.AppendLine();
+            sb.AppendLine("public static partial class DiagnosticBagExtensions");
+            sb.AppendLine("{");
+            foreach (var d in diagnostics)
+            {
+                sb.Append($"    public static void Report{d.Identifier}(this DiagnosticBag diagnostics");
+                foreach (var arg in d.Arguments)
+                {
+                    sb.Append(", object? ");
+                    sb.Append(arg);
+                }
+                sb.AppendLine(", Location location)");
+                sb.Append("        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.");
+                sb.Append(d.Identifier);
+                sb.Append(", location");
+                foreach (var arg in d.Arguments)
+                {
+                    sb.Append(", ");
+                    sb.Append(arg);
+                }
+                sb.AppendLine("));");
+                sb.AppendLine();
+            }
+            sb.AppendLine("}");
             return sb.ToString();
         }
     }
@@ -65,5 +97,6 @@ namespace Raven.Generators
         string Severity,
         bool EnabledByDefault,
         string Description,
-        string HelpLinkUri);
+        string HelpLinkUri,
+        IReadOnlyList<string> Arguments);
 }

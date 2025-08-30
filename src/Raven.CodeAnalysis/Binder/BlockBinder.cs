@@ -102,7 +102,7 @@ partial class BlockBinder : Binder
         }
 
         if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
-            _diagnostics.ReportVariableShadowed(name, variableDeclarator.Identifier.GetLocation());
+            _diagnostics.ReportVariableShadowsOuterScope(name, variableDeclarator.Identifier.GetLocation());
 
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
         var isMutable = decl!.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
@@ -141,7 +141,10 @@ partial class BlockBinder : Binder
 
             if (type.TypeKind != TypeKind.Error && !IsAssignable(type, boundInitializer!.Type!))
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(boundInitializer.Type!, type, initializer.Value.GetLocation());
+                _diagnostics.ReportCannotAssignFromTypeToType(
+                    boundInitializer.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    initializer.Value.GetLocation());
                 boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
             }
         }
@@ -246,11 +249,17 @@ partial class BlockBinder : Binder
             {
                 var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
                 if (!IsAssignable(method.ReturnType, unit))
-                    _diagnostics.ReportCannotConvertFromTypeToType(unit, method.ReturnType, returnStatement.GetLocation());
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        returnStatement.GetLocation());
             }
             else if (expr.Type is not null && !IsAssignable(method.ReturnType, expr.Type))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(expr.Type, method.ReturnType, returnStatement.Expression!.GetLocation());
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    returnStatement.Expression!.GetLocation());
             }
         }
 
@@ -346,7 +355,7 @@ partial class BlockBinder : Binder
             var bound = BindStatement(stmt);
             if (!allowReturn && bound is BoundReturnStatement br)
             {
-                _diagnostics.ReportReturnNotAllowedInExpression(stmt.GetLocation());
+                _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
                 var expr = br.Expression ?? new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
                 bound = new BoundExpressionStatement(expr);
             }
@@ -444,7 +453,10 @@ partial class BlockBinder : Binder
                 var expected = target.TupleElements[i].Type;
                 if (!IsAssignable(expected, boundExpr.Type!))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(boundExpr.Type!, expected, arg.GetLocation());
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        boundExpr.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        expected.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        arg.GetLocation());
                 }
             }
 
@@ -573,7 +585,10 @@ partial class BlockBinder : Binder
             returnType = inferredReturnType;
             if (inferred is not null && !IsAssignable(returnType, inferred))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(inferred, returnType, syntax.ExpressionBody.GetLocation());
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.ExpressionBody.GetLocation());
             }
         }
         else
@@ -680,7 +695,7 @@ partial class BlockBinder : Binder
 
                 if (member is null)
                 {
-                    _diagnostics.ReportUndefinedName(memberName, memberAccess.Name.GetLocation());
+                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, memberAccess.Name.GetLocation());
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
                 }
 
@@ -741,7 +756,7 @@ partial class BlockBinder : Binder
 
         if (instanceMember == null)
         {
-            _diagnostics.ReportUndefinedName(name, memberAccess.Name.GetLocation());
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberAccess.Name.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
@@ -1021,7 +1036,7 @@ partial class BlockBinder : Binder
         if (symbol is INamespaceSymbol ns)
             return new BoundNamespaceExpression(ns);
 
-        _diagnostics.ReportUndefinedName(name, location);
+        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, location);
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
@@ -1104,7 +1119,7 @@ partial class BlockBinder : Binder
 
         if (symbol is null)
         {
-            _diagnostics.ReportUndefinedName(syntax.Identifier.Text, syntax.Identifier.GetLocation());
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(syntax.Identifier.Text, syntax.Identifier.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
@@ -1168,7 +1183,11 @@ partial class BlockBinder : Binder
         }
 
         // 4. Fel
-        _diagnostics.ReportUndefinedBinaryOperator(opKind.ToString(), left.Type, right.Type, syntax.OperatorToken.GetLocation());
+        _diagnostics.ReportOperatorCannotBeAppliedToOperandsOfTypes(
+            opKind.ToString(),
+            left.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            right.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            syntax.OperatorToken.GetLocation());
 
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
@@ -1389,7 +1408,7 @@ partial class BlockBinder : Binder
                 if (methodName == "Invoke")
                     _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
                 else
-                    _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntax.Expression.GetLocation());
 
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
@@ -1426,7 +1445,7 @@ partial class BlockBinder : Binder
         if (typeSymbol is not null)
             return BindConstructorInvocation(typeSymbol, boundArguments, syntax);
 
-        _diagnostics.ReportUndefinedName(methodName, syntax.Expression.GetLocation());
+        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntax.Expression.GetLocation());
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
@@ -1470,7 +1489,7 @@ partial class BlockBinder : Binder
 
         if (typeSymbol == null)
         {
-            _diagnostics.ReportUndefinedName(syntax.Type.ToString(), syntax.Type.GetLocation());
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(syntax.Type.ToString(), syntax.Type.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
@@ -1524,7 +1543,9 @@ partial class BlockBinder : Binder
 
         if (indexer is null)
         {
-            _diagnostics.ReportUndefinedIndexer(receiverType, syntax.GetLocation());
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
+                receiverType.Name,
+                syntax.GetLocation());
             return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
         }
 
@@ -1561,7 +1582,7 @@ partial class BlockBinder : Binder
 
             if (indexer is null || indexer.SetMethod is null)
             {
-                _diagnostics.ReportInvalidIndexerAssignment(syntax.GetLocation());
+                _diagnostics.ReportLeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer(syntax.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
             }
 
@@ -1576,7 +1597,7 @@ partial class BlockBinder : Binder
         {
             if (!localSymbol.IsMutable)
             {
-                _diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
+                _diagnostics.ReportThisValueIsNotMutable(syntax.LeftHandSide.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
@@ -1589,7 +1610,10 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(localSymbol.Type, right2.Type!))
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(right2.Type!, localSymbol.Type, syntax.RightHandSide.GetLocation());
+                _diagnostics.ReportCannotAssignFromTypeToType(
+                    right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    localSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.RightHandSide.GetLocation());
                 return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -1612,7 +1636,10 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(fieldSymbol.Type, right2.Type!))
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(right2.Type!, fieldSymbol.Type, syntax.RightHandSide.GetLocation());
+                _diagnostics.ReportCannotAssignFromTypeToType(
+                    right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    fieldSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.RightHandSide.GetLocation());
                 return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -1635,7 +1662,10 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(propertySymbol.Type, right2.Type!))
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(right2.Type!, propertySymbol.Type, syntax.RightHandSide.GetLocation());
+                _diagnostics.ReportCannotAssignFromTypeToType(
+                    right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    propertySymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.RightHandSide.GetLocation());
                 return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -1715,7 +1745,10 @@ partial class BlockBinder : Binder
 
                 if (!IsAssignable(elementType, sourceType))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(sourceType, elementType, syntax.GetLocation());
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.GetLocation());
                 }
             }
 
@@ -1746,7 +1779,10 @@ partial class BlockBinder : Binder
 
                 if (!IsAssignable(elementType, sourceType))
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(sourceType, elementType, syntax.GetLocation());
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.GetLocation());
                 }
             }
 
