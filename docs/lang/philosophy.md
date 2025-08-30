@@ -2,6 +2,8 @@
 
 Raven is a modern programming language designed with clarity, expressiveness, and composability at its core. It draws inspiration from C#, F#, Swift, and Python — but is not bound by their conventions. Raven's guiding philosophy is to prioritize conceptual integrity, minimize syntactic noise, and empower developers to write code that reads like intention, not ceremony.
 
+It embraces an expression-first, expression-oriented design where nearly every construct yields a value.
+
 ---
 
 ## ✨ Core Principles
@@ -43,7 +45,13 @@ This symmetry improves reasoning and avoids special cases.
 
 ---
 
-### 3. **Declarative, Not Just Functional**
+### 3. **Expression-First Design**
+
+Raven is expression-oriented: almost every construct evaluates to a value, encouraging composition and reducing the distinction between statements and expressions.
+
+---
+
+### 4. **Declarative, Not Just Functional**
 
 Raven embraces declarative programming: describing *what* rather than *how*. Pattern matching, expressions-as-values, and implicit returns enable elegant problem modeling:
 
@@ -57,19 +65,19 @@ match value {
 
 ---
 
-### 4. **Contextual Precision and Modularity**
+### 5. **Contextual Precision and Modularity**
 
 Every part of Raven's compiler is context-sensitive and modular. Parsers, binders, and code generators are composable and disposable — no global state, no implicit magic. This architecture makes Raven suitable for rich tooling, speculative parsing, and precise error recovery.
 
 ---
 
-### 5. **Syntax is Structure**
+### 6. **Syntax is Structure**
 
 Raven's syntax trees are not just parsing artifacts — they are designed objects. Nodes are generated from formal XML specifications, ensuring consistency, testability, and predictability. This emphasis on structural design reflects the language's belief that **syntax is architecture**.
 
 ---
 
-### 6. **Minimalism with Purpose**
+### 7. **Minimalism with Purpose**
 
 Semicolons are optional. Newlines matter — but only when they should. Blocks, expressions, and types interleave naturally. The language does not aim to reduce all syntax, but only that which obstructs intent.
 
@@ -88,7 +96,7 @@ let x = 2; Console.WriteLine(x)
 
 ---
 
-### 7. **Target-Typed Member Access and Expression Completion**
+### 8. **Target-Typed Member Access and Expression Completion**
 
 Raven supports target-typed expressions, allowing constructs like:
 
@@ -100,7 +108,7 @@ This enables more concise and predictive IntelliSense experiences and binds expr
 
 ---
 
-### 8. **`let` vs `var`: Mutability by Design**
+### 9. **`let` vs `var`: Mutability by Design**
 
 Raven uses `let` and `var` to make **mutability an explicit decision**:
 
