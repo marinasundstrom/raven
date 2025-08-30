@@ -11,7 +11,7 @@ public class SemanticClassifierTests
     public void ClassifiesTokensBySymbol()
     {
         var source = """
-namespace N { class C { method M() -> unit {} } let x = M() }
+namespace N { class C { let f = 0 public P: int => f method M(p: int) -> int { let l = p l } } }
 """;
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default);
@@ -26,5 +26,17 @@ namespace N { class C { method M() -> unit {} } let x = M() }
 
         var methodToken = result.Tokens.Keys.First(t => t.Text == "M");
         result.Tokens[methodToken].ShouldBe(SemanticClassification.Method);
+
+        var fieldToken = result.Tokens.Keys.First(t => t.Text == "f");
+        result.Tokens[fieldToken].ShouldBe(SemanticClassification.Field);
+
+        var propertyToken = result.Tokens.Keys.First(t => t.Text == "P");
+        result.Tokens[propertyToken].ShouldBe(SemanticClassification.Property);
+
+        var parameterToken = result.Tokens.Keys.First(t => t.Text == "p");
+        result.Tokens[parameterToken].ShouldBe(SemanticClassification.Parameter);
+
+        var localToken = result.Tokens.Keys.First(t => t.Text == "l");
+        result.Tokens[localToken].ShouldBe(SemanticClassification.Local);
     }
 }

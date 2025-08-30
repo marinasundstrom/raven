@@ -65,6 +65,7 @@ public static class SemanticClassifier
             ITypeSymbol => SemanticClassification.Type,
             IMethodSymbol => SemanticClassification.Method,
             IParameterSymbol => SemanticClassification.Parameter,
+            ILocalSymbol => SemanticClassification.Local,
             IFieldSymbol => SemanticClassification.Field,
             IPropertySymbol => SemanticClassification.Property,
             _ => SemanticClassification.Default
@@ -110,6 +111,7 @@ public enum SemanticClassification
     Type,
     Method,
     Parameter,
+    Local,
     Property,
     Field
 }
