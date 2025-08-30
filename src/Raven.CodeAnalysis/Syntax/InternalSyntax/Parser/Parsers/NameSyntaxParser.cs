@@ -135,17 +135,29 @@ internal class NameSyntaxParser : SyntaxParser
 
     public UnqualifiedNameSyntax ParseUnqualifiedName()
     {
-        var name = ReadToken();
+        var name = PeekToken();
 
         if (name.IsKind(SyntaxKind.StarToken))
-            return WildcardName(name);
-
-        if (name.IsKind(SyntaxKind.IdentifierToken) &&
-            PeekToken().IsKind(SyntaxKind.LessThanToken) &&
-            LooksLikeTypeArgumentList())
         {
-            var typeArgList = ParseTypeArgumentList();
-            return GenericName(name, typeArgList);
+            ReadToken();
+            return WildcardName(name);
+        }
+
+        if (name.IsKind(SyntaxKind.IdentifierToken))
+        {
+            ReadToken();
+
+            if (
+                PeekToken().IsKind(SyntaxKind.LessThanToken) &&
+                LooksLikeTypeArgumentList())
+            {
+                var typeArgList = ParseTypeArgumentList();
+                return GenericName(name, typeArgList);
+            }
+        }
+        else
+        {
+            name = MissingToken(SyntaxKind.IdentifierToken);
         }
 
         return IdentifierName(name);
