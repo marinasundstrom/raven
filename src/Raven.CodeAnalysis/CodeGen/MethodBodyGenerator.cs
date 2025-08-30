@@ -253,10 +253,14 @@ internal class MethodBodyGenerator
                 var expressionType = exprStmt.Expression.Type;
                 var returnType = MethodSymbol.ReturnType;
 
-                if (expressionType is not null &&
-                    expressionType.IsValueType &&
-                    (returnType.SpecialType is SpecialType.System_Object ||
-                     returnType is IUnionTypeSymbol))
+                if (returnType.SpecialType == SpecialType.System_Unit)
+                {
+                    ILGenerator.Emit(OpCodes.Pop);
+                }
+                else if (expressionType is not null &&
+                         expressionType.IsValueType &&
+                         (returnType.SpecialType is SpecialType.System_Object ||
+                          returnType is IUnionTypeSymbol))
                 {
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
                 }
