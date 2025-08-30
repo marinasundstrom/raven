@@ -1567,9 +1567,22 @@ internal class ExpressionGenerator : Generator
 
     private void EmitBlock(BoundBlockExpression block)
     {
-        foreach (var s in block.Statements)
+        var statements = block.Statements.ToArray();
+
+        for (int i = 0; i < statements.Length; i++)
         {
-            EmitStatement(s);
+            var statement = statements[i];
+            var isLast = i == statements.Length - 1;
+
+            if (isLast && statement is BoundExpressionStatement exprStmt &&
+                exprStmt.Expression.Type?.SpecialType is not SpecialType.System_Void)
+            {
+                new ExpressionGenerator(this, exprStmt.Expression).Emit();
+            }
+            else
+            {
+                EmitStatement(statement);
+            }
         }
     }
 
