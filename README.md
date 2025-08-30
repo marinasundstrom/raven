@@ -61,19 +61,20 @@ import System.Text.*
 let list = [1, 42, 3]
 var i = 0
 
-let stringBuilder = new StringBuilder()
+let stringBuilder = StringBuilder()
 
 while i < list.Length {
     let x = list[i]
     stringBuilder.AppendLine(x.ToString())
     if x > 3 {
         Console.WriteLine("Hello, World!")
+        list[i] = 42
     }
-    i = i + 1
+    i = { i + 1; }
 }
 
 Console.WriteLine(stringBuilder.ToString())
-````
+```
 
 **Highlights**:
 
