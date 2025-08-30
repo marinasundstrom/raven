@@ -1,7 +1,7 @@
 namespace Raven.CodeAnalysis;
 
-// Diagnostic helpers are generated from DiagnosticDescriptors.xml using tools/DiagnosticsGenerator.
-// This partial class is intentionally empty.
+// The methods in this partial class are generated from DiagnosticDescriptors.xml
+// using tools/DiagnosticsGenerator.
 public static partial class DiagnosticBagExtensions
 {
 }
