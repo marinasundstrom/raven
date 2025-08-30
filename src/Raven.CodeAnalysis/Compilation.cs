@@ -655,6 +655,10 @@ public class Compilation
         {
             return GetTypeByMetadataName("System.Object");
         }
+        else if (specialType is SpecialType.System_ValueType)
+        {
+            return GetTypeByMetadataName("System.ValueType");
+        }
         else if (specialType is SpecialType.System_Nullable_T)
         {
             return GetTypeByMetadataName("System.Nullable");

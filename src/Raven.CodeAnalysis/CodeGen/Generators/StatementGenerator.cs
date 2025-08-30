@@ -121,8 +121,6 @@ internal class StatementGenerator : Generator
                 break;
             case BoundExpression expr:
                 new ExpressionGenerator(scope, expr).Emit();
-                if (expr.Type?.SpecialType is not SpecialType.System_Void)
-                    ILGenerator.Emit(OpCodes.Pop);
                 break;
         }
     }
