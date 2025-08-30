@@ -1,3 +1,4 @@
+using System.Linq;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -38,6 +39,9 @@ public static class SemanticClassifier
 
                     if (symbol != null)
                         tokenMap[descendant] = ClassifySymbol(symbol);
+                    else if (descendant.Parent.AncestorsAndSelf().Any(
+                                 n => n is ImportDirectiveSyntax or AliasDirectiveSyntax))
+                        tokenMap[descendant] = SemanticClassification.Namespace;
                     else
                         tokenMap[descendant] = SemanticClassification.Default;
                 }
@@ -61,6 +65,7 @@ public static class SemanticClassifier
     {
         return symbol switch
         {
+            IAliasSymbol alias => ClassifySymbol(alias.UnderlyingSymbol),
             INamespaceSymbol => SemanticClassification.Namespace,
             ITypeSymbol => SemanticClassification.Type,
             IMethodSymbol => SemanticClassification.Method,
@@ -75,11 +80,15 @@ public static class SemanticClassifier
     {
         var node = token.Parent;
 
-        // Climb to the outermost bindable node that includes this identifier
+        // Climb to the bindable node that represents the expression ending at this identifier
         while (node != null)
         {
             if (node.Parent is MemberAccessExpressionSyntax ma && ma.Name == node)
+            {
+                if (ma.Parent is AliasDirectiveSyntax)
+                    break;
                 node = ma;
+            }
             else if (node.Parent is QualifiedNameSyntax qn && qn.Right == node)
                 node = qn;
             else if (node.Parent is InvocationExpressionSyntax inv && inv.Expression == node)
