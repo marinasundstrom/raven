@@ -85,6 +85,12 @@
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
+  <Node Name="AssignmentStatement" Inherits="Statement" HasExplicitKind="true">
+    <Slot Name="Left" Type="Expression" />
+    <Slot Name="OperatorToken" Type="Token" />
+    <Slot Name="Right" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
   <Node Name="IfStatement" Inherits="Statement">
     <Slot Name="IfKeyword" Type="Token" />
     <Slot Name="Condition" Type="Expression" />

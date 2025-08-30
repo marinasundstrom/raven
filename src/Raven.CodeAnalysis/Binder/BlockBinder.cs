@@ -183,6 +183,7 @@ partial class BlockBinder : Binder
         BoundStatement boundNode = statement switch
         {
             LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclaration(localDeclaration.Declaration.Declarators[0]),
+            AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
             FunctionStatementSyntax function => BindFunction(function),
@@ -1602,11 +1603,11 @@ partial class BlockBinder : Binder
                                  p.GetMethod.Parameters.Length == argCount);
     }
 
-    private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
+    private BoundExpression BindAssignment(ExpressionSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node)
     {
-        if (syntax.LeftHandSide is ElementAccessExpressionSyntax elementAccess)
+        if (leftSyntax is ElementAccessExpressionSyntax elementAccess)
         {
-            var right = BindExpression(syntax.RightHandSide);
+            var right = BindExpression(rightSyntax);
 
             var receiver = BindExpression(elementAccess.Expression);
             var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
@@ -1622,7 +1623,7 @@ partial class BlockBinder : Binder
 
             if (indexer is null || indexer.SetMethod is null)
             {
-                _diagnostics.ReportLeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer(syntax.GetLocation());
+                _diagnostics.ReportLeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
             }
 
@@ -1631,17 +1632,17 @@ partial class BlockBinder : Binder
         }
 
         // Fall back to normal variable/property assignment
-        var left = BindExpression(syntax.LeftHandSide);
+        var left = BindExpression(leftSyntax);
 
         if (left.Symbol is ILocalSymbol localSymbol)
         {
             if (!localSymbol.IsMutable)
             {
-                _diagnostics.ReportThisValueIsNotMutable(syntax.LeftHandSide.GetLocation());
+                _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
-            var right2 = BindExpression(syntax.RightHandSide);
+            var right2 = BindExpression(rightSyntax);
 
             if (right2 is BoundEmptyCollectionExpression)
             {
@@ -1653,7 +1654,7 @@ partial class BlockBinder : Binder
                 _diagnostics.ReportCannotAssignFromTypeToType(
                     right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     localSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    syntax.RightHandSide.GetLocation());
+                    rightSyntax.GetLocation());
                 return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -1661,13 +1662,7 @@ partial class BlockBinder : Binder
         }
         else if (left.Symbol is IFieldSymbol fieldSymbol)
         {
-            /* if (propertySymbol. is null)
-            {
-                //_diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-            } */
-
-            var right2 = BindExpression(syntax.RightHandSide);
+            var right2 = BindExpression(rightSyntax);
 
             if (right2 is BoundEmptyCollectionExpression)
             {
@@ -1679,7 +1674,7 @@ partial class BlockBinder : Binder
                 _diagnostics.ReportCannotAssignFromTypeToType(
                     right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     fieldSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    syntax.RightHandSide.GetLocation());
+                    rightSyntax.GetLocation());
                 return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -1689,11 +1684,10 @@ partial class BlockBinder : Binder
         {
             if (propertySymbol.SetMethod is null)
             {
-                //_diagnostics.ReportThisValueIsNotMutable(localSymbol.Name, syntax.LeftHandSide.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
-            var right2 = BindExpression(syntax.RightHandSide);
+            var right2 = BindExpression(rightSyntax);
 
             if (right2 is BoundEmptyCollectionExpression)
             {
@@ -1705,7 +1699,7 @@ partial class BlockBinder : Binder
                 _diagnostics.ReportCannotAssignFromTypeToType(
                     right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     propertySymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    syntax.RightHandSide.GetLocation());
+                    rightSyntax.GetLocation());
                 return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
             }
 
@@ -1713,6 +1707,15 @@ partial class BlockBinder : Binder
         }
 
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
+        => BindAssignment(syntax.LeftHandSide, syntax.RightHandSide, syntax);
+
+    private BoundStatement BindAssignmentStatement(AssignmentStatementSyntax syntax)
+    {
+        var bound = BindAssignment(syntax.Left, syntax.Right, syntax);
+        return new BoundExpressionStatement(bound);
     }
 
     private BoundExpression? GetReceiver(BoundExpression left)
