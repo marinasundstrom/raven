@@ -198,6 +198,8 @@ public class CodeTextView : TextView
             SemanticClassification.Namespace => new(Color.BrightCyan, background),
             SemanticClassification.Field => new(Color.Cyan, background),
             SemanticClassification.Parameter => new(Color.Blue, background),
+            SemanticClassification.Property => new(Color.BrightGreen, background),
+            SemanticClassification.Local => new(Color.BrightMagenta, background),
             _ => new(Color.BrightBlue, background)
         };
     }
