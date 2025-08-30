@@ -80,6 +80,8 @@ public static class SemanticClassifier
         {
             if (node.Parent is MemberAccessExpressionSyntax ma && ma.Name == node)
                 node = ma;
+            else if (node.Parent is MemberBindingExpressionSyntax mb && mb.Name == node)
+                node = mb;
             else if (node.Parent is QualifiedNameSyntax qn && qn.Right == node)
                 node = qn;
             else if (node.Parent is InvocationExpressionSyntax inv && inv.Expression == node)

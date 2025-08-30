@@ -1,8 +1,6 @@
 # Proposal: Member binding expressions
 
-> ⚠️ This proposal has been implemented by allowing the expression in a
-> `MemberAccessExpression` to be `null`. A dedicated syntax node is still
-> required for maintainability and to support method binding.
+> ✅ Implemented via a dedicated `MemberBindingExpression` syntax node.
 
 ## Summary
 

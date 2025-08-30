@@ -50,6 +50,11 @@ class LocalScopeBinder : Binder
         return ParentBinder?.BindMemberAccessReference(node) ?? default;
     }
 
+    internal override SymbolInfo BindMemberBindingReference(MemberBindingExpressionSyntax node)
+    {
+        return ParentBinder?.BindMemberBindingReference(node) ?? default;
+    }
+
     internal override SymbolInfo BindInvocationReference(InvocationExpressionSyntax node)
     {
         return ParentBinder?.BindInvocationReference(node) ?? default;

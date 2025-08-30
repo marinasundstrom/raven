@@ -276,7 +276,11 @@
     <Slot Name="CloseBracketToken" Type="Token" />
   </Node>
   <Node Name="MemberAccessExpression" Inherits="Expression" HasExplicitKind="true">
-    <Slot Name="Expression" Type="Expression" IsNullable="true" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="OperatorToken" Type="Token" />
+    <Slot Name="Name" Type="SimpleName" />
+  </Node>
+  <Node Name="MemberBindingExpression" Inherits="Expression">
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Name" Type="SimpleName" />
   </Node>

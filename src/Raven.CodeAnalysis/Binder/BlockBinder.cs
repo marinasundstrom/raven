@@ -58,6 +58,11 @@ partial class BlockBinder : Binder
         return BindMemberAccessExpression(node).GetSymbolInfo();
     }
 
+    internal override SymbolInfo BindMemberBindingReference(MemberBindingExpressionSyntax node)
+    {
+        return BindMemberBindingExpression(node).GetSymbolInfo();
+    }
+
     public override ISymbol? LookupSymbol(string name)
     {
         if (_locals.TryGetValue(name, out var sym))
@@ -402,6 +407,7 @@ partial class BlockBinder : Binder
             InvocationExpressionSyntax invocation => BindInvocationExpression(invocation),
             ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
+            MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding),
             ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
             AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
@@ -680,34 +686,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)
     {
-        // 🆕 Handle target-typed access: `.Test`
-        if (memberAccess.Expression is null)
-        {
-            var memberName = memberAccess.Name.Identifier.Text;
-
-            // Try to resolve based on the target type context (e.g., assignment or parameter)
-            var expectedType = GetTargetType(memberAccess); // <- You need to implement this based on current binder state
-
-            if (expectedType is not null)
-            {
-                var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
-                    .Lookup(this).FirstOrDefault();
-
-                if (member is null)
-                {
-                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, memberAccess.Name.GetLocation());
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-                }
-
-                return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
-            }
-
-            // If we can't determine the target type, report it
-            _diagnostics.ReportMemberAccessRequiresTargetType(memberName, memberAccess.Name.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-        }
-
-        // 🔽 Existing binding for explicit receiver
+        // Binding for explicit receiver
         var receiver = BindExpression(memberAccess.Expression);
 
         if (receiver is BoundErrorExpression)
@@ -763,6 +742,30 @@ partial class BlockBinder : Binder
         return new BoundMemberAccessExpression(receiver, instanceMember);
     }
 
+    private BoundExpression BindMemberBindingExpression(MemberBindingExpressionSyntax memberBinding)
+    {
+        var memberName = memberBinding.Name.Identifier.Text;
+
+        var expectedType = GetTargetType(memberBinding);
+
+        if (expectedType is not null)
+        {
+            var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
+                .Lookup(this).FirstOrDefault();
+
+            if (member is null)
+            {
+                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, memberBinding.Name.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            }
+
+            return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
+        }
+
+        _diagnostics.ReportMemberAccessRequiresTargetType(memberName, memberBinding.Name.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
     private ITypeSymbol? GetTargetType(SyntaxNode node)
     {
         var current = node.Parent;
@@ -806,6 +809,12 @@ partial class BlockBinder : Binder
                             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
                             {
                                 var boundMember = BindMemberAccessExpression(memberAccess);
+                                if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
+                                    targetMethod = m;
+                            }
+                            else if (invocation.Expression is MemberBindingExpressionSyntax memberBinding)
+                            {
+                                var boundMember = BindMemberBindingExpression(memberBinding);
                                 if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
                                     targetMethod = m;
                             }
@@ -1250,6 +1259,37 @@ partial class BlockBinder : Binder
         if (syntax.Expression is MemberAccessExpressionSyntax memberAccess)
         {
             var boundMember = BindMemberAccessExpression(memberAccess);
+
+            if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
+            {
+                var argExprs = new List<BoundExpression>();
+                bool argErrors = false;
+                foreach (var arg in syntax.ArgumentList.Arguments)
+                {
+                    var boundArg = BindExpression(arg.Expression);
+                    if (boundArg is BoundErrorExpression)
+                        argErrors = true;
+                    argExprs.Add(boundArg);
+                }
+
+                if (argErrors)
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+
+                if (method.Parameters.Length == argExprs.Count)
+                    return new BoundInvocationExpression(method, argExprs.ToArray(), memberExpr.Receiver);
+
+                receiver = memberExpr.Receiver;
+                methodName = method.Name;
+            }
+            else
+            {
+                receiver = boundMember;
+                methodName = "Invoke";
+            }
+        }
+        else if (syntax.Expression is MemberBindingExpressionSyntax memberBinding)
+        {
+            var boundMember = BindMemberBindingExpression(memberBinding);
 
             if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {

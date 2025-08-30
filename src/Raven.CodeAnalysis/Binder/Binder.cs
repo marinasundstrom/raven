@@ -79,6 +79,7 @@ internal abstract class Binder
         {
             IdentifierNameSyntax id => BindIdentifierReference(id),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessReference(memberAccess),
+            MemberBindingExpressionSyntax memberBinding => BindMemberBindingReference(memberBinding),
             InvocationExpressionSyntax invocation => BindInvocationReference(invocation),
             _ => ParentBinder?.BindReferencedSymbol(node) ?? SymbolInfo.None,
         };
@@ -109,6 +110,11 @@ internal abstract class Binder
     }
 
     internal virtual SymbolInfo BindMemberAccessReference(MemberAccessExpressionSyntax node)
+    {
+        return SymbolInfo.None; // To be overridden in specific binders
+    }
+
+    internal virtual SymbolInfo BindMemberBindingReference(MemberBindingExpressionSyntax node)
     {
         return SymbolInfo.None; // To be overridden in specific binders
     }

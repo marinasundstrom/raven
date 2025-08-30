@@ -197,6 +197,21 @@ internal sealed class DataFlowWalker : SyntaxWalker
         base.VisitMemberAccessExpression(node);
     }
 
+    public override void VisitMemberBindingExpression(MemberBindingExpressionSyntax node)
+    {
+        var bound = _semanticModel.GetBoundNode(node);
+        var symbol = bound?.GetSymbolInfo().Symbol;
+
+        if (symbol is ILocalSymbol local)
+        {
+            _readInside.Add(local);
+            if (!_writtenInside.Contains(local) && !_assignedOnEntry.Contains(local))
+                _dataFlowsIn.Add(local);
+        }
+
+        base.VisitMemberBindingExpression(node);
+    }
+
     public override void VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         Visit(node.Expression);

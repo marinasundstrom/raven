@@ -197,6 +197,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             if (expr is not IdentifierNameSyntax
                 and not MemberAccessExpressionSyntax
+                and not MemberBindingExpressionSyntax
                 and not ElementAccessExpressionSyntax)
             {
                 AddDiagnostic(
@@ -593,6 +594,14 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.OpenBracketToken:
                 expr = ParseCollectionExpression();
                 break;
+
+            case SyntaxKind.DotToken:
+                {
+                    var dot = ReadToken();
+                    var name = new NameSyntaxParser(this).ParseSimpleName();
+                    expr = MemberBindingExpression(dot, name);
+                    break;
+                }
         }
 
         return expr ?? new ExpressionSyntax.Missing();

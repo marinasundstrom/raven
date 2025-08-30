@@ -27,4 +27,18 @@ class Program {
         var verifier = CreateVerifier(testCode);
         verifier.Verify();
     }
+
+    [Fact]
+    public void TargetTypedMethodBinding_UsesAssignmentType()
+    {
+        string testCode = """
+class Program {
+    static Run() -> unit {
+        let number: int = .Parse("42")
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
 }
