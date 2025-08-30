@@ -125,6 +125,7 @@ AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' ;
 
 Assignable               ::= Identifier
                            | MemberAccessExpression
+                           | MemberBindingExpression
                            | ElementAccessExpression
                            | TupleDeconstruction ;
 
@@ -159,11 +160,14 @@ Argument                 ::= [Identifier ':'] Expression ;
 MemberAccessTrailer      ::= '.' Identifier ;
 ElementAccessTrailer     ::= '[' Expression ']' ;
 
+MemberBindingExpression  ::= '.' Identifier ;
+
 (* ---------- Primaries ----------
    NOTE: Block/IfExpression/WhileExpression can appear as expressions,
          so `if (…) … [else …]` and `while (…) …` can be used as statements via ExpressionStatement. *)
 PrimaryExpression        ::= Literal
                            | Identifier
+                           | MemberBindingExpression
                            | ObjectCreationExpression
                            | TupleExpression
                            | ParenthesizedExpression
