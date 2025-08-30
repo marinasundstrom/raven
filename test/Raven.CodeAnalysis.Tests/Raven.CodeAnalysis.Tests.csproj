@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\src\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
     <ProjectReference
       Include="..\..\src\Raven.CodeAnalysis.Testing\Raven.CodeAnalysis.Testing.csproj" />
+    <ProjectReference Include="..\..\src\Raven.CodeAnalysis.Console\Raven.CodeAnalysis.Console.csproj" />
   </ItemGroup>
 
 </Project>
