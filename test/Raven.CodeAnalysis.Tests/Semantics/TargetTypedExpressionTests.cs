@@ -41,4 +41,21 @@ class Program {
         var verifier = CreateVerifier(testCode);
         verifier.Verify();
     }
+
+    [Fact]
+    public void TargetTypedMethodBinding_UsesAssignmentStatementType()
+    {
+        string testCode = """
+enum Color { Red, Blue }
+
+class Program {
+    static Run() -> unit {
+        var color: Color = .Red
+        color = .Blue
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
 }

@@ -784,6 +784,10 @@ partial class BlockBinder : Binder
                     var left = BindExpression(assign.LeftHandSide);
                     return left.Type;
 
+                case AssignmentStatementSyntax assign when assign.Right.Contains(node):
+                    var leftStmt = BindExpression(assign.Left);
+                    return leftStmt.Type;
+
                 case ReturnStatementSyntax returnStmt:
                     return _containingSymbol is IMethodSymbol method ? method.ReturnType : null;
 
