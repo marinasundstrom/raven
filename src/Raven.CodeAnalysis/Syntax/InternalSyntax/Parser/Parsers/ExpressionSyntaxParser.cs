@@ -363,7 +363,20 @@ internal class ExpressionSyntaxParser : SyntaxParser
             else if (token.IsKind(SyntaxKind.DotToken)) // Member Access
             {
                 var dotToken = ReadToken();
-                var memberName = new NameSyntaxParser(this).ParseSimpleName();
+                SimpleNameSyntax memberName;
+                if (PeekToken().IsKind(SyntaxKind.IdentifierToken))
+                {
+                    memberName = new NameSyntaxParser(this).ParseSimpleName();
+                }
+                else
+                {
+                    ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetEndOfLastToken()));
+                    memberName = IdentifierName(identifier);
+                }
                 expr = MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, expr, dotToken, memberName);
             }
             else if (token.IsKind(SyntaxKind.OpenBracketToken)) // Element access
