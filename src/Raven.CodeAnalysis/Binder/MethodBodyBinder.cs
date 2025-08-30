@@ -40,7 +40,10 @@ class MethodBodyBinder : BlockBinder
         {
             if (bound.Statements.LastOrDefault() is BoundExpressionStatement exprStmt && exprStmt.Expression.Type is ITypeSymbol t && !IsAssignable(_methodSymbol.ReturnType, t))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(t, _methodSymbol.ReturnType, block.Statements.Last().GetLocation());
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    t.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    _methodSymbol.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    block.Statements.Last().GetLocation());
             }
         }
 
