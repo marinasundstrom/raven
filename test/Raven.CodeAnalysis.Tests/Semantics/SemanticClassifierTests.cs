@@ -2,10 +2,11 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 using System.Linq;
+using Xunit;
 
-namespace Raven.CodeAnalysis.Tests.Semantics;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class SemanticClassifierTests
+public class SemanticClassifierTests : CompilationTestBase
 {
     [Fact]
     public void ClassifiesTokensBySymbol()
@@ -14,7 +15,7 @@ public class SemanticClassifierTests
 namespace N { class C { method M() -> unit {} } let x = M() }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default);
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var result = SemanticClassifier.Classify(tree.GetRoot(), model);
 

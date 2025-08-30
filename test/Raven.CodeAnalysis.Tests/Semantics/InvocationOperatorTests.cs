@@ -1,9 +1,11 @@
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Xunit;
 
-namespace Raven.CodeAnalysis.Tests;
+namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class InvocationOperatorTests
+public class InvocationOperatorTests : CompilationTestBase
 {
     [Fact]
     public void InvocationOperator_BindsToInvokeMethod()
@@ -19,9 +21,7 @@ let x = t(2)
 """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
         var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;

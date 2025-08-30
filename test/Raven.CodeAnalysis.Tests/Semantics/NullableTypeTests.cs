@@ -3,19 +3,16 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Tests;
-
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class NullableTypeTests
+public class NullableTypeTests : CompilationTestBase
 {
     [Fact]
     public void NullableReferenceAndValueTypes_AreBound()
     {
-        var compilation = Compilation.Create("test", options: new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
+        var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
@@ -29,8 +26,7 @@ public class NullableTypeTests
     [Fact]
     public void ReferencedLibrary_NullabilityAnnotations_AreRead()
     {
-        var compilation = Compilation.Create("test", options: new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
+        var compilation = CreateCompilation();
 
         compilation.EnsureSetup();
         var consoleType = (INamedTypeSymbol)compilation.GetType(typeof(Console))!;
@@ -49,10 +45,7 @@ public class NullableTypeTests
         let i: int? = null
         """;
 
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
+        var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
 
@@ -69,8 +62,7 @@ public class NullableTypeTests
     [Fact]
     public void NonNullable_To_Nullable_Conversion_IsImplicit()
     {
-        var compilation = Compilation.Create("test", options: new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
+        var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
@@ -101,10 +93,7 @@ public class NullableTypeTests
         let c = f2(null)
         """;
 
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
+        var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
 
@@ -121,10 +110,7 @@ public class NullableTypeTests
     [Fact]
     public void ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload()
     {
-        var tree = SyntaxTree.ParseText("System.Console.WriteLine(\"Foo\")");
-        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
+        var (compilation, tree) = CreateCompilation("System.Console.WriteLine(\"Foo\")");
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
@@ -136,8 +122,7 @@ public class NullableTypeTests
     [Fact]
     public void UnionWithNull_ImplicitlyConvertsToNullable()
     {
-        var compilation = Compilation.Create("test", options: new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
+        var compilation = CreateCompilation();
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var union = new UnionTypeSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
         var nullableString = new NullableTypeSymbol(stringType, null, null, null, []);
@@ -149,11 +134,7 @@ public class NullableTypeTests
     [Fact]
     public void NullableType_In_Union_ReportsDiagnostic()
     {
-        var source = "let x: string? | int = null";
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
+        var (compilation, _) = CreateCompilation("let x: string? | int = null");
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.NullableTypeInUnion, diagnostic.Descriptor);
     }
