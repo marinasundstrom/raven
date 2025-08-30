@@ -23,6 +23,11 @@ cd src/Raven.CodeAnalysis/Syntax
 dotnet run --project ../../../tools/NodeGenerator -- -f
 cd ../../..
 
+# Generate compiler diagnostics (run when DiagnosticDescriptors.xml changes)
+cd src/Raven.CodeAnalysis
+dotnet run --project ../../tools/DiagnosticsGenerator -- -f
+cd ../..
+
 # Build and run tests for the main project
 dotnet build              # build all projects
 dotnet test               # run unit tests (avoid `Sample_should_compile_and_run` until final verification)

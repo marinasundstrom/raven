@@ -34,4 +34,11 @@
       WorkingDirectory="Syntax" />
   </Target>
 
+  <Target Name="RunDiagnosticsGenerator"
+    BeforeTargets="CoreCompile"
+    Inputs="DiagnosticDescriptors.xml;../../tools/DiagnosticsGenerator/**/*.cs;../../tools/DiagnosticsGenerator/DiagnosticsGenerator.csproj"
+    Outputs=".diagnostics.stamp">
+    <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator" />
+  </Target>
+
 </Project>
