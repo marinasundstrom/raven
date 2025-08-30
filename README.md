@@ -144,6 +144,14 @@ write to the console when compiling a single file.
 
 > ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and a hardcoded output file path (`test.dll`).
 
+### Run the editor
+
+```bash
+dotnet run --project src/Raven.Editor -- <path-to-file>
+```
+
+When a file path is supplied, the editor opens the file and displays its name in the window title.
+
 ---
 
 ## 📂 Repository Structure
