@@ -32,7 +32,8 @@ internal class Program
     {
         Application.Init();
 
-        var filePath = args.Length > 0 ? args[0] : "";
+        var filePath = args.Length > 0 ? args[0] : string.Empty;
+        var documentName = string.IsNullOrEmpty(filePath) ? "main.rav" : Path.GetFileName(filePath);
         var text = File.Exists(filePath)
             ? File.ReadAllText(filePath)
             : "import System.Console.*\n\nWriteLine(\"Hello, World!\")\n";
@@ -41,7 +42,7 @@ internal class Program
 
         _projectId = Workspace.AddProject("EditorProject", compilationOptions: options);
         _documentId = DocumentId.CreateNew(_projectId);
-        var solution = Workspace.CurrentSolution.AddDocument(_documentId, "main.rav", sourceText);
+        var solution = Workspace.CurrentSolution.AddDocument(_documentId, documentName, sourceText);
 
         var targetFrameworkTfm = "net9.0";
 
@@ -92,7 +93,11 @@ internal class Program
         };
         outputFrame.Add(_outputView);
 
-        var win = new Window("Raven Editor")
+        var windowTitle = string.IsNullOrEmpty(filePath)
+            ? "Raven Editor"
+            : $"Raven Editor - {documentName}";
+
+        var win = new Window(windowTitle)
         {
             X = 0,
             Y = 0,
