@@ -3,13 +3,11 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Tests;
-
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class UnitTypeTests
+public class UnitTypeTests : CompilationTestBase
 {
     [Fact]
     public void FunctionWithoutReturnType_DefaultsToUnit()
@@ -19,7 +17,7 @@ func ping() { }
 let u = ping()
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ping = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         var pingSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ping)!;
@@ -39,7 +37,7 @@ func ping() -> () { }
 let x: () = ping()
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ping = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         var pingSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ping)!;

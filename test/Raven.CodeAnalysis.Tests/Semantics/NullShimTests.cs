@@ -6,13 +6,11 @@ using System.Reflection;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Tests;
-
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class NullShimTests
+public class NullShimTests : CompilationTestBase
 {
     [Fact]
     public void NullShimType_EmittedInUnionAttribute()
@@ -24,8 +22,7 @@ class C {
 """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -51,8 +48,7 @@ class C {
 """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
@@ -73,8 +69,7 @@ class C {
 """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
 
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);

@@ -2,12 +2,11 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
-using Raven.CodeAnalysis.Tests;
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class FunctionTests
+public class FunctionTests : CompilationTestBase
 {
     [Fact]
     public void Function_WithoutReturnType_DefaultsToVoid()
@@ -18,7 +17,7 @@ func outer() {
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
@@ -33,7 +32,7 @@ func test() {}
 func test() {}
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var funcs = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().ToArray();
         _ = model.GetDeclaredSymbol(funcs[0]);

@@ -1,14 +1,11 @@
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Tests;
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ClassInheritanceTests
+public class ClassInheritanceTests : CompilationTestBase
 {
     [Fact]
     public void SealedBaseClass_DerivationProducesDiagnostic()
@@ -18,8 +15,7 @@ class Parent {};
 class Derived : Parent {};
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
         Assert.False(result.Success);

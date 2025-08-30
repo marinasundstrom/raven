@@ -1,12 +1,11 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
-using Raven.CodeAnalysis.Tests;
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class MethodOverloadTests
+public class MethodOverloadTests : CompilationTestBase
 {
     [Fact]
     public void Overloads_DifferOnlyByNullableReferenceType_AreRejected()
@@ -19,9 +18,7 @@ public class MethodOverloadTests
         """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
         _ = model.GetDeclaredSymbol(methods[0]);
@@ -42,9 +39,7 @@ public class MethodOverloadTests
         """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
         _ = model.GetDeclaredSymbol(methods[0]);

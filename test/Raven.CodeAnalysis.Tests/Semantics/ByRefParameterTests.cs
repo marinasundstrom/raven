@@ -3,13 +3,11 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Tests;
-
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ByRefParameterTests
+public class ByRefParameterTests : CompilationTestBase
 {
     [Fact]
     public void Parameter_WithAmpersand_HasRefKindRef()
@@ -20,7 +18,7 @@ class C {
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
@@ -37,7 +35,7 @@ class C {
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
@@ -54,7 +52,7 @@ class C {
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ctor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
         var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
@@ -71,7 +69,7 @@ class C {
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ctor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
         var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
@@ -88,7 +86,7 @@ func outer() {
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
@@ -105,7 +103,7 @@ func outer() {
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
@@ -123,7 +121,7 @@ class C {
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
     }

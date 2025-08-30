@@ -3,11 +3,10 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
-using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ImperativeContextTests
+public class ImperativeContextTests : CompilationTestBase
 {
     [Fact]
     public void IfStatement_BindsAsStatement()
@@ -25,10 +24,7 @@ class C {
 """;
 
         var tree = SyntaxTree.ParseText(code);
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddSyntaxTrees(tree)
-            .AddReferences(TestMetadataReferences.Default);
-
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ifStmt = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().First();
         var bound = model.GetBoundNode(ifStmt);
@@ -50,10 +46,7 @@ class C {
 """;
 
         var tree = SyntaxTree.ParseText(code);
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddSyntaxTrees(tree)
-            .AddReferences(TestMetadataReferences.Default);
-
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ifStmt = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().First();
         var bound = (BoundIfStatement)model.GetBoundNode(ifStmt);
@@ -74,10 +67,7 @@ class C {
 """;
 
         var tree = SyntaxTree.ParseText(code);
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddSyntaxTrees(tree)
-            .AddReferences(TestMetadataReferences.Default);
-
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ifStmt = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().First();
         var bound = (BoundIfStatement)model.GetBoundNode(ifStmt);
@@ -100,10 +90,7 @@ class C {
 """;
 
         var tree = SyntaxTree.ParseText(code);
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddSyntaxTrees(tree)
-            .AddReferences(TestMetadataReferences.Default);
-
+        var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var exprStmt = tree.GetRoot().DescendantNodes().OfType<ExpressionStatementSyntax>()
             .First(es => es.Expression is BlockSyntax);
