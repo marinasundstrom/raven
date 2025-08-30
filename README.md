@@ -24,34 +24,6 @@ Raven is primarily a **learning and exploration project**, aimed at:
 
 Raven is a general-purpose, expression-based language that blends functional and imperative paradigms. Its type system supports union and literal types with flow-sensitive typing similar to TypeScript, and it uses `unit` instead of `void`. As a .NET language, Raven interops seamlessly with C#, even shipping a C# analyzer for type unions. The compiler follows the Roslyn "compiler-as-a-service" architecture.
 
-Read the full [Introduction](docs/introduction.md) for a more detailed overview.
-
----
-
-## 🪶 Why the Name "Raven"?
-
-Ravens are remarkable birds, known for their intelligence and adaptability.  
-
-In Old Norse mythology, ravens held significant importance as messengers of Odin. His two ravens, **Huginn** ("thought") and **Muninn** ("memory/mind"), symbolized intellect and reflection—qualities that align with the goals of this language.  
-
-The name reflects both the **mythological roots** and the **clever traits** of these birds.  
-Alternative names considered: Old Norse **"Hrafn"** or Danish **"Ravn."**
-
----
-
-## 🎯 Project Goals
-
-- **Create a Programming Language** — build a language from the ground up, covering design and implementation.  
-- **Focus on Parsing & Semantics** — implement parsing, binding, and analysis as the backbone of compilation.  
-- **Serve as a Reference** — provide a well-documented example for compiler enthusiasts.  
-- **Pragmatic Scope** — aim for a practical subset of Roslyn-like features, not full parity.  
-
----
-
-## ✨ Syntax
-
-See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
-
 ### Example
 
 ```raven
@@ -84,10 +56,38 @@ Console.WriteLine(stringBuilder.ToString())
 * Array/index access
 * Direct interop with .NET libraries
 
-More [samples](src/Raven.Compiler/samples/).
+Read the full [Introduction](docs/introduction.md) for a more detailed overview.
 
 ---
 
+## 🪶 Why the Name "Raven"?
+
+Ravens are remarkable birds, known for their intelligence and adaptability.  
+
+In Old Norse mythology, ravens held significant importance as messengers of Odin. His two ravens, **Huginn** ("thought") and **Muninn** ("memory/mind"), symbolized intellect and reflection—qualities that align with the goals of this language.  
+
+The name reflects both the **mythological roots** and the **clever traits** of these birds.  
+Alternative names considered: Old Norse **"Hrafn"** or Danish **"Ravn."**
+
+---
+
+## 🎯 Project Goals
+
+- **Create a Programming Language** — build a language from the ground up, covering design and implementation.  
+- **Focus on Parsing & Semantics** — implement parsing, binding, and analysis as the backbone of compilation.  
+- **Serve as a Reference** — provide a well-documented example for compiler enthusiasts.  
+- **Pragmatic Scope** — aim for a practical subset of Roslyn-like features, not full parity.  
+
+---
+
+## ✨ Syntax
+
+See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
+
+More [samples](src/Raven.Compiler/samples/).
+
+---
+ 
 ## 🧩 API
 
 * Compiler API reference: [docs/compiler/api](docs/compiler/api)
