@@ -106,6 +106,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundExpressionStatement expressionStatement:
                 VisitExpressionStatement(expressionStatement);
                 break;
+            case BoundAssignmentStatement assignmentStatement:
+                VisitAssignmentStatement(assignmentStatement);
+                break;
             case BoundLocalDeclarationStatement localDeclaration:
                 VisitLocalDeclarationStatement(localDeclaration);
                 break;
@@ -131,6 +134,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         if (node.Expression is not null)
             VisitExpression(node.Expression);
+    }
+
+    public override void VisitAssignmentStatement(BoundAssignmentStatement node)
+    {
+        VisitExpression(node.Expression);
     }
 
     public override void VisitBinaryExpression(BoundBinaryExpression node)

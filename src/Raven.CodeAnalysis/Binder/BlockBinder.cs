@@ -224,6 +224,7 @@ partial class BlockBinder : Binder
             BoundWhileExpression whileExpr => new BoundWhileStatement(whileExpr.Condition, ExpressionToStatement(whileExpr.Body)),
             BoundForExpression forExpr => new BoundForStatement(forExpr.Local, forExpr.Collection, ExpressionToStatement(forExpr.Body)),
             BoundBlockExpression blockExpr => new BoundBlockStatement(blockExpr.Statements),
+            BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
             _ => new BoundExpressionStatement(expression),
         };
     }
@@ -238,6 +239,7 @@ partial class BlockBinder : Binder
             BoundWhileExpression whileExpr => new BoundWhileStatement(whileExpr.Condition, ExpressionToStatement(whileExpr.Body)),
             BoundForExpression forExpr => new BoundForStatement(forExpr.Local, forExpr.Collection, ExpressionToStatement(forExpr.Body)),
             BoundBlockExpression blockExpr => blockExpr,
+            BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
             _ => expression,
         };
     }
@@ -1719,7 +1721,9 @@ partial class BlockBinder : Binder
     private BoundStatement BindAssignmentStatement(AssignmentStatementSyntax syntax)
     {
         var bound = BindAssignment(syntax.Left, syntax.Right, syntax);
-        return new BoundExpressionStatement(bound);
+        return bound is BoundAssignmentExpression assignment
+            ? new BoundAssignmentStatement(assignment)
+            : new BoundExpressionStatement(bound);
     }
 
     private BoundExpression? GetReceiver(BoundExpression left)

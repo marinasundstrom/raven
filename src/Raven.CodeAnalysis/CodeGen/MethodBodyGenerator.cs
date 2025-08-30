@@ -142,8 +142,16 @@ internal class MethodBodyGenerator
                     }
                     else
                     {
-                        var stmt = new BoundExpressionStatement(boundExpr);
-                        new StatementGenerator(baseGenerator, stmt).Emit();
+                        if (boundExpr is BoundAssignmentExpression assignment)
+                        {
+                            var stmt = new BoundAssignmentStatement(assignment);
+                            new StatementGenerator(baseGenerator, stmt).Emit();
+                        }
+                        else
+                        {
+                            var stmt = new BoundExpressionStatement(boundExpr);
+                            new StatementGenerator(baseGenerator, stmt).Emit();
+                        }
                     }
 
                     ILGenerator.Emit(OpCodes.Ret);
@@ -186,7 +194,7 @@ internal class MethodBodyGenerator
                 field,
                 field.Initializer!);
 
-            var statement = new BoundExpressionStatement(assignment);
+            var statement = new BoundAssignmentStatement((BoundAssignmentExpression)assignment);
             new StatementGenerator(baseGenerator, statement).Emit();
         }
     }
