@@ -310,6 +310,8 @@ public class Compilation
     {
         var diagnostics = new List<Diagnostic>();
 
+        EnsureSetup();
+
         foreach (var syntaxTree in SyntaxTrees)
         {
             foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
@@ -319,6 +321,9 @@ public class Compilation
             foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
                 Add(diagnostic);
         }
+
+        if (Options.OutputKind == OutputKind.ConsoleApplication && GetEntryPoint(cancellationToken) is null)
+            Add(Diagnostic.Create(CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint, Location.None));
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
 
