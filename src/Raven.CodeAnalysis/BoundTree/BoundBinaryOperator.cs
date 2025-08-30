@@ -22,29 +22,36 @@ internal partial class BoundBinaryOperator
         ResultType = result;
     }
 
-    public static BoundBinaryOperator? Lookup(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right)
+    public static bool TryLookup(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, out BoundBinaryOperator op)
     {
         if (left is LiteralTypeSymbol litLeft)
             left = litLeft.UnderlyingType;
         if (right is LiteralTypeSymbol litRight)
             right = litRight.UnderlyingType;
 
+        if (left is ErrorTypeSymbol || right is ErrorTypeSymbol)
+        {
+            op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
+            return false;
+        }
+
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var int64 = compilation.GetSpecialType(SpecialType.System_Int64);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
-        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
 
         if (left.TypeKind == TypeKind.Enum && right.TypeKind == TypeKind.Enum)
         {
             if (kind == SyntaxKind.EqualsEqualsToken)
             {
-                return new BoundBinaryOperator(BinaryOperatorKind.Equality, left, right, boolType);
+                op = new BoundBinaryOperator(BinaryOperatorKind.Equality, left, right, boolType);
+                return true;
             }
 
             if (kind == SyntaxKind.NotEqualsToken)
             {
-                return new BoundBinaryOperator(BinaryOperatorKind.None, left, right, boolType);
+                op = new BoundBinaryOperator(BinaryOperatorKind.Inequality, left, right, boolType);
+                return true;
             }
         }
 
@@ -88,7 +95,10 @@ internal partial class BoundBinaryOperator
             SymbolEqualityComparer.Default.Equals(op.RightType, right));
 
         if (match is not null)
-            return match;
+        {
+            op = match;
+            return true;
+        }
 
         // Try lifting
         if (left.IsNullable() && right.IsNullable())
@@ -103,15 +113,17 @@ internal partial class BoundBinaryOperator
 
             if (lifted is not null)
             {
-                return new BoundBinaryOperator(
+                op = new BoundBinaryOperator(
                     lifted.OperatorKind | BinaryOperatorKind.Lifted,
                     left,
                     right,
                     new NullableTypeSymbol(lifted.ResultType, null, null, null, []));
+                return true;
             }
         }
 
-        throw new InvalidOperationException();
+        op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
+        return false;
     }
 
     private static bool MatchesSyntaxKind(SyntaxKind kind, BinaryOperatorKind operatorKind)

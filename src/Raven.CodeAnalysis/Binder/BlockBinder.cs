@@ -1192,8 +1192,7 @@ partial class BlockBinder : Binder
         }
 
         // 3. Inbyggda operatorer
-        var op = BoundBinaryOperator.Lookup(Compilation, opKind, left.Type, right.Type);
-        if (op is not null)
+        if (BoundBinaryOperator.TryLookup(Compilation, opKind, left.Type, right.Type, out var op))
         {
             return new BoundBinaryExpression(left, op, right);
         }
