@@ -51,10 +51,10 @@ participates in generics, tuples, and unions like any other type.
 
 ## Statements
 
-Raven is primarily **expression-based**: most constructs yield values and can
-appear wherever an expression is expected. For clarity and early exits,
-the language nevertheless permits certain imperative statement forms, such as
-the explicit `return` statement.
+Raven is primarily **expression-oriented**: most constructs yield values and can
+appear wherever an expression is expected, reflecting its expression-first design.
+For clarity and early exits, the language nevertheless permits certain imperative
+statement forms, such as the explicit `return` statement.
 
 Statements are terminated by a **newline**, or by an **optional semicolon** `;`
 that may separate multiple statements on one line. Newlines inside
