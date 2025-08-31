@@ -13,16 +13,12 @@ internal class EqualsValueClauseSyntaxParser : SyntaxParser
 
         var expr = new ExpressionSyntaxParser(this).ParseExpression();
 
-        if (expr is null)
+        if (expr.IsMissing)
         {
-            /*
-            DiagnosticBag.Add(
-                InternalDiagnostic.Create(
+            AddDiagnostic(
+                DiagnosticInfo.Create(
                     CompilerDiagnostics.ExpressionExpected,
-                    new Location(
-                        new TextSpan(currentSpanPosition, 1))
-                ));
-            */
+                    GetEndOfLastToken()));
         }
 
         return SyntaxFactory.EqualsValueClause(equalsToken, expr);
