@@ -183,16 +183,6 @@ internal class StatementSyntaxParser : SyntaxParser
             case SyntaxKind.LetKeyword:
             case SyntaxKind.VarKeyword:
                 return ParseLocalDeclarationStatementSyntax();
-
-                /*
-                                case SyntaxKind.IfKeyword:
-                                    var ifExpr = ParseIfExpressionSyntax();
-                                    return new ExpressionStatementSyntax(ifExpr, diagnostics);
-
-                                case SyntaxKind.WhileKeyword:
-                                    var whileExpr = ParseWhileExpressionSyntax();
-                                    return new ExpressionStatementSyntax(whileExpr, diagnostics);
-                                    */
         }
 
         SetTreatNewlinesAsTokens(false);
