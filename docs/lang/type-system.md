@@ -60,6 +60,18 @@ Console.WriteLine(ids[0])
 
 Values may convert to other types according to .NET rules. Implicit conversions include identity, `null` to any nullable type, lifting value types to their nullable counterpart, widening numeric conversions, reference conversions to base types or interfaces, boxing of value types, and conversions to a matching branch of a union. Narrowing or otherwise unsafe conversions require an explicit cast. See [type compatibility](proposals/type-compatibility.md) for a detailed list of conversion forms.
 
+### Explicit casts
+
+Raven uses C#-style cast syntax for conversions that are not implicit:
+
+```raven
+let n = (double)1
+let s = obj as string
+```
+
+`(T)expr` performs a runtime-checked cast and throws if `expr` cannot convert to `T`.
+`expr as T` attempts the conversion and yields `null` (or a nullable value type) when it fails.
+
 ## Overload resolution
 
 When multiple function overloads are available, Raven selects the candidate whose parameters require the best implicit conversions. Identity matches are preferred over numeric widening, which outrank reference or boxing conversions. User-defined conversions are considered last. Literal arguments convert to their underlying primitive type before the ranking is applied. If no candidate is strictly better, the call is reported as ambiguous.
