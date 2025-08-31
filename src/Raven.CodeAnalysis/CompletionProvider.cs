@@ -102,14 +102,26 @@ public static class CompletionProvider
             if (position >= dotToken.End)
             {
                 var symbolInfo = model.GetSymbolInfo(memberAccess.Expression);
-                if (symbolInfo.Symbol is INamedTypeSymbol typeSymbol)
+                var typeInfo = model.GetTypeInfo(memberAccess.Expression).Type;
+                IEnumerable<ISymbol>? members = null;
+
+                if (symbolInfo.Symbol is INamedTypeSymbol typeSymbol && symbolInfo.Symbol == typeInfo)
+                {
+                    // Accessing a type name: show static members
+                    members = typeSymbol.GetMembers().Where(m => m.IsStatic && m.DeclaredAccessibility == Accessibility.Public);
+                }
+                else if (typeInfo is INamedTypeSymbol instanceType)
+                {
+                    // Accessing an instance: show instance members
+                    members = instanceType.GetMembers().Where(m => !m.IsStatic && m.DeclaredAccessibility == Accessibility.Public);
+                }
+
+                if (members is not null)
                 {
                     var prefix = memberAccess.Name.Identifier.Text;
                     var nameSpan = memberAccess.Name.Identifier.Span;
 
-                    foreach (var member in typeSymbol.GetMembers()
-                                 .Where(x => x.DeclaredAccessibility == Accessibility.Public)
-                                 .Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                    foreach (var member in members.Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                     {
                         if (member is IMethodSymbol method && method.ContainingSymbol is IPropertySymbol)
                             continue;
@@ -136,9 +148,9 @@ public static class CompletionProvider
                             ));
                         }
                     }
-                }
 
-                return completions;
+                    return completions;
+                }
             }
         }
 
