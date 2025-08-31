@@ -48,4 +48,17 @@ let x: () = ping()
         Assert.NotNull(initType);
         Assert.Equal(SpecialType.System_Unit, initType!.SpecialType);
     }
+
+    [Fact]
+    public void TypeResolver_Wraps_Void_In_UnitTypeSymbol()
+    {
+        var compilation = CreateCompilation();
+        compilation.EnsureSetup();
+
+        var type = compilation.GetType(typeof(void));
+
+        Assert.NotNull(type);
+        Assert.Equal(SpecialType.System_Unit, type!.SpecialType);
+        Assert.Same(compilation.UnitTypeSymbol, type);
+    }
 }

@@ -100,6 +100,13 @@ internal class TypeResolver(Compilation compilation)
         if (_cache.TryGetValue(type, out var cached))
             return cached;
 
+        if (type == typeof(void))
+        {
+            var unit = compilation.GetSpecialType(SpecialType.System_Unit);
+            _cache[type] = unit;
+            return unit;
+        }
+
         if (type.Name == "Null")
             return compilation.NullTypeSymbol;
 
