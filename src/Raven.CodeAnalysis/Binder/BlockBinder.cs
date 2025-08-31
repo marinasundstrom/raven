@@ -144,7 +144,9 @@ partial class BlockBinder : Binder
         {
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
 
-            if (type.TypeKind != TypeKind.Error && !IsAssignable(type, boundInitializer!.Type!))
+            if (type.TypeKind != TypeKind.Error &&
+                boundInitializer.Type!.TypeKind != TypeKind.Error &&
+                !IsAssignable(type, boundInitializer.Type!))
             {
                 _diagnostics.ReportCannotAssignFromTypeToType(
                     boundInitializer.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -1654,7 +1656,9 @@ partial class BlockBinder : Binder
                 return new BoundLocalAssignmentExpression(localSymbol, new BoundEmptyCollectionExpression(localSymbol.Type));
             }
 
-            if (!IsAssignable(localSymbol.Type, right2.Type!))
+            if (localSymbol.Type.TypeKind != TypeKind.Error &&
+                right2.Type!.TypeKind != TypeKind.Error &&
+                !IsAssignable(localSymbol.Type, right2.Type!))
             {
                 _diagnostics.ReportCannotAssignFromTypeToType(
                     right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -1674,7 +1678,9 @@ partial class BlockBinder : Binder
                 return new BoundFieldAssignmentExpression(right2, fieldSymbol, new BoundEmptyCollectionExpression(fieldSymbol.Type));
             }
 
-            if (!IsAssignable(fieldSymbol.Type, right2.Type!))
+            if (fieldSymbol.Type.TypeKind != TypeKind.Error &&
+                right2.Type!.TypeKind != TypeKind.Error &&
+                !IsAssignable(fieldSymbol.Type, right2.Type!))
             {
                 _diagnostics.ReportCannotAssignFromTypeToType(
                     right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -1699,7 +1705,9 @@ partial class BlockBinder : Binder
                 return new BoundPropertyAssignmentExpression(right2, propertySymbol, new BoundEmptyCollectionExpression(propertySymbol.Type));
             }
 
-            if (!IsAssignable(propertySymbol.Type, right2.Type!))
+            if (propertySymbol.Type.TypeKind != TypeKind.Error &&
+                right2.Type!.TypeKind != TypeKind.Error &&
+                !IsAssignable(propertySymbol.Type, right2.Type!))
             {
                 _diagnostics.ReportCannotAssignFromTypeToType(
                     right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
