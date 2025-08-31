@@ -151,6 +151,30 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Terminator_SkipsMisplacedTokens_BeforeSemicolon()
+    {
+        var source = "let x = 1 foo;";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        context.SetTreatNewlinesAsTokens(true);
+
+        var parser = new SyntaxParser(context);
+
+        parser.ExpectToken(SyntaxKind.LetKeyword);
+        parser.ExpectToken(SyntaxKind.IdentifierToken);
+        parser.ExpectToken(SyntaxKind.EqualsToken);
+        parser.ExpectToken(SyntaxKind.NumericLiteralToken);
+
+        Assert.True(parser.TryConsumeTerminator(out var terminator));
+        Assert.Equal(SyntaxKind.SemicolonToken, terminator.Kind);
+
+        var redTerminator = (SyntaxToken)terminator;
+        var skipped = redTerminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
+        Assert.Equal(SyntaxKind.IdentifierToken, skippedNode.Tokens.Single().Kind);
+    }
+
+    [Fact]
     public void Terminator_SkipsTokens_UntilEndOfFile()
     {
         var source = "let x = 1 foo";
