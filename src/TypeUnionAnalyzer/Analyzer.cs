@@ -1,5 +1,7 @@
-using System.Collections.Immutable;
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Globalization;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -42,7 +44,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor InvalidPatternRule = new DiagnosticDescriptor(
         id: "TU004",
         title: "Pattern does not match TypeUnion",
-        messageFormat: "Type '{1}' is not allowed by {0}",
+        messageFormat: "Type {1} is not allowed by {0}",
         category: "TypeChecking",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -51,7 +53,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor MustBeObjectTypeRule = new DiagnosticDescriptor(
         id: "TU005",
         title: "TypeUnion must be declared with object type",
-        messageFormat: "{0} must be declared with type 'object' when using [TypeUnion]",
+        messageFormat: "{0} must be declared with type object when using [TypeUnion]",
         category: "TypeChecking",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -193,8 +195,9 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 continue;
 
             var argType = context.SemanticModel.GetTypeInfo(argExpr).Type;
+            var argConst = context.SemanticModel.GetConstantValue(argExpr);
 
-            bool isCompatible = IsAnyImplicit(argType, allowedTypes, context.SemanticModel.Compilation);
+            bool isCompatible = IsAnyImplicit(argType, argConst.HasValue ? argConst.Value : null, allowedTypes, context.SemanticModel.Compilation);
 
             if (!isCompatible)
             {
@@ -375,9 +378,11 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         {
             var whenTrueType = context.SemanticModel.GetTypeInfo(conditional.WhenTrue).Type;
             var whenFalseType = context.SemanticModel.GetTypeInfo(conditional.WhenFalse).Type;
+            var whenTrueConst = context.SemanticModel.GetConstantValue(conditional.WhenTrue);
+            var whenFalseConst = context.SemanticModel.GetConstantValue(conditional.WhenFalse);
 
-            bool isTrueCompatible = IsAnyImplicit(whenTrueType, unionTypes, compilation);
-            bool isFalseCompatible = IsAnyImplicit(whenFalseType, unionTypes, compilation);
+            bool isTrueCompatible = IsAnyImplicit(whenTrueType, whenTrueConst.HasValue ? whenTrueConst.Value : null, unionTypes, compilation);
+            bool isFalseCompatible = IsAnyImplicit(whenFalseType, whenFalseConst.HasValue ? whenFalseConst.Value : null, unionTypes, compilation);
 
             if (!isTrueCompatible || !isFalseCompatible)
             {
@@ -396,8 +401,9 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
 
         // Normal return expression
         var returnType = context.SemanticModel.GetTypeInfo(expr).Type;
+        var returnConst = context.SemanticModel.GetConstantValue(expr);
 
-        bool isCompatible = IsAnyImplicit(returnType, unionTypes, compilation);
+        bool isCompatible = IsAnyImplicit(returnType, returnConst.HasValue ? returnConst.Value : null, unionTypes, compilation);
         if (!isCompatible)
         {
             var diagnostic = Diagnostic.Create(
@@ -411,14 +417,25 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsAnyImplicit(ITypeSymbol? source, TypedConstant unionTypes, Compilation compilation)
+    private static bool IsAnyImplicit(ITypeSymbol? source, object? constantValue, TypedConstant unionTypes, Compilation compilation)
     {
-        if (source == null)
+        if (source == null && constantValue == null)
             return ContainsNullType(unionTypes);
 
-        return unionTypes.Values.Any(tc =>
-            tc.Value is ITypeSymbol target &&
-            compilation.ClassifyConversion(source, target).IsImplicit);
+        foreach (var tc in unionTypes.Values)
+        {
+            if (tc.Value is ITypeSymbol target)
+            {
+                if (source != null && compilation.ClassifyConversion(source, target).IsImplicit)
+                    return true;
+            }
+            else if (Equals(constantValue, tc.Value))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void AnalyzeIsPattern(SyntaxNodeAnalysisContext context)
@@ -450,7 +467,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
 
             var compilation = context.SemanticModel.Compilation;
 
-            var isCompatible = IsAnyImplicit(targetType, allowedTypes, compilation);
+            var isCompatible = IsAnyImplicit(targetType, null, allowedTypes, compilation);
             if (!isCompatible)
             {
                 var diagnostic = Diagnostic.Create(
@@ -511,7 +528,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 if (label.Pattern is DeclarationPatternSyntax declarationPattern)
                 {
                     var patternType = context.SemanticModel.GetTypeInfo(declarationPattern.Type).Type;
-                    if (patternType != null && !IsAnyImplicit(patternType, allowedTypes, compilation))
+                    if (patternType != null && !IsAnyImplicit(patternType, null, allowedTypes, compilation))
                     {
                         var diagnostic = Diagnostic.Create(
                             InvalidPatternRule,
@@ -561,7 +578,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             if (arm.Pattern is DeclarationPatternSyntax declarationPattern)
             {
                 var patternType = context.SemanticModel.GetTypeInfo(declarationPattern.Type).Type;
-                if (patternType != null && !IsAnyImplicit(patternType, allowedTypes, compilation))
+                if (patternType != null && !IsAnyImplicit(patternType, null, allowedTypes, compilation))
                 {
                     var diagnostic = Diagnostic.Create(
                         InvalidPatternRule,
@@ -689,8 +706,9 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             }
 
             var rightType = context.SemanticModel.GetTypeInfo(assignment.Right).Type;
+            var rightConst = context.SemanticModel.GetConstantValue(assignment.Right);
 
-            if (!IsAnyImplicit(rightType, allowedTypes, context.SemanticModel.Compilation))
+            if (!IsAnyImplicit(rightType, rightConst.HasValue ? rightConst.Value : null, allowedTypes, context.SemanticModel.Compilation))
             {
                 var diagnostic = Diagnostic.Create(
                     IncompatibleTypeRule,
@@ -812,20 +830,36 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     }
 
     private static string FormatTypeList(ImmutableArray<ITypeSymbol> types)
-        => string.Join(" or ", types.Select(t => $"'{FormatTypeName(t)}'"));
+        => string.Join(" or ", types.Select(FormatTypeName));
 
     private static bool IsNullShim(ITypeSymbol type)
         => type.Name == "Null" && type.ContainingNamespace?.IsGlobalNamespace == true;
 
     private static bool ContainsNullType(TypedConstant typeArgs)
-        => typeArgs.Values.Any(v => v.Value is ITypeSymbol t && IsNullShim(t));
+        => typeArgs.Values.Any(v => (v.Value is ITypeSymbol t && IsNullShim(t)) || v.Value is null);
 
     private static string FormatTypeName(ITypeSymbol? type)
         => type == null || IsNullShim(type) ? "null" : type.ToDisplayString();
 
     private static string FormatTypeList(TypedConstant typeArgs)
-        => string.Join(" or ",
-            typeArgs.Values.Select(v => v.Value is ITypeSymbol t ? $"'{FormatTypeName(t)}'" : "unknown"));
+        => string.Join(" or ", typeArgs.Values.Select(FormatValue));
+
+    private static string FormatValue(TypedConstant tc)
+    {
+        if (tc.Value is ITypeSymbol t)
+            return FormatTypeName(t);
+        return FormatConstant(tc.Value);
+    }
+
+    private static string FormatConstant(object? value)
+        => value switch
+        {
+            null => "null",
+            string s => SymbolDisplay.FormatLiteral(s, true),
+            char c => SymbolDisplay.FormatLiteral(c, true),
+            bool b => b ? "true" : "false",
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? value?.ToString() ?? "unknown"
+        };
 
     private static bool IsNotUnionCompatibleType(ITypeSymbol type, Compilation compilation) => type.SpecialType != SpecialType.System_Object &&
                type.TypeKind != TypeKind.Dynamic &&

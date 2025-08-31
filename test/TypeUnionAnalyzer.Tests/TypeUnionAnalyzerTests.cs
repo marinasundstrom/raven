@@ -76,7 +76,25 @@ class C {
 }";
         var diagnostics = await GetDiagnosticsAsync(source);
         var info = Assert.Single(diagnostics.Where(d => d.Id == "TU001"));
-        Assert.Contains("'null'", info.GetMessage());
+        Assert.Contains("null", info.GetMessage());
+    }
+
+    [Fact]
+    public async Task ParameterDiagnostic_DoesNotQuoteTypeNames()
+    {
+        var source = @"
+using System;
+[AttributeUsage(AttributeTargets.Parameter)]
+class TypeUnionAttribute : Attribute { public TypeUnionAttribute(params Type[] types) {} }
+class C {
+    static void M([TypeUnion(typeof(int), typeof(bool))] object p) {}
+}";
+        var diagnostics = await GetDiagnosticsAsync(source);
+        var info = Assert.Single(diagnostics.Where(d => d.Id == "TU001"));
+        var message = info.GetMessage();
+        Assert.Contains("int or bool", message);
+        Assert.DoesNotContain("'int'", message);
+        Assert.DoesNotContain("'bool'", message);
     }
 
     [Fact]
@@ -125,5 +143,21 @@ class C {
         var diagnostics = await GetDiagnosticsAsync(source);
         Assert.Contains(diagnostics, d => d.Id == "TU001" && d.GetMessage().Contains("Variable 'x'"));
         Assert.Contains(diagnostics, d => d.Id == "TU001" && d.GetMessage().Contains("Variable 'y'"));
+    }
+
+    [Fact]
+    public async Task LiteralValueUnion_DisplaysValuesAndChecksCompatibility()
+    {
+        var source = @"
+using System;
+[AttributeUsage(AttributeTargets.Parameter)]
+class TypeUnionAttribute : Attribute { public TypeUnionAttribute(params object[] types) {} }
+class C {
+    static void M([TypeUnion(""yes"", ""no"")] object p) {}
+    static void Test() { M(""yes""); M(""maybe""); }
+}";
+        var diagnostics = await GetDiagnosticsAsync(source);
+        Assert.Contains(diagnostics.Where(d => d.Id == "TU001"), d => d.GetMessage().Contains("\"yes\"") && d.GetMessage().Contains("\"no\""));
+        Assert.Single(diagnostics.Where(d => d.Id == "TU002"));
     }
 }
