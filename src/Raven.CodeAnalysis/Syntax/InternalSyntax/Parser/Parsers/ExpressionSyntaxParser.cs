@@ -619,7 +619,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 }
         }
 
-        if (expr is null && SyntaxFacts.IsReservedWordKind(token.Kind))
+        if (expr is null
+            && SyntaxFacts.IsKeywordKind(token.Kind)
+            && !SyntaxFacts.IsReservedWordKind(token.Kind))
         {
             var identifier = ReadToken();
             expr = IdentifierName(identifier);
