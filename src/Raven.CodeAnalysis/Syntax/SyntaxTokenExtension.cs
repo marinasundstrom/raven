@@ -6,4 +6,9 @@ public static class SyntaxTokenExtension
     {
         return SyntaxFacts.IsReservedWordKind(token.Kind);
     }
+
+    public static bool CanBeIdentifier(this SyntaxToken token)
+    {
+        return SyntaxFacts.CanBeIdentifier(token.Kind);
+    }
 }

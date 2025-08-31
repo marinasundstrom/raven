@@ -361,7 +361,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             {
                 var dotToken = ReadToken();
                 SimpleNameSyntax memberName;
-                if (PeekToken().IsKind(SyntaxKind.IdentifierToken))
+                if (CanTokenBeIdentifier(PeekToken()))
                 {
                     memberName = new NameSyntaxParser(this).ParseSimpleName();
                 }
@@ -456,9 +456,14 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         // Try to parse optional name:
         if (PeekToken(1).IsKind(SyntaxKind.ColonToken)
-            && PeekToken().IsKind(SyntaxKind.IdentifierToken))
+            && CanTokenBeIdentifier(PeekToken()))
         {
-            var name = ReadToken(); // identifier
+            var name = ReadToken(); // identifier or keyword
+            if (name.Kind != SyntaxKind.IdentifierToken)
+            {
+                name = ToIdentifierToken(name);
+                UpdateLastToken(name);
+            }
             var colon = ReadToken(); // colon
             nameColon = NameColon(IdentifierName(name), colon);
         }
