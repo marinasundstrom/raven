@@ -417,7 +417,7 @@ internal abstract class Binder
 
     public virtual IEnumerable<ISymbol> LookupAvailableSymbols()
     {
-        throw new NotImplementedException();
+        return [];
     }
 
     public ISymbol? LookupLocalSymbol(string name)
