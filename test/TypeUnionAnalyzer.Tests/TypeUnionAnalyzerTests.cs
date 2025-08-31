@@ -189,4 +189,26 @@ class C {
         Assert.Contains(diagnostics.Where(d => d.Id == "TU001"), d => d.GetMessage().Contains("\"yes\"") && d.GetMessage().Contains("\"no\""));
         Assert.Single(diagnostics.Where(d => d.Id == "TU002"));
     }
+
+    [Fact]
+    public async Task IncompatibleLocalAssignment_ReportsDiagnostic()
+    {
+        var source = @"
+using System;
+class Null {}
+[AttributeUsage(AttributeTargets.ReturnValue | AttributeTargets.Parameter)]
+class TypeUnionAttribute : Attribute { public TypeUnionAttribute(params Type[] types) {} }
+class Foo {
+    [return: TypeUnion(typeof(int), typeof(Null))]
+    public static object? Test4(bool flag) => flag ? 42 : null;
+}
+class C {
+    static void Test() {
+        var y = Foo.Test4(true);
+        y = """"; // not valid
+    }
+}";
+        var diagnostics = await GetDiagnosticsAsync(source);
+        Assert.Contains(diagnostics, d => d.Id == "TU002");
+    }
 }

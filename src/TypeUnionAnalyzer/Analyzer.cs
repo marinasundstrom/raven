@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Linq;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -440,6 +441,29 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
+    private static bool IsAnyImplicit(ITypeSymbol? source, object? constantValue, ImmutableArray<ITypeSymbol> unionTypes, Compilation compilation)
+    {
+        if (source == null && constantValue == null)
+            return unionTypes.Any(IsNullShim);
+
+        foreach (var target in unionTypes)
+        {
+            if (target == null)
+                continue;
+            if (IsNullShim(target))
+            {
+                if (source == null && constantValue == null)
+                    return true;
+                continue;
+            }
+
+            if (source != null && compilation.ClassifyConversion(source, target).IsImplicit)
+                return true;
+        }
+
+        return false;
+    }
+
     private void AnalyzeIsPattern(SyntaxNodeAnalysisContext context)
     {
         var isPattern = (IsPatternExpressionSyntax)context.Node;
@@ -750,16 +774,36 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         context.RegisterOperationAction(ctx =>
         {
             var assignment = (ISimpleAssignmentOperation)ctx.Operation;
-            if (assignment.Target is ILocalReferenceOperation localRef &&
-                TryGetUnionTypesFromExpression(assignment.Value, ctx.Compilation, locals, out var types))
+            if (assignment.Target is ILocalReferenceOperation localRef)
             {
-                locals[localRef.Local] = types;
-                var diag = Diagnostic.Create(
-                    Rule,
-                    assignment.Target.Syntax.GetLocation(),
-                    $"Variable '{localRef.Local.Name}' is",
-                    FormatTypeList(types));
-                ctx.ReportDiagnostic(diag);
+                // If the right-hand side carries union type information, propagate it.
+                if (TryGetUnionTypesFromExpression(assignment.Value, ctx.Compilation, locals, out var types))
+                {
+                    locals[localRef.Local] = types;
+                    var diag = Diagnostic.Create(
+                        Rule,
+                        assignment.Target.Syntax.GetLocation(),
+                        $"Variable '{localRef.Local.Name}' is",
+                        FormatTypeList(types));
+                    ctx.ReportDiagnostic(diag);
+                }
+                // Otherwise, verify the assignment is compatible with the variable's union types.
+                else if (locals.TryGetValue(localRef.Local, out var existingTypes))
+                {
+                    var rightType = assignment.Value.Type;
+                    var rightConst = assignment.Value.ConstantValue;
+
+                    if (!IsAnyImplicit(rightType, rightConst.HasValue ? rightConst.Value : null, existingTypes, ctx.Compilation))
+                    {
+                        var diagnostic = Diagnostic.Create(
+                            IncompatibleTypeRule,
+                            assignment.Value.Syntax.GetLocation(),
+                            localRef.Local.Name,
+                            FormatTypeList(existingTypes),
+                            FormatTypeName(rightType));
+                        ctx.ReportDiagnostic(diagnostic);
+                    }
+                }
             }
         }, OperationKind.SimpleAssignment);
 
