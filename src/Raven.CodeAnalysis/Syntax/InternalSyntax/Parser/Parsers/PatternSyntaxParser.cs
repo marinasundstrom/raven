@@ -47,7 +47,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         // Optionally consume a variable designation
         VariableDesignationSyntax? designation = null;
-        if (IsNextToken(SyntaxKind.IdentifierToken))
+        if (CanTokenBeIdentifier(PeekToken()))
         {
             designation = ParseDesignation();
         }
@@ -57,7 +57,15 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private VariableDesignationSyntax ParseDesignation()
     {
-        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
         return SingleVariableDesignation(identifier);
     }
 }

@@ -76,8 +76,15 @@ internal class StatementSyntaxParser : SyntaxParser
     private StatementSyntax? ParseFunctionSyntax()
     {
         var funcKeyword = ReadToken();
-
-        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
 
         var parameterList = ParseParameterList();
 
@@ -134,7 +141,15 @@ internal class StatementSyntaxParser : SyntaxParser
                 modifiers = modifiers.Add(modifier);
             }
 
-            ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var name);
+            SyntaxToken name;
+            if (CanTokenBeIdentifier(PeekToken()))
+            {
+                name = ReadIdentifierToken();
+            }
+            else
+            {
+                name = ExpectToken(SyntaxKind.IdentifierToken);
+            }
 
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
@@ -250,7 +265,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         if (CanTokenBeIdentifier(PeekToken()))
         {
-            identifier = ToIdentifierToken(ReadToken());
+            identifier = ReadIdentifierToken();
         }
 
         EqualsValueClauseSyntax? initializer = null;

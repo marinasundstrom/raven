@@ -44,20 +44,6 @@ internal class SyntaxParser : ParseContext
     public bool IsNextToken(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
     {
         token = PeekToken();
-        if (kind == SyntaxKind.IdentifierToken)
-        {
-            if (token.Kind == SyntaxKind.IdentifierToken)
-                return true;
-
-            if (CanTokenBeIdentifier(token))
-            {
-                token = ToIdentifierToken(token);
-                return true;
-            }
-
-            return false;
-        }
-
         if (token.Kind == kind)
         {
             return true;
@@ -68,17 +54,6 @@ internal class SyntaxParser : ParseContext
     public bool IsNextToken(SyntaxKind kind)
     {
         var token = PeekToken();
-        if (kind == SyntaxKind.IdentifierToken)
-        {
-            if (token.Kind == SyntaxKind.IdentifierToken)
-                return true;
-
-            if (CanTokenBeIdentifier(token))
-                return true;
-
-            return false;
-        }
-
         if (token.Kind == kind)
         {
             return true;
@@ -90,25 +65,6 @@ internal class SyntaxParser : ParseContext
     {
         token = PeekToken();
 
-        if (kind == SyntaxKind.IdentifierToken)
-        {
-            if (token.Kind == SyntaxKind.IdentifierToken)
-            {
-                token = ReadToken();
-                return true;
-            }
-
-            if (CanTokenBeIdentifier(token))
-            {
-                token = ReadToken();
-                token = ToIdentifierToken(token);
-                UpdateLastToken(token);
-                return true;
-            }
-
-            return false;
-        }
-
         if (token.Kind == kind)
         {
             token = ReadToken();
@@ -116,6 +72,18 @@ internal class SyntaxParser : ParseContext
         }
 
         return false;
+    }
+
+    protected SyntaxToken ReadIdentifierToken()
+    {
+        var token = ReadToken();
+        if (CanTokenBeIdentifier(token))
+        {
+            token = ToIdentifierToken(token);
+            UpdateLastToken(token);
+        }
+
+        return token;
     }
 
     public bool ConsumeTokenOrMissing(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
