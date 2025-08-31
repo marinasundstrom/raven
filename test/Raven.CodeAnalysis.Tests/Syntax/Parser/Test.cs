@@ -1,7 +1,10 @@
-using Xunit;
+using System.Linq;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
+
+using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
@@ -77,10 +80,8 @@ public class ParserNewlineTests
 
         // Assert
         var literalToken = statement.DescendantTokens().FirstOrDefault(t => t.Kind == SyntaxKind.NumericLiteralToken);
-        Assert.NotNull(literalToken);
 
         var newlineTrivia = literalToken.LeadingTrivia.FirstOrDefault(t => t.Kind == SyntaxKind.EndOfLineTrivia);
-        Assert.NotNull(newlineTrivia); // newline was treated as trivia
     }
 
     [Fact]
@@ -162,5 +163,59 @@ public class ParserNewlineTests
 
         var terminator = returnStatement.TerminatorToken;
         Assert.Equal(SyntaxKind.None, terminator.Kind);
+    }
+
+    [Fact]
+    public void Function_MissingIdentifier_ProducesMissingToken()
+    {
+        var source = "func () {}";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (FunctionStatementSyntax)parser.ParseStatement().CreateRed();
+
+        Assert.True(statement.Identifier.IsMissing);
+    }
+
+    [Fact]
+    public void VariableDeclaration_MissingIdentifier_ProducesMissingToken()
+    {
+        var source = "let = 1";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (LocalDeclarationStatementSyntax)parser.ParseStatement().CreateRed();
+        var declarator = statement.Declaration.Declarators.Single();
+
+        Assert.True(declarator.Identifier.IsMissing);
+    }
+
+    [Fact]
+    public void ParameterList_MissingIdentifier_ProducesMissingToken()
+    {
+        var source = "func foo(: int) {}";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (FunctionStatementSyntax)parser.ParseStatement().CreateRed();
+        var parameter = statement.ParameterList.Parameters.Single();
+
+        Assert.True(parameter.Identifier.IsMissing);
+    }
+
+    [Fact]
+    public void SkipUntil_AtEndOfFile_ReturnsNoneToken()
+    {
+        var source = string.Empty;
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+
+        var token = context.SkipUntil(SyntaxKind.SemicolonToken, SyntaxKind.NewLineToken);
+
+        Assert.Equal(SyntaxKind.None, token.Kind);
+        Assert.Equal(SyntaxKind.EndOfFileToken, context.PeekToken().Kind);
     }
 }

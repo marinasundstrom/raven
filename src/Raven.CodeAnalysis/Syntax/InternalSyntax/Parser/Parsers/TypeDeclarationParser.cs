@@ -18,10 +18,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var structOrClassKeyword = ReadToken();
 
-        if (!ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier))
-        {
-
-        }
+        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
 
         var baseType = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
@@ -172,13 +169,10 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclarationBase(SyntaxList modifiers)
     {
-        if (!ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier))
+        if (!ConsumeToken(SyntaxKind.IdentifierToken, out var identifier) &&
+            !ConsumeToken(SyntaxKind.SelfKeyword, out identifier))
         {
-            if (!ConsumeTokenOrMissing(SyntaxKind.SelfKeyword, out identifier))
-            {
-                // Init should be a constructordeclarationbtw BTW
-                // Invalid name
-            }
+            identifier = MissingToken(SyntaxKind.IdentifierToken);
         }
 
         var potentialOpenParenToken = PeekToken();
@@ -316,7 +310,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
             if (!ConsumeToken(SyntaxKind.GetKeyword, out name) && !ConsumeToken(SyntaxKind.SetKeyword, out name))
             {
-
+                name = MissingToken(SyntaxKind.GetKeyword);
             }
 
             var token = PeekToken();
@@ -383,10 +377,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 modifiers = modifiers.Add(modifier);
             }
 
-            if (!ConsumeToken(SyntaxKind.IdentifierToken, out var name))
-            {
-
-            }
+            ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var name);
 
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
@@ -420,10 +411,7 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         var letOrVarKeyword = ReadToken();
 
-        if (!ConsumeToken(SyntaxKind.IdentifierToken, out var identifier))
-        {
-
-        }
+        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
 
         EqualsValueClauseSyntax? initializer = null;
 
@@ -473,10 +461,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 modifiers = modifiers.Add(modifier);
             }
 
-            if (!ConsumeToken(SyntaxKind.IdentifierToken, out var name))
-            {
-
-            }
+            ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var name);
 
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
