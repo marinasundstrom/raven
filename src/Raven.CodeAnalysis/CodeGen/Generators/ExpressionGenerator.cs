@@ -149,11 +149,7 @@ internal class ExpressionGenerator : Generator
 
     private void EmitUnitExpression(BoundUnitExpression unitExpression)
     {
-        var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
-            ?? throw new InvalidOperationException("Unit type was not emitted.");
-        var valueField = unitType.GetField("Value")
-            ?? throw new InvalidOperationException("Unit.Value field missing.");
-        ILGenerator.Emit(OpCodes.Ldsfld, valueField);
+        EmitUnitValue();
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
@@ -1066,6 +1062,25 @@ internal class ExpressionGenerator : Generator
 
     private void EmitInvocationExpression(BoundInvocationExpression invocationExpression)
     {
+        EmitInvocationExpressionBase(invocationExpression);
+
+        if (invocationExpression.Type.SpecialType == SpecialType.System_Unit)
+        {
+            EmitUnitValue();
+        }
+    }
+
+    private void EmitUnitValue()
+    {
+        var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
+            ?? throw new InvalidOperationException("Unit type was not emitted.");
+        var valueField = unitType.GetField("Value")
+            ?? throw new InvalidOperationException("Unit.Value field missing.");
+        ILGenerator.Emit(OpCodes.Ldsfld, valueField);
+    }
+
+    public void EmitInvocationExpressionBase(BoundInvocationExpression invocationExpression)
+    {
         var target = invocationExpression.Method;
         var receiver = invocationExpression.Receiver;
 
@@ -1166,15 +1181,6 @@ internal class ExpressionGenerator : Generator
                 .GetTypeByMetadataName("System.Reflection.MemberInfo");
 
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
-        }
-
-        if (invocationExpression.Type.SpecialType == SpecialType.System_Unit)
-        {
-            var unitType = MethodGenerator.TypeGenerator.CodeGen.UnitType
-                ?? throw new InvalidOperationException("Unit type was not emitted.");
-            var valueField = unitType.GetField("Value")
-                ?? throw new InvalidOperationException("Unit.Value field missing.");
-            ILGenerator.Emit(OpCodes.Ldsfld, valueField);
         }
     }
 

@@ -82,13 +82,20 @@ internal class StatementGenerator : Generator
     {
         var expression = expressionStatement.Expression;
 
+        // Expression is an invocation expression that returns unit. 
+        if (expression is BoundInvocationExpression { Type.SpecialType: SpecialType.System_Unit } expr)
+        {
+            // Emit method call without emitting unit value.
+            new ExpressionGenerator(this, expression).EmitInvocationExpressionBase(expr);
+
+            // No pop instruction required.
+            return;
+        }
+
         new ExpressionGenerator(this, expression).Emit();
 
-        if (expression.Type?.SpecialType is not SpecialType.System_Void)
-        {
-            // The value is not used, pop it from the stack.
-            ILGenerator.Emit(OpCodes.Pop);
-        }
+        // Pop the result
+        ILGenerator.Emit(OpCodes.Pop);
     }
 
     private void EmitAssignmentStatement(BoundAssignmentStatement assignmentStatement)
