@@ -10,6 +10,9 @@ using Raven.CodeAnalysis.Text;
 
 using Terminal.Gui;
 
+using Attribute = Terminal.Gui.Attribute;
+using ColorScheme = Terminal.Gui.ColorScheme;
+
 namespace Raven.Editor;
 
 internal class Program
@@ -64,12 +67,22 @@ internal class Program
 
         Workspace.TryApplyChanges(solution);
 
+        var editorScheme = new ColorScheme
+        {
+            Normal = new Attribute(Color.Black, Color.White),
+            Focus = new Attribute(Color.Black, Color.White),
+            HotNormal = new Attribute(Color.Blue, Color.White),
+            HotFocus = new Attribute(Color.Blue, Color.White),
+            Disabled = new Attribute(Color.DarkGray, Color.White)
+        };
+
         var editor = new CodeTextView(Workspace, _projectId, _documentId)
         {
             Text = text,
             Width = Dim.Fill(),
             Height = Dim.Fill(10),
-            WordWrap = false
+            WordWrap = false,
+            ColorScheme = editorScheme
         };
 
         _outputView = new ListView(Output) { Width = Dim.Fill(), Height = Dim.Fill() };
@@ -212,11 +225,25 @@ internal class Program
 
         if (_completionWin == null)
         {
-            _completionList = new ListView(_currentCompletions) { CanFocus = false };
+            var completionScheme = new ColorScheme
+            {
+                Normal = new Attribute(Color.Black, Color.Gray),
+                Focus = new Attribute(Color.Black, Color.DarkGray),
+                HotNormal = new Attribute(Color.Blue, Color.Gray),
+                HotFocus = new Attribute(Color.Blue, Color.DarkGray),
+                Disabled = new Attribute(Color.DarkGray, Color.Gray)
+            };
+
+            _completionList = new ListView(_currentCompletions)
+            {
+                CanFocus = false,
+                ColorScheme = completionScheme
+            };
             _completionWin = new Window
             {
                 Width = width,
-                Height = height
+                Height = height,
+                ColorScheme = completionScheme
             };
             _completionWin.Add(_completionList);
             Application.Top.Add(_completionWin);
