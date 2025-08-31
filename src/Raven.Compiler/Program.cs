@@ -87,7 +87,7 @@ if (showHelp)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../samples/enums{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../samples/test4{RavenFileExtensions.Raven}");
 
 for (int i = 0; i < sourceFiles.Count; i++)
 {

@@ -30,7 +30,9 @@
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/src/Raven.Editor/bin/Debug/net9.0/Raven.Editor.dll",
-            "args": [],
+            "args": [
+                "../Raven.Compiler/samples/enums.rav"
+            ],
             "cwd": "${workspaceFolder}/src/Raven.Editor",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "externalTerminal",

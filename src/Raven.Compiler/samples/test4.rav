@@ -1,0 +1,3 @@
+import System.*
+
+var test = Console.WriteLine("Hello"); Console.WriteLine(test); test
