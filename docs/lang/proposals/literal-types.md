@@ -46,6 +46,25 @@ public void Foo([TypeUnion(typeof(int), "yes", 'c', 0.2, false)] object arg)
 
 Constant identifiers are lowered to their literal values before emission. Consumers can reflect over `TypeUnionAttribute` to discover both type and literal members.
 
+### Implementation
+
+This requires changing the parameters of the constructor of `TypeUnionAttribute` from using type `Type[]` to `object[]` to  handle the additional values:
+
+```csharp
+[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.ReturnValue | AttributeTargets.Property)]
+public sealed class TypeUnionAttribute : Attribute
+{
+    private readonly object[] _types;
+
+    public object[] Types => _types;
+
+    public TypeUnionAttribute(params object[] types)
+    {
+        _types = types;
+    }
+}
+```
+
 ### Named constant values
 
 > **Consider in future**
@@ -68,7 +87,7 @@ public enum TUPlaceholder { I0, I1, /* ... */ }
 [AttributeUsage(AttributeTargets.ReturnValue, AllowMultiple = true)]
 public sealed class TypeUnionAttribute : Attribute
 {
-    public TypeUnionAttribute(TUPlaceholder slot, Type type) { /* store */ }
+    public TypeUnionAttribute(params object[] elements) { /* store */ }
 }
 
 [AttributeUsage(AttributeTargets.ReturnValue, AllowMultiple = true)]
