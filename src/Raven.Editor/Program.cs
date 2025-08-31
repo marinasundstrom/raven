@@ -234,7 +234,7 @@ internal class Program
         _completionWin.SetNeedsDisplay();
     }
 
-    private static void ApplyCompletion(CodeTextView editor, CompletionItem item)
+    internal static void ApplyCompletion(CodeTextView editor, CompletionItem item)
     {
         var text = editor.Text?.ToString() ?? string.Empty;
         var before = text[..item.ReplacementSpan.Start];

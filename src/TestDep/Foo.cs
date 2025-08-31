@@ -49,7 +49,7 @@ public class Foo
 
     }
 
-    public static void Test6([TypeUnion("yes", "no", typeof(Null))] object? v)
+    public static void Test6([TypeUnion("yes", "no", typeof(Null))] string? v)
     {
 
     }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Linq;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -50,17 +51,17 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true
     );
 
-    private static readonly DiagnosticDescriptor MustBeObjectTypeRule = new DiagnosticDescriptor(
+    private static readonly DiagnosticDescriptor IncompatibleDeclarationTypeRule = new DiagnosticDescriptor(
         id: "TU005",
-        title: "TypeUnion must be declared with object type",
-        messageFormat: "{0} must be declared with type object when using [TypeUnion]",
+        title: "TypeUnion type is incompatible",
+        messageFormat: "{0} is not compatible with all values from [TypeUnion]",
         category: "TypeChecking",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        [Rule, IncompatibleTypeRule, IncompatibleReturnTypeRule, InvalidPatternRule, MustBeObjectTypeRule];
+        [Rule, IncompatibleTypeRule, IncompatibleReturnTypeRule, InvalidPatternRule, IncompatibleDeclarationTypeRule];
 
     public override void Initialize(AnalysisContext context)
     {
@@ -91,32 +92,33 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
 
         foreach (var attributeData in parameterSymbol.GetAttributes())
         {
-            if (IsTypeUnionAttribute(attributeData))
+            if (!IsTypeUnionAttribute(attributeData))
+                continue;
+
+            var typeArgs = attributeData.ConstructorArguments.FirstOrDefault();
+
+            if (typeArgs.Kind == TypedConstantKind.Array && typeArgs.Values is { Length: > 0 })
             {
-                if (IsNotUnionCompatibleType(parameterSymbol.Type, context.Compilation))
+                if (IsNotUnionCompatibleType(parameterSymbol.Type, typeArgs, context.Compilation))
                 {
                     var diag = Diagnostic.Create(
-                        MustBeObjectTypeRule,
+                        IncompatibleDeclarationTypeRule,
                         parameterSyntax.Type?.GetLocation() ?? parameterSyntax.GetLocation(),
                         $"Parameter '{parameterSymbol.Name}'"
                     );
                     context.ReportDiagnostic(diag);
                 }
 
-                var typeArgs = attributeData.ConstructorArguments.FirstOrDefault();
-                if (typeArgs.Kind == TypedConstantKind.Array && typeArgs.Values is { Length: > 0 })
-                {
-                    string typeList = FormatTypeList(typeArgs);
+                string typeList = FormatTypeList(typeArgs);
 
-                    var diagnostic = Diagnostic.Create(
-                        Rule,
-                        parameterSyntax.Identifier.GetLocation(),
-                        $"Parameter \'{parameterSymbol.Name}\' expects",
-                        typeList
-                    );
+                var diagnostic = Diagnostic.Create(
+                    Rule,
+                    parameterSyntax.Identifier.GetLocation(),
+                    $"Parameter \'{parameterSymbol.Name}\' expects",
+                    typeList
+                );
 
-                    context.ReportDiagnostic(diagnostic);
-                }
+                context.ReportDiagnostic(diagnostic);
             }
         }
     }
@@ -130,32 +132,33 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
 
         foreach (var attribute in methodSymbol.GetReturnTypeAttributes())
         {
-            if (IsTypeUnionAttribute(attribute))
+            if (!IsTypeUnionAttribute(attribute))
+                continue;
+
+            var typeArgs = attribute.ConstructorArguments.FirstOrDefault();
+
+            if (typeArgs.Kind == TypedConstantKind.Array && typeArgs.Values is { Length: > 0 })
             {
-                if (IsNotUnionCompatibleType(methodSymbol.ReturnType, context.Compilation))
+                if (IsNotUnionCompatibleType(methodSymbol.ReturnType, typeArgs, context.Compilation))
                 {
                     var diag = Diagnostic.Create(
-                        MustBeObjectTypeRule,
+                        IncompatibleDeclarationTypeRule,
                         methodSyntax.ReturnType.GetLocation(),
                         $"Return type of method '{methodSymbol.Name}'"
                     );
                     context.ReportDiagnostic(diag);
                 }
 
-                var typeArgs = attribute.ConstructorArguments.FirstOrDefault();
-                if (typeArgs.Kind == TypedConstantKind.Array && typeArgs.Values is { Length: > 0 })
-                {
-                    string typeList = FormatTypeList(typeArgs);
+                string typeList = FormatTypeList(typeArgs);
 
-                    var diagnostic = Diagnostic.Create(
-                        Rule,
-                        methodSyntax.ReturnType.GetLocation(),
-                        "Method returns value of types",
-                        typeList
-                    );
+                var diagnostic = Diagnostic.Create(
+                    Rule,
+                    methodSyntax.ReturnType.GetLocation(),
+                    "Method returns value of types",
+                    typeList
+                );
 
-                    context.ReportDiagnostic(diagnostic);
-                }
+                context.ReportDiagnostic(diagnostic);
             }
         }
     }
@@ -180,19 +183,19 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             if (unionAttr == null)
                 continue;
 
+            var allowedTypes = unionAttr.ConstructorArguments.FirstOrDefault();
+            if (allowedTypes.Kind != TypedConstantKind.Array)
+                continue;
+
             if (!parameter.Locations.Any(l => l.IsInSource) &&
-                IsNotUnionCompatibleType(parameter.Type, context.SemanticModel.Compilation))
+                IsNotUnionCompatibleType(parameter.Type, allowedTypes, context.SemanticModel.Compilation))
             {
                 var diag = Diagnostic.Create(
-                    MustBeObjectTypeRule,
+                    IncompatibleDeclarationTypeRule,
                     argExpr.GetLocation(),
                     $"Parameter '{parameter.Name}'");
                 context.ReportDiagnostic(diag);
             }
-
-            var allowedTypes = unionAttr.ConstructorArguments.FirstOrDefault();
-            if (allowedTypes.Kind != TypedConstantKind.Array)
-                continue;
 
             var argType = context.SemanticModel.GetTypeInfo(argExpr).Type;
             var argConst = context.SemanticModel.GetConstantValue(argExpr);
@@ -278,10 +281,10 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 if (IsTypeUnion(attr, out var unionTypes))
                 {
                     if (!methodSymbol.Locations.Any(l => l.IsInSource) &&
-                        IsNotUnionCompatibleType(methodSymbol.ReturnType, context.SemanticModel.Compilation))
+                        IsNotUnionCompatibleType(methodSymbol.ReturnType, unionTypes, context.SemanticModel.Compilation))
                     {
                         var diag = Diagnostic.Create(
-                            MustBeObjectTypeRule,
+                            IncompatibleDeclarationTypeRule,
                             GetExpression(invocation.Expression).GetLocation(),
                             $"Return type of method '{methodSymbol.Name}'");
                         context.ReportDiagnostic(diag);
@@ -433,6 +436,29 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private static bool IsAnyImplicit(ITypeSymbol? source, object? constantValue, ImmutableArray<ITypeSymbol> unionTypes, Compilation compilation)
+    {
+        if (source == null && constantValue == null)
+            return unionTypes.Any(IsNullShim);
+
+        foreach (var target in unionTypes)
+        {
+            if (target == null)
+                continue;
+            if (IsNullShim(target))
+            {
+                if (source == null && constantValue == null)
+                    return true;
+                continue;
+            }
+
+            if (source != null && compilation.ClassifyConversion(source, target).IsImplicit)
+                return true;
         }
 
         return false;
@@ -620,10 +646,10 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 {
                     if (IsTypeUnion(attr, out var typeArgs))
                     {
-                        if (IsNotUnionCompatibleType(symbol.Type, context.Compilation))
+                        if (IsNotUnionCompatibleType(symbol.Type, typeArgs, context.Compilation))
                         {
                             var diag = Diagnostic.Create(
-                                MustBeObjectTypeRule,
+                                IncompatibleDeclarationTypeRule,
                                 fieldDecl.Declaration.Type.GetLocation(),
                                 $"Field '{symbol.Name}'"
                             );
@@ -657,10 +683,10 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             {
                 if (IsTypeUnion(attr, out var typeArgs))
                 {
-                    if (IsNotUnionCompatibleType(symbol.Type, context.Compilation))
+                    if (IsNotUnionCompatibleType(symbol.Type, typeArgs, context.Compilation))
                     {
                         var diag = Diagnostic.Create(
-                            MustBeObjectTypeRule,
+                            IncompatibleDeclarationTypeRule,
                             propDecl.Type.GetLocation(),
                             $"Property '{symbol.Name}'"
                         );
@@ -696,10 +722,10 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
                 return;
 
             if (!targetSymbol.Locations.Any(l => l.IsInSource) &&
-                IsNotUnionCompatibleType((targetSymbol as IFieldSymbol)?.Type ?? (targetSymbol as IPropertySymbol)?.Type!, context.SemanticModel.Compilation))
+                IsNotUnionCompatibleType((targetSymbol as IFieldSymbol)?.Type ?? (targetSymbol as IPropertySymbol)?.Type!, allowedTypes, context.SemanticModel.Compilation))
             {
                 var diag = Diagnostic.Create(
-                    MustBeObjectTypeRule,
+                    IncompatibleDeclarationTypeRule,
                     assignment.Left.GetLocation(),
                     $"{(targetSymbol is IPropertySymbol ? "Property" : "Field")} '{targetSymbol.Name}'");
                 context.ReportDiagnostic(diag);
@@ -748,16 +774,36 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
         context.RegisterOperationAction(ctx =>
         {
             var assignment = (ISimpleAssignmentOperation)ctx.Operation;
-            if (assignment.Target is ILocalReferenceOperation localRef &&
-                TryGetUnionTypesFromExpression(assignment.Value, ctx.Compilation, locals, out var types))
+            if (assignment.Target is ILocalReferenceOperation localRef)
             {
-                locals[localRef.Local] = types;
-                var diag = Diagnostic.Create(
-                    Rule,
-                    assignment.Target.Syntax.GetLocation(),
-                    $"Variable '{localRef.Local.Name}' is",
-                    FormatTypeList(types));
-                ctx.ReportDiagnostic(diag);
+                // If the right-hand side carries union type information, propagate it.
+                if (TryGetUnionTypesFromExpression(assignment.Value, ctx.Compilation, locals, out var types))
+                {
+                    locals[localRef.Local] = types;
+                    var diag = Diagnostic.Create(
+                        Rule,
+                        assignment.Target.Syntax.GetLocation(),
+                        $"Variable '{localRef.Local.Name}' is",
+                        FormatTypeList(types));
+                    ctx.ReportDiagnostic(diag);
+                }
+                // Otherwise, verify the assignment is compatible with the variable's union types.
+                else if (locals.TryGetValue(localRef.Local, out var existingTypes))
+                {
+                    var rightType = assignment.Value.Type;
+                    var rightConst = assignment.Value.ConstantValue;
+
+                    if (!IsAnyImplicit(rightType, rightConst.HasValue ? rightConst.Value : null, existingTypes, ctx.Compilation))
+                    {
+                        var diagnostic = Diagnostic.Create(
+                            IncompatibleTypeRule,
+                            assignment.Value.Syntax.GetLocation(),
+                            localRef.Local.Name,
+                            FormatTypeList(existingTypes),
+                            FormatTypeName(rightType));
+                        ctx.ReportDiagnostic(diagnostic);
+                    }
+                }
             }
         }, OperationKind.SimpleAssignment);
 
@@ -861,9 +907,53 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? value?.ToString() ?? "unknown"
         };
 
-    private static bool IsNotUnionCompatibleType(ITypeSymbol type, Compilation compilation) => type.SpecialType != SpecialType.System_Object &&
-               type.TypeKind != TypeKind.Dynamic &&
-               !SymbolEqualityComparer.Default.Equals(type, compilation.GetSpecialType(SpecialType.System_Object));
+    private static bool IsNotUnionCompatibleType(ITypeSymbol type, TypedConstant unionTypes, Compilation compilation)
+        => !AreAllImplicit(unionTypes, type, compilation);
+
+    private static bool AreAllImplicit(TypedConstant unionTypes, ITypeSymbol targetType, Compilation compilation)
+    {
+        foreach (var tc in unionTypes.Values)
+        {
+            bool compatible;
+            if (tc.Value is ITypeSymbol t)
+            {
+                if (IsNullShim(t))
+                {
+                    compatible = CanAcceptNull(targetType);
+                }
+                else
+                {
+                    compatible = compilation.ClassifyConversion(t, targetType).IsImplicit;
+                }
+            }
+            else
+            {
+                if (tc.Value is null)
+                {
+                    compatible = CanAcceptNull(targetType);
+                }
+                else if (tc.Type != null)
+                {
+                    compatible = compilation.ClassifyConversion(tc.Type, targetType).IsImplicit;
+                }
+                else
+                {
+                    compatible = false;
+                }
+            }
+
+            if (!compatible)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool CanAcceptNull(ITypeSymbol type)
+        => type.SpecialType == SpecialType.System_Object ||
+           type.TypeKind == TypeKind.Dynamic ||
+           (type.IsReferenceType && type.NullableAnnotation != NullableAnnotation.NotAnnotated) ||
+           type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
 
     private static bool IsTypeUnionAttribute(AttributeData attr) =>
         attr.AttributeClass?.Name == "TypeUnionAttribute" ||
