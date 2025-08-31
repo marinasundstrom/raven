@@ -57,7 +57,7 @@ public class Diagnostic : IEquatable<Diagnostic>
         }) ?? [];
     }
 
-    internal static Diagnostic Create(object memberAccessOnVoid, Location location)
+    internal static Diagnostic Create(object MemberAccessOnUnit, Location location)
     {
         throw new NotImplementedException();
     }

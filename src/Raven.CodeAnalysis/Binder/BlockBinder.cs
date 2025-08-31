@@ -728,12 +728,6 @@ partial class BlockBinder : Binder
             return new BoundMemberAccessExpression(typeExpr, member);
         }
 
-        if (receiver.Type?.SpecialType == SpecialType.System_Void || receiver.Type?.SpecialType == SpecialType.System_Unit)
-        {
-            _diagnostics.ReportMemberAccessOnVoid(name, memberAccess.Name.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-        }
-
         var instanceMember = receiver.Type is null
             ? null
             : new SymbolQuery(name, receiver.Type, IsStatic: false).Lookup(this).FirstOrDefault();
