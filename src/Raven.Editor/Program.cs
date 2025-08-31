@@ -26,7 +26,6 @@ internal class Program
     private static ListView? _completionList;
     private static CompletionItem[] _currentItems = Array.Empty<CompletionItem>();
     private static string[] _currentCompletions = Array.Empty<string>();
-    private static string _currentPrefix = string.Empty;
 
     public static void Main(string[] args)
     {
@@ -125,10 +124,7 @@ internal class Program
                 if (_currentItems.Length > 0)
                 {
                     var item = _currentItems[_completionList!.SelectedItem];
-                    var insertion = item.InsertionText;
-                    if (insertion.StartsWith(_currentPrefix, StringComparison.OrdinalIgnoreCase))
-                        insertion = insertion[_currentPrefix.Length..];
-                    editor.InsertText(insertion);
+                    ApplyCompletion(editor, item);
                 }
                 HideCompletion();
                 e.Handled = true;
@@ -194,7 +190,6 @@ internal class Program
         var start = col;
         while (start > 0 && char.IsLetter(line[start - 1]))
             start--;
-        _currentPrefix = line[start..col];
 
         var sourceText = SourceText.From(text);
         var solution = Workspace.CurrentSolution.WithDocumentText(_documentId, sourceText);
@@ -239,6 +234,29 @@ internal class Program
         _completionWin.SetNeedsDisplay();
     }
 
+    private static void ApplyCompletion(CodeTextView editor, CompletionItem item)
+    {
+        var text = editor.Text?.ToString() ?? string.Empty;
+        var before = text[..item.ReplacementSpan.Start];
+        var after = text[item.ReplacementSpan.End..];
+        var newText = before + item.InsertionText + after;
+        editor.Text = newText;
+
+        var cursorPos = item.ReplacementSpan.Start + (item.CursorOffset ?? item.InsertionText.Length);
+        var lines = newText.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        var position = 0;
+        for (var row = 0; row < lines.Length; row++)
+        {
+            var lineLength = lines[row].Length;
+            if (cursorPos <= position + lineLength)
+            {
+                editor.CursorPosition = new Point(cursorPos - position, row);
+                break;
+            }
+            position += lineLength + 1;
+        }
+    }
+
     private static void HideCompletion()
     {
         if (_completionWin != null)
@@ -248,7 +266,6 @@ internal class Program
             _completionList = null;
             _currentItems = Array.Empty<CompletionItem>();
             _currentCompletions = Array.Empty<string>();
-            _currentPrefix = string.Empty;
         }
     }
 
