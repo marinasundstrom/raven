@@ -76,7 +76,25 @@ class C {
 }";
         var diagnostics = await GetDiagnosticsAsync(source);
         var info = Assert.Single(diagnostics.Where(d => d.Id == "TU001"));
-        Assert.Contains("'null'", info.GetMessage());
+        Assert.Contains("null", info.GetMessage());
+    }
+
+    [Fact]
+    public async Task ParameterDiagnostic_DoesNotQuoteTypeNames()
+    {
+        var source = @"
+using System;
+[AttributeUsage(AttributeTargets.Parameter)]
+class TypeUnionAttribute : Attribute { public TypeUnionAttribute(params Type[] types) {} }
+class C {
+    static void M([TypeUnion(typeof(int), typeof(bool))] object p) {}
+}";
+        var diagnostics = await GetDiagnosticsAsync(source);
+        var info = Assert.Single(diagnostics.Where(d => d.Id == "TU001"));
+        var message = info.GetMessage();
+        Assert.Contains("int or bool", message);
+        Assert.DoesNotContain("'int'", message);
+        Assert.DoesNotContain("'bool'", message);
     }
 
     [Fact]

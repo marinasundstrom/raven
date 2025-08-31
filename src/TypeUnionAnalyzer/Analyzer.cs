@@ -44,7 +44,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor InvalidPatternRule = new DiagnosticDescriptor(
         id: "TU004",
         title: "Pattern does not match TypeUnion",
-        messageFormat: "Type '{1}' is not allowed by {0}",
+        messageFormat: "Type {1} is not allowed by {0}",
         category: "TypeChecking",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -53,7 +53,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor MustBeObjectTypeRule = new DiagnosticDescriptor(
         id: "TU005",
         title: "TypeUnion must be declared with object type",
-        messageFormat: "{0} must be declared with type 'object' when using [TypeUnion]",
+        messageFormat: "{0} must be declared with type object when using [TypeUnion]",
         category: "TypeChecking",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -830,7 +830,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     }
 
     private static string FormatTypeList(ImmutableArray<ITypeSymbol> types)
-        => string.Join(" or ", types.Select(t => $"'{FormatTypeName(t)}'"));
+        => string.Join(" or ", types.Select(FormatTypeName));
 
     private static bool IsNullShim(ITypeSymbol type)
         => type.Name == "Null" && type.ContainingNamespace?.IsGlobalNamespace == true;
@@ -847,8 +847,8 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private static string FormatValue(TypedConstant tc)
     {
         if (tc.Value is ITypeSymbol t)
-            return $"'{FormatTypeName(t)}'";
-        return $"'{FormatConstant(tc.Value)}'";
+            return FormatTypeName(t);
+        return FormatConstant(tc.Value);
     }
 
     private static string FormatConstant(object? value)
