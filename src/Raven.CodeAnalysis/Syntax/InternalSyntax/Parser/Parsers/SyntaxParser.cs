@@ -96,65 +96,104 @@ internal class SyntaxParser : ParseContext
     {
         SetTreatNewlinesAsTokens(true);
 
-        if (ConsumeToken(SyntaxKind.NewLineToken, out token))
-            return true;
+        var current = PeekToken();
 
-        // Allow optional semicolon
-        if (ConsumeToken(SyntaxKind.SemicolonToken, out token))
+        // Fast-path: immediate terminators
+        if (IsNewLineToken(current))
+        {
+            token = ReadToken();
             return true;
+        }
 
-        // Allow End of File
-        if (IsNextToken(SyntaxKind.EndOfFileToken))
+        if (current.Kind == SyntaxKind.SemicolonToken)
+        {
+            token = ReadToken();
+            return true;
+        }
+
+        if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
         {
             token = Token(SyntaxKind.None);
             return true;
         }
 
-        // Allow end of block when statement is last in a block
-        if (IsNextToken(SyntaxKind.CloseBraceToken))
-        {
-            token = Token(SyntaxKind.None);
-            return true;
-        }
+        var skippedTokens = new List<SyntaxToken>();
 
-        // If newlines are tokens, check if it's a valid terminator
-        if (TreatNewlinesAsTokens && IsNewLineToken(PeekToken()))
+        while (true)
         {
-            var previous = LastToken!;
+            skippedTokens.Add(ReadToken());
+            current = PeekToken();
 
-            if (!IsInsideParens && !IsLineContinuable(previous))
+            if (current.Kind == SyntaxKind.SemicolonToken)
             {
-                token = ReadToken(); // consume newline as terminator
+                token = ConsumeWithLeadingSkipped(skippedTokens);
+                return true;
+            }
+
+            if (IsNewLineToken(current))
+            {
+                token = ConsumeWithLeadingSkipped(skippedTokens);
+                return true;
+            }
+
+            if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
+            {
+                AddSkippedToPending(skippedTokens);
+                token = Token(SyntaxKind.None);
                 return true;
             }
         }
-
-        token = MissingToken(SyntaxKind.NewLineToken);
-        AddDiagnostic(
-            DiagnosticInfo.Create(
-                CompilerDiagnostics.SemicolonExpected,
-                GetEndOfLastToken()));
-        return false;
     }
 
-
-    private bool IsLineContinuable(SyntaxToken token)
+    private SyntaxToken ConsumeWithLeadingSkipped(List<SyntaxToken> skippedTokens)
     {
-        return token.Kind switch
+        var baseContext = GetBaseContext();
+        var terminator = PeekToken();
+        ReadToken();
+
+        if (skippedTokens.Count > 0)
         {
-            SyntaxKind.PlusToken or
-            SyntaxKind.MinusToken or
-            SyntaxKind.StarToken or
-            SyntaxKind.SlashToken or
-            SyntaxKind.DotToken or
-            SyntaxKind.QuestionToken or
-            SyntaxKind.AmpersandToken or
-            //SyntaxKind.PipeToken or
-            SyntaxKind.EqualsToken or
-            SyntaxKind.OpenParenToken or
-            SyntaxKind.OpenBracketToken => true,
-            _ => false
-        };
+            var trivia = new SyntaxTrivia(
+                new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
+            );
+
+            var leadingTrivia = terminator.LeadingTrivia.Add(trivia);
+            var newToken = new SyntaxToken(
+                terminator.Kind,
+                terminator.Text,
+                terminator.GetValue(),
+                terminator.Width,
+                leadingTrivia,
+                terminator.TrailingTrivia);
+
+            baseContext._lastToken = newToken;
+            return newToken;
+        }
+
+        return terminator;
+    }
+
+    private void AddSkippedToPending(List<SyntaxToken> skippedTokens)
+    {
+        if (skippedTokens.Count == 0)
+            return;
+
+        var trivia = new SyntaxTrivia(
+            new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
+        );
+
+        GetBaseContext()._pendingTrivia.Add(trivia);
+    }
+
+    private BaseParseContext GetBaseContext()
+    {
+        ParseContext ctx = this;
+        while (ctx is not BaseParseContext)
+        {
+            ctx = ctx.Parent!;
+        }
+
+        return (BaseParseContext)ctx;
     }
 
     private static bool IsNewLineToken(SyntaxToken token)

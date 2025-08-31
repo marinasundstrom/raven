@@ -127,9 +127,9 @@ public class ParserNewlineTests
     }
 
     [Fact]
-    public void Statement_MissingTerminator_ReturnsMissingNewLineToken()
+    public void Terminator_SkipsMisplacedTokens_BeforeNewline()
     {
-        var source = "let x = 1 let y = 2";
+        var source = "let x = 1 foo\n";
         var lexer = new Lexer(new StringReader(source));
         var context = new BaseParseContext(lexer);
         context.SetTreatNewlinesAsTokens(true);
@@ -141,12 +141,37 @@ public class ParserNewlineTests
         parser.ExpectToken(SyntaxKind.EqualsToken);
         parser.ExpectToken(SyntaxKind.NumericLiteralToken);
 
-        var result = parser.TryConsumeTerminator(out var terminator);
-
-        Assert.False(result);
+        Assert.True(parser.TryConsumeTerminator(out var terminator));
         Assert.Equal(SyntaxKind.NewLineToken, terminator.Kind);
-        var diagnostic = Assert.Single(parser.Diagnostics);
-        Assert.Equal(CompilerDiagnostics.SemicolonExpected, diagnostic.Descriptor);
+
+        var redTerminator = (SyntaxToken)terminator;
+        var skipped = redTerminator.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
+        Assert.Equal(SyntaxKind.IdentifierToken, skippedNode.Tokens.Single().Kind);
+    }
+
+    [Fact]
+    public void Terminator_SkipsTokens_UntilEndOfFile()
+    {
+        var source = "let x = 1 foo";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        context.SetTreatNewlinesAsTokens(true);
+
+        var parser = new SyntaxParser(context);
+
+        parser.ExpectToken(SyntaxKind.LetKeyword);
+        parser.ExpectToken(SyntaxKind.IdentifierToken);
+        parser.ExpectToken(SyntaxKind.EqualsToken);
+        parser.ExpectToken(SyntaxKind.NumericLiteralToken);
+
+        Assert.True(parser.TryConsumeTerminator(out var terminator));
+        Assert.Equal(SyntaxKind.None, terminator.Kind);
+
+        var eof = (SyntaxToken)parser.PeekToken();
+        var skipped = eof.LeadingTrivia.Single(t => t.Kind == SyntaxKind.SkippedTokensTrivia);
+        var skippedNode = (SkippedTokensTrivia)skipped.GetStructure()!;
+        Assert.Equal(SyntaxKind.IdentifierToken, skippedNode.Tokens.Single().Kind);
     }
 
     [Fact]
