@@ -19,7 +19,12 @@ public static class SemanticClassifier
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
             // Literals
-            else if (kind == SyntaxKind.StringLiteralToken)
+            else if (kind == SyntaxKind.StringLiteralToken ||
+                     kind == SyntaxKind.StringStartToken ||
+                     kind == SyntaxKind.StringEndToken ||
+                     kind == SyntaxKind.DollarToken ||
+                     (kind == SyntaxKind.OpenBraceToken && descendant.Parent is InterpolationSyntax) ||
+                     (kind == SyntaxKind.CloseBraceToken && descendant.Parent is InterpolationSyntax))
             {
                 tokenMap[descendant] = SemanticClassification.StringLiteral;
             }
