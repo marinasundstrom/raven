@@ -3,6 +3,7 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -117,6 +118,8 @@ public class NullableTypeTests : CompilationTestBase
 
         var param = Assert.IsType<NullableTypeSymbol>(symbol.Parameters[0].Type);
         Assert.Equal(SpecialType.System_String, param.UnderlyingType.SpecialType);
+
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
