@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Tokens>
   <!-- Keywords -->
-  <TokenKind Name="UnitKeyword" Text="unit" IsReservedWord="true" />
+  <TokenKind Name="UnitKeyword" Text="unit" IsReservedWord="false" />
   <TokenKind Name="NullKeyword" Text="null" IsReservedWord="true" />
   <TokenKind Name="IntKeyword" Text="int" IsReservedWord="true" />
   <TokenKind Name="StringKeyword" Text="string" IsReservedWord="true" />
   <TokenKind Name="BoolKeyword" Text="bool" IsReservedWord="true" />
   <TokenKind Name="CharKeyword" Text="char" IsReservedWord="true" />
-  <TokenKind Name="ImportKeyword" Text="import" IsReservedWord="true" />
-  <TokenKind Name="AliasKeyword" Text="alias" IsReservedWord="true" />
-  <TokenKind Name="NamespaceKeyword" Text="namespace" IsReservedWord="true" />
+  <TokenKind Name="ImportKeyword" Text="import" IsReservedWord="false" />
+  <TokenKind Name="AliasKeyword" Text="alias" IsReservedWord="false" />
+  <TokenKind Name="NamespaceKeyword" Text="namespace" IsReservedWord="false" />
   <TokenKind Name="LetKeyword" Text="let" IsReservedWord="true" />
   <TokenKind Name="VarKeyword" Text="var" IsReservedWord="true" />
   <TokenKind Name="FuncKeyword" Text="func" IsReservedWord="true" />
   <TokenKind Name="EnumKeyword" Text="enum" IsReservedWord="true" />
   <TokenKind Name="StructKeyword" Text="struct" IsReservedWord="true" />
   <TokenKind Name="ClassKeyword" Text="class" IsReservedWord="true" />
-  <TokenKind Name="InitKeyword" Text="init" IsReservedWord="true" />
+  <TokenKind Name="InitKeyword" Text="init" IsReservedWord="false" />
   <TokenKind Name="SelfKeyword" Text="self" IsReservedWord="true" />
   <TokenKind Name="IfKeyword" Text="if" IsReservedWord="true" />
   <TokenKind Name="ElseKeyword" Text="else" IsReservedWord="true" />
@@ -31,20 +31,20 @@
   <TokenKind Name="NotKeyword" Text="not" IsReservedWord="true" />
   <TokenKind Name="AndToken" Text="and" IsReservedWord="true" IsBinaryOperator="true" Precedence="2" />
   <TokenKind Name="OrToken" Text="or" IsReservedWord="true" IsBinaryOperator="true" Precedence="1" />
-  <TokenKind Name="RefKeyword" Text="ref" IsReservedWord="true" />
-  <TokenKind Name="OutKeyword" Text="out" IsReservedWord="true" />
-  <TokenKind Name="InKeyword" Text="in" IsReservedWord="true" />
-  <TokenKind Name="PublicKeyword" Text="public" IsReservedWord="true" />
-  <TokenKind Name="PrivateKeyword" Text="private" IsReservedWord="true" />
-  <TokenKind Name="InternalKeyword" Text="internal" IsReservedWord="true" />
-  <TokenKind Name="ProtectedKeyword" Text="protected" IsReservedWord="true" />
-  <TokenKind Name="StaticKeyword" Text="static" IsReservedWord="true" />
-  <TokenKind Name="AbstractKeyword" Text="abstract" IsReservedWord="true" />
-  <TokenKind Name="SealedKeyword" Text="sealed" IsReservedWord="true" />
-  <TokenKind Name="OpenKeyword" Text="open" IsReservedWord="true" />
-  <TokenKind Name="OverrideKeyword" Text="override" IsReservedWord="true" />
-  <TokenKind Name="GetKeyword" Text="get" IsReservedWord="true" />
-  <TokenKind Name="SetKeyword" Text="set" IsReservedWord="true" />
+  <TokenKind Name="RefKeyword" Text="ref" IsReservedWord="false" />
+  <TokenKind Name="OutKeyword" Text="out" IsReservedWord="false" />
+  <TokenKind Name="InKeyword" Text="in" IsReservedWord="false" />
+  <TokenKind Name="PublicKeyword" Text="public" IsReservedWord="false" />
+  <TokenKind Name="PrivateKeyword" Text="private" IsReservedWord="false" />
+  <TokenKind Name="InternalKeyword" Text="internal" IsReservedWord="false" />
+  <TokenKind Name="ProtectedKeyword" Text="protected" IsReservedWord="false" />
+  <TokenKind Name="StaticKeyword" Text="static" IsReservedWord="false" />
+  <TokenKind Name="AbstractKeyword" Text="abstract" IsReservedWord="false" />
+  <TokenKind Name="SealedKeyword" Text="sealed" IsReservedWord="false" />
+  <TokenKind Name="OpenKeyword" Text="open" IsReservedWord="false" />
+  <TokenKind Name="OverrideKeyword" Text="override" IsReservedWord="false" />
+  <TokenKind Name="GetKeyword" Text="get" IsReservedWord="false" />
+  <TokenKind Name="SetKeyword" Text="set" IsReservedWord="false" />
 
   <!-- Operators and punctuation -->
   <TokenKind Name="ArrowToken" Text="->" />
@@ -57,7 +57,8 @@
   <TokenKind Name="GreaterThanToken" Text="&gt;" IsBinaryOperator="true" Precedence="3" />
   <TokenKind Name="GreaterThanOrEqualsToken" Text="&gt;=" IsBinaryOperator="true" Precedence="3" />
   <TokenKind Name="PlusToken" Text="+" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="4" />
-  <TokenKind Name="MinusToken" Text="-" IsUnaryOperator="true" IsBinaryOperator="true" Precedence="4" />
+  <TokenKind Name="MinusToken" Text="-" IsUnaryOperator="true" IsBinaryOperator="true"
+    Precedence="4" />
   <TokenKind Name="StarToken" Text="*" IsBinaryOperator="true" Precedence="5" />
   <TokenKind Name="SlashToken" Text="/" IsBinaryOperator="true" Precedence="5" />
   <TokenKind Name="PercentToken" Text="%" IsBinaryOperator="true" Precedence="5" />

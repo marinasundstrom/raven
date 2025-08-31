@@ -246,7 +246,12 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         var letOrVarKeyword = ReadToken();
 
-        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+        SyntaxToken identifier = MissingToken(SyntaxKind.IdentifierToken);
+
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ToIdentifierToken(ReadToken());
+        }
 
         EqualsValueClauseSyntax? initializer = null;
 
