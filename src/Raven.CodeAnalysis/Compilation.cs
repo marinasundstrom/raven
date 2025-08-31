@@ -446,13 +446,6 @@ public class Compilation
             return Conversion.None;
         }
 
-        if (source.SpecialType == SpecialType.System_Unit)
-        {
-            if (destination is IUnionTypeSymbol unionDest && unionDest.Types.Any(t => t.SpecialType == SpecialType.System_Unit))
-                return new Conversion(isImplicit: true, isReference: true);
-            return Conversion.None;
-        }
-
         if (source.SpecialType == SpecialType.System_Void)
             return Conversion.None;
 
