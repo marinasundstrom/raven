@@ -850,7 +850,15 @@ internal class ExpressionSyntaxParser : SyntaxParser
         else
             eachKeyword = Token(SyntaxKind.None);
 
-        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
         ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();

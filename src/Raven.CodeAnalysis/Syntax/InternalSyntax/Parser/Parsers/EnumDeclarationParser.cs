@@ -15,9 +15,14 @@ internal class EnumDeclarationParser : SyntaxParser
     {
         var enumKeyword = ReadToken();
 
-        if (!ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier))
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
         {
-
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
         List<GreenNode> parameterList = new List<GreenNode>();
@@ -52,7 +57,15 @@ internal class EnumDeclarationParser : SyntaxParser
 
     private GreenNode ParseMember()
     {
-        var identifier = ReadToken();
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
 
         return EnumMemberDeclaration(SyntaxList.Empty, identifier, null);
     }

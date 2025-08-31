@@ -18,7 +18,15 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var structOrClassKeyword = ReadToken();
 
-        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
 
         var baseType = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
@@ -119,7 +127,15 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         ReadToken();
 
-        ConsumeTokenOrNull(SyntaxKind.IdentifierToken, out var identifier);
+        SyntaxToken? identifier = null;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            ConsumeTokenOrNull(SyntaxKind.IdentifierToken, out identifier);
+        }
 
         // Check is open paren
 
@@ -169,8 +185,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclarationBase(SyntaxList modifiers)
     {
-        if (!ConsumeToken(SyntaxKind.IdentifierToken, out var identifier) &&
-            !ConsumeToken(SyntaxKind.SelfKeyword, out identifier))
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else if (!ConsumeToken(SyntaxKind.SelfKeyword, out identifier))
         {
             identifier = MissingToken(SyntaxKind.IdentifierToken);
         }
@@ -377,7 +397,15 @@ internal class TypeDeclarationParser : SyntaxParser
                 modifiers = modifiers.Add(modifier);
             }
 
-            ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var name);
+            SyntaxToken name;
+            if (CanTokenBeIdentifier(PeekToken()))
+            {
+                name = ReadIdentifierToken();
+            }
+            else
+            {
+                name = ExpectToken(SyntaxKind.IdentifierToken);
+            }
 
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
@@ -411,7 +439,15 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         var letOrVarKeyword = ReadToken();
 
-        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
 
         EqualsValueClauseSyntax? initializer = null;
 
@@ -461,7 +497,15 @@ internal class TypeDeclarationParser : SyntaxParser
                 modifiers = modifiers.Add(modifier);
             }
 
-            ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var name);
+            SyntaxToken name;
+            if (CanTokenBeIdentifier(PeekToken()))
+            {
+                name = ReadIdentifierToken();
+            }
+            else
+            {
+                name = ExpectToken(SyntaxKind.IdentifierToken);
+            }
 
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
