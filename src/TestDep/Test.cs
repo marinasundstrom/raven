@@ -13,6 +13,11 @@ class Test
         //Foo.TestProp = false;
 
         var y = Foo.Test4(true);
+
+        Foo.Test5("no");
+
+        Foo.Test6(null);
+
     }
 
     public static void World()

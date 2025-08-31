@@ -4,7 +4,7 @@ using System;
 
 public class Foo
 {
-    public static void Test([TypeUnion(typeof(int), typeof(bool))] object y)
+    public static void Test([TypeUnion(typeof(int), typeof(bool))] object? y)
     {
         if (y is int o)
         {
@@ -42,5 +42,15 @@ public class Foo
     public static object? Test4(bool flag)
     {
         return flag ? 42 : null;
+    }
+
+    public static void Test5([TypeUnion("yes", "no")] object v)
+    {
+
+    }
+
+    public static void Test6([TypeUnion("yes", "no", typeof(Null))] object? v)
+    {
+
     }
 }
