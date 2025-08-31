@@ -137,6 +137,12 @@ internal class NameSyntaxParser : SyntaxParser
     {
         var name = PeekToken();
 
+        if (name.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia)))
+        {
+            return IdentifierName(
+                MissingToken(SyntaxKind.IdentifierToken));
+        }
+
         if (name.IsKind(SyntaxKind.StarToken))
         {
             ReadToken();

@@ -237,14 +237,62 @@ internal class Program
             _completionList = new ListView(_currentCompletions)
             {
                 CanFocus = false,
+                Width = Dim.Fill(),              // <-- critical
+                Height = Dim.Fill(),             // <-- critical
                 ColorScheme = completionScheme
             };
+
+            _completionList.OpenSelectedItem += _ =>
+            {
+                if (_currentItems.Length > 0)
+                {
+                    var item = _currentItems[_completionList.SelectedItem];
+                    ApplyCompletion(editor, item);
+                    HideCompletion();
+                }
+            };
+
+            _completionList.KeyPress += e =>
+            {
+                if (_completionWin != null && e.KeyEvent.Key == Key.CursorDown)
+                {
+                    _completionList!.SelectedItem =
+                        Math.Min(_completionList.SelectedItem + 1, _currentCompletions.Length - 1);
+
+                    _completionList.EnsureSelectedItemVisible();        // keep it in view
+                    _completionList.SetNeedsDisplay();                           // repaint
+                    e.Handled = true;
+                }
+                else if (_completionWin != null && e.KeyEvent.Key == Key.CursorUp)
+                {
+                    _completionList!.SelectedItem =
+                        Math.Max(_completionList.SelectedItem - 1, 0);
+
+                    _completionList.EnsureSelectedItemVisible();
+                    _completionList.SetNeedsDisplay();
+                    e.Handled = true;
+                }
+                else if (e.KeyEvent.Key == Key.Enter || e.KeyEvent.Key == Key.Tab)
+                {
+                    var item = _currentItems[_completionList.SelectedItem];
+                    ApplyCompletion(editor, item);
+                    HideCompletion();
+                    e.Handled = true;
+                }
+                else if (e.KeyEvent.Key == Key.Esc)
+                {
+                    HideCompletion();
+                    e.Handled = true;
+                }
+            };
+
             _completionWin = new Window
             {
                 Width = width,
                 Height = height,
                 ColorScheme = completionScheme
             };
+
             _completionWin.Add(_completionList);
             Application.Top.Add(_completionWin);
         }
@@ -255,7 +303,9 @@ internal class Program
             _completionWin.Height = height;
         }
 
-        _completionList!.SelectedItem = 0;
+        // after creating/updating the popup:
+        _completionList.SelectedItem = 0;
+
         _completionWin.X = editor.Frame.X + start;
         _completionWin.Y = editor.Frame.Y + editor.CurrentRow + 1;
         _completionWin.SetNeedsDisplay();

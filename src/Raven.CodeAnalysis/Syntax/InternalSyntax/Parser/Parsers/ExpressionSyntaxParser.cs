@@ -551,6 +551,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         token = PeekToken();
 
+        if (token.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia)))
+        {
+            return new ExpressionSyntax.Missing();
+        }
+
         switch (token.Kind)
         {
             case SyntaxKind.StringKeyword:

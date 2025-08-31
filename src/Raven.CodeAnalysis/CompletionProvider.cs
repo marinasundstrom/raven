@@ -164,7 +164,9 @@ public static class CompletionProvider
                 var nameSpan = simple.Identifier.Span;
 
                 foreach (var member in nsOrType.GetMembers()
-                    .Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                    .Where(m => string.IsNullOrEmpty(prefix)
+                    || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    .Where(m => m.DeclaredAccessibility == Accessibility.NotApplicable || m.DeclaredAccessibility == Accessibility.Public))
                 {
                     if (seen.Add(member.Name))
                     {
