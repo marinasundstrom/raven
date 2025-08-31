@@ -98,14 +98,28 @@ class C {
     }
 
     [Fact]
-    public async Task ExternalMethodWithNonObjectParameter_ReportsDiagnostic()
+    public async Task IncompatibleParameterType_ReportsDiagnostic()
+    {
+        var source = @"
+using System;
+[AttributeUsage(AttributeTargets.Parameter)]
+class TypeUnionAttribute : Attribute { public TypeUnionAttribute(params Type[] types) {} }
+class C {
+    static void M([TypeUnion(typeof(int), typeof(string))] int p) {}
+}";
+        var diagnostics = await GetDiagnosticsAsync(source);
+        Assert.Contains(diagnostics, d => d.Id == "TU005");
+    }
+
+    [Fact]
+    public async Task ExternalMethodWithIncompatibleParameter_ReportsDiagnostic()
     {
         var libSource = @"
 using System;
 [AttributeUsage(AttributeTargets.Parameter)]
 public class TypeUnionAttribute : Attribute { public TypeUnionAttribute(params Type[] types) {} }
 public static class External {
-    public static void M([TypeUnion(typeof(int))] int p) {}
+    public static void M([TypeUnion(typeof(int), typeof(bool))] int p) {}
 }";
         var libTree = CSharpSyntaxTree.ParseText(libSource);
         var libCompilation = CSharpCompilation.Create(
@@ -122,6 +136,21 @@ public static class External {
         var testSource = @"class C { static void Test() { External.M(1); } }";
         var diagnostics = await GetDiagnosticsAsync(testSource, libRef);
         Assert.Contains(diagnostics, d => d.Id == "TU005");
+    }
+
+    [Fact]
+    public async Task CompatibleParameterType_NoDiagnostic()
+    {
+        var source = @"
+using System;
+class Null {}
+[AttributeUsage(AttributeTargets.Parameter)]
+class TypeUnionAttribute : Attribute { public TypeUnionAttribute(params object[] types) {} }
+class C {
+    static void M([TypeUnion(""yes"", ""no"", typeof(Null))] string? v) {}
+}";
+        var diagnostics = await GetDiagnosticsAsync(source);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "TU005");
     }
 
     [Fact]

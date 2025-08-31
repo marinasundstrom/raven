@@ -17,8 +17,9 @@ If you want to, you can use `dynamic`, because it is basically `object`.
 ## Union semantics
 
 `TypeUnionAttribute` lists the set of concrete types that a value may take. Any parameter,
-field, property, or return annotated with `[TypeUnion]` must have a CLR type of `object` or
-`dynamic`. At each usage site the analyzer verifies that the value assigned, returned, or
+field, property, or return annotated with `[TypeUnion]` must have a CLR type that is
+assignable from all of the specified values (such as `object`, `dynamic`, or a common base
+type). At each usage site the analyzer verifies that the value assigned, returned, or
 matched against the member implicitly converts to at least one of the allowed types. Pattern
 matching and switch sections are checked in the same way. `null` is only permitted when
 `typeof(void)` (representing the `null` type) is explicitly included in the attribute's type
