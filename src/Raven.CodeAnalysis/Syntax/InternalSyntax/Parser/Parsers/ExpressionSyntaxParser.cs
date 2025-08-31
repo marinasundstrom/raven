@@ -553,7 +553,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         if (token.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia)))
         {
-            return new ExpressionSyntax.Missing();
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfLastToken()));
+            return new ExpressionSyntax.Missing(diagnostics: Diagnostics);
         }
 
         switch (token.Kind)

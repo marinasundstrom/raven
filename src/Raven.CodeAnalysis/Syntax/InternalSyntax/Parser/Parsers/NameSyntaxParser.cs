@@ -139,8 +139,9 @@ internal class NameSyntaxParser : SyntaxParser
 
         if (name.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia)))
         {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfLastToken()));
             return IdentifierName(
-                MissingToken(SyntaxKind.IdentifierToken));
+                MissingToken(SyntaxKind.IdentifierToken), Diagnostics);
         }
 
         if (name.IsKind(SyntaxKind.StarToken))
