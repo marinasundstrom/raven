@@ -38,7 +38,7 @@
   <Descriptor Id="RAV0121" Identifier="CallIsAmbiguous" Title="Call is ambiguous"
     Message="The call is ambiguous between the following methods or properties: '{method1}' and '{method2}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0131" Identifier="LeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer"
+  <Descriptor Id="RAV0131" Identifier="LeftOfAssignmentMustBeAVariablePropertyOrIndexer"
     Title="The left-hand side of an assignment must be a variable, property or indexer"
     Message="The left-hand side of an assignment must be a variable, property or indexer"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

@@ -778,8 +778,8 @@ partial class BlockBinder : Binder
                         return ResolveType(vds.TypeAnnotation.Type);
                     break;
 
-                case AssignmentExpressionSyntax assign when assign.RightHandSide == node:
-                    var left = BindExpression(assign.LeftHandSide);
+                case AssignmentExpressionSyntax assign when assign.Right == node:
+                    var left = BindExpression(assign.Left);
                     return left.Type;
 
                 case AssignmentStatementSyntax assign when assign.Right.Contains(node):
@@ -789,11 +789,11 @@ partial class BlockBinder : Binder
                 case ReturnStatementSyntax returnStmt:
                     return _containingSymbol is IMethodSymbol method ? method.ReturnType : null;
 
-                case BinaryExpressionSyntax binary when binary.LeftHandSide == node:
-                    return BindExpression(binary.RightHandSide).Type;
+                case BinaryExpressionSyntax binary when binary.Left == node:
+                    return BindExpression(binary.Right).Type;
 
-                case BinaryExpressionSyntax binary when binary.RightHandSide == node:
-                    return BindExpression(binary.LeftHandSide).Type;
+                case BinaryExpressionSyntax binary when binary.Right == node:
+                    return BindExpression(binary.Left).Type;
 
                 case ArgumentSyntax arg:
                     {
@@ -1149,8 +1149,8 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
     {
-        var left = BindExpression(syntax.LeftHandSide);
-        var right = BindExpression(syntax.RightHandSide);
+        var left = BindExpression(syntax.Left);
+        var right = BindExpression(syntax.Right);
 
         var opKind = syntax.OperatorToken.Kind;
 
@@ -1624,7 +1624,7 @@ partial class BlockBinder : Binder
 
             if (indexer is null || indexer.SetMethod is null)
             {
-                _diagnostics.ReportLeftHandSideOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
             }
 
@@ -1717,7 +1717,7 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression BindAssignmentExpression(AssignmentExpressionSyntax syntax)
-        => BindAssignment(syntax.LeftHandSide, syntax.RightHandSide, syntax);
+        => BindAssignment(syntax.Left, syntax.Right, syntax);
 
     private BoundStatement BindAssignmentStatement(AssignmentStatementSyntax syntax)
     {

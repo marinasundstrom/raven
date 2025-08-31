@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Model>
   <Node Name="AssignmentExpression" Inherits="Expression" HasExplicitKind="true">
-    <Slot Name="LeftHandSide" Type="Expression" />
+    <Slot Name="Left" Type="Expression" />
     <Slot Name="OperatorToken" Type="Token" />
-    <Slot Name="RightHandSide" Type="Expression" />
+    <Slot Name="Right" Type="Expression" />
   </Node>
   <Node Name="AccessorList" Inherits="Expression">
     <Slot Name="OpenBraceToken" Type="Token" />
@@ -417,9 +417,9 @@
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="BinaryExpression" Inherits="Expression" HasExplicitKind="true">
-    <Slot Name="LeftHandSide" Type="Expression" />
+    <Slot Name="Left" Type="Expression" />
     <Slot Name="OperatorToken" Type="Token" />
-    <Slot Name="RightHandSide" Type="Expression" />
+    <Slot Name="Right" Type="Expression" />
   </Node>
   <Node Name="TypeAnnotationClause" Inherits="Node">
     <Slot Name="ColonToken" Type="Token" />

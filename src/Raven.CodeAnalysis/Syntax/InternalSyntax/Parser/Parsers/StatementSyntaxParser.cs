@@ -229,7 +229,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 _ => SyntaxKind.SimpleAssignmentStatement,
             };
 
-            return AssignmentStatement(kind, assignment.LeftHandSide, assignment.OperatorToken, assignment.RightHandSide, assignmentTerminatorToken, Diagnostics);
+            return AssignmentStatement(kind, assignment.Left, assignment.OperatorToken, assignment.Right, assignmentTerminatorToken, Diagnostics);
         }
 
         var terminatorToken = ConsumeTerminator();

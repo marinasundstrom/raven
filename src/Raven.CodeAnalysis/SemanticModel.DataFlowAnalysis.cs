@@ -186,8 +186,8 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitBinaryExpression(BinaryExpressionSyntax node)
     {
-        Visit(node.LeftHandSide);
-        Visit(node.RightHandSide);
+        Visit(node.Left);
+        Visit(node.Right);
         base.VisitBinaryExpression(node);
     }
 
@@ -262,7 +262,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
             _dataFlowsOut.Add(local);
         }
 
-        Visit(node.RightHandSide);
+        Visit(node.Right);
     }
 
     public override void VisitAssignmentStatement(AssignmentStatementSyntax node)

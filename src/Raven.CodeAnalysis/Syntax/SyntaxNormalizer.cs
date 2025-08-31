@@ -219,10 +219,10 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
     {
         var operatorToken = node.OperatorToken.WithTrailingTrivia(SyntaxFactory.Space);
 
-        var left = Visit(node.LeftHandSide)
+        var left = Visit(node.Left)
             .WithTrailingTrivia(SyntaxFactory.Space);
 
-        var right = Visit(node.RightHandSide);
+        var right = Visit(node.Right);
 
         return node.Update(node.Kind, left, operatorToken, right);
     }
