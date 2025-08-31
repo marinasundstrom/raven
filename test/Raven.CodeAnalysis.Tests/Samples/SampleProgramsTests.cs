@@ -74,7 +74,7 @@ public class SampleProgramsTests
 
     [Theory]
     [MemberData(nameof(SamplePrograms))]
-    public void Sample_should_load_into_compilation(string fileName, string[] _)
+    public void Sample_should_load_into_compilation(string fileName)
     {
         var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
         var samplePath = Path.Combine(projectDir, "samples", fileName);
@@ -102,6 +102,34 @@ public class SampleProgramsTests
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Empty(diagnostics.Where(d => d.Descriptor != CompilerDiagnostics.FileScopedCodeOutOfOrder));
+    }
+
+    [Fact]
+    public async Task NoEmit_flag_should_skip_emission()
+    {
+        var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
+        var samplePath = Path.Combine(projectDir, "samples", "enums.rav");
+
+        var outputDir = Path.Combine(Path.GetTempPath(), "raven_samples", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(outputDir);
+        var outputDll = Path.Combine(outputDir, "enums.dll");
+
+        var build = Process.Start(new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"run --project \\\"{projectDir}\\\" -- \\\"{samplePath}\\\" -o \\\"{outputDll}\\\" --no-emit",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = projectDir,
+        })!;
+
+        build.WaitForExit(TimeSpan.FromSeconds(3));
+        _ = await build.StandardOutput.ReadToEndAsync();
+        build.WaitForExit();
+
+        Assert.Equal(0, build.ExitCode);
+        Assert.False(File.Exists(outputDll));
     }
 
     [Fact]

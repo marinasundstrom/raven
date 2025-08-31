@@ -21,6 +21,11 @@ static class ConsoleEx
         AnsiConsole.MarkupLine($"Build [red]failed with {result.Diagnostics.Count()} error(s)[/]");
     }
 
+    public static void Failed(int errorsCount)
+    {
+        AnsiConsole.MarkupLine($"Build [red]failed with {errorsCount} error(s)[/]");
+    }
+
     public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics)
     {
         foreach (var diagnostic in diagnostics)
