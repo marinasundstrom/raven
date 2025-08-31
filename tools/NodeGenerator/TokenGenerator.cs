@@ -53,16 +53,28 @@ internal static class TokenGenerator
         sb.AppendLine();
         sb.AppendLine("public static partial class SyntaxFacts");
         sb.AppendLine("{");
+        var keywords = tokens.Where(t => t.Text != null && t.Text.All(char.IsLetter));
+        sb.AppendLine("    private static readonly IDictionary<string, SyntaxKind> _keywordStrings = new Dictionary<string, SyntaxKind>");
+        sb.AppendLine("    {");
+        foreach (var t in keywords)
+        {
+            sb.AppendLine($"        {{ \"{t.Text}\", SyntaxKind.{t.Name} }},");
+        }
+        sb.AppendLine("    };");
+        sb.AppendLine("    private static readonly HashSet<SyntaxKind> _keywordKinds = [.. _keywordStrings.Values];");
+        sb.AppendLine("    public static bool IsKeywordKind(SyntaxKind kind) => _keywordKinds.Contains(kind);");
+        sb.AppendLine("    public static bool TryParseKeyword(string text, out SyntaxKind kind) => _keywordStrings.TryGetValue(text, out kind);");
+
         sb.AppendLine("    private static readonly IDictionary<string, SyntaxKind> _reservedWordStrings = new Dictionary<string, SyntaxKind>");
         sb.AppendLine("    {");
-        foreach (var t in tokens.Where(t => t.IsReservedWord && t.Text != null))
+        foreach (var t in keywords.Where(t => t.IsReservedWord))
         {
             sb.AppendLine($"        {{ \"{t.Text}\", SyntaxKind.{t.Name} }},");
         }
         sb.AppendLine("    };");
         sb.AppendLine("    private static readonly HashSet<SyntaxKind> _reservedWordKinds = [.. _reservedWordStrings.Values];");
         sb.AppendLine("    public static bool IsReservedWordKind(SyntaxKind kind) => _reservedWordKinds.Contains(kind);");
-        sb.AppendLine("    public static bool ParseReservedWord(string text, out SyntaxKind kind) => _reservedWordStrings.TryGetValue(text, out kind);");
+        sb.AppendLine("    public static bool TryParseReservedWord(string text, out SyntaxKind kind) => _reservedWordStrings.TryGetValue(text, out kind);");
 
         var binaryOps = tokens.Where(t => t.IsBinaryOperator).GroupBy(t => t.Precedence).OrderByDescending(g => g.Key);
         sb.AppendLine("    public static bool TryResolveOperatorPrecedence(SyntaxKind kind, out int precedence)");

@@ -18,4 +18,16 @@ public class LexerTests
         var value = Assert.IsType<double>(token.Value);
         Assert.Equal(0.12d, value);
     }
+
+    [Theory]
+    [InlineData("unit", SyntaxKind.UnitKeyword)]
+    [InlineData("and", SyntaxKind.AndToken)]
+    public void Keyword_IsParsedAsKeywordToken(string text, SyntaxKind expected)
+    {
+        var lexer = new Lexer(new StringReader(text));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(expected, token.Kind);
+        Assert.Equal(text, token.Text);
+    }
 }
