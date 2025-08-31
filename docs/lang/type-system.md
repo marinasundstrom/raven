@@ -56,3 +56,11 @@ let ids: Guid[] = [Guid.NewGuid()]
 Console.WriteLine(ids[0])
 ```
 
+## Conversions
+
+Values may convert to other types according to .NET rules. Implicit conversions include identity, `null` to any nullable type, lifting value types to their nullable counterpart, widening numeric conversions, reference conversions to base types or interfaces, boxing of value types, and conversions to a matching branch of a union. Narrowing or otherwise unsafe conversions require an explicit cast. See [type compatibility](proposals/type-compatibility.md) for a detailed list of conversion forms.
+
+## Overload resolution
+
+When multiple function overloads are available, Raven selects the candidate whose parameters require the best implicit conversions. Identity matches are preferred over numeric widening, which outrank reference or boxing conversions. User-defined conversions are considered last. Literal arguments convert to their underlying primitive type before the ranking is applied. If no candidate is strictly better, the call is reported as ambiguous.
+

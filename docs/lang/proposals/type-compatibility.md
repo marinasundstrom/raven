@@ -13,9 +13,85 @@ let o: object = ()      // box the unit value
 let p: object = 42      // box an int
 ```
 
+## Conversions
+
+The compiler classifies conversions using .NET semantics. Unless stated otherwise, the conversions described here are *implicit* and may occur without an explicit cast. Narrowing conversions or other conversions not listed require an explicit cast.
+
+### Identity conversion
+
+An expression can always convert to its own type.
+
+### Null conversion
+
+`null` converts to any nullable reference or nullable value type.
+
+```raven
+let s: string? = null
+let o: object = null
+```
+
+### Nullable lifting
+
+A non‑nullable value type implicitly converts to its nullable counterpart. The lifted value contains the same underlying representation.
+
+```raven
+let x: int? = 3   // int lifts to int?
+```
+
+### Numeric conversions
+
+Integral and floating‑point types follow .NET numeric conversion rules. Widening conversions such as `int` to `long` or `double` are implicit; narrowing conversions require an explicit cast.
+
+```raven
+let a: double = 3       // int → double
+let b: long = 1         // int → long
+```
+
+### Reference conversions
+
+Reference types convert to their base types or implemented interfaces.
+
+```raven
+class Animal {}
+class Dog : Animal {}
+
+let a: Animal = Dog()
+```
+
+### Boxing and unboxing
+
+Value types, including `unit`, box to `object` or any interface they implement. An explicit cast unboxes the value.
+
+```raven
+let o: object = ()  // box unit
+let i: object = 42  // box int
+```
+
+### Union conversions
+
+An expression converts to a union type if it converts to at least one branch. The union retains the original runtime representation.
+
+```raven
+let u: int | string = 1   // uses int branch
+```
+
+### User‑defined conversions
+
+Types may declare `op_Implicit` or `op_Explicit` conversion operators. Implicit operators participate in overload resolution; explicit ones require a cast.
+
 ## Overload resolution
 
-Overload resolution follows .NET conventions. Literal arguments convert to their underlying type when selecting an overload. `unit` participates as a value type and can be boxed like any other struct.
+During overload resolution each argument must have an implicit conversion to the corresponding parameter type. Candidates are ranked by the quality of those conversions:
+
+1. **Identity** conversions
+2. **Numeric** widening conversions
+3. **Reference** conversions
+4. **Boxing** conversions
+5. **User‑defined** conversions
+
+A candidate is preferred if it has a better conversion for at least one argument and no worse conversions for the others. If no candidate is better, the invocation is ambiguous.
+
+Literal arguments convert to their underlying primitive type before ranking. `unit` behaves like any other value type and may be boxed when necessary.
 
 ```raven
 func foo(x: int) {}
