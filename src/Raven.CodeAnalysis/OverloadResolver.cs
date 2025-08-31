@@ -119,8 +119,12 @@ internal sealed class OverloadResolver
         return better;
     }
 
-    private static ITypeSymbol GetUnderlying(ITypeSymbol type) =>
-        type is NullableTypeSymbol nt ? nt.UnderlyingType : type;
+    private static ITypeSymbol GetUnderlying(ITypeSymbol type) => type switch
+    {
+        NullableTypeSymbol nt => nt.UnderlyingType,
+        LiteralTypeSymbol lt => lt.UnderlyingType,
+        _ => type,
+    };
 
     private static int GetInheritanceDistance(ITypeSymbol? derived, ITypeSymbol baseType)
     {
