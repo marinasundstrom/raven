@@ -214,6 +214,17 @@ let a: Animal = pet   // ok: Dog and Cat derive from Animal
 let s: string = pet   // error: neither member converts to string
 ```
 
+### Cast expressions
+
+Explicit casts request a conversion to a specific type and use the same syntax as C#.
+
+```raven
+let d = (double)1
+let s = obj as string
+```
+
+`(T)expr` performs a runtime check and throws if the value cannot be converted. The `as` operator attempts the conversion and returns `null` (or a nullable value type) instead of throwing when the cast fails.
+
 ### String literals
 
 ```raven
@@ -820,8 +831,9 @@ Lowest → highest (all left-associative unless noted):
 7. Type tests: `is  as` (binds after relational)
 8. Additive: `+  -`
 9. Multiplicative: `*  /  %`
-10. Unary (prefix): `+  -  !`
-11. Postfix trailers: call `()`, member `.`, index `[]`
+10. Cast: `(T)expr`
+11. Unary (prefix): `+  -  !`
+12. Postfix trailers: call `()`, member `.`, index `[]`
 
 > **Disambiguation notes**
 >

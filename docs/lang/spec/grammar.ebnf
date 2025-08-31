@@ -147,7 +147,10 @@ AdditiveExpression       ::= MultiplicativeExpression {('+' | '-') Multiplicativ
 MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression} ;
 
 UnaryExpression          ::= PostfixExpression
-                           | ('+' | '-' | '!') UnaryExpression ;
+                           | ('+' | '-' | '!') UnaryExpression
+                           | CastExpression ;
+
+CastExpression           ::= '(' Type ')' UnaryExpression ;
 
 PostfixExpression        ::= PrimaryExpression { PostfixTrailer } ;
 PostfixTrailer           ::= ArgumentList
