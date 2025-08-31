@@ -17,9 +17,47 @@ internal class SyntaxParser : ParseContext
     public void ExitParens() => _parenDepth--;
     public bool IsInsideParens => _parenDepth > 0;
 
+    protected static bool CanTokenBeIdentifier(SyntaxToken token)
+    {
+        return SyntaxFacts.CanBeIdentifier(token.Kind);
+    }
+
+    protected static SyntaxToken ToIdentifierToken(SyntaxToken token)
+    {
+        if (token.Kind == SyntaxKind.IdentifierToken)
+            return token;
+
+        return new SyntaxToken(
+            SyntaxKind.IdentifierToken,
+            token.Text,
+            token.LeadingTrivia,
+            token.TrailingTrivia,
+            token._diagnostics,
+            token._annotations);
+    }
+
+    protected void UpdateLastToken(SyntaxToken token)
+    {
+        GetBaseContext()._lastToken = token;
+    }
+
     public bool IsNextToken(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
     {
         token = PeekToken();
+        if (kind == SyntaxKind.IdentifierToken)
+        {
+            if (token.Kind == SyntaxKind.IdentifierToken)
+                return true;
+
+            if (CanTokenBeIdentifier(token))
+            {
+                token = ToIdentifierToken(token);
+                return true;
+            }
+
+            return false;
+        }
+
         if (token.Kind == kind)
         {
             return true;
@@ -30,6 +68,17 @@ internal class SyntaxParser : ParseContext
     public bool IsNextToken(SyntaxKind kind)
     {
         var token = PeekToken();
+        if (kind == SyntaxKind.IdentifierToken)
+        {
+            if (token.Kind == SyntaxKind.IdentifierToken)
+                return true;
+
+            if (CanTokenBeIdentifier(token))
+                return true;
+
+            return false;
+        }
+
         if (token.Kind == kind)
         {
             return true;
@@ -40,11 +89,32 @@ internal class SyntaxParser : ParseContext
     public bool ConsumeToken(SyntaxKind kind, [NotNullWhen(true)] out SyntaxToken token)
     {
         token = PeekToken();
+
+        if (kind == SyntaxKind.IdentifierToken)
+        {
+            if (token.Kind == SyntaxKind.IdentifierToken)
+            {
+                token = ReadToken();
+                return true;
+            }
+
+            if (CanTokenBeIdentifier(token))
+            {
+                token = ReadToken();
+                token = ToIdentifierToken(token);
+                UpdateLastToken(token);
+                return true;
+            }
+
+            return false;
+        }
+
         if (token.Kind == kind)
         {
-            ReadToken();
+            token = ReadToken();
             return true;
         }
+
         return false;
     }
 

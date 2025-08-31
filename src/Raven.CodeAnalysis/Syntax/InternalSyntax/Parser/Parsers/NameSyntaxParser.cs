@@ -143,9 +143,14 @@ internal class NameSyntaxParser : SyntaxParser
             return WildcardName(name);
         }
 
-        if (name.IsKind(SyntaxKind.IdentifierToken))
+        if (CanTokenBeIdentifier(name))
         {
-            ReadToken();
+            name = ReadToken();
+            if (name.Kind != SyntaxKind.IdentifierToken)
+            {
+                name = ToIdentifierToken(name);
+                UpdateLastToken(name);
+            }
 
             if (
                 PeekToken().IsKind(SyntaxKind.LessThanToken) &&
@@ -221,9 +226,14 @@ internal class NameSyntaxParser : SyntaxParser
 
             NameColonSyntax? nameColon = null;
 
-            if (PeekToken(1).IsKind(SyntaxKind.ColonToken) && PeekToken().IsKind(SyntaxKind.IdentifierToken))
+            if (PeekToken(1).IsKind(SyntaxKind.ColonToken) && CanTokenBeIdentifier(PeekToken()))
             {
                 var name = ReadToken();
+                if (name.Kind != SyntaxKind.IdentifierToken)
+                {
+                    name = ToIdentifierToken(name);
+                    UpdateLastToken(name);
+                }
                 var colon = ReadToken();
                 nameColon = NameColon(IdentifierName(name), colon);
             }
