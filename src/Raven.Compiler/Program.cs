@@ -22,6 +22,7 @@ var stopwatch = Stopwatch.StartNew();
 // -d                - dump syntax with highlighting (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
+// --no-emit         - skip emitting the output assembly
 // -h, --help        - display help
 
 var sourceFiles = new List<string>();
@@ -34,6 +35,7 @@ var printSyntax = false;
 var printRawSyntax = false;
 var printBinders = false;
 var showHelp = false;
+var noEmit = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -54,6 +56,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "-b":
             printBinders = true;
+            break;
+        case "--no-emit":
+            noEmit = true;
             break;
         case "--ref":
         case "--refs":
@@ -141,13 +146,15 @@ outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.Assemb
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
 
 EmitResult? result = null;
-
-using (var stream = File.OpenWrite($"{outputPath}"))
+if (!noEmit)
 {
-    result = compilation.Emit(stream);
-}
+    using (var stream = File.OpenWrite($"{outputPath}"))
+    {
+        result = compilation.Emit(stream);
+    }
 
-diagnostics = diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray();
+    diagnostics = diagnostics.Concat(result!.Diagnostics).Distinct().ToImmutableArray();
+}
 
 stopwatch.Stop();
 
@@ -239,23 +246,24 @@ if (diagnostics.Length > 0)
     Console.WriteLine();
 }
 
-if (result is not null)
+var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error && d.Descriptor.Id != "RAV1011");
+if (errors.Any())
 {
-    var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error && d.Descriptor.Id != "RAV1011");
-    if (errors.Any())
-    {
+    if (result is not null)
         Failed(result);
-    }
     else
-    {
-        var warningsCount = diagnostics.Count(x => x.Severity == DiagnosticSeverity.Warning);
-        if (warningsCount > 0)
-            SucceededWithWarnings(warningsCount, stopwatch.Elapsed);
-        else
-            Succeeded(stopwatch.Elapsed);
+        Failed(errors.Count());
+}
+else
+{
+    var warningsCount = diagnostics.Count(x => x.Severity == DiagnosticSeverity.Warning);
+    if (warningsCount > 0)
+        SucceededWithWarnings(warningsCount, stopwatch.Elapsed);
+    else
+        Succeeded(stopwatch.Elapsed);
 
+    if (result is not null)
         CreateAppHost(compilation, outputPath, targetFramework);
-    }
 }
 
 static string? FindDebugDirectory()
@@ -285,5 +293,6 @@ static void PrintHelp()
     Console.WriteLine("  -d                 Dump syntax with highlighting (single file only)");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
+    Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  -h, --help         Display help");
 }
