@@ -1,13 +1,13 @@
-import System.*
+import System.Console.*
 
 var foo : Grades = .B
 foo = .C
 
 let x : string = .Empty
 
-Console.WriteLine(foo)
-Console.WriteLine(foo.GetType())
-Console.WriteLine(Grades.B)
-Console.WriteLine(Grades.B.GetType())
+WriteLine(foo)
+WriteLine(foo.GetType())
+WriteLine(Grades.B)
+WriteLine(Grades.B.GetType())
 
 enum Grades { A, B, C }
