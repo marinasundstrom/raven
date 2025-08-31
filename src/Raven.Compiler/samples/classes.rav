@@ -4,7 +4,7 @@
  
 //namespace Test
 
-import System.Console.
+import System.Console.*
 import System.Collections.Generic.List<>
 alias StringList = System.Collections.Generic.List<string>
 alias PrintLine = System.Console.WriteLine
