@@ -422,6 +422,21 @@ internal class BaseParseContext : ParseContext
             token = PeekToken();
         }
 
+        // If we reached end-of-file, preserve the skipped tokens as trivia and return a None token
+        if (token.Kind == SyntaxKind.EndOfFileToken)
+        {
+            if (skippedTokens.Count > 0)
+            {
+                var trivia = new SyntaxTrivia(
+                    new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
+                );
+
+                _pendingTrivia.Add(trivia);
+            }
+
+            return SyntaxFactory.Token(SyntaxKind.None);
+        }
+
         if (skippedTokens.Count > 0)
         {
             var trivia = new SyntaxTrivia(

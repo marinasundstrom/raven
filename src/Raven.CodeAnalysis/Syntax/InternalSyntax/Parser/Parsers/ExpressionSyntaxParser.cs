@@ -312,10 +312,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
-        if (!ConsumeToken(SyntaxKind.ArrowToken, out var fatArrowToken))
-        {
-
-        }
+        ConsumeTokenOrMissing(SyntaxKind.ArrowToken, out var fatArrowToken);
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 

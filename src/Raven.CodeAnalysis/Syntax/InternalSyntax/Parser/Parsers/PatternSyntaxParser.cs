@@ -57,10 +57,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private VariableDesignationSyntax ParseDesignation()
     {
-        if (!ConsumeToken(SyntaxKind.IdentifierToken, out var identifier))
-        {
-            // Error.
-        }
+        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
         return SingleVariableDesignation(identifier);
     }
 }
