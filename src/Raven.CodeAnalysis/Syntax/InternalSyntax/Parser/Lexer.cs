@@ -134,7 +134,7 @@ internal class Lexer : ILexer
                         _stringBuilder.Append(ch);
                     }
 
-                    if (!SyntaxFacts.ParseReservedWord(GetStringBuilderValue(), out syntaxKind))
+                    if (!SyntaxFacts.TryParseKeyword(GetStringBuilderValue(), out syntaxKind))
                     {
                         syntaxKind = SyntaxKind.IdentifierToken;
                     }
