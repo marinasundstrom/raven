@@ -26,6 +26,12 @@ static class BoundExpressionExtensions
             BoundExpressionReason.Inaccessible => CandidateReason.Inaccessible,
             BoundExpressionReason.WrongArity => CandidateReason.WrongArity,
             BoundExpressionReason.OverloadResolutionFailed => CandidateReason.OverloadResolutionFailure,
+            BoundExpressionReason.TypeMismatch => CandidateReason.None,
+            BoundExpressionReason.MissingType => CandidateReason.NotFound,
+            BoundExpressionReason.ConstantExpected => CandidateReason.None,
+            BoundExpressionReason.UnsupportedOperation => CandidateReason.None,
+            BoundExpressionReason.OtherError => CandidateReason.None,
+            BoundExpressionReason.ArgumentBindingFailed => CandidateReason.OverloadResolutionFailure,
             _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null)
         };
     }
