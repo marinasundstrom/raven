@@ -17,6 +17,16 @@ internal class SyntaxParser : ParseContext
     public void ExitParens() => _parenDepth--;
     public bool IsInsideParens => _parenDepth > 0;
 
+    protected static bool IsIdentifierToken(SyntaxToken token)
+    {
+        return token.Kind == SyntaxKind.IdentifierToken;
+    }
+
+    protected static bool HasLeadingEndOfLineTrivia(SyntaxToken token)
+    {
+        return token.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia));
+    }
+
     protected static bool CanTokenBeIdentifier(SyntaxToken token)
     {
         return SyntaxFacts.CanBeIdentifier(token.Kind);

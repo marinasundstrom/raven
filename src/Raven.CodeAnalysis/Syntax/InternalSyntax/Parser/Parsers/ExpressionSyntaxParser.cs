@@ -551,7 +551,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         token = PeekToken();
 
-        if (token.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia)))
+        if (!IsIdentifierToken(token)
+            && HasLeadingEndOfLineTrivia(token))
         {
             AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfLastToken()));
             return new ExpressionSyntax.Missing(diagnostics: Diagnostics);

@@ -137,7 +137,8 @@ internal class NameSyntaxParser : SyntaxParser
     {
         var name = PeekToken();
 
-        if (name.LeadingTrivia.Any(x => x.IsKind(SyntaxKind.EndOfLineTrivia)))
+        if (!IsIdentifierToken(name)
+            && HasLeadingEndOfLineTrivia(name))
         {
             AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfLastToken()));
             return IdentifierName(
