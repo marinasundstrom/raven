@@ -48,6 +48,8 @@ return `unit`. In .NET, `unit` corresponds to `void` (see [implementation notes]
 
 Raven is primarily **expression-oriented**: most constructs yield values and can
 appear wherever an expression is expected, reflecting its expression-first design.
+While Raven aims to be expression-oriented and declarative, it can still be used
+in an imperative and procedural manner when desired.
 For clarity and early exits, the language nevertheless permits certain imperative
 statement forms, such as the explicit `return` statement.
 
