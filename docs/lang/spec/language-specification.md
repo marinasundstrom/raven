@@ -2,6 +2,8 @@
 
 # Language specification
 
+Implementation details describing how Raven constructs project to .NET are documented in [dotnet-implementation.md](dotnet-implementation.md).
+
 ## Code samples
 
 You find them [here](../../../src/Raven.Compiler/samples/).
@@ -40,14 +42,7 @@ as outlined in this specification.
 Raven has no `void` type. The absence of a meaningful value is represented by the
 `unit` type, which has exactly one value written `()`. The type itself may be
 spelled `unit` or `()`. Functions without an explicit return type implicitly
-return `unit`. When interacting with .NET, methods that return `void` are
-projected as returning `unit`, and Raven's `unit` emits as `void` unless the
-value is observed. After any call that returns metadata `void`, the compiler
-loads `Unit.Value` so the invocation still produces a `unit` result. In an
-expression statement that value is discarded, but it enables nesting
-`unit`-returning calls such as `Console.WriteLine(Console.WriteLine("foo"))`.
-The `unit` type is a value type (struct). Because `unit` is a real type, it
-participates in generics, tuples, and unions like any other type.
+return `unit`. In .NET, `unit` corresponds to `void` (see [implementation notes](dotnet-implementation.md#unit-type)). The `unit` type participates in generics, tuples, and unions like any other type.
 
 ## Statements
 
@@ -110,7 +105,7 @@ Control flow constructs such as `if`, `while`, and `for` also have dedicated sta
 
 The `return` keyword exits a function, lambda, or property accessor. Because control-flow constructs are expressions, using `return` inside an expression that itself produces a value is not allowed. Explicit `return` statements may appear only in statement positions, such as within a function body or as their own expression statement. When a `return` occurs in a value context—for example, within an `if` expression assigned to a variable—the compiler reports diagnostic `RAV1900` and the block should rely on an implicit return instead.
 
-A `return` statement may omit its expression when the surrounding function or accessor returns `unit` (projected as `void` in IL). This is equivalent to returning the `()` value explicitly.
+A `return` statement may omit its expression when the surrounding function or accessor returns `unit`. See [implementation notes](dotnet-implementation.md#return-statements) for how such returns are emitted. This is equivalent to returning the `()` value explicitly.
 
 Within a method-like body, each `return` is validated against the declared
 return type of that body. A `return` without an expression is treated as
@@ -421,9 +416,7 @@ Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
 
-Predefined and literal types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, `unit` (spelled `unit` or `()`), and any literal value.
-Raven has no `void`; `unit` is projected to and from .NET `void`.
-If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, these predefined types, and literal values.
+Predefined and literal types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, `unit` (spelled `unit` or `()`), and any literal value. Raven has no `void`; the `unit` type is used instead (see [implementation notes](dotnet-implementation.md#unit-type)). If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, these predefined types, and literal values.
 
 Aliases require fully qualified names for namespaces, types, and members to
 avoid ambiguity; type expressions are written directly. Alias directives may
@@ -637,59 +630,7 @@ else if y is bool b {
 }
 ```
 
-#### Metadata projection
-
-When emitted to .NET metadata, a union is projected as the narrowest common
-denominator of its members. If every member shares a base class, that base type
-becomes the metadata type; otherwise, `object` is used. Including `null` in the
-union marks the emitted type as nullable.
-
-For example:
-
-```raven
-let pet = if flag { Dog() } else { Cat() } // Dog | Cat
-```
-
-Emits `Animal` because both `Dog` and `Cat` derive from it. In contrast:
-
-```raven
-let value = if flag { 0 } else { "hi" } // int | string | null
-```
-
-Emits `object?` since `int` and `string` share no base class other than
-`object`, and `null` is included.
-
-This narrowing makes unions friendlier to inheritance-based languages such as
-C#, and it gives the runtime a smaller set of types to resolve. The
-`TypeUnionsAnalyzer` provides additional hints about possible targets so that
-consumers can work with the projected type more effectively.
-
-To preserve the original union members, the compiler also attaches a
-`TypeUnionAttribute` to the parameter or return type in metadata. The attribute
-lists the CLR `Type` for each member in the union. The method signature itself
-uses the narrowed base type (or `object`) as described above.
-
-Raven emits shim types so that every union member has a concrete `Type`:
-
-* `Unit` represents the Raven `unit` value and is emitted into every assembly.
-* `Null` represents the `null` literal and is emitted only when a union includes
-  `null`.
-
-When `null` participates, the signature type is additionally marked as nullable.
-
-For example:
-
-```raven
-func f(x: string | unit | null) -> unit { }
-```
-
-Emits a parameter of type `object?` with:
-
-```csharp
-[TypeUnionAttribute(typeof(string), typeof(Unit), typeof(Null))]
-```
-
-attached, indicating the full set of possible values.
+For how unions are represented in .NET metadata, see [implementation notes](dotnet-implementation.md#union-types).
 
 ### Nullable types
 
