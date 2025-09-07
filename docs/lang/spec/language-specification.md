@@ -103,8 +103,8 @@ func sayHello() {
 
 Any expression can appear as a statement.
 
-> **Note:** Control flow such as `if`, `while`, and `for` are **expressions**. When used
-> on their own line, they form an `ExpressionStatement`.
+Control flow constructs such as `if`, `while`, and `for` also have dedicated statement forms for convenience.
+`ExpressionStatement` covers the remaining expressions that may appear on their own line.
 
 ### Return statements
 

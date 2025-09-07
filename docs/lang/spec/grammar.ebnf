@@ -95,13 +95,14 @@ Accessor                 ::= AccessorModifier? ('get' | 'set')
 
 BracketedParameterList   ::= '[' ParameterList? ']' ;
 
-(* ---------- Statements ----------
-   NOTE: Raven has no separate If/While *statements*.
-         Standalone control flow uses ExpressionStatement with IfExpression/WhileExpression. *)
+(* ---------- Statements ---------- *)
 
 Statement                ::= LocalDeclaration
                            | ReturnStatement
                            | FunctionStatement
+                           | IfStatement
+                           | WhileStatement
+                           | ForStatement
                            | ExpressionStatement ;
 
 LocalDeclaration         ::= ('let' | 'var') LocalVariableDeclarators ;
@@ -113,6 +114,10 @@ ReturnStatement          ::= 'return' Expression? ;
 FunctionStatement        ::= 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
 
 ExpressionStatement      ::= Expression ;
+
+IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
+WhileStatement           ::= 'while' Expression Statement ;
+ForStatement             ::= 'for' 'each'? Identifier 'in' Expression Statement ;
 
 (* ---------- Expressions & precedence (lowest → highest) ---------- *)
 
@@ -166,8 +171,8 @@ ElementAccessTrailer     ::= '[' Expression ']' ;
 MemberBindingExpression  ::= '.' Identifier ;
 
 (* ---------- Primaries ----------
-   NOTE: Block/IfExpression/WhileExpression can appear as expressions,
-         so `if (…) … [else …]` and `while (…) …` can be used as statements via ExpressionStatement. *)
+   NOTE: Block/IfExpression/WhileExpression/ForExpression can appear as expressions.
+         Each also has a corresponding statement form when used in statement position. *)
 PrimaryExpression        ::= Literal
                            | Identifier
                            | MemberBindingExpression
