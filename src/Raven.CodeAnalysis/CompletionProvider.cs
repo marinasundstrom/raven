@@ -123,7 +123,12 @@ public static class CompletionProvider
 
                     foreach (var member in members.Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                     {
-                        if (member is IMethodSymbol method && method.ContainingSymbol is IPropertySymbol)
+                        if (member is IMethodSymbol method &&
+                            (method.MethodKind == MethodKind.PropertyGet ||
+                             method.MethodKind == MethodKind.PropertySet ||
+                             method.MethodKind == MethodKind.EventAdd ||
+                             method.MethodKind == MethodKind.EventRemove ||
+                             method.MethodKind == MethodKind.EventRaise))
                             continue;
 
                         var insertText = member is IMethodSymbol ? member.Name + "()" : member.Name;
@@ -209,7 +214,12 @@ public static class CompletionProvider
                 if (symbol is IMethodSymbol { IsConstructor: true })
                     continue;
 
-                if (symbol is IMethodSymbol && symbol.ContainingSymbol is IPropertySymbol)
+                if (symbol is IMethodSymbol method &&
+                    (method.MethodKind == MethodKind.PropertyGet ||
+                     method.MethodKind == MethodKind.PropertySet ||
+                     method.MethodKind == MethodKind.EventAdd ||
+                     method.MethodKind == MethodKind.EventRemove ||
+                     method.MethodKind == MethodKind.EventRaise))
                     continue;
 
                 if (!string.IsNullOrEmpty(tokenText) &&
