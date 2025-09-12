@@ -2,8 +2,10 @@ namespace Raven.Editor.Tests;
 
 using System;
 using System.Reflection;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+
 using Terminal.Gui;
 
 public class ProgramTests
@@ -53,6 +55,8 @@ public class ProgramTests
             .Invoke(null, null);
 
         Application.Top.Focused.ShouldBe(editor);
+        Application.Driver!.GetCursorVisibility(out var visibility);
+        visibility.ShouldBe(CursorVisibility.Default);
 
         Application.Shutdown();
     }

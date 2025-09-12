@@ -350,7 +350,11 @@ internal class Program
             _completionList = null;
             _currentItems = Array.Empty<CompletionItem>();
             _currentCompletions = Array.Empty<string>();
-            _editor?.SetFocus();
+            if (_editor != null)
+            {
+                _editor.SetFocus();
+                Application.Driver?.SetCursorVisibility(CursorVisibility.Default);
+            }
         }
     }
 
