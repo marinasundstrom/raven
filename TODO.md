@@ -2,10 +2,6 @@
 
 ## Semantic analysis
 
-### Bug: Invoking instance method as static reports wrong diagnostics
-Calling an instance method with a static call produces an unexpected `RAV0030` and misses the expected `RAV0117` diagnostic.
-Possible solution: adjust the binder's diagnostic logic so that static calls to instance members only report `RAV0117`.
-
 ### Bug: Spread operator in array literals doesn't enumerate
 `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` fails because spread values aren't iterated.
 Possible solution: update collection expression binding/generation to expand spread expressions when building arrays.
