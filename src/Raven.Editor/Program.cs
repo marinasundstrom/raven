@@ -29,6 +29,7 @@ internal class Program
     private static ListView? _completionList;
     private static CompletionItem[] _currentItems = Array.Empty<CompletionItem>();
     private static string[] _currentCompletions = Array.Empty<string>();
+    private static CodeTextView? _editor;
 
     public static void Main(string[] args)
     {
@@ -84,6 +85,8 @@ internal class Program
             WordWrap = false,
             ColorScheme = editorScheme
         };
+
+        _editor = editor;
 
         _outputView = new ListView(Output) { Width = Dim.Fill(), Height = Dim.Fill() };
         _problemsView = new ListView(Problems) { Width = Dim.Fill(), Height = Dim.Fill() };
@@ -347,6 +350,11 @@ internal class Program
             _completionList = null;
             _currentItems = Array.Empty<CompletionItem>();
             _currentCompletions = Array.Empty<string>();
+            if (_editor != null)
+            {
+                _editor.SetFocus();
+                Application.Driver?.SetCursorVisibility(CursorVisibility.Default);
+            }
         }
     }
 
