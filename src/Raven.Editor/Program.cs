@@ -125,11 +125,15 @@ internal class Program
             if (_completionWin != null && e.KeyEvent.Key == Key.CursorDown)
             {
                 _completionList!.SelectedItem = Math.Min(_completionList.SelectedItem + 1, _currentCompletions.Length - 1);
+                _completionList.EnsureSelectedItemVisible();
+                _completionList.SetNeedsDisplay();
                 e.Handled = true;
             }
             else if (_completionWin != null && e.KeyEvent.Key == Key.CursorUp)
             {
                 _completionList!.SelectedItem = Math.Max(_completionList.SelectedItem - 1, 0);
+                _completionList.EnsureSelectedItemVisible();
+                _completionList.SetNeedsDisplay();
                 e.Handled = true;
             }
             else if (_completionWin != null && (e.KeyEvent.Key == Key.Enter || e.KeyEvent.Key == Key.Tab))
