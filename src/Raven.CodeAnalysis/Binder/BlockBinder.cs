@@ -1262,6 +1262,9 @@ partial class BlockBinder : Binder
         {
             var boundMember = BindMemberAccessExpression(memberAccess);
 
+            if (boundMember is BoundErrorExpression)
+                return boundMember;
+
             if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
                 var argExprs = new List<BoundExpression>();
@@ -1292,6 +1295,9 @@ partial class BlockBinder : Binder
         else if (syntax.Expression is MemberBindingExpressionSyntax memberBinding)
         {
             var boundMember = BindMemberBindingExpression(memberBinding);
+
+            if (boundMember is BoundErrorExpression)
+                return boundMember;
 
             if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
