@@ -1782,6 +1782,13 @@ partial class BlockBinder : Binder
                     break;
                 case SpreadElementSyntax spreadElem:
                     var spreadExpr = BindExpression(spreadElem.Expression);
+                    if (!IsSpreadEnumerable(spreadExpr.Type!))
+                    {
+                        _diagnostics.ReportSpreadSourceMustBeEnumerable(
+                            spreadExpr.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            spreadElem.GetLocation());
+                    }
+
                     boundElement = new BoundSpreadElement(spreadExpr);
                     break;
                 default:
@@ -1875,6 +1882,24 @@ partial class BlockBinder : Binder
             return namedType.TypeArguments[0];
 
         return Compilation.GetSpecialType(SpecialType.System_Object);
+    }
+
+    private bool IsSpreadEnumerable(ITypeSymbol type)
+    {
+        if (type is IArrayTypeSymbol)
+            return true;
+
+        if (type is INamedTypeSymbol named)
+        {
+            foreach (var iface in named.AllInterfaces)
+            {
+                if (iface.SpecialType == SpecialType.System_Collections_IEnumerable ||
+                    iface.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)

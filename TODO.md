@@ -2,10 +2,6 @@
 
 ## Semantic analysis
 
-### Bug: Spread operator in array literals doesn't enumerate
-`CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` fails because spread values aren't iterated.
-Possible solution: update collection expression binding/generation to expand spread expressions when building arrays.
-
 ## Build
 
 ### Bug: Build fails without generated syntax and diagnostics
