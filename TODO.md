@@ -16,7 +16,7 @@ Possible solution: ensure the parser includes multi-line comment trivia in the t
 
 ### Bug: Tuple alias directive requires initialization
 `AliasDirective_UsesAlias_Tuple` reports `RAV0166` for an uninitialized tuple alias variable.
-Possible solution: relax initialization checks for tuple aliases so using an alias doesn't require a separate initializer.
+Possible solution: Make sure the tuple is initialized, like so `let p: Pair = (1, 2)`, and make sure the test passes after that.
 
 ## Build
 
