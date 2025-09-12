@@ -242,6 +242,8 @@ public partial class SemanticModel
                     ?? ResolveType(targetNamespace, nsName.ToString());
                 if (nsImport != null)
                     namespaceImports.Add(nsImport);
+                else
+                    namespaceBinder.Diagnostics.ReportInvalidImportTarget(import.Name.GetLocation());
                 continue;
             }
 
@@ -259,6 +261,10 @@ public partial class SemanticModel
             if (typeSymbol != null)
             {
                 typeImports.Add(typeSymbol);
+            }
+            else
+            {
+                namespaceBinder.Diagnostics.ReportInvalidImportTarget(import.Name.GetLocation());
             }
         }
 

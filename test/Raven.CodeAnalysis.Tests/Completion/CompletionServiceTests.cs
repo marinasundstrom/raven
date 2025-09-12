@@ -132,4 +132,32 @@ Console.
         Assert.DoesNotContain(items, i => i.DisplayText == "add_CancelKeyPress");
         Assert.DoesNotContain(items, i => i.DisplayText == "remove_CancelKeyPress");
     }
+
+    [Fact]
+    public void GetCompletions_InImportDirective_ReturnsNamespacesAndTypesOnly()
+    {
+        var code = """
+import System.Environment.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences([
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(typeof(Environment).Assembly.Location),
+            ]);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "SpecialFolder");
+        Assert.DoesNotContain(items, i => i.DisplayText == "GetFolderPath");
+    }
 }

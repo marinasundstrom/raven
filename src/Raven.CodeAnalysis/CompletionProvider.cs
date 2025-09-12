@@ -13,6 +13,65 @@ public static class CompletionProvider
         var tokenText = token.Text;
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
 
+        var importDirective = token.GetAncestor<ImportDirectiveSyntax>();
+        if (importDirective is not null)
+        {
+            var qualified = token.GetAncestor<QualifiedNameSyntax>();
+            if (qualified is not null && qualified.Right is SimpleNameSyntax importSimple)
+            {
+                var nameToken = importSimple.Identifier;
+                if (position >= nameToken.Position)
+                {
+                    var symbolInfo = model.GetSymbolInfo(qualified.Left);
+                    if (symbolInfo.Symbol is INamespaceOrTypeSymbol nsOrType)
+                    {
+                        var prefix = nameToken.Text;
+                        var nameSpan = nameToken.Span;
+                        foreach (var member in nsOrType.GetMembers()
+                            .OfType<INamespaceOrTypeSymbol>()
+                            .Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            if (seen.Add(member.Name))
+                            {
+                                completions.Add(new CompletionItem(
+                                    DisplayText: member.Name,
+                                    InsertionText: member.Name,
+                                    ReplacementSpan: nameSpan,
+                                    CursorOffset: member is ITypeSymbol ? member.Name.Length : (int?)null,
+                                    Description: member.ToDisplayString(),
+                                    Symbol: member
+                                ));
+                            }
+                        }
+                    }
+                    return completions;
+                }
+            }
+
+            if (token.Parent is IdentifierNameSyntax { Parent: ImportDirectiveSyntax })
+            {
+                foreach (var symbol in binder.LookupAvailableSymbols())
+                {
+                    if (symbol is INamespaceOrTypeSymbol nsOrType &&
+                        (string.IsNullOrEmpty(tokenText) || nsOrType.Name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        if (seen.Add(nsOrType.Name))
+                        {
+                            completions.Add(new CompletionItem(
+                                DisplayText: nsOrType.Name,
+                                InsertionText: nsOrType.Name,
+                                ReplacementSpan: replacementSpan,
+                                CursorOffset: nsOrType is ITypeSymbol ? nsOrType.Name.Length : (int?)null,
+                                Description: nsOrType.ToDisplayString(),
+                                Symbol: nsOrType
+                            ));
+                        }
+                    }
+                }
+                return completions;
+            }
+        }
+
         if (token.IsKind(SyntaxKind.NewKeyword))
         {
             foreach (var symbol in binder.LookupAvailableSymbols())

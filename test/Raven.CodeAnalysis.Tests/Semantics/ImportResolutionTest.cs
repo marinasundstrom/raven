@@ -181,4 +181,21 @@ public class ImportResolutionTest : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void ImportNonNamespaceOrType_Should_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            import System.Console.WriteLine.*
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult("RAV2021").WithSpan(1, 8, 1, 32),
+            ]);
+
+        verifier.Verify();
+    }
 }

@@ -85,6 +85,8 @@ class BinderFactory
                     ?? ResolveType(nsSymbol!, nsName.ToString());
                 if (nsImport != null)
                     namespaceImports.Add(nsImport);
+                else
+                    nsBinder.Diagnostics.ReportInvalidImportTarget(importDirective.Name.GetLocation());
                 continue;
             }
 
@@ -101,6 +103,8 @@ class BinderFactory
 
             if (typeSymbol != null)
                 typeImports.Add(typeSymbol);
+            else
+                nsBinder.Diagnostics.ReportInvalidImportTarget(importDirective.Name.GetLocation());
         }
 
         foreach (var aliasDirective in nsSyntax.Aliases)
