@@ -218,7 +218,10 @@ internal class Program
         var tree = document.GetSyntaxTreeAsync().GetAwaiter().GetResult()!;
         var compilation = Workspace.GetCompilation(_projectId);
 
-        _currentItems = CompletionService.GetCompletions(compilation, tree, position).ToArray();
+        _currentItems = CompletionService
+            .GetCompletions(compilation, tree, position)
+            .Where(i => !string.IsNullOrWhiteSpace(i.DisplayText))
+            .ToArray();
         if (_currentItems.Length == 0)
         {
             HideCompletion();
