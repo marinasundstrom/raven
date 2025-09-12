@@ -5,6 +5,7 @@ using System.Reflection;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Terminal.Gui;
 
@@ -57,6 +58,38 @@ public class ProgramTests
         Application.Top.Focused.ShouldBe(editor);
         Application.Driver!.GetCursorVisibility(out var visibility);
         visibility.ShouldBe(CursorVisibility.Default);
+
+        Application.Shutdown();
+    }
+
+    [Fact]
+    public void ShowCompletion_NoItems_DoesNotShowWindow()
+    {
+        Application.Init(new FakeDriver());
+
+        var workspace = RavenWorkspace.Create();
+        var projectId = workspace.AddProject("TestProject");
+        var documentId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(documentId, "test.rav", SourceText.From(string.Empty));
+        workspace.TryApplyChanges(solution);
+
+        typeof(Program).GetField("_projectId", BindingFlags.NonPublic | BindingFlags.Static)!
+            .SetValue(null, projectId);
+        typeof(Program).GetField("_documentId", BindingFlags.NonPublic | BindingFlags.Static)!
+            .SetValue(null, documentId);
+
+        var editor = new TestCodeTextView(workspace, projectId, documentId)
+        {
+            Text = string.Empty
+        };
+        Application.Top.Add(editor);
+
+        typeof(Program).GetMethod("ShowCompletion", BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, new object[] { editor });
+
+        typeof(Program).GetField("_completionWin", BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetValue(null)
+            .ShouldBeNull();
 
         Application.Shutdown();
     }
