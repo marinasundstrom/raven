@@ -56,7 +56,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias StringList = System.Collections.Generic.List<string>
 
-            let list: StringList
+            let list: StringList = StringList()
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -71,7 +71,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias Pair = (x: int, y: int)
 
-            let p: Pair
+            let p: Pair = (x: 1, y: 2)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -93,7 +93,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias Number = int | string
 
-            let n: Number
+            let n: Number = 1
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -221,7 +221,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias MyInt = int
 
-            let x: MyInt
+            let x: MyInt = 0
             """;
 
         var verifier = CreateVerifier(testCode);

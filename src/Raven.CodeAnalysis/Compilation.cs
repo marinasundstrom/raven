@@ -363,6 +363,17 @@ public class Compilation
 
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)
     {
+        static ITypeSymbol Unalias(ITypeSymbol type)
+        {
+            while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol t)
+                type = t;
+
+            return type;
+        }
+
+        source = Unalias(source);
+        destination = Unalias(destination);
+
         // Temporary
         if (destination is null) return Conversion.None;
 
