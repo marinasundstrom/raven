@@ -13,6 +13,7 @@ Major components:
 - `test/Raven.CodeAnalysis.Tests` — unit tests.
 - `tools/NodeGenerator` / `tools/Generator` — code‑generation utilities for syntax nodes and Roslyn-based generators. `tools/Generator` is responsible for the visitors for Symbols and Bound Nodes.
 - `docs/` — language design notes and specification.
+- Ignore the `test/Raven.CodeAnalysis.Samples.Tests` project.
 
 ## Build & Test
 Run all commands from the repository root unless noted:
