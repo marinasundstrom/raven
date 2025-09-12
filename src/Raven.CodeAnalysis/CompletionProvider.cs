@@ -10,6 +10,18 @@ public static class CompletionProvider
         var completions = new List<CompletionItem>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
+        static string SafeToDisplayString(ISymbol symbol)
+        {
+            try
+            {
+                return symbol.ToDisplayString();
+            }
+            catch
+            {
+                return symbol.Name;
+            }
+        }
+
         var tokenText = token.Text;
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
 
@@ -23,7 +35,8 @@ public static class CompletionProvider
                 if (position >= nameToken.Position)
                 {
                     var symbolInfo = model.GetSymbolInfo(qualified.Left);
-                    if (symbolInfo.Symbol is INamespaceOrTypeSymbol nsOrType)
+                    var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
+                    if (symbol is INamespaceOrTypeSymbol nsOrType)
                     {
                         var prefix = nameToken.Text;
                         var nameSpan = nameToken.Span;
@@ -38,7 +51,7 @@ public static class CompletionProvider
                                     InsertionText: member.Name,
                                     ReplacementSpan: nameSpan,
                                     CursorOffset: member is ITypeSymbol ? member.Name.Length : (int?)null,
-                                    Description: member.ToDisplayString(),
+                                    Description: SafeToDisplayString(member),
                                     Symbol: member
                                 ));
                             }
@@ -62,7 +75,7 @@ public static class CompletionProvider
                                 InsertionText: nsOrType.Name,
                                 ReplacementSpan: replacementSpan,
                                 CursorOffset: nsOrType is ITypeSymbol ? nsOrType.Name.Length : (int?)null,
-                                Description: nsOrType.ToDisplayString(),
+                                Description: SafeToDisplayString(nsOrType),
                                 Symbol: nsOrType
                             ));
                         }
@@ -82,7 +95,8 @@ public static class CompletionProvider
                 if (position >= nameToken.Position)
                 {
                     var symbolInfo = model.GetSymbolInfo(qualified.Left);
-                    if (symbolInfo.Symbol is INamespaceOrTypeSymbol nsOrType)
+                    var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
+                    if (symbol is INamespaceOrTypeSymbol nsOrType)
                     {
                         var prefix = nameToken.Text;
                         var nameSpan = nameToken.Span;
@@ -105,7 +119,7 @@ public static class CompletionProvider
                                     InsertionText: insertText,
                                     ReplacementSpan: nameSpan,
                                     CursorOffset: cursorOffset,
-                                    Description: member.ToDisplayString(),
+                                    Description: SafeToDisplayString(member),
                                     Symbol: member
                                 ));
                             }
@@ -138,7 +152,7 @@ public static class CompletionProvider
                             InsertionText: insertText,
                             ReplacementSpan: replacementSpan,
                             CursorOffset: cursorOffset,
-                            Description: symbol.ToDisplayString(),
+                            Description: SafeToDisplayString(symbol),
                             Symbol: symbol
                         ));
                     }
@@ -167,7 +181,7 @@ public static class CompletionProvider
                             InsertionText: insertText,
                             ReplacementSpan: span,
                             CursorOffset: cursorOffset,
-                            Description: symbol.ToDisplayString(),
+                            Description: SafeToDisplayString(symbol),
                             Symbol: symbol
                         ));
                     }
@@ -191,7 +205,7 @@ public static class CompletionProvider
                             InsertionText: type.Name,
                             ReplacementSpan: replacementSpan,
                             CursorOffset: type.Name.Length,
-                            Description: type.ToDisplayString(),
+                            Description: SafeToDisplayString(type),
                             Symbol: type
                         ));
                     }
@@ -217,7 +231,7 @@ public static class CompletionProvider
                             InsertionText: member.Name,
                             ReplacementSpan: replacementSpan,
                             CursorOffset: member.Name.Length,
-                            Description: member.ToDisplayString(),
+                        Description: SafeToDisplayString(member),
                             Symbol: member
                         ));
                     }
@@ -246,7 +260,7 @@ public static class CompletionProvider
                                 InsertionText: name,
                                 ReplacementSpan: replacementSpan,
                                 CursorOffset: name.Length,
-                                Description: attrType.ToDisplayString(),
+                                Description: SafeToDisplayString(attrType),
                                 Symbol: attrType
                             ));
                         }
@@ -265,15 +279,17 @@ public static class CompletionProvider
             if (position >= dotToken.End)
             {
                 var symbolInfo = model.GetSymbolInfo(memberAccess.Expression);
+                var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
                 var typeInfo = model.GetTypeInfo(memberAccess.Expression).Type;
+                var type = typeInfo?.UnderlyingSymbol as ITypeSymbol;
                 IEnumerable<ISymbol>? members = null;
 
-                if (symbolInfo.Symbol is INamedTypeSymbol typeSymbol && symbolInfo.Symbol == typeInfo)
+                if (symbol is INamedTypeSymbol typeSymbol && SymbolEqualityComparer.Default.Equals(symbol, type))
                 {
                     // Accessing a type name: show static members
                     members = typeSymbol.GetMembers().Where(m => m.IsStatic && m.DeclaredAccessibility == Accessibility.Public);
                 }
-                else if (typeInfo is INamedTypeSymbol instanceType)
+                else if (type is INamedTypeSymbol instanceType)
                 {
                     // Accessing an instance: show instance members
                     members = instanceType.GetMembers().Where(m => !m.IsStatic && m.DeclaredAccessibility == Accessibility.Public);
@@ -311,7 +327,7 @@ public static class CompletionProvider
                                 InsertionText: insertText,
                                 ReplacementSpan: nameSpan,
                                 CursorOffset: cursorOffset,
-                                Description: member.ToDisplayString(),
+                                Description: SafeToDisplayString(member),
                                 Symbol: member
                             ));
                         }
@@ -326,7 +342,8 @@ public static class CompletionProvider
         if (qualifiedName is not null && qualifiedName.Right is SimpleNameSyntax simple)
         {
             var symbolInfo = model.GetSymbolInfo(qualifiedName.Left);
-            if (symbolInfo.Symbol is INamespaceOrTypeSymbol nsOrType)
+            var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
+            if (symbol is INamespaceOrTypeSymbol nsOrType)
             {
                 var prefix = simple.Identifier.Text;
                 var nameSpan = simple.Identifier.Span;
@@ -343,7 +360,7 @@ public static class CompletionProvider
                             InsertionText: member.Name,
                             ReplacementSpan: nameSpan,
                             CursorOffset: member is ITypeSymbol ? member.Name.Length : (int?)null,
-                            Description: member.ToDisplayString(),
+                            Description: SafeToDisplayString(member),
                             Symbol: member
                         ));
                     }
@@ -405,7 +422,7 @@ public static class CompletionProvider
                         InsertionText: insertText,
                         ReplacementSpan: replacementSpan,
                         CursorOffset: cursorOffset,
-                        Description: symbol.ToDisplayString(),
+                        Description: SafeToDisplayString(symbol),
                         Symbol: symbol
                     ));
                 }

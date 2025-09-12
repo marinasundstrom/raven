@@ -28,6 +28,8 @@ string.
             .AddSyntaxTrees(syntaxTree)
             .AddReferences([
                 MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
             ]);
 
@@ -59,6 +61,8 @@ text.
             .AddSyntaxTrees(syntaxTree)
             .AddReferences([
                 MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
             ]);
 
@@ -89,6 +93,8 @@ Console.Out.
             .AddSyntaxTrees(syntaxTree)
             .AddReferences([
                 MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
             ]);
 
@@ -119,6 +125,8 @@ Console.
             .AddSyntaxTrees(syntaxTree)
             .AddReferences([
                 MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
             ]);
 
@@ -149,6 +157,8 @@ import System.Environment.
             .AddSyntaxTrees(syntaxTree)
             .AddReferences([
                 MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Environment).Assembly.Location),
             ]);
 
@@ -177,6 +187,8 @@ alias W = System.Console.
             .AddSyntaxTrees(syntaxTree)
             .AddReferences([
                 MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
             ]);
 
@@ -186,5 +198,94 @@ alias W = System.Console.
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         Assert.Contains(items, i => i.DisplayText == "WriteLine");
+    }
+
+    [Fact]
+    public void GetCompletions_InAliasDirective_ForNamespaceRoot_ReturnsMembers()
+    {
+        var code = """
+alias S = System.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences([
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            ]);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Console");
+    }
+
+    [Fact]
+    public void GetCompletions_OnTypeAlias_ReturnsMembers()
+    {
+        var code = """
+alias Terminal = System.Console
+Terminal.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences([
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            ]);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "WriteLine");
+    }
+
+    [Fact]
+    public void GetCompletions_OnNamespaceAlias_ReturnsMembers()
+    {
+        var code = """
+alias ST = System.Text
+ST.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences([
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Text.StringBuilder).Assembly.Location),
+            ]);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "StringBuilder");
     }
 }
