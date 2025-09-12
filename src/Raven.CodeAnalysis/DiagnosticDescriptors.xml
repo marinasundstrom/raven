@@ -182,4 +182,7 @@
   <Descriptor Id="RAV2020" Identifier="InvalidAliasType" Title="Invalid alias target"
     Message="Invalid alias target. Supported targets are types, namespaces, unions, tuples, and predefined types like bool, char, int, string, and void."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2021" Identifier="InvalidImportTarget" Title="Invalid import target"
+    Message="Invalid import target. Only namespaces and types can be imported"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>
