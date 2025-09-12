@@ -6,10 +6,6 @@
 `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` fails because spread values aren't iterated.
 Possible solution: update collection expression binding/generation to expand spread expressions when building arrays.
 
-### Bug: Multi-line comment trivia parsing fails
-`MultiLineCommentTrivia_IsLeadingTriviaOfToken` throws `InvalidOperationException` when parsing multi-line comments.
-Possible solution: ensure the parser includes multi-line comment trivia in the token's leading trivia list.
-
 ## Build
 
 ### Bug: Build fails without generated syntax and diagnostics
