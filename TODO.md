@@ -10,10 +10,6 @@ Possible solution: update collection expression binding/generation to expand spr
 `MultiLineCommentTrivia_IsLeadingTriviaOfToken` throws `InvalidOperationException` when parsing multi-line comments.
 Possible solution: ensure the parser includes multi-line comment trivia in the token's leading trivia list.
 
-### Bug: Tuple alias directive requires initialization
-`AliasDirective_UsesAlias_Tuple` reports `RAV0166` for an uninitialized tuple alias variable.
-Possible solution: Make sure the tuple is initialized, like so `let p: Pair = (1, 2)`, and make sure the test passes after that.
-
 ## Build
 
 ### Bug: Build fails without generated syntax and diagnostics
