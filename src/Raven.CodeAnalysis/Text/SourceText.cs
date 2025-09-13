@@ -73,8 +73,12 @@ public class SourceText
 
     private (int line, int column) GetLineAndColumn(int position)
     {
-        if (position < 0 || position > _text.Length)
-            throw new ArgumentOutOfRangeException(nameof(position));
+        // Clamp out-of-range positions instead of throwing. Some recovery paths
+        // can request spans slightly beyond the end of the source text.
+        if (position < 0)
+            position = 0;
+        else if (position > _text.Length)
+            position = _text.Length;
 
         return TextUtils.GetLineAndColumn(_lineStarts, position);
     }

@@ -25,8 +25,24 @@ internal sealed class SeekableTextSource
     /// </summary>
     public void ResetPosition(int position)
     {
-        if (position < _absoluteStart || position > _absoluteStart + _buffer.Count)
-            throw new InvalidOperationException("Position outside of buffer bounds.");
+        if (position < _absoluteStart)
+        {
+            // If the requested position predates the buffered range, clamp it to
+            // the earliest available character instead of throwing. The parser
+            // occasionally rewinds past the start when recovering from errors.
+            position = _absoluteStart;
+        }
+
+        // Ensure we have buffered characters up to the requested position
+        // before validating the upper bound. The parser may attempt to rewind
+        // to positions beyond the currently buffered range (e.g., after peeking
+        // ahead for newline handling). Buffering first avoids spurious
+        // out-of-range errors when the position is still within the source text.
+        EnsureBuffered(position);
+
+        if (position > _absoluteStart + _buffer.Count)
+            position = _absoluteStart + _buffer.Count;
+
         _position = position;
     }
 

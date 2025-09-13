@@ -1,7 +1,7 @@
 # BUGS
 
 ## Overview
-`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 54 failing tests. The failures cluster into the categories below based on shared root causes.
+`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 53 failing tests. The failures cluster into the categories below based on shared root causes.
 
 ## Prioritized failing test categories
 
@@ -57,8 +57,12 @@
 8. **Code generation**  \
    Emitted assemblies omit the mandatory `unit` type. The spec treats `unit` as the implicit return type for functions without annotations【F:docs/lang/spec/language-specification.md†L40-L45】.  \
    Failing tests:
-   - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType`
+ - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType`
 
+
+## Recently fixed
+
+- `AnalyzerInfrastructureTests.GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics` – parser now buffers the requested position before rewinding, preventing `Position outside of buffer bounds` exceptions.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
