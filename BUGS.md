@@ -75,8 +75,6 @@
    - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType`
    - `SampleProgramsTests.Sample_should_load_into_compilation` (all sample `.rav` files)
 
-10. **Incremental syntax tree updates**  \
-    Applying text edits fails to produce consistent trees, suggesting the incremental update algorithm or cache invalidation is incomplete. The spec currently has no guidance on incremental behavior.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
@@ -92,7 +90,6 @@ The failing tests point to regressions across parsing, binding, diagnostics, and
 - **Analyzer diagnostics** – Revisit the diagnostic pipeline so analyzer and compiler warnings share configuration and reporting. Ensure `DiagnosticOptions` flow into analyzer drivers and add tests for custom suppressions.
 - **Workspace and utility failures** – Audit highlighters and tooling hooks so diagnostics surface consistently; add integration tests for console rendering.
 - **Code generation and sample program loading** – Always emit the `unit` type and populate sample programs to verify end-to-end execution【F:docs/lang/spec/language-specification.md†L40-L45】.
-- **Incremental syntax tree updates** – Repair the text change algorithm and cache invalidation. The language specification does not currently define incremental update semantics, so behavior must be inferred from Roslyn-style trees.
 
 ### Specification ambiguities
 

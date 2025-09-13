@@ -30,11 +30,14 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         return token;
     }
 
-    public override SyntaxNode? VisitStatement(StatementSyntax node)
+    public override SyntaxNode? VisitStatement(StatementSyntax? node)
     {
+        if (node is null)
+            return null;
+
         var statement = base.VisitStatement(node)!;
 
-        if (node is BlockStatementSyntax && node?.Parent is IfStatementSyntax)
+        if (node is BlockStatementSyntax && node.Parent is IfStatementSyntax)
         {
             return statement;
         }
