@@ -187,6 +187,7 @@ internal class SyntaxParser : ParseContext
             if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
             {
                 AddSkippedToPending(skippedTokens);
+                GetBaseContext()._lookaheadTokens.Clear();
                 token = Token(SyntaxKind.None);
                 return true;
             }
