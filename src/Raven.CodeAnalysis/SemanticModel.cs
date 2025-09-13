@@ -536,17 +536,24 @@ public partial class SemanticModel
 
                 case ClassDeclarationSyntax classDecl:
                     {
-                        var baseType = classDecl.BaseType is not null
-                            ? (parentBinder.ResolveType(classDecl.BaseType.Type) as INamedTypeSymbol)
-                              ?? Compilation.GetTypeByMetadataName("System.Object")
-                            : Compilation.GetTypeByMetadataName("System.Object");
+                        var baseTypeSymbol = Compilation.GetTypeByMetadataName("System.Object");
+                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+
+                        if (classDecl.BaseType is not null)
+                        {
+                            var resolved = parentBinder.ResolveType(classDecl.BaseType.Type) as INamedTypeSymbol;
+                            if (resolved is not null && resolved.TypeKind == TypeKind.Interface)
+                                interfaceList = ImmutableArray.Create(resolved);
+                            else if (resolved is not null)
+                                baseTypeSymbol = resolved;
+                        }
 
                         var isSealed = !classDecl.Modifiers.Any(m =>
                             m.Kind == SyntaxKind.OpenKeyword || m.Kind == SyntaxKind.AbstractKeyword);
 
                         var classSymbol = new SourceNamedTypeSymbol(
                             classDecl.Identifier.Text,
-                            baseType!,
+                            baseTypeSymbol!,
                             TypeKind.Class,
                             parentNamespace.AsSourceNamespace(),
                             null,
@@ -555,11 +562,14 @@ public partial class SemanticModel
                             [classDecl.GetReference()],
                             isSealed);
 
+                        if (!interfaceList.IsDefaultOrEmpty)
+                            classSymbol.SetInterfaces(interfaceList);
+
                         var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
                         _binderCache[classDecl] = classBinder;
                         RegisterClassSymbol(classDecl, classSymbol);
-                        if (classDecl.BaseType is not null && baseType!.IsSealed)
-                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(baseType.Name, classDecl.BaseType.Type.GetLocation());
+                        if (classDecl.BaseType is not null && baseTypeSymbol!.IsSealed)
+                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(baseTypeSymbol.Name, classDecl.BaseType.Type.GetLocation());
                         RegisterClassMembers(classDecl, classBinder);
                         break;
                     }
@@ -655,10 +665,16 @@ public partial class SemanticModel
 
                 case ClassDeclarationSyntax nestedClass:
                     var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
-                    var nestedBaseType = nestedClass.BaseType is not null
-                        ? (classBinder.ResolveType(nestedClass.BaseType.Type) as INamedTypeSymbol)
-                          ?? Compilation.GetTypeByMetadataName("System.Object")
-                        : Compilation.GetTypeByMetadataName("System.Object");
+                    var nestedBaseType = Compilation.GetTypeByMetadataName("System.Object");
+                    ImmutableArray<INamedTypeSymbol> nestedInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
+                    if (nestedClass.BaseType is not null)
+                    {
+                        var resolved = classBinder.ResolveType(nestedClass.BaseType.Type) as INamedTypeSymbol;
+                        if (resolved is not null && resolved.TypeKind == TypeKind.Interface)
+                            nestedInterfaces = ImmutableArray.Create(resolved);
+                        else if (resolved is not null)
+                            nestedBaseType = resolved;
+                    }
                     var nestedSealed = !nestedClass.Modifiers.Any(m =>
                         m.Kind == SyntaxKind.OpenKeyword || m.Kind == SyntaxKind.AbstractKeyword);
                     var nestedSymbol = new SourceNamedTypeSymbol(
@@ -672,6 +688,9 @@ public partial class SemanticModel
                         [nestedClass.GetReference()],
                         nestedSealed
                     );
+
+                    if (!nestedInterfaces.IsDefaultOrEmpty)
+                        nestedSymbol.SetInterfaces(nestedInterfaces);
 
                     var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
                     _binderCache[nestedClass] = nestedBinder;
