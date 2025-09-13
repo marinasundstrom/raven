@@ -68,11 +68,10 @@
    Failing tests:
    - `Syntax.Tests.Sandbox.Test`
 
-9. **Code generation and sample program loading**  \
-   Emitted assemblies omit the mandatory `unit` type and sample `.rav` programs do not load into the compilation. The spec treats `unit` as the implicit return type for functions without annotations【F:docs/lang/spec/language-specification.md†L40-L45】.  \
+9. **Code generation**  \
+   Emitted assemblies omit the mandatory `unit` type. The spec treats `unit` as the implicit return type for functions without annotations【F:docs/lang/spec/language-specification.md†L40-L45】.  \
    Failing tests:
    - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType`
-   - `SampleProgramsTests.Sample_should_load_into_compilation` (all sample `.rav` files)
 
 
 ## Conclusion
