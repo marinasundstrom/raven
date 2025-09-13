@@ -16,7 +16,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias SB = System.Text.StringBuilder
 
-            SB
+            let sb: SB = SB()
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -41,7 +41,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias IntList = System.Collections.Generic.List<int>
 
-            IntList
+            let list: IntList = IntList()
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -71,7 +71,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias Pair = (x: int, y: int)
 
-            let p: Pair = (x: 1, y: 2)
+            let p: Pair = (1, 2)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -84,6 +84,38 @@ public class AliasResolutionTest : DiagnosticTestBase
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
+    }
+
+    [Fact]
+    public void AliasDirective_UsesAlias_Tuple_WithNamedLiteral()
+    {
+        string testCode =
+            """
+            alias Pair = (x: int, y: int)
+
+            let p: Pair = (x: 1, y: 2)
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void AliasDirective_UsesAlias_Tuple_TypeMismatch_ReportsDiagnostic()
+    {
+        string testCode =
+            """
+            alias Pair = (x: int, y: int)
+
+            let p: Pair = (1, "")
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)]);
+
+        verifier.Verify();
     }
 
     [Fact]
@@ -163,7 +195,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias ST = System.Text
 
-            ST.StringBuilder
+            let sb: ST.StringBuilder = ST.StringBuilder()
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -193,7 +225,7 @@ public class AliasResolutionTest : DiagnosticTestBase
 
             class C
             {
-                let sb: SB
+                let sb: SB = SB()
             }
             """;
 

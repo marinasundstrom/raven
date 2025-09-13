@@ -54,6 +54,20 @@ internal static class ReturnTypeCollector
                 AddType(type);
         }
 
+        public override void VisitBlockStatement(BoundBlockStatement node)
+        {
+            BoundStatement? last = null;
+            foreach (var statement in node.Statements)
+            {
+                VisitStatement(statement);
+                last = statement;
+            }
+
+            // Consider implicit final expression in statement blocks (e.g., function bodies)
+            if (last is BoundExpressionStatement exprStmt && exprStmt.Expression.Type is ITypeSymbol type)
+                AddType(type);
+        }
+
         public override void VisitLambdaExpression(BoundLambdaExpression node)
         {
             // Don't traverse into nested lambdas

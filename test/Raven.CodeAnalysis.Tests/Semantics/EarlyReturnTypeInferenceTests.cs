@@ -27,7 +27,7 @@ class Foo {
 
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var boundBody = (BoundBlockExpression)model.GetBoundNode(method.Body!)!;
+        var boundBody = (BoundBlockStatement)model.GetBoundNode(method.Body!)!;
 
         var inferred = ReturnTypeCollector.Infer(boundBody);
 
@@ -58,7 +58,7 @@ class Foo {
 
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var boundBody = (BoundBlockExpression)model.GetBoundNode(method.Body!)!;
+        var boundBody = (BoundBlockStatement)model.GetBoundNode(method.Body!)!;
 
         var inferred = ReturnTypeCollector.Infer(boundBody);
 

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -21,7 +22,7 @@ class Foo {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = TestMetadataReferences.Default;
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
