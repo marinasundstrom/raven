@@ -33,7 +33,6 @@
    Failing tests:
    - `ImportResolutionTest.OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic`
    - `ImportResolutionTest.ImportNonNamespaceOrType_Should_ProduceDiagnostic`
-   - `NamespaceResolutionTest.ConsoleDoesNotContainWriteLine2_Should_ProduceDiagnostics`
    - `SymbolQueryTests.CallingInstanceMethodAsStatic_ProducesDiagnostic`
    - `SemanticClassifierTests.ClassifiesTokensBySymbol`
 
@@ -65,6 +64,7 @@
 - `AnalyzerInfrastructureTests.GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics` – parser now buffers the requested position before rewinding, preventing `Position outside of buffer bounds` exceptions.
 - `SemanticClassifierTests.ClassifiesTokensBySymbol` – parser now tolerates missing namespace terminators, eliminating `ArgumentNullException` crashes.
 - `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – class symbols now track only direct interfaces, excluding inherited ones.
+- `NamespaceResolutionTest.ConsoleDoesNotContainWriteLine2_Should_ProduceDiagnostics` – diagnostic span now targets the undefined member name rather than the entire expression.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
