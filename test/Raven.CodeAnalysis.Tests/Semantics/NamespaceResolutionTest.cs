@@ -59,7 +59,7 @@ public class NamespaceResolutionTest : DiagnosticTestBase
         var verifier = CreateVerifier(
                     testCode,
                     [
-                         new DiagnosticResult("RAV0117").WithSpan(1, 1, 1, 26).WithArguments("Console", "WriteLine2"),
+                         new DiagnosticResult("RAV0117").WithSpan(1, 16, 1, 26).WithArguments("Console", "WriteLine2"),
                     ]);
 
         verifier.Verify();
