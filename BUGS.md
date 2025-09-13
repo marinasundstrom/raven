@@ -55,8 +55,6 @@
 7. **Analyzer diagnostics ignored**  \
    Analyzer configuration flags are ignored, so analyzer diagnostics either fail to run or cannot be suppressed.  \
    Failing tests:
-   - `AnalyzerInfrastructureTests.GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics`
-   - `DiagnosticOptionsTests.RunAnalyzers_False_DisablesAnalyzerDiagnostics`
    - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithoutAnnotation_SuggestsInferredReturnType`
    - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithoutAnnotation_WithMultipleReturnTypes_SuggestsUnion`
    - `MissingReturnTypeAnnotationAnalyzerTests.FunctionStatementWithoutAnnotation_SuggestsInferredReturnType`

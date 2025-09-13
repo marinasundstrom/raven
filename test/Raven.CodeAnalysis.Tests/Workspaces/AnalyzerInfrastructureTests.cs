@@ -54,7 +54,7 @@ public class AnalyzerInfrastructureTests
         workspace.TryApplyChanges(updated);
 
         var diagnostics2 = workspace.GetDiagnostics(projectId);
-        Assert.Contains(diagnostics2, d => d.Descriptor.Id == "RAV1010");
+        Assert.Contains(diagnostics2, d => d.Descriptor.Id == "RAV0103");
         Assert.Contains(diagnostics2, d => d.Descriptor.Id == TodoAnalyzer.Descriptor.Id);
     }
 }
