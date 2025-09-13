@@ -66,11 +66,18 @@ internal class BaseParseContext : ParseContext
 
     public override void SetTreatNewlinesAsTokens(bool value)
     {
-        if (_treatNewlinesAsTokens != value)
+        if (_treatNewlinesAsTokens == value)
+            return;
+
+        _treatNewlinesAsTokens = value;
+
+        var rewindPosition = Position;
+        if (value && _lastToken is { })
         {
-            _treatNewlinesAsTokens = value;
-            RewindToPosition(Position);
+            rewindPosition -= _lastToken.TrailingTrivia.Width;
         }
+
+        RewindToPosition(rewindPosition);
     }
 
     /// <summary>

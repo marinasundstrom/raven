@@ -12,18 +12,23 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
     private List<Diagnostic>? _diagnostics;
     private bool? _containsDiagnostics;
 
-    public string Text => Green.Text;
+    public string Text => Green?.Text ?? string.Empty;
 
-    public bool IsMissing => Green.IsMissing;
+    public bool IsMissing => Green?.IsMissing ?? true;
 
-    public int Width => Green.Width;
-    public int FullWidth => Green.FullWidth;
+    public int Width => Green?.Width ?? 0;
+    public int FullWidth => Green?.FullWidth ?? 0;
 
-    public bool HasLeadingTrivia => Green.LeadingTrivia.Count > 0;
-    public bool HasTrailingTrivia => Green.TrailingTrivia.Count > 0;
+    public bool HasLeadingTrivia => Green?.LeadingTrivia.Count > 0;
+    public bool HasTrailingTrivia => Green?.TrailingTrivia.Count > 0;
 
-    public SyntaxTriviaList LeadingTrivia => new(this, Green.LeadingTrivia, Position);
-    public SyntaxTriviaList TrailingTrivia => new(this, Green.TrailingTrivia, Position + Width);
+    public SyntaxTriviaList LeadingTrivia => Green is null
+        ? SyntaxTriviaList.Empty
+        : new(this, Green.LeadingTrivia, Position);
+
+    public SyntaxTriviaList TrailingTrivia => Green is null
+        ? SyntaxTriviaList.Empty
+        : new(this, Green.TrailingTrivia, Position + Width);
 
     internal SyntaxToken(InternalSyntax.SyntaxToken greenToken, SyntaxNode? parent, int position = 0)
     {
