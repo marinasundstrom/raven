@@ -10,7 +10,6 @@
    Failing tests:
    - `ParserNewlineTests.Statement_NewlineIsTrivia_WhenInLineContinuation`
    - `ParserNewlineTests.Terminator_SkipsTokens_UntilEndOfFile`
-   - `MemberAccessMissingIdentifierTests.MemberAccessWithoutIdentifier_ReportsDiagnostic`
 
 2. **Literal type flow broken**  \
    Numeric literals do not default to the expected primitive types, breaking type inference. The spec requires integers to default to `int` (promoting to `long` as needed) and floating-point literals to default to `double` unless suffixed with `f`/`F`【F:docs/lang/spec/language-specification.md†L169-L172】.  \
@@ -65,6 +64,7 @@
 - `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – class symbols now track only direct interfaces, excluding inherited ones.
 - `NamespaceResolutionTest.ConsoleDoesNotContainWriteLine2_Should_ProduceDiagnostics` – diagnostic span now targets the undefined member name rather than the entire expression.
 - `SymbolQueryTests.CallingInstanceMethodAsStatic_ProducesDiagnostic` – test now expects the diagnostic to highlight only the undefined member name.
+- `MemberAccessMissingIdentifierTests.MemberAccessWithoutIdentifier_ReportsDiagnostic` – parser now reports a diagnostic instead of throwing when a member access is missing its identifier.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
