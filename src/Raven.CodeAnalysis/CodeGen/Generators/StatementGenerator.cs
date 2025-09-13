@@ -111,7 +111,7 @@ internal class StatementGenerator : Generator
         var scope = new Scope(this);
         EmitBranchOpForCondition(ifStatement.Condition, elseLabel, scope);
 
-        EmitNode(scope, ifStatement.ThenNode);
+        new StatementGenerator(scope, ifStatement.ThenNode).Emit();
 
         ILGenerator.Emit(OpCodes.Br_S, endLabel);
         ILGenerator.MarkLabel(elseLabel);
@@ -119,23 +119,10 @@ internal class StatementGenerator : Generator
         if (ifStatement.ElseNode is not null)
         {
             var scope2 = new Scope(this);
-            EmitNode(scope2, ifStatement.ElseNode);
+            new StatementGenerator(scope2, ifStatement.ElseNode).Emit();
         }
 
         ILGenerator.MarkLabel(endLabel);
-    }
-
-    private void EmitNode(Scope scope, BoundNode node)
-    {
-        switch (node)
-        {
-            case BoundStatement statement:
-                new StatementGenerator(scope, statement).Emit();
-                break;
-            case BoundExpression expr:
-                new ExpressionGenerator(scope, expr).Emit();
-                break;
-        }
     }
 
     private void EmitWhileStatement(BoundWhileStatement whileStatement)

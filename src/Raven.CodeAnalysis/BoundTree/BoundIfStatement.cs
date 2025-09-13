@@ -3,10 +3,10 @@ namespace Raven.CodeAnalysis;
 internal partial class BoundIfStatement : BoundStatement
 {
     public BoundExpression Condition { get; }
-    public BoundNode ThenNode { get; }
-    public BoundNode? ElseNode { get; }
+    public BoundStatement ThenNode { get; }
+    public BoundStatement? ElseNode { get; }
 
-    public BoundIfStatement(BoundExpression condition, BoundNode thenNode, BoundNode? elseNode = null)
+    public BoundIfStatement(BoundExpression condition, BoundStatement thenNode, BoundStatement? elseNode = null)
     {
         Condition = condition;
         ThenNode = thenNode;

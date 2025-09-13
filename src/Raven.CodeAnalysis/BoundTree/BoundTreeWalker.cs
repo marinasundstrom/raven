@@ -173,20 +173,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Expression);
     }
 
-    protected void VisitNode(BoundNode node)
-    {
-        if (node is BoundStatement statement)
-            VisitStatement(statement);
-        else if (node is BoundExpression expr)
-            VisitExpression(expr);
-    }
-
     public virtual void VisitIfStatement(BoundIfStatement node)
     {
         VisitExpression(node.Condition);
-        VisitNode(node.ThenNode);
+        VisitStatement(node.ThenNode);
         if (node.ElseNode is not null)
-            VisitNode(node.ElseNode);
+            VisitStatement(node.ElseNode);
     }
 
     public virtual void VisitWhileStatement(BoundWhileStatement node)

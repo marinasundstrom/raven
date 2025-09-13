@@ -51,8 +51,9 @@ class C {
         var ifStmt = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().First();
         var bound = (BoundIfStatement)model.GetBoundNode(ifStmt);
 
-        Assert.IsType<BoundBlockExpression>(bound.ThenNode);
-        Assert.IsType<BoundUnitExpression>(bound.ElseNode);
+        Assert.IsType<BoundBlockStatement>(bound.ThenNode);
+        Assert.IsType<BoundExpressionStatement>(bound.ElseNode);
+        Assert.IsType<BoundUnitExpression>(((BoundExpressionStatement)bound.ElseNode!).Expression);
     }
 
     [Fact]
