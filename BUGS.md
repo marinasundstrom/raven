@@ -1,7 +1,7 @@
 # BUGS
 
 ## Overview
-`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 60 failing tests. The failures cluster into the categories below based on shared root causes.
+`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 55 failing tests. The failures cluster into the categories below based on shared root causes.
 
 ## Prioritized failing test categories
 
@@ -10,7 +10,6 @@
    Failing tests:
    - `ParserNewlineTests.Statement_NewlineIsTrivia_WhenInLineContinuation`
    - `ParserNewlineTests.Terminator_SkipsTokens_UntilEndOfFile`
-   - `EqualsValueClauseTests.VariableDeclaration_MissingInitializer_ProducesDiagnostic`
    - `MemberAccessMissingIdentifierTests.MemberAccessWithoutIdentifier_ReportsDiagnostic`
 
 2. **Imperative context and control-flow forms**  \
