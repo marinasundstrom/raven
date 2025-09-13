@@ -15,7 +15,6 @@
 2. **Imperative context and control-flow forms**  \
    `if`, `while`, and `for` have both expression and statement forms. `return` is allowed only when the construct is in statement position with no enclosing expression, but the compiler conflates these modes. The spec notes that control-flow constructs are expressions yet also have statement forms, and that `return` inside value contexts is invalid【F:docs/lang/spec/language-specification.md†L81-L83】【F:docs/lang/spec/language-specification.md†L103-L104】【F:docs/lang/spec/language-specification.md†L108-L115】.  \
    Failing tests:
-   - `ImperativeContextTests.IfStatement_BranchesCanBeStatements`
    - `ImperativeContextTests.IfStatement_BranchesCanBeExpressions`
 
 3. **Literal type flow broken**  \
