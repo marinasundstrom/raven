@@ -525,8 +525,7 @@ public partial class SemanticModel
             {
                 case BaseNamespaceDeclarationSyntax nsDecl:
                     {
-                        var nsSymbol = Compilation.GetNamespaceSymbol(nsDecl.Name.ToString())
-                                        ?? throw new Exception($"Namespace not found: {nsDecl.Name}");
+                        var nsSymbol = Compilation.GetOrCreateNamespaceSymbol(nsDecl.Name.ToString());
 
                         var nsBinder = Compilation.BinderFactory.GetBinder(nsDecl, parentBinder)!;
                         _binderCache[nsDecl] = nsBinder;
