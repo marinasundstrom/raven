@@ -65,17 +65,11 @@ partial class BlockBinder : Binder
 
     public override ISymbol? LookupSymbol(string name)
     {
-        if (_locals.TryGetValue(name, out var sym))
-            return sym.Symbol;
-
-        if (_functions.TryGetValue(name, out var func))
-            return func;
-
-        var parentSymbol = ParentBinder?.LookupSymbol(name);
-        if (parentSymbol != null)
-            return parentSymbol;
-
-        return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
+        // Forward to LookupSymbols so import directives and alias mappings are considered
+        // when binding identifier references. Previously this method bypassed the import
+        // binder, causing namespace or type aliases to be ignored and resulting in missing
+        // completions for alias-qualified names.
+        return LookupSymbols(name).FirstOrDefault();
     }
 
     private SymbolInfo BindCompilationUnit(CompilationUnitSyntax compilationUnit)

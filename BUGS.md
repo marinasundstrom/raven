@@ -42,7 +42,6 @@
    - `ImportResolutionTest.ImportNonNamespaceOrType_Should_ProduceDiagnostic`
    - `NamespaceResolutionTest.ConsoleDoesNotContainWriteLine2_Should_ProduceDiagnostics`
    - `SymbolQueryTests.CallingInstanceMethodAsStatic_ProducesDiagnostic`
-   - `CompletionServiceTests.GetCompletions_OnNamespaceAlias_ReturnsMembers`
    - `SemanticClassifierTests.ClassifiesTokensBySymbol`
 
 6. **Union features incomplete**  \

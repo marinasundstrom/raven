@@ -284,7 +284,14 @@ public static class CompletionProvider
                 var type = typeInfo?.UnderlyingSymbol as ITypeSymbol;
                 IEnumerable<ISymbol>? members = null;
 
-                if (symbol is INamedTypeSymbol typeSymbol && SymbolEqualityComparer.Default.Equals(symbol, type))
+                if (symbol is INamespaceSymbol ns)
+                {
+                    // Namespace or namespace alias: list its public members
+                    members = ns.GetMembers().Where(m =>
+                        m.DeclaredAccessibility == Accessibility.NotApplicable ||
+                        m.DeclaredAccessibility == Accessibility.Public);
+                }
+                else if (symbol is INamedTypeSymbol typeSymbol && SymbolEqualityComparer.Default.Equals(symbol, type))
                 {
                     // Accessing a type name: show static members
                     members = typeSymbol.GetMembers().Where(m => m.IsStatic && m.DeclaredAccessibility == Accessibility.Public);
