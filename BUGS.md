@@ -25,8 +25,6 @@
 3. **Return type inference and unit diagnostics**  \
    Early-return analysis miscomputes union return types and fails to warn about missing or mismatched returns. Functions without explicit return types should fall back to `unit` according to the spec【F:docs/lang/spec/language-specification.md†L40-L45】.  \
    Failing tests:
-   - `EarlyReturnTypeInferenceTests.ReturnTypeCollector_InfersUnionFromImplicitFinalExpression`
-   - `EarlyReturnTypeInferenceTests.ReturnTypeCollector_InfersUnionFromEarlyReturns`
    - `ExplicitReturnInIfExpressionTests.ExplicitReturnInIfExpression_GlobalInitializer_ProducesDiagnostics`
    - `ExplicitReturnInIfExpressionTests.ExplicitReturnInIfExpressionInitializerProducesDiagnostics`
 

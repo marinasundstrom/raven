@@ -80,10 +80,15 @@ internal static class ReturnTypeCollector
 
         private void AddType(ITypeSymbol type)
         {
+            // Collapse literal types to their underlying primitive types so return
+            // type inference doesn't treat each distinct literal as its own type.
+            if (type is LiteralTypeSymbol literal)
+                type = literal.UnderlyingType;
+
             if (type is IUnionTypeSymbol union)
             {
                 foreach (var t in union.Types)
-                    _types.Add(t);
+                    AddType(t);
             }
             else
             {
