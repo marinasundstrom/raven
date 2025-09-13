@@ -8,6 +8,7 @@ Raven is a statically typed language whose types correspond directly to CLR type
 | --- | --- | --- |
 | `int` | `System.Int32` | 32-bit signed integer |
 | `string` | `System.String` | UTF-16 sequence of characters |
+| `object` | `System.Object` | base type of all .NET reference types |
 | `bool` | `System.Boolean` | logical true/false |
 | `char` | `System.Char` | UTF-16 code unit |
 | `unit` | `System.Unit` | single value `()` representing "no result" |

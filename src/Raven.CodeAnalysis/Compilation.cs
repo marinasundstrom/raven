@@ -685,7 +685,7 @@ public class Compilation
             //SyntaxKind.FloatKeyword => SpecialType.System_Single,
             SyntaxKind.IntKeyword => SpecialType.System_Int32,
             //SyntaxKind.LongKeyword => SpecialType.System_Int64,
-            //SyntaxKind.ObjectKeyword => SpecialType.System_Object,
+            SyntaxKind.ObjectKeyword => SpecialType.System_Object,
             //SyntaxKind.SByteKeyword => SpecialType.System_SByte,
             //SyntaxKind.ShortKeyword => SpecialType.System_Int16,
             SyntaxKind.StringKeyword => SpecialType.System_String,
