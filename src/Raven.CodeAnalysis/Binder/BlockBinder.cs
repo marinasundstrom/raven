@@ -697,6 +697,13 @@ partial class BlockBinder : Binder
         if (receiver is BoundErrorExpression)
             return receiver;
 
+        if (memberAccess.Name.Identifier.IsMissing)
+        {
+            _diagnostics.ReportIdentifierExpected(memberAccess.Name.Identifier.GetLocation());
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(string.Empty, memberAccess.Name.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
         var name = memberAccess.Name.Identifier.Text;
 
         if (receiver is BoundNamespaceExpression nsExpr)
