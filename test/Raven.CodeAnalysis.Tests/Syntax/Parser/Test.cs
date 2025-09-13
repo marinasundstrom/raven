@@ -215,6 +215,21 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void ReturnStatement_BeforeElse_UsesNoneTerminator()
+    {
+        var source = "return else";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (ReturnStatementSyntax)parser.ParseStatement().CreateRed();
+        Assert.Equal(SyntaxKind.None, statement.TerminatorToken.Kind);
+
+        var nextToken = parser.PeekToken();
+        Assert.Equal(SyntaxKind.ElseKeyword, nextToken.Kind);
+    }
+
+    [Fact]
     public void Function_MissingIdentifier_ProducesMissingToken()
     {
         var source = "func () {}";
