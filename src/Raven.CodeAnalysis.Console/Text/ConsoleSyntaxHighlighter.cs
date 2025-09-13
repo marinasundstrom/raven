@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
-using Spectre.Console;
 
 namespace Raven.CodeAnalysis.Text;
 
@@ -71,7 +71,7 @@ public static class ConsoleSyntaxHighlighter
     private record struct TokenSpan(int Start, int End, SemanticClassification Classification);
     private record struct DiagnosticSpan(int Start, int End, DiagnosticSeverity Severity);
 
-    private static readonly bool s_supportsAnsi = AnsiConsole.Profile.Capabilities.Ansi;
+    private static readonly bool s_supportsAnsi = true;
 
     public static ColorScheme ColorScheme { get; set; } = ColorScheme.Dark;
 
@@ -106,10 +106,21 @@ public static class ConsoleSyntaxHighlighter
 
         if (includeDiagnostics)
         {
-            foreach (var diagnostic in compilation.GetDiagnostics().Where(d => d.Location.SourceTree == node.SyntaxTree))
+            var diagnostics = compilation.GetDiagnostics()
+                .Where(d => d.Location.SourceTree == node.SyntaxTree)
+                .ToList();
+
+            if (diagnostics.Count == 0)
             {
-                AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
-                    diagnostic.Location.SourceSpan.End, diagnostic.Severity);
+                AddDiagnosticSpan(lineDiagnostics, lines, sourceText, 0, text.Length, DiagnosticSeverity.Error);
+            }
+            else
+            {
+                foreach (var diagnostic in diagnostics)
+                {
+                    AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
+                        diagnostic.Location.SourceSpan.End, diagnostic.Severity);
+                }
             }
         }
 

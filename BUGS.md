@@ -64,9 +64,8 @@
    - `MissingReturnTypeAnnotationAnalyzerTests.FunctionStatementWithoutAnnotation_SuggestsInferredReturnType`
 
 8. **Workspace and utility failures**  \
-   Console highlighter and other tooling hooks do not surface diagnostics or load sample code correctly.  \
+   Tooling hooks do not load sample code correctly.  \
    Failing tests:
-   - `ConsoleSyntaxHighlighterTests.UnderlinesDiagnosticSpans_WhenEnabled`
    - `Syntax.Tests.Sandbox.Test`
 
 9. **Code generation and sample program loading**  \
