@@ -32,7 +32,9 @@ class Foo {
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(3, 9, 3, 16)
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
+                    .WithSpan(3, 9, 3, 16)
+                    .WithArguments("Unit", "int")
             ]);
 
         verifier.Verify();
@@ -51,7 +53,9 @@ class Foo {
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id).WithSpan(3, 16, 3, 18)
+                new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
+                    .WithSpan(3, 16, 3, 18)
+                    .WithArguments("\"\"", "int")
             ]);
 
         verifier.Verify();
