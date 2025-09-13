@@ -46,34 +46,34 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return default;
     }
 
-    public virtual SyntaxNode? VisitStatement(StatementSyntax node)
+    public virtual SyntaxNode? VisitStatement(StatementSyntax? node)
     {
-        return node.Accept(this);
+        return node?.Accept(this);
     }
 
-    public virtual SyntaxNode? VisitExpression(ExpressionSyntax node)
+    public virtual SyntaxNode? VisitExpression(ExpressionSyntax? node)
     {
-        return node.Accept(this);
+        return node?.Accept(this);
     }
 
-    public virtual SyntaxNode? VisitType(TypeSyntax node)
+    public virtual SyntaxNode? VisitType(TypeSyntax? node)
     {
-        return node.Accept(this);
+        return node?.Accept(this);
     }
 
-    public virtual SyntaxNode? VisitName(NameSyntax node)
+    public virtual SyntaxNode? VisitName(NameSyntax? node)
     {
-        return node.Accept(this);
+        return node?.Accept(this);
     }
 
-    public virtual SyntaxNode? VisitUnqualifiedName(UnqualifiedNameSyntax node)
+    public virtual SyntaxNode? VisitUnqualifiedName(UnqualifiedNameSyntax? node)
     {
-        return node.Accept(this);
+        return node?.Accept(this);
     }
 
-    public virtual SyntaxNode? VisitSimpleName(SimpleNameSyntax node)
+    public virtual SyntaxNode? VisitSimpleName(SimpleNameSyntax? node)
     {
-        return node.Accept(this);
+        return node?.Accept(this);
     }
 
     public virtual SyntaxList<TElement>? VisitList<TElement>(SyntaxList<TElement>? list0)
@@ -85,7 +85,12 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
 
         foreach (var item in list)
         {
-            newList.Add((TElement)item.Accept(this));
+            if (item is null)
+                continue;
+
+            var visited = (TElement?)item.Accept(this);
+            if (visited is not null)
+                newList.Add(visited);
         }
         return SyntaxFactory.List<TElement>(newList);
     }
@@ -97,7 +102,12 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
 
         foreach (var item in list)
         {
-            newList.Add((TElement)item.Accept(this));
+            if (item is null)
+                continue;
+
+            var visited = (TElement?)item.Accept(this);
+            if (visited is not null)
+                newList.Add(visited);
         }
         return SyntaxFactory.List<TElement>(newList);
     }
@@ -135,8 +145,12 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         {
             if (item.TryGetNode(out var node))
             {
-                newList.Add(
-                    new SyntaxNodeOrToken(node.Accept(this)!));
+                if (node is null)
+                    continue;
+
+                var visited = node.Accept(this);
+                if (visited is not null)
+                    newList.Add(new SyntaxNodeOrToken(visited));
             }
             else if (item.TryGetToken(out var token))
             {
@@ -155,8 +169,12 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         {
             if (item.TryGetNode(out var node))
             {
-                newList.Add(
-                    new SyntaxNodeOrToken(node.Accept(this)!));
+                if (node is null)
+                    continue;
+
+                var visited = node.Accept(this);
+                if (visited is not null)
+                    newList.Add(new SyntaxNodeOrToken(visited));
             }
             else if (item.TryGetToken(out var token))
             {
