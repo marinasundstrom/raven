@@ -96,6 +96,7 @@ internal class BaseParseContext : ParseContext
     {
         _lookaheadTokens.Clear(); // Invalidate lookahead because context changed
         _lexer.ResetToPosition(position);
+        _position = position;
     }
 
     /// <summary>
