@@ -46,7 +46,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                     ));
             }
 
-            ConsumeTokenOrNull(SyntaxKind.SemicolonToken, out var terminatorToken);
+            TryConsumeTerminator(out var terminatorToken);
 
             return NamespaceDeclaration(
                 SyntaxList.Empty,
