@@ -189,6 +189,13 @@ internal class StatementSyntaxParser : SyntaxParser
                 SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
             }
         }
+        else
+        {
+            // When the next token is an 'else', the return statement has no
+            // explicit terminator. Use a placeholder so downstream consumers
+            // don't encounter a null token.
+            terminatorToken = Token(SyntaxKind.None);
+        }
 
         return ReturnStatement(returnKeyword, expression, terminatorToken, Diagnostics);
     }
