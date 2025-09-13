@@ -33,8 +33,6 @@
    Failing tests:
    - `EarlyReturnTypeInferenceTests.ReturnTypeCollector_InfersUnionFromImplicitFinalExpression`
    - `EarlyReturnTypeInferenceTests.ReturnTypeCollector_InfersUnionFromEarlyReturns`
-   - `ReturnStatementUnitTests.NonUnitMethod_EmptyReturn_ReportsDiagnostic`
-   - `ReturnStatementUnitTests.NonUnitMethod_ReturnExpression_NotAssignable_ReportsDiagnostic`
    - `ExplicitReturnInIfExpressionTests.ExplicitReturnInIfExpression_GlobalInitializer_ProducesDiagnostics`
    - `ExplicitReturnInIfExpressionTests.ExplicitReturnInIfExpressionInitializerProducesDiagnostics`
 
