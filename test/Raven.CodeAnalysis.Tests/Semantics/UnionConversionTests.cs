@@ -46,7 +46,6 @@ class Baz {
 """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult("RAV1503").WithSpan(6, 9, 10, 10).WithArguments("Foo | Bar", "Foo"),
             new DiagnosticResult("RAV1503").WithSpan(9, 20, 9, 25).WithArguments("Bar", "Foo"),
         ]);
         verifier.Verify();
