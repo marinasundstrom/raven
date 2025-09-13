@@ -1286,6 +1286,23 @@ partial class BlockBinder : Binder
                 receiver = memberExpr.Receiver;
                 methodName = method.Name;
             }
+            else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
+            {
+                var argExprs = new List<BoundExpression>();
+                bool argErrors = false;
+                foreach (var arg in syntax.ArgumentList.Arguments)
+                {
+                    var boundArg = BindExpression(arg.Expression);
+                    if (boundArg is BoundErrorExpression)
+                        argErrors = true;
+                    argExprs.Add(boundArg);
+                }
+
+                if (argErrors)
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+
+                return BindConstructorInvocation(namedType, argExprs.ToArray(), syntax);
+            }
             else
             {
                 receiver = boundMember;

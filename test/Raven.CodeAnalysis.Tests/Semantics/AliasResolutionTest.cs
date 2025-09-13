@@ -214,6 +214,14 @@ public class AliasResolutionTest : DiagnosticTestBase
         var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
         Assert.Equal("ST", alias.Name);
         Assert.Equal(SymbolKind.Namespace, alias.UnderlyingSymbol.Kind);
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        var ctorSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol!);
+        Assert.Equal(".ctor", ctorSymbol.Name);
+        Assert.Equal("StringBuilder", ctorSymbol.ContainingType!.Name);
     }
 
     [Fact]
