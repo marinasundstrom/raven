@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Net.NetworkInformation;
 using System.Reflection;
-using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -110,35 +110,35 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 return SpecialType.System_Boolean;
             if (type.FullName == "System.Char")
                 return SpecialType.System_Char;
-            if (type == typeof(sbyte))
+            if (type.FullName == "System.SByte")
                 return SpecialType.System_SByte;
-            if (type == typeof(byte))
+            if (type.FullName == "System.Byte")
                 return SpecialType.System_Byte;
-            if (type == typeof(short))
+            if (type.FullName == "System.Int16")
                 return SpecialType.System_Int16;
-            if (type == typeof(ushort))
+            if (type.FullName == "System.UInt16")
                 return SpecialType.System_UInt16;
             if (type.FullName == "System.Int32")
                 return SpecialType.System_Int32;
-            if (type == typeof(uint))
+            if (type.FullName == "System.UInt32")
                 return SpecialType.System_UInt32;
-            if (type == typeof(long))
+            if (type.FullName == "System.Int64")
                 return SpecialType.System_Int64;
-            if (type == typeof(ulong))
+            if (type.FullName == "System.UInt64")
                 return SpecialType.System_UInt64;
-            if (type == typeof(float))
+            if (type.FullName == "System.Single")
                 return SpecialType.System_Single;
-            if (type == typeof(double))
+            if (type.FullName == "System.Double")
                 return SpecialType.System_Double;
-            if (type == typeof(decimal))
+            if (type.FullName == "System.Decimal")
                 return SpecialType.System_Decimal;
             if (type.FullName == "System.Void")
                 return SpecialType.System_Void;
-            if (type == typeof(DateTime))
+            if (type.FullName == "System.DateTime")
                 return SpecialType.System_DateTime;
-            if (type == typeof(IntPtr))
+            if (type.FullName == "System.IntPtr")
                 return SpecialType.System_IntPtr;
-            if (type == typeof(UIntPtr))
+            if (type.FullName == "System.UIntPtr")
                 return SpecialType.System_UIntPtr;
 
             if (type.Namespace == "System" && type.Name.StartsWith("ValueTuple`"))
