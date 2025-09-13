@@ -215,28 +215,13 @@ partial class BlockBinder : Binder
         return expression switch
         {
             BoundIfExpression ifExpr => new BoundIfStatement(ifExpr.Condition,
-                ExpressionToStatementOrExpression(ifExpr.ThenBranch),
-                ifExpr.ElseBranch is not null ? ExpressionToStatementOrExpression(ifExpr.ElseBranch) : null),
+                ExpressionToStatement(ifExpr.ThenBranch),
+                ifExpr.ElseBranch is not null ? ExpressionToStatement(ifExpr.ElseBranch) : null),
             BoundWhileExpression whileExpr => new BoundWhileStatement(whileExpr.Condition, ExpressionToStatement(whileExpr.Body)),
             BoundForExpression forExpr => new BoundForStatement(forExpr.Local, forExpr.Collection, ExpressionToStatement(forExpr.Body)),
             BoundBlockExpression blockExpr => new BoundBlockStatement(blockExpr.Statements),
             BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
             _ => new BoundExpressionStatement(expression),
-        };
-    }
-
-    private BoundNode ExpressionToStatementOrExpression(BoundExpression expression)
-    {
-        return expression switch
-        {
-            BoundIfExpression ifExpr => new BoundIfStatement(ifExpr.Condition,
-                ExpressionToStatementOrExpression(ifExpr.ThenBranch),
-                ifExpr.ElseBranch is not null ? ExpressionToStatementOrExpression(ifExpr.ElseBranch) : null),
-            BoundWhileExpression whileExpr => new BoundWhileStatement(whileExpr.Condition, ExpressionToStatement(whileExpr.Body)),
-            BoundForExpression forExpr => new BoundForStatement(forExpr.Local, forExpr.Collection, ExpressionToStatement(forExpr.Body)),
-            BoundBlockExpression blockExpr => blockExpr,
-            BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
-            _ => expression,
         };
     }
 
