@@ -551,12 +551,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         token = PeekToken();
 
-        if (!IsIdentifierToken(token)
-            && HasLeadingEndOfLineTrivia(token))
-        {
-            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfLastToken()));
-            return new ExpressionSyntax.Missing(diagnostics: Diagnostics);
-        }
+        // Allow expressions to continue on the next line. Previously any token
+        // with leading end-of-line trivia was treated as a missing identifier,
+        // causing line continuations like `let x =\n    42` to fail with a
+        // diagnostic. By removing this check the parser treats the newline as
+        // trivia and correctly parses the following expression token.
 
         switch (token.Kind)
         {
