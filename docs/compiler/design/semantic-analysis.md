@@ -63,17 +63,17 @@ In this example, `GetSymbol(binaryExpression)` retrieves the symbol (or symbols)
 
 Raven is an expression-oriented language where constructs like `if`, `while`, and
 `for` normally yield values. In statement position, these control-flow forms have
-their own statement syntax (e.g. `IfStatementSyntax`). When an expression form
-appears in a statement position—such as a block used directly—the binder rewrites
-it into a dedicated statement node (`BoundIfStatement`, `BoundWhileStatement`,
+their own statement syntax (e.g. `IfStatementSyntax`). Imperative context is
+introduced through these statements, which allows features such as explicit
+`return` statements within their bodies. When an expression form appears in a
+statement position—such as a block used directly—the binder rewrites it into the
+corresponding statement node (`BoundIfStatement`, `BoundWhileStatement`,
 `BoundForStatement`). These nodes capture the imperative intent and ensure any
 produced values are discarded.
 
 `BoundIfStatement` is flexible in its branches: each branch may be either a
 `BoundStatement` (such as a `return` or another `if`) or a `BoundExpression`. If an
-expression branch appears, its value is ignored. Block expressions may also appear
-directly as branches; they permit nested statements but do not allow imperative
-statement forms on their own.
+expression branch appears, its value is ignored.
 
 This distinction between expression and imperative contexts allows the semantic
 analysis phase to reason precisely about side effects and control flow while

@@ -176,14 +176,18 @@ internal class StatementSyntaxParser : SyntaxParser
 
         ExpressionSyntax? expression = null;
         var next = PeekToken();
-        if (next.Kind is not (SyntaxKind.SemicolonToken or SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken))
+        if (next.Kind is not (SyntaxKind.SemicolonToken or SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken or SyntaxKind.ElseKeyword))
             expression = new ExpressionSyntaxParser(this).ParseExpression();
 
         SetTreatNewlinesAsTokens(true);
 
-        if (!TryConsumeTerminator(out var terminatorToken))
+        SyntaxToken? terminatorToken = null;
+        if (PeekToken().Kind != SyntaxKind.ElseKeyword)
         {
-            SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+            if (!TryConsumeTerminator(out terminatorToken))
+            {
+                SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+            }
         }
 
         return ReturnStatement(returnKeyword, expression, terminatorToken, Diagnostics);
