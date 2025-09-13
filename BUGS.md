@@ -64,6 +64,7 @@
 
 - `AnalyzerInfrastructureTests.GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics` – parser now buffers the requested position before rewinding, preventing `Position outside of buffer bounds` exceptions.
 - `SemanticClassifierTests.ClassifiesTokensBySymbol` – parser now tolerates missing namespace terminators, eliminating `ArgumentNullException` crashes.
+- `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – class symbols now track only direct interfaces, excluding inherited ones.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
