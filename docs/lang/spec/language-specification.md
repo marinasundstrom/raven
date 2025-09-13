@@ -105,7 +105,7 @@ Control flow constructs such as `if`, `while`, and `for` also have dedicated sta
 
 ### Return statements
 
-The `return` keyword exits a function, lambda, or property accessor. Because control-flow constructs are expressions, using `return` inside an expression that itself produces a value is not allowed. Explicit `return` statements may appear only in statement positions, such as within a function body or as their own expression statement. When a `return` occurs in a value context—for example, within an `if` expression assigned to a variable—the compiler reports diagnostic `RAV1900` and the block should rely on an implicit return instead.
+The `return` keyword exits a function, lambda, or property accessor. Because control-flow constructs are expressions, using `return` inside an expression that itself produces a value is not allowed. Explicit `return` statements may appear only in statement positions, such as within a function body or as their own expression statement. When a `return` occurs in a value context—for example, within an `if` expression assigned to a variable—the compiler reports diagnostic `RAV1900` and the block should rely on an implicit return instead. Within an `if` statement, the `else` keyword implicitly terminates a preceding `return`, allowing `if flag return else return` to be written without additional separators.
 
 A `return` statement may omit its expression when the surrounding function or accessor returns `unit`. See [implementation notes](dotnet-implementation.md#return-statements) for how such returns are emitted. This is equivalent to returning the `()` value explicitly.
 

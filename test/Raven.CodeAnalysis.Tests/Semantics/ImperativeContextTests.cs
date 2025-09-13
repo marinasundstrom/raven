@@ -92,9 +92,8 @@ class C {
         var tree = SyntaxTree.ParseText(code);
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
-        var exprStmt = tree.GetRoot().DescendantNodes().OfType<ExpressionStatementSyntax>()
-            .First(es => es.Expression is BlockSyntax);
-        var bound = model.GetBoundNode(exprStmt);
+        var blockStmt = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>().Skip(1).First();
+        var bound = model.GetBoundNode(blockStmt);
 
         Assert.IsType<BoundBlockStatement>(bound);
     }
