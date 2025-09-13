@@ -42,7 +42,6 @@
 5. **Union features incomplete**  \
    Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.  \
    Failing tests:
-   - `UnionConversionTests.UnionNotConvertibleToExplicitType_ProducesDiagnostic`
    - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable`
 
 6. **Analyzer diagnostics ignored**  \
