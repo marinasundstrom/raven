@@ -95,16 +95,28 @@ class ImportBinder : Binder
         if (_aliases.TryGetValue(name, out var symbols))
             return symbols;
 
-        var type = _typeImports.FirstOrDefault(x => x.Name == name);
-        if (type != null)
-            return [type];
+        var results = new List<ISymbol>();
+        var seen = new HashSet<ISymbol>();
 
+        // Members from namespace or type-scope imports (including static members of imported types)
         foreach (var ns in _namespaceOrTypeScopeImports)
         {
+            foreach (var member in ns.GetMembers(name))
+                if (seen.Add(member))
+                    results.Add(member);
+
             var t = ns.LookupType(name);
-            if (t != null)
-                return [t];
+            if (t != null && seen.Add(t))
+                results.Add(t);
         }
+
+        // Types explicitly imported
+        foreach (var type in _typeImports)
+            if (type.Name == name && seen.Add(type))
+                results.Add(type);
+
+        if (results.Count > 0)
+            return results;
 
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
     }
