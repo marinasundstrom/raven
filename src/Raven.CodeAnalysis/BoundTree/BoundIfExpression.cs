@@ -19,11 +19,15 @@ internal partial class BoundIfExpression : BoundExpression
 
     private static ITypeSymbol Handle(BoundExpression thenBranch, BoundExpression? elseBranch)
     {
-        if (!elseBranch?.Type?.Equals(thenBranch.Type, SymbolEqualityComparer.Default) ?? false)
-        {
-            return new UnionTypeSymbol([thenBranch.Type, elseBranch.Type], null, null, null, []);
-        }
+        var thenType = UnwrapLiteral(thenBranch.Type);
+        var elseType = elseBranch is null ? null : UnwrapLiteral(elseBranch.Type);
 
-        return thenBranch.Type;
+        if (elseType is not null && !elseType.Equals(thenType, SymbolEqualityComparer.Default))
+            return new UnionTypeSymbol([thenType, elseType], null, null, null, []);
+
+        return thenType;
+
+        static ITypeSymbol UnwrapLiteral(ITypeSymbol type)
+            => type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
     }
 }
