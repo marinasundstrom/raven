@@ -1,16 +1,15 @@
 # BUGS
 
 ## Overview
-`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 18 failing tests. The failures cluster into the categories below based on shared root causes.
+`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 17 failing tests. The failures cluster into the categories below based on shared root causes.
 
 ## Prioritized failing test categories
 
 1. **Import and symbol resolution failures**  \
    Import directives and member lookups mis-handle ordering and aliasing. The spec requires all imports to precede alias or member declarations within a scope【F:docs/lang/spec/language-specification.md†L392-L394】.  \
    Failing tests:
-   - `ImportResolutionTest.OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic`
-   - `ImportResolutionTest.ImportNonNamespaceOrType_Should_ProduceDiagnostic`
-   - `SemanticClassifierTests.ClassifiesTokensBySymbol`
+    - `ImportResolutionTest.OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic`
+    - `SemanticClassifierTests.ClassifiesTokensBySymbol`
 
 2. **Union features incomplete**  \
    Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.  \
@@ -46,6 +45,8 @@
 - Literal type flow defaults integers and floating-point literals to their expected primitive types, restoring correct type inference for numeric literals.
 
 - `ExplicitReturnInIfExpressionTests.*` – return statements in expression contexts now report `RAV1900` and their surrounding blocks infer union member types correctly.
+
+- `ImportResolutionTest.ImportNonNamespaceOrType_Should_ProduceDiagnostic` – diagnostic span now excludes the wildcard, highlighting only the invalid target.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.

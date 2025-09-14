@@ -86,7 +86,7 @@ class BinderFactory
                 if (nsImport != null)
                     namespaceImports.Add(nsImport);
                 else
-                    nsBinder.Diagnostics.ReportInvalidImportTarget(importDirective.Name.GetLocation());
+                    nsBinder.Diagnostics.ReportInvalidImportTarget(nsName.GetLocation());
                 continue;
             }
 

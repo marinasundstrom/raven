@@ -243,7 +243,7 @@ public partial class SemanticModel
                 if (nsImport != null)
                     namespaceImports.Add(nsImport);
                 else
-                    namespaceBinder.Diagnostics.ReportInvalidImportTarget(import.Name.GetLocation());
+                    namespaceBinder.Diagnostics.ReportInvalidImportTarget(nsName.GetLocation());
                 continue;
             }
 
