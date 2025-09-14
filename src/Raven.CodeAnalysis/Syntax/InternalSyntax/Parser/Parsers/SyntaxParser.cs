@@ -142,6 +142,7 @@ internal class SyntaxParser : ParseContext
 
     internal bool TryConsumeTerminator(out SyntaxToken token)
     {
+        bool previous = TreatNewlinesAsTokens;
         SetTreatNewlinesAsTokens(true);
 
         var current = PeekToken();
@@ -150,18 +151,21 @@ internal class SyntaxParser : ParseContext
         if (IsNewLineToken(current))
         {
             token = ReadToken();
+            SetTreatNewlinesAsTokens(previous);
             return true;
         }
 
         if (current.Kind == SyntaxKind.SemicolonToken)
         {
             token = ReadToken();
+            SetTreatNewlinesAsTokens(previous);
             return true;
         }
 
         if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
         {
             token = Token(SyntaxKind.None);
+            SetTreatNewlinesAsTokens(previous);
             return true;
         }
 
@@ -169,18 +173,23 @@ internal class SyntaxParser : ParseContext
 
         while (true)
         {
-            skippedTokens.Add(ReadToken());
+            var t = ReadToken();
+            if (skippedTokens.Count == 0 && t.LeadingTrivia.Count > 0)
+                t = t.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
+            skippedTokens.Add(t);
             current = PeekToken();
 
             if (current.Kind == SyntaxKind.SemicolonToken)
             {
                 token = ConsumeWithLeadingSkipped(skippedTokens);
+                SetTreatNewlinesAsTokens(previous);
                 return true;
             }
 
             if (IsNewLineToken(current))
             {
                 token = ConsumeWithLeadingSkipped(skippedTokens);
+                SetTreatNewlinesAsTokens(previous);
                 return true;
             }
 
@@ -189,6 +198,7 @@ internal class SyntaxParser : ParseContext
                 AddSkippedToPending(skippedTokens);
                 GetBaseContext()._lookaheadTokens.Clear();
                 token = Token(SyntaxKind.None);
+                SetTreatNewlinesAsTokens(previous);
                 return true;
             }
         }
