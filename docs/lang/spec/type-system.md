@@ -14,6 +14,24 @@ Raven is a statically typed language whose types correspond directly to CLR type
 | `unit` | `System.Unit` | single value `()` representing "no result" |
 | `null` | *(null literal)* | inhabits any nullable reference type |
 
+## Literal types
+
+Numeric and string literals may appear as their own types. A literal type
+represents exactly that value and carries an underlying primitive type—`1`
+has underlying type `int` while `"hi"` has underlying type `string`. Literal
+expressions are given these singleton types.
+
+Literal types implicitly convert to their underlying type and then follow the
+normal conversion rules of that type. This allows `1` to widen to `double` or
+`"hi"` to be used wherever a `string` is expected.
+
+```raven
+let yes: "yes" = "yes"
+let one: 1 = 1
+let two: int = one      // implicit conversion to int
+let d: double = one     // underlying int widens to double
+```
+
 ## Composite and derived types
 
 ### Arrays
@@ -59,7 +77,14 @@ Console.WriteLine(ids[0])
 
 ## Conversions
 
-Values may convert to other types according to .NET rules. Implicit conversions include identity, `null` to any nullable type, lifting value types to their nullable counterpart, widening numeric conversions, reference conversions to base types or interfaces, boxing of value types, and conversions to a matching branch of a union. Narrowing or otherwise unsafe conversions require an explicit cast. See [type compatibility](proposals/type-compatibility.md) for a detailed list of conversion forms.
+Values may convert to other types according to .NET rules. Implicit conversions
+include identity, literal types to their underlying primitive type, `null` to any
+nullable type, lifting value types to their nullable counterpart, widening numeric
+conversions, reference conversions to base types or interfaces, boxing of value
+types, and conversions to a matching branch of a union. Narrowing or otherwise
+unsafe conversions require an explicit cast. See
+[type compatibility](../proposals/type-compatibility.md) for a detailed list of
+conversion forms.
 
 ### Explicit casts
 
@@ -75,5 +100,11 @@ let s = obj as string
 
 ## Overload resolution
 
-When multiple function overloads are available, Raven selects the candidate whose parameters require the best implicit conversions. Identity matches are preferred over numeric widening, which outrank reference or boxing conversions. User-defined conversions are considered last. Literal arguments convert to their underlying primitive type before the ranking is applied. If no candidate is strictly better, the call is reported as ambiguous.
+When multiple function overloads are available, Raven selects the candidate whose
+parameters require the best implicit conversions. Identity matches are preferred
+over numeric widening, which outrank reference or boxing conversions.
+User-defined conversions are considered last. An argument of a literal type is an
+exact match for a parameter of the same literal type; otherwise the literal is
+converted to its underlying primitive type before the ranking is applied. If no
+candidate is strictly better, the call is reported as ambiguous.
 

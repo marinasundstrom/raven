@@ -3,7 +3,7 @@
 ### Sub sections
 
 * [Language specification](spec/language-specification.md)
-* [Type system](type-system.md)
+* [Type system](spec/type-system.md)
 * [Proposals](proposals)
 
 ### Vision
