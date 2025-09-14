@@ -1,42 +1,18 @@
 # BUGS
 
 ## Overview
-`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 13 failing tests and 8 skipped tests. The failures cluster into the categories below based on shared root causes.
+`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 1 failing test and 8 skipped tests. The remaining failure is grouped below by root cause.
 
 ## Prioritized failing test categories
 
-1. **Literal type conversions missing**  \\
-   Literal arguments retain their literal types instead of converting to their underlying primitives before overload resolution, contrary to the specification【F:docs/lang/type-system.md†L76-L78】.  \\
-   Failing tests:
-   - `StringInterpolationTests.InterpolatedString_FormatsCorrectly`
-   - `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics`
-   - `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable`
-   - `Issue84_MemberResolutionBug.CanResolveMember`
-   - `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload`
-   - `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType`
-
-2. **Union features incomplete**  \
+1. **Union features incomplete**  \
    Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.  \
    Failing tests:
    - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable`
 
-3. **Analyzer diagnostics ignored**  \
-   Analyzer configuration flags are ignored, so analyzer diagnostics either fail to run or cannot be suppressed.  \
-   Failing tests:
-   - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithoutAnnotation_SuggestsInferredReturnType`
-   - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithoutAnnotation_WithMultipleReturnTypes_SuggestsUnion`
-   - `MissingReturnTypeAnnotationAnalyzerTests.FunctionStatementWithoutAnnotation_SuggestsInferredReturnType`
-
 ## Current failing tests
 
-- `StringInterpolationTests.InterpolatedString_FormatsCorrectly` – binder cannot resolve string concatenation because literal segments keep their literal types.
-- `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics` – `Console.WriteLine` with a string literal reports `RAV1501` because the literal fails to convert to `string`.
-- `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable` – wildcard import of `System.Console` still triggers `RAV1501` when a string literal is passed to `WriteLine`.
-- `Issue84_MemberResolutionBug.CanResolveMember` – `DateTime.Parse` with a string literal fails with `RAV1501`.
 - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – emitting a union type with `null` does not succeed.
-- `UnionConversionTests.UnionAssignedToObject_ReturnsNoDiagnostic` – assigning a union of classes to `object` still reports `RAV1503` diagnostics.
-- `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload` – invocation symbol is null because the string literal fails to convert to `string`.
-- `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType` – target-typed `.Parse("42")` call fails with `RAV1501` when the string literal keeps its literal type.
 
 ## Skipped tests
 
@@ -53,6 +29,8 @@
 ## Recently fixed
 
 - `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – `if` expressions now preserve literal types when inferring unions.
+- Literal arguments now convert to their underlying primitive types before overload resolution, fixing tests such as `StringInterpolationTests.InterpolatedString_FormatsCorrectly`, `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics`, `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable`, `Issue84_MemberResolutionBug.CanResolveMember`, `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload`, and `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType`.
+- Analyzer configuration flags are respected so analyzer diagnostics can be suppressed; the `MissingReturnTypeAnnotationAnalyzerTests.*` suite now passes.
 - `AnalyzerInfrastructureTests.GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics` – parser now buffers the requested position before rewinding, preventing `Position outside of buffer bounds` exceptions.
 - `GreenTreeTest.FullWidth_Equals_Source_Length` – skipping tokens now trims duplicated leading trivia and restores newline handling so the parsed tree's full width matches the source length.
 - `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – class symbols now track only direct interfaces, excluding inherited ones.
@@ -73,12 +51,11 @@
 - `AliasResolutionTest.AliasDirective_UsesAlias_Tuple_TypeMismatch_ReportsDiagnostic` – tuple alias assignments now emit `RAV1503` when element types mismatch.
 
 ## Conclusion
-The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
+The remaining failing test highlights incomplete union support. Addressing this will bring the test suite closer to green.
 
 ## Fix strategy and specification notes
 
 - **Union features** – Implement missing union conversion checks and metadata emission following the rule that every member must convert to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.
-- **Analyzer diagnostics** – Revisit the diagnostic pipeline so analyzer and compiler warnings share configuration and reporting. Ensure `DiagnosticOptions` flow into analyzer drivers and add tests for custom suppressions.
 - **Workspace and utility failures** – Audit highlighters and tooling hooks so diagnostics surface consistently; add integration tests for console rendering.
 
 ### Specification ambiguities
