@@ -5,10 +5,8 @@
 
 ## Prioritized failing test categories
 
-1. **Import and symbol resolution failures**  \
-   Import directives and member lookups mis-handle ordering and aliasing. The spec requires all imports to precede alias or member declarations within a scope【F:docs/lang/spec/language-specification.md†L392-L394】.  \
-   Failing tests:
-    - `SemanticClassifierTests.ClassifiesTokensBySymbol`
+1. **Import and symbol resolution failures**  \\
+   Import directives and member lookups mis-handle ordering and aliasing. The spec requires all imports to precede alias or member declarations within a scope【F:docs/lang/spec/language-specification.md†L392-L394】.
 
 2. **Union features incomplete**  \
    Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.  \
@@ -38,6 +36,7 @@
 - `ImportResolutionTest.ImportNonNamespaceOrType_Should_ProduceDiagnostic` – diagnostic span now excludes the wildcard, highlighting only the invalid target.
 - `ImportResolutionTest.OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic` – open generic type references without type arguments now report `RAV0305`.
 - `Syntax.Tests.Sandbox.Test` – disabled excessive output that caused logger failures during test execution.
+- `SemanticClassifierTests.ClassifiesTokensBySymbol` – import binder now surfaces static members from wildcard type imports, allowing classifiers to resolve symbols correctly.
 - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType` – emitted assemblies now define `System.Unit`, enabling successful emission when functions return `unit` implicitly.
 
 ## Conclusion
