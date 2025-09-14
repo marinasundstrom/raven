@@ -1,21 +1,22 @@
 # BUGS
 
 ## Overview
-`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 1 failing test and 8 skipped tests. The remaining failure is grouped below by root cause.
+`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` still reports skipped tests. The remaining known issue is grouped below by root cause.
 
 ## Prioritized failing test categories
 
 1. **Union features incomplete**  \
    Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.  \
-   Failing tests:
+   Skipped tests:
    - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable`
 
 ## Current failing tests
 
-- `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – emitting a union type with `null` does not succeed.
+None.
 
 ## Skipped tests
 
+- `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – union emission with `null` not implemented.
 - `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – interface declarations not implemented.
 - `Syntax.Tests.Sandbox.Test` – skipped due to excessive output until tooling supports large trees.
 - `EntryPointDiagnosticsTests.ConsoleApp_WithoutMain_ProducesDiagnostic` – requires reference assemblies.
@@ -51,7 +52,7 @@
 - `AliasResolutionTest.AliasDirective_UsesAlias_Tuple_TypeMismatch_ReportsDiagnostic` – tuple alias assignments now emit `RAV1503` when element types mismatch.
 
 ## Conclusion
-The remaining failing test highlights incomplete union support. Addressing this will bring the test suite closer to green.
+Union emission with `null` remains unimplemented and is tracked by a skipped test. Addressing this will bring the test suite closer to green.
 
 ## Fix strategy and specification notes
 
