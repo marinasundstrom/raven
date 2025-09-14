@@ -19,17 +19,25 @@ Raven is a statically typed language whose types correspond directly to CLR type
 Numeric and string literals may appear as their own types. A literal type
 represents exactly that value and carries an underlying primitive type—`1`
 has underlying type `int` while `"hi"` has underlying type `string`. Literal
-expressions are given these singleton types.
+expressions are given these singleton types. These singleton types act as
+value-level constraints, most often used as branches in union types or other
+constructs that restrict a value to specific constants.
 
 Literal types implicitly convert to their underlying type and then follow the
 normal conversion rules of that type. This allows `1` to widen to `double` or
 `"hi"` to be used wherever a `string` is expected.
+
+When a literal is assigned to a target whose type is inferred—such as a
+variable declaration without an explicit type annotation—the literal widens to
+its underlying primitive type. This keeps type inference in line with other
+languages that treat `let x = 1` as `int` rather than the literal type `1`.
 
 ```raven
 let yes: "yes" = "yes"
 let one: 1 = 1
 let two: int = one      // implicit conversion to int
 let d: double = one     // underlying int widens to double
+let inferred = 1        // inferred int, literal type is widened
 ```
 
 ## Composite and derived types
