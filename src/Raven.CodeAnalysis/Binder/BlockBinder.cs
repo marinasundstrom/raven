@@ -341,12 +341,24 @@ partial class BlockBinder : Binder
         var boundStatements = new List<BoundStatement>(block.Statements.Count);
         foreach (var stmt in block.Statements)
         {
-            var bound = BindStatement(stmt);
-            if (!allowReturn && bound is BoundReturnStatement br)
+            BoundStatement bound;
+            if (!allowReturn && stmt is ReturnStatementSyntax ret)
             {
                 _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
-                var expr = br.Expression ?? new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+                var expr = ret.Expression is null
+                    ? new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))
+                    : BindExpression(ret.Expression);
                 bound = new BoundExpressionStatement(expr);
+            }
+            else
+            {
+                bound = BindStatement(stmt);
+                if (!allowReturn && bound is BoundReturnStatement br)
+                {
+                    _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
+                    var expr = br.Expression ?? new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+                    bound = new BoundExpressionStatement(expr);
+                }
             }
             boundStatements.Add(bound);
         }
