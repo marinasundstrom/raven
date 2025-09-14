@@ -27,7 +27,7 @@ Emits `object?` since `int` and `string` share no base class other than `object`
 
 This narrowing makes unions friendlier to inheritance-based languages such as C#, and it gives the runtime a smaller set of types to resolve. The `TypeUnionsAnalyzer` provides additional hints about possible targets so that consumers can work with the projected type more effectively.
 
-To preserve the original union members, the compiler also attaches a `TypeUnionAttribute` to the parameter or return type in metadata. The attribute lists the CLR `Type` for each member in the union. The method signature itself uses the narrowed base type (or `object`) as described above.
+To preserve the original union members, the compiler also attaches a `TypeUnionAttribute` to the parameter or return type in metadata. Its constructor accepts `object[]` so that each argument can be either a `System.Type` for a type branch or the literal value itself for a literal branch. The method signature still uses the narrowed base type (or `object`) as described above.
 
 For example:
 
@@ -42,6 +42,22 @@ Emits a parameter of type `object?` with:
 ```
 
 attached, indicating the full set of possible values.
+
+Literal unions are represented in the same way. A parameter constrained to the string literals `"yes"` or `"no"` is emitted as a `string` with:
+
+```csharp
+[TypeUnionAttribute("yes", "no")]
+```
+
+where each literal value is encoded directly in the attribute.
+
+Literal types can also be combined with other types. A parameter typed as `"yes" | "no" | null` is emitted as `string?` with:
+
+```csharp
+[TypeUnionAttribute("yes", "no", typeof(Null))]
+```
+
+mixing literal values and `System.Type` references in the attribute.
 
 Raven emits shim types so that every union member has a concrete `Type`:
 
