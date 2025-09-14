@@ -17,7 +17,6 @@ None.
 ## Skipped tests
 
 - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – union emission with `null` not implemented.
-- `Syntax.Tests.Sandbox.Test` – skipped due to excessive output until tooling supports large trees.
 - `EntryPointDiagnosticsTests.ConsoleApp_WithoutMain_ProducesDiagnostic` – requires reference assemblies.
 - `VersionStampTests.GetNewerVersion_InSameTick_IncrementsLocal` – same-tick version increments are unreliable across environments.
 - `FileScopedCodeDiagnosticsTests.FileScopedCode_AfterDeclaration_ProducesDiagnostic` – requires reference assemblies.
@@ -43,7 +42,7 @@ None.
 
 - `ImportResolutionTest.ImportNonNamespaceOrType_Should_ProduceDiagnostic` – diagnostic span now excludes the wildcard, highlighting only the invalid target.
 - `ImportResolutionTest.OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic` – open generic type references without type arguments now report `RAV0305`.
-- `Syntax.Tests.Sandbox.Test` – disabled excessive output that caused logger failures during test execution.
+- `Syntax.Tests.Sandbox.Test` – trimmed excessive output and re-enabled to verify successful compilation.
 - `SemanticClassifierTests.ClassifiesTokensBySymbol` – import binder now surfaces static members from wildcard type imports, allowing classifiers to resolve symbols correctly.
 - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType` – emitted assemblies now define `System.Unit`, enabling successful emission when functions return `unit` implicitly.
 - Diagnostic verifier now safely formats expected diagnostic messages, preventing `FormatException` crashes when argument counts mismatch.
