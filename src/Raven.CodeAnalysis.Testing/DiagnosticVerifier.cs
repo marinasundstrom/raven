@@ -146,7 +146,16 @@ public class DiagnosticVerifier
             foreach (var expected in missing)
             {
                 var descriptor = CompilerDiagnostics.GetDescriptor(expected.Id);
-                var m = string.Format(descriptor!.MessageFormat, expected.Arguments);
+                var format = descriptor?.MessageFormat.ToString() ?? string.Empty;
+                string m;
+                try
+                {
+                    m = string.Format(format, expected.Arguments);
+                }
+                catch (FormatException)
+                {
+                    m = format;
+                }
 
                 var start = expected.Location.Span.StartLinePosition;
                 var end = expected.Location.Span.EndLinePosition;
