@@ -28,17 +28,7 @@ internal class TypeDeclarationParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
-        TypeAnnotationClauseSyntax? baseType = null;
-        InterfaceBaseListSyntax? baseList = null;
-
-        if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
-        {
-            baseList = ParseInterfaceBaseList();
-        }
-        else
-        {
-            baseType = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
-        }
+        BaseListSyntax? baseList = ParseBaseList();
 
         List<GreenNode> memberList = new List<GreenNode>();
 
@@ -75,10 +65,10 @@ internal class TypeDeclarationParser : SyntaxParser
             return InterfaceDeclaration(modifiers, typeKeyword, identifier, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        return ClassDeclaration(modifiers, typeKeyword, identifier, baseType, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(modifiers, typeKeyword, identifier, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
-    private InterfaceBaseListSyntax? ParseInterfaceBaseList()
+    private BaseListSyntax? ParseBaseList()
     {
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {
@@ -100,7 +90,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 }
             }
 
-            return InterfaceBaseList(colonToken, List(types));
+            return BaseList(colonToken, List(types));
         }
 
         return null;

@@ -51,11 +51,10 @@ EnumDeclaration          ::= TypeModifiers?
 EnumMembers              ::= EnumMember {',' EnumMember} ;
 EnumMember               ::= Identifier ['=' Expression] ;
 
-ClassDeclaration         ::= TypeModifiers? 'class' Identifier BaseTypeClause? ClassBody ;
-BaseTypeClause           ::= ':' Type ;
+ClassDeclaration         ::= TypeModifiers? 'class' Identifier BaseList? ClassBody ;
 StructDeclaration        ::= TypeModifiers? 'struct' Identifier ClassBody ;
-InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier InterfaceBaseList? ClassBody ;
-InterfaceBaseList        ::= ':' Type {',' Type} ;
+InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier BaseList? ClassBody ;
+BaseList                 ::= ':' Type {',' Type} ;
 ClassBody                ::= '{' {ClassMember} '}' ;
 
 ClassMember              ::= FieldDeclaration

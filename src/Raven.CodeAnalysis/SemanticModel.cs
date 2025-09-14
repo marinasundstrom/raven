@@ -539,13 +539,23 @@ public partial class SemanticModel
                         var baseTypeSymbol = Compilation.GetTypeByMetadataName("System.Object");
                         ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
 
-                        if (classDecl.BaseType is not null)
+                        if (classDecl.BaseList is not null)
                         {
-                            var resolved = parentBinder.ResolveType(classDecl.BaseType.Type) as INamedTypeSymbol;
-                            if (resolved is not null && resolved.TypeKind == TypeKind.Interface)
-                                interfaceList = ImmutableArray.Create(resolved);
-                            else if (resolved is not null)
-                                baseTypeSymbol = resolved;
+                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                            foreach (var t in classDecl.BaseList.Types)
+                            {
+                                var resolved = parentBinder.ResolveType(t) as INamedTypeSymbol;
+                                if (resolved is null)
+                                    continue;
+
+                                if (resolved.TypeKind == TypeKind.Interface)
+                                    builder.Add(resolved);
+                                else
+                                    baseTypeSymbol = resolved;
+                            }
+
+                            if (builder.Count > 0)
+                                interfaceList = builder.ToImmutable();
                         }
 
                         var isSealed = !classDecl.Modifiers.Any(m =>
@@ -568,8 +578,8 @@ public partial class SemanticModel
                         var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
                         _binderCache[classDecl] = classBinder;
                         RegisterClassSymbol(classDecl, classSymbol);
-                        if (classDecl.BaseType is not null && baseTypeSymbol!.IsSealed)
-                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(baseTypeSymbol.Name, classDecl.BaseType.Type.GetLocation());
+                        if (classDecl.BaseList is not null && baseTypeSymbol!.IsSealed)
+                            classBinder.Diagnostics.ReportCannotInheritFromSealedType(baseTypeSymbol.Name, classDecl.BaseList.Types[0].GetLocation());
                         RegisterClassMembers(classDecl, classBinder);
                         break;
                     }
@@ -703,13 +713,22 @@ public partial class SemanticModel
                     var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
                     var nestedBaseType = Compilation.GetTypeByMetadataName("System.Object");
                     ImmutableArray<INamedTypeSymbol> nestedInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
-                    if (nestedClass.BaseType is not null)
+                    if (nestedClass.BaseList is not null)
                     {
-                        var resolved = classBinder.ResolveType(nestedClass.BaseType.Type) as INamedTypeSymbol;
-                        if (resolved is not null && resolved.TypeKind == TypeKind.Interface)
-                            nestedInterfaces = ImmutableArray.Create(resolved);
-                        else if (resolved is not null)
-                            nestedBaseType = resolved;
+                        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                        foreach (var t in nestedClass.BaseList.Types)
+                        {
+                            var resolved = classBinder.ResolveType(t) as INamedTypeSymbol;
+                            if (resolved is null)
+                                continue;
+
+                            if (resolved.TypeKind == TypeKind.Interface)
+                                builder.Add(resolved);
+                            else
+                                nestedBaseType = resolved;
+                        }
+                        if (builder.Count > 0)
+                            nestedInterfaces = builder.ToImmutable();
                     }
                     var nestedSealed = !nestedClass.Modifiers.Any(m =>
                         m.Kind == SyntaxKind.OpenKeyword || m.Kind == SyntaxKind.AbstractKeyword);
@@ -731,8 +750,8 @@ public partial class SemanticModel
                     var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
                     _binderCache[nestedClass] = nestedBinder;
                     RegisterClassSymbol(nestedClass, nestedSymbol);
-                    if (nestedClass.BaseType is not null && nestedBaseType!.IsSealed)
-                        nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(nestedBaseType.Name, nestedClass.BaseType.Type.GetLocation());
+                    if (nestedClass.BaseList is not null && nestedBaseType!.IsSealed)
+                        nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(nestedBaseType.Name, nestedClass.BaseList.Types[0].GetLocation());
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
                     break;
