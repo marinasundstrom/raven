@@ -5,10 +5,7 @@
 
 ## Prioritized failing test categories
 
-1. **Import and symbol resolution failures**  \\
-   Import directives and member lookups mis-handle ordering and aliasing. The spec requires all imports to precede alias or member declarations within a scope【F:docs/lang/spec/language-specification.md†L392-L394】.
-
-2. **Literal type conversions missing**  \\
+1. **Literal type conversions missing**  \\
    Literal arguments retain their literal types instead of converting to their underlying primitives before overload resolution, contrary to the specification【F:docs/lang/type-system.md†L76-L78】.  \\
    Failing tests:
    - `StringInterpolationTests.InterpolatedString_FormatsCorrectly`
@@ -18,12 +15,12 @@
    - `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload`
    - `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType`
 
-3. **Union features incomplete**  \
+2. **Union features incomplete**  \
    Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.  \
    Failing tests:
    - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable`
 
-4. **Analyzer diagnostics ignored**  \
+3. **Analyzer diagnostics ignored**  \
    Analyzer configuration flags are ignored, so analyzer diagnostics either fail to run or cannot be suppressed.  \
    Failing tests:
    - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithoutAnnotation_SuggestsInferredReturnType`
@@ -81,7 +78,6 @@ The failing tests point to regressions across parsing, binding, diagnostics, and
 
 ## Fix strategy and specification notes
 
-- **Import and symbol resolution** – Enforce ordering and wildcard rules for `import` directives and alias resolution as described in the specification【F:docs/lang/spec/language-specification.md†L392-L394】.
 - **Union features** – Implement missing union conversion checks and metadata emission following the rule that every member must convert to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.
 - **Analyzer diagnostics** – Revisit the diagnostic pipeline so analyzer and compiler warnings share configuration and reporting. Ensure `DiagnosticOptions` flow into analyzer drivers and add tests for custom suppressions.
 - **Workspace and utility failures** – Audit highlighters and tooling hooks so diagnostics surface consistently; add integration tests for console rendering.
