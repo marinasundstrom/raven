@@ -39,7 +39,6 @@
 - `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – literal branches of an `if` expression lose their literal types and are inferred as `String | Int32`.
 - `Issue84_MemberResolutionBug.CanResolveMember` – `DateTime.Parse` with a string literal fails with `RAV1501`.
 - `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – spread operator in array collection expressions fails to emit bytecode.
-- `GreenTreeTest.FullWidth_Equals_Source_Length` – parsed tree reports a full width one character larger than the source text.
 - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – emitting a union type with `null` does not succeed.
 - `ExpressionSemanticTest.WriteLine_WithUnitVariable_ShouldNot_ProduceDiagnostics` – writing a `unit` value to `Console.WriteLine` triggers `RAV1501`.
 - `UnionConversionTests.UnionAssignedToObject_ReturnsNoDiagnostic` – assigning a union of classes to `object` still reports `RAV1503` diagnostics.
@@ -60,6 +59,7 @@
 ## Recently fixed
 
 - `AnalyzerInfrastructureTests.GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics` – parser now buffers the requested position before rewinding, preventing `Position outside of buffer bounds` exceptions.
+- `GreenTreeTest.FullWidth_Equals_Source_Length` – skipping tokens now trims duplicated leading trivia and restores newline handling so the parsed tree's full width matches the source length.
 - `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – class symbols now track only direct interfaces, excluding inherited ones.
 - `NamespaceResolutionTest.ConsoleDoesNotContainWriteLine2_Should_ProduceDiagnostics` – diagnostic span now targets the undefined member name rather than the entire expression.
 - `SymbolQueryTests.CallingInstanceMethodAsStatic_ProducesDiagnostic` – test now expects the diagnostic to highlight only the undefined member name.
