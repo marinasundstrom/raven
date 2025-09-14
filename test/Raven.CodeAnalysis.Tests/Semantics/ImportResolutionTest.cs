@@ -105,7 +105,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.Collections.Generic.*
 
-            let x: List
+            var x: List = null
             """;
 
         var verifier = CreateVerifier(

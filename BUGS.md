@@ -8,7 +8,6 @@
 1. **Import and symbol resolution failures**  \
    Import directives and member lookups mis-handle ordering and aliasing. The spec requires all imports to precede alias or member declarations within a scope【F:docs/lang/spec/language-specification.md†L392-L394】.  \
    Failing tests:
-    - `ImportResolutionTest.OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic`
     - `SemanticClassifierTests.ClassifiesTokensBySymbol`
 
 2. **Union features incomplete**  \
@@ -47,6 +46,7 @@
 - `ExplicitReturnInIfExpressionTests.*` – return statements in expression contexts now report `RAV1900` and their surrounding blocks infer union member types correctly.
 
 - `ImportResolutionTest.ImportNonNamespaceOrType_Should_ProduceDiagnostic` – diagnostic span now excludes the wildcard, highlighting only the invalid target.
+- `ImportResolutionTest.OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic` – open generic type references without type arguments now report `RAV0305`.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.

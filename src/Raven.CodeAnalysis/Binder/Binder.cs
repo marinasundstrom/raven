@@ -259,8 +259,9 @@ internal abstract class Binder
             if (type is INamedTypeSymbol named)
             {
                 // Allow constructed generic types (e.g., from aliases) to be used without
-                // specifying additional type arguments.
-                if (named.Arity > 0 && named.ConstructedFrom is null)
+                // specifying additional type arguments. Only report an error for unbound
+                // generic type definitions referenced without type arguments.
+                if (named.Arity > 0 && named.IsUnboundGenericType)
                 {
                     _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, ident.Identifier.GetLocation());
                     return Compilation.ErrorTypeSymbol;
