@@ -38,6 +38,7 @@
 - `Syntax.Tests.Sandbox.Test` – disabled excessive output that caused logger failures during test execution.
 - `SemanticClassifierTests.ClassifiesTokensBySymbol` – import binder now surfaces static members from wildcard type imports, allowing classifiers to resolve symbols correctly.
 - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType` – emitted assemblies now define `System.Unit`, enabling successful emission when functions return `unit` implicitly.
+- Diagnostic verifier now safely formats expected diagnostic messages, preventing `FormatException` crashes when argument counts mismatch.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
