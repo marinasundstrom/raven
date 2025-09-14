@@ -17,6 +17,7 @@
   <TokenKind Name="EnumKeyword" Text="enum" IsReservedWord="true" />
   <TokenKind Name="StructKeyword" Text="struct" IsReservedWord="true" />
   <TokenKind Name="ClassKeyword" Text="class" IsReservedWord="true" />
+  <TokenKind Name="InterfaceKeyword" Text="interface" IsReservedWord="true" />
   <TokenKind Name="InitKeyword" Text="init" IsReservedWord="false" />
   <TokenKind Name="SelfKeyword" Text="self" IsReservedWord="true" />
   <TokenKind Name="IfKeyword" Text="if" IsReservedWord="true" />

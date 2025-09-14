@@ -33,8 +33,9 @@ class BinderFactory
             WhileExpressionSyntax expr => new LocalScopeBinder(parentBinder!),
             ForExpressionSyntax expr => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
             FunctionStatementSyntax localFunc => new FunctionBinder(parentBinder!, localFunc),
-            // ClassDeclarationSyntax binders are created and cached by SemanticModel
+            // ClassDeclarationSyntax and InterfaceDeclarationSyntax binders are created and cached by SemanticModel
             ClassDeclarationSyntax => parentBinder,
+            InterfaceDeclarationSyntax => parentBinder,
             //FieldDeclarationSyntax => parent, // Fields are handled during symbol declaration
             _ => parentBinder
         };

@@ -296,6 +296,34 @@ public class Compilation
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
             }
         }
+        else if (memberDeclaration is InterfaceDeclarationSyntax interfaceDeclaration)
+        {
+            Location[] locations = [syntaxTree.GetLocation(interfaceDeclaration.EffectiveSpan)];
+
+            SyntaxReference[] references = [interfaceDeclaration.GetReference()];
+
+            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingNamespace = declaringSymbol switch
+            {
+                INamespaceSymbol ns => ns,
+                INamedTypeSymbol type => type.ContainingNamespace,
+                _ => null
+            };
+
+            var symbol = new SourceNamedTypeSymbol(
+                interfaceDeclaration.Identifier.Text,
+                GetSpecialType(SpecialType.System_Object),
+                TypeKind.Interface,
+                declaringSymbol,
+                containingType,
+                containingNamespace,
+            locations, references);
+
+            foreach (var memberDeclaration2 in interfaceDeclaration.Members)
+            {
+                AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
+            }
+        }
         else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
             Location[] locations = [syntaxTree.GetLocation(methodDeclaration.EffectiveSpan)];
