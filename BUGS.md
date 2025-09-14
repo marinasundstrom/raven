@@ -18,7 +18,6 @@ None.
 
 - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – union emission with `null` not implemented.
 - `EntryPointDiagnosticsTests.ConsoleApp_WithoutMain_ProducesDiagnostic` – requires reference assemblies.
-- `VersionStampTests.GetNewerVersion_InSameTick_IncrementsLocal` – same-tick version increments are unreliable across environments.
 - `FileScopedCodeDiagnosticsTests.FileScopedCode_AfterDeclaration_ProducesDiagnostic` – requires reference assemblies.
 - `FileScopedCodeDiagnosticsTests.Library_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.
 - `FileScopedCodeDiagnosticsTests.MultipleFiles_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.
@@ -47,6 +46,7 @@ None.
 - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType` – emitted assemblies now define `System.Unit`, enabling successful emission when functions return `unit` implicitly.
 - Diagnostic verifier now safely formats expected diagnostic messages, preventing `FormatException` crashes when argument counts mismatch.
 - `AliasResolutionTest.AliasDirective_UsesAlias_Tuple_TypeMismatch_ReportsDiagnostic` – tuple alias assignments now emit `RAV1503` when element types mismatch.
+- `VersionStampTests.GetNewerVersion_InSameTick_IncrementsLocal` – deterministic timestamp seeding validates same-tick local increments reliably.
 
 ## Conclusion
 Union emission with `null` remains unimplemented and is tracked by a skipped test. Addressing this will bring the test suite closer to green.

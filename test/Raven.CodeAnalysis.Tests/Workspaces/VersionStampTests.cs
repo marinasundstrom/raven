@@ -21,28 +21,25 @@ public class VersionStampTests
         return m.Success ? int.Parse(m.Groups[1].Value) : throw new InvalidOperationException("global not found");
     }
 
-    [Fact(Skip = "Cannot reliably observe same-tick increments on all environments")]
+    [Fact]
     public void GetNewerVersion_InSameTick_IncrementsLocal()
     {
-        var s1 = VersionStamp.Create();
+        // Seed a stamp whose timestamp is in the future so that the next call
+        // observes a "same tick" and simply increments the local counter.
+        var ctor = typeof(VersionStamp).GetConstructor(
+            BindingFlags.NonPublic | BindingFlags.Instance,
+            binder: null,
+            types: new[] { typeof(DateTime), typeof(int), typeof(int) },
+            modifiers: null);
 
-        // We try a few times to catch calls within the same system tick (UtcNow often has ~0.5–1ms granularity).
-        // As soon as we observe local increasing, we pass.
-        var attempts = 0;
-        var prev = s1;
-        while (attempts++ < 10_000)
-        {
-            var next = prev.GetNewerVersion();
-            int l0 = GetLocal(prev);
-            int l1 = GetLocal(next);
+        Assert.NotNull(ctor);
 
-            if (next > prev && (l1 == l0 + 1 || (l0 == 1023 && l1 == 0)))
-                return; // success
+        var future = DateTime.UtcNow.AddMinutes(1);
+        var s1 = (VersionStamp)ctor!.Invoke(new object?[] { future, 0, 5 });
+        var s2 = s1.GetNewerVersion();
 
-            prev = next;
-        }
-
-        throw new Xunit.Sdk.XunitException("Could not observe local increment within the same tick.");
+        Assert.True(s2 > s1);
+        Assert.Equal(GetLocal(s1) + 1, GetLocal(s2));
     }
 
     [Fact]
