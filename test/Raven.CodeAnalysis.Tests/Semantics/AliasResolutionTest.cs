@@ -113,7 +113,8 @@ public class AliasResolutionTest : DiagnosticTestBase
 
         var verifier = CreateVerifier(
             testCode,
-            expectedDiagnostics: [new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)]);
+            expectedDiagnostics: [new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
+                .WithArguments("\"\"", "int")]);
 
         verifier.Verify();
     }
