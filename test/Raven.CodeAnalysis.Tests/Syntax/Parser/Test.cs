@@ -80,8 +80,10 @@ public class ParserNewlineTests
 
         // Assert
         var literalToken = statement.DescendantTokens().FirstOrDefault(t => t.Kind == SyntaxKind.NumericLiteralToken);
+        Assert.Equal(SyntaxKind.NumericLiteralToken, literalToken.Kind);
 
         var newlineTrivia = literalToken.LeadingTrivia.FirstOrDefault(t => t.Kind == SyntaxKind.EndOfLineTrivia);
+        Assert.Equal(SyntaxKind.EndOfLineTrivia, newlineTrivia.Kind);
     }
 
     [Fact]
