@@ -26,7 +26,7 @@ public class ExpressionSemanticTest : DiagnosticTestBase
             """
             import System.*
 
-            let test = Console.WriteLine("Hello")
+            let test = Console.WriteLine()
             Console.WriteLine(test)
             """;
 

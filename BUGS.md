@@ -35,7 +35,6 @@
 - `Issue84_MemberResolutionBug.CanResolveMember` – `DateTime.Parse` with a string literal fails with `RAV1501`.
 - `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – spread operator in array collection expressions fails to emit bytecode.
 - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – emitting a union type with `null` does not succeed.
-- `ExpressionSemanticTest.WriteLine_WithUnitVariable_ShouldNot_ProduceDiagnostics` – writing a `unit` value to `Console.WriteLine` triggers `RAV1501`.
 - `UnionConversionTests.UnionAssignedToObject_ReturnsNoDiagnostic` – assigning a union of classes to `object` still reports `RAV1503` diagnostics.
 - `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload` – invocation symbol is null because the string literal fails to convert to `string`.
 - `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType` – target-typed `.Parse("42")` call fails with `RAV1501` when the string literal keeps its literal type.
