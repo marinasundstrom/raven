@@ -22,15 +22,10 @@
    - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithoutAnnotation_WithMultipleReturnTypes_SuggestsUnion`
    - `MissingReturnTypeAnnotationAnalyzerTests.FunctionStatementWithoutAnnotation_SuggestsInferredReturnType`
 
-4. **Workspace and utility failures**  \
-   Tooling hooks do not load sample code correctly.  \
-   Failing tests:
-   - `Syntax.Tests.Sandbox.Test`
-
-5. **Code generation**  \
+4. **Code generation**  \
    Emitted assemblies omit the mandatory `unit` type. The spec treats `unit` as the implicit return type for functions without annotations【F:docs/lang/spec/language-specification.md†L40-L45】.  \
    Failing tests:
- - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType`
+   - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType`
 
 
 ## Recently fixed
@@ -47,6 +42,7 @@
 
 - `ImportResolutionTest.ImportNonNamespaceOrType_Should_ProduceDiagnostic` – diagnostic span now excludes the wildcard, highlighting only the invalid target.
 - `ImportResolutionTest.OpenGenericTypeWithoutTypeArguments_Should_ProduceDiagnostic` – open generic type references without type arguments now report `RAV0305`.
+- `Syntax.Tests.Sandbox.Test` – disabled excessive output that caused logger failures during test execution.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
