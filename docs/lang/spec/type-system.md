@@ -16,12 +16,31 @@ Raven is a statically typed language whose types correspond directly to CLR type
 
 ## Literal types
 
-Numeric and string literals may appear as their own types. A literal type
-represents exactly that value and carries an underlying primitive type—`1`
-has underlying type `int` while `"hi"` has underlying type `string`. Literal
-expressions are given these singleton types. These singleton types act as
-value-level constraints, most often used as branches in union types or other
-constructs that restrict a value to specific constants.
+Numeric, string, character, and boolean literals may appear as their own types.
+A literal type represents exactly that value and carries an underlying
+primitive type—`1` has underlying type `int` while `"hi"` has underlying type
+`string`. Literal expressions are given these singleton types. These singleton
+types act as value-level constraints, most often used as branches in union
+types or other constructs that restrict a value to specific constants.
+
+```raven
+let value: "yes" | "no" = "yes"
+
+alias Switch = "yes" | "no"
+let value: Switch = "yes"
+```
+
+Supported literal types are:
+
+| Literal example        | Underlying type | Notes                     |
+|------------------------|-----------------|---------------------------|
+| `true`, `false`        | `bool`          | boolean constants         |
+| `'a'`                  | `char`          | single UTF-16 code unit   |
+| `"hi"`                | `string`        | sequence of characters    |
+| `1`                    | `int`           | 32-bit signed integer     |
+| `4_000_000_000`        | `long`          | promoted when `int` overflows |
+| `3.14`                 | `double`        | default floating literal  |
+| `3.14f`                | `float`         | `f` or `F` suffix selects `float` |
 
 Literal types implicitly convert to their underlying type and then follow the
 normal conversion rules of that type. This allows `1` to widen to `double` or
