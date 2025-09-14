@@ -35,4 +35,39 @@ public class TypeSymbolInterfacesTests
         Assert.DoesNotContain(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
         Assert.Contains(c.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
     }
+
+    [Fact]
+    public void Class_WithBaseTypeAndMultipleInterfaces()
+    {
+        var source = @"interface IA {} interface IB {} class Base {} class C : Base, IA, IB {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var c = (INamedTypeSymbol)compilation.GetTypeByMetadataName("C")!;
+        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
+        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
+        var baseType = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Base")!;
+
+        Assert.Equal(baseType, c.BaseType);
+        Assert.Contains(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
+        Assert.Contains(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ib));
+    }
+
+    [Fact]
+    public void Class_WithOnlyInterfaces_HasObjectBaseType()
+    {
+        var source = @"interface IA {} interface IB {} class C : IA, IB {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var c = (INamedTypeSymbol)compilation.GetTypeByMetadataName("C")!;
+        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
+        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
+
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+
+        Assert.Equal(objectType, c.BaseType);
+        Assert.Contains(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
+        Assert.Contains(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ib));
+    }
 }
