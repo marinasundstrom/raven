@@ -444,7 +444,9 @@ partial class BlockBinder : Binder
     {
         var elements = new List<BoundExpression>(tupleExpression.Arguments.Count);
 
-        if (GetTargetType(tupleExpression) is ITupleTypeSymbol target && target.TupleElements.Length == tupleExpression.Arguments.Count)
+        if (GetTargetType(tupleExpression) is INamedTypeSymbol target &&
+            target.TypeKind == TypeKind.Tuple &&
+            target.TupleElements.Length == tupleExpression.Arguments.Count)
         {
             for (int i = 0; i < tupleExpression.Arguments.Count; i++)
             {

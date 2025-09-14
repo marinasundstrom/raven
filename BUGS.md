@@ -34,7 +34,6 @@
 
 - `StringInterpolationTests.InterpolatedString_FormatsCorrectly` – binder cannot resolve string concatenation because literal segments keep their literal types.
 - `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics` – `Console.WriteLine` with a string literal reports `RAV1501` because the literal fails to convert to `string`.
-- `AliasResolutionTest.AliasDirective_UsesAlias_Tuple_TypeMismatch_ReportsDiagnostic` – expected `RAV1503` diagnostic is missing for tuple element mismatch.
 - `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable` – wildcard import of `System.Console` still triggers `RAV1501` when a string literal is passed to `WriteLine`.
 - `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – literal branches of an `if` expression lose their literal types and are inferred as `String | Int32`.
 - `Issue84_MemberResolutionBug.CanResolveMember` – `DateTime.Parse` with a string literal fails with `RAV1501`.
@@ -75,6 +74,7 @@
 - `SemanticClassifierTests.ClassifiesTokensBySymbol` – import binder now surfaces static members from wildcard type imports, allowing classifiers to resolve symbols correctly.
 - `CodeGeneratorTests.Emit_ShouldAlwaysIncludeUnitType` – emitted assemblies now define `System.Unit`, enabling successful emission when functions return `unit` implicitly.
 - Diagnostic verifier now safely formats expected diagnostic messages, preventing `FormatException` crashes when argument counts mismatch.
+- `AliasResolutionTest.AliasDirective_UsesAlias_Tuple_TypeMismatch_ReportsDiagnostic` – tuple alias assignments now emit `RAV1503` when element types mismatch.
 
 ## Conclusion
 The failing tests point to regressions across parsing, binding, diagnostics, and tooling. Each category above groups tests sharing the same underlying issue, guiding future investigation.
