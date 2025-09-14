@@ -77,12 +77,20 @@ Appending `?` creates a nullable type. Value types are emitted as `System.Nullab
 
 `A | B` represents a value that may be either type. Each branch retains its own CLR representation and the union's base type is inferred from the operands.
 
-When assigning to a union, the expression must convert to at least one branch. Literal branches are matched by value rather than by type.
+Common use cases include mixing unrelated primitives, modeling optional values, or constraining a value to specific literals:
 
 ```raven
-let a: "true" | 1 = 1   // ok
-let b: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
-let c: "true" | int = 1 // ok: 1 matches int
+let a: int | string = "2"   // either an int or a string
+let b: string | null = null // optional string (equivalent to string?)
+let c: "yes" | "no" = "yes" // constrained to specific constants
+```
+
+When assigning to a union, the expression must convert to at least one branch. Literal branches are matched by value rather than by type:
+
+```raven
+let d: "true" | 1 = 1   // ok
+let e: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
+let f: "true" | int = 1 // ok: 1 matches int
 ```
 
 ### Generics
