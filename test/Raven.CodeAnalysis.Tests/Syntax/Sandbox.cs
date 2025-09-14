@@ -3,9 +3,9 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
 
-public class Sandbox(ITestOutputHelper testOutputHelper)
+public class Sandbox
 {
-    [Fact(Skip = "Sandbox test generates excessive output and is skipped until tooling supports large trees.")]
+    [Fact]
     public void Test()
     {
         var code =
@@ -14,7 +14,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         import System.Text.*;
 
         let list = [1, 42, 3];
-        var i = 0; 
+        var i = 0;
 
         let stringBuilder = new StringBuilder();
 
@@ -22,7 +22,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
             let x = list[i];
             stringBuilder.AppendLine(x.ToString());
             if x > 3 {
-                Console.WriteLine("Hello, World!");   
+                Console.WriteLine("Hello, World!");
             }
             i = i + 1;
         }
@@ -31,13 +31,6 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
         """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-
-        var root = syntaxTree.GetRoot();
-
-        // var visitor = new TestSyntaxVisitor();
-        // visitor.Visit(root);
-
-        #region Compilation
 
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
@@ -49,30 +42,7 @@ public class Sandbox(ITestOutputHelper testOutputHelper)
                 MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
             ]);
 
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-
-        var methodSymbol = semanticModel.GetDeclaredSymbol(root) as IMethodSymbol;
-        var typeSymbol = methodSymbol?.ContainingType;
-
-        var local = semanticModel.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First());
-
-        var method = semanticModel.GetSymbolInfo(root.DescendantNodes().OfType<InvocationExpressionSyntax>().First());
-
-        var visitor2 = new TestSymbolVisitor();
-        // visitor2.Visit(compilation.GlobalNamespace);
-
-        testOutputHelper.WriteLine(method.Symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty);
-
-        var diagnostics = semanticModel.GetDiagnostics();
-
-        testOutputHelper.WriteLine("");
-
-        foreach (var diagnostic in compilation.GetDiagnostics())
-        {
-            testOutputHelper.WriteLine(diagnostic.ToString());
-        }
-
-        #endregion
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
