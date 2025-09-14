@@ -6,8 +6,8 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 {
     private readonly Compilation _compilation;
 
-    public UnitTypeSymbol(Compilation compilation)
-        : base(SymbolKind.Type, "Unit", compilation.Assembly, null, compilation.Assembly.GlobalNamespace, [], [])
+    public UnitTypeSymbol(Compilation compilation, INamespaceSymbol containingNamespace)
+        : base(SymbolKind.Type, "Unit", compilation.Assembly, null, containingNamespace, [], [])
     {
         _compilation = compilation;
         TypeKind = TypeKind.Unit;

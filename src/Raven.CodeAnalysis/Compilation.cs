@@ -59,7 +59,7 @@ public class Compilation
     public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= new ErrorTypeSymbol(this, "Error", null, [], []);
 
     public ITypeSymbol NullTypeSymbol => _nullTypeSymbol ??= new NullTypeSymbol(this);
-    public INamedTypeSymbol UnitTypeSymbol => _unitTypeSymbol ??= new UnitTypeSymbol(this);
+    public INamedTypeSymbol UnitTypeSymbol => _unitTypeSymbol ??= CreateUnitTypeSymbol();
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
@@ -207,6 +207,22 @@ public class Compilation
     private TypeResolver _typeResolver;
 
     internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
+
+    private UnitTypeSymbol CreateUnitTypeSymbol()
+    {
+        var global = SourceGlobalNamespace;
+        var system = global.LookupNamespace("System") as SourceNamespaceSymbol;
+
+        if (system is null)
+        {
+            system = new SourceNamespaceSymbol((SourceModuleSymbol)Module, "System", Assembly, null, global, [], []);
+            global.AddMember(system);
+        }
+
+        var unit = new UnitTypeSymbol(this, system);
+        system.AddMember(unit);
+        return unit;
+    }
 
     internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
     {

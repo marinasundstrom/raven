@@ -312,7 +312,7 @@ internal class CodeGenerator
     private void CreateUnitStruct()
     {
         var unitBuilder = ModuleBuilder.DefineType(
-            "Unit",
+            "System.Unit",
             TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout,
             Compilation.GetTypeByMetadataName("System.ValueType").GetClrType(this));
 
