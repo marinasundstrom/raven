@@ -17,11 +17,9 @@ None.
 ## Skipped tests
 
 - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – union emission with `null` not implemented.
-- `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – interface declarations not implemented.
 - `Syntax.Tests.Sandbox.Test` – skipped due to excessive output until tooling supports large trees.
 - `EntryPointDiagnosticsTests.ConsoleApp_WithoutMain_ProducesDiagnostic` – requires reference assemblies.
 - `VersionStampTests.GetNewerVersion_InSameTick_IncrementsLocal` – same-tick version increments are unreliable across environments.
-- `UnionEmissionTests.CommonInterface_UsesInterfaceInSignature` – interface declarations not implemented.
 - `FileScopedCodeDiagnosticsTests.FileScopedCode_AfterDeclaration_ProducesDiagnostic` – requires reference assemblies.
 - `FileScopedCodeDiagnosticsTests.Library_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.
 - `FileScopedCodeDiagnosticsTests.MultipleFiles_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.

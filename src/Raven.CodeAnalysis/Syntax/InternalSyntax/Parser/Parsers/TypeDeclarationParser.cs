@@ -16,7 +16,7 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         var modifiers = ParseModifiers();
 
-        var structOrClassKeyword = ReadToken();
+        var typeKeyword = ReadToken();
 
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
@@ -28,7 +28,17 @@ internal class TypeDeclarationParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
-        var baseType = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+        TypeAnnotationClauseSyntax? baseType = null;
+        InterfaceBaseListSyntax? baseList = null;
+
+        if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
+        {
+            baseList = ParseInterfaceBaseList();
+        }
+        else
+        {
+            baseType = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+        }
 
         List<GreenNode> memberList = new List<GreenNode>();
 
@@ -60,7 +70,40 @@ internal class TypeDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return ClassDeclaration(modifiers, structOrClassKeyword, identifier, baseType, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
+        {
+            return InterfaceDeclaration(modifiers, typeKeyword, identifier, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        }
+
+        return ClassDeclaration(modifiers, typeKeyword, identifier, baseType, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+    }
+
+    private InterfaceBaseListSyntax? ParseInterfaceBaseList()
+    {
+        if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
+        {
+            var types = new List<GreenNode>();
+            while (true)
+            {
+                var type = new NameSyntaxParser(this).ParseTypeName();
+                types.Add(type);
+
+                var commaToken = PeekToken();
+                if (commaToken.IsKind(SyntaxKind.CommaToken))
+                {
+                    ReadToken();
+                    types.Add(commaToken);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return InterfaceBaseList(colonToken, List(types));
+        }
+
+        return null;
     }
 
     private SyntaxList ParseModifiers()

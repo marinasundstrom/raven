@@ -134,7 +134,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             memberDeclarations.Add(enumDeclaration);
             order = MemberOrder.Members;
         }
-        else if (nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword))
+        else if (nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword))
         {
             var typeDeclaration = new TypeDeclarationParser(this).Parse();
 

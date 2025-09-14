@@ -31,7 +31,8 @@ Declaration              ::= NamespaceDeclaration
                            | FunctionDeclaration
                            | EnumDeclaration
                            | ClassDeclaration
-                           | StructDeclaration ;
+                           | StructDeclaration
+                           | InterfaceDeclaration ;
 
 NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {Declaration | Statement} '}' ;
 
@@ -53,6 +54,8 @@ EnumMember               ::= Identifier ['=' Expression] ;
 ClassDeclaration         ::= TypeModifiers? 'class' Identifier BaseTypeClause? ClassBody ;
 BaseTypeClause           ::= ':' Type ;
 StructDeclaration        ::= TypeModifiers? 'struct' Identifier ClassBody ;
+InterfaceDeclaration     ::= TypeModifiers? 'interface' Identifier InterfaceBaseList? ClassBody ;
+InterfaceBaseList        ::= ':' Type {',' Type} ;
 ClassBody                ::= '{' {ClassMember} '}' ;
 
 ClassMember              ::= FieldDeclaration

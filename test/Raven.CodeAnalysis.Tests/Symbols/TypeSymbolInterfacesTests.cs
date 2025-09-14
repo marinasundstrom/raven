@@ -20,7 +20,7 @@ public class TypeSymbolInterfacesTests
         Assert.NotEmpty(list.Interfaces);
     }
 
-    [Fact(Skip = "We have not implemented interface declarations yet")]
+    [Fact]
     public void Interfaces_ExcludeInheritedInterfaces()
     {
         var source = @"interface IA {} interface IB : IA {} class C : IB {}";

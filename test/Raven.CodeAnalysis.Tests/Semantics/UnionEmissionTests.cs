@@ -38,7 +38,7 @@ class C {
         Assert.Contains(parameter.GetCustomAttributesData(), a => a.AttributeType.Name == "NullableAttribute");
     }
 
-    [Fact(Skip = "We have not implemented interface declarations yet")]
+    [Fact]
     public void CommonInterface_UsesInterfaceInSignature()
     {
         var source = """

@@ -574,6 +574,42 @@ public partial class SemanticModel
                         break;
                     }
 
+                case InterfaceDeclarationSyntax interfaceDecl:
+                    {
+                        ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+
+                        if (interfaceDecl.BaseList is not null)
+                        {
+                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                            foreach (var t in interfaceDecl.BaseList.Types)
+                            {
+                                if (parentBinder.ResolveType(t) is INamedTypeSymbol resolved && resolved.TypeKind == TypeKind.Interface)
+                                    builder.Add(resolved);
+                            }
+
+                            if (builder.Count > 0)
+                                interfaceList = builder.ToImmutable();
+                        }
+
+                        var interfaceSymbol = new SourceNamedTypeSymbol(
+                            interfaceDecl.Identifier.Text,
+                            Compilation.GetTypeByMetadataName("System.Object")!,
+                            TypeKind.Interface,
+                            parentNamespace.AsSourceNamespace(),
+                            null,
+                            parentNamespace.AsSourceNamespace(),
+                            [interfaceDecl.GetLocation()],
+                            [interfaceDecl.GetReference()],
+                            true);
+
+                        if (!interfaceList.IsDefaultOrEmpty)
+                            interfaceSymbol.SetInterfaces(interfaceList);
+
+                        var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
+                        _binderCache[interfaceDecl] = interfaceBinder;
+                        break;
+                    }
+
                 case EnumDeclarationSyntax enumDecl:
                     {
                         var enumSymbol = new SourceNamedTypeSymbol(
@@ -699,6 +735,37 @@ public partial class SemanticModel
                         nestedBinder.Diagnostics.ReportCannotInheritFromSealedType(nestedBaseType.Name, nestedClass.BaseType.Type.GetLocation());
                     RegisterClassMembers(nestedClass, nestedBinder);
                     nestedBinder.EnsureDefaultConstructor();
+                    break;
+
+                case InterfaceDeclarationSyntax nestedInterface:
+                    var parentForInterface = (INamedTypeSymbol)classBinder.ContainingSymbol;
+                    ImmutableArray<INamedTypeSymbol> parentInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
+                    if (nestedInterface.BaseList is not null)
+                    {
+                        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                        foreach (var t in nestedInterface.BaseList.Types)
+                        {
+                            if (classBinder.ResolveType(t) is INamedTypeSymbol resolved && resolved.TypeKind == TypeKind.Interface)
+                                builder.Add(resolved);
+                        }
+                        if (builder.Count > 0)
+                            parentInterfaces = builder.ToImmutable();
+                    }
+                    var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
+                        nestedInterface.Identifier.Text,
+                        Compilation.GetTypeByMetadataName("System.Object")!,
+                        TypeKind.Interface,
+                        parentForInterface,
+                        parentForInterface,
+                        classBinder.CurrentNamespace!.AsSourceNamespace(),
+                        [nestedInterface.GetLocation()],
+                        [nestedInterface.GetReference()],
+                        true
+                    );
+                    if (!parentInterfaces.IsDefaultOrEmpty)
+                        nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
+                    var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
+                    _binderCache[nestedInterface] = nestedInterfaceBinder;
                     break;
 
                 case EnumDeclarationSyntax enumDecl:
