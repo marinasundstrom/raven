@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -15,6 +16,14 @@ class NamespaceBinder : Binder
     }
 
     public override INamespaceSymbol? CurrentNamespace => _namespaceSymbol;
+
+    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    {
+        if (node is NamespaceDeclarationSyntax)
+            return _namespaceSymbol;
+
+        return base.BindDeclaredSymbol(node);
+    }
 
     public void DeclareType(SourceNamedTypeSymbol type)
     {

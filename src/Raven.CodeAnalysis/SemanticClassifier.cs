@@ -39,12 +39,13 @@ public static class SemanticClassifier
                 if (bindNode is not null)
                 {
                     var info = model.GetSymbolInfo(bindNode);
-                    var symbol = info.Symbol ?? info.CandidateSymbols.FirstOrDefault();
+                    var symbol = info.Symbol
+                                 ?? info.CandidateSymbols.FirstOrDefault()
+                                 ?? model.GetDeclaredSymbol(bindNode);
 
-                    if (symbol != null)
-                        tokenMap[descendant] = ClassifySymbol(symbol);
-                    else
-                        tokenMap[descendant] = SemanticClassification.Default;
+                    tokenMap[descendant] = symbol is null
+                        ? SemanticClassification.Default
+                        : ClassifySymbol(symbol);
                 }
             }
 
@@ -81,6 +82,10 @@ public static class SemanticClassifier
     {
         var node = token.Parent;
 
+        // Namespace declarations expose their symbol from the declaration node
+        if (node is IdentifierNameSyntax && node.Parent is NamespaceDeclarationSyntax ns && ns.Name == node)
+            return ns;
+
         // Climb to the outermost bindable node that includes this identifier
         while (node != null)
         {
@@ -88,8 +93,6 @@ public static class SemanticClassifier
                 node = ma;
             else if (node.Parent is MemberBindingExpressionSyntax mb && mb.Name == node)
                 node = mb;
-            else if (node.Parent is QualifiedNameSyntax qn && qn.Right == node)
-                node = qn;
             else if (node.Parent is InvocationExpressionSyntax inv && inv.Expression == node)
                 node = inv;
             else
