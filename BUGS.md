@@ -6,7 +6,7 @@
 ## Prioritized failing test categories
 
 1. **Union features incomplete**  \
-   Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.  \
+   Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】. Emitting a union that mixes reference types with `null` currently causes `Compilation.Emit` to fail.  \
    Skipped tests:
    - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable`
 
