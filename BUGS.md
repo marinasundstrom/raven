@@ -21,10 +21,10 @@ None.
 - `FileScopedCodeDiagnosticsTests.FileScopedCode_AfterDeclaration_ProducesDiagnostic` – requires reference assemblies.
 - `FileScopedCodeDiagnosticsTests.Library_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.
 - `FileScopedCodeDiagnosticsTests.MultipleFiles_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.
-- `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – spread enumeration for arrays not implemented.
 
 ## Recently fixed
 
+- `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – array spreads now enumerate elements correctly.
 - `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – `if` expressions now preserve literal types when inferring unions.
 - Literal arguments now convert to their underlying primitive types before overload resolution, fixing tests such as `StringInterpolationTests.InterpolatedString_FormatsCorrectly`, `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics`, `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable`, `Issue84_MemberResolutionBug.CanResolveMember`, `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload`, and `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType`.
 - Analyzer configuration flags are respected so analyzer diagnostics can be suppressed; the `MissingReturnTypeAnnotationAnalyzerTests.*` suite now passes.

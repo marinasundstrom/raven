@@ -47,7 +47,7 @@ class Foo {
         Assert.Equal(0, (int)emptyCountProp!.GetValue(instance)!);
     }
 
-    [Fact(Skip = "Spread enumeration for array collection expressions is not implemented")]
+    [Fact]
     public void ArrayCollectionExpressions_SpreadEnumerates()
     {
         var code = """
