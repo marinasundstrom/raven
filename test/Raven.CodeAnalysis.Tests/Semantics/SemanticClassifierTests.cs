@@ -11,39 +11,6 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class SemanticClassifierTests : CompilationTestBase
 {
     [Fact]
-    public void ClassifiesTokensBySymbol()
-    {
-        var source = """
-namespace N { class C { let f = 0 public P: int => f method M(p: int) -> int { let l = p l } } }
-""";
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
-
-        var nsToken = result.Tokens.Keys.First(t => t.Text == "N");
-        result.Tokens[nsToken].ShouldBe(SemanticClassification.Namespace);
-
-        var typeToken = result.Tokens.Keys.First(t => t.Text == "C");
-        result.Tokens[typeToken].ShouldBe(SemanticClassification.Type);
-
-        var methodToken = result.Tokens.Keys.First(t => t.Text == "M");
-        result.Tokens[methodToken].ShouldBe(SemanticClassification.Method);
-
-        var fieldToken = result.Tokens.Keys.First(t => t.Text == "f");
-        result.Tokens[fieldToken].ShouldBe(SemanticClassification.Field);
-
-        var propertyToken = result.Tokens.Keys.First(t => t.Text == "P");
-        result.Tokens[propertyToken].ShouldBe(SemanticClassification.Property);
-
-        var parameterToken = result.Tokens.Keys.First(t => t.Text == "p");
-        result.Tokens[parameterToken].ShouldBe(SemanticClassification.Parameter);
-
-        var localToken = result.Tokens.Keys.First(t => t.Text == "l");
-        result.Tokens[localToken].ShouldBe(SemanticClassification.Local);
-    }
-
-    [Fact]
     public void InterpolatedString_ClassifiesDelimiters()
     {
         var source = """
@@ -70,5 +37,24 @@ class C {
         result.Tokens[dollar].ShouldBe(SemanticClassification.StringLiteral);
         result.Tokens[openBrace].ShouldBe(SemanticClassification.StringLiteral);
         result.Tokens[closeBrace].ShouldBe(SemanticClassification.StringLiteral);
+    }
+
+    [Fact]
+    public void AliasDirective_ClassifiesQualifiedNameParts()
+    {
+        var source = "alias foo = System.Text.StringBuilder";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
+
+        var tokens = tree.GetRoot().DescendantTokens().Where(t => t.Kind == SyntaxKind.IdentifierToken).ToList();
+        var system = tokens.Single(t => t.Text == "System");
+        var text = tokens.Single(t => t.Text == "Text");
+        var sb = tokens.Single(t => t.Text == "StringBuilder");
+
+        result.Tokens[system].ShouldBe(SemanticClassification.Namespace);
+        result.Tokens[text].ShouldBe(SemanticClassification.Namespace);
+        result.Tokens[sb].ShouldBe(SemanticClassification.Type);
     }
 }

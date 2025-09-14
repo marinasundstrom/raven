@@ -93,6 +93,13 @@ internal abstract class Binder
 
     internal virtual SymbolInfo BindIdentifierReference(IdentifierNameSyntax node)
     {
+        if (node.Parent is QualifiedNameSyntax qn && qn.Right == node)
+        {
+            var resolved = ResolveName(qn);
+            if (resolved is not null)
+                return new SymbolInfo(resolved);
+        }
+
         var name = node.Identifier.Text;
         var symbol = LookupSymbol(name);
         if (symbol != null)
@@ -411,6 +418,83 @@ internal abstract class Binder
         if (left is QualifiedNameSyntax qualified)
         {
             return ResolveQualifiedType(qualified);
+        }
+
+        return null;
+    }
+
+    protected ISymbol? ResolveName(NameSyntax name)
+    {
+        return name switch
+        {
+            IdentifierNameSyntax id => LookupSymbol(id.Identifier.Text)
+                ?? (ISymbol?)LookupNamespace(id.Identifier.Text)
+                ?? LookupType(id.Identifier.Text),
+            GenericNameSyntax gen => ResolveGenericName(gen),
+            QualifiedNameSyntax qn => ResolveQualifiedName(qn),
+            _ => null
+        };
+    }
+
+    private ISymbol? ResolveGenericName(GenericNameSyntax gen)
+    {
+        var args = gen.TypeArgumentList.Arguments
+            .Select(a => ResolveType(a.Type))
+            .ToArray();
+
+        var symbol = LookupType(gen.Identifier.Text) as INamedTypeSymbol;
+        if (symbol is not null && symbol.Arity == args.Length)
+            return Compilation.ConstructGenericType(symbol, args);
+
+        return null;
+    }
+
+    private ISymbol? ResolveQualifiedName(QualifiedNameSyntax qn)
+    {
+        var left = ResolveName(qn.Left);
+
+        if (left is INamespaceSymbol ns)
+        {
+            if (qn.Right is IdentifierNameSyntax id)
+                return (ISymbol?)ns.LookupNamespace(id.Identifier.Text)
+                    ?? ns.LookupType(id.Identifier.Text);
+
+            if (qn.Right is GenericNameSyntax gen)
+            {
+                var unconstructed = ns.LookupType(gen.Identifier.Text) as INamedTypeSymbol;
+                if (unconstructed is null || unconstructed.Arity != gen.TypeArgumentList.Arguments.Count)
+                    return null;
+
+                var args = gen.TypeArgumentList.Arguments
+                    .Select(a => ResolveType(a.Type))
+                    .ToArray();
+                return Compilation.ConstructGenericType(unconstructed, args);
+            }
+
+            return null;
+        }
+
+        if (left is ITypeSymbol type)
+        {
+            if (qn.Right is IdentifierNameSyntax id)
+                return type.GetMembers(id.Identifier.Text)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault(t => t.Arity == 0);
+
+            if (qn.Right is GenericNameSyntax gen)
+            {
+                var unconstructed = type.GetMembers(gen.Identifier.Text)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault(t => t.Arity == gen.TypeArgumentList.Arguments.Count);
+
+                if (unconstructed is null)
+                    return null;
+
+                var args = gen.TypeArgumentList.Arguments
+                    .Select(a => ResolveType(a.Type))
+                    .ToArray();
+                return Compilation.ConstructGenericType(unconstructed, args);
+            }
         }
 
         return null;
