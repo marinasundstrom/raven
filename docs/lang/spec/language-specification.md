@@ -4,6 +4,8 @@
 
 Implementation details describing how Raven constructs project to .NET are documented in [dotnet-implementation.md](dotnet-implementation.md).
 
+An overview of available types, literal semantics, and conversions can be found in the [type system](type-system.md).
+
 ## Code samples
 
 You find them [here](../../../src/Raven.Compiler/samples/).

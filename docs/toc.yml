@@ -1,7 +1,7 @@
 - name: Language
   href: lang/spec/language-specification.html
 - name: Type System
-  href: lang/type-system.md
+  href: lang/spec/type-system.md
 - name: Compiler
   href: compiler/
 - name: API
