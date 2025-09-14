@@ -32,7 +32,6 @@
 - `StringInterpolationTests.InterpolatedString_FormatsCorrectly` – binder cannot resolve string concatenation because literal segments keep their literal types.
 - `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics` – `Console.WriteLine` with a string literal reports `RAV1501` because the literal fails to convert to `string`.
 - `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable` – wildcard import of `System.Console` still triggers `RAV1501` when a string literal is passed to `WriteLine`.
-- `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – literal branches of an `if` expression lose their literal types and are inferred as `String | Int32`.
 - `Issue84_MemberResolutionBug.CanResolveMember` – `DateTime.Parse` with a string literal fails with `RAV1501`.
 - `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – spread operator in array collection expressions fails to emit bytecode.
 - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – emitting a union type with `null` does not succeed.
@@ -54,6 +53,7 @@
 
 ## Recently fixed
 
+- `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – `if` expressions now preserve literal types when inferring unions.
 - `AnalyzerInfrastructureTests.GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics` – parser now buffers the requested position before rewinding, preventing `Position outside of buffer bounds` exceptions.
 - `GreenTreeTest.FullWidth_Equals_Source_Length` – skipping tokens now trims duplicated leading trivia and restores newline handling so the parsed tree's full width matches the source length.
 - `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – class symbols now track only direct interfaces, excluding inherited ones.
