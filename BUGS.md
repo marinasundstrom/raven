@@ -1,7 +1,7 @@
 # BUGS
 
 ## Overview
-`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 16 failing tests. The failures cluster into the categories below based on shared root causes.
+`dotnet build` succeeds but `dotnet test test/Raven.CodeAnalysis.Tests` currently reports 13 failing tests and 8 skipped tests. The failures cluster into the categories below based on shared root causes.
 
 ## Prioritized failing test categories
 
@@ -18,8 +18,34 @@
    Failing tests:
    - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithoutAnnotation_SuggestsInferredReturnType`
    - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithoutAnnotation_WithMultipleReturnTypes_SuggestsUnion`
-   - `MissingReturnTypeAnnotationAnalyzerTests.FunctionStatementWithoutAnnotation_SuggestsInferredReturnType`
+    - `MissingReturnTypeAnnotationAnalyzerTests.FunctionStatementWithoutAnnotation_SuggestsInferredReturnType`
 
+## Current failing tests
+
+- `StringInterpolationTests.InterpolatedString_FormatsCorrectly` – binder cannot resolve a string concatenation method, raising `InvalidOperationException`.
+- `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics` – `Console.WriteLine` reports `RAV1501` despite correct usage.
+- `AliasResolutionTest.AliasDirective_UsesAlias_Tuple_TypeMismatch_ReportsDiagnostic` – expected `RAV1503` diagnostic is missing for tuple element mismatch.
+- `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable` – wildcard import of `System.Console` still triggers `RAV1501` when invoking `WriteLine`.
+- `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – literal branches of an `if` expression lose their literal types and are inferred as `String | Int32`.
+- `Issue84_MemberResolutionBug.CanResolveMember` – `DateTime.Parse` call fails with `RAV1501`.
+- `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – spread operator in array collection expressions fails to emit bytecode.
+- `GreenTreeTest.FullWidth_Equals_Source_Length` – parsed tree reports a full width one character larger than the source text.
+- `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – emitting a union type with `null` does not succeed.
+- `ExpressionSemanticTest.WriteLine_WithUnitVariable_ShouldNot_ProduceDiagnostics` – writing a `unit` value to `Console.WriteLine` triggers `RAV1501`.
+- `UnionConversionTests.UnionAssignedToObject_ReturnsNoDiagnostic` – assigning a union of classes to `object` still reports `RAV1503` diagnostics.
+- `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload` – invocation symbol is null, causing a `NullReferenceException`.
+- `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType` – target-typed `.Parse("42")` call fails with `RAV1501`.
+
+## Skipped tests
+
+- `TypeSymbolInterfacesTests.Interfaces_ExcludeInheritedInterfaces` – interface declarations not implemented.
+- `Syntax.Tests.Sandbox.Test` – skipped due to excessive output until tooling supports large trees.
+- `EntryPointDiagnosticsTests.ConsoleApp_WithoutMain_ProducesDiagnostic` – requires reference assemblies.
+- `VersionStampTests.GetNewerVersion_InSameTick_IncrementsLocal` – same-tick version increments are unreliable across environments.
+- `UnionEmissionTests.CommonInterface_UsesInterfaceInSignature` – interface declarations not implemented.
+- `FileScopedCodeDiagnosticsTests.FileScopedCode_AfterDeclaration_ProducesDiagnostic` – requires reference assemblies.
+- `FileScopedCodeDiagnosticsTests.Library_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.
+- `FileScopedCodeDiagnosticsTests.MultipleFiles_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.
 
 ## Recently fixed
 
