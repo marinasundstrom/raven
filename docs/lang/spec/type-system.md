@@ -19,8 +19,10 @@ Raven is a statically typed language whose types correspond directly to CLR type
 Numeric, string, character, and boolean literals may appear as their own types.
 A literal type represents exactly that value and carries an underlying
 primitive type—`1` has underlying type `int` while `"hi"` has underlying type
-`string`. Literal expressions are given these singleton types. These singleton
-types act as value-level constraints, most often used as branches in union
+`string`. Literal types are considered subset types of their underlying primitive,
+so every value of a literal type is also a value of that primitive type. Literal
+expressions are given these singleton types. These singleton types act as
+value-level constraints, most often used as branches in union
 types or other constructs that restrict a value to specific constants.
 
 ```raven
