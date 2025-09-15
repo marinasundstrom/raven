@@ -6,12 +6,10 @@
 ## Prioritized failing test categories
 
 - Pattern matching and `is`/`as` expressions can produce null references or missing diagnostics.
-- Cast expressions mis-handle primitive types and report incorrect conversion diagnostics.
 - Conditional access emission is incomplete.
 
 ## Current failing tests
 
-- `CastExpressionTests.ExplicitCast_Numeric_NoDiagnostic` – emitting `RAV1503` and `RAV0103` for built-in numeric casts shows primitive type resolution failures (bug).
 - `AsExpressionTests.AsCast_ReferenceType_ProducesNullableType` – `as` casts on reference types yield `null` instead of a nullable target type (bug).
 - `SampleProgramsTests.Sample_should_load_into_compilation("type-unions.rav")` – `BoundIsPatternExpression` throws `NullReferenceException` while binding patterns (bug; pattern matching not defined in the spec).
 - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithBranchesReturningVoid_NoDiagnostic` – same `BoundIsPatternExpression` null reference during semantic analysis (bug; spec gap).
@@ -28,6 +26,7 @@
 
 ## Recently fixed
 
+- `CastExpressionTests.ExplicitCast_Numeric_NoDiagnostic` – built-in numeric casts now resolve primitive types correctly.
 - `MultiLineCommentTriviaTest.MultiLineCommentTrivia_IsLeadingTriviaOfToken` – multi-line comments are now treated as trivia rather than block statements.
 - `CastExpressionTests.ExplicitCast_Invalid_ProducesDiagnostic` and `AsExpressionDiagnosticTests.AsCast_Invalid_ProducesDiagnostic` – invalid cast diagnostics now report source and target types instead of literal values.
 - `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – array spreads now enumerate elements correctly.
