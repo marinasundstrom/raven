@@ -54,10 +54,14 @@ public partial class SemanticModel
         {
             foreach (var child in node.ChildNodes())
             {
-                if (child is GlobalStatementSyntax)
-                    continue;
-
                 var childBinder = GetBinder(child, currentBinder);
+
+                if (child is GlobalStatementSyntax global)
+                {
+                    // Bind the contained statement so locals are registered
+                    childBinder.GetOrBind(global.Statement);
+                    continue;
+                }
 
                 if (child is ExpressionSyntax || child is StatementSyntax)
                 {
@@ -114,11 +118,17 @@ public partial class SemanticModel
     /// <returns>The type info</returns>
     public TypeInfo GetTypeInfo(ExpressionSyntax expr)
     {
+        // Ensure the tree is fully bound so local declarations preceding the
+        // expression are available for lookup. Without this, requesting type
+        // information for expressions that reference earlier locals may return
+        // null because those locals haven't been bound yet.
+        EnsureDiagnosticsCollected();
+
         var binder = GetBinder(expr);
 
         var boundExpr = binder.BindExpression(expr);
 
-        if (boundExpr is null || boundExpr is BoundErrorExpression)
+        if (boundExpr is null)
             return new TypeInfo(null, null);
 
         return new TypeInfo(boundExpr.Type, boundExpr.GetConvertedType());
