@@ -162,7 +162,7 @@ public static class TypeSymbolExtensionsForCodeGen
         };
     }
 
-    private static INamedTypeSymbol? FindCommonDenominator(IEnumerable<ITypeSymbol> types)
+    internal static INamedTypeSymbol? FindCommonDenominator(IEnumerable<ITypeSymbol> types)
     {
         var namedTypes = types.Select(Unalias).OfType<INamedTypeSymbol>().ToArray();
         if (namedTypes.Length == 0)
