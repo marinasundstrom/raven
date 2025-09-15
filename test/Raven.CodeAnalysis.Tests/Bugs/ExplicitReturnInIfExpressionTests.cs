@@ -71,7 +71,7 @@ let x = if true {
     }
 
     [Fact]
-    public void ExplicitReturnInIfExpressionStatementIsAllowed()
+    public void ExplicitReturnInIfStatementIsAllowed()
     {
         var code = """
 class Foo {
