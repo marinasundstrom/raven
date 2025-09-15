@@ -131,9 +131,7 @@ partial class BlockBinder : Binder
         }
         else if (variableDeclarator.TypeAnnotation is null)
         {
-            type = boundInitializer!.Type!;
-            if (type is LiteralTypeSymbol literal)
-                type = literal.UnderlyingType;
+            type = NormalizeInitializerType(boundInitializer!.Type!);
         }
         else
         {
@@ -154,6 +152,25 @@ partial class BlockBinder : Binder
         var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer);
 
         return new BoundLocalDeclarationStatement([declarator]);
+    }
+
+    private static ITypeSymbol NormalizeInitializerType(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case LiteralTypeSymbol literal:
+                return literal.UnderlyingType;
+            case IUnionTypeSymbol union:
+                var normalized = union.Types
+                    .Select(NormalizeInitializerType)
+                    .Distinct<ITypeSymbol>(SymbolEqualityComparer.Default)
+                    .ToArray();
+                return normalized.Length == 1
+                    ? normalized[0]
+                    : new UnionTypeSymbol(normalized, null, null, null, []);
+            default:
+                return type;
+        }
     }
 
     private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type)
