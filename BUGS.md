@@ -8,7 +8,6 @@
 - Pattern matching and `is`/`as` expressions can produce null references or missing diagnostics.
 - Cast expressions mis-handle primitive types and report incorrect conversion diagnostics.
 - Conditional access emission is incomplete.
-- Parser misclassifies multi-line comments as block statements.
 
 ## Current failing tests
 
@@ -18,7 +17,6 @@
 - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithBranchesReturningVoid_NoDiagnostic` – same `BoundIsPatternExpression` null reference during semantic analysis (bug; spec gap).
 - `PatternVariableTests.PatternVariableInIfCondition_EmitsSuccessfully` – pattern binding null reference prevents emission (bug; spec gap).
 - `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – literal unions are not inferred through `if` expressions, contradicting literal type and union rules (bug).
-- `MultiLineCommentTriviaTest.MultiLineCommentTrivia_IsLeadingTriviaOfToken` – parser casts `EmptyStatementSyntax` to `BlockStatementSyntax` when handling comments (bug).
 - `ConditionalAccessTests.ConditionalAccess_NullableValue_ReturnsValue` – code generation throws `NotSupportedException` for nullable conditional access (bug).
 
 ## Skipped tests
@@ -30,6 +28,7 @@
 
 ## Recently fixed
 
+- `MultiLineCommentTriviaTest.MultiLineCommentTrivia_IsLeadingTriviaOfToken` – multi-line comments are now treated as trivia rather than block statements.
 - `CastExpressionTests.ExplicitCast_Invalid_ProducesDiagnostic` and `AsExpressionDiagnosticTests.AsCast_Invalid_ProducesDiagnostic` – invalid cast diagnostics now report source and target types instead of literal values.
 - `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – array spreads now enumerate elements correctly.
 - `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – `if` expressions now preserve literal types when inferring unions.

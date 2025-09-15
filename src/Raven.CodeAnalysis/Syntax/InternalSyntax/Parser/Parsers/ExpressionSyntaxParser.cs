@@ -694,7 +694,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
             if (!next.IsKind(SyntaxKind.CommaToken) &&
                 !next.IsKind(SyntaxKind.CloseParenToken) &&
                 !next.IsKind(SyntaxKind.SemicolonToken) &&
-                !next.IsKind(SyntaxKind.EndOfFileToken))
+                !next.IsKind(SyntaxKind.EndOfFileToken) &&
+                !next.IsKind(SyntaxKind.OpenBraceToken))
             {
                 var expression = ParseFactorExpression();
                 return CastExpression(openParenToken, typeName, closeParen, expression);
