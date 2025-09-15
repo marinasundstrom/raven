@@ -380,16 +380,46 @@ internal class ExpressionSyntaxParser : SyntaxParser
             {
                 var argumentList = ParseBracketedArgumentListSyntax();
 
-                /*
-                AddDiagnostic(
-                    DiagnosticInfo.Create(
-                        CompilerDiagnostics.CannotApplyIndexingWithToAnExpressionOfType,
-                        GetActualTextSpan(start, expr),
-                        [expr.Kind]
-                    ));
-                    */
-
                 expr = ElementAccessExpression(expr, argumentList, Diagnostics);
+            }
+            else if (token.IsKind(SyntaxKind.QuestionToken)) // Conditional access
+            {
+                var question = ReadToken();
+                ExpressionSyntax whenNotNull;
+                var next = PeekToken();
+                if (next.IsKind(SyntaxKind.DotToken))
+                {
+                    var dotToken = ReadToken();
+                    SimpleNameSyntax memberName;
+                    if (CanTokenBeIdentifier(PeekToken()))
+                    {
+                        memberName = new NameSyntaxParser(this).ParseSimpleName();
+                    }
+                    else
+                    {
+                        ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var identifier);
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.IdentifierExpected,
+                                GetEndOfLastToken()));
+                        memberName = IdentifierName(identifier);
+                    }
+
+                    whenNotNull = MemberBindingExpression(dotToken, memberName);
+                    whenNotNull = AddTrailers(start, whenNotNull);
+                }
+                else
+                {
+                    ConsumeTokenOrMissing(SyntaxKind.DotToken, out var missingDot);
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetEndOfLastToken()));
+                    var missingName = IdentifierName(SyntaxFactory.MissingToken(SyntaxKind.IdentifierToken));
+                    whenNotNull = MemberBindingExpression(missingDot, missingName);
+                }
+
+                expr = ConditionalAccessExpression(expr, question, whenNotNull);
             }
             else
             {

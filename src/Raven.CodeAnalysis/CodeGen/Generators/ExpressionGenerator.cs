@@ -58,6 +58,9 @@ internal class ExpressionGenerator : Generator
             case BoundMemberAccessExpression memberAccessExpression:
                 EmitMemberAccessExpression(memberAccessExpression);
                 break;
+            case BoundConditionalAccessExpression conditionalAccess:
+                EmitConditionalAccessExpression(conditionalAccess);
+                break;
 
             case BoundInvocationExpression invocationExpression:
                 EmitInvocationExpression(invocationExpression);
@@ -944,7 +947,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitMemberAccessExpression(BoundMemberAccessExpression memberAccessExpression)
+    private void EmitMemberAccessExpression(BoundMemberAccessExpression memberAccessExpression, bool receiverAlreadyLoaded = false)
     {
         var symbol = memberAccessExpression.Symbol;
         var receiver = memberAccessExpression.Receiver;
@@ -952,7 +955,7 @@ internal class ExpressionGenerator : Generator
         switch (symbol)
         {
             case IPropertySymbol propertySymbol:
-                EmitReceiverIfNeeded(receiver, propertySymbol);
+                EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
 
                 if (propertySymbol.ContainingType?.SpecialType == SpecialType.System_Array &&
                     propertySymbol.Name == "Length")
@@ -981,7 +984,7 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case IFieldSymbol fieldSymbol:
-                EmitReceiverIfNeeded(receiver, fieldSymbol);
+                EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
 
                 if (!fieldSymbol.IsStatic)
                     EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType!);
@@ -1008,8 +1011,82 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitReceiverIfNeeded(BoundExpression? receiver, ISymbol symbol)
+    private void EmitConditionalAccessExpression(BoundConditionalAccessExpression conditional)
     {
+        var receiverType = conditional.Receiver.Type;
+        var isNullableValue = receiverType.IsNullable() && ((NullableTypeSymbol)receiverType).UnderlyingType.IsValueType;
+
+        var receiverClrType = ResolveClrType(receiverType);
+        var local = ILGenerator.DeclareLocal(receiverClrType);
+
+        EmitExpression(conditional.Receiver);
+        ILGenerator.Emit(OpCodes.Stloc, local);
+
+        var whenNullLabel = ILGenerator.DefineLabel();
+        var endLabel = ILGenerator.DefineLabel();
+
+        if (isNullableValue)
+        {
+            ILGenerator.Emit(OpCodes.Ldloca, local);
+            var hasValue = receiverClrType.GetProperty("HasValue")!.GetGetMethod()!;
+            ILGenerator.Emit(OpCodes.Call, hasValue);
+            ILGenerator.Emit(OpCodes.Brfalse, whenNullLabel);
+
+            ILGenerator.Emit(OpCodes.Ldloca, local);
+            var getValueOrDefault = receiverClrType.GetMethod("GetValueOrDefault", Type.EmptyTypes)!;
+            ILGenerator.Emit(OpCodes.Call, getValueOrDefault);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, local);
+            ILGenerator.Emit(OpCodes.Brfalse, whenNullLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, local);
+        }
+
+        EmitWhenNotNull(conditional.WhenNotNull);
+
+        ILGenerator.Emit(OpCodes.Br, endLabel);
+        ILGenerator.MarkLabel(whenNullLabel);
+        EmitDefaultValue(conditional.Type);
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private void EmitWhenNotNull(BoundExpression expression)
+    {
+        switch (expression)
+        {
+            case BoundMemberAccessExpression memberAccess:
+                EmitMemberAccessExpression(memberAccess, receiverAlreadyLoaded: true);
+                break;
+            case BoundInvocationExpression invocation:
+                EmitInvocationExpression(invocation, receiverAlreadyLoaded: true);
+                break;
+            default:
+                EmitExpression(expression);
+                break;
+        }
+    }
+
+    private void EmitDefaultValue(ITypeSymbol type)
+    {
+        if (type.IsValueType)
+        {
+            var clr = ResolveClrType(type);
+            var local = ILGenerator.DeclareLocal(clr);
+            ILGenerator.Emit(OpCodes.Ldloca, local);
+            ILGenerator.Emit(OpCodes.Initobj, clr);
+            ILGenerator.Emit(OpCodes.Ldloc, local);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldnull);
+        }
+    }
+
+    private void EmitReceiverIfNeeded(BoundExpression? receiver, ISymbol symbol, bool receiverAlreadyLoaded)
+    {
+        if (receiverAlreadyLoaded)
+            return;
         if (receiver is not null && !symbol.IsStatic)
             EmitExpression(receiver);
     }
@@ -1060,9 +1137,9 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitInvocationExpression(BoundInvocationExpression invocationExpression)
+    private void EmitInvocationExpression(BoundInvocationExpression invocationExpression, bool receiverAlreadyLoaded = false)
     {
-        EmitInvocationExpressionBase(invocationExpression);
+        EmitInvocationExpressionBase(invocationExpression, receiverAlreadyLoaded);
 
         if (invocationExpression.Type.SpecialType == SpecialType.System_Unit)
         {
@@ -1079,7 +1156,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldsfld, valueField);
     }
 
-    public void EmitInvocationExpressionBase(BoundInvocationExpression invocationExpression)
+    public void EmitInvocationExpressionBase(BoundInvocationExpression invocationExpression, bool receiverAlreadyLoaded = false)
     {
         var target = invocationExpression.Method;
         var receiver = invocationExpression.Receiver;
@@ -1091,7 +1168,8 @@ internal class ExpressionGenerator : Generator
                 && target.ContainingType?.Name == "Object"
                 && target.ContainingNamespace?.Name == "System";
 
-            EmitExpression(receiver);
+            if (!receiverAlreadyLoaded)
+                EmitExpression(receiver);
 
             if (receiver?.Type?.IsValueType == true)
             {
@@ -1110,7 +1188,7 @@ internal class ExpressionGenerator : Generator
                     // Defensive fallback: method is on a different type, box to be safe
                     ILGenerator.Emit(OpCodes.Box, clrType);
                 }
-                else
+                else if (!receiverAlreadyLoaded)
                 {
                     // Method is defined directly on the value type – no boxing
                     var tmp = ILGenerator.DeclareLocal(clrType);

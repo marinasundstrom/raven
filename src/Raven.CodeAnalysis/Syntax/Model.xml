@@ -305,6 +305,11 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Name" Type="SimpleName" />
   </Node>
+  <Node Name="ConditionalAccessExpression" Inherits="Expression">
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="QuestionToken" Type="Token" />
+    <Slot Name="WhenNotNull" Type="Expression" />
+  </Node>
   <Node Name="NameColon" Inherits="Node">
     <Slot Name="Name" Type="IdentifierName" />
     <Slot Name="ColonTon" Type="Token" />
