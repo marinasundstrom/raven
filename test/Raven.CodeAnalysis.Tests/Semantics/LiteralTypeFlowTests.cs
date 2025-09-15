@@ -153,6 +153,42 @@ public class LiteralTypeFlowTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void LiteralType_Bool_UsesUnderlyingBoolean()
+    {
+        var code = "let x: true = true";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var literalType = Assert.IsType<LiteralTypeSymbol>(local.Type);
+
+        Assert.True((bool)literalType.ConstantValue);
+        Assert.Equal(SpecialType.System_Boolean, literalType.UnderlyingType.SpecialType);
+    }
+
+    [Fact]
+    public void LiteralType_Char_UsesUnderlyingChar()
+    {
+        var code = "let x: 'a' = 'a'";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var literalType = Assert.IsType<LiteralTypeSymbol>(local.Type);
+
+        Assert.Equal('a', literalType.ConstantValue);
+        Assert.Equal(SpecialType.System_Char, literalType.UnderlyingType.SpecialType);
+    }
+
+    [Fact]
     public void IfExpression_InferredLiteralUnion()
     {
         var code = """
