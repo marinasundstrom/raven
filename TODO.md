@@ -42,3 +42,10 @@ let x = if true {
 ```
 
 Code gen emits as intended.
+
+## Type system
+1. Implement member and type lookup for constructed type symbols (`ArrayTypeSymbol`, `UnionTypeSymbol`, `NullableTypeSymbol`, `TupleTypeSymbol`, `ConstructedNamedTypeSymbol`).
+2. Support multi-dimensional arrays by respecting array rank in `TypeSymbolExtensionsForCodeGen` and `ArrayTypeSymbol`.
+3. Complete tuple support, including `LookupType` and `Construct` in `TupleTypeSymbol` and tuple metadata on `ConstructedNamedTypeSymbol`.
+4. Improve `TypeResolver` to short-circuit resolution for built-in types and cache results.
+5. Add language support for declaring generic types and functions.
