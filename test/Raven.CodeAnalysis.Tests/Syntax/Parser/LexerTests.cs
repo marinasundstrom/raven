@@ -22,6 +22,7 @@ public class LexerTests
     [Theory]
     [InlineData("unit", SyntaxKind.UnitKeyword)]
     [InlineData("and", SyntaxKind.AndToken)]
+    [InlineData("as", SyntaxKind.AsKeyword)]
     public void Keyword_IsParsedAsKeywordToken(string text, SyntaxKind expected)
     {
         var lexer = new Lexer(new StringReader(text));

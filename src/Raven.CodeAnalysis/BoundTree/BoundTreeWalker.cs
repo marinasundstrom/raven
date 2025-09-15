@@ -59,6 +59,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundCastExpression cast:
                 VisitCastExpression(cast);
                 break;
+            case BoundAsExpression asExpr:
+                VisitAsExpression(asExpr);
+                break;
             case BoundMemberAccessExpression memberAccess:
                 VisitMemberAccessExpression(memberAccess);
                 break;
@@ -177,6 +180,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
     }
 
     public override void VisitCastExpression(BoundCastExpression node)
+    {
+        VisitExpression(node.Expression);
+    }
+
+    public override void VisitAsExpression(BoundAsExpression node)
     {
         VisitExpression(node.Expression);
     }

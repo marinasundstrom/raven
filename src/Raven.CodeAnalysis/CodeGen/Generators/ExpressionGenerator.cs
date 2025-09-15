@@ -78,6 +78,10 @@ internal class ExpressionGenerator : Generator
                 EmitCastExpression(castExpression);
                 break;
 
+            case BoundAsExpression asExpression:
+                EmitAsExpression(asExpression);
+                break;
+
             case BoundIfExpression ifStatement:
                 EmitIfExpression(ifStatement);
                 break;
@@ -216,6 +220,12 @@ internal class ExpressionGenerator : Generator
     {
         new ExpressionGenerator(this, castExpression.Expression).Emit();
         EmitConversion(castExpression.Expression.Type!, castExpression.Type, castExpression.Conversion);
+    }
+
+    private void EmitAsExpression(BoundAsExpression asExpression)
+    {
+        new ExpressionGenerator(this, asExpression.Expression).Emit();
+        ILGenerator.Emit(OpCodes.Isinst, ResolveClrType(asExpression.Type));
     }
 
     private void EmitUnaryExpression(BoundUnaryExpression node)

@@ -57,6 +57,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundBlockExpression block => (BoundExpression)VisitBlockExpression(block)!,
             BoundAssignmentExpression assignment => (BoundExpression)VisitAssignmentExpression(assignment)!,
             BoundCastExpression cast => (BoundExpression)VisitCastExpression(cast)!,
+            BoundAsExpression asExpr => (BoundExpression)VisitAsExpression(asExpr)!,
             _ => throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}"),
         };
     }

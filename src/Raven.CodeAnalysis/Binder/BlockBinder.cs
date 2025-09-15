@@ -428,6 +428,7 @@ partial class BlockBinder : Binder
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
             CastExpressionSyntax castExpression => BindCastExpression(castExpression),
+            AsExpressionSyntax asExpression => BindAsExpression(asExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
@@ -671,6 +672,39 @@ partial class BlockBinder : Binder
         }
 
         return new BoundCastExpression(expression, targetType, conversion);
+    }
+
+    private BoundExpression BindAsExpression(AsExpressionSyntax asExpression)
+    {
+        var expression = BindExpression(asExpression.Expression);
+        var targetType = ResolveType(asExpression.Type);
+
+        if (expression is BoundErrorExpression)
+            return expression;
+
+        if (expression.Type!.IsValueType || targetType.IsValueType)
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                expression.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                asExpression.GetLocation());
+            var errorType = new NullableTypeSymbol(targetType, null, null, null, []);
+            return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        var conversion = Compilation.ClassifyConversion(expression.Type!, targetType);
+        if (!conversion.Exists || conversion.IsNumeric || conversion.IsUserDefined)
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                expression.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                asExpression.GetLocation());
+            var errorType = new NullableTypeSymbol(targetType, null, null, null, []);
+            return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        var resultType = new NullableTypeSymbol(targetType, null, null, null, []);
+        return new BoundAsExpression(expression, resultType, conversion);
     }
 
     private BoundExpression BindIfExpression(IfExpressionSyntax ifExpression)

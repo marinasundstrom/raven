@@ -30,6 +30,7 @@
   <TokenKind Name="TrueKeyword" Text="true" IsReservedWord="true" />
   <TokenKind Name="FalseKeyword" Text="false" IsReservedWord="true" />
   <TokenKind Name="IsKeyword" Text="is" IsReservedWord="true" />
+  <TokenKind Name="AsKeyword" Text="as" IsReservedWord="true" />
   <TokenKind Name="NotKeyword" Text="not" IsReservedWord="true" />
   <TokenKind Name="AndToken" Text="and" IsReservedWord="true" IsBinaryOperator="true" Precedence="2" />
   <TokenKind Name="OrToken" Text="or" IsReservedWord="true" IsBinaryOperator="true" Precedence="1" />
