@@ -8,7 +8,7 @@ internal partial class BoundIsPatternExpression : BoundExpression
     public BoundPattern Pattern { get; }
 
     public BoundIsPatternExpression(BoundExpression expression, BoundPattern pattern, BoundExpressionReason reason = BoundExpressionReason.None)
-        : base(expression.Type.BaseType.ContainingAssembly.GetTypeByMetadataName("System.Boolean")!, null, reason)
+        : base(expression.Type.ContainingAssembly.GetTypeByMetadataName("System.Boolean")!, null, reason)
     {
         Expression = expression;
         Pattern = pattern;

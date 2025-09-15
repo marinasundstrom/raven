@@ -174,6 +174,13 @@ internal class ExpressionSyntaxParser : SyntaxParser
                         return IsPatternExpression(expr, token, pattern);
                     }
 
+                case SyntaxKind.AsKeyword:
+                    {
+                        ReadToken();
+                        var type = new NameSyntaxParser(this).ParseTypeName();
+                        return AsExpression(expr, token, type);
+                    }
+
                 default:
                     return expr;
             }
