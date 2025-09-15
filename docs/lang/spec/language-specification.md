@@ -159,7 +159,10 @@ let pet = if flag { Dog() } else { Cat() }
 ```
 
 Literal expressions infer the underlying primitive type when used to initialize
-`let` or `var` bindings. To retain a literal's singleton type, an explicit
+`let` or `var` bindings. When multiple literal values flow into an inferred
+union—such as the branches of an `if` expression—the resulting union keeps each
+literal member so the type reflects the precise set of constants that may be
+produced. To retain a literal's singleton type for a single value, an explicit
 annotation is required. Literal types are subset types of their underlying
 primitive, so a literal like `1` can be used wherever an `int` is expected.
 

@@ -50,8 +50,11 @@ normal conversion rules of that type. This allows `1` to widen to `double` or
 
 When a literal is assigned to a target whose type is inferred—such as a
 variable declaration without an explicit type annotation—the literal widens to
-its underlying primitive type. This keeps type inference in line with other
-languages that treat `let x = 1` as `int` rather than the literal type `1`.
+its underlying primitive type. When inference gathers multiple literal values
+into a union (for example, via conditional branches), those literal members are
+preserved so the inferred union reports the exact set of constants that may
+flow to that location. This keeps single-literal inference in line with other
+languages that treat `let x = 1` as `int` while still modeling literal unions.
 
 ```raven
 let yes: "yes" = "yes"
