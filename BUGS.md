@@ -10,7 +10,6 @@
 
 ## Current failing tests
 
-- `AsExpressionTests.AsCast_ReferenceType_ProducesNullableType` – `as` casts on reference types yield `null` instead of a nullable target type (bug).
 - `SampleProgramsTests.Sample_should_load_into_compilation("type-unions.rav")` – `BoundIsPatternExpression` throws `NullReferenceException` while binding patterns (bug; pattern matching not defined in the spec).
 - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithBranchesReturningVoid_NoDiagnostic` – same `BoundIsPatternExpression` null reference during semantic analysis (bug; spec gap).
 - `PatternVariableTests.PatternVariableInIfCondition_EmitsSuccessfully` – pattern binding null reference prevents emission (bug; spec gap).
@@ -26,11 +25,11 @@
 
 ## Recently fixed
 
+- `AsExpressionTests.AsCast_ReferenceType_ProducesNullableType` – semantic model now returns a nullable target type for reference-type `as` casts.
 - `CastExpressionTests.ExplicitCast_Numeric_NoDiagnostic` – built-in numeric casts now resolve primitive types correctly.
 - `MultiLineCommentTriviaTest.MultiLineCommentTrivia_IsLeadingTriviaOfToken` – multi-line comments are now treated as trivia rather than block statements.
 - `CastExpressionTests.ExplicitCast_Invalid_ProducesDiagnostic` and `AsExpressionDiagnosticTests.AsCast_Invalid_ProducesDiagnostic` – invalid cast diagnostics now report source and target types instead of literal values.
 - `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – array spreads now enumerate elements correctly.
-- `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – `if` expressions now preserve literal types when inferring unions.
 - Literal arguments now convert to their underlying primitive types before overload resolution, fixing tests such as `StringInterpolationTests.InterpolatedString_FormatsCorrectly`, `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics`, `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable`, `Issue84_MemberResolutionBug.CanResolveMember`, `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload`, and `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType`.
 - Analyzer configuration flags are respected so analyzer diagnostics can be suppressed; the `MissingReturnTypeAnnotationAnalyzerTests.*` suite now passes.
 - `AnalyzerInfrastructureTests.GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics` – parser now buffers the requested position before rewinding, preventing `Position outside of buffer bounds` exceptions.
