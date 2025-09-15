@@ -12,10 +12,8 @@
 
 ## Current failing tests
 
-- `CastExpressionTests.ExplicitCast_Invalid_ProducesDiagnostic` – mismatched `RAV1503` diagnostics reference the literal `1` instead of the source and target types (bug per explicit cast rules).
 - `CastExpressionTests.ExplicitCast_Numeric_NoDiagnostic` – emitting `RAV1503` and `RAV0103` for built-in numeric casts shows primitive type resolution failures (bug).
 - `AsExpressionTests.AsCast_ReferenceType_ProducesNullableType` – `as` casts on reference types yield `null` instead of a nullable target type (bug).
-- `AsExpressionDiagnosticTests.AsCast_Invalid_ProducesDiagnostic` – diagnostics for invalid `as` casts report literal values rather than types (bug).
 - `SampleProgramsTests.Sample_should_load_into_compilation("type-unions.rav")` – `BoundIsPatternExpression` throws `NullReferenceException` while binding patterns (bug; pattern matching not defined in the spec).
 - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithBranchesReturningVoid_NoDiagnostic` – same `BoundIsPatternExpression` null reference during semantic analysis (bug; spec gap).
 - `PatternVariableTests.PatternVariableInIfCondition_EmitsSuccessfully` – pattern binding null reference prevents emission (bug; spec gap).
@@ -32,6 +30,7 @@
 
 ## Recently fixed
 
+- `CastExpressionTests.ExplicitCast_Invalid_ProducesDiagnostic` and `AsExpressionDiagnosticTests.AsCast_Invalid_ProducesDiagnostic` – invalid cast diagnostics now report source and target types instead of literal values.
 - `CollectionExpressionTests.ArrayCollectionExpressions_SpreadEnumerates` – array spreads now enumerate elements correctly.
 - `LiteralTypeFlowTests.IfExpression_InferredLiteralUnion` – `if` expressions now preserve literal types when inferring unions.
 - Literal arguments now convert to their underlying primitive types before overload resolution, fixing tests such as `StringInterpolationTests.InterpolatedString_FormatsCorrectly`, `NamespaceResolutionTest.ConsoleDoesContainWriteLine_ShouldNot_ProduceDiagnostics`, `ImportResolutionTest.WildcardTypeImport_MakesStaticMembersAvailable`, `Issue84_MemberResolutionBug.CanResolveMember`, `NullableTypeTests.ConsoleWriteLine_WithStringLiteral_Chooses_StringOverload`, and `TargetTypedExpressionTests.TargetTypedMethodBinding_UsesAssignmentType`.

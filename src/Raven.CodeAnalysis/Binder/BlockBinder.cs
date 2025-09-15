@@ -665,8 +665,8 @@ partial class BlockBinder : Binder
         if (!conversion.Exists)
         {
             _diagnostics.ReportCannotConvertFromTypeToType(
-                expression.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 castExpression.GetLocation());
             return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
         }
@@ -685,8 +685,8 @@ partial class BlockBinder : Binder
         if (expression.Type!.IsValueType || targetType.IsValueType)
         {
             _diagnostics.ReportCannotConvertFromTypeToType(
-                expression.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 asExpression.GetLocation());
             var errorType = new NullableTypeSymbol(targetType, null, null, null, []);
             return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);
@@ -696,8 +696,8 @@ partial class BlockBinder : Binder
         if (!conversion.Exists || conversion.IsNumeric || conversion.IsUserDefined)
         {
             _diagnostics.ReportCannotConvertFromTypeToType(
-                expression.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                expression.Type!.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 asExpression.GetLocation());
             var errorType = new NullableTypeSymbol(targetType, null, null, null, []);
             return new BoundErrorExpression(errorType, null, BoundExpressionReason.TypeMismatch);

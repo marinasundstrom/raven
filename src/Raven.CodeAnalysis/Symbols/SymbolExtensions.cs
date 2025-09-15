@@ -1,4 +1,5 @@
 using System.Text;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
@@ -52,6 +53,14 @@ public static partial class SymbolExtensions
         }
 
         return typeSymbol.ToDisplayString(format);
+    }
+
+    public static string ToDisplayStringForDiagnostics(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    {
+        if (typeSymbol is LiteralTypeSymbol literal)
+            typeSymbol = literal.UnderlyingType;
+
+        return typeSymbol.ToDisplayStringKeywordAware(format);
     }
 
     public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat? format = default!)
