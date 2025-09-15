@@ -648,6 +648,21 @@ let i: int? = null
 
 Nullable types participate in the type system and overload resolution.
 
+### Null-conditional access
+
+The null-conditional operator `?.` safely accesses members or elements of a
+nullable value. The expression `expr?.Member` evaluates `expr`; if the result is
+`null`, the overall expression evaluates to `null` instead of throwing. When the
+receiver is not `null`, the member access proceeds normally. This operator works
+for both nullable reference types and nullable value types.
+
+```raven
+var str = x?.ToString()
+```
+
+Here `str` is `string?`, and the call to `ToString` only occurs when `x` is not
+`null`.
+
 ### Enums
 
 An enum declaration introduces a distinct type whose instances are one of a

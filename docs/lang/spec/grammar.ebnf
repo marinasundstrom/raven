@@ -162,13 +162,15 @@ CastExpression           ::= '(' Type ')' UnaryExpression ;
 PostfixExpression        ::= PrimaryExpression { PostfixTrailer } ;
 PostfixTrailer           ::= ArgumentList
                            | MemberAccessTrailer
-                           | ElementAccessTrailer ;
+                           | ElementAccessTrailer
+                           | ConditionalAccessTrailer ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
 Argument                 ::= [Identifier ':'] Expression ;
 
 MemberAccessTrailer      ::= '.' Identifier ;
 ElementAccessTrailer     ::= '[' Expression ']' ;
+ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer) ;
 
 MemberBindingExpression  ::= '.' Identifier ;
 

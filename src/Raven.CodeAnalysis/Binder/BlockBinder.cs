@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -404,6 +405,7 @@ partial class BlockBinder : Binder
             ObjectCreationExpressionSyntax invocation => BindObjectCreationExpression(invocation),
             MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
             MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding),
+            ConditionalAccessExpressionSyntax conditionalAccess => BindConditionalAccessExpression(conditionalAccess),
             ElementAccessExpressionSyntax elementAccess => BindElementAccessExpression(elementAccess),
             AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
@@ -1582,6 +1584,78 @@ partial class BlockBinder : Binder
         }
 
         return new BoundObjectCreationExpression(constructor, boundArguments.ToArray());
+    }
+
+    private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)
+    {
+        var receiver = BindExpression(syntax.Expression);
+
+        if (receiver is BoundErrorExpression)
+            return receiver;
+
+        BoundExpression whenNotNull;
+
+        switch (syntax.WhenNotNull)
+        {
+            case MemberBindingExpressionSyntax memberBinding:
+                {
+                    var name = memberBinding.Name.Identifier.Text;
+                    var member = receiver.Type is null
+                        ? null
+                        : new SymbolQuery(name, receiver.Type, IsStatic: false).Lookup(this).FirstOrDefault();
+
+                    if (member is null)
+                    {
+                        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberBinding.Name.GetLocation());
+                        whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                    }
+                    else
+                    {
+                        whenNotNull = new BoundMemberAccessExpression(receiver, member);
+                    }
+                    break;
+                }
+
+            case InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax memberBinding } invocation:
+                {
+                    var name = memberBinding.Name.Identifier.Text;
+                    var boundArguments = invocation.ArgumentList.Arguments.Select(a => BindExpression(a.Expression)).ToArray();
+
+                    var candidates = receiver.Type is null
+                        ? Array.Empty<IMethodSymbol>()
+                        : new SymbolQuery(name, receiver.Type, IsStatic: false).LookupMethods(this).ToArray();
+
+                    if (candidates.Length == 0)
+                    {
+                        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberBinding.Name.GetLocation());
+                        whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                    }
+                    else
+                    {
+                        var method = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
+                        if (method is null)
+                        {
+                            _diagnostics.ReportNoOverloadForMethod(name, boundArguments.Length, invocation.GetLocation());
+                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                        }
+                        else
+                        {
+                            whenNotNull = new BoundInvocationExpression(method, boundArguments, receiver);
+                        }
+                    }
+                    break;
+                }
+
+            default:
+                whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                break;
+        }
+
+        var resultType = whenNotNull.Type;
+        if (!resultType.IsNullable())
+            resultType = new NullableTypeSymbol(resultType, null, null, null, []);
+
+        return new BoundConditionalAccessExpression(receiver, whenNotNull, resultType);
     }
 
     private BoundExpression BindElementAccessExpression(ElementAccessExpressionSyntax syntax)
