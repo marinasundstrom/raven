@@ -46,11 +46,15 @@ internal class CodeGenerator
         {
             needsNullable = true;
         }
-        else if (type is IUnionTypeSymbol u && u.Types.Any(t => t.TypeKind == TypeKind.Null))
+        else if (type is IUnionTypeSymbol u)
         {
-            var nonNull = u.Types.Where(t => t.TypeKind != TypeKind.Null).ToArray();
-            if (!(nonNull.Length == 1 && nonNull[0].IsValueType))
-                needsNullable = true;
+            var flat = Flatten(u.Types).ToArray();
+            if (flat.Any(t => t.TypeKind == TypeKind.Null))
+            {
+                var nonNull = flat.Where(t => t.TypeKind != TypeKind.Null).ToArray();
+                if (!(nonNull.Length == 1 && nonNull[0].IsValueType))
+                    needsNullable = true;
+            }
         }
 
         if (!needsNullable)
@@ -59,6 +63,9 @@ internal class CodeGenerator
         EnsureNullableAttributeType();
         return new CustomAttributeBuilder(_nullableCtor!, new object[] { (byte)2 });
     }
+
+    static IEnumerable<ITypeSymbol> Flatten(IEnumerable<ITypeSymbol> types)
+        => types.SelectMany(t => t is IUnionTypeSymbol u ? Flatten(u.Types) : new[] { t });
 
     void EnsureNullableAttributeType()
     {

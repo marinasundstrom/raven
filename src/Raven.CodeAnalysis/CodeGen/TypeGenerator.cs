@@ -31,6 +31,18 @@ internal class TypeGenerator
     {
         TypeAttributes typeAttributes = TypeAttributes.Public;
 
+        if (TypeSymbol is INamedTypeSymbol named)
+        {
+            if (named.TypeKind == TypeKind.Interface)
+            {
+                typeAttributes |= TypeAttributes.Interface | TypeAttributes.Abstract;
+            }
+            else if (named.IsSealed)
+            {
+                typeAttributes |= TypeAttributes.Sealed;
+            }
+        }
+
         if (TypeSymbol.BaseType.Name == "Enum")
         {
             TypeBuilder = CodeGen.ModuleBuilder.DefineType(
@@ -52,10 +64,31 @@ internal class TypeGenerator
         var syntaxReference = TypeSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is not null)
         {
+            if (TypeSymbol is INamedTypeSymbol nt && nt.TypeKind == TypeKind.Interface)
+            {
+                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                    TypeSymbol.MetadataName,
+                    typeAttributes);
+
+                if (!nt.Interfaces.IsDefaultOrEmpty)
+                {
+                    foreach (var iface in nt.Interfaces)
+                        TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
+                }
+
+                return;
+            }
+
             TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                 TypeSymbol.MetadataName,
                 typeAttributes,
                 ResolveClrType(TypeSymbol.BaseType));
+
+            if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
+            {
+                foreach (var iface in nt2.Interfaces)
+                    TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
+            }
         }
     }
 

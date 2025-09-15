@@ -8,7 +8,6 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
         : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
     {
         Types = types;
-        BaseType = types.First().GetAbsoluteBaseType();
 
         TypeKind = TypeKind.Union;
     }
@@ -23,7 +22,7 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
 
     public bool IsType => true;
 
-    public INamedTypeSymbol? BaseType { get; }
+    public INamedTypeSymbol? BaseType => null;
 
     public TypeKind TypeKind { get; }
 
@@ -31,12 +30,12 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
 
     public ImmutableArray<ISymbol> GetMembers()
     {
-        return BaseType!.GetMembers();
+        return ImmutableArray<ISymbol>.Empty;
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        return BaseType!.GetMembers(name);
+        return ImmutableArray<ISymbol>.Empty;
     }
 
     public ITypeSymbol? LookupType(string name)
@@ -51,6 +50,7 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        throw new NotSupportedException();
+        symbol = null;
+        return false;
     }
 }

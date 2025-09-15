@@ -12,11 +12,8 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class UnionEmissionTests : CompilationTestBase
 {
-    [Fact(Skip = "Union emission with null not yet implemented")]
-    public void CommonBaseClass_WithNull_UsesBaseTypeAndNullable()
-    {
-        var source = """
-class Base {}
+    private const string _baseWithNullSource = """
+open class Base {}
 class A : Base {}
 class B : Base {}
 class C {
@@ -24,7 +21,10 @@ class C {
 }
 """;
 
-        var tree = SyntaxTree.ParseText(source);
+    [Fact]
+    public void CommonBaseClass_WithNull_EmitsBaseType()
+    {
+        var tree = SyntaxTree.ParseText(_baseWithNullSource);
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
 
         using var peStream = new MemoryStream();
@@ -35,6 +35,21 @@ class C {
         var parameter = assembly.GetType("C")!.GetMethod("M")!.GetParameters()[0];
 
         Assert.Equal(assembly.GetType("Base"), parameter.ParameterType);
+    }
+
+    [Fact]
+    public void CommonBaseClass_WithNull_AddsNullableAttribute()
+    {
+        var tree = SyntaxTree.ParseText(_baseWithNullSource);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var parameter = assembly.GetType("C")!.GetMethod("M")!.GetParameters()[0];
+
         Assert.Contains(parameter.GetCustomAttributesData(), a => a.AttributeType.Name == "NullableAttribute");
     }
 

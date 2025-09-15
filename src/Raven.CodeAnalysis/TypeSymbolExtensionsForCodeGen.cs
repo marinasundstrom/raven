@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
 
@@ -107,7 +108,11 @@ public static class TypeSymbolExtensionsForCodeGen
         // Handle union types
         if (typeSymbol is IUnionTypeSymbol union)
         {
-            var nonNull = union.Types.Where(t => t.TypeKind != TypeKind.Null).ToArray();
+            var nonNull = union.Types
+                .Where(t => t.TypeKind != TypeKind.Null)
+                .SelectMany(t => t is IUnionTypeSymbol u ? u.Types : new[] { t })
+                .Select(Unalias)
+                .ToArray();
 
             var common = FindCommonDenominator(nonNull);
             if (common is null)
@@ -159,37 +164,62 @@ public static class TypeSymbolExtensionsForCodeGen
 
     private static INamedTypeSymbol? FindCommonDenominator(IEnumerable<ITypeSymbol> types)
     {
-        HashSet<INamedTypeSymbol>? intersection = null;
-
-        foreach (var type in types)
-        {
-            if (type is not INamedTypeSymbol named)
-                return null;
-
-            var candidates = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-
-            for (INamedTypeSymbol? current = named; current is not null; current = current.BaseType)
-                candidates.Add(current);
-
-            foreach (var iface in named.AllInterfaces)
-                candidates.Add(iface);
-
-            if (intersection is null)
-                intersection = candidates;
-            else
-                intersection.IntersectWith(candidates);
-
-            if (intersection.Count == 0)
-                return null;
-        }
-
-        if (intersection is null || intersection.Count == 0)
+        var namedTypes = types.Select(Unalias).OfType<INamedTypeSymbol>().ToArray();
+        if (namedTypes.Length == 0)
             return null;
 
-        return intersection
-            .OrderByDescending(GetDepth)
-            .ThenByDescending(t => t.TypeKind == TypeKind.Interface ? 1 : 0)
-            .First();
+        INamedTypeSymbol? candidate = namedTypes[0];
+        INamedTypeSymbol? objectType = null;
+        while (candidate is not null)
+        {
+            if (namedTypes.All(t => SharesAncestor(t, candidate)))
+            {
+                if (candidate.SpecialType == SpecialType.System_Object)
+                    objectType = candidate;
+                else
+                    return candidate;
+            }
+            candidate = candidate.BaseType;
+        }
+
+        foreach (var iface in namedTypes[0].AllInterfaces)
+        {
+            if (namedTypes.All(t => t.AllInterfaces.Contains(iface, SymbolEqualityComparer.Default)))
+                return iface;
+        }
+
+        return objectType;
+
+        static bool SharesAncestor(INamedTypeSymbol type, INamedTypeSymbol ancestor)
+        {
+            for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+                if (SymbolEqualityComparer.Default.Equals(current, ancestor))
+                    return true;
+            foreach (var iface in type.AllInterfaces)
+                if (SymbolEqualityComparer.Default.Equals(iface, ancestor))
+                    return true;
+            return false;
+        }
+    }
+
+    private static ITypeSymbol Unalias(ITypeSymbol type)
+    {
+        while (true)
+        {
+            if (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol t)
+            {
+                type = t;
+                continue;
+            }
+
+            if (type is LiteralTypeSymbol lit)
+            {
+                type = lit.UnderlyingType;
+                continue;
+            }
+
+            return type;
+        }
     }
 
     private static int GetDepth(INamedTypeSymbol type)
