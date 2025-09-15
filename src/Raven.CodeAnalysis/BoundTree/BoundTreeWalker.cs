@@ -56,6 +56,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundParenthesizedExpression paren:
                 VisitParenthesizedExpression(paren);
                 break;
+            case BoundCastExpression cast:
+                VisitCastExpression(cast);
+                break;
             case BoundMemberAccessExpression memberAccess:
                 VisitMemberAccessExpression(memberAccess);
                 break;
@@ -169,6 +172,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
     }
 
     public override void VisitParenthesizedExpression(BoundParenthesizedExpression node)
+    {
+        VisitExpression(node.Expression);
+    }
+
+    public override void VisitCastExpression(BoundCastExpression node)
     {
         VisitExpression(node.Expression);
     }

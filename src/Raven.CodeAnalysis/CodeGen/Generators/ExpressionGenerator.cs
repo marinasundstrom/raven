@@ -74,6 +74,10 @@ internal class ExpressionGenerator : Generator
                 EmitExpression(parenthesized.Expression);
                 break;
 
+            case BoundCastExpression castExpression:
+                EmitCastExpression(castExpression);
+                break;
+
             case BoundIfExpression ifStatement:
                 EmitIfExpression(ifStatement);
                 break;
@@ -208,6 +212,12 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldarg, position);
     }
 
+    private void EmitCastExpression(BoundCastExpression castExpression)
+    {
+        new ExpressionGenerator(this, castExpression.Expression).Emit();
+        EmitConversion(castExpression.Expression.Type!, castExpression.Type, castExpression.Conversion);
+    }
+
     private void EmitUnaryExpression(BoundUnaryExpression node)
     {
         var operand = node.Operand;
@@ -237,6 +247,86 @@ internal class ExpressionGenerator : Generator
 
             default:
                 throw new NotSupportedException($"Unsupported unary operator");
+        }
+    }
+
+    private void EmitConversion(ITypeSymbol from, ITypeSymbol to, Conversion conversion)
+    {
+        if (conversion.IsIdentity)
+            return;
+
+        if (conversion.IsNumeric)
+        {
+            EmitNumericConversion(to);
+            return;
+        }
+
+        if (conversion.IsUnboxing)
+        {
+            ILGenerator.Emit(OpCodes.Unbox_Any, ResolveClrType(to));
+            return;
+        }
+
+        if (conversion.IsBoxing)
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(from));
+            if (!SymbolEqualityComparer.Default.Equals(from, to))
+                ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(to));
+            return;
+        }
+
+        if (conversion.IsReference)
+        {
+            ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(to));
+            return;
+        }
+
+        if (conversion.IsUserDefined && conversion.MethodSymbol is IMethodSymbol m)
+        {
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(m));
+            return;
+        }
+
+        throw new NotSupportedException("Unsupported conversion");
+    }
+
+    private void EmitNumericConversion(ITypeSymbol to)
+    {
+        switch (to.SpecialType)
+        {
+            case SpecialType.System_Int32:
+                ILGenerator.Emit(OpCodes.Conv_I4);
+                break;
+            case SpecialType.System_Int64:
+                ILGenerator.Emit(OpCodes.Conv_I8);
+                break;
+            case SpecialType.System_Single:
+                ILGenerator.Emit(OpCodes.Conv_R4);
+                break;
+            case SpecialType.System_Double:
+                ILGenerator.Emit(OpCodes.Conv_R8);
+                break;
+            case SpecialType.System_Int16:
+                ILGenerator.Emit(OpCodes.Conv_I2);
+                break;
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Conv_U2);
+                break;
+            case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Conv_U4);
+                break;
+            case SpecialType.System_UInt64:
+                ILGenerator.Emit(OpCodes.Conv_U8);
+                break;
+            case SpecialType.System_SByte:
+                ILGenerator.Emit(OpCodes.Conv_I1);
+                break;
+            case SpecialType.System_Byte:
+                ILGenerator.Emit(OpCodes.Conv_U1);
+                break;
+            default:
+                throw new NotSupportedException($"Unsupported numeric conversion to {to.ToDisplayString()}");
         }
     }
 
