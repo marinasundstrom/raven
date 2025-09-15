@@ -216,14 +216,16 @@ let s: string = pet   // error: neither member converts to string
 
 ### Cast expressions
 
-Explicit casts request a conversion to a specific type and use the same syntax as C#.
+Explicit casts request a conversion to a specific type and use C# syntax.
 
 ```raven
 let d = (double)1
+let i = (int)3.14  // numeric narrowing
 let s = obj as string
 ```
 
-`(T)expr` performs a runtime check and throws if the value cannot be converted. The `as` operator attempts the conversion and returns `null` (or a nullable value type) instead of throwing when the cast fails.
+`(T)expr` performs a runtime check and throws an `InvalidCastException` when the value cannot convert to `T`. Use this form for downcasts, numeric narrowing, or unboxing scenarios.
+`expr as T` attempts the conversion and returns `null` (or a nullable value type) instead of throwing on failure.
 
 ### String literals
 
