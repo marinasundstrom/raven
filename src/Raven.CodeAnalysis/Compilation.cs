@@ -282,18 +282,58 @@ public class Compilation
                 _ => null
             };
 
+            INamedTypeSymbol baseTypeSymbol = GetSpecialType(SpecialType.System_Object);
+            ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+
+            if (classDeclaration.BaseList is not null)
+            {
+                var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                foreach (var t in classDeclaration.BaseList.Types)
+                {
+                    if (ResolveSimpleType(t, declaringSymbol) is INamedTypeSymbol resolved)
+                    {
+                        if (resolved.TypeKind == TypeKind.Interface)
+                            builder.Add(resolved);
+                        else
+                            baseTypeSymbol = resolved;
+                    }
+                }
+
+                if (builder.Count > 0)
+                    interfaceList = builder.ToImmutable();
+            }
+
             var symbol = new SourceNamedTypeSymbol(
                 classDeclaration.Identifier.Text,
-                GetSpecialType(SpecialType.System_Object),
+                baseTypeSymbol,
                 TypeKind.Class,
                 declaringSymbol,
                 containingType,
                 containingNamespace,
-            locations, references);
+                locations,
+                references);
+
+            if (!interfaceList.IsDefaultOrEmpty)
+                symbol.SetInterfaces(interfaceList);
 
             foreach (var memberDeclaration2 in classDeclaration.Members)
             {
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
+            }
+
+            static INamedTypeSymbol? ResolveSimpleType(TypeSyntax typeSyntax, ISymbol container)
+            {
+                if (typeSyntax is IdentifierNameSyntax id)
+                {
+                    return (container switch
+                    {
+                        INamespaceSymbol ns => ns.LookupType(id.Identifier.Text),
+                        INamedTypeSymbol nt => nt.ContainingNamespace.LookupType(id.Identifier.Text),
+                        _ => null
+                    }) as INamedTypeSymbol;
+                }
+
+                return null;
             }
         }
         else if (memberDeclaration is InterfaceDeclarationSyntax interfaceDeclaration)

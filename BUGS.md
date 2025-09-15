@@ -6,9 +6,7 @@
 ## Prioritized failing test categories
 
 1. **Union features incomplete**  \
-   Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】. Emitting a union that mixes reference types with `null` currently causes `Compilation.Emit` to fail.  \
-   Skipped tests:
-   - `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable`
+   Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.
 
 ## Current failing tests
 
@@ -16,7 +14,6 @@ None.
 
 ## Skipped tests
 
-- `UnionEmissionTests.CommonBaseClass_WithNull_UsesBaseTypeAndNullable` – union emission with `null` not implemented.
 - `EntryPointDiagnosticsTests.ConsoleApp_WithoutMain_ProducesDiagnostic` – requires reference assemblies.
 - `FileScopedCodeDiagnosticsTests.FileScopedCode_AfterDeclaration_ProducesDiagnostic` – requires reference assemblies.
 - `FileScopedCodeDiagnosticsTests.Library_WithFileScopedCode_ProducesDiagnostic` – requires reference assemblies.
@@ -49,7 +46,7 @@ None.
 - `VersionStampTests.GetNewerVersion_InSameTick_IncrementsLocal` – deterministic timestamp seeding validates same-tick local increments reliably.
 
 ## Conclusion
-Union emission with `null` remains unimplemented and is tracked by a skipped test. Addressing this will bring the test suite closer to green.
+Implementing remaining union conversion checks and reference-assembly diagnostics will bring the test suite closer to green.
 
 ## Fix strategy and specification notes
 
