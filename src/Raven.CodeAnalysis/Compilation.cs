@@ -673,6 +673,7 @@ public class Compilation
         var destType = destination.SpecialType;
 
         return (sourceType is SpecialType.System_Int32 && destType is SpecialType.System_Int64) ||
+               (sourceType is SpecialType.System_Int32 && destType is SpecialType.System_Double) ||
                (sourceType is SpecialType.System_Single && destType is SpecialType.System_Double);
     }
 
@@ -765,7 +766,7 @@ public class Compilation
             //SyntaxKind.ByteKeyword => SpecialType.System_Byte,
             SyntaxKind.CharKeyword => SpecialType.System_Char,
             //SyntaxKind.DecimalKeyword => SpecialType.System_Decimal,
-            //SyntaxKind.DoubleKeyword => SpecialType.System_Double,
+            SyntaxKind.DoubleKeyword => SpecialType.System_Double,
             //SyntaxKind.FloatKeyword => SpecialType.System_Single,
             SyntaxKind.IntKeyword => SpecialType.System_Int32,
             //SyntaxKind.LongKeyword => SpecialType.System_Int64,

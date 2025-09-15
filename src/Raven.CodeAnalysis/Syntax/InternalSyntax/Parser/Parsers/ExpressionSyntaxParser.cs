@@ -600,6 +600,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.BoolKeyword:
             case SyntaxKind.CharKeyword:
             case SyntaxKind.IntKeyword:
+            case SyntaxKind.DoubleKeyword:
             case SyntaxKind.ObjectKeyword:
                 return ParsePredefinedTypeSyntax();
 
