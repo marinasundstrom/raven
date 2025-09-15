@@ -427,6 +427,7 @@ partial class BlockBinder : Binder
             AssignmentExpressionSyntax assignment => BindAssignmentExpression(assignment),
             CollectionExpressionSyntax collection => BindCollectionExpression(collection),
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
+            CastExpressionSyntax castExpression => BindCastExpression(castExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
@@ -649,6 +650,27 @@ partial class BlockBinder : Binder
             return expression;
 
         return new BoundParenthesizedExpression(expression);
+    }
+
+    private BoundExpression BindCastExpression(CastExpressionSyntax castExpression)
+    {
+        var expression = BindExpression(castExpression.Expression);
+        var targetType = ResolveType(castExpression.Type);
+
+        if (expression is BoundErrorExpression)
+            return expression;
+
+        var conversion = Compilation.ClassifyConversion(expression.Type!, targetType);
+        if (!conversion.Exists)
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                expression.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                castExpression.GetLocation());
+            return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        return new BoundCastExpression(expression, targetType, conversion);
     }
 
     private BoundExpression BindIfExpression(IfExpressionSyntax ifExpression)

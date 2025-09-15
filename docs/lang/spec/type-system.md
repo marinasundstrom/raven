@@ -125,14 +125,15 @@ conversion forms.
 
 ### Explicit casts
 
-Raven uses C#-style cast syntax for conversions that are not implicit:
+Raven uses C#-style cast syntax for conversions that are not implicit, such as downcasting or numeric narrowing:
 
 ```raven
-let n = (double)1
+let d = (double)1
+let n = (int)3.14
 let s = obj as string
 ```
 
-`(T)expr` performs a runtime-checked cast and throws if `expr` cannot convert to `T`.
+`(T)expr` performs a runtime-checked cast and throws an `InvalidCastException` if `expr` cannot convert to `T`.
 `expr as T` attempts the conversion and yields `null` (or a nullable value type) when it fails.
 
 ## Overload resolution

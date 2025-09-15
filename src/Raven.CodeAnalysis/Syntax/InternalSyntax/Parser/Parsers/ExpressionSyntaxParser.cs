@@ -677,6 +677,24 @@ internal class ExpressionSyntaxParser : SyntaxParser
             return UnitExpression(openParenToken, close);
         }
 
+        // Try to parse as a cast expression
+        var checkpoint = CreateCheckpoint();
+        var typeName = new NameSyntaxParser(this).ParseTypeName();
+        if (PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        {
+            var closeParen = ReadToken();
+            var next = PeekToken();
+            if (!next.IsKind(SyntaxKind.CommaToken) &&
+                !next.IsKind(SyntaxKind.CloseParenToken) &&
+                !next.IsKind(SyntaxKind.SemicolonToken) &&
+                !next.IsKind(SyntaxKind.EndOfFileToken))
+            {
+                var expression = ParseFactorExpression();
+                return CastExpression(openParenToken, typeName, closeParen, expression);
+            }
+        }
+        checkpoint.Dispose();
+
         var expressions = new List<GreenNode>();
 
         var firstExpr = new ExpressionSyntaxParser(this).ParseArgument();

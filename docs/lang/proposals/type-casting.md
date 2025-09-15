@@ -1,6 +1,6 @@
 # Proposal: Type casting
 
-> ⚠️ This proposal has **NOT** been implemented
+> This proposal has been implemented in Raven.
 
 This document outlines explicit cast expressions and the `as` operator in Raven, following C# semantics.
 
