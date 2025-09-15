@@ -5,8 +5,7 @@
 
 ## Prioritized failing test categories
 
-1. **Union features incomplete**  \
-   Assigning or emitting unions is partially implemented. The spec states that converting a union to a target succeeds only if every member converts to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.
+None.
 
 ## Current failing tests
 
@@ -45,12 +44,13 @@ None.
 - `AliasResolutionTest.AliasDirective_UsesAlias_Tuple_TypeMismatch_ReportsDiagnostic` – tuple alias assignments now emit `RAV1503` when element types mismatch.
 - `VersionStampTests.GetNewerVersion_InSameTick_IncrementsLocal` – deterministic timestamp seeding validates same-tick local increments reliably.
 
+- Union arguments now participate in overload resolution using their common denominator type, ensuring the most specific overload is selected.
+
 ## Conclusion
 Implementing remaining union conversion checks and reference-assembly diagnostics will bring the test suite closer to green.
 
 ## Fix strategy and specification notes
 
-- **Union features** – Implement missing union conversion checks and metadata emission following the rule that every member must convert to the target type【F:docs/lang/spec/language-specification.md†L199-L201】.
 - **Workspace and utility failures** – Audit highlighters and tooling hooks so diagnostics surface consistently; add integration tests for console rendering.
 
 ### Specification ambiguities

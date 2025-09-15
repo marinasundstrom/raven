@@ -75,7 +75,7 @@ Appending `?` creates a nullable type. Value types are emitted as `System.Nullab
 
 ### Union types
 
-`A | B` represents a value that may be either type. Each branch retains its own CLR representation and the union's base type is inferred from the operands.
+`A | B` represents a value that may be either type. Each branch retains its own CLR representation and the union's base type is inferred from the operands. This common denominator is used whenever a single type is required, such as overload resolution.
 
 Common use cases include mixing unrelated primitives, modeling optional values, or constraining a value to specific literals:
 
@@ -142,4 +142,17 @@ User-defined conversions are considered last. An argument of a literal type is a
 exact match for a parameter of the same literal type; otherwise the literal is
 converted to its underlying primitive type before the ranking is applied. If no
 candidate is strictly better, the call is reported as ambiguous.
+
+Arguments with union types participate using the union's base type. The compiler
+does not test each branch individually; instead, it ranks conversions from the
+union's common denominator. This matches IL emission and ensures a union selects
+the overload that best matches its shared base type:
+
+```raven
+func print(x: object) -> () {}
+func print(x: int) -> () {}
+
+let u: int | string = "hi"
+print(u) // calls print(object)
+```
 
