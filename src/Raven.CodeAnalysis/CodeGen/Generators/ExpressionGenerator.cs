@@ -1264,18 +1264,23 @@ internal class ExpressionGenerator : Generator
         // Emit receiver (for instance methods)
         if (!target.IsStatic)
         {
-            var isGetType = target.Name == "GetType"
-                && target.ContainingType?.Name == "Object"
-                && target.ContainingNamespace?.Name == "System";
-
             if (!receiverAlreadyLoaded)
                 EmitExpression(receiver);
 
-            if (receiver?.Type?.IsValueType == true)
-            {
-                var receiverType = receiver.Type;
-                var clrType = ResolveClrType(receiverType);
+            var receiverType = receiver?.Type;
+            var effectiveReceiverType = receiverType;
 
+            if (receiverType is NullableTypeSymbol nullable
+                && nullable.UnderlyingType.IsValueType
+                && target.ContainingType?.SpecialType != SpecialType.System_Nullable_T)
+            {
+                if (receiverAlreadyLoaded)
+                    effectiveReceiverType = nullable.UnderlyingType;
+            }
+
+            if (effectiveReceiverType?.IsValueType == true)
+            {
+                var clrType = ResolveClrType(effectiveReceiverType);
                 var methodDeclaringType = target.ContainingType;
 
                 if (methodDeclaringType.SpecialType == SpecialType.System_Object ||
@@ -1283,14 +1288,13 @@ internal class ExpressionGenerator : Generator
                 {
                     ILGenerator.Emit(OpCodes.Box, clrType);
                 }
-                else if (!receiverType.Equals(target.ContainingType, SymbolEqualityComparer.Default))
+                else if (!SymbolEqualityComparer.Default.Equals(effectiveReceiverType, methodDeclaringType))
                 {
                     // Defensive fallback: method is on a different type, box to be safe
                     ILGenerator.Emit(OpCodes.Box, clrType);
                 }
-                else if (!receiverAlreadyLoaded)
+                else
                 {
-                    // Method is defined directly on the value type – no boxing
                     var tmp = ILGenerator.DeclareLocal(clrType);
                     ILGenerator.Emit(OpCodes.Stloc, tmp);
                     ILGenerator.Emit(OpCodes.Ldloca, tmp);

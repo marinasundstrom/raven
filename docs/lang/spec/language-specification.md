@@ -725,10 +725,15 @@ for both nullable reference types and nullable value types.
 
 ```raven
 var str = x?.ToString()
+
+let number: int? = 42
+let digits = number?.ToString() // "42"
 ```
 
 Here `str` is `string?`, and the call to `ToString` only occurs when `x` is not
-`null`.
+`null`. When the receiver is a nullable value type, the compiler unwraps the
+`System.Nullable<T>` storage, invokes the member on the underlying value, and
+wraps the result back into a nullable type.
 
 ### Enums
 
