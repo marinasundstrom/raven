@@ -28,6 +28,64 @@ class Baz {
     }
 
     [Fact]
+    public void InstanceMembersFromObjectAreAccessibleOnUnion()
+    {
+        string code = """
+import System.*
+
+class Foo {}
+class Bar {}
+
+class Baz {
+    Test(flag: bool) {
+        let value = if flag {
+            Foo()
+        } else {
+            Bar()
+        }
+
+        value.ToString()
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void CommonBaseMembersAreAccessibleOnUnion()
+    {
+        string code = """
+import System.*
+
+open class Animal {
+    Speak() -> string {
+        "sound"
+    }
+}
+
+class Dog : Animal {}
+class Cat : Animal {}
+
+class Zoo {
+    Test(flag: bool) {
+        let pet = if flag {
+            Dog()
+        } else {
+            Cat()
+        }
+
+        pet.Speak()
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void UnionNotConvertibleToExplicitType_ProducesDiagnostic()
     {
         string code = """

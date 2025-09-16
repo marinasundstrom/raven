@@ -82,6 +82,8 @@ Appending `?` creates a nullable type. Value types are emitted as `System.Nullab
 
 `A | B` represents a value that may be either type. Each branch retains its own CLR representation and the union's base type is inferred from the operands. This common denominator is used whenever a single type is required, such as overload resolution.
 
+The compiler flattens nested unions, unwraps aliases, and then walks each member's inheritance chain to select the most-derived type shared by every non-`null` branch. Member lookup on a union delegates to that type so methods defined on a shared base class remain available. If no tighter relationship exists the union falls back to `object`, and including `null` makes that base behave as nullable (e.g. `object?`).
+
 Common use cases include mixing unrelated primitives, modeling optional values, or constraining a value to specific literals:
 
 ```raven
