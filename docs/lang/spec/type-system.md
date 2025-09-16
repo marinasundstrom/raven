@@ -30,6 +30,8 @@ let value: "yes" | "no" = "yes"
 
 alias Switch = "yes" | "no"
 let value: Switch = "yes"
+
+let literalInt: int = 2      // literal widens to its underlying type
 ```
 
 Supported literal types are:
@@ -84,6 +86,11 @@ Appending `?` creates a nullable type. Value types are emitted as `System.Nullab
 
 The compiler flattens nested unions, unwraps aliases, and then walks each member's inheritance chain to select the most-derived type shared by every non-`null` branch. Member lookup on a union delegates to that type so methods defined on a shared base class remain available. If no tighter relationship exists the union falls back to `object`, and including `null` makes that base behave as nullable (e.g. `object?`).
 
+```raven
+let union: int | string = "foo"
+Console.WriteLine(union.ToString()) // members from the common base type are available
+```
+
 Common use cases include mixing unrelated primitives, modeling optional values, or constraining a value to specific literals:
 
 ```raven
@@ -92,7 +99,7 @@ let b: string | null = null // optional string (equivalent to string?)
 let c: "yes" | "no" = "yes" // constrained to specific constants
 ```
 
-When assigning to a union, the expression must convert to at least one branch. Literal branches are matched by value rather than by type:
+A value is assignable to a union when it can convert to at least one member. Literal branches are matched by value rather than by type:
 
 ```raven
 let d: "true" | 1 = 1   // ok
@@ -150,6 +157,10 @@ User-defined conversions are considered last. An argument of a literal type is a
 exact match for a parameter of the same literal type; otherwise the literal is
 converted to its underlying primitive type before the ranking is applied. If no
 candidate is strictly better, the call is reported as ambiguous.
+
+```raven
+let parsed = int.Parse("42") // string literal selects the overload taking string
+```
 
 Arguments with union types participate using the union's base type. The compiler
 does not test each branch individually; instead, it ranks conversions from the
