@@ -503,7 +503,10 @@ public class Compilation
 
         if (source.TypeKind == TypeKind.Null)
         {
-            if (destination.TypeKind == TypeKind.Nullable || destination.TypeKind == TypeKind.Union)
+            if (destination.TypeKind == TypeKind.Nullable)
+                return Finalize(new Conversion(isImplicit: true, isReference: true));
+
+            if (destination is IUnionTypeSymbol unionDest && unionDest.Types.Any(t => t.TypeKind == TypeKind.Null))
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
             return Conversion.None;

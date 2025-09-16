@@ -15,7 +15,7 @@ abstract class BoundExpression : BoundNode
         Reason = reason;
     }
 
-    public ITypeSymbol? GetConvertedType()
+    public virtual ITypeSymbol? GetConvertedType()
     {
         return null;
     }

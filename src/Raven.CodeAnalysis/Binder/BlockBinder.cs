@@ -1172,7 +1172,17 @@ partial class BlockBinder : Binder
     {
         if (syntax.Kind == SyntaxKind.NullLiteralExpression)
         {
-            return new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
+            ITypeSymbol? convertedType = null;
+            var targetType = GetTargetType(syntax);
+
+            if (targetType is not null)
+            {
+                var conversion = Compilation.ClassifyConversion(Compilation.NullTypeSymbol, targetType);
+                if (conversion.Exists)
+                    convertedType = targetType;
+            }
+
+            return new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol, convertedType);
         }
 
         var value = syntax.Token.Value ?? syntax.Token.Text!;
