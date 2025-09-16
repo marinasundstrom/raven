@@ -117,6 +117,24 @@ returning `unit`. If the returned expression's type is not assignable to the
 declared return type, the compiler emits a conversion diagnostic.
 
 ```raven
+func DoOperation(a: int, b: int) -> int {
+    if a > b {
+        return -1
+    }
+    return a + b
+}
+
+func DoOperation2(a: int, b: int) -> int | false {
+    if a > b {
+        return false
+    }
+    return a + b
+}
+```
+
+Property accessors follow the same rule: each explicit `return` must produce a value compatible with the property's declared type.
+
+```raven
 func choose(flag: bool) -> int | () {
     if flag {
         42            // implicit return
@@ -171,6 +189,19 @@ var i = 0       // i : int
 let j = 0       // j : int
 var k: 1 = 1    // k : 1
 ```
+
+Control-flow expressions participate in the same inference. An `if` expression whose branches produce different types infers a union of those results:
+
+```raven
+let result = if a > b { false } else { 42 }
+// result : false | 42
+
+let x = 42        // x : int
+let result2 = if a > b { false } else { x }
+// result2 : false | int
+```
+
+Here each branch contributes its inferred type to the union. Because the `else` branch is the literal `42`, the union preserves that literal member. When the branch expression flows through a variable such as `x : int`, the union widens accordingly.
 
 Numeric literals choose an underlying primitive type. Integer literals default
 to `int` but upgrade to `long` when the value exceeds the `int` range.
