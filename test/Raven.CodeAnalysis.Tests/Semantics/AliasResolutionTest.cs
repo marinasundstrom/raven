@@ -190,6 +190,32 @@ public class AliasResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void AliasDirective_RepeatedMethodAlias_FormsOverloadSet()
+    {
+        string testCode =
+            """
+            alias Print = System.Console.WriteLine
+            alias Print = System.Console.WriteLine
+
+            Print()
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        var result = verifier.GetResult();
+        verifier.Verify();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbol = model.GetSymbolInfo(invocation).Symbol;
+        Assert.NotNull(symbol);
+        Assert.True(symbol!.IsAlias);
+        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        Assert.Equal("Print", alias.Name);
+        Assert.Equal("WriteLine", alias.UnderlyingSymbol.Name);
+    }
+
+    [Fact]
     public void AliasDirective_UsesNamespaceAlias()
     {
         string testCode =

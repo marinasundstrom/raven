@@ -148,6 +148,21 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void WildcardImport_MakesSystemMathMembersAvailable()
+    {
+        string testCode =
+            """
+            import System.Math.*
+
+            let pi = PI
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void NamespaceImportWithoutWildcard_Should_ProduceDiagnostic()
     {
         string testCode =
