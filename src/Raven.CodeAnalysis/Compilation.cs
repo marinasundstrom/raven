@@ -447,23 +447,47 @@ public class Compilation
 
     public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)
     {
-        static ITypeSymbol Unalias(ITypeSymbol type)
+        static ITypeSymbol Unalias(ITypeSymbol type, ref bool wasAlias)
         {
-            while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol t)
-                type = t;
+            while (true)
+            {
+                if (!type.IsAlias)
+                    return type;
 
-            return type;
+                wasAlias = true;
+
+                if (type.UnderlyingSymbol is ITypeSymbol aliasTarget)
+                {
+                    type = aliasTarget;
+                    continue;
+                }
+
+                return type;
+            }
         }
 
-        source = Unalias(source);
-        destination = Unalias(destination);
+        bool sourceUsedAlias = false;
+        source = Unalias(source, ref sourceUsedAlias);
+
+        bool destinationUsedAlias = false;
+        destination = Unalias(destination, ref destinationUsedAlias);
 
         // Temporary
         if (destination is null) return Conversion.None;
 
+        var aliasInvolved = sourceUsedAlias || destinationUsedAlias;
+
+        Conversion Finalize(Conversion conversion)
+        {
+            if (!conversion.Exists)
+                return conversion;
+
+            return conversion.WithAlias(aliasInvolved);
+        }
+
         if (source is LiteralTypeSymbol litSrc && destination is LiteralTypeSymbol litDest)
             return Equals(litSrc.ConstantValue, litDest.ConstantValue)
-                ? new Conversion(isImplicit: true, isIdentity: true)
+                ? Finalize(new Conversion(isImplicit: true, isIdentity: true))
                 : Conversion.None;
 
         if (destination is LiteralTypeSymbol)
@@ -474,13 +498,13 @@ public class Compilation
             destination is not NullableTypeSymbol)
         {
             // Identity conversion
-            return new Conversion(isImplicit: true, isIdentity: true);
+            return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
         if (source.TypeKind == TypeKind.Null)
         {
             if (destination.TypeKind == TypeKind.Nullable || destination.TypeKind == TypeKind.Union)
-                return new Conversion(isImplicit: true, isReference: true);
+                return Finalize(new Conversion(isImplicit: true, isReference: true));
 
             return Conversion.None;
         }
@@ -491,14 +515,16 @@ public class Compilation
             if (conv.Exists)
             {
                 var isImplicit = !SymbolEqualityComparer.Default.Equals(nullableSource.UnderlyingType, destination) && conv.IsImplicit;
-                return new Conversion(
+                return Finalize(new Conversion(
                     isImplicit: isImplicit,
                     isIdentity: conv.IsIdentity,
                     isNumeric: conv.IsNumeric,
                     isReference: conv.IsReference,
                     isBoxing: conv.IsBoxing,
                     isUnboxing: conv.IsUnboxing,
-                    isUserDefined: conv.IsUserDefined);
+                    isUserDefined: conv.IsUserDefined,
+                    isAlias: conv.IsAlias,
+                    methodSymbol: conv.MethodSymbol));
             }
         }
 
@@ -509,19 +535,21 @@ public class Compilation
                 unionSource.Types.Any(t => t.TypeKind == TypeKind.Null) &&
                 unionSource.Types.Any(t => SymbolEqualityComparer.Default.Equals(t, nullableDest.UnderlyingType)))
             {
-                return new Conversion(isImplicit: true, isReference: true);
+                return Finalize(new Conversion(isImplicit: true, isReference: true));
             }
 
             var conv = ClassifyConversion(source, nullableDest.UnderlyingType);
             if (conv.Exists)
-                return new Conversion(
+                return Finalize(new Conversion(
                     isImplicit: true,
                     isIdentity: false,
                     isNumeric: conv.IsNumeric,
                     isReference: conv.IsReference || !source.IsValueType,
                     isBoxing: conv.IsBoxing,
                     isUnboxing: conv.IsUnboxing,
-                    isUserDefined: conv.IsUserDefined);
+                    isUserDefined: conv.IsUserDefined,
+                    isAlias: conv.IsAlias,
+                    methodSymbol: conv.MethodSymbol));
         }
 
         if (source is IUnionTypeSymbol unionSource2)
@@ -532,10 +560,12 @@ public class Compilation
                 var isImplicit = conversions.All(c => c.IsImplicit);
                 var isReference = conversions.Any(c => c.IsReference);
                 var isBoxing = conversions.Any(c => c.IsBoxing);
-                return new Conversion(
+                var isAlias = conversions.Any(c => c.IsAlias);
+                return Finalize(new Conversion(
                     isImplicit: isImplicit,
                     isReference: isReference,
-                    isBoxing: isBoxing);
+                    isBoxing: isBoxing,
+                    isAlias: isAlias));
             }
 
             return Conversion.None;
@@ -554,52 +584,68 @@ public class Compilation
             }
 
             // Assigning to object
-            return new Conversion(
+            return Finalize(new Conversion(
                 isImplicit: true,
                 isReference: !source.IsValueType,
-                isBoxing: source.IsValueType);
+                isBoxing: source.IsValueType));
         }
 
         if (destination is IUnionTypeSymbol unionType)
         {
-            var match = unionType.Types.FirstOrDefault(x => ClassifyConversion(source, x).Exists);
-            if (match is null)
+            Conversion matchConversion = default;
+            var foundMatch = false;
+
+            foreach (var branch in unionType.Types)
+            {
+                var branchConversion = ClassifyConversion(source, branch);
+                if (branchConversion.Exists)
+                {
+                    matchConversion = branchConversion;
+                    foundMatch = true;
+                    break;
+                }
+            }
+
+            if (!foundMatch)
                 return Conversion.None;
 
-            return new Conversion(isImplicit: true, isBoxing: source.IsValueType);
+            return Finalize(new Conversion(
+                isImplicit: true,
+                isBoxing: source.IsValueType,
+                isAlias: matchConversion.IsAlias));
         }
 
         if (source is LiteralTypeSymbol litSrc2)
-            return ClassifyConversion(litSrc2.UnderlyingType, destination);
+            return Finalize(ClassifyConversion(litSrc2.UnderlyingType, destination));
 
         if (IsReferenceConversion(source, destination))
         {
             // Reference conversion
-            return new Conversion(isImplicit: true, isReference: true);
+            return Finalize(new Conversion(isImplicit: true, isReference: true));
         }
 
         if (IsBoxingConversion(source, destination))
         {
             // Boxing conversion
-            return new Conversion(isImplicit: true, isBoxing: true);
+            return Finalize(new Conversion(isImplicit: true, isBoxing: true));
         }
 
         if (IsUnboxingConversion(source, destination))
         {
             // Unboxing conversion
-            return new Conversion(isImplicit: false, isUnboxing: true);
+            return Finalize(new Conversion(isImplicit: false, isUnboxing: true));
         }
 
         if (IsImplicitNumericConversion(source, destination))
         {
             // Implicit numeric conversion
-            return new Conversion(isImplicit: true, isNumeric: true);
+            return Finalize(new Conversion(isImplicit: true, isNumeric: true));
         }
 
         if (IsExplicitNumericConversion(source, destination))
         {
             // Explicit numeric conversion
-            return new Conversion(isImplicit: false, isNumeric: true);
+            return Finalize(new Conversion(isImplicit: false, isNumeric: true));
         }
 
         // User-defined conversions
@@ -624,7 +670,7 @@ public class Compilation
                     SymbolEqualityComparer.Default.Equals(method.ReturnType, destination))
                 {
                     var isImplicit = method.Name == "op_Implicit";
-                    return new Conversion(isImplicit: isImplicit, isUserDefined: true);
+                    return Finalize(new Conversion(isImplicit: isImplicit, isUserDefined: true, methodSymbol: method));
                 }
             }
         }
