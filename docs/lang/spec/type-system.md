@@ -7,12 +7,21 @@ Raven is a statically typed language whose types correspond directly to CLR type
 | Raven keyword | .NET type | Notes |
 | --- | --- | --- |
 | `int` | `System.Int32` | 32-bit signed integer |
+| `double` | `System.Double` | 64-bit floating point |
 | `string` | `System.String` | UTF-16 sequence of characters |
 | `object` | `System.Object` | base type of all .NET reference types |
 | `bool` | `System.Boolean` | logical true/false |
 | `char` | `System.Char` | UTF-16 code unit |
 | `unit` | `System.Unit` | single value `()` representing "no result" |
 | `null` | *(null literal)* | inhabits any nullable reference type |
+
+The table lists the built-in keywords that map directly to CLR types. Additional
+CLI types can be referenced using their fully qualified names or through
+aliases. Raven emits a `System.Unit` struct in the generated assembly so the
+`unit` type has a concrete runtime representation and can flow through generics
+or tuples. The `null` entry represents the literal value rather than a standalone
+type; it may inhabit any nullable reference type and the nullable forms of value
+types.
 
 ## Literal types
 
@@ -50,6 +59,11 @@ Literal types implicitly convert to their underlying type and then follow the
 normal conversion rules of that type. This allows `1` to widen to `double` or
 `"hi"` to be used wherever a `string` is expected.
 
+The presence of `long` and `float` in the table reflects literal promotion rules
+rather than additional keywords. When an explicit annotation is needed, prefer
+`System.Int64` or `System.Single` (or define an alias) until the keywords are
+introduced.
+
 When a literal is assigned to a target whose type is inferred—such as a
 variable declaration without an explicit type annotation—the literal widens to
 its underlying primitive type. When inference gathers multiple literal values
@@ -82,24 +96,40 @@ Appending `?` creates a nullable type. Value types are emitted as `System.Nullab
 
 ### Union types
 
-`A | B` represents a value that may be either type. Each branch retains its own CLR representation and the union's base type is inferred from the operands. This common denominator is used whenever a single type is required, such as overload resolution.
+`A | B` represents a value that may be either type. Each branch retains its own
+CLR representation; the union records the set of possibilities and supplies a
+shared view when one is needed. Raven determines that common view using these
+rules:
 
-The compiler flattens nested unions, unwraps aliases, and then walks each member's inheritance chain to select the most-derived type shared by every non-`null` branch. Member lookup on a union delegates to that type so methods defined on a shared base class remain available. If no tighter relationship exists the union falls back to `object`, and including `null` makes that base behave as nullable (e.g. `object?`).
+1. Flatten nested unions and unwrap aliases or literal types to their underlying
+   CLR types.
+2. Ignore branches whose type kind is `null` while searching for a base type.
+3. Walk each remaining branch's inheritance chain (including nullable wrappers)
+   and intersect the results to find the most-derived shared base class.
+4. Fall back to `System.Object` when no stricter relationship exists. When the
+   union also contains `null`, the resulting base behaves as nullable (for
+   example, `object?`).
+
+Member lookup on a union delegates to this computed base type, so members defined
+on a shared base class remain available. Value-type branches are boxed when the
+common denominator is a reference type.
 
 ```raven
 let union: int | string = "foo"
 Console.WriteLine(union.ToString()) // members from the common base type are available
 ```
 
-Common use cases include mixing unrelated primitives, modeling optional values, or constraining a value to specific literals:
+Common use cases include mixing unrelated primitives, modeling optional values,
+or constraining a value to specific literals:
 
 ```raven
 let a: int | string = "2"   // either an int or a string
-let b: string | null = null // optional string (equivalent to string?)
+let b: string | null = null // optional string (converts to `string?` when required)
 let c: "yes" | "no" = "yes" // constrained to specific constants
 ```
 
-A value is assignable to a union when it can convert to at least one member. Literal branches are matched by value rather than by type:
+A value is assignable to a union when it can convert to at least one member.
+Literal branches are matched by value rather than by type:
 
 ```raven
 let d: "true" | 1 = 1   // ok
@@ -107,6 +137,10 @@ let e: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
 let f: "true" | int = 1 // ok: 1 matches int
 ```
 
+When a union contains `null` and exactly one other type, it remains a union but
+implicitly converts to that type's nullable form when a nullable target is
+expected. Attempting to write `string? | int` still produces diagnostic
+`RAV0400` because nullable wrappers may not appear explicitly inside unions.
 ### Generics
 
 Generic parameters compile directly to .NET generics:
@@ -114,6 +148,31 @@ Generic parameters compile directly to .NET generics:
 ```raven
 func identity<T>(value: T) -> T { value }
 ```
+
+## Type identity and aliases
+
+Type aliases provide alternate names for existing types without changing their
+identity. The alias participates in overload resolution and conversions exactly
+as the underlying type would. Literal types behave similarly: they carry an
+underlying primitive and compare equal to that primitive for assignability
+checks once a conversion is required. When a union or tuple contains aliases or
+literal branches, Raven normalises them during binding so type identity remains
+consistent across compilation units.
+
+## Target typing and inference
+
+Many constructs rely on the surrounding context to determine their type. See the
+[language specification](language-specification.md#type-inference) for the
+complete inference rules. From a type-system perspective, the important effects
+are:
+
+- Inferred unions are normalised using the same process described above, so the
+  resulting symbol set is stable across recompilations.
+- Literal expressions widen to their underlying primitive when no contextual
+  type is available but preserve their literal identity inside unions or when
+  explicitly annotated.
+- Control-flow constructs (such as `if` expressions) contribute their branch
+  types to inference, which may introduce unions automatically.
 
 ## Interoperability
 
@@ -134,6 +193,11 @@ types, and conversions to a matching branch of a union. Narrowing or otherwise
 unsafe conversions require an explicit cast. See
 [type compatibility](../proposals/type-compatibility.md) for a detailed list of
 conversion forms.
+
+When converting **from** a union, each branch must be convertible to the target
+type. When converting **to** a union, the source must convert to at least one
+branch. These rules also drive overload resolution and assignment diagnostics in
+the core compiler.
 
 ### Explicit casts
 
@@ -174,4 +238,21 @@ func print(x: int) -> () {}
 let u: int | string = "hi"
 print(u) // calls print(object)
 ```
+
+## Open issues and suggested follow-ups
+
+- **Interface-aware union joins.** The current base-type computation inspects
+  only the class hierarchy. As a result, `IFoo | IBar` exposes no shared members
+  even when both interfaces derive from a common parent. Consider intersecting
+  implemented interfaces and exposing those members when no class-based join
+  exists.
+- **Canonical form for `T | null`.** Unions that include `null` convert to
+  nullable targets but remain unions internally. Evaluate whether the binder
+  should normalise `T | null` into `T?` (when `T` is non-nullable) or continue to
+  keep the union form and emit clearer diagnostics when a nullable annotation is
+  expected.
+- **Distribution of `System.Unit`.** Each compiled assembly currently defines its
+  own `System.Unit` type. To simplify interop, consider shipping a shared
+  reference assembly or mapping `unit` directly onto `System.Void` where the
+  runtime allows it.
 

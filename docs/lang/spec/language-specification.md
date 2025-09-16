@@ -1,10 +1,17 @@
-> ⚠️ This is a living document that is subject change
+> ⚠️ This is a living document that is subject to change.
 
 # Language specification
 
-Implementation details describing how Raven constructs project to .NET are documented in [dotnet-implementation.md](dotnet-implementation.md).
+Implementation details describing how Raven projects map to .NET are documented in [dotnet-implementation.md](dotnet-implementation.md).
 
 An overview of available types, literal semantics, and conversions can be found in the [type system](type-system.md).
+
+## Document conventions
+
+- **Normative requirements** use key words such as “must”, “may”, and “should” to describe observable language behaviour.
+- Notes and tips highlight rationale, examples, or implementation remarks. They are informative rather than normative.
+- Code snippets use the `.rav` file extension and omit surrounding boilerplate unless it is essential to the rule being described.
+- When behaviour is intentionally unspecified or still under design, this specification calls it out explicitly and, where possible, links to suggested follow-up work.
 
 ## Code samples
 
@@ -57,7 +64,9 @@ statement forms, such as the explicit `return` statement.
 
 Statements are terminated by a **newline**, or by an **optional semicolon** `;`
 that may separate multiple statements on one line. Newlines inside
-parentheses/brackets/braces do not terminate statements.
+parentheses, brackets, or braces do not terminate statements. Multiple
+consecutive newlines act as a single separator so you may visually group
+related statements without affecting execution.
 
 ```raven
 let a = 42
@@ -81,7 +90,8 @@ determine the variable's type. With an explicit type, the initializer may be
 omitted.
 
 Control-flow constructs such as `if`, `while`, and `for` are expressions.
-When used for their side effects in statement position, they appear as expression statements.
+When used for their side effects in statement position, they appear as expression statements and the produced value (always `()`)
+is discarded.
 
 ### File-scope code
 
@@ -102,8 +112,10 @@ func sayHello() {
 
 Any expression can appear as a statement.
 
-Control flow constructs such as `if`, `while`, and `for` also have dedicated statement forms for convenience.
-`ExpressionStatement` covers the remaining expressions that may appear on their own line.
+Control flow constructs such as `if`, `while`, and `for` also have dedicated statement forms for convenience. The parser
+rewrites an expression in statement position to the corresponding statement node
+when the value is discarded. `ExpressionStatement` covers the remaining
+expressions that may appear on their own line and always evaluates to `unit`.
 
 ### Return statements
 
@@ -338,7 +350,7 @@ Console.WriteLine(tuple.Item1)  // positional
 ### Block expression
 
 A block is an expression; its value is the value of its last expression
-(or `()` if none).
+(or `()` if none). Each block introduces a new scope for local declarations.
 
 ```raven
 {
@@ -349,14 +361,10 @@ A block is an expression; its value is the value of its last expression
 
 ### `if` expression
 
-```raven
-if x > 3 {
-    Console.WriteLine("Hello, World!")
-    list[i] = 42
-}
-```
-
-With `else`:
+`if` expressions evaluate the condition and execute exactly one branch. The
+value of the overall expression is the value produced by the executed branch. If
+both branches produce values, the result participates in type inference as
+described in [Type inference](#type-inference).
 
 ```raven
 let res =
@@ -367,7 +375,16 @@ let res =
     }
 ```
 
+When an `if` expression is used purely for its effects, omitting the `else`
+branch is permitted and the value is ignored. In value contexts, provide an
+`else` branch so that both outcomes yield a value. (See [Outstanding
+questions](#outstanding-questions-and-suggested-follow-ups) for current gaps and
+suggested fixes.)
+
 ### `while` expression
+
+`while` repeatedly executes its body while the condition evaluates to `true`.
+Because loops are expressions, the overall value of a `while` expression is `()`.
 
 ```raven
 var i = 0
@@ -396,6 +413,12 @@ for item in items {
     doSomething(item)
 }
 ```
+
+`for` evaluates the collection once, then executes the body for every element.
+When iterating over arrays, the element type comes from the array's element
+type. Other collections are currently treated as `System.Collections.IEnumerable`
+and default the iteration variable to `object`. Like other looping constructs, a
+`for` expression evaluates to `()`.
 
 ## Namespace declaration
 
@@ -496,9 +519,16 @@ The outermost undeclared namespace is the **global namespace**.
 
 ### File-scope code rules
 
-Files may start with executable statements that aren't enclosed in a function or type. This file-scope code forms the application's entry point and is translated into `Program.Main`. Only console applications may include file-scope code, and it may appear in at most one file per compilation. When present, these statements must come before any other declarations in the file or its file-scoped namespace.
+Files may start with executable statements that aren't enclosed in a function or
+type. This file-scope code forms the application's entry point and is translated
+into `Program.Main`. Only console applications may include file-scope code, and
+it may appear in at most one file per compilation. When present, these
+statements must come before any other declarations in the file or its
+file-scoped namespace.
 
-Function declarations (local function statements) within file-scope code are hoisted and may be referenced from anywhere in that file-scoped region, regardless of their order.
+Function declarations (local function statements) within file-scope code are
+hoisted and may be referenced from anywhere in that file-scoped region,
+regardless of their order.
 
 ## Functions
 
@@ -837,3 +867,24 @@ Lowest → highest (all left-associative unless noted):
 > * `(<expr>)` is a **parenthesized expression** unless a comma appears (including trailing), in which case it’s a **tuple**.
 > * `<` starts **type arguments** only in a **type context**; elsewhere it’s the less-than operator.
 > * The LHS of assignment must be **assignable** (identifier, member access, element access, or tuple deconstruction).
+
+## Outstanding questions and suggested follow-ups
+
+The current implementation leaves a few behaviours underspecified. The following
+items capture those gaps and outline the preferred direction for addressing them:
+
+- **`if` expressions without `else` in value contexts.** The compiler currently
+  allows `let x = if cond { 1 }` even though the false branch does not yield a
+  value, which in turn produces incomplete IL. Either require an `else` branch
+  when the result is consumed or implicitly supply `()` for the missing branch.
+  Both options should be accompanied by diagnostics that guide authors toward
+  the intended usage.
+- **Element type discovery for `for` loops.** Non-array collections default the
+  iteration variable to `object`, losing type information. Extend binding to
+  inspect `IEnumerable<T>`/`IAsyncEnumerable<T>` or the enumerator pattern so the
+  loop variable reflects the element type instead of falling back to `object`.
+- **Keyword coverage for numeric types.** Examples use `long` and `float`, yet
+  those keywords are not recognised by the parser today. Either expose the
+  missing predefined keywords or adjust the examples to rely on aliases such as
+  `System.Int64`. Aligning the keyword set with literal inference will make the
+  specification self-consistent and reduce onboarding confusion.
