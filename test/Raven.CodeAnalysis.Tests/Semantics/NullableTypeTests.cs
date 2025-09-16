@@ -123,6 +123,39 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void ConsoleWriteLine_WithNullLiteral_Chooses_StringOverload()
+    {
+        var (compilation, tree) = CreateCompilation("System.Console.WriteLine(null)");
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+
+        var param = Assert.IsType<NullableTypeSymbol>(symbol.Parameters[0].Type);
+        Assert.Equal(SpecialType.System_String, param.UnderlyingType.SpecialType);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ConsoleWriteLine_WithNullableLocal_Chooses_StringOverload()
+    {
+        const string source = """
+            let value: string? = null
+            System.Console.WriteLine(value)
+            """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+
+        var param = Assert.IsType<NullableTypeSymbol>(symbol.Parameters[0].Type);
+        Assert.Equal(SpecialType.System_String, param.UnderlyingType.SpecialType);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void UnionWithNull_ImplicitlyConvertsToNullable()
     {
         var compilation = CreateCompilation();

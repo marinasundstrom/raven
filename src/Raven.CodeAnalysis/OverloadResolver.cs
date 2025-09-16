@@ -27,8 +27,15 @@ internal sealed class OverloadResolver
                 var param = parameters[i];
                 var arg = arguments[i];
 
+                var argType = arg.Type;
+                if (argType is null)
+                {
+                    allMatch = false;
+                    break;
+                }
+
                 // No value can have type 'void' — immediately reject this candidate.
-                if (arg.Type is { } t && t.SpecialType == SpecialType.System_Void)
+                if (argType.SpecialType == SpecialType.System_Void)
                 {
                     allMatch = false;
                     break;
@@ -40,7 +47,7 @@ internal sealed class OverloadResolver
                     if (arg is not BoundAddressOfExpression addr ||
                         addr.Type is not ByRefTypeSymbol argByRef ||
                         !SymbolEqualityComparer.Default.Equals(argByRef.ElementType, param.Type) ||
-                        arg.Type.SpecialType == SpecialType.System_Void)
+                        argType.SpecialType == SpecialType.System_Void)
                     {
                         allMatch = false;
                         break;
@@ -56,17 +63,25 @@ internal sealed class OverloadResolver
                     break;
                 }
 
-                var conversion = compilation.ClassifyConversion(arg.Type, param.Type);
+                var conversion = compilation.ClassifyConversion(argType, param.Type);
                 if (!conversion.IsImplicit)
                 {
                     allMatch = false;
                     break;
                 }
 
-                score += GetConversionScore(conversion);
+                var conversionScore = GetConversionScore(conversion);
 
-                if (param.Type is NullableTypeSymbol && arg.Type is not NullableTypeSymbol)
-                    score++;
+                if (param.Type is NullableTypeSymbol nullableParam && argType is not NullableTypeSymbol)
+                {
+                    var liftedConversion = compilation.ClassifyConversion(argType, nullableParam.UnderlyingType);
+                    if (liftedConversion.Exists)
+                        conversionScore = GetConversionScore(liftedConversion);
+
+                    conversionScore++;
+                }
+
+                score += conversionScore;
             }
 
             if (allMatch)
