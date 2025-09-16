@@ -82,6 +82,80 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void NullLiteral_To_Object_Conversion_IsNotImplicit()
+    {
+        var compilation = CreateCompilation();
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+        var nullType = compilation.NullTypeSymbol;
+
+        var conversion = compilation.ClassifyConversion(nullType, objectType);
+
+        Assert.False(conversion.IsImplicit);
+    }
+
+    [Fact]
+    public void NullLiteral_To_NullableReference_Conversion_IsImplicit()
+    {
+        var compilation = CreateCompilation();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var nullableString = new NullableTypeSymbol(stringType, null, null, null, []);
+
+        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, nullableString);
+
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.Exists);
+    }
+
+    [Fact]
+    public void NullLiteral_To_NullableValue_Conversion_IsImplicit()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
+
+        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, nullableInt);
+
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.Exists);
+    }
+
+    [Fact]
+    public void NullLiteral_To_UnionWithNull_Conversion_IsImplicit()
+    {
+        var compilation = CreateCompilation();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var union = new UnionTypeSymbol([stringType, compilation.NullTypeSymbol], compilation.Assembly, null, null, []);
+
+        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, union);
+
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.Exists);
+    }
+
+    [Fact]
+    public void NullLiteral_To_UnionWithoutNull_Conversion_DoesNotExist()
+    {
+        var compilation = CreateCompilation();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var union = new UnionTypeSymbol([stringType, intType], compilation.Assembly, null, null, []);
+
+        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, union);
+
+        Assert.False(conversion.Exists);
+    }
+
+    [Fact]
+    public void ObjectVariable_AssignedNull_RequiresNullable()
+    {
+        var (compilation, _) = CreateCompilation("let x: object = null");
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.CannotAssignFromTypeToType, diagnostic.Descriptor);
+        Assert.Equal("Cannot assign 'null' to 'object'", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void OverloadResolution_Prefers_NonNullable_WhenAvailable()
     {
         var source = """

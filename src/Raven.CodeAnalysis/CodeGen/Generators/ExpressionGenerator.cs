@@ -1513,7 +1513,15 @@ internal class ExpressionGenerator : Generator
 
             case BoundLiteralExpressionKind.NullLiteral:
                 {
-                    ILGenerator.Emit(OpCodes.Ldnull);
+                    var convertedType = literalExpression.GetConvertedType();
+                    if (convertedType is not null && convertedType.IsValueType)
+                    {
+                        EmitDefaultValue(convertedType);
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ldnull);
+                    }
                     break;
                 }
 
