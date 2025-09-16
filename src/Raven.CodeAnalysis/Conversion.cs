@@ -13,9 +13,19 @@ public struct Conversion
     public bool IsUnboxing { get; }
 
     public bool IsUserDefined { get; }
+    public bool IsAlias { get; }
     public IMethodSymbol? MethodSymbol { get; }
 
-    public Conversion(bool isImplicit = false, bool isIdentity = false, bool isNumeric = false, bool isReference = false, bool isBoxing = false, bool isUnboxing = false, bool isUserDefined = false)
+    public Conversion(
+        bool isImplicit = false,
+        bool isIdentity = false,
+        bool isNumeric = false,
+        bool isReference = false,
+        bool isBoxing = false,
+        bool isUnboxing = false,
+        bool isUserDefined = false,
+        bool isAlias = false,
+        IMethodSymbol? methodSymbol = null)
     {
         Exists = true;
         IsImplicit = isImplicit;
@@ -25,6 +35,8 @@ public struct Conversion
         IsBoxing = isBoxing;
         IsUnboxing = isUnboxing;
         IsUserDefined = isUserDefined;
+        IsAlias = isAlias;
+        MethodSymbol = methodSymbol;
     }
 
     public Conversion()
@@ -46,6 +58,7 @@ public struct Conversion
            IsBoxing == other.IsBoxing &&
            IsUnboxing == other.IsUnboxing &&
            IsUserDefined == other.IsUserDefined &&
+           IsAlias == other.IsAlias &&
            SymbolEqualityComparer.Default.Equals(MethodSymbol, other.MethodSymbol);
 
     public override int GetHashCode()
@@ -59,8 +72,30 @@ public struct Conversion
         hash.Add(IsBoxing);
         hash.Add(IsUnboxing);
         hash.Add(IsUserDefined);
+        hash.Add(IsAlias);
         hash.Add(MethodSymbol, SymbolEqualityComparer.Default);
         return hash.ToHashCode();
+    }
+
+    public Conversion WithAlias(bool isAlias)
+    {
+        if (!Exists)
+            return this;
+
+        var combined = IsAlias || isAlias;
+        if (combined == IsAlias)
+            return this;
+
+        return new Conversion(
+            isImplicit: IsImplicit,
+            isIdentity: IsIdentity,
+            isNumeric: IsNumeric,
+            isReference: IsReference,
+            isBoxing: IsBoxing,
+            isUnboxing: IsUnboxing,
+            isUserDefined: IsUserDefined,
+            isAlias: combined,
+            methodSymbol: MethodSymbol);
     }
 
     public static bool operator ==(Conversion left, Conversion right) => left.Equals(right);

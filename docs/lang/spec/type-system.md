@@ -186,11 +186,13 @@ Console.WriteLine(ids[0])
 ## Conversions
 
 Values may convert to other types according to .NET rules. Implicit conversions
-include identity, literal types to their underlying primitive type, `null` to any
-nullable type, lifting value types to their nullable counterpart, widening numeric
-conversions, reference conversions to base types or interfaces, boxing of value
-types, and conversions to a matching branch of a union. Narrowing or otherwise
-unsafe conversions require an explicit cast. See
+include identity, literal types to their underlying primitive type (which also
+inherit the underlying type's widening behaviour—`"Foo"` is assignable to
+`string`, and `42` may widen to `long`), `null` to any nullable type, lifting
+value types to their nullable counterpart, widening numeric conversions,
+reference conversions to base types or interfaces, boxing of value types, and
+conversions to a matching branch of a union. Narrowing or otherwise unsafe
+conversions require an explicit cast. See
 [type compatibility](../proposals/type-compatibility.md) for a detailed list of
 conversion forms.
 
