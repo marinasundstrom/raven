@@ -23,6 +23,8 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
 
     public bool IsType => true;
 
+    public bool IsValueType => UnderlyingType.IsValueType;
+
     public INamedTypeSymbol? BaseType { get; }
 
     public TypeKind TypeKind { get; }

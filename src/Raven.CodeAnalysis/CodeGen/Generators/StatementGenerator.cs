@@ -331,6 +331,35 @@ internal class StatementGenerator : Generator
             if (localBuilder is null)
                 return;
 
+            if (localSymbol.Type is NullableTypeSymbol nullableLocal && nullableLocal.UnderlyingType.IsValueType)
+            {
+                var localClr = ResolveClrType(localSymbol.Type);
+                if (expressionType?.TypeKind == TypeKind.Null)
+                {
+                    ILGenerator.Emit(OpCodes.Pop);
+                    ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
+                    ILGenerator.Emit(OpCodes.Initobj, localClr);
+                    return;
+                }
+
+                if (expressionType is NullableTypeSymbol)
+                {
+                    ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+                    return;
+                }
+
+                var underlyingClr = ResolveClrType(nullableLocal.UnderlyingType);
+                var temp = ILGenerator.DeclareLocal(underlyingClr);
+                ILGenerator.Emit(OpCodes.Stloc, temp);
+                ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
+                ILGenerator.Emit(OpCodes.Ldloc, temp);
+
+                var ctor = localClr.GetConstructor(new[] { underlyingClr })
+                    ?? throw new InvalidOperationException($"Missing Nullable constructor for {localClr}");
+                ILGenerator.Emit(OpCodes.Call, ctor);
+                return;
+            }
+
             if (expressionType is not null &&
                 localSymbol.Type is not null &&
                 expressionType.IsValueType &&

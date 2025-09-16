@@ -21,9 +21,11 @@ public static class TypeSymbolExtensionsForCodeGen
         if (typeSymbol is NullableTypeSymbol nullableType)
         {
             var underlying = nullableType.UnderlyingType.GetClrType(codeGen);
-            if (nullableType.UnderlyingType.IsValueType)
-                return typeof(Nullable<>).MakeGenericType(underlying);
-            return underlying;
+            if (!nullableType.UnderlyingType.IsValueType)
+                return underlying;
+
+            var nullableDefinition = GetMetadataNullableType(codeGen.Compilation);
+            return nullableDefinition.MakeGenericType(underlying);
         }
 
         if (typeSymbol is PENamedTypeSymbol namedTypeSymbol)
@@ -121,12 +123,21 @@ public static class TypeSymbolExtensionsForCodeGen
             var clr = common.GetClrType(codeGen);
 
             if (union.Types.Any(t => t.TypeKind == TypeKind.Null) && common.IsValueType)
-                return typeof(Nullable<>).MakeGenericType(clr);
+            {
+                var nullableDefinition = GetMetadataNullableType(compilation);
+                return nullableDefinition.MakeGenericType(clr);
+            }
 
             return clr;
         }
 
         throw new NotSupportedException($"Unsupported type symbol: {typeSymbol}");
+    }
+
+    private static Type GetMetadataNullableType(Compilation compilation)
+    {
+        return compilation.CoreAssembly.GetType("System.Nullable`1")
+            ?? throw new InvalidOperationException("System.Nullable`1 not found in the core assembly.");
     }
 
     private static Type GetSpecialClrType(SpecialType specialType, Compilation compilation)
