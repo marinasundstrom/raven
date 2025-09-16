@@ -265,6 +265,12 @@ internal class ExpressionGenerator : Generator
         if (conversion.IsIdentity)
             return;
 
+        if (to is NullableTypeSymbol nullableTo && nullableTo.UnderlyingType.IsValueType)
+        {
+            EmitNullableConversion(from, nullableTo);
+            return;
+        }
+
         if (conversion.IsNumeric)
         {
             EmitNumericConversion(to);
@@ -298,6 +304,41 @@ internal class ExpressionGenerator : Generator
         }
 
         throw new NotSupportedException("Unsupported conversion");
+    }
+
+    private void EmitNullableConversion(ITypeSymbol from, NullableTypeSymbol nullableTo)
+    {
+        if (from is NullableTypeSymbol fromNullable)
+        {
+            if (SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, nullableTo.UnderlyingType))
+                return;
+
+            throw new NotSupportedException("Unsupported nullable conversion");
+        }
+
+        var underlying = nullableTo.UnderlyingType;
+
+        var underlyingClr = ResolveClrType(underlying);
+        var nullableClr = ResolveClrType(nullableTo);
+
+        var valueLocal = ILGenerator.DeclareLocal(underlyingClr);
+        var nullableLocal = ILGenerator.DeclareLocal(nullableClr);
+
+        if (!SymbolEqualityComparer.Default.Equals(from, underlying))
+        {
+            var underlyingConversion = Compilation.ClassifyConversion(from, underlying);
+            EmitConversion(from, underlying, underlyingConversion);
+        }
+
+        ILGenerator.Emit(OpCodes.Stloc, valueLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, nullableLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+
+        var ctor = nullableClr.GetConstructor(new[] { underlyingClr })
+            ?? throw new InvalidOperationException($"Missing Nullable constructor for {nullableClr}");
+
+        ILGenerator.Emit(OpCodes.Call, ctor);
+        ILGenerator.Emit(OpCodes.Ldloc, nullableLocal);
     }
 
     private void EmitNumericConversion(ITypeSymbol to)

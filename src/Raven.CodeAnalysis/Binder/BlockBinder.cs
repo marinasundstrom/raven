@@ -138,14 +138,20 @@ partial class BlockBinder : Binder
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
 
             if (type.TypeKind != TypeKind.Error &&
-                boundInitializer.Type!.TypeKind != TypeKind.Error &&
-                !IsAssignable(type, boundInitializer.Type!))
+                boundInitializer.Type!.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(
-                    boundInitializer.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    initializer.Value.GetLocation());
-                boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
+                if (!IsAssignable(type, boundInitializer.Type!, out var conversion))
+                {
+                    _diagnostics.ReportCannotAssignFromTypeToType(
+                        boundInitializer.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        initializer.Value.GetLocation());
+                    boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
+                }
+                else
+                {
+                    boundInitializer = ApplyConversion(boundInitializer, type, conversion);
+                }
             }
         }
 
@@ -296,18 +302,27 @@ partial class BlockBinder : Binder
             if (expr is null)
             {
                 var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
-                if (!IsAssignable(method.ReturnType, unit))
+                if (!IsAssignable(method.ReturnType, unit, out _))
                     _diagnostics.ReportCannotConvertFromTypeToType(
                         unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         returnStatement.GetLocation());
             }
-            else if (expr.Type is not null && !IsAssignable(method.ReturnType, expr.Type))
+            else if (expr.Type is not null &&
+                     expr.Type.TypeKind != TypeKind.Error &&
+                     method.ReturnType.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
-                    expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    returnStatement.Expression!.GetLocation());
+                if (!IsAssignable(method.ReturnType, expr.Type, out var conversion))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        returnStatement.Expression!.GetLocation());
+                }
+                else
+                {
+                    expr = ApplyConversion(expr, method.ReturnType, conversion);
+                }
             }
         }
 
@@ -514,16 +529,25 @@ partial class BlockBinder : Binder
             {
                 var arg = tupleExpression.Arguments[i];
                 var boundExpr = BindExpression(arg.Expression);
-                elements.Add(boundExpr);
-
                 var expected = target.TupleElements[i].Type;
-                if (!IsAssignable(expected, boundExpr.Type!))
+                if (boundExpr.Type is not null &&
+                    boundExpr.Type.TypeKind != TypeKind.Error &&
+                    expected.TypeKind != TypeKind.Error)
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
-                        boundExpr.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        expected.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        arg.GetLocation());
+                    if (!IsAssignable(expected, boundExpr.Type!, out var conversion))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            boundExpr.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            expected.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            arg.GetLocation());
+                    }
+                    else
+                    {
+                        boundExpr = ApplyConversion(boundExpr, expected, conversion);
+                    }
                 }
+
+                elements.Add(boundExpr);
             }
 
             return new BoundTupleExpression(elements.ToImmutableArray(), target);
@@ -639,28 +663,37 @@ partial class BlockBinder : Binder
 
         var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
 
-        lambdaBinder.SetLambdaBody(bodyExpr);
-
-        var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
-
         var inferred = bodyExpr.Type ?? ReturnTypeCollector.Infer(bodyExpr);
 
         ITypeSymbol returnType;
         if (returnTypeSyntax is not null)
         {
             returnType = inferredReturnType;
-            if (inferred is not null && !IsAssignable(returnType, inferred))
+            if (inferred is not null &&
+                inferred.TypeKind != TypeKind.Error &&
+                returnType.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
-                    inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    syntax.ExpressionBody.GetLocation());
+                if (!IsAssignable(returnType, inferred, out var conversion))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.ExpressionBody.GetLocation());
+                }
+                else
+                {
+                    bodyExpr = ApplyConversion(bodyExpr, returnType, conversion);
+                }
             }
         }
         else
         {
             returnType = inferred ?? Compilation.ErrorTypeSymbol;
         }
+
+        lambdaBinder.SetLambdaBody(bodyExpr);
+
+        var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
 
         // 7. Construct delegate type (e.g., Func<...> or custom delegate)
         var delegateType = Compilation.CreateFunctionTypeSymbol(
@@ -1407,7 +1440,10 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
                 if (method.Parameters.Length == argExprs.Count)
-                    return new BoundInvocationExpression(method, argExprs.ToArray(), memberExpr.Receiver);
+                {
+                    var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax.ArgumentList.Arguments);
+                    return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
+                }
 
                 receiver = memberExpr.Receiver;
                 methodName = method.Name;
@@ -1458,7 +1494,10 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
                 if (method.Parameters.Length == argExprs.Count)
-                    return new BoundInvocationExpression(method, argExprs.ToArray(), memberExpr.Receiver);
+                {
+                    var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax.ArgumentList.Arguments);
+                    return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
+                }
 
                 receiver = memberExpr.Receiver;
                 methodName = method.Name;
@@ -1561,7 +1600,10 @@ partial class BlockBinder : Binder
             {
                 var method = OverloadResolver.ResolveOverload(candidateMethods, boundArguments, Compilation);
                 if (method is not null)
-                    return new BoundInvocationExpression(method, boundArguments.ToArray(), receiver);
+                {
+                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+                    return new BoundInvocationExpression(method, convertedArgs, receiver);
+                }
 
                 var nestedType = typeReceiver.Type
                     .GetMembers(methodName)
@@ -1611,7 +1653,8 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
             }
 
-            return new BoundInvocationExpression(method, boundArguments.ToArray(), receiver);
+            var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            return new BoundInvocationExpression(method, convertedArgs, receiver);
         }
 
         // No receiver -> try methods first, then constructors
@@ -1621,7 +1664,10 @@ partial class BlockBinder : Binder
         {
             var method = OverloadResolver.ResolveOverload(methodCandidates, boundArguments, Compilation);
             if (method is not null)
-                return new BoundInvocationExpression(method, boundArguments.ToArray(), null);
+            {
+                var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+                return new BoundInvocationExpression(method, convertedArgs, null);
+            }
 
             // Fall back to type if overload resolution failed
             var typeFallback = LookupType(methodName) as INamedTypeSymbol;
@@ -1653,7 +1699,8 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        return new BoundObjectCreationExpression(constructor, boundArguments, receiver);
+        var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+        return new BoundObjectCreationExpression(constructor, convertedArgs, receiver);
     }
 
     private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
@@ -1707,7 +1754,8 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        return new BoundObjectCreationExpression(constructor, boundArguments.ToArray());
+        var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+        return new BoundObjectCreationExpression(constructor, convertedArgs);
     }
 
     private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)
@@ -1834,10 +1882,26 @@ partial class BlockBinder : Binder
             var receiver = BindExpression(elementAccess.Expression);
             var args = elementAccess.ArgumentList.Arguments.Select(x => BindExpression(x.Expression)).ToArray();
 
-            if (receiver.Type?.TypeKind is TypeKind.Array)
+            if (receiver.Type is IArrayTypeSymbol arrayType)
             {
+                if (arrayType.ElementType.TypeKind != TypeKind.Error &&
+                    right.Type is not null &&
+                    right.Type.TypeKind != TypeKind.Error)
+                {
+                    if (!IsAssignable(arrayType.ElementType, right.Type, out var conversion))
+                    {
+                        _diagnostics.ReportCannotAssignFromTypeToType(
+                            right.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            arrayType.ElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            rightSyntax.GetLocation());
+                        return new BoundErrorExpression(arrayType.ElementType, null, BoundExpressionReason.TypeMismatch);
+                    }
+
+                    right = ApplyConversion(right, arrayType.ElementType, conversion);
+                }
+
                 return new BoundArrayAssignmentExpression(
-                    new BoundArrayAccessExpression(receiver, args, receiver.Type),
+                    new BoundArrayAccessExpression(receiver, args, arrayType.ElementType),
                     right);
             }
 
@@ -1850,6 +1914,22 @@ partial class BlockBinder : Binder
             }
 
             var access = new BoundIndexerAccessExpression(receiver, args, indexer);
+            if (indexer.Type.TypeKind != TypeKind.Error &&
+                right.Type is not null &&
+                right.Type.TypeKind != TypeKind.Error)
+            {
+                if (!IsAssignable(indexer.Type, right.Type, out var conversion))
+                {
+                    _diagnostics.ReportCannotAssignFromTypeToType(
+                        right.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        indexer.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        rightSyntax.GetLocation());
+                    return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                right = ApplyConversion(right, indexer.Type, conversion);
+            }
+
             return new BoundIndexerAssignmentExpression(access, right);
         }
 
@@ -1872,14 +1952,18 @@ partial class BlockBinder : Binder
             }
 
             if (localSymbol.Type.TypeKind != TypeKind.Error &&
-                right2.Type!.TypeKind != TypeKind.Error &&
-                !IsAssignable(localSymbol.Type, right2.Type!))
+                right2.Type!.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(
-                    right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    localSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    rightSyntax.GetLocation());
-                return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                if (!IsAssignable(localSymbol.Type, right2.Type!, out var conversion))
+                {
+                    _diagnostics.ReportCannotAssignFromTypeToType(
+                        right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        localSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        rightSyntax.GetLocation());
+                    return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                right2 = ApplyConversion(right2, localSymbol.Type, conversion);
             }
 
             return new BoundLocalAssignmentExpression(localSymbol, right2);
@@ -1894,14 +1978,18 @@ partial class BlockBinder : Binder
             }
 
             if (fieldSymbol.Type.TypeKind != TypeKind.Error &&
-                right2.Type!.TypeKind != TypeKind.Error &&
-                !IsAssignable(fieldSymbol.Type, right2.Type!))
+                right2.Type!.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(
-                    right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    fieldSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    rightSyntax.GetLocation());
-                return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                if (!IsAssignable(fieldSymbol.Type, right2.Type!, out var conversion))
+                {
+                    _diagnostics.ReportCannotAssignFromTypeToType(
+                        right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        fieldSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        rightSyntax.GetLocation());
+                    return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                right2 = ApplyConversion(right2, fieldSymbol.Type, conversion);
             }
 
             return new BoundFieldAssignmentExpression(GetReceiver(left), fieldSymbol, right2);
@@ -1921,14 +2009,18 @@ partial class BlockBinder : Binder
             }
 
             if (propertySymbol.Type.TypeKind != TypeKind.Error &&
-                right2.Type!.TypeKind != TypeKind.Error &&
-                !IsAssignable(propertySymbol.Type, right2.Type!))
+                right2.Type!.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportCannotAssignFromTypeToType(
-                    right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    propertySymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    rightSyntax.GetLocation());
-                return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                if (!IsAssignable(propertySymbol.Type, right2.Type!, out var conversion))
+                {
+                    _diagnostics.ReportCannotAssignFromTypeToType(
+                        right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        propertySymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        rightSyntax.GetLocation());
+                    return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                right2 = ApplyConversion(right2, propertySymbol.Type, conversion);
             }
 
             return new BoundPropertyAssignmentExpression(GetReceiver(left), propertySymbol, right2);
@@ -1961,15 +2053,88 @@ partial class BlockBinder : Binder
         return left;
     }
 
-    protected bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)
+    protected bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType, out Conversion conversion)
     {
-        // Trivial exact match
-        if (SymbolEqualityComparer.Default.Equals(targetType, sourceType))
+        if (targetType.TypeKind == TypeKind.Error || sourceType.TypeKind == TypeKind.Error)
+        {
+            conversion = new Conversion(isImplicit: true, isIdentity: true);
             return true;
+        }
 
-        // Allow implicit conversions, e.g., int -> double
-        var conversion = Compilation.ClassifyConversion(sourceType, targetType);
-        return conversion.IsImplicit;
+        conversion = Compilation.ClassifyConversion(sourceType, targetType);
+        return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private BoundExpression ApplyConversion(BoundExpression expression, ITypeSymbol targetType, Conversion conversion)
+    {
+        if (!conversion.Exists || expression is BoundErrorExpression)
+            return expression;
+
+        if (targetType.TypeKind == TypeKind.Error)
+            return expression;
+
+        if (conversion.IsIdentity)
+        {
+            if (expression is BoundLiteralExpression literal &&
+                literal.Kind == BoundLiteralExpressionKind.NullLiteral &&
+                !SymbolEqualityComparer.Default.Equals(literal.GetConvertedType(), targetType))
+            {
+                return new BoundLiteralExpression(literal.Kind, literal.Value, literal.Type, targetType);
+            }
+
+            return expression;
+        }
+
+        if (expression is BoundLiteralExpression literalNull &&
+            literalNull.Kind == BoundLiteralExpressionKind.NullLiteral)
+        {
+            return new BoundLiteralExpression(literalNull.Kind, literalNull.Value, literalNull.Type, targetType);
+        }
+
+        if (targetType is NullableTypeSymbol nullableTarget && !nullableTarget.UnderlyingType.IsValueType)
+            return expression;
+
+        return new BoundCastExpression(expression, targetType, conversion);
+    }
+
+    private BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundExpression> arguments, SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes)
+    {
+        var converted = new BoundExpression[arguments.Count];
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            var argument = arguments[i];
+            var parameter = parameters[i];
+
+            if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+            {
+                converted[i] = argument;
+                continue;
+            }
+
+            if (argument.Type is null ||
+                argument.Type.TypeKind == TypeKind.Error ||
+                parameter.Type.TypeKind == TypeKind.Error)
+            {
+                converted[i] = argument;
+                continue;
+            }
+
+            if (!IsAssignable(parameter.Type, argument.Type, out var conversion))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    argument.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    argumentSyntaxes[i].Expression.GetLocation());
+
+                converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
+                continue;
+            }
+
+            converted[i] = ApplyConversion(argument, parameter.Type, conversion);
+        }
+
+        return converted;
     }
 
     private BoundExpression BindCollectionExpression(CollectionExpressionSyntax syntax)
@@ -2017,22 +2182,48 @@ partial class BlockBinder : Binder
         {
             var elementType = arrayType.ElementType;
 
+            var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
+
             foreach (var element in elements)
             {
-                var sourceType = element is BoundSpreadElement spread
-                    ? GetSpreadElementType(spread.Expression.Type!)
-                    : element.Type!;
-
-                if (!IsAssignable(elementType, sourceType))
+                if (element is BoundSpreadElement spread)
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
-                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        syntax.GetLocation());
+                    var sourceType = GetSpreadElementType(spread.Expression.Type!);
+                    if (!IsAssignable(elementType, sourceType, out _))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.GetLocation());
+                    }
+
+                    converted.Add(element);
+                    continue;
                 }
+
+                var elementExprType = element.Type;
+                if (elementExprType is not null &&
+                    elementExprType.TypeKind != TypeKind.Error &&
+                    elementType.TypeKind != TypeKind.Error)
+                {
+                    if (!IsAssignable(elementType, elementExprType, out var conversion))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            elementExprType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.GetLocation());
+                    }
+                    else
+                    {
+                        converted.Add(ApplyConversion(element, elementType, conversion));
+                        continue;
+                    }
+                }
+
+                converted.Add(element);
             }
 
-            return new BoundCollectionExpression(arrayType, elements.ToImmutable());
+            return new BoundCollectionExpression(arrayType, converted.ToImmutable());
         }
 
         if (targetType is INamedTypeSymbol namedType)
@@ -2051,22 +2242,48 @@ partial class BlockBinder : Binder
 
             elementType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
+            var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
+
             foreach (var element in elements)
             {
-                var sourceType = element is BoundSpreadElement spread
-                    ? GetSpreadElementType(spread.Expression.Type!)
-                    : element.Type!;
-
-                if (!IsAssignable(elementType, sourceType))
+                if (element is BoundSpreadElement spread)
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
-                        sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        syntax.GetLocation());
+                    var sourceType = GetSpreadElementType(spread.Expression.Type!);
+                    if (!IsAssignable(elementType, sourceType, out _))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.GetLocation());
+                    }
+
+                    converted.Add(element);
+                    continue;
                 }
+
+                var elementExprType = element.Type;
+                if (elementExprType is not null &&
+                    elementExprType.TypeKind != TypeKind.Error &&
+                    elementType.TypeKind != TypeKind.Error)
+                {
+                    if (!IsAssignable(elementType, elementExprType, out var conversion))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            elementExprType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.GetLocation());
+                    }
+                    else
+                    {
+                        converted.Add(ApplyConversion(element, elementType, conversion));
+                        continue;
+                    }
+                }
+
+                converted.Add(element);
             }
 
-            return new BoundCollectionExpression(namedType, elements.ToImmutable(), addMethod);
+            return new BoundCollectionExpression(namedType, converted.ToImmutable(), addMethod);
         }
 
         // Fallback to array if target type couldn't be determined
