@@ -6,10 +6,16 @@ internal partial class BoundIsPatternExpression : BoundExpression
 {
     public BoundExpression Expression { get; }
     public BoundPattern Pattern { get; }
+    public ITypeSymbol BooleanType { get; }
 
-    public BoundIsPatternExpression(BoundExpression expression, BoundPattern pattern, BoundExpressionReason reason = BoundExpressionReason.None)
-        : base(expression.Type.ContainingAssembly.GetTypeByMetadataName("System.Boolean")!, null, reason)
+    public BoundIsPatternExpression(
+        BoundExpression expression,
+        BoundPattern pattern,
+        ITypeSymbol booleanType,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(booleanType, null, reason)
     {
+        BooleanType = booleanType;
         Expression = expression;
         Pattern = pattern;
     }
@@ -181,7 +187,9 @@ internal partial class BlockBinder
         var expression = BindExpression(syntax.Expression);
         var pattern = BindPattern(syntax.Pattern);
 
-        return new BoundIsPatternExpression(expression, pattern);
+        var booleanType = Compilation.GetSpecialType(SpecialType.System_Boolean);
+
+        return new BoundIsPatternExpression(expression, pattern, booleanType);
     }
 
     private BoundSingleVariableDesignator? BindSingleVariableDesignation(SingleVariableDesignationSyntax singleVariableDesignation)
