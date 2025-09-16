@@ -143,4 +143,56 @@ public class ConversionsTests : CompilationTestBase
         Assert.True(conversion.IsReference);
         Assert.False(conversion.IsAlias);
     }
+
+    [Fact]
+    public void VariableDeclaration_InsertsCast_ForImplicitNumericConversion()
+    {
+        const string source = "let value: double = 1";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+
+        var boundDeclarator = Assert.IsType<BoundVariableDeclarator>(model.GetBoundNode(declarator));
+        var initializer = Assert.IsType<BoundCastExpression>(boundDeclarator.Initializer);
+
+        Assert.Equal(SpecialType.System_Double, initializer.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, initializer.Expression.Type!.SpecialType);
+    }
+
+    [Fact]
+    public void AssignmentExpression_InsertsCast_ForImplicitNumericConversion()
+    {
+        const string source = """
+        let value: double = 0
+        value = 1
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var cast = Assert.IsType<BoundCastExpression>(boundAssignment.Expression.Right);
+
+        Assert.Equal(SpecialType.System_Double, cast.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, cast.Expression.Type!.SpecialType);
+    }
+
+    [Fact]
+    public void Assignment_NullLiteral_To_NullableReference_PreservesConvertedType()
+    {
+        const string source = """
+        let value: string? = ""
+        value = null
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var literal = Assert.IsType<BoundLiteralExpression>(boundAssignment.Expression.Right);
+        var converted = Assert.IsType<NullableTypeSymbol>(literal.GetConvertedType());
+
+        Assert.Equal(SpecialType.System_String, converted.UnderlyingType.SpecialType);
+    }
 }
