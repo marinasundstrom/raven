@@ -70,4 +70,35 @@ public class TypeSymbolInterfacesTests
         Assert.Contains(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
         Assert.Contains(c.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ib));
     }
+
+    [Fact]
+    public void Interface_WithBaseInterface_AllInterfacesIncludeBase()
+    {
+        var source = @"interface IA {} interface IB : IA {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
+        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
+
+        Assert.Contains(ib.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
+        Assert.Contains(ib.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
+        Assert.Empty(ia.AllInterfaces);
+    }
+
+    [Fact]
+    public void Interface_CyclicInheritance_AllInterfacesDoNotIncludeSelf()
+    {
+        var source = @"interface IA : IB {} interface IB : IA {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var ia = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IA")!;
+        var ib = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IB")!;
+
+        Assert.DoesNotContain(ia.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
+        Assert.Contains(ib.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
+        Assert.DoesNotContain(ib.AllInterfaces, i => SymbolEqualityComparer.Default.Equals(i, ib));
+        Assert.Contains(ib.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, ia));
+    }
 }

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -192,6 +194,7 @@ internal class TypeGenerator
                     }
             }
         }
+
     }
 
     public void EmitMemberILBodies()
@@ -217,5 +220,153 @@ internal class TypeGenerator
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
         return typeSymbol.GetClrType(CodeGen);
+    }
+
+    internal bool ImplementsInterfaceMethod(IMethodSymbol methodSymbol)
+    {
+        if (TypeSymbol is not INamedTypeSymbol named || named.TypeKind == TypeKind.Interface)
+            return false;
+
+        if (methodSymbol.IsStatic)
+            return false;
+
+        var interfaces = GetAllInterfaces(named);
+        if (interfaces.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var interfaceType in interfaces)
+        {
+            foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (SignaturesMatch(methodSymbol, interfaceMethod))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    internal void CompleteInterfaceImplementations()
+    {
+        if (TypeSymbol is INamedTypeSymbol named && named.TypeKind != TypeKind.Interface)
+        {
+            ImplementInterfaceMembers(named);
+        }
+    }
+
+    private void ImplementInterfaceMembers(INamedTypeSymbol named)
+    {
+        if (TypeBuilder is null)
+            return;
+
+        var interfaces = GetAllInterfaces(named);
+        if (interfaces.IsDefaultOrEmpty)
+            return;
+
+        foreach (var interfaceType in interfaces)
+        {
+            foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (!TryFindImplementation(interfaceMethod, out var implementation))
+                    continue;
+
+                if (!_methodGenerators.TryGetValue(implementation, out var implementationGenerator))
+                    continue;
+
+                if (implementationGenerator.MethodBase is not MethodBuilder methodBuilder)
+                    continue;
+
+                if (!TryGetInterfaceMethodInfo(interfaceMethod, out var interfaceMethodInfo))
+                    continue;
+
+                TypeBuilder.DefineMethodOverride(methodBuilder, interfaceMethodInfo);
+            }
+        }
+    }
+
+    private static ImmutableArray<INamedTypeSymbol> GetAllInterfaces(INamedTypeSymbol named)
+    {
+        if (!named.AllInterfaces.IsDefaultOrEmpty)
+            return named.AllInterfaces;
+
+        return named.Interfaces;
+    }
+
+    private bool TryFindImplementation(IMethodSymbol interfaceMethod, out IMethodSymbol implementation)
+    {
+        foreach (var candidate in TypeSymbol.GetMembers(interfaceMethod.Name).OfType<IMethodSymbol>())
+        {
+            if (SignaturesMatch(candidate, interfaceMethod))
+            {
+                implementation = candidate;
+                return true;
+            }
+        }
+
+        implementation = null!;
+        return false;
+    }
+
+    private bool TryGetInterfaceMethodInfo(IMethodSymbol interfaceMethod, out MethodInfo methodInfo)
+    {
+        if (interfaceMethod is SourceSymbol sourceSymbol)
+        {
+            if (CodeGen.GetMemberBuilder(sourceSymbol) is MethodInfo interfaceBuilder)
+            {
+                methodInfo = interfaceBuilder;
+                return true;
+            }
+        }
+        else if (interfaceMethod.ContainingType is not null)
+        {
+            var interfaceClrType = ResolveClrType(interfaceMethod.ContainingType);
+            var parameterTypes = interfaceMethod.Parameters
+                .Select(GetParameterClrType)
+                .ToArray();
+
+            var candidate = interfaceClrType.GetMethod(
+                interfaceMethod.Name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                types: parameterTypes,
+                modifiers: null);
+
+            if (candidate is not null)
+            {
+                methodInfo = candidate;
+                return true;
+            }
+        }
+
+        methodInfo = null!;
+        return false;
+    }
+
+    private Type GetParameterClrType(IParameterSymbol parameter)
+    {
+        var parameterType = ResolveClrType(parameter.Type);
+        return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In
+            ? parameterType.MakeByRefType()
+            : parameterType;
+    }
+
+    private static bool SignaturesMatch(IMethodSymbol candidate, IMethodSymbol interfaceMethod)
+    {
+        if (candidate.Parameters.Length != interfaceMethod.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < candidate.Parameters.Length; i++)
+        {
+            var candidateParameter = candidate.Parameters[i];
+            var interfaceParameter = interfaceMethod.Parameters[i];
+
+            if (candidateParameter.RefKind != interfaceParameter.RefKind)
+                return false;
+
+            if (!SymbolEqualityComparer.Default.Equals(candidateParameter.Type, interfaceParameter.Type))
+                return false;
+        }
+
+        return true;
     }
 }
