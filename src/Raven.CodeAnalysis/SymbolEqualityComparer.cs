@@ -32,6 +32,16 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (x.Kind != y.Kind)
             return false;
 
+        if (x is ITypeSymbol typeX && y is ITypeSymbol typeY)
+        {
+            if (typeX.SpecialType != SpecialType.None &&
+                typeX.SpecialType == typeY.SpecialType &&
+                IsSimpleSpecialType(typeX.SpecialType))
+            {
+                return true;
+            }
+        }
+
         if (x is IParameterSymbol px && y is IParameterSymbol py)
         {
             if (px.RefKind != py.RefKind)
@@ -67,6 +77,19 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         }
 
         return true;
+    }
+
+    private static bool IsSimpleSpecialType(SpecialType specialType)
+    {
+        return specialType is SpecialType.System_Boolean
+            or SpecialType.System_Char
+            or SpecialType.System_Double
+            or SpecialType.System_Int32
+            or SpecialType.System_Int64
+            or SpecialType.System_Object
+            or SpecialType.System_Single
+            or SpecialType.System_String
+            or SpecialType.System_Unit;
     }
 
     public int GetHashCode(ISymbol obj)
