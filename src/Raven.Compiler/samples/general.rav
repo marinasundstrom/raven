@@ -3,21 +3,28 @@
  * * * */
 
 import System.*
+import System.Collections.Generic.List<>
 import System.Text.*
 
-let list = [1, 42, 3]
+let list = List<int>()
+list.Add(1)
+list.Add(42)
+list.Add(3)
 var i = 0
 
 let stringBuilder = StringBuilder()
 
-while i < list.Length {
+while i < list.Count {
     let x = list[i]
     stringBuilder.AppendLine(x.ToString())
     if x > 3 {
         Console.WriteLine("Hello, World!")
         list[i] = 42
     }
-    i = { i + 1; }
+    i = {
+        let next = i + 1
+        next
+    }
 }
 
 Console.WriteLine(stringBuilder.ToString())
