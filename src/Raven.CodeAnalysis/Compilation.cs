@@ -18,6 +18,8 @@ public class Compilation
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, IAssemblySymbol>();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new Dictionary<Assembly, IAssemblySymbol>();
+    private bool _sourceTypesInitialized;
+    private bool _isPopulatingSourceTypes;
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -740,11 +742,34 @@ public class Compilation
     {
         EnsureSetup();
 
-        return _metadataReferenceSymbols
-            .Select(x => x.Value)
-            .Select(x => x.GetTypeByMetadataName(metadataName))
-            .Where(x => x is not null)
-            .FirstOrDefault();
+        if (!_sourceTypesInitialized && !_isPopulatingSourceTypes)
+        {
+            try
+            {
+                _isPopulatingSourceTypes = true;
+
+                foreach (var syntaxTree in _syntaxTrees)
+                    _ = GetSemanticModel(syntaxTree);
+
+                _sourceTypesInitialized = true;
+            }
+            finally
+            {
+                _isPopulatingSourceTypes = false;
+            }
+        }
+
+        if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
+            return sourceType;
+
+        foreach (var assembly in _metadataReferenceSymbols.Values)
+        {
+            var type = assembly.GetTypeByMetadataName(metadataName);
+            if (type is not null)
+                return type;
+        }
+
+        return null;
     }
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)

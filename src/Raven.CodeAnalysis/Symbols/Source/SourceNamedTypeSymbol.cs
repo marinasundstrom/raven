@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -47,12 +48,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
-        _allInterfaces ??=
-            _interfaces
-                .Concat(_interfaces.SelectMany(i => i.AllInterfaces))
-                .Concat(BaseType?.AllInterfaces ?? ImmutableArray<INamedTypeSymbol>.Empty)
-                .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
-                .ToImmutableArray();
+        _allInterfaces ??= ComputeAllInterfaces();
 
     public bool IsValueType => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum;
 
@@ -102,6 +98,44 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         _interfaces = interfaces.ToImmutableArray();
         _allInterfaces = null;
+    }
+
+    private ImmutableArray<INamedTypeSymbol> ComputeAllInterfaces()
+    {
+        if (_interfaces.IsDefaultOrEmpty && (BaseType?.AllInterfaces.IsDefaultOrEmpty ?? true))
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default)
+        {
+            this
+        };
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+
+        foreach (var interfaceType in _interfaces)
+            AddInterface(interfaceType);
+
+        if (BaseType is INamedTypeSymbol baseType)
+        {
+            foreach (var inherited in baseType.AllInterfaces)
+            {
+                if (seen.Add(inherited))
+                    builder.Add(inherited);
+            }
+        }
+
+        return builder.ToImmutable();
+
+        void AddInterface(INamedTypeSymbol interfaceType)
+        {
+            if (!seen.Add(interfaceType))
+                return;
+
+            builder.Add(interfaceType);
+
+            foreach (var inherited in interfaceType.Interfaces)
+                AddInterface(inherited);
+        }
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)

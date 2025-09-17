@@ -58,7 +58,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
-        TryConsumeTerminator(out var terminatorToken);
+        var terminatorToken = ConsumeOptionalTypeTerminator();
 
         if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
         {
@@ -555,5 +555,37 @@ internal class TypeDeclarationParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
 
         return BracketedParameterList(openBracketToken, List(parameterList.ToArray()), closeBracketToken);
+    }
+
+    private SyntaxToken ConsumeOptionalTypeTerminator()
+    {
+        var previous = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(true);
+
+        try
+        {
+            var current = PeekToken();
+
+            if (IsNewLineLike(current) || current.Kind == SyntaxKind.SemicolonToken)
+            {
+                return ReadToken();
+            }
+
+            if (current.Kind is SyntaxKind.EndOfFileToken or SyntaxKind.CloseBraceToken)
+            {
+                return Token(SyntaxKind.None);
+            }
+
+            return Token(SyntaxKind.None);
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(previous);
+        }
+    }
+
+    private static bool IsNewLineLike(SyntaxToken token)
+    {
+        return token.Kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken;
     }
 }
