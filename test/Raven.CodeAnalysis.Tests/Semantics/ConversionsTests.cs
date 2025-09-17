@@ -125,7 +125,7 @@ public class ConversionsTests : CompilationTestBase
     public void DerivedType_To_BaseType_IsImplicitReferenceConversion()
     {
         var source = """
-        class Base {}
+        open class Base {}
         class Derived : Base {}
         """;
 
