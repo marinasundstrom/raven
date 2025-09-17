@@ -3,8 +3,9 @@
  * * * */
 
 import System.*
+import System.Console.*
 import System.Collections.Generic.List<>
-import System.Text.*
+alias SB = System.Text.StringBuilder
 
 let list = List<int>()
 list.Add(1)
@@ -12,13 +13,13 @@ list.Add(42)
 list.Add(3)
 var i = 0
 
-let stringBuilder = StringBuilder()
+let stringBuilder = SB()
 
 while i < list.Count {
     let x = list[i]
     stringBuilder.AppendLine(x.ToString())
     if x > 3 {
-        Console.WriteLine("Hello, World!")
+        WriteLine("Hello, World!")
         list[i] = 42
     }
     i = {
@@ -27,4 +28,4 @@ while i < list.Count {
     }
 }
 
-Console.WriteLine(stringBuilder.ToString())
+WriteLine(stringBuilder.ToString())
