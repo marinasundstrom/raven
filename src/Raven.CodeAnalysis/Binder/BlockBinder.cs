@@ -203,18 +203,26 @@ partial class BlockBinder : Binder
     private static ImmutableArray<ITypeSymbol> RemoveRedundantUnionMembers(ImmutableArray<ITypeSymbol> members)
     {
         var filtered = ImmutableArray.CreateBuilder<ITypeSymbol>();
+        var hasNonLiteral = members.Any(member => member is not LiteralTypeSymbol);
 
         foreach (var member in members)
         {
-            if (member is LiteralTypeSymbol literal &&
-                members.Any(other => !ReferenceEquals(other, member) &&
-                                     SymbolEqualityComparer.Default.Equals(other, literal.UnderlyingType)))
+            var candidate = member;
+
+            if (member is LiteralTypeSymbol literal)
             {
-                continue;
+                if (hasNonLiteral)
+                    candidate = NormalizeInitializerType(literal.UnderlyingType);
+
+                if (members.Any(other => !ReferenceEquals(other, member) &&
+                                         SymbolEqualityComparer.Default.Equals(other, literal.UnderlyingType)))
+                {
+                    continue;
+                }
             }
 
-            if (!filtered.Any(existing => SymbolEqualityComparer.Default.Equals(existing, member)))
-                filtered.Add(member);
+            if (!filtered.Any(existing => SymbolEqualityComparer.Default.Equals(existing, candidate)))
+                filtered.Add(candidate);
         }
 
         return filtered.ToImmutable();
@@ -2287,13 +2295,82 @@ partial class BlockBinder : Binder
         }
 
         // Fallback to array if target type couldn't be determined
-        ITypeSymbol? inferredElementType = elements.Count > 0
-            ? (elements[0] is BoundSpreadElement firstSpread ? GetSpreadElementType(firstSpread.Expression.Type!) : elements[0].Type)
-            : Compilation.GetSpecialType(SpecialType.System_Object);
+        var inferredElementType = InferCollectionElementType(elements);
+        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType);
 
-        var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType!);
+        var convertedFallback = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
-        return new BoundCollectionExpression(fallbackArray, elements.ToImmutable());
+        foreach (var element in elements)
+        {
+            if (element is BoundSpreadElement)
+            {
+                convertedFallback.Add(element);
+                continue;
+            }
+
+            var elementExprType = element.Type;
+            if (elementExprType is not null &&
+                elementExprType.TypeKind != TypeKind.Error &&
+                inferredElementType.TypeKind != TypeKind.Error)
+            {
+                if (IsAssignable(inferredElementType, elementExprType, out var conversion))
+                {
+                    convertedFallback.Add(ApplyConversion(element, inferredElementType, conversion));
+                    continue;
+                }
+            }
+
+            convertedFallback.Add(element);
+        }
+
+        return new BoundCollectionExpression(fallbackArray, convertedFallback.ToImmutable());
+    }
+
+    private ITypeSymbol InferCollectionElementType(IEnumerable<BoundExpression> elements)
+    {
+        ITypeSymbol? inferred = null;
+
+        foreach (var element in elements)
+        {
+            ITypeSymbol? elementType = element switch
+            {
+                BoundSpreadElement spread when spread.Expression.Type is ITypeSymbol spreadType
+                    => GetSpreadElementType(spreadType),
+                _ => element.Type
+            };
+
+            if (elementType is null)
+                continue;
+
+            elementType = NormalizeInitializerType(elementType);
+
+            if (elementType.TypeKind == TypeKind.Error)
+                continue;
+
+            if (inferred is null)
+            {
+                inferred = elementType;
+                continue;
+            }
+
+            inferred = MergeInferredElementType(inferred, elementType);
+        }
+
+        return inferred ?? Compilation.GetSpecialType(SpecialType.System_Object);
+    }
+
+    private ITypeSymbol MergeInferredElementType(ITypeSymbol current, ITypeSymbol candidate)
+    {
+        if (SymbolEqualityComparer.Default.Equals(current, candidate))
+            return current;
+
+        if (IsAssignable(current, candidate, out _))
+            return current;
+
+        if (IsAssignable(candidate, current, out _))
+            return candidate;
+
+        return Compilation.GetSpecialType(SpecialType.System_Object);
     }
 
     private ITypeSymbol GetSpreadElementType(ITypeSymbol type)
