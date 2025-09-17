@@ -40,7 +40,21 @@ internal class MethodGenerator
             .ToArray();
 
         MethodAttributes attributes = MethodAttributes.HideBySig | MethodAttributes.Public;
-        if (MethodSymbol.IsStatic)
+
+        if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet)
+            attributes |= MethodAttributes.SpecialName;
+
+        var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
+        if (isInterfaceMethod)
+        {
+            attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
+        }
+        else if (TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
+        {
+            attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
+        }
+
+        if (MethodSymbol.IsStatic && !isInterfaceMethod)
             attributes |= MethodAttributes.Static;
 
         if (MethodSymbol.IsConstructor && !MethodSymbol.IsNamedConstructor)
@@ -128,6 +142,11 @@ internal class MethodGenerator
 
     public void EmitBody()
     {
+        var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
+
+        if (isInterfaceMethod)
+            return;
+
         var bodyGenerator = new MethodBodyGenerator(this);
         bodyGenerator.Emit();
     }

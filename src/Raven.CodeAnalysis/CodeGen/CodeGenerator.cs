@@ -444,6 +444,11 @@ internal class CodeGenerator
         {
             typeGenerator.DefineMemberBuilders();
         }
+
+        foreach (var typeGenerator in _typeGenerators.Values)
+        {
+            typeGenerator.CompleteInterfaceImplementations();
+        }
     }
 
     private void CreateTypes()
