@@ -391,7 +391,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.QuestionToken)) // Conditional access
             {
-                var question = ReadToken();
+                var operatorToken = ReadToken();
                 ExpressionSyntax whenNotNull;
                 var next = PeekToken();
                 if (next.IsKind(SyntaxKind.DotToken))
@@ -426,7 +426,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                     whenNotNull = MemberBindingExpression(missingDot, missingName);
                 }
 
-                expr = ConditionalAccessExpression(expr, question, whenNotNull);
+                expr = ConditionalAccessExpression(expr, operatorToken, whenNotNull);
             }
             else
             {
