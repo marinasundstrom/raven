@@ -191,7 +191,7 @@ PrimaryExpression        ::= Literal
 
 Block                    ::= '{' {Statement} '}' ;
 
-IfExpression             ::= 'if' Expression Expression ['else' Expression] ;
+IfExpression             ::= 'if' Expression Expression 'else' Expression ;
 WhileExpression          ::= 'while' Expression Expression ;
 ForExpression            ::= 'for' 'each'? Identifier 'in' Expression Expression ;
 InterpolatedStringExpression ::= '"' {InterpolatedStringContent} '"' ;
