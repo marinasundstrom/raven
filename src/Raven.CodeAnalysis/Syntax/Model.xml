@@ -313,7 +313,7 @@
   </Node>
   <Node Name="ConditionalAccessExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />
-    <Slot Name="QuestionToken" Type="Token" />
+    <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="WhenNotNull" Type="Expression" />
   </Node>
   <Node Name="NameColon" Inherits="Node">
