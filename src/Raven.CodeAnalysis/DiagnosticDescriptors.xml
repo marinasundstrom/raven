@@ -160,6 +160,10 @@
     Title="Return statement not allowed here"
     Message="Return statements are not valid in expressions; use an implicit return instead"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1901" Identifier="IfExpressionRequiresElse"
+    Title="If expression requires an else clause"
+    Message="If expressions used as values must include an else clause"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1955" Identifier="NonInvocableMember" Title="Non-invocable member"
     Message="Non-invocable member '{memberName}' cannot be used like a method"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

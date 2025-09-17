@@ -798,14 +798,16 @@ partial class BlockBinder : Binder
             ? bb.BindExpression(ifExpression.Expression, _allowReturnsInExpression)
             : thenBinder.BindExpression(ifExpression.Expression);
 
-        BoundExpression? elseExpr = null;
-        if (ifExpression.ElseClause != null)
+        if (ifExpression.ElseClause is null)
         {
-            var elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
-            elseExpr = elseBinder is BlockBinder ebb
-                ? ebb.BindExpression(ifExpression.ElseClause.Expression, _allowReturnsInExpression)
-                : elseBinder.BindExpression(ifExpression.ElseClause.Expression);
+            _diagnostics.ReportIfExpressionRequiresElse(ifExpression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
         }
+
+        var elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
+        var elseExpr = elseBinder is BlockBinder ebb
+            ? ebb.BindExpression(ifExpression.ElseClause.Expression, _allowReturnsInExpression)
+            : elseBinder.BindExpression(ifExpression.ElseClause.Expression);
 
         return new BoundIfExpression(condition, thenExpr, elseExpr);
     }
