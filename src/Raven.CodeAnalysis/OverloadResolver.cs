@@ -94,12 +94,12 @@ internal sealed class OverloadResolver
                 }
                 else if (score == bestScore)
                 {
-                    if (IsMoreSpecific(method, bestMatch!, arguments))
+                    if (IsMoreSpecific(method, bestMatch!, arguments, compilation))
                     {
                         bestMatch = method;
                         ambiguous = false;
                     }
-                    else if (!IsMoreSpecific(bestMatch!, method, arguments))
+                    else if (!IsMoreSpecific(bestMatch!, method, arguments, compilation))
                     {
                         ambiguous = true;
                     }
@@ -110,7 +110,11 @@ internal sealed class OverloadResolver
         return ambiguous ? null : bestMatch;
     }
 
-    private static bool IsMoreSpecific(IMethodSymbol candidate, IMethodSymbol current, BoundExpression[] arguments)
+    private static bool IsMoreSpecific(
+        IMethodSymbol candidate,
+        IMethodSymbol current,
+        BoundExpression[] arguments,
+        Compilation compilation)
     {
         bool better = false;
         var candParams = candidate.Parameters;
@@ -118,12 +122,36 @@ internal sealed class OverloadResolver
 
         for (int i = 0; i < arguments.Length; i++)
         {
-            var argType = GetUnderlying(arguments[i].Type);
-            var candType = GetUnderlying(candParams[i].Type);
-            var currentType = GetUnderlying(currentParams[i].Type);
+            var argType = arguments[i].Type;
+            var candParamType = candParams[i].Type;
+            var currentParamType = currentParams[i].Type;
 
-            var candDist = GetInheritanceDistance(argType, candType);
-            var currDist = GetInheritanceDistance(argType, currentType);
+            if (argType is null)
+                continue;
+
+            if (argType.TypeKind == TypeKind.Null)
+            {
+                var candImplicit = IsImplicitConversion(compilation, candParamType, currentParamType);
+                var currentImplicit = IsImplicitConversion(compilation, currentParamType, candParamType);
+
+                if (candImplicit && !currentImplicit)
+                {
+                    better = true;
+                }
+                else if (!candImplicit && currentImplicit)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            var candType = GetUnderlying(candParamType);
+            var currentType = GetUnderlying(currentParamType);
+            var underlyingArgType = GetUnderlying(argType);
+
+            var candDist = GetInheritanceDistance(underlyingArgType, candType);
+            var currDist = GetInheritanceDistance(underlyingArgType, currentType);
 
             if (candDist < currDist)
                 better = true;
@@ -132,6 +160,12 @@ internal sealed class OverloadResolver
         }
 
         return better;
+    }
+
+    private static bool IsImplicitConversion(Compilation compilation, ITypeSymbol source, ITypeSymbol destination)
+    {
+        var conversion = compilation.ClassifyConversion(source, destination);
+        return conversion.Exists && conversion.IsImplicit;
     }
 
     private static ITypeSymbol GetUnderlying(ITypeSymbol type) => type switch
