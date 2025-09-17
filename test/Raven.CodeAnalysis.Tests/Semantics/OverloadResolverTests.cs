@@ -91,6 +91,36 @@ public sealed class OverloadResolverTests : CompilationTestBase
     }
 
     [Fact]
+    public void ResolveOverload_NullableArgumentPrefersNullableParameter()
+    {
+        var compilation = CreateInitializedCompilation();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+
+        var nullableArgumentType = new NullableTypeSymbol(
+            stringType,
+            compilation.Assembly,
+            null,
+            compilation.Assembly.GlobalNamespace,
+            Array.Empty<Location>());
+
+        var nullableParameterType = new NullableTypeSymbol(
+            stringType,
+            compilation.Assembly,
+            null,
+            compilation.Assembly.GlobalNamespace,
+            Array.Empty<Location>());
+
+        var nonNullable = CreateMethod(compilation, "NonNullable", stringType);
+        var nullable = CreateMethod(compilation, "Nullable", nullableParameterType);
+
+        var arguments = CreateArguments(new TestBoundExpression(nullableArgumentType));
+
+        var result = OverloadResolver.ResolveOverload([nonNullable, nullable], arguments, compilation);
+
+        Assert.Same(nullable, result);
+    }
+
+    [Fact]
     public void ResolveOverload_ReturnsNullWhenAmbiguous()
     {
         var compilation = CreateInitializedCompilation();
