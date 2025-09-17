@@ -808,11 +808,26 @@ open class Parent {}
 class Child : Parent {}
 ```
 
+If the base list contains additional types after the base class, each of those entries must be an interface that the class implem
+ents. When no base class is provided, the compiler implicitly uses `object` and treats the first entry as an interface instead:
+
+```raven
+class Worker : IDisposable, ILogger
+{
+    Dispose() -> () { /* ... */ }
+    Log(message: string) -> () { /* ... */ }
+}
+```
+
+Implementations are matched by name, parameter count, and `ref`/`out` modifiers. Each successfully matched member is emitted as a
+final override so the CLR records the implementation in the type's interface map. See [Interfaces](#interfaces) for interface decl
+aration rules and inheritance.
+
 If a derived class omits a constructor, the base class' parameterless constructor is invoked automatically. Access modifiers
 (`public`, `internal`, `protected`, `private`) apply as usual; `protected` members are accessible to derived classes.
 
 > **Limitations:** Only single inheritance is supported. Derived classes may currently chain only to parameterless base
-> constructors. Interfaces and abstract classes are planned for future versions.
+> constructors. Abstract base classes remain under design.
 
 ### Method overloading
 
@@ -835,7 +850,7 @@ Print("hi")
 ### Invocation operator
 
 Declaring a method named `self` makes instances of the type invocable with the
-call operator `()`.
+call operator `()`. 
 
 ```raven
 class Adder
@@ -849,6 +864,54 @@ let sum = add(1, 2) // calls self(1, 2)
 
 Invocation operators can themselves be overloaded by providing multiple `self`
 methods with different parameter signatures.
+
+## Interfaces
+
+`interface` declarations describe a contract that other types may implement. Interfaces are reference types; they emit as abstrac
+t CLR interfaces and cannot be instantiated directly.
+
+```raven
+interface ILogger
+{
+    Log(message: string) -> ()
+}
+```
+
+Interfaces may be declared at the top level, inside namespaces, or nested inside other types. Like classes, they support the same
+set of member declarations (methods, properties, indexers, and nested types). Interface members are treated as abstract requireme
+nts—the implementation is supplied by a conforming type. When an interface member uses accessors, a bare `;` accessor denotes an
+unimplemented accessor requirement (`get;`/`set;`).
+
+### Base interfaces
+
+An interface may inherit from other interfaces by listing them after a colon. The compiler resolves each entry to an interface ty
+pe and records the relationship so `AllInterfaces` exposes the full transitive closure. Non-interface types are ignored.
+
+```raven
+interface IAsyncLogger : ILogger, IDisposable {}
+```
+
+### Implementing interfaces
+
+Classes and structs implement interfaces by listing them in their base list. The optional class base (if any) must appear first,
+followed by one or more interfaces. Implementing types must provide members whose signatures match every required interface memb
+er—name, parameter count, parameter types (including by-reference modifiers), and return type must align. Raven records the match
+ing methods as final overrides and emits the necessary `InterfaceImpl` metadata so the CLR recognises the implementation.
+
+```raven
+class FileLogger : ILogger, IDisposable
+{
+    public Dispose() -> () { /* release resources */ }
+
+    public Log(message: string) -> ()
+    {
+        Console.WriteLine(message)
+    }
+}
+```
+
+If a type lists only interfaces, the compiler still emits `System.Object` as the base type before attaching the interface impleme
+ntations.
 
 ## Operators (precedence summary)
 
