@@ -493,11 +493,9 @@ public class Compilation
         if (destination is LiteralTypeSymbol)
             return Conversion.None;
 
-        if (SymbolEqualityComparer.Default.Equals(source, destination) &&
-            source is not NullableTypeSymbol &&
-            destination is not NullableTypeSymbol)
+        if (SymbolEqualityComparer.Default.Equals(source, destination))
         {
-            // Identity conversion
+            // Identity conversion (including nullable references)
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
