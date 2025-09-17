@@ -1,64 +1,136 @@
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
-public class SymbolEqualityComparer : IEqualityComparer<ISymbol>
+public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 {
-    public static SymbolEqualityComparer Default { get; } = new SymbolEqualityComparer();
+    public static SymbolEqualityComparer Default { get; } = new(includeNullability: true);
+
+    public static SymbolEqualityComparer IgnoringNullability { get; } = new(includeNullability: false);
+
+    private readonly bool _includeNullability;
+
+    public SymbolEqualityComparer(bool includeNullability = true)
+    {
+        _includeNullability = includeNullability;
+    }
 
     public bool Equals(ISymbol? x, ISymbol? y)
     {
-        if (x == null || y == null) return x == y;
+        if (ReferenceEquals(x, y))
+            return true;
 
-        // Compare kinds
-        if (x.Kind != y.Kind) return false;
+        if (x is null || y is null)
+            return false;
 
-        // Special handling for parameters to avoid recursive containment checks
+        x = Normalize(x);
+        y = Normalize(y);
+
+        if (ReferenceEquals(x, y))
+            return true;
+
+        if (x.Kind != y.Kind)
+            return false;
+
         if (x is IParameterSymbol px && y is IParameterSymbol py)
         {
             if (px.RefKind != py.RefKind)
                 return false;
 
-            return px.Type.Equals(py.Type, Default);
+            return Equals(px.Type, py.Type);
         }
 
-        // Compare names
-        if (x.Name != y.Name) return false;
-
-        // Compare containing namespaces
-        if (!Equals(x.ContainingNamespace?.ToDisplayString(), y.ContainingNamespace?.ToDisplayString()))
+        if (!string.Equals(x.Name, y.Name, StringComparison.Ordinal))
             return false;
 
-        // Compare containing symbols (e.g., enclosing types)
+        var namespaceX = x.ContainingNamespace?.ToDisplayString();
+        var namespaceY = y.ContainingNamespace?.ToDisplayString();
+        if (!string.Equals(namespaceX, namespaceY, StringComparison.Ordinal))
+            return false;
+
         if (!Equals(x.ContainingSymbol, y.ContainingSymbol))
             return false;
 
-        // Compare parameters (for methods)
         if (x is IMethodSymbol methodX && y is IMethodSymbol methodY)
         {
-            if (!methodX.Parameters.SequenceEqual((IEnumerable<ISymbol>)methodY.Parameters, Default))
+            if (!Equals(methodX.ReturnType, methodY.ReturnType))
+                return false;
+
+            if (methodX.Parameters.Length != methodY.Parameters.Length)
                 return false;
 
             for (int i = 0; i < methodX.Parameters.Length; i++)
             {
-                var paramX = methodX.Parameters[i];
-                var paramY = methodY.Parameters[i];
-                if (!paramX.Type.Equals(paramY.Type, Default))
+                if (!Equals(methodX.Parameters[i], methodY.Parameters[i]))
                     return false;
             }
         }
 
-        // Other checks as needed
         return true;
     }
 
     public int GetHashCode(ISymbol obj)
     {
-        if (obj == null) return 0;
+        if (obj is null)
+            return 0;
 
-        // Combine key fields into hash code
-        int hash = obj.Kind.GetHashCode();
-        hash = (hash * 31) + (obj.Name?.GetHashCode() ?? 0);
-        hash = (hash * 31) + (obj.ContainingNamespace?.ToDisplayString().GetHashCode() ?? 0);
-        hash = (hash * 31) + (obj.ContainingSymbol?.GetHashCode() ?? 0);
-        return hash;
+        obj = Normalize(obj);
+
+        var hash = new HashCode();
+        hash.Add(obj.Kind);
+        hash.Add(obj.Name, StringComparer.Ordinal);
+        hash.Add(obj.MetadataName, StringComparer.Ordinal);
+
+        var containingNamespace = obj.ContainingNamespace?.ToDisplayString();
+        if (containingNamespace is not null)
+            hash.Add(containingNamespace, StringComparer.Ordinal);
+
+        if (obj is IParameterSymbol parameterSymbol)
+        {
+            hash.Add(parameterSymbol.RefKind);
+            hash.Add(GetHashCode(parameterSymbol.Type));
+            return hash.ToHashCode();
+        }
+
+        if (obj is IMethodSymbol method)
+        {
+            hash.Add(GetHashCode(method.ReturnType));
+            hash.Add(method.Parameters.Length);
+
+            foreach (var param in method.Parameters)
+            {
+                hash.Add(param.RefKind);
+                hash.Add(GetHashCode(param.Type));
+            }
+        }
+
+        if (obj.ContainingSymbol is { } containingSymbol && obj is not ITypeParameterSymbol)
+        {
+            hash.Add(GetHashCode(containingSymbol));
+        }
+
+        return hash.ToHashCode();
+    }
+
+    private ISymbol Normalize(ISymbol symbol)
+    {
+        var current = symbol;
+
+        while (true)
+        {
+            if (current.IsAlias)
+            {
+                current = current.UnderlyingSymbol;
+                continue;
+            }
+
+            if (!_includeNullability && current is NullableTypeSymbol nullable)
+            {
+                current = nullable.UnderlyingType;
+                continue;
+            }
+
+            return current;
+        }
     }
 }
