@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -374,16 +375,67 @@ internal class CodeGenerator
     {
         var types = Compilation.Module.GlobalNamespace
             .GetAllMembersRecursive()
-            .OfType<ITypeSymbol>().Distinct();
+            .OfType<ITypeSymbol>()
+            .Where(t => t.DeclaringSyntaxReferences.Length > 0)
+            .ToArray();
 
         foreach (var typeSymbol in types)
         {
-            if (typeSymbol.DeclaringSyntaxReferences.Length == 0)
-                continue;
-            var generator = new TypeGenerator(this, typeSymbol);
-            _typeGenerators[typeSymbol] = generator;
-            generator.DefineTypeBuilder();
+            GetOrCreateTypeGenerator(typeSymbol);
         }
+
+        var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var visiting = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var typeSymbol in types)
+        {
+            EnsureTypeBuilderDefined(typeSymbol, visited, visiting);
+        }
+    }
+
+    private TypeGenerator GetOrCreateTypeGenerator(ITypeSymbol typeSymbol)
+    {
+        if (!_typeGenerators.TryGetValue(typeSymbol, out var generator))
+        {
+            generator = new TypeGenerator(this, typeSymbol);
+            _typeGenerators[typeSymbol] = generator;
+        }
+
+        return generator;
+    }
+
+    private void EnsureTypeBuilderDefined(ITypeSymbol typeSymbol, HashSet<ITypeSymbol> visited, HashSet<ITypeSymbol> visiting)
+    {
+        if (visited.Contains(typeSymbol))
+            return;
+
+        if (!visiting.Add(typeSymbol))
+            return;
+
+        if (!_typeGenerators.TryGetValue(typeSymbol, out var generator))
+        {
+            visiting.Remove(typeSymbol);
+            return;
+        }
+
+        if (generator.TypeBuilder is null && generator.Type is null && typeSymbol is INamedTypeSymbol named)
+        {
+            var baseType = named.BaseType;
+            if (baseType is not null && baseType.DeclaringSyntaxReferences.Length > 0)
+                EnsureTypeBuilderDefined(baseType, visited, visiting);
+
+            foreach (var interfaceType in named.Interfaces)
+            {
+                if (interfaceType.DeclaringSyntaxReferences.Length > 0)
+                    EnsureTypeBuilderDefined(interfaceType, visited, visiting);
+            }
+        }
+
+        if (generator.TypeBuilder is null)
+            generator.DefineTypeBuilder();
+
+        visiting.Remove(typeSymbol);
+        visited.Add(typeSymbol);
     }
 
     private void DefineMemberBuilders()
