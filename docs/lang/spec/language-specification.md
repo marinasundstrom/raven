@@ -655,76 +655,183 @@ participate in other type constructs such as unions or nullability.
 
 ### Union types
 
-Unions express multiple possible types (e.g., `int | string`).
-
-Union members are normalized: nested unions flatten, duplicates are removed,
-and order is irrelevant. `int | (string | int)` therefore simplifies to
-`int | string`.
-
-The special `null` type may appear as a union member, usually via control
-flow:
+Unions express multiple possible types (e.g., `int | string`). A union’s members are **normalized**: nested unions flatten, duplicates are removed, and order is irrelevant. For example, `int | (string | int)` simplifies to `int | string`.
 
 ```raven
-let maybe = if flag { 1 } else { null }
-// maybe is inferred as: int?
+let a: int | string
+let b = if flag { 1 } else { "one" }  // b : int | string
 ```
 
-If a union contains `null` and exactly one non-nullable type, it implicitly
-converts to that type's nullable form (`int | null` converts to `int?`). When
-inference combines literal types with their underlying primitive type, the
-result also collapses: `int | 42` becomes `int`, and adding `null` produces
-`int?`. Distinct literal types that do not share an underlying type remain as
-literal unions (`3 | 42` stays unchanged).
-Conversely, explicitly including a nullable type in a union—`string? | int`
-—is a compile-time error.
+#### Literal types in unions
 
-Explicit annotations follow the same rules:
+A **literal type** represents a single constant value of a primitive, string, bool, or enum type. Literal types may appear anywhere a type is expected and compose naturally with unions.
 
 ```raven
-func test(x: int | string) -> () { /* ... */ }
+let n: 1 | 2 | 3
+let s: "on" | "off" | "auto"
+let e: Grades.A | Grades.B
 ```
 
-Unions also arise naturally from control flow:
+**Normalization with literals**:
+
+* A literal type `L(c : B)` is a subtype of its base `B`. If a union contains both `B` and any of its literals, the literal members **collapse into** `B` *unless* the union has only literals of that base (a finite domain).
+
+  * `int | 42` → `int`
+  * `1 | 2` stays as `1 | 2`
+* Literal types of **different bases** remain distinct: `3 | 2L` (assuming `long`) stays as `int | long`.
+
+#### Nullability and `null`
+
+`null` may appear as a union member:
 
 ```raven
-let x = 3
-let y = if x > 2 { 40 + w; } else { true; }
-// y is inferred as: int | bool
+let maybe = if flag { 1 } else { null }  // int | null
 ```
 
-See [Union conversions](#union-conversions) for how union values interact with
-explicit target types and return annotations.
-
-Assigning to an explicitly typed union checks each member individually. The expression is accepted if it can convert to at least one member. Literal members compare against literal expressions by value:
+If a union contains `null` and exactly one non-nullable type `T`, it implicitly converts to `T?` (both in inference and explicit annotations):
 
 ```raven
-let x: "true" | 1 = 1   // ok
-let y: "true" | 1 = 2   // error: Cannot assign '2' to '"true" | 1'
-let z: "true" | int = 1 // ok
+let x: int? = maybe         // ok
+let y: string? | int        // error: explicit nullable types must not be unioned
 ```
 
-Diagnostic messages include the mismatched literal in keyword form. For example:
+#### Assignability and conversions
+
+Let `U = T1 | … | Tn` be a source union.
+
+* **Value → union**: An expression of type `S` may be assigned to `U` if `S` is assignable to **at least one** member `Ti`.
+* **Union → value**: `U` may be assigned to `S` only if **every** member `Ti` is assignable to `S`.
+* **Literal checking**: Assigning to a **finite literal union** requires the value to be a compile-time constant equal to one of the listed literals.
 
 ```raven
-let a: "true" | 1 = true
-// error: Cannot assign 'true' to '"true" | 1'
+let a: "true" | 1 = 1      // ok
+let b: "true" | 1 = 2      // error: 2 not permitted by '"true" | 1'
+let c: "yes" | "no" = "yes"  // ok
 ```
 
-Boolean literals appear lowercase (`true`/`false`) to align with their
-keywords, and string or character literals retain their quotes.
-
-Discrimination via `is`:
+When a union value is assigned or returned to an explicit target type, the compiler checks each constituent individually:
 
 ```raven
-if y is int a {
-    Console.WriteLine(a)
+let u = if flag { 0 } else { 1.0 }  // int | float
+
+let i: int = u       // error: float not assignable to int
+let o: object = u    // ok: both convert to object
+```
+
+#### Type inference with control flow
+
+Control-flow expressions that produce different types infer a union of those results. The union is normalized; literal branches collapse into their base if a non-literal of that base also flows.
+
+```raven
+let x = if flag { 42 } else { 3 }        // x : 42 | 3
+let y = if flag { 42 } else { parseInt() } // y : int   (42 collapses into int)
+```
+
+#### Pattern matching and flow-sensitive narrowing
+
+Literal and type patterns **narrow** the scrutinee within the matched region; non-taken paths get the complement.
+
+```raven
+let d: 1 | 2 | 3 | 4
+
+if d is 1 | 2 {
+    // d : 1 | 2
+} else {
+    // d : 3 | 4
 }
-else if y is bool b {
-    Console.WriteLine(b)
+
+if d == 3 {
+    // d : 3
+} else {
+    // d : 1 | 2 | 4
 }
 ```
 
-For how unions are represented in .NET metadata, see [implementation notes](dotnet-implementation.md#union-types).
+`match` expressions refine per arm using the pattern’s **accept set**; guards (`when`) refine only the arm’s body (exhaustiveness is still checked without assuming the guard holds).
+
+```raven
+let s: "on" | "off" | "auto"
+match s {
+    "on" | "auto" => Console.WriteLine("enabled")
+    "off"         => Console.WriteLine("disabled")
+} // exhaustive
+```
+
+**Exhaustiveness**:
+
+* If the declared scrutinee type is a **finite literal union**, all literals must be covered (or `_` used).
+* If it includes an **open** part (e.g., `int`, `string`, a class/interface), you must also cover the remainder via `_` or a suitable type pattern.
+
+Redundant arms (fully covered by previous arms) are reported as unreachable.
+
+#### Member access on unions (nominal CLR members only)
+
+A member access `u.M(...)` on `u : T1 | … | Tn` is permitted **only** when all element types share the **same CLR member origin** via a common base class or interface (same original definition/slot). This is purely **nominal**—extension methods and structural “duck typing” are not considered.
+
+* **What counts as common**: a method/property/indexer/event declared on the nearest common base class or on an interface implemented by **all** `Ti`, where each `Ti` inherits/overrides/implements that same original member.
+* **Overloads**: intersect overload sets by original definition; only the common overloads remain available.
+* **Properties**: a setter is available only if all elements have a setter; a getter only if all have a getter.
+
+Typing and lowering:
+
+```raven
+let msg = u.ToString()   // treat receiver as the ancestor that declares ToString
+// lower: ((Ancestor)u).ToString()
+```
+
+If any element **hides** the base member with `new` (different original), or an overload isn’t present on some element, the access is rejected with a diagnostic suggesting a cast or pattern match.
+
+Examples:
+
+```raven
+open class Animal { virtual Speak() -> string }
+class Dog : Animal { override Speak() -> "woof" }
+class Cat : Animal { override Speak() -> "meow" }
+
+let a: Dog | Cat
+let sound = a.Speak()    // ok via Animal.Speak
+```
+
+```raven
+class Base { virtual P: int { get; set; } }
+class D1 : Base { override P : int { get; set; } }
+class D2 : Base { override P : int { get; } }
+
+let u: D1 | D2
+let x = u.P      // ok (getter common)
+u.P = 3          // error (setter not common)
+```
+
+#### Operations on literal types
+
+Operations generally **widen** literals to their base types unless constant-folding applies:
+
+```raven
+let k: 2 | 42 = 2
+let z = k + 1       // z : int
+```
+
+Enum literals retain the enum type identity; matching respects the enum, not just underlying integral values.
+
+#### Summary of rules (normative)
+
+* Union normalization:
+
+  * Flatten, deduplicate; literal collapse into base only in the presence of that base.
+  * `null | T` with a single `T` converts to `T?`; explicit `T? | U` is invalid.
+* Assignability:
+
+  * `S → (T1 | … | Tn)` if `S → Ti` for some `i`.
+  * `(T1 | … | Tn) → S` if `Ti → S` for **all** `i`.
+  * Finite literal unions accept only matching constants.
+* Flow narrowing:
+
+  * `is`/`==` with literals narrows to the accept set in the then-branch and subtracts it in the else-branch; `match` arms behave analogously.
+* Member access:
+
+  * Allowed iff a single base/interface original member is common to **all** elements; overloads intersect by original definition; lower via an ancestor cast and virtual/interface call.
+
+For .NET representation and lowering strategies (switches, interface dispatch), see [implementation notes](dotnet-implementation.md#union-types).
 
 ### Nullable types
 
