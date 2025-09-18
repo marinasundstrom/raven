@@ -16,7 +16,7 @@ Major components:
 - Ignore the `test/Raven.CodeAnalysis.Samples.Tests` project.
 
 ## Build & Test
-Run all commands from the repository root unless noted:
+Run all commands from the repository root unless noted. If any test command runs for longer than two minutes without the process completing, consider it stuck:
 
 ```bash
 # Generate syntax nodes (run whenever working in Raven.CodeAnalysis or when Model.xml, Tokens.xaml, and NodeKinds.xml change)
