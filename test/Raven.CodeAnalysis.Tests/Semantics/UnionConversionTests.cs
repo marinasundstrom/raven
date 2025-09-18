@@ -120,6 +120,25 @@ class Baz {
     }
 
     [Fact]
+    public void UnitType_UsesKeywordInDiagnostic()
+    {
+        var code = """
+func test(flag: bool) {
+    let value: int = if flag {
+        ()
+    } else {
+        1
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("unit | int", "int")
+        ]);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void NumericLiteralNotInUnion_ProducesDiagnostic()
     {
         var code = "let x: \"true\" | 1 = 2";
