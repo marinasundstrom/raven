@@ -99,9 +99,24 @@ internal sealed class OverloadResolver
                         bestMatch = method;
                         ambiguous = false;
                     }
-                    else if (!IsMoreSpecific(bestMatch!, method, arguments, compilation))
+                    else if (IsMoreSpecific(bestMatch!, method, arguments, compilation))
                     {
-                        ambiguous = true;
+                        // keep existing best match
+                    }
+                    else
+                    {
+                        var candidatePreference = GetNullArgumentPreference(method, arguments);
+                        var currentPreference = GetNullArgumentPreference(bestMatch!, arguments);
+
+                        if (candidatePreference < currentPreference)
+                        {
+                            bestMatch = method;
+                            ambiguous = false;
+                        }
+                        else if (candidatePreference == currentPreference)
+                        {
+                            ambiguous = true;
+                        }
                     }
                 }
             }
@@ -166,6 +181,31 @@ internal sealed class OverloadResolver
     {
         var conversion = compilation.ClassifyConversion(source, destination);
         return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private static int GetNullArgumentPreference(IMethodSymbol method, BoundExpression[] arguments)
+    {
+        int preference = 0;
+        var parameters = method.Parameters;
+
+        for (int i = 0; i < arguments.Length; i++)
+        {
+            var argType = arguments[i].Type;
+            if (argType?.TypeKind != TypeKind.Null)
+                continue;
+
+            var parameterType = GetUnderlying(parameters[i].Type);
+            if (parameterType.SpecialType == SpecialType.System_String)
+            {
+                preference -= 10;
+            }
+            else if (parameterType.SpecialType == SpecialType.System_Object)
+            {
+                preference += 10;
+            }
+        }
+
+        return preference;
     }
 
     private static ITypeSymbol GetUnderlying(ITypeSymbol type) => type switch
