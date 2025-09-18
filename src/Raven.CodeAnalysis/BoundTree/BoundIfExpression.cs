@@ -1,4 +1,4 @@
-
+using System;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -22,9 +22,12 @@ internal partial class BoundIfExpression : BoundExpression
         var thenType = thenBranch.Type;
         var elseType = elseBranch?.Type;
 
-        if (elseType is not null && !SymbolEqualityComparer.Default.Equals(elseType, thenType))
-            return new UnionTypeSymbol([thenType, elseType], null, null, null, []);
+        if (thenType is null)
+            return elseType ?? throw new InvalidOperationException("If expression must have a type.");
 
-        return thenType!;
+        if (elseType is null || SymbolEqualityComparer.Default.Equals(elseType, thenType))
+            return thenType;
+
+        return TypeSymbolNormalization.NormalizeUnion(new[] { thenType, elseType });
     }
 }

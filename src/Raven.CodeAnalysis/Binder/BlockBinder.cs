@@ -131,7 +131,7 @@ partial class BlockBinder : Binder
         }
         else if (variableDeclarator.TypeAnnotation is null)
         {
-            type = NormalizeInitializerType(boundInitializer!.Type!);
+            type = TypeSymbolNormalization.NormalizeForInference(boundInitializer!.Type!);
         }
         else
         {
@@ -158,74 +158,6 @@ partial class BlockBinder : Binder
         var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer);
 
         return new BoundLocalDeclarationStatement([declarator]);
-    }
-
-    private static ITypeSymbol NormalizeInitializerType(ITypeSymbol type)
-    {
-        if (type is IUnionTypeSymbol union)
-        {
-            var members = ImmutableArray.CreateBuilder<ITypeSymbol>();
-
-            foreach (var member in union.Types)
-                AddNormalizedUnionMember(members, member);
-
-            var filtered = RemoveRedundantUnionMembers(members.ToImmutable());
-
-            if (filtered.Length == 1)
-                return NormalizeInitializerType(filtered[0]);
-
-            return new UnionTypeSymbol(filtered, null, null, null, []);
-        }
-
-        if (type is LiteralTypeSymbol literal)
-            return literal.UnderlyingType;
-
-        return type;
-    }
-
-    private static void AddNormalizedUnionMember(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol member)
-    {
-        switch (member)
-        {
-            case IUnionTypeSymbol nested:
-                foreach (var nestedMember in nested.Types)
-                    AddNormalizedUnionMember(builder, nestedMember);
-                break;
-            case LiteralTypeSymbol literal:
-                builder.Add(literal);
-                break;
-            default:
-                builder.Add(NormalizeInitializerType(member));
-                break;
-        }
-    }
-
-    private static ImmutableArray<ITypeSymbol> RemoveRedundantUnionMembers(ImmutableArray<ITypeSymbol> members)
-    {
-        var filtered = ImmutableArray.CreateBuilder<ITypeSymbol>();
-        var hasNonLiteral = members.Any(member => member is not LiteralTypeSymbol);
-
-        foreach (var member in members)
-        {
-            var candidate = member;
-
-            if (member is LiteralTypeSymbol literal)
-            {
-                if (hasNonLiteral)
-                    candidate = NormalizeInitializerType(literal.UnderlyingType);
-
-                if (members.Any(other => !ReferenceEquals(other, member) &&
-                                         SymbolEqualityComparer.Default.Equals(other, literal.UnderlyingType)))
-                {
-                    continue;
-                }
-            }
-
-            if (!filtered.Any(existing => SymbolEqualityComparer.Default.Equals(existing, candidate)))
-                filtered.Add(candidate);
-        }
-
-        return filtered.ToImmutable();
     }
 
     private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type)
@@ -2384,7 +2316,7 @@ partial class BlockBinder : Binder
             if (elementType is null)
                 continue;
 
-            elementType = NormalizeInitializerType(elementType);
+            elementType = TypeSymbolNormalization.NormalizeForInference(elementType);
 
             if (elementType.TypeKind == TypeKind.Error)
                 continue;
