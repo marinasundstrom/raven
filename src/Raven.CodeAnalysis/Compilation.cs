@@ -563,13 +563,13 @@ public class Compilation
             if (conversions.All(c => c.Exists))
             {
                 var isImplicit = conversions.All(c => c.IsImplicit);
-                var isReference = conversions.Any(c => c.IsReference);
-                var isBoxing = conversions.Any(c => c.IsBoxing);
                 var isAlias = conversions.Any(c => c.IsAlias);
+                var destinationIsValueType = destination.IsValueType;
+
                 return Finalize(new Conversion(
                     isImplicit: isImplicit,
-                    isReference: isReference,
-                    isBoxing: isBoxing,
+                    isReference: !destinationIsValueType,
+                    isUnboxing: destinationIsValueType,
                     isAlias: isAlias));
             }
 

@@ -221,4 +221,21 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         Assert.True(conversion.IsImplicit);
         Assert.False(conversion.IsBoxing);
     }
+
+    [Fact]
+    public void UnionOfLiteralInts_ConvertsToInt()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var fortyTwo = new LiteralTypeSymbol(intType, 42, compilation);
+        var thirteen = new LiteralTypeSymbol(intType, 13, compilation);
+        var union = new UnionTypeSymbol(new[] { fortyTwo, thirteen }, compilation.Assembly, null, null, []);
+
+        var conversion = compilation.ClassifyConversion(union, intType);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsUnboxing);
+        Assert.False(conversion.IsReference);
+    }
 }
