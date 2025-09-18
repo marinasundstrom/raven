@@ -197,17 +197,18 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
-    public void ConsoleWriteLine_WithNullLiteral_Chooses_StringOverload()
+    public void ConsoleWriteLine_WithNullLiteral_IsAmbiguous()
     {
         var (compilation, tree) = CreateCompilation("System.Console.WriteLine(null)");
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        var symbolInfo = model.GetSymbolInfo(invocation);
 
-        var param = Assert.IsType<NullableTypeSymbol>(symbol.Parameters[0].Type);
-        Assert.Equal(SpecialType.System_String, param.UnderlyingType.SpecialType);
+        Assert.Null(symbolInfo.Symbol);
+        Assert.Equal(CandidateReason.Ambiguous, symbolInfo.CandidateReason);
 
-        Assert.Empty(compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.CallIsAmbiguous, diagnostic.Descriptor);
     }
 
     [Fact]

@@ -1,17 +1,19 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
 internal sealed class OverloadResolver
 {
-    public static IMethodSymbol? ResolveOverload(
+    public static OverloadResolutionResult ResolveOverload(
         IEnumerable<IMethodSymbol> methods,
         BoundExpression[] arguments,
         Compilation compilation)
     {
         IMethodSymbol? bestMatch = null;
         int bestScore = int.MaxValue;
-        bool ambiguous = false;
+        ImmutableArray<IMethodSymbol>.Builder? ambiguous = null;
 
         foreach (var method in methods)
         {
@@ -84,30 +86,50 @@ internal sealed class OverloadResolver
                 score += conversionScore;
             }
 
-            if (allMatch)
+            if (!allMatch)
+                continue;
+
+            if (score < bestScore)
             {
-                if (score < bestScore)
-                {
-                    bestMatch = method;
-                    bestScore = score;
-                    ambiguous = false;
-                }
-                else if (score == bestScore)
-                {
-                    if (IsMoreSpecific(method, bestMatch!, arguments, compilation))
-                    {
-                        bestMatch = method;
-                        ambiguous = false;
-                    }
-                    else if (!IsMoreSpecific(bestMatch!, method, arguments, compilation))
-                    {
-                        ambiguous = true;
-                    }
-                }
+                bestMatch = method;
+                bestScore = score;
+                ambiguous = null;
+                continue;
             }
+
+            if (score > bestScore || bestMatch is null)
+                continue;
+
+            if (IsMoreSpecific(method, bestMatch, arguments, compilation))
+            {
+                bestMatch = method;
+                ambiguous = null;
+                continue;
+            }
+
+            if (IsMoreSpecific(bestMatch, method, arguments, compilation))
+                continue;
+
+            ambiguous ??= ImmutableArray.CreateBuilder<IMethodSymbol>();
+            AddCandidateIfMissing(ambiguous, bestMatch);
+            AddCandidateIfMissing(ambiguous, method);
         }
 
-        return ambiguous ? null : bestMatch;
+        if (ambiguous is { Count: > 0 })
+            return OverloadResolutionResult.Ambiguous(ambiguous.ToImmutable());
+
+        return new OverloadResolutionResult(bestMatch);
+    }
+
+    private static void AddCandidateIfMissing(ImmutableArray<IMethodSymbol>.Builder builder, IMethodSymbol candidate)
+    {
+        foreach (var existing in builder)
+        {
+            if (SymbolEqualityComparer.Default.Equals(existing, candidate))
+                return;
+        }
+
+        builder.Add(candidate);
     }
 
     private static bool IsMoreSpecific(
@@ -214,5 +236,35 @@ internal sealed class OverloadResolver
             return 5;
 
         return 10; // fallback or unspecified conversion
+    }
+}
+
+internal readonly struct OverloadResolutionResult
+{
+    public OverloadResolutionResult(IMethodSymbol? method)
+        : this(method, ImmutableArray<IMethodSymbol>.Empty)
+    {
+    }
+
+    private OverloadResolutionResult(IMethodSymbol? method, ImmutableArray<IMethodSymbol> ambiguousCandidates)
+    {
+        Method = method;
+        AmbiguousCandidates = ambiguousCandidates;
+    }
+
+    public IMethodSymbol? Method { get; }
+
+    public ImmutableArray<IMethodSymbol> AmbiguousCandidates { get; }
+
+    public bool Success => Method is not null && !IsAmbiguous;
+
+    public bool IsAmbiguous => !AmbiguousCandidates.IsDefaultOrEmpty && AmbiguousCandidates.Length > 0;
+
+    public static OverloadResolutionResult Ambiguous(ImmutableArray<IMethodSymbol> candidates)
+    {
+        if (candidates.IsDefault)
+            candidates = ImmutableArray<IMethodSymbol>.Empty;
+
+        return new OverloadResolutionResult(null, candidates);
     }
 }

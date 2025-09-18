@@ -1377,12 +1377,12 @@ partial class BlockBinder : Binder
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
 
-        var candidate = OverloadResolver.ResolveOverload(candidates, [left, right], Compilation);
+        var resolution = OverloadResolver.ResolveOverload(candidates, [left, right], Compilation);
 
-        if (candidate is null)
+        if (!resolution.Success)
             throw new InvalidOperationException("No matching Concat method found.");
 
-        return candidate;
+        return resolution.Method!;
     }
 
     private IMethodSymbol? ResolveUserDefinedOperator(SyntaxKind opKind, ITypeSymbol leftType, ITypeSymbol rightType)
@@ -1608,11 +1608,18 @@ partial class BlockBinder : Binder
 
             if (candidateMethods.Length > 0)
             {
-                var method = OverloadResolver.ResolveOverload(candidateMethods, boundArguments, Compilation);
-                if (method is not null)
+                var resolution = OverloadResolver.ResolveOverload(candidateMethods, boundArguments, Compilation);
+                if (resolution.Success)
                 {
+                    var method = resolution.Method!;
                     var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
                     return new BoundInvocationExpression(method, convertedArgs, receiver);
+                }
+
+                if (resolution.IsAmbiguous)
+                {
+                    _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
                 }
 
                 var nestedType = typeReceiver.Type
@@ -1656,15 +1663,22 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
-            var method = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
-            if (method is null)
+            var resolution = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
+            if (resolution.Success)
             {
-                _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                var method = resolution.Method!;
+                var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+                return new BoundInvocationExpression(method, convertedArgs, receiver);
             }
 
-            var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
-            return new BoundInvocationExpression(method, convertedArgs, receiver);
+            if (resolution.IsAmbiguous)
+            {
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+            }
+
+            _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
 
         // No receiver -> try methods first, then constructors
@@ -1672,11 +1686,18 @@ partial class BlockBinder : Binder
 
         if (methodCandidates.Length > 0)
         {
-            var method = OverloadResolver.ResolveOverload(methodCandidates, boundArguments, Compilation);
-            if (method is not null)
+            var resolution = OverloadResolver.ResolveOverload(methodCandidates, boundArguments, Compilation);
+            if (resolution.Success)
             {
+                var method = resolution.Method!;
                 var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
                 return new BoundInvocationExpression(method, convertedArgs, null);
+            }
+
+            if (resolution.IsAmbiguous)
+            {
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
             }
 
             // Fall back to type if overload resolution failed
@@ -1702,15 +1723,22 @@ partial class BlockBinder : Binder
         InvocationExpressionSyntax syntax,
         BoundExpression? receiver = null)
     {
-        var constructor = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation);
-        if (constructor is null)
+        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation);
+        if (resolution.Success)
         {
-            _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            var constructor = resolution.Method!;
+            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            return new BoundObjectCreationExpression(constructor, convertedArgs, receiver);
         }
 
-        var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
-        return new BoundObjectCreationExpression(constructor, convertedArgs, receiver);
+        if (resolution.IsAmbiguous)
+        {
+            _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, syntax.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Ambiguous);
+        }
+
+        _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
+        return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
     private BoundExpression BindObjectCreationExpression(ObjectCreationExpressionSyntax syntax)
@@ -1757,15 +1785,22 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
         // Overload resolution
-        var constructor = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation);
-        if (constructor == null)
+        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation);
+        if (resolution.Success)
         {
-            _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
-            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            var constructor = resolution.Method!;
+            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            return new BoundObjectCreationExpression(constructor, convertedArgs);
         }
 
-        var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
-        return new BoundObjectCreationExpression(constructor, convertedArgs);
+        if (resolution.IsAmbiguous)
+        {
+            _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, syntax.GetLocation());
+            return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Ambiguous);
+        }
+
+        _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
+        return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
     private BoundExpression BindConditionalAccessExpression(ConditionalAccessExpressionSyntax syntax)
@@ -1814,15 +1849,20 @@ partial class BlockBinder : Binder
                     }
                     else
                     {
-                        var method = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
-                        if (method is null)
+                        var resolution = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
+                        if (resolution.Success)
                         {
-                            _diagnostics.ReportNoOverloadForMethod(name, boundArguments.Length, invocation.GetLocation());
-                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                            whenNotNull = new BoundInvocationExpression(resolution.Method!, boundArguments, receiver);
+                        }
+                        else if (resolution.IsAmbiguous)
+                        {
+                            _diagnostics.ReportCallIsAmbiguous(name, resolution.AmbiguousCandidates, invocation.GetLocation());
+                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
                         }
                         else
                         {
-                            whenNotNull = new BoundInvocationExpression(method, boundArguments, receiver);
+                            _diagnostics.ReportNoOverloadForMethod(name, boundArguments.Length, invocation.GetLocation());
+                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
                         }
                     }
                     break;
