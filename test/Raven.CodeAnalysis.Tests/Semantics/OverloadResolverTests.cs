@@ -30,7 +30,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var result = OverloadResolver.ResolveOverload([identity, numeric], arguments, compilation);
 
-        Assert.Same(identity, result);
+        Assert.True(result.Success);
+        Assert.Same(identity, result.Method);
     }
 
     [Fact]
@@ -48,7 +49,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var result = OverloadResolver.ResolveOverload([numeric, boxing], arguments, compilation);
 
-        Assert.Same(numeric, result);
+        Assert.True(result.Success);
+        Assert.Same(numeric, result.Method);
     }
 
     [Fact]
@@ -68,7 +70,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var result = OverloadResolver.ResolveOverload([stream, obj], arguments, compilation);
 
-        Assert.Same(stream, result);
+        Assert.True(result.Success);
+        Assert.Same(stream, result.Method);
     }
 
     [Fact]
@@ -87,7 +90,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var result = OverloadResolver.ResolveOverload([identity, numeric], arguments, compilation);
 
-        Assert.Same(identity, result);
+        Assert.True(result.Success);
+        Assert.Same(identity, result.Method);
     }
 
     [Fact]
@@ -117,7 +121,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var result = OverloadResolver.ResolveOverload([nonNullable, nullable], arguments, compilation);
 
-        Assert.Same(nullable, result);
+        Assert.True(result.Success);
+        Assert.Same(nullable, result.Method);
     }
 
     [Fact]
@@ -135,7 +140,10 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var result = OverloadResolver.ResolveOverload([toLong, toDouble], arguments, compilation);
 
-        Assert.Null(result);
+        Assert.True(result.IsAmbiguous);
+        Assert.False(result.Success);
+        Assert.Contains(toLong, result.AmbiguousCandidates, SymbolEqualityComparer.Default);
+        Assert.Contains(toDouble, result.AmbiguousCandidates, SymbolEqualityComparer.Default);
     }
 
     protected override MetadataReference[] GetMetadataReferences()
