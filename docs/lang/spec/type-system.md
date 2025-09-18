@@ -66,11 +66,12 @@ introduced.
 
 When a literal is assigned to a target whose type is inferred—such as a
 variable declaration without an explicit type annotation—the literal widens to
-its underlying primitive type. When inference gathers multiple literal values
-into a union (for example, via conditional branches), those literal members are
-preserved so the inferred union reports the exact set of constants that may
-flow to that location. This keeps single-literal inference in line with other
-languages that treat `let x = 1` as `int` while still modeling literal unions.
+its underlying primitive type. When inference gathers multiple results into a
+union (for example, via conditional branches), it normalizes the members so the
+union only reports distinct possibilities. Literal members collapse into their
+underlying type when a non-literal of that type also flows to the location,
+while disjoint literal values remain literal to preserve the precise set of
+constants.
 
 ```raven
 let yes: "yes" = "yes"

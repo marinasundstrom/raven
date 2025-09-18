@@ -189,12 +189,14 @@ let pet = if flag { Dog() } else { Cat() }
 ```
 
 Literal expressions infer the underlying primitive type when used to initialize
-`let` or `var` bindings. When multiple literal values flow into an inferred
-union—such as the branches of an `if` expression—the resulting union keeps each
-literal member so the type reflects the precise set of constants that may be
-produced. To retain a literal's singleton type for a single value, an explicit
-annotation is required. Literal types are subset types of their underlying
+`let` or `var` bindings. Literal types are subset types of their underlying
 primitive, so a literal like `1` can be used wherever an `int` is expected.
+When inference gathers multiple results—such as the branches of an `if`
+expression—it normalizes the union before exposing it. Literal members collapse
+to their underlying type when a non-literal of the same type also flows to the
+branch, so the union reflects only the distinct possibilities that can escape.
+To retain a literal's singleton type for a single value, an explicit annotation
+is required.
 
 ```raven
 var i = 0       // i : int
@@ -202,18 +204,35 @@ let j = 0       // j : int
 var k: 1 = 1    // k : 1
 ```
 
-Control-flow expressions participate in the same inference. An `if` expression whose branches produce different types infers a union of those results:
+Control-flow expressions participate in the same inference. An `if` expression
+whose branches produce different types infers a union of those results. The
+union is normalized so redundant members collapse away while distinct literal
+branches remain precise:
+
+#### Collapsing branch unions
 
 ```raven
-let result = if a > b { false } else { 42 }
-// result : false | 42
+let x: int = 3
+let value = if x > 2 { 42 } else { x }
+// value : int          (literal 42 collapses into the `int` branch)
 
-let x = 42        // x : int
-let result2 = if a > b { false } else { x }
-// result2 : false | int
+let digits = if x > 2 { 1 } else { 2 }
+// digits : 1 | 2       (distinct literal branches remain literal)
+
+let other: long = 0
+let ambiguous = if x > 2 { other } else { 42 }
+// ambiguous : int | long
+// let target: int = ambiguous  // error: not every branch converts to int
 ```
 
-Here each branch contributes its inferred type to the union. Because the `else` branch is the literal `42`, the union preserves that literal member. When the branch expression flows through a variable such as `x : int`, the union widens accordingly.
+Each branch contributes its inferred type to the union. Because the `else`
+branch in the first example is the literal `42`, and the other branch produces
+an `int`, the literal collapses into the `int` branch. When all branches are
+distinct literals, the union records them individually so downstream pattern
+matching can reason about the precise set of constants. When inference observes
+multiple primitive types, the union retains each one. Assigning that union to a
+single numeric type triggers a diagnostic because not every branch converts to
+the target.
 
 Numeric literals choose an underlying primitive type. Integer literals default
 to `int` but upgrade to `long` when the value exceeds the `int` range.
@@ -647,11 +666,15 @@ flow:
 
 ```raven
 let maybe = if flag { 1 } else { null }
-// maybe is inferred as: int | null
+// maybe is inferred as: int?
 ```
 
 If a union contains `null` and exactly one non-nullable type, it implicitly
-converts to that type's nullable form (`int | null` converts to `int?`).
+converts to that type's nullable form (`int | null` converts to `int?`). When
+inference combines literal types with their underlying primitive type, the
+result also collapses: `int | 42` becomes `int`, and adding `null` produces
+`int?`. Distinct literal types that do not share an underlying type remain as
+literal unions (`3 | 42` stays unchanged).
 Conversely, explicitly including a nullable type in a union—`string? | int`
 —is a compile-time error.
 

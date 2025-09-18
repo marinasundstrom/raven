@@ -209,6 +209,65 @@ let x = if true { "true" } else { 1 }
     }
 
     [Fact]
+    public void IfExpression_WithMixedNumericBranches_InferredUnderlyingType()
+    {
+        var code = """
+let other = 0
+let value = if true { other } else { 42 }
+""";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarators[1])!;
+
+        Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
+    }
+
+    [Fact]
+    public void IfExpression_WithNullBranch_InferredNullableValueType()
+    {
+        var code = """
+let other = 0
+let value = if true { other } else { null }
+""";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarators[1])!;
+        var nullable = Assert.IsType<NullableTypeSymbol>(local.Type);
+
+        Assert.Equal(SpecialType.System_Int32, nullable.UnderlyingType.SpecialType);
+    }
+
+    [Fact]
+    public void IfExpression_WithNullReferenceBranch_InferredNullableReferenceType()
+    {
+        var code = """
+let other = "hi"
+let value = if true { other } else { null }
+""";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarators[1])!;
+        var nullable = Assert.IsType<NullableTypeSymbol>(local.Type);
+
+        Assert.Equal(SpecialType.System_String, nullable.UnderlyingType.SpecialType);
+    }
+
+    [Fact]
     public void BinaryExpression_StringLiteralConcatenation_ReturnsLiteralType()
     {
         var code = "let greeting: \"Hello, World!\" = \"Hello\" + \", World!\"";

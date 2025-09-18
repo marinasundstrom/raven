@@ -100,9 +100,11 @@ internal static class ReturnTypeCollector
         {
             if (_types.Count == 0)
                 return null;
+
             if (_types.Count == 1)
-                return _types.First();
-            return new UnionTypeSymbol(_types, null, null, null, []);
+                return TypeSymbolNormalization.NormalizeForInference(_types.First());
+
+            return TypeSymbolNormalization.NormalizeUnion(_types);
         }
     }
 }
