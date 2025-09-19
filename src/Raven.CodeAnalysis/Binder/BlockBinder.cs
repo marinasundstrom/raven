@@ -431,6 +431,7 @@ partial class BlockBinder : Binder
             ForExpressionSyntax forExpression => BindForExpression(forExpression),
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
+            MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
@@ -719,6 +720,39 @@ partial class BlockBinder : Binder
 
         var resultType = new NullableTypeSymbol(targetType, null, null, null, []);
         return new BoundAsExpression(expression, resultType, conversion);
+    }
+
+    private BoundExpression BindMatchExpression(MatchExpressionSyntax matchExpression)
+    {
+        var scrutinee = BindExpression(matchExpression.Expression);
+
+        var armBuilder = ImmutableArray.CreateBuilder<BoundMatchArm>();
+
+        foreach (var arm in matchExpression.Arms)
+        {
+            _scopeDepth++;
+            var depth = _scopeDepth;
+
+            var pattern = BindPattern(arm.Pattern);
+
+            BoundExpression? guard = null;
+            if (arm.WhenClause is { } whenClause)
+                guard = BindExpression(whenClause.Condition);
+
+            var expression = BindExpression(arm.Expression, allowReturn: _allowReturnsInExpression);
+
+            foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+                _locals.Remove(name);
+
+            _scopeDepth--;
+
+            armBuilder.Add(new BoundMatchArm(pattern, guard, expression));
+        }
+
+        var resultType = TypeSymbolNormalization.NormalizeUnion(
+            armBuilder.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
+
+        return new BoundMatchExpression(scrutinee, armBuilder.ToImmutable(), resultType);
     }
 
     private BoundExpression BindIfExpression(IfExpressionSyntax ifExpression)
