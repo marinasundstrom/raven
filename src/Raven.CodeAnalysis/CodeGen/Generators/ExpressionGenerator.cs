@@ -500,7 +500,14 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);    // if not, jump to false
 
                 ILGenerator.Emit(OpCodes.Unbox_Any, clrType);      // unbox value
-                ILGenerator.Emit(OpCodes.Stloc, patternLocal);     // store into pattern variable
+                if (patternLocal is not null)
+                {
+                    ILGenerator.Emit(OpCodes.Stloc, patternLocal); // store into pattern variable
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Pop);                // discard the unboxed value
+                }
                 ILGenerator.Emit(OpCodes.Ldc_I4_1);                // push true
                 ILGenerator.Emit(OpCodes.Br_S, labelDone);
 
@@ -514,8 +521,11 @@ internal class ExpressionGenerator : Generator
             {
                 // Reference type flow — same as before
                 ILGenerator.Emit(OpCodes.Isinst, clrType);         // cast or null
-                ILGenerator.Emit(OpCodes.Dup);
-                ILGenerator.Emit(OpCodes.Stloc, patternLocal);     // assign
+                if (patternLocal is not null)
+                {
+                    ILGenerator.Emit(OpCodes.Dup);
+                    ILGenerator.Emit(OpCodes.Stloc, patternLocal); // assign
+                }
                 ILGenerator.Emit(OpCodes.Ldnull);
                 ILGenerator.Emit(OpCodes.Cgt_Un);                  // bool: not-null
             }
@@ -584,7 +594,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private LocalBuilder EmitDesignation(BoundDesignator designation, Generator scope)
+    private LocalBuilder? EmitDesignation(BoundDesignator designation, Generator scope)
     {
         if (designation is BoundSingleVariableDesignator single)
         {
@@ -597,6 +607,9 @@ internal class ExpressionGenerator : Generator
 
             return local;
         }
+
+        if (designation is BoundDiscardDesignator)
+            return null;
 
         throw new NotSupportedException("Unsupported designation");
     }

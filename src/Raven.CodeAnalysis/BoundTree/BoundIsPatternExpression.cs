@@ -115,7 +115,11 @@ internal partial class BoundDeclarationPattern : BoundPattern
         Designator = designator;
     }
 
-    public override IEnumerable<BoundDesignator> GetDesignators() => [Designator];
+    public override IEnumerable<BoundDesignator> GetDesignators()
+    {
+        if (Designator is not BoundDiscardDesignator)
+            yield return Designator;
+    }
 }
 
 internal abstract class BoundDesignator : BoundExpression
@@ -136,6 +140,24 @@ internal partial class BoundSingleVariableDesignator : BoundDesignator
     public ILocalSymbol Local { get; set; }
 }
 
+internal sealed class BoundDiscardDesignator : BoundDesignator
+{
+    public BoundDiscardDesignator(ITypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(type, null, reason)
+    {
+    }
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
+}
+
 internal partial class BlockBinder
 {
     public virtual BoundPattern BindPattern(PatternSyntax syntax)
@@ -152,8 +174,15 @@ internal partial class BlockBinder
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)
     {
         var type = BindTypeSyntax(syntax.Type);
-        var designation = BindSingleVariableDesignation((SingleVariableDesignationSyntax)syntax.Designation);
-        return new BoundDeclarationPattern(type.Type, designation);
+
+        BoundDesignator designator = syntax.Designation switch
+        {
+            SingleVariableDesignationSyntax single when !single.Identifier.IsMissing
+                => BindSingleVariableDesignation(single)!,
+            _ => new BoundDiscardDesignator(type.Type)
+        };
+
+        return new BoundDeclarationPattern(type.Type, designator);
     }
 
     private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax)
