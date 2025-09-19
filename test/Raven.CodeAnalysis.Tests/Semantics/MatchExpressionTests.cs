@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MatchExpressionTests : DiagnosticTestBase
 {
     [Fact]
-    public void MatchExpression_WithTypeArms_AllowsAssignment()
+    public void MatchExpression_WithTypeArms_MissingDefaultReportsDiagnostic()
     {
         const string code = """
 let value: object = "hello"
@@ -13,6 +13,25 @@ let value: object = "hello"
 let result = match value {
     string text => text
     object obj => obj.ToString()
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("_")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithDefaultArm_AllowsAssignment()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = match value {
+    string text => text
+    object => value.ToString()
 }
 """;
 
@@ -34,7 +53,9 @@ func describe(value: object) -> string? {
 }
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("_")]);
 
         verifier.Verify();
     }

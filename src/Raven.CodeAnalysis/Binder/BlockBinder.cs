@@ -772,8 +772,16 @@ partial class BlockBinder : Binder
         if (scrutineeType.TypeKind == TypeKind.Error)
             return;
 
-        if (scrutineeType is not IUnionTypeSymbol union)
+        if (HasDefaultArm(scrutineeType, arms))
             return;
+
+        if (scrutineeType is not IUnionTypeSymbol union)
+        {
+            _diagnostics.ReportMatchExpressionNotExhaustive(
+                "_",
+                matchExpression.GetLocation());
+            return;
+        }
 
         var remaining = new HashSet<ITypeSymbol>(
             GetUnionMembers(union),
@@ -795,6 +803,41 @@ partial class BlockBinder : Binder
         _diagnostics.ReportMatchExpressionNotExhaustive(
             missing.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
             matchExpression.GetLocation());
+    }
+
+    private bool HasDefaultArm(ITypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
+    {
+        foreach (var arm in arms)
+        {
+            if (arm.Guard is not null)
+                continue;
+
+            if (IsCatchAllPattern(scrutineeType, arm.Pattern))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)
+    {
+        switch (pattern)
+        {
+            case BoundDeclarationPattern { Designator: BoundDiscardDesignator } declaration:
+            {
+                var declaredType = UnwrapAlias(declaration.DeclaredType);
+
+                if (SymbolEqualityComparer.Default.Equals(declaredType, scrutineeType))
+                    return true;
+
+                return declaredType.SpecialType == SpecialType.System_Object;
+            }
+            case BoundOrPattern orPattern:
+                return IsCatchAllPattern(scrutineeType, orPattern.Left) ||
+                       IsCatchAllPattern(scrutineeType, orPattern.Right);
+        }
+
+        return false;
     }
 
     private void RemoveCoveredUnionMembers(HashSet<ITypeSymbol> remaining, BoundPattern pattern)
