@@ -481,6 +481,13 @@ internal class ExpressionGenerator : Generator
     {
         scope ??= this;
 
+        if (pattern is BoundDiscardPattern)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            return;
+        }
+
         if (pattern is BoundDeclarationPattern declarationPattern)
         {
             var typeSymbol = declarationPattern.Type;

@@ -122,6 +122,24 @@ internal partial class BoundDeclarationPattern : BoundPattern
     }
 }
 
+internal sealed class BoundDiscardPattern : BoundPattern
+{
+    public BoundDiscardPattern(ITypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(type, reason)
+    {
+    }
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
+}
+
 internal abstract class BoundDesignator : BoundExpression
 {
     protected BoundDesignator(ITypeSymbol type, ISymbol? symbol = null, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, symbol, reason)
@@ -173,6 +191,12 @@ internal partial class BlockBinder
 
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)
     {
+        if (IsDiscardPatternSyntax(syntax))
+        {
+            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+            return new BoundDiscardPattern(objectType);
+        }
+
         var type = BindTypeSyntax(syntax.Type);
 
         BoundDesignator designator = syntax.Designation switch
@@ -183,6 +207,18 @@ internal partial class BlockBinder
         };
 
         return new BoundDeclarationPattern(type.Type, designator);
+    }
+
+    private static bool IsDiscardPatternSyntax(DeclarationPatternSyntax syntax)
+    {
+        if (syntax.Type is IdentifierNameSyntax identifier &&
+            identifier.Identifier.Text == "_" &&
+            syntax.Designation is SingleVariableDesignationSyntax { Identifier.IsMissing: true })
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax)

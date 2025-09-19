@@ -823,6 +823,8 @@ partial class BlockBinder : Binder
     {
         switch (pattern)
         {
+            case BoundDiscardPattern:
+                return true;
             case BoundDeclarationPattern { Designator: BoundDiscardDesignator } declaration:
             {
                 var declaredType = UnwrapAlias(declaration.DeclaredType);
@@ -844,6 +846,9 @@ partial class BlockBinder : Binder
     {
         switch (pattern)
         {
+            case BoundDiscardPattern:
+                remaining.Clear();
+                break;
             case BoundDeclarationPattern declaration:
                 RemoveMembersAssignableToPattern(remaining, declaration.DeclaredType);
                 break;
