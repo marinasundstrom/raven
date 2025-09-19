@@ -55,3 +55,4 @@ If your changes touch documentation only, you may skip `dotnet build` and `dotne
 ## Additional Notes
 * Workspace management and incremental compilation are key; favor additive changes.
 * Consult `docs/` for language grammar and feature design before modifying syntax or semantics.
+* Instruct Codex to conclude the diff instead of showing every change, and avoid gathering all line numbers for very large diffs.
