@@ -8,10 +8,10 @@ An overview of available types, literal semantics, and conversions can be found 
 
 ## Document conventions
 
-- **Normative requirements** use key words such as “must”, “may”, and “should” to describe observable language behaviour.
-- Notes and tips highlight rationale, examples, or implementation remarks. They are informative rather than normative.
-- Code snippets use the `.rav` file extension and omit surrounding boilerplate unless it is essential to the rule being described.
-- When behaviour is intentionally unspecified or still under design, this specification calls it out explicitly and, where possible, links to suggested follow-up work.
+* **Normative requirements** use key words such as “must”, “may”, and “should” to describe observable language behaviour.
+* Notes and tips highlight rationale, examples, or implementation remarks. They are informative rather than normative.
+* Code snippets use the `.rav` file extension and omit surrounding boilerplate unless it is essential to the rule being described.
+* When behaviour is intentionally unspecified or still under design, this specification calls it out explicitly and, where possible, links to suggested follow-up work.
 
 ## Code samples
 
@@ -40,8 +40,8 @@ The syntax node model defines the **logical structure** of Raven programs.
 It is specified in [Model.xml](../../../src/Raven.CodeAnalysis/Syntax/Model.xml) and
 drives code generation of the immutable syntax tree API.
 
-The model describes the set of node kinds and their children.  
-The **parser** applies the grammar and contextual rules to construct these nodes.  
+The model describes the set of node kinds and their children.
+The **parser** applies the grammar and contextual rules to construct these nodes.
 
 In short: the model defines the shape; the parser defines the rules,
 as outlined in this specification.
@@ -261,6 +261,22 @@ func example(x: int) -> {
 }
 // inferred return type: int | string
 ```
+
+### Additional type inference rules (normative)
+
+The following clarifications extend the type inference model:
+
+* **Contextual inference**: Raven computes a contextual type based on both expression shape and target type. Inference is bidirectional.
+* **Union growth**: To prevent type explosion, implementations may limit union width. Public APIs that infer wide unions should prefer explicit annotations.
+* **Literal arithmetic**: Non-constant operations widen literals to their base type unless constant-folded.
+* **Overload resolution with unions**: A candidate overload is viable only if every alternative in a union converts to its parameter type. Ambiguities require explicit casts.
+* **Generic inference**: Type argument inference from union arguments requires a single consistent set of type arguments that satisfy all alternatives. Constraints must hold for each alternative.
+* **Nullability**: `T | null` with a single `T` is equivalent to `T?`. `T? | U` is invalid. Safe navigation over unions yields nullable results.
+* **Pattern narrowing**: `is` and `match` narrow variables within their scope; inferred result types for `match` are the union of arm results.
+* **Tuples**: Tuple element names do not affect type identity. Conditional tuples union element-wise.
+* **Ref/out parameters**: `ref` requires exact type match; `out` contributes to inference of the parameter type.
+* **Flow stability**: Variable declarations have a fixed declared type. Narrowings are ephemeral and do not change declared type. Captured variables use the join of all flows.
+* **Diagnostics**: When conversion fails, diagnostics must identify which union member(s) failed and why. For overloads, diagnostics must explain alternative selections.
 
 ### Union conversions
 
@@ -499,7 +515,7 @@ Aliasing a method binds a specific overload. Multiple directives using the
 same alias name may appear to alias additional overloads, forming an overload
 set.
 
-Predefined and literal types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `string`, `unit` (spelled `unit` or `()`), and any literal value. Raven has no `void`; the `unit` type is used instead (see [implementation notes](dotnet-implementation.md#unit-type)). If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, these predefined types, and literal values.
+Predefined and literal types may be aliased directly. The supported built-in alias targets are `bool`, `char`, `int`, `long`, `float`, `double`, `string`, and `unit` (spelled `unit` or `()`), and any literal value. Raven has no `void`; the `unit` type is used instead (see [implementation notes](dotnet-implementation.md#unit-type)). If the alias target is invalid, the compiler emits diagnostic `RAV2020`, which lists the supported targets such as types, namespaces, unions, tuples, these predefined types, and literal values.
 
 Aliases require fully qualified names for namespaces, types, and members to
 avoid ambiguity; type expressions are written directly. Alias directives may
@@ -1081,8 +1097,4 @@ items capture those gaps and outline the preferred direction for addressing them
   iteration variable to `object`, losing type information. Extend binding to
   inspect `IEnumerable<T>`/`IAsyncEnumerable<T>` or the enumerator pattern so the
   loop variable reflects the element type instead of falling back to `object`.
-- **Keyword coverage for numeric types.** Examples use `long` and `float`, yet
-  those keywords are not recognised by the parser today. Either expose the
-  missing predefined keywords or adjust the examples to rely on aliases such as
-  `System.Int64`. Aligning the keyword set with literal inference will make the
-  specification self-consistent and reduce onboarding confusion.
+ 

@@ -7,6 +7,8 @@ Raven is a statically typed language whose types correspond directly to CLR type
 | Raven keyword | .NET type | Notes |
 | --- | --- | --- |
 | `int` | `System.Int32` | 32-bit signed integer |
+| `long` | `System.Int64` | 64-bit signed integer |
+| `float` | `System.Single` | 32-bit floating point |
 | `double` | `System.Double` | 64-bit floating point |
 | `string` | `System.String` | UTF-16 sequence of characters |
 | `object` | `System.Object` | base type of all .NET reference types |
@@ -59,10 +61,8 @@ Literal types implicitly convert to their underlying type and then follow the
 normal conversion rules of that type. This allows `1` to widen to `double` or
 `"hi"` to be used wherever a `string` is expected.
 
-The presence of `long` and `float` in the table reflects literal promotion rules
-rather than additional keywords. When an explicit annotation is needed, prefer
-`System.Int64` or `System.Single` (or define an alias) until the keywords are
-introduced.
+`long`, `float`, and `double` are built-in keywords that map to `System.Int64`,
+`System.Single`, and `System.Double` respectively.
 
 When a literal is assigned to a target whose type is inferred—such as a
 variable declaration without an explicit type annotation—the literal widens to
@@ -258,4 +258,3 @@ print(u) // calls print(object)
   own `System.Unit` type. To simplify interop, consider shipping a shared
   reference assembly or mapping `unit` directly onto `System.Void` where the
   runtime allows it.
-
