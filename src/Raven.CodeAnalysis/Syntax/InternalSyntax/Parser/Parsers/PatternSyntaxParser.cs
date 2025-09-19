@@ -46,10 +46,14 @@ internal class PatternSyntaxParser : SyntaxParser
         var type = new NameSyntaxParser(this).ParseTypeName();
 
         // Optionally consume a variable designation
-        VariableDesignationSyntax? designation = null;
+        VariableDesignationSyntax designation;
         if (CanTokenBeIdentifier(PeekToken()))
         {
             designation = ParseDesignation();
+        }
+        else
+        {
+            designation = SingleVariableDesignation(MissingToken(SyntaxKind.IdentifierToken));
         }
 
         return DeclarationPattern(type, designation);
