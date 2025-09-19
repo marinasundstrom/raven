@@ -272,7 +272,7 @@ The following clarifications extend the type inference model:
 * **Overload resolution with unions**: A candidate overload is viable only if every alternative in a union converts to its parameter type. Ambiguities require explicit casts.
 * **Generic inference**: Type argument inference from union arguments requires a single consistent set of type arguments that satisfy all alternatives. Constraints must hold for each alternative.
 * **Nullability**: `T | null` with a single `T` is equivalent to `T?`. `T? | U` is invalid. Safe navigation over unions yields nullable results.
-* **Pattern narrowing**: `is` and `match` narrow variables within their scope; inferred result types for `match` are the union of arm results.
+* **Pattern narrowing**: See [Pattern matching](#pattern-matching) for how `is` and `match` refine variables; inferred result types for `match` are the union of arm results.
 * **Tuples**: Tuple element names do not affect type identity. Conditional tuples union element-wise.
 * **Ref/out parameters**: `ref` requires exact type match; `out` contributes to inference of the parameter type.
 * **Flow stability**: Variable declarations have a fixed declared type. Narrowings are ephemeral and do not change declared type. Captured variables use the join of all flows.
@@ -454,6 +454,127 @@ When iterating over arrays, the element type comes from the array's element
 type. Other collections are currently treated as `System.Collections.IEnumerable`
 and default the iteration variable to `object`. Like other looping constructs, a
 `for` expression evaluates to `()`.
+
+### Pattern matching
+
+Patterns let you inspect values using concise, algebraic syntax. They appear in
+`is` predicates and in `match` expressions and participate in Raven's
+flow-sensitive type analysis.
+
+#### Pattern forms
+
+Patterns compose from the following primitives:
+
+- `Type` — type pattern; succeeds when the scrutinee can convert to `Type`.
+  No binding is introduced.
+- `name: Type` — typed binding; succeeds when the scrutinee converts to
+  `Type`, then binds the converted value to `name` as an immutable local.
+- `_` / `_: Type` — discard; matches anything without introducing a binding.
+  The typed form asserts the value can convert to `Type` while still discarding
+  it.
+- `literal` — literal pattern; matches when the scrutinee equals the literal.
+  Literal patterns piggyback on Raven's literal types, so `"on"` or `42`
+  narrow unions precisely.
+- `pattern1 | pattern2` — alternative; matches when either operand matches.
+  Parentheses may be used to group alternatives.
+- `not pattern` — complement; succeeds when the operand fails. `not` does not
+  introduce bindings even if its operand would.
+
+`|` associates to the left, `not` binds tighter than `|`, and parentheses
+override the default precedence as needed.
+
+```raven
+if payload is string {
+    Console.WriteLine("plain text payload")
+}
+
+if payload is body: string {
+    Console.WriteLine("bytes ${body.Length}")
+}
+
+if payload is _: string {
+    Console.WriteLine("stringly typed legacy input")
+}
+
+if value is "ok" | "pending" {
+    Console.WriteLine("proceed")
+}
+
+if mode is not ("on" | "off") {
+    Console.WriteLine("unexpected mode")
+}
+```
+
+#### `is` expression
+
+`expr is pattern` evaluates to `bool`. On success, the compiler narrows the
+expression to the pattern's accept set inside the `true` branch and discards the
+matched portion from the `false` branch. Any bindings introduced by the pattern
+are immutable locals scoped to the `true` branch.
+
+```raven
+let token: object = read()
+
+if token is n: int {
+    Console.WriteLine(n + 1) // token is narrowed to int here
+} else if token is "quit" {
+    Console.WriteLine("bye")
+}
+```
+
+#### `match` expression
+
+`match` uses braces with newline-separated arms:
+
+```raven
+match scrutinee {
+    pattern [when guard] => result
+    pattern => result
+}
+```
+
+Arms are evaluated top to bottom. The first matching arm produces the
+expression's value. Guards run after the pattern succeeds; they do not
+influence exhaustiveness checking.
+
+```raven
+let state: "on" | "off" | "auto"
+
+let description =
+    match state {
+        "on" | "auto" => "enabled"
+        "off"         => "disabled"
+    }
+```
+
+When multiple arms yield different types, the result type is the normalized
+union of the arm results.
+
+```raven
+func classify(value: object) -> string {
+    match value {
+        text: string when text.Length > 0 => text
+        0                                 => "zero"
+        _                                 => "unknown ${value}"
+    }
+}
+```
+
+Local helpers use the same `func` syntax—there is no separate F#-style `let` function form.
+
+`match` requires exhaustiveness. For finite literal unions, every literal must
+appear (or `_` used). When the scrutinee type includes an open set (for example
+`int`, `string`, or a class hierarchy), add a catch-all arm (`_` or a broader
+type pattern) to cover the remainder. Redundant arms that can never be chosen
+produce unreachable diagnostics.
+
+#### Flow-sensitive narrowing
+
+Both `is` and `match` feed Raven's flow analysis. Within the successful branch
+of `is`, or inside a matched arm, the scrutinee is narrowed to the pattern's
+accept set and all pattern bindings are in scope. The complement carries through
+the opposite branch. Guard expressions do not participate in this narrowing, but
+they may use the bindings established by the pattern they accompany.
 
 ## Namespace declaration
 
@@ -745,58 +866,12 @@ let y = if flag { 42 } else { parseInt() } // y : int   (42 collapses into int)
 
 #### Pattern matching and flow-sensitive narrowing
 
-Literal and type patterns **narrow** the scrutinee within the matched region; non-taken paths get the complement.
-
-```raven
-let d: 1 | 2 | 3 | 4
-
-if d is 1 | 2 {
-    // d : 1 | 2
-} else {
-    // d : 3 | 4
-}
-
-if d is 3 { // Equal to: d == 3
-    // d : 3
-} else {
-    // d : 1 | 2 | 4
-}
-
-let count = 5
-if count is 2 {
-    Console.WriteLine("exactly two")
-} else if count is value: int {
-    // count : int (bound as value)
-    Console.WriteLine($"other count ${value}")
-}
-
-let input: object = "hi"
-if input is text: string {
-    // input narrowed to string in this branch
-    Console.WriteLine(text.Length)
-}
-
-if input is 'a' {
-    Console.WriteLine("starts with a")
-}
-```
-
-`match` expressions refine per arm using the pattern’s **accept set**; guards (`when`) refine only the arm’s body (exhaustiveness is still checked without assuming the guard holds).
-
-```raven
-let s: "on" | "off" | "auto"
-match s {
-    "on" | "auto" => Console.WriteLine("enabled")
-    "off"         => Console.WriteLine("disabled")
-} // exhaustive
-```
-
-**Exhaustiveness**:
-
-* If the declared scrutinee type is a **finite literal union**, all literals must be covered (or `_` used).
-* If it includes an **open** part (e.g., `int`, `string`, a class/interface), you must also cover the remainder via `_` or a suitable type pattern.
-
-Redundant arms (fully covered by previous arms) are reported as unreachable.
+See [Pattern matching](#pattern-matching) for the full set of pattern forms and
+for how `is` and `match` narrow union members. Literal unions stay precise so
+long as every literal appears in a branch, and open-ended unions require a
+catch-all arm or type pattern to remain exhaustive. Guards participate only in
+the arm that defines them and do not relax the exhaustiveness checks on the
+outer pattern.
 
 #### Member access on unions (nominal CLR members only)
 
