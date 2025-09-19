@@ -1,0 +1,11 @@
+import System.Console.*
+
+let value: object = "hello"
+
+let result = match value {
+    string text => text
+    object obj => obj.ToString()
+    _ => ""
+}
+
+WriteLine(result)
