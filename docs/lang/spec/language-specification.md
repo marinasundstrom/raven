@@ -537,6 +537,13 @@ Arms are evaluated top to bottom. The first matching arm produces the
 expression's value. Guards run after the pattern succeeds; they do not
 influence exhaustiveness checking.
 
+The scrutinee expression is evaluated exactly once before any arm runs.
+Each arm introduces its own scope: pattern bindings are in scope for the
+optional `when` guard and the arm's result expression, but they do not leak
+into later arms. Guards use the `when` keyword and execute only after the
+pattern succeeds; if the guard evaluates to `false`, evaluation falls through
+to the next arm.
+
 ```raven
 let state: "on" | "off" | "auto"
 

@@ -108,6 +108,9 @@ internal class ExpressionGenerator : Generator
             case BoundObjectCreationExpression objectCreationExpression:
                 EmitObjectCreationExpression(objectCreationExpression);
                 break;
+            case BoundMatchExpression matchExpression:
+                EmitMatchExpression(matchExpression);
+                break;
 
             case BoundCollectionExpression collectionExpression:
                 EmitCollectionExpression(collectionExpression);
@@ -420,14 +423,70 @@ internal class ExpressionGenerator : Generator
         EmitPattern(isPatternExpression.Pattern);       // Evaluate the pattern; leaves a boolean on the stack
     }
 
-    private void EmitPattern(BoundPattern pattern)
+    private void EmitMatchExpression(BoundMatchExpression matchExpression)
     {
+        var scrutineeType = matchExpression.Expression.Type ?? Compilation.GetSpecialType(SpecialType.System_Object);
+        if (scrutineeType.TypeKind == TypeKind.Error)
+            scrutineeType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+        EmitExpression(matchExpression.Expression);
+        var scrutineeLocal = ILGenerator.DeclareLocal(ResolveClrType(scrutineeType));
+        ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
+
+        var resultType = matchExpression.Type ?? Compilation.GetSpecialType(SpecialType.System_Object);
+        if (resultType.TypeKind == TypeKind.Error)
+            resultType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var resultLocal = ILGenerator.DeclareLocal(ResolveClrType(resultType));
+        var endLabel = ILGenerator.DefineLabel();
+
+        foreach (var arm in matchExpression.Arms)
+        {
+            var nextArmLabel = ILGenerator.DefineLabel();
+            var scope = new Scope(this);
+
+            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+            EmitPattern(arm.Pattern, scope);
+            ILGenerator.Emit(OpCodes.Brfalse_S, nextArmLabel);
+
+            if (arm.Guard is not null)
+            {
+                new ExpressionGenerator(scope, arm.Guard).Emit();
+                ILGenerator.Emit(OpCodes.Brfalse_S, nextArmLabel);
+            }
+
+            new ExpressionGenerator(scope, arm.Expression).Emit();
+
+            var armType = arm.Expression.Type;
+            if ((matchExpression.Type?.IsUnion ?? false) && (armType?.IsValueType ?? false))
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
+
+            ILGenerator.Emit(OpCodes.Stloc, resultLocal);
+            ILGenerator.Emit(OpCodes.Br_S, endLabel);
+
+            ILGenerator.MarkLabel(nextArmLabel);
+        }
+
+        var exceptionCtor = typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })
+            ?? throw new InvalidOperationException("InvalidOperationException(string) constructor not found.");
+        ILGenerator.Emit(OpCodes.Ldstr, "Non-exhaustive match expression.");
+        ILGenerator.Emit(OpCodes.Newobj, exceptionCtor);
+        ILGenerator.Emit(OpCodes.Throw);
+
+        ILGenerator.MarkLabel(endLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+    }
+
+    private void EmitPattern(BoundPattern pattern, Generator? scope = null)
+    {
+        scope ??= this;
+
         if (pattern is BoundDeclarationPattern declarationPattern)
         {
             var typeSymbol = declarationPattern.Type;
             var clrType = ResolveClrType(typeSymbol);
 
-            var patternLocal = EmitDesignation(declarationPattern.Designator);
+            var patternLocal = EmitDesignation(declarationPattern.Designator, scope);
 
             // [expr]
             if (typeSymbol.IsValueType)
@@ -463,7 +522,7 @@ internal class ExpressionGenerator : Generator
         }
         else if (pattern is BoundUnaryPattern unaryPattern)
         {
-            EmitPattern(unaryPattern.Pattern);
+            EmitPattern(unaryPattern.Pattern, scope);
 
             if (unaryPattern.Kind == BoundUnaryPatternKind.Not)
             {
@@ -482,10 +541,10 @@ internal class ExpressionGenerator : Generator
 
             if (binaryPattern.Kind == BoundPatternKind.And)
             {
-                EmitPattern(binaryPattern.Left);
+                EmitPattern(binaryPattern.Left, scope);
                 ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
 
-                EmitPattern(binaryPattern.Right);
+                EmitPattern(binaryPattern.Right, scope);
                 ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -500,10 +559,10 @@ internal class ExpressionGenerator : Generator
             {
                 var labelTrue = ILGenerator.DefineLabel();
 
-                EmitPattern(binaryPattern.Left);
+                EmitPattern(binaryPattern.Left, scope);
                 ILGenerator.Emit(OpCodes.Brtrue_S, labelTrue);
 
-                EmitPattern(binaryPattern.Right);
+                EmitPattern(binaryPattern.Right, scope);
                 ILGenerator.Emit(OpCodes.Brtrue_S, labelTrue);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
@@ -525,7 +584,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private LocalBuilder EmitDesignation(BoundDesignator designation)
+    private LocalBuilder EmitDesignation(BoundDesignator designation, Generator scope)
     {
         if (designation is BoundSingleVariableDesignator single)
         {
@@ -534,7 +593,7 @@ internal class ExpressionGenerator : Generator
             var local = ILGenerator.DeclareLocal(ResolveClrType(symbol.Type)); // resolve type
             local.SetLocalSymInfo(single.Local.Name);
 
-            base.AddLocal(symbol, local);
+            scope.AddLocal(symbol, local);
 
             return local;
         }

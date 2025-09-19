@@ -292,6 +292,23 @@
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="ElseClause" Type="ElseClause" IsNullable="true" />
   </Node>
+  <Node Name="MatchExpression" Inherits="Expression">
+    <Slot Name="MatchKeyword" Type="Token" />
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="OpenBraceToken" Type="Token" />
+    <Slot Name="Arms" Type="List" ElementType="MatchArm" />
+    <Slot Name="CloseBraceToken" Type="Token" />
+  </Node>
+  <Node Name="MatchArm" Inherits="Node">
+    <Slot Name="Pattern" Type="Pattern" />
+    <Slot Name="WhenClause" Type="WhenClause" IsNullable="true" />
+    <Slot Name="ArrowToken" Type="Token" />
+    <Slot Name="Expression" Type="Expression" />
+  </Node>
+  <Node Name="WhenClause" Inherits="Node">
+    <Slot Name="WhenKeyword" Type="Token" />
+    <Slot Name="Condition" Type="Expression" />
+  </Node>
   <Node Name="TypeArgumentList" Inherits="Node">
     <Slot Name="GreaterThanToken" Type="Token" />
     <Slot Name="Arguments" Type="SeparatedList" ElementType="TypeArgument" />
