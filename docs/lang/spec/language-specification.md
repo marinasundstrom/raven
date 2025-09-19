@@ -756,10 +756,28 @@ if d is 1 | 2 {
     // d : 3 | 4
 }
 
-if d == 3 {
+if d is 3 { // Equal to: d == 3
     // d : 3
 } else {
     // d : 1 | 2 | 4
+}
+
+let count = 5
+if count is 2 {
+    Console.WriteLine("exactly two")
+} else if count is value: int {
+    // count : int (bound as value)
+    Console.WriteLine($"other count ${value}")
+}
+
+let input: object = "hi"
+if input is text: string {
+    // input narrowed to string in this branch
+    Console.WriteLine(text.Length)
+}
+
+if input is 'a' {
+    Console.WriteLine("starts with a")
 }
 ```
 
