@@ -431,6 +431,7 @@ partial class BlockBinder : Binder
             ForExpressionSyntax forExpression => BindForExpression(forExpression),
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
+            MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
@@ -719,6 +720,141 @@ partial class BlockBinder : Binder
 
         var resultType = new NullableTypeSymbol(targetType, null, null, null, []);
         return new BoundAsExpression(expression, resultType, conversion);
+    }
+
+    private BoundExpression BindMatchExpression(MatchExpressionSyntax matchExpression)
+    {
+        var scrutinee = BindExpression(matchExpression.Expression);
+
+        var armBuilder = ImmutableArray.CreateBuilder<BoundMatchArm>();
+
+        foreach (var arm in matchExpression.Arms)
+        {
+            _scopeDepth++;
+            var depth = _scopeDepth;
+
+            var pattern = BindPattern(arm.Pattern);
+
+            BoundExpression? guard = null;
+            if (arm.WhenClause is { } whenClause)
+                guard = BindExpression(whenClause.Condition);
+
+            var expression = BindExpression(arm.Expression, allowReturn: _allowReturnsInExpression);
+
+            foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+                _locals.Remove(name);
+
+            _scopeDepth--;
+
+            armBuilder.Add(new BoundMatchArm(pattern, guard, expression));
+        }
+
+        var arms = armBuilder.ToImmutable();
+
+        EnsureMatchExhaustive(matchExpression, scrutinee, arms);
+
+        var resultType = TypeSymbolNormalization.NormalizeUnion(
+            arms.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
+
+        return new BoundMatchExpression(scrutinee, arms, resultType);
+    }
+
+    private void EnsureMatchExhaustive(
+        MatchExpressionSyntax matchExpression,
+        BoundExpression scrutinee,
+        ImmutableArray<BoundMatchArm> arms)
+    {
+        if (scrutinee.Type is not ITypeSymbol scrutineeType)
+            return;
+
+        scrutineeType = UnwrapAlias(scrutineeType);
+
+        if (scrutineeType.TypeKind == TypeKind.Error)
+            return;
+
+        if (scrutineeType is not IUnionTypeSymbol union)
+            return;
+
+        var remaining = new HashSet<ITypeSymbol>(
+            GetUnionMembers(union),
+            SymbolEqualityComparer.Default);
+
+        foreach (var arm in arms)
+        {
+            RemoveCoveredUnionMembers(remaining, arm.Pattern);
+
+            if (remaining.Count == 0)
+                return;
+        }
+
+        if (remaining.Count == 0)
+            return;
+
+        var missing = remaining.First();
+
+        _diagnostics.ReportMatchExpressionNotExhaustive(
+            missing.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            matchExpression.GetLocation());
+    }
+
+    private void RemoveCoveredUnionMembers(HashSet<ITypeSymbol> remaining, BoundPattern pattern)
+    {
+        switch (pattern)
+        {
+            case BoundDeclarationPattern declaration:
+                RemoveMembersAssignableToPattern(remaining, declaration.DeclaredType);
+                break;
+            case BoundOrPattern orPattern:
+                RemoveCoveredUnionMembers(remaining, orPattern.Left);
+                RemoveCoveredUnionMembers(remaining, orPattern.Right);
+                break;
+        }
+    }
+
+    private void RemoveMembersAssignableToPattern(HashSet<ITypeSymbol> remaining, ITypeSymbol patternType)
+    {
+        patternType = UnwrapAlias(patternType);
+
+        if (patternType.TypeKind == TypeKind.Error)
+            return;
+
+        foreach (var candidate in remaining.ToArray())
+        {
+            var candidateType = UnwrapAlias(candidate);
+
+            if (candidateType.TypeKind == TypeKind.Error)
+            {
+                remaining.Remove(candidate);
+                continue;
+            }
+
+            if (IsAssignable(patternType, candidateType, out _))
+                remaining.Remove(candidate);
+        }
+    }
+
+    private static IEnumerable<ITypeSymbol> GetUnionMembers(IUnionTypeSymbol union)
+    {
+        foreach (var member in union.Types)
+        {
+            if (member is IUnionTypeSymbol nested)
+            {
+                foreach (var nestedMember in GetUnionMembers(nested))
+                    yield return UnwrapAlias(nestedMember);
+            }
+            else
+            {
+                yield return UnwrapAlias(member);
+            }
+        }
+    }
+
+    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
+    {
+        while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+            type = alias;
+
+        return type;
     }
 
     private BoundExpression BindIfExpression(IfExpressionSyntax ifExpression)

@@ -295,6 +295,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.ForKeyword:
                 expr = ParseForExpressionSyntax();
                 break;
+            case SyntaxKind.MatchKeyword:
+                expr = ParseMatchExpressionSyntax();
+                break;
 
             case SyntaxKind.OpenBraceToken:
                 expr = ParseBlockSyntax();
@@ -821,6 +824,43 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
 
         throw new Exception();
+    }
+
+    private MatchExpressionSyntax ParseMatchExpressionSyntax()
+    {
+        var matchKeyword = ReadToken();
+
+        var scrutinee = new ExpressionSyntaxParser(this).ParseExpression();
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
+
+        var arms = new List<MatchArmSyntax>();
+
+        EnterParens();
+        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        {
+            var pattern = new PatternSyntaxParser(this).ParsePattern();
+
+            WhenClauseSyntax? whenClause = null;
+            if (ConsumeToken(SyntaxKind.WhenKeyword, out var whenKeyword))
+            {
+                var condition = new ExpressionSyntaxParser(this).ParseExpression();
+                whenClause = WhenClause(whenKeyword, condition);
+            }
+
+            ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var arrowToken);
+
+            var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+            arms.Add(MatchArm(pattern, whenClause, arrowToken, expression));
+
+            TryConsumeTerminator(out _);
+        }
+        ExitParens();
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+
+        return MatchExpression(matchKeyword, scrutinee, openBraceToken, List(arms.ToArray()), closeBraceToken);
     }
 
     private IfExpressionSyntax ParseIfExpressionSyntax()

@@ -192,4 +192,7 @@
   <Descriptor Id="RAV2022" Identifier="SpreadSourceMustBeEnumerable" Title="Spread source must be enumerable"
     Message="Cannot spread expression of type '{typeName}' because it is not enumerable"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2100" Identifier="MatchExpressionNotExhaustive" Title="Match expression is not exhaustive"
+    Message="Match expression is not exhaustive; missing case for '{missingType}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>
