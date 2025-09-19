@@ -471,7 +471,9 @@ Patterns compose from the following primitives:
   `Type`, then binds the converted value to `name` as an immutable local.
 - `_` / `_: Type` — discard; matches anything without introducing a binding.
   The typed form asserts the value can convert to `Type` while still discarding
-  it.
+  it. Discards participate in pattern exhaustiveness: an unguarded `_` arm is
+  considered a catch-all and satisfies any remaining cases even when earlier
+  arms introduced bindings.
 - `literal` — literal pattern; matches when the scrutinee equals the literal.
   Literal patterns piggyback on Raven's literal types, so `"on"` or `42`
   narrow unions precisely.
@@ -572,8 +574,10 @@ Local helpers use the same `func` syntax—there is no separate F#-style `let` f
 `match` requires exhaustiveness. For finite literal unions, every literal must
 appear (or `_` used). When the scrutinee type includes an open set (for example
 `int`, `string`, or a class hierarchy), add a catch-all arm (`_` or a broader
-type pattern) to cover the remainder. Redundant arms that can never be chosen
-produce unreachable diagnostics.
+type pattern) to cover the remainder. Because `_` is a discard, it never
+introduces a binding and always matches, so placing it last is a common way to
+describe fallback behavior. Redundant arms that can never be chosen produce
+unreachable diagnostics.
 
 #### Flow-sensitive narrowing
 

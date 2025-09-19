@@ -41,6 +41,24 @@ let result = match value {
     }
 
     [Fact]
+    public void MatchExpression_WithDiscardArm_BindsDesignation()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = match value {
+    string text => text
+    object obj => obj.ToString()
+    _ => ""
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithGuard_UsesDesignation()
     {
         const string code = """
