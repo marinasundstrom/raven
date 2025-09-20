@@ -1,3 +1,4 @@
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -122,6 +123,29 @@ internal partial class BoundDeclarationPattern : BoundPattern
     }
 }
 
+internal sealed class BoundConstantPattern : BoundPattern
+{
+    public BoundConstantPattern(LiteralTypeSymbol literalType, BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(literalType, reason)
+    {
+        LiteralType = literalType;
+    }
+
+    public LiteralTypeSymbol LiteralType { get; }
+
+    public object ConstantValue => LiteralType.ConstantValue;
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
+}
+
 internal sealed class BoundDiscardPattern : BoundPattern
 {
     public BoundDiscardPattern(ITypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None)
@@ -206,6 +230,12 @@ internal partial class BlockBinder
                 => BindSingleVariableDesignation(single)!,
             _ => new BoundDiscardDesignator(type.Type)
         };
+
+        if (type is BoundTypeExpression { TypeSymbol: LiteralTypeSymbol literalType } &&
+            designator is BoundDiscardDesignator)
+        {
+            return new BoundConstantPattern(literalType);
+        }
 
         return new BoundDeclarationPattern(type.Type, designator);
     }
