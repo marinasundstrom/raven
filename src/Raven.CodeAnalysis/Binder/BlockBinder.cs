@@ -801,6 +801,7 @@ partial class BlockBinder : Binder
                 if (PatternCanMatch(scrutineeType, patternType))
                     return;
 
+                var patternDisplay = GetMatchPatternDisplay(patternType);
                 var location = patternSyntax switch
                 {
                     DeclarationPatternSyntax declarationSyntax => declarationSyntax.Type.GetLocation(),
@@ -808,7 +809,7 @@ partial class BlockBinder : Binder
                 };
 
                 _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                    patternType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    patternDisplay,
                     scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     location);
                 return;
@@ -842,6 +843,13 @@ partial class BlockBinder : Binder
             }
         }
     }
+
+    private static string GetMatchPatternDisplay(ITypeSymbol patternType)
+        => patternType switch
+        {
+            LiteralTypeSymbol literal => literal.Name,
+            _ => $"'{patternType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}'"
+        };
 
     private bool PatternCanMatch(ITypeSymbol scrutineeType, ITypeSymbol patternType)
     {

@@ -213,7 +213,7 @@ let result = match value {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("string", "int")]);
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("'string'", "int")]);
 
         verifier.Verify();
     }
@@ -232,7 +232,26 @@ let result = match value {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("bool", "\"on\" | \"off\"")]);
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("'bool'", "\"on\" | \"off\"")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithIncompatibleLiteralPattern_ReportsDiagnostic()
+    {
+        const string code = """
+let value: int = 0
+
+let result = match value {
+    "foo" => 1
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("\"foo\"", "int")]);
 
         verifier.Verify();
     }

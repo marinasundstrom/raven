@@ -793,14 +793,14 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// RAV2102: Pattern of type '{0}' is not valid for scrutinee of type '{1}'
+    /// RAV2102: Pattern {0} is not valid for scrutinee of type '{1}'
     /// </summary>
     public static DiagnosticDescriptor MatchExpressionArmPatternInvalid => _matchExpressionArmPatternInvalid ??= DiagnosticDescriptor.Create(
         id: "RAV2102",
         title: "Match arm pattern is not valid",
         description: "",
         helpLinkUri: "",
-        messageFormat: "Pattern of type '{0}' is not valid for scrutinee of type '{1}'",
+        messageFormat: "Pattern {0} is not valid for scrutinee of type '{1}'",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
