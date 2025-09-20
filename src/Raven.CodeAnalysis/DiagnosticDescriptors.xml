@@ -199,6 +199,6 @@
     Message="Match expression arm is unreachable because a previous arm matches all cases"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2102" Identifier="MatchExpressionArmPatternInvalid" Title="Match arm pattern is not valid"
-    Message="Pattern of type '{patternType}' is not valid for scrutinee of type '{scrutineeType}'"
+    Message="Pattern {patternType} is not valid for scrutinee of type '{scrutineeType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>
