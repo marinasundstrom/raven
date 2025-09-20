@@ -106,21 +106,11 @@ public static class ConsoleSyntaxHighlighter
 
         if (includeDiagnostics)
         {
-            var diagnostics = compilation.GetDiagnostics()
-                .Where(d => d.Location.SourceTree == node.SyntaxTree)
-                .ToList();
-
-            if (diagnostics.Count == 0)
+            foreach (var diagnostic in compilation.GetDiagnostics()
+                         .Where(d => d.Location.SourceTree == node.SyntaxTree))
             {
-                AddDiagnosticSpan(lineDiagnostics, lines, sourceText, 0, text.Length, DiagnosticSeverity.Error);
-            }
-            else
-            {
-                foreach (var diagnostic in diagnostics)
-                {
-                    AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
-                        diagnostic.Location.SourceSpan.End, diagnostic.Severity);
-                }
+                AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
+                    diagnostic.Location.SourceSpan.End, diagnostic.Severity);
             }
         }
 

@@ -1,7 +1,10 @@
+using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
-using Raven.CodeAnalysis.Text;
 using Raven.CodeAnalysis.Tests;
+using Raven.CodeAnalysis.Text;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Text.Tests;
@@ -13,16 +16,47 @@ public class ConsoleSyntaxHighlighterTests
     {
         var source = """
 import System.*
-Console.WriteLine(Console.WriteLine());
+
+Console.WriteLine2("Foo")
 """;
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var root = tree.GetRoot();
 
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(d => d.Location.SourceTree == tree)
+            .ToArray();
+
+        Assert.NotEmpty(diagnostics);
+
         var text = root.WriteNodeToText(compilation, includeDiagnostics: true);
 
         Assert.Contains("\u001b[4:3m", text);
         Assert.Contains("\u001b[4:0m", text);
+    }
+
+    [Fact]
+    public void DoesNotUnderline_WhenNoDiagnostics()
+    {
+        var source = """
+import System.*
+
+Console.WriteLine(Console.WriteLine())
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(d => d.Location.SourceTree == tree)
+            .ToArray();
+
+        Assert.Empty(diagnostics);
+
+        var text = root.WriteNodeToText(compilation, includeDiagnostics: true);
+
+        Assert.DoesNotContain("\u001b[4:3m", text);
+        Assert.DoesNotContain("\u001b[4:0m", text);
     }
 
     [Fact]
