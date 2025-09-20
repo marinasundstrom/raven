@@ -43,9 +43,11 @@ public static class SemanticClassifier
                                  ?? info.CandidateSymbols.FirstOrDefault()
                                  ?? model.GetDeclaredSymbol(bindNode);
 
-                    tokenMap[descendant] = symbol is null
-                        ? SemanticClassification.Default
+                    var classification = symbol is null
+                        ? ClassifyBySyntax(bindNode)
                         : ClassifySymbol(symbol);
+
+                    tokenMap[descendant] = classification;
                 }
             }
 
@@ -74,6 +76,17 @@ public static class SemanticClassifier
             ILocalSymbol => SemanticClassification.Local,
             IFieldSymbol => SemanticClassification.Field,
             IPropertySymbol => SemanticClassification.Property,
+            _ => SemanticClassification.Default
+        };
+    }
+
+    private static SemanticClassification ClassifyBySyntax(SyntaxNode node)
+    {
+        return node switch
+        {
+            InvocationExpressionSyntax => SemanticClassification.Method,
+            MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
+            MemberBindingExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
             _ => SemanticClassification.Default
         };
     }

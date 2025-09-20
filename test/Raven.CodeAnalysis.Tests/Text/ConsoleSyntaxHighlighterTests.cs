@@ -78,4 +78,64 @@ class Test {
         Assert.Contains('$', text);
         Assert.Contains('"', text);
     }
+
+    [Fact]
+    public void MethodInvocation_UsesMethodColor()
+    {
+        var source = """
+import System.*
+
+Console.WriteLine("Foo")
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var originalScheme = ConsoleSyntaxHighlighter.ColorScheme;
+        try
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
+
+            var text = root.WriteNodeToText(compilation);
+
+            var methodColor = ConsoleSyntaxHighlighter.ColorScheme.Method;
+            var methodAnsi = $"\u001b[{(int)methodColor}m";
+
+            Assert.Contains($"{methodAnsi}WriteLine", text);
+        }
+        finally
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
+        }
+    }
+
+    [Fact]
+    public void MethodInvocation_WithDiagnostic_StillUsesMethodColor()
+    {
+        var source = """
+import System.*
+
+Console.WriteLine2("Foo")
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var originalScheme = ConsoleSyntaxHighlighter.ColorScheme;
+        try
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
+
+            var text = root.WriteNodeToText(compilation, includeDiagnostics: true);
+
+            var methodColor = ConsoleSyntaxHighlighter.ColorScheme.Method;
+            var methodAnsi = $"\u001b[{(int)methodColor}m";
+
+            Assert.Contains($"{methodAnsi}WriteLine2", text);
+        }
+        finally
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
+        }
+    }
 }
