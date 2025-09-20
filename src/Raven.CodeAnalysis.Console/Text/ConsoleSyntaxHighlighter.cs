@@ -68,7 +68,6 @@ public class ColorScheme
 
 public static class ConsoleSyntaxHighlighter
 {
-    private record struct TokenSpan(int Start, int End, SemanticClassification Classification);
     private record struct DiagnosticSpan(int Start, int End, DiagnosticSeverity Severity);
 
     private static readonly bool s_supportsAnsi = true;
@@ -78,144 +77,95 @@ public static class ConsoleSyntaxHighlighter
     public static string WriteNodeToText(this SyntaxNode node, Compilation compilation, bool includeDiagnostics = false)
     {
         if (!s_supportsAnsi)
-            return node.SyntaxTree.GetText()!.ToString();
+            return node.SyntaxTree!.GetText()!.ToString();
 
-        var model = compilation.GetSemanticModel(node.SyntaxTree);
+        var syntaxTree = node.SyntaxTree!;
+        var model = compilation.GetSemanticModel(syntaxTree);
         var classification = SemanticClassifier.Classify(node, model);
 
-        var sourceText = node.SyntaxTree.GetText()!;
-        var text = sourceText.ToString();
-        var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-
-        var lineTokens = new List<TokenSpan>[lines.Length];
-        var lineDiagnostics = new List<DiagnosticSpan>[lines.Length];
-
-        foreach (var kvp in classification.Tokens)
-        {
-            if (kvp.Value == SemanticClassification.Default)
-                continue;
-            AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
-        }
-
-        foreach (var kvp in classification.Trivia)
-        {
-            if (kvp.Value == SemanticClassification.Default)
-                continue;
-            AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
-        }
-
+        DiagnosticSpan[] diagnosticSpans = Array.Empty<DiagnosticSpan>();
         if (includeDiagnostics)
         {
-            foreach (var diagnostic in compilation.GetDiagnostics()
-                         .Where(d => d.Location.SourceTree == node.SyntaxTree))
-            {
-                AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
-                    diagnostic.Location.SourceSpan.End, diagnostic.Severity);
-            }
+            diagnosticSpans = compilation.GetDiagnostics()
+                .Where(d => d.Location.SourceTree == syntaxTree)
+                .Select(d => new DiagnosticSpan(d.Location.SourceSpan.Start, d.Location.SourceSpan.End, d.Severity))
+                .OrderBy(span => span.Start)
+                .ToArray();
         }
 
         var sb = new StringBuilder();
-        for (int i = 0; i < lines.Length; i++)
-        {
-            AppendLine(sb, lines[i], lineTokens[i], lineDiagnostics[i]);
-            if (i < lines.Length - 1)
-                sb.AppendLine();
-        }
-
-        return sb.ToString();
-    }
-
-    private static void AppendLine(StringBuilder sb, string line, List<TokenSpan>? tokens, List<DiagnosticSpan>? diagnostics)
-    {
-        tokens ??= new();
-        diagnostics ??= new();
-
         var currentColor = AnsiColor.Reset;
         DiagnosticSeverity? currentSeverity = null;
+        var position = node.FullSpan.Start;
+        var diagnosticIndex = 0;
 
-        for (var idx = 0; idx < line.Length; idx++)
+        void AppendSegment(string segment, SemanticClassification classificationKind)
         {
-            var severity = GetSeverityAt(diagnostics, idx);
-            if (severity != currentSeverity)
+            if (segment.Length == 0)
+                return;
+
+            var targetColor = GetColorForClassification(classificationKind);
+
+            foreach (var ch in segment)
             {
-                if (currentSeverity.HasValue)
-                    sb.Append(UnderlineEnd);
-                if (severity.HasValue)
-                    sb.Append(GetUnderlineStart(severity.Value));
-                currentSeverity = severity;
+                DiagnosticSeverity? severity = null;
+                if (includeDiagnostics)
+                {
+                    while (diagnosticIndex < diagnosticSpans.Length && diagnosticSpans[diagnosticIndex].End <= position)
+                        diagnosticIndex++;
+
+                    if (diagnosticIndex < diagnosticSpans.Length)
+                    {
+                        var span = diagnosticSpans[diagnosticIndex];
+                        if (position >= span.Start && position < span.End)
+                            severity = span.Severity;
+                    }
+                }
+
+                if (severity != currentSeverity)
+                {
+                    if (currentSeverity.HasValue)
+                        sb.Append(UnderlineEnd);
+                    if (severity.HasValue)
+                        sb.Append(GetUnderlineStart(severity.Value));
+                    currentSeverity = severity;
+                }
+
+                if (targetColor != currentColor)
+                {
+                    sb.Append(GetAnsiColor(targetColor));
+                    currentColor = targetColor;
+                }
+
+                sb.Append(ch);
+                position++;
+            }
+        }
+
+        foreach (var token in node.DescendantTokens(descendIntoTrivia: true))
+        {
+            foreach (var trivia in token.LeadingTrivia)
+            {
+                classification.Trivia.TryGetValue(trivia, out var triviaClassification);
+                AppendSegment(trivia.ToString(), triviaClassification);
             }
 
-            var classification = GetClassificationAt(tokens, idx);
-            var color = GetColorForClassification(classification);
-            if (color != currentColor)
-            {
-                sb.Append(GetAnsiColor(color));
-                currentColor = color;
-            }
+            classification.Tokens.TryGetValue(token, out var tokenClassification);
+            AppendSegment(token.ToString(), tokenClassification);
 
-            sb.Append(line[idx]);
+            foreach (var trivia in token.TrailingTrivia)
+            {
+                classification.Trivia.TryGetValue(trivia, out var triviaClassification);
+                AppendSegment(trivia.ToString(), triviaClassification);
+            }
         }
 
         if (currentColor != AnsiColor.Reset)
             sb.Append(GetAnsiColor(AnsiColor.Reset));
         if (currentSeverity.HasValue)
             sb.Append(UnderlineEnd);
-    }
 
-    private static DiagnosticSeverity? GetSeverityAt(List<DiagnosticSpan> diagnostics, int index)
-    {
-        foreach (var span in diagnostics)
-        {
-            if (index >= span.Start && index < span.End)
-                return span.Severity;
-        }
-        return null;
-    }
-
-    private static SemanticClassification GetClassificationAt(List<TokenSpan> tokens, int index)
-    {
-        foreach (var span in tokens)
-        {
-            if (index >= span.Start && index < span.End)
-                return span.Classification;
-        }
-        return SemanticClassification.Default;
-    }
-
-    private static void AddTokenSpan(List<TokenSpan>[] lineTokens, string[] lines, SourceText text, TextSpan span,
-        SemanticClassification classification)
-    {
-        var (startLine1, startCol1) = text.GetLineAndColumn(span);
-        var (endLine1, endCol1) = text.GetLineAndColumn(new TextSpan(span.End, 0));
-        var startLine = startLine1 - 1;
-        var startCol = startCol1 - 1;
-        var endLine = endLine1 - 1;
-        var endCol = endCol1 - 1;
-        for (var line = startLine; line <= endLine; line++)
-        {
-            var start = line == startLine ? startCol : 0;
-            var end = line == endLine ? endCol : lines[line].Length;
-            var list = lineTokens[line] ??= new List<TokenSpan>();
-            list.Add(new TokenSpan(start, end, classification));
-        }
-    }
-
-    private static void AddDiagnosticSpan(List<DiagnosticSpan>[] lineDiagnostics, string[] lines, SourceText text,
-        int startPos, int endPos, DiagnosticSeverity severity)
-    {
-        var (startLine1, startCol1) = text.GetLineAndColumn(new TextSpan(startPos, 0));
-        var (endLine1, endCol1) = text.GetLineAndColumn(new TextSpan(endPos, 0));
-        var startLine = startLine1 - 1;
-        var startCol = startCol1 - 1;
-        var endLine = endLine1 - 1;
-        var endCol = endCol1 - 1;
-        for (var line = startLine; line <= endLine; line++)
-        {
-            var start = line == startLine ? startCol : 0;
-            var end = line == endLine ? endCol : lines[line].Length;
-            var list = lineDiagnostics[line] ??= new List<DiagnosticSpan>();
-            list.Add(new DiagnosticSpan(start, end, severity));
-        }
+        return sb.ToString();
     }
 
     private static AnsiColor GetColorForClassification(SemanticClassification classification) => classification switch
