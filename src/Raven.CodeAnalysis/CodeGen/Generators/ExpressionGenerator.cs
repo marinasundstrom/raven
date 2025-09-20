@@ -430,7 +430,16 @@ internal class ExpressionGenerator : Generator
             scrutineeType = Compilation.GetSpecialType(SpecialType.System_Object);
 
         EmitExpression(matchExpression.Expression);
-        var scrutineeLocal = ILGenerator.DeclareLocal(ResolveClrType(scrutineeType));
+
+        var scrutineeClrType = ResolveClrType(scrutineeType);
+        if (scrutineeType.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Box, scrutineeClrType);
+            scrutineeType = Compilation.GetSpecialType(SpecialType.System_Object);
+            scrutineeClrType = ResolveClrType(scrutineeType);
+        }
+
+        var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClrType);
         ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
 
         var resultType = matchExpression.Type ?? Compilation.GetSpecialType(SpecialType.System_Object);
@@ -498,14 +507,15 @@ internal class ExpressionGenerator : Generator
             // [expr]
             if (typeSymbol.IsValueType)
             {
-                // Reference types can use isinst + cgt.un directly.
                 var labelFail = ILGenerator.DefineLabel();
                 var labelDone = ILGenerator.DefineLabel();
+                var matchLocal = ILGenerator.DeclareLocal(typeof(object));
 
-                ILGenerator.Emit(OpCodes.Dup);                     // keep original value
-                ILGenerator.Emit(OpCodes.Isinst, clrType);         // type test
-                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);    // if not, jump to false
+                ILGenerator.Emit(OpCodes.Stloc, matchLocal);       // store cast attempt
+                ILGenerator.Emit(OpCodes.Ldloc, matchLocal);
+                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
 
+                ILGenerator.Emit(OpCodes.Ldloc, matchLocal);
                 ILGenerator.Emit(OpCodes.Unbox_Any, clrType);      // unbox value
                 if (patternLocal is not null)
                 {
@@ -515,12 +525,11 @@ internal class ExpressionGenerator : Generator
                 {
                     ILGenerator.Emit(OpCodes.Pop);                // discard the unboxed value
                 }
-                ILGenerator.Emit(OpCodes.Ldc_I4_1);                // push true
+                ILGenerator.Emit(OpCodes.Ldc_I4_1);
                 ILGenerator.Emit(OpCodes.Br_S, labelDone);
 
                 ILGenerator.MarkLabel(labelFail);
-                ILGenerator.Emit(OpCodes.Pop);                     // discard original expr
-                ILGenerator.Emit(OpCodes.Ldc_I4_0);                // push false
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
 
                 ILGenerator.MarkLabel(labelDone);
             }
