@@ -641,7 +641,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
         EmitConstantAsObject(literal, value);
 
-        var equalsMethod = typeof(object).GetMethod(nameof(object.Equals), new[] { typeof(object) })
+        var equalsMethod = Compilation.CoreAssembly.GetType("System.Object").GetMethod(nameof(object.Equals), [Compilation.CoreAssembly.GetType("System.Object")])
             ?? throw new InvalidOperationException("object.Equals(object) not found.");
 
         ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
