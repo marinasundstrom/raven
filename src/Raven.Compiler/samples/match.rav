@@ -2,10 +2,15 @@ import System.Console.*
 
 let value = 42
 
+WriteLine(value.GetType().Name)
+
 let result = match value {
-    string str => str
-    int i => i.ToString()
+    //"foo" => "it's foo"
+    int x => "foo"
+    //string str => str
+    //object obj => "obj"
     _ => "None"
 }
 
+WriteLine(result.GetType().Name)
 WriteLine(result)
