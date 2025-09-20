@@ -200,6 +200,27 @@ let result = match state {
     }
 
     [Fact]
+    public void MatchExpression_WithUnionScrutinee_MultipleMissingArmsReportDiagnostics()
+    {
+        const string code = """
+let state: "on" | "off" | "unknown" = "on"
+
+let result = match state {
+    "on" => 1
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"off\""),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("\"unknown\""),
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """
