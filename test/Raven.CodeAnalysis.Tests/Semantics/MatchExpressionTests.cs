@@ -213,7 +213,7 @@ let result = match value {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("'string'", "int")]);
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type 'string'", "int")]);
 
         verifier.Verify();
     }
@@ -232,7 +232,7 @@ let result = match value {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("'bool'", "\"on\" | \"off\"")]);
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type 'bool'", "\"on\" | \"off\"")]);
 
         verifier.Verify();
     }
