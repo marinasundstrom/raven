@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -352,6 +353,12 @@ internal class TypeGenerator
 
     private static bool SignaturesMatch(IMethodSymbol candidate, IMethodSymbol interfaceMethod)
     {
+        if (!string.Equals(candidate.Name, interfaceMethod.Name, StringComparison.Ordinal))
+            return false;
+
+        if (!ReturnTypesMatch(candidate.ReturnType, interfaceMethod.ReturnType))
+            return false;
+
         if (candidate.Parameters.Length != interfaceMethod.Parameters.Length)
             return false;
 
@@ -368,5 +375,21 @@ internal class TypeGenerator
         }
 
         return true;
+    }
+
+    private static bool ReturnTypesMatch(ITypeSymbol candidateReturnType, ITypeSymbol interfaceReturnType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(candidateReturnType, interfaceReturnType))
+            return true;
+
+        if (candidateReturnType.SpecialType == SpecialType.System_Unit
+            && interfaceReturnType.SpecialType == SpecialType.System_Void)
+            return true;
+
+        if (candidateReturnType.SpecialType == SpecialType.System_Void
+            && interfaceReturnType.SpecialType == SpecialType.System_Unit)
+            return true;
+
+        return false;
     }
 }
