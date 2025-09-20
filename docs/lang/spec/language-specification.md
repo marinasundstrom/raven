@@ -484,9 +484,9 @@ Patterns compose from the following primitives:
 
 - `Type` — type pattern; succeeds when the scrutinee can convert to `Type`.
   No binding is introduced.
-- `name: Type` — typed binding; succeeds when the scrutinee converts to
+- `Type name` — typed binding; succeeds when the scrutinee converts to
   `Type`, then binds the converted value to `name` as an immutable local.
-- `_` / `_: Type` — discard; matches anything without introducing a binding.
+- `_` / `Type _` — discard; matches anything without introducing a binding.
   The typed form asserts the value can convert to `Type` while still discarding
   it. Because `_` is reserved for discards, writing `_` as the designation never
   creates a binding. Discards participate in pattern exhaustiveness: an
@@ -495,12 +495,12 @@ Patterns compose from the following primitives:
 - `literal` — literal pattern; matches when the scrutinee equals the literal.
   Literal patterns piggyback on Raven's literal types, so `"on"` or `42`
   narrow unions precisely.
-- `pattern1 | pattern2` — alternative; matches when either operand matches.
+- `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
 - `not pattern` — complement; succeeds when the operand fails. `not` does not
   introduce bindings even if its operand would.
 
-`|` associates to the left, `not` binds tighter than `|`, and parentheses
+`or` associates to the left, `not` binds tighter than `or`, and parentheses
 override the default precedence as needed.
 
 ```raven
@@ -508,19 +508,19 @@ if payload is string {
     Console.WriteLine("plain text payload")
 }
 
-if payload is body: string {
+if payload is string body {
     Console.WriteLine("bytes ${body.Length}")
 }
 
-if payload is _: string {
+if payload is string _ {
     Console.WriteLine("stringly typed legacy input")
 }
 
-if value is "ok" | "pending" {
+if value is "ok" or "pending" {
     Console.WriteLine("proceed")
 }
 
-if mode is not ("on" | "off") {
+if mode is not ("on" or "off") {
     Console.WriteLine("unexpected mode")
 }
 ```
@@ -535,7 +535,7 @@ are immutable locals scoped to the `true` branch.
 ```raven
 let token: object = read()
 
-if token is n: int {
+if token is int n {
     Console.WriteLine(n + 1) // token is narrowed to int here
 } else if token is "quit" {
     Console.WriteLine("bye")
@@ -569,7 +569,7 @@ let state: "on" | "off" | "auto"
 
 let description =
     match state {
-        "on" | "auto" => "enabled"
+        "on" or "auto" => "enabled"
         "off"         => "disabled"
     }
 ```
@@ -580,7 +580,7 @@ union of the arm results.
 ```raven
 func classify(value: object) -> string {
     match value {
-        text: string when text.Length > 0 => text
+        string text when text.Length > 0 => text
         0                                 => "zero"
         _                                 => "unknown ${value}"
     }
@@ -594,8 +594,8 @@ appear (or `_` used). When the scrutinee type includes an open set (for example
 `int`, `string`, or a class hierarchy), add a catch-all arm (`_` or a broader
 type pattern) to cover the remainder. Because `_` is a discard, it never
 introduces a binding and always matches, so placing it last is a common way to
-describe fallback behavior. Redundant arms that can never be chosen produce
-unreachable diagnostics (`RAV2101`).
+describe fallback behavior. Missing coverage produces `RAV2100`; redundant arms
+that can never be chosen produce unreachable diagnostics (`RAV2101`).
 
 #### Flow-sensitive narrowing
 

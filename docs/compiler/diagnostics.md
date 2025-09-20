@@ -224,6 +224,13 @@ func log() {}
 let x = log() // RAV0815
 ```
 
+## RAV1000: Expression expected
+Parser expected an expression but encountered the end of a statement or block.
+
+```raven
+let value = // RAV1000
+```
+
 ## RAV1001: Identifier expected
 Parser expected an identifier but none was provided.
 
@@ -308,6 +315,14 @@ Multiple files contain top-level statements.
 print("hi") // RAV1013
 ```
 
+## RAV1014: Console application requires entry point
+Console applications must define a `func main` entry point.
+
+```raven
+// Console project without a main function
+// RAV1014: Program.Main entry point not found
+```
+
 ## RAV1501: No overload for method takes argument
 Called a method with a wrong number of arguments.
 
@@ -354,6 +369,13 @@ log().ToString() // RAV1526
 let x = if flag { return 1 } else { 2 } // RAV1900
 ```
 
+## RAV1901: If expression requires an else clause
+`if` expressions used for their value must include an `else` branch.
+
+```raven
+let value = if flag { 1 } // RAV1901
+```
+
 ## RAV1955: Non-invocable member cannot be used like a method
 Attempted to invoke a member that is not a method.
 
@@ -397,6 +419,32 @@ Alias directive targets an unsupported symbol.
 alias Bad = notatype // RAV2020
 ```
 
+## RAV2021: Invalid import target
+`use` directives can only import namespaces or types.
+
+```raven
+use System.Console.WriteLine // RAV2021
+```
+
+## RAV2022: Spread source must be enumerable
+Spread segments require an enumerable input.
+
+```raven
+let value = 42
+let items = [..value] // RAV2022
+```
+
+## RAV2100: Match expression is not exhaustive
+`match` expressions must cover every possible scrutinee value.
+
+```raven
+let state: "on" | "off" = "on"
+
+match state {
+    "on" => 1
+} // RAV2100 (missing "off")
+```
+
 ## RAV2101: Match arm is unreachable
 An earlier guardless catch-all arm prevents later arms from matching.
 
@@ -414,7 +462,7 @@ The pattern's type cannot match the scrutinee's type.
 let number: int = 0
 
 match number {
-    text: string => text // RAV2102
+    string text => text // RAV2102
     _ => ""
 }
 ```
