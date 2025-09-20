@@ -420,6 +420,10 @@ internal class ExpressionGenerator : Generator
     {
         EmitExpression(isPatternExpression.Expression); // Push the value of the expression onto the stack
 
+        var expressionType = isPatternExpression.Expression.Type;
+        if (expressionType is { IsValueType: true } && expressionType.TypeKind != TypeKind.Error)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+
         EmitPattern(isPatternExpression.Pattern);       // Evaluate the pattern; leaves a boolean on the stack
     }
 
@@ -540,6 +544,10 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Cgt_Un);                  // bool: not-null
             }
         }
+        else if (pattern is BoundConstantPattern constantPattern)
+        {
+            EmitConstantPattern(constantPattern);
+        }
         else if (pattern is BoundUnaryPattern unaryPattern)
         {
             EmitPattern(unaryPattern.Pattern, scope);
@@ -601,6 +609,64 @@ internal class ExpressionGenerator : Generator
         else
         {
             throw new NotSupportedException("Unsupported pattern");
+        }
+    }
+
+    private void EmitConstantPattern(BoundConstantPattern constantPattern)
+    {
+        var literal = constantPattern.LiteralType;
+        var value = literal.ConstantValue;
+
+        var scrutineeLocal = ILGenerator.DeclareLocal(typeof(object));
+        ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
+
+        if (value is null)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+            ILGenerator.Emit(OpCodes.Ldnull);
+            ILGenerator.Emit(OpCodes.Ceq);
+            return;
+        }
+
+        var notNullLabel = ILGenerator.DefineLabel();
+        var endLabel = ILGenerator.DefineLabel();
+
+        ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+        ILGenerator.Emit(OpCodes.Brtrue_S, notNullLabel);
+
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Br_S, endLabel);
+
+        ILGenerator.MarkLabel(notNullLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
+        EmitConstantAsObject(literal, value);
+
+        var equalsMethod = typeof(object).GetMethod(nameof(object.Equals), new[] { typeof(object) })
+            ?? throw new InvalidOperationException("object.Equals(object) not found.");
+
+        ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private void EmitConstantAsObject(LiteralTypeSymbol literal, object value)
+    {
+        switch (value)
+        {
+            case string s:
+                ILGenerator.Emit(OpCodes.Ldstr, s);
+                break;
+            case char ch:
+                ILGenerator.Emit(OpCodes.Ldc_I4, ch);
+                ILGenerator.Emit(OpCodes.Conv_U2);
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(literal.UnderlyingType));
+                break;
+            default:
+                EmitLiteral(value);
+
+                if (value is not null && literal.UnderlyingType.IsValueType)
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(literal.UnderlyingType));
+
+                break;
         }
     }
 

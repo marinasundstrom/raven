@@ -814,6 +814,29 @@ partial class BlockBinder : Binder
                     location);
                 return;
             }
+            case BoundConstantPattern constant:
+            {
+                var underlyingType = UnwrapAlias(constant.LiteralType.UnderlyingType);
+
+                if (underlyingType.TypeKind == TypeKind.Error)
+                    return;
+
+                if (PatternCanMatch(scrutineeType, underlyingType))
+                    return;
+
+                var patternDisplay = GetMatchPatternDisplay(constant.LiteralType);
+                var location = patternSyntax switch
+                {
+                    DeclarationPatternSyntax declarationSyntax => declarationSyntax.Type.GetLocation(),
+                    _ => patternSyntax.GetLocation(),
+                };
+
+                _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                    patternDisplay,
+                    scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    location);
+                return;
+            }
             case BoundOrPattern orPattern:
             {
                 if (patternSyntax is BinaryPatternSyntax binarySyntax)
@@ -1012,6 +1035,20 @@ partial class BlockBinder : Binder
             case BoundDeclarationPattern declaration:
                 RemoveMembersAssignableToPattern(remaining, declaration.DeclaredType);
                 break;
+            case BoundConstantPattern constant:
+            {
+                var literalType = UnwrapAlias(constant.LiteralType);
+
+                foreach (var candidate in remaining.ToArray())
+                {
+                    var candidateType = UnwrapAlias(candidate);
+
+                    if (SymbolEqualityComparer.Default.Equals(candidateType, literalType))
+                        remaining.Remove(candidate);
+                }
+
+                break;
+            }
             case BoundOrPattern orPattern:
                 RemoveCoveredUnionMembers(remaining, orPattern.Left);
                 RemoveCoveredUnionMembers(remaining, orPattern.Right);
