@@ -17,7 +17,6 @@ class Program {
     Run() -> string {
         let value = 42
         let result = match value {
-            string str => str
             int i => i.ToString()
             _ => "None"
         }

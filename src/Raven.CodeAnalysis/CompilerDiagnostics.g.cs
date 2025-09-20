@@ -62,6 +62,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _spreadSourceMustBeEnumerable;
     private static DiagnosticDescriptor? _matchExpressionNotExhaustive;
     private static DiagnosticDescriptor? _matchExpressionArmUnreachable;
+    private static DiagnosticDescriptor? _matchExpressionArmPatternInvalid;
 
     /// <summary>
     /// RAV0021: Cannot apply indexing with [] to an expression of type '{0}'
@@ -791,6 +792,19 @@ internal static partial class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV2102: Pattern of type '{0}' is not valid for scrutinee of type '{1}'
+    /// </summary>
+    public static DiagnosticDescriptor MatchExpressionArmPatternInvalid => _matchExpressionArmPatternInvalid ??= DiagnosticDescriptor.Create(
+        id: "RAV2102",
+        title: "Match arm pattern is not valid",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Pattern of type '{0}' is not valid for scrutinee of type '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         CannotApplyIndexingWithToAnExpressionOfType,
@@ -849,6 +863,7 @@ internal static partial class CompilerDiagnostics
         SpreadSourceMustBeEnumerable,
         MatchExpressionNotExhaustive,
         MatchExpressionArmUnreachable,
+        MatchExpressionArmPatternInvalid,
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId) => diagnosticId switch
@@ -909,6 +924,7 @@ internal static partial class CompilerDiagnostics
         "RAV2022" => SpreadSourceMustBeEnumerable,
         "RAV2100" => MatchExpressionNotExhaustive,
         "RAV2101" => MatchExpressionArmUnreachable,
+        "RAV2102" => MatchExpressionArmPatternInvalid,
         _ => null
     };
 }

@@ -751,6 +751,7 @@ partial class BlockBinder : Binder
 
         var arms = armBuilder.ToImmutable();
 
+        EnsureMatchArmPatternsValid(scrutinee, matchExpression, arms);
         EnsureMatchArmOrder(matchExpression, scrutinee, arms);
         EnsureMatchExhaustive(matchExpression, scrutinee, arms);
 
@@ -758,6 +759,122 @@ partial class BlockBinder : Binder
             arms.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
 
         return new BoundMatchExpression(scrutinee, arms, resultType);
+    }
+
+    private void EnsureMatchArmPatternsValid(
+        BoundExpression scrutinee,
+        MatchExpressionSyntax matchExpression,
+        ImmutableArray<BoundMatchArm> arms)
+    {
+        if (scrutinee.Type is not ITypeSymbol scrutineeType)
+            return;
+
+        scrutineeType = UnwrapAlias(scrutineeType);
+
+        if (scrutineeType.TypeKind == TypeKind.Error)
+            return;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            var patternSyntax = matchExpression.Arms[i].Pattern;
+            EnsureMatchArmPatternValid(scrutineeType, patternSyntax, arm.Pattern);
+        }
+    }
+
+    private void EnsureMatchArmPatternValid(
+        ITypeSymbol scrutineeType,
+        PatternSyntax patternSyntax,
+        BoundPattern pattern)
+    {
+        switch (pattern)
+        {
+            case BoundDiscardPattern:
+                return;
+            case BoundDeclarationPattern declaration:
+            {
+                var patternType = UnwrapAlias(declaration.DeclaredType);
+
+                if (patternType.TypeKind == TypeKind.Error)
+                    return;
+
+                if (PatternCanMatch(scrutineeType, patternType))
+                    return;
+
+                var location = patternSyntax switch
+                {
+                    DeclarationPatternSyntax declarationSyntax => declarationSyntax.Type.GetLocation(),
+                    _ => patternSyntax.GetLocation(),
+                };
+
+                _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                    patternType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    location);
+                return;
+            }
+            case BoundOrPattern orPattern:
+            {
+                if (patternSyntax is BinaryPatternSyntax binarySyntax)
+                {
+                    EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Left, orPattern.Left);
+                    EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Right, orPattern.Right);
+                }
+
+                return;
+            }
+            case BoundAndPattern andPattern:
+            {
+                if (patternSyntax is BinaryPatternSyntax binarySyntax)
+                {
+                    EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Left, andPattern.Left);
+                    EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Right, andPattern.Right);
+                }
+
+                return;
+            }
+            case BoundNotPattern notPattern:
+            {
+                if (patternSyntax is UnaryPatternSyntax unarySyntax)
+                    EnsureMatchArmPatternValid(scrutineeType, unarySyntax.Pattern, notPattern.Pattern);
+
+                return;
+            }
+        }
+    }
+
+    private bool PatternCanMatch(ITypeSymbol scrutineeType, ITypeSymbol patternType)
+    {
+        scrutineeType = UnwrapAlias(scrutineeType);
+        patternType = UnwrapAlias(patternType);
+
+        if (scrutineeType.TypeKind == TypeKind.Error || patternType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (scrutineeType is IUnionTypeSymbol scrutineeUnion)
+        {
+            foreach (var member in scrutineeUnion.Types)
+            {
+                if (PatternCanMatch(member, patternType))
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (patternType is IUnionTypeSymbol patternUnion)
+        {
+            foreach (var member in patternUnion.Types)
+            {
+                if (PatternCanMatch(scrutineeType, member))
+                    return true;
+            }
+
+            return false;
+        }
+
+        return IsAssignable(patternType, scrutineeType, out _) ||
+               IsAssignable(scrutineeType, patternType, out _);
     }
 
     private void EnsureMatchArmOrder(
