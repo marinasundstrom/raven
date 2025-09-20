@@ -406,3 +406,15 @@ match value {
     1 => 1 // RAV2101
 }
 ```
+
+## RAV2102: Match arm pattern is not valid
+The pattern's type cannot match the scrutinee's type.
+
+```raven
+let number: int = 0
+
+match number {
+    text: string => text // RAV2102
+    _ => ""
+}
+```

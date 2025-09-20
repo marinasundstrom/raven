@@ -173,4 +173,7 @@ public static partial class DiagnosticBagExtensions
     public static void ReportMatchExpressionArmUnreachable(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MatchExpressionArmUnreachable, location));
 
+    public static void ReportMatchExpressionArmPatternInvalid(this DiagnosticBag diagnostics, object? patternType, object? scrutineeType, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MatchExpressionArmPatternInvalid, location, patternType, scrutineeType));
+
 }

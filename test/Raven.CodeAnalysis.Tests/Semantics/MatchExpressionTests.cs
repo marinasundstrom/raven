@@ -198,5 +198,43 @@ let result = match state {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void MatchExpression_WithIncompatiblePattern_ReportsDiagnostic()
+    {
+        const string code = """
+let value: int = 0
+
+let result = match value {
+    string text => text
+    _ => ""
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("string", "int")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnionScrutineeAndIncompatiblePattern_ReportsDiagnostic()
+    {
+        const string code = """
+let value: "on" | "off" = "on"
+
+let result = match value {
+    bool flag => 1
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("bool", "\"on\" | \"off\"")]);
+
+        verifier.Verify();
+    }
 }
 
