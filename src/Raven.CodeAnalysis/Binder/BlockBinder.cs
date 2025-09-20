@@ -871,7 +871,7 @@ partial class BlockBinder : Binder
         => patternType switch
         {
             LiteralTypeSymbol literal => literal.Name,
-            _ => $"'{patternType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}'"
+            _ => $"for type '{patternType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}'"
         };
 
     private bool PatternCanMatch(ITypeSymbol scrutineeType, ITypeSymbol patternType)
