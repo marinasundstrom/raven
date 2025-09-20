@@ -201,7 +201,8 @@ internal partial class BlockBinder
 
         BoundDesignator designator = syntax.Designation switch
         {
-            SingleVariableDesignationSyntax single when !single.Identifier.IsMissing
+            SingleVariableDesignationSyntax single when !single.Identifier.IsMissing &&
+                                                      single.Identifier.Text != "_"
                 => BindSingleVariableDesignation(single)!,
             _ => new BoundDiscardDesignator(type.Type)
         };
@@ -211,14 +212,19 @@ internal partial class BlockBinder
 
     private static bool IsDiscardPatternSyntax(DeclarationPatternSyntax syntax)
     {
-        if (syntax.Type is IdentifierNameSyntax identifier &&
-            identifier.Identifier.Text == "_" &&
-            syntax.Designation is SingleVariableDesignationSyntax { Identifier.IsMissing: true })
-        {
-            return true;
-        }
+        if (syntax.Type is not IdentifierNameSyntax identifier)
+            return false;
 
-        return false;
+        if (identifier.Identifier.Text != "_")
+            return false;
+
+        if (syntax.Designation is not SingleVariableDesignationSyntax designation)
+            return false;
+
+        if (designation.Identifier.IsMissing)
+            return true;
+
+        return designation.Identifier.Text == "_";
     }
 
     private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax)

@@ -1,4 +1,9 @@
+using System.Linq;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
@@ -56,6 +61,87 @@ let result = match value {
         var verifier = CreateVerifier(code);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithTypedDiscardArm_IsCatchAll()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = match value {
+    string text => text
+    object _ => value.ToString()
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithDiscardArmNotLast_ReportsDiagnostic()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = match value {
+    _ => ""
+    string text => text
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2101").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithTypedDiscardArmNotLast_ReportsDiagnostic()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = match value {
+    object _ => value.ToString()
+    string text => text
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2101").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_DiscardArm_BindsToDiscardPattern()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = match value {
+    string text => text
+    object obj => obj.ToString()
+    _ => "None"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "discard_match",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        Assert.IsType<BoundDiscardPattern>(bound.Arms.Last().Pattern);
     }
 
     [Fact]

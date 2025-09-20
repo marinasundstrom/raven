@@ -751,12 +751,47 @@ partial class BlockBinder : Binder
 
         var arms = armBuilder.ToImmutable();
 
+        EnsureMatchArmOrder(matchExpression, scrutinee, arms);
         EnsureMatchExhaustive(matchExpression, scrutinee, arms);
 
         var resultType = TypeSymbolNormalization.NormalizeUnion(
             arms.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
 
         return new BoundMatchExpression(scrutinee, arms, resultType);
+    }
+
+    private void EnsureMatchArmOrder(
+        MatchExpressionSyntax matchExpression,
+        BoundExpression scrutinee,
+        ImmutableArray<BoundMatchArm> arms)
+    {
+        if (scrutinee.Type is not ITypeSymbol scrutineeType)
+            return;
+
+        scrutineeType = UnwrapAlias(scrutineeType);
+
+        if (scrutineeType.TypeKind == TypeKind.Error)
+            return;
+
+        var seenCatchAll = false;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+
+            if (seenCatchAll)
+            {
+                _diagnostics.ReportMatchExpressionArmUnreachable(
+                    matchExpression.Arms[i].Pattern.GetLocation());
+                continue;
+            }
+
+            if (arm.Guard is not null)
+                continue;
+
+            if (IsCatchAllPattern(scrutineeType, arm.Pattern))
+                seenCatchAll = true;
+        }
     }
 
     private void EnsureMatchExhaustive(

@@ -31,4 +31,19 @@ public class LexerTests
         Assert.Equal(expected, token.Kind);
         Assert.Equal(text, token.Text);
     }
+
+    [Theory]
+    [InlineData("$foo")]
+    [InlineData("_value")]
+    [InlineData("foo_bar")]
+    [InlineData("foo$bar")]
+    [InlineData("$foo_bar123")]
+    public void Identifier_AllowsUnderscoreAndDollar(string identifier)
+    {
+        var lexer = new Lexer(new StringReader(identifier));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.IdentifierToken, token.Kind);
+        Assert.Equal(identifier, token.Text);
+    }
 }

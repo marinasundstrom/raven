@@ -396,3 +396,13 @@ Alias directive targets an unsupported symbol.
 ```raven
 alias Bad = notatype // RAV2020
 ```
+
+## RAV2101: Match arm is unreachable
+An earlier guardless catch-all arm prevents later arms from matching.
+
+```raven
+match value {
+    _ => 0
+    1 => 1 // RAV2101
+}
+```

@@ -61,6 +61,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _invalidImportTarget;
     private static DiagnosticDescriptor? _spreadSourceMustBeEnumerable;
     private static DiagnosticDescriptor? _matchExpressionNotExhaustive;
+    private static DiagnosticDescriptor? _matchExpressionArmUnreachable;
 
     /// <summary>
     /// RAV0021: Cannot apply indexing with [] to an expression of type '{0}'
@@ -777,6 +778,19 @@ internal static partial class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV2101: Match expression arm is unreachable because a previous arm matches all cases
+    /// </summary>
+    public static DiagnosticDescriptor MatchExpressionArmUnreachable => _matchExpressionArmUnreachable ??= DiagnosticDescriptor.Create(
+        id: "RAV2101",
+        title: "Match arm is unreachable",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Match expression arm is unreachable because a previous arm matches all cases",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         CannotApplyIndexingWithToAnExpressionOfType,
@@ -834,6 +848,7 @@ internal static partial class CompilerDiagnostics
         InvalidImportTarget,
         SpreadSourceMustBeEnumerable,
         MatchExpressionNotExhaustive,
+        MatchExpressionArmUnreachable,
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId) => diagnosticId switch
@@ -893,6 +908,7 @@ internal static partial class CompilerDiagnostics
         "RAV2021" => InvalidImportTarget,
         "RAV2022" => SpreadSourceMustBeEnumerable,
         "RAV2100" => MatchExpressionNotExhaustive,
+        "RAV2101" => MatchExpressionArmUnreachable,
         _ => null
     };
 }
