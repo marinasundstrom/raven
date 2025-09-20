@@ -476,12 +476,6 @@ internal class ExpressionGenerator : Generator
             ILGenerator.MarkLabel(nextArmLabel);
         }
 
-        var exceptionCtor = Compilation.CoreAssembly.GetType("System.InvalidOperationException", throwOnError: false).GetConstructor([Compilation.CoreAssembly.GetType("System.String")])
-            ?? throw new InvalidOperationException("InvalidOperationException(string) constructor not found.");
-        ILGenerator.Emit(OpCodes.Ldstr, "Non-exhaustive match expression.");
-        ILGenerator.Emit(OpCodes.Newobj, exceptionCtor);
-        ILGenerator.Emit(OpCodes.Throw);
-
         ILGenerator.MarkLabel(endLabel);
         ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
     }
