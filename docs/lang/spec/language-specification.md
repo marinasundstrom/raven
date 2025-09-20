@@ -34,6 +34,23 @@ syntax of Raven. **It is non-normative**: it does not encode contextual rules,
 disambiguation, or the full parsing process; those details are specified
 throughout this language specification.
 
+### Identifiers
+
+Identifiers name values, members, and types. They must begin with an ASCII
+letter, `_`, or `$`. Subsequent characters may also include ASCII digits.
+Reserved keywords cannot be used as identifiers.
+
+The single-character `_` token is reserved for discards. When a pattern,
+deconstruction, or other declaration spells its designation as `_` (optionally
+with a type annotation), the compiler suppresses the binding and treats the
+designation as a discard instead. Longer identifiers may still contain
+underscores, and `$` is available for interop- or DSL-oriented naming schemes.
+
+```raven
+let $ffiResult = call()
+let value_1 = value0
+```
+
 ## Syntax node model
 
 The syntax node model defines the **logical structure** of Raven programs.
@@ -471,9 +488,10 @@ Patterns compose from the following primitives:
   `Type`, then binds the converted value to `name` as an immutable local.
 - `_` / `_: Type` — discard; matches anything without introducing a binding.
   The typed form asserts the value can convert to `Type` while still discarding
-  it. Discards participate in pattern exhaustiveness: an unguarded `_` arm is
-  considered a catch-all and satisfies any remaining cases even when earlier
-  arms introduced bindings.
+  it. Because `_` is reserved for discards, writing `_` as the designation never
+  creates a binding. Discards participate in pattern exhaustiveness: an
+  unguarded `_` arm is considered a catch-all and satisfies any remaining cases
+  even when earlier arms introduced bindings.
 - `literal` — literal pattern; matches when the scrutinee equals the literal.
   Literal patterns piggyback on Raven's literal types, so `"on"` or `42`
   narrow unions precisely.
@@ -577,7 +595,7 @@ appear (or `_` used). When the scrutinee type includes an open set (for example
 type pattern) to cover the remainder. Because `_` is a discard, it never
 introduces a binding and always matches, so placing it last is a common way to
 describe fallback behavior. Redundant arms that can never be chosen produce
-unreachable diagnostics.
+unreachable diagnostics (`RAV2101`).
 
 #### Flow-sensitive narrowing
 

@@ -119,12 +119,13 @@ internal class Lexer : ILexer
         {
             if (_stringBuilder.Length > 0) _stringBuilder.Clear();
 
-            if (char.IsLetter(ch) || char.IsDigit(ch) || (ch == '.' && PeekChar(out ch2) && char.IsDigit(ch2)))
+            if (char.IsLetter(ch) || ch == '_' || ch == '$' ||
+                char.IsDigit(ch) || (ch == '.' && PeekChar(out ch2) && char.IsDigit(ch2)))
             {
 
                 _stringBuilder.Append(ch);
 
-                if (char.IsLetter(ch))
+                if (char.IsLetter(ch) || ch == '_' || ch == '$')
                 {
                     SyntaxKind syntaxKind = SyntaxKind.IdentifierToken;
 

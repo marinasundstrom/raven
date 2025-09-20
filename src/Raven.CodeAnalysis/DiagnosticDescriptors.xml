@@ -195,4 +195,7 @@
   <Descriptor Id="RAV2100" Identifier="MatchExpressionNotExhaustive" Title="Match expression is not exhaustive"
     Message="Match expression is not exhaustive; missing case for '{missingType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2101" Identifier="MatchExpressionArmUnreachable" Title="Match arm is unreachable"
+    Message="Match expression arm is unreachable because a previous arm matches all cases"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

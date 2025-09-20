@@ -170,4 +170,7 @@ public static partial class DiagnosticBagExtensions
     public static void ReportMatchExpressionNotExhaustive(this DiagnosticBag diagnostics, object? missingType, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MatchExpressionNotExhaustive, location, missingType));
 
+    public static void ReportMatchExpressionArmUnreachable(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MatchExpressionArmUnreachable, location));
+
 }

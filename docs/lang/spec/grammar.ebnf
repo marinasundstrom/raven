@@ -238,6 +238,7 @@ ParenthesizedType        ::= '(' Type ')' ;
 
 QualifiedName            ::= Identifier {'.' Identifier} ;
 
-Identifier               ::= /* letter followed by letters or digits */ ;
+Identifier               ::= /* ASCII letter, '_' or '$' followed by letters, digits, '_' or '$'.
+                               The single '_' token is reserved for discards. */ ;
 NumericLiteral           ::= /* int | float | hex | bin (lexically resolved) */ ;
 StringLiteral            ::= '"' /* content with escapes */ '"' ;
