@@ -169,7 +169,10 @@ class Foo : IDisposable {
         var assembly = mlc.LoadFromStream(peStream);
 
         var fooType = assembly.GetType("Foo", throwOnError: true)!;
-        var interfaceType = assembly.GetType("System.IDisposable", throwOnError: true)!;
+        var interfaceType = assembly.GetReferencedAssemblies()
+            .Select(x => Assembly.Load(x))
+            .Select(x => x.GetType("System.IDisposable", throwOnError: false))
+            .FirstOrDefault(x => x is not null)!;
 
         var map = fooType.GetInterfaceMap(interfaceType);
         Assert.Single(map.InterfaceMethods);
