@@ -981,11 +981,14 @@ partial class BlockBinder : Binder
         if (remaining.Count == 0)
             return;
 
-        var missing = remaining.First();
-
-        _diagnostics.ReportMatchExpressionNotExhaustive(
-            missing.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            matchExpression.GetLocation());
+        foreach (var missing in remaining
+            .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(name => name, StringComparer.Ordinal))
+        {
+            _diagnostics.ReportMatchExpressionNotExhaustive(
+                missing,
+                matchExpression.GetLocation());
+        }
     }
 
     private bool HasDefaultArm(ITypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
