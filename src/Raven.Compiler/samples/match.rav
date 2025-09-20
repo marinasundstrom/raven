@@ -1,11 +1,11 @@
 import System.Console.*
 
-let value: object = "hello"
+let value = 42
 
 let result = match value {
-    string text => text
-    object obj => obj.ToString()
-    _ => ""
+    string str => str
+    int i => i.ToString()
+    _ => "None"
 }
 
 WriteLine(result)
