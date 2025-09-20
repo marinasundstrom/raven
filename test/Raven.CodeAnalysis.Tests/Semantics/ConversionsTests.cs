@@ -155,7 +155,11 @@ public class ConversionsTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
-        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var boundNode = model.GetBoundNode(assignment);
+        Console.WriteLine($"Bound node type: {boundNode?.GetType().FullName}");
+        if (boundNode is BoundExpressionStatement expressionStatement)
+            Console.WriteLine($"Expression type: {expressionStatement.Expression.GetType().FullName}");
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(boundNode);
         var literal = Assert.IsType<BoundLiteralExpression>(boundAssignment.Expression.Right);
         var converted = Assert.IsType<NullableTypeSymbol>(literal.GetConvertedType());
 

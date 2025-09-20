@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
@@ -164,7 +165,33 @@ public class Compilation
         .ToList();
 
         var resolver = new PathAssemblyResolver(paths);
-        _metadataLoadContext = new MetadataLoadContext(resolver);
+
+        string? coreAssemblyName = null;
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrEmpty(path))
+                continue;
+
+            var fileName = Path.GetFileName(path);
+            if (string.IsNullOrEmpty(fileName))
+                continue;
+
+            if (string.Equals(fileName, "System.Private.CoreLib.dll", StringComparison.OrdinalIgnoreCase))
+            {
+                coreAssemblyName = "System.Private.CoreLib";
+                break;
+            }
+
+            if (string.Equals(fileName, "System.Runtime.dll", StringComparison.OrdinalIgnoreCase))
+            {
+                coreAssemblyName = "System.Runtime";
+                // don't break to allow overriding with actual corelib if both exist later
+            }
+        }
+
+        _metadataLoadContext = coreAssemblyName is null
+            ? new MetadataLoadContext(resolver)
+            : new MetadataLoadContext(resolver, coreAssemblyName);
 
         CoreAssembly = _metadataLoadContext.CoreAssembly!;
 

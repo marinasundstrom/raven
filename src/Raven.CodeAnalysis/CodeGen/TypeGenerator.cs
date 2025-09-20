@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -75,7 +76,11 @@ internal class TypeGenerator
                 if (!nt.Interfaces.IsDefaultOrEmpty)
                 {
                     foreach (var iface in nt.Interfaces)
-                        TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
+                    {
+                        var interfaceType = ResolveClrType(iface);
+                        TypeBuilder.AddInterfaceImplementation(interfaceType);
+                        CodeGen.RegisterForwardedType(interfaceType);
+                    }
                 }
 
                 return;
@@ -89,7 +94,11 @@ internal class TypeGenerator
             if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
             {
                 foreach (var iface in nt2.Interfaces)
-                    TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
+                {
+                    var interfaceType = ResolveClrType(iface);
+                    TypeBuilder.AddInterfaceImplementation(interfaceType);
+                    CodeGen.RegisterForwardedType(interfaceType);
+                }
             }
         }
     }
@@ -121,6 +130,9 @@ internal class TypeGenerator
             {
                 case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
                     {
+                        if (_methodGenerators.ContainsKey(methodSymbol))
+                            break;
+
                         var methodGenerator = new MethodGenerator(this, methodSymbol);
                         _methodGenerators[methodSymbol] = methodGenerator;
                         methodGenerator.DefineMethodBuilder();
@@ -317,14 +329,20 @@ internal class TypeGenerator
                 return true;
             }
         }
-        else if (interfaceMethod.ContainingType is not null)
+        else if (interfaceMethod.ContainingType is INamedTypeSymbol containingType)
         {
-            var interfaceClrType = ResolveClrType(interfaceMethod.ContainingType);
+            var interfaceClrType = ResolveClrType(containingType);
+
+            var runtimeName = containingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            if (runtimeName.StartsWith("global::", StringComparison.Ordinal))
+                runtimeName = runtimeName["global::".Length..];
+
+            var runtimeType = Type.GetType(runtimeName, throwOnError: false, ignoreCase: false) ?? interfaceClrType;
             var parameterTypes = interfaceMethod.Parameters
                 .Select(GetParameterClrType)
                 .ToArray();
 
-            var candidate = interfaceClrType.GetMethod(
+            var candidate = runtimeType.GetMethod(
                 interfaceMethod.Name,
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 binder: null,

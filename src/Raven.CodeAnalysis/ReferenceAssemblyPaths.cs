@@ -90,7 +90,33 @@ public static class ReferenceAssemblyPaths
     public static string GetRuntimeDll(string? sdkVersion = null, string? targetFramework = null, string packId = "Microsoft.NETCore.App.Ref")
     {
         var refAssembliesPath = GetReferenceAssemblyDir(sdkVersion, targetFramework, packId);
-        return Path.Combine(refAssembliesPath!, "System.Runtime.dll");
+        if (refAssembliesPath is null)
+            throw new InvalidOperationException("Unable to resolve reference assemblies directory.");
+
+        var coreLibInRefPack = Path.Combine(refAssembliesPath, "System.Private.CoreLib.dll");
+        if (File.Exists(coreLibInRefPack))
+            return coreLibInRefPack;
+
+        var versionDirectory = Directory.GetParent(refAssembliesPath)?.Parent?.FullName;
+        if (!string.IsNullOrEmpty(versionDirectory))
+        {
+            var version = Path.GetFileName(versionDirectory);
+            if (!string.IsNullOrEmpty(version))
+            {
+                foreach (var root in GetDotNetRoots())
+                {
+                    var sharedPath = Path.Combine(root, "shared", "Microsoft.NETCore.App", version, "System.Private.CoreLib.dll");
+                    if (File.Exists(sharedPath))
+                        return sharedPath;
+                }
+            }
+        }
+
+        var systemRuntimePath = Path.Combine(refAssembliesPath, "System.Runtime.dll");
+        if (File.Exists(systemRuntimePath))
+            return systemRuntimePath;
+
+        throw new InvalidOperationException($"Unable to locate runtime assembly for '{targetFramework ?? "latest"}'.");
     }
 
     // ----- helpers -----

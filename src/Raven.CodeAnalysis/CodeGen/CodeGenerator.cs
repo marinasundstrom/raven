@@ -16,6 +16,9 @@ internal class CodeGenerator
 {
     readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
+    readonly HashSet<Type> _forwardedTypes = new HashSet<Type>();
+
+    private const TypeAttributes ForwarderAttribute = (TypeAttributes)0x0020_0000;
 
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
 
@@ -144,6 +147,7 @@ internal class CodeGenerator
             .First().MethodBase;
 
         MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
+        AddForwardedTypes(metadataBuilder);
         MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken);
         DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
 
@@ -165,6 +169,72 @@ internal class CodeGenerator
         peBuilder.Serialize(peBlob);
 
         peBlob.WriteContentTo(peStream);
+    }
+
+    private void AddForwardedTypes(MetadataBuilder metadataBuilder)
+    {
+        if (_forwardedTypes.Count == 0)
+            return;
+
+        var assemblyReferenceCache = new Dictionary<string, AssemblyReferenceHandle>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var type in _forwardedTypes)
+        {
+            if (type is null)
+                continue;
+
+            if (type.Assembly == AssemblyBuilder)
+                continue;
+
+            var typeAssembly = type.Assembly.GetName();
+            var cacheKey = typeAssembly.FullName ?? typeAssembly.Name ?? string.Empty;
+
+            if (!assemblyReferenceCache.TryGetValue(cacheKey, out var assemblyReference))
+            {
+                var assemblyNameHandle = metadataBuilder.GetOrAddString(typeAssembly.Name);
+                var cultureHandle = metadataBuilder.GetOrAddString(typeAssembly.CultureName ?? string.Empty);
+
+                var useFullPublicKey = (typeAssembly.Flags & AssemblyNameFlags.PublicKey) == AssemblyNameFlags.PublicKey;
+                var publicKeyOrToken = useFullPublicKey
+                    ? typeAssembly.GetPublicKey()
+                    : typeAssembly.GetPublicKeyToken();
+
+                BlobHandle publicKeyHandle = default;
+                if (publicKeyOrToken is { Length: > 0 })
+                    publicKeyHandle = metadataBuilder.GetOrAddBlob(publicKeyOrToken);
+
+                var version = typeAssembly.Version ?? new Version(0, 0, 0, 0);
+                var flags = (AssemblyFlags)typeAssembly.Flags;
+
+                assemblyReference = metadataBuilder.AddAssemblyReference(
+                    assemblyNameHandle,
+                    version,
+                    cultureHandle,
+                    publicKeyHandle,
+                    flags,
+                    hashValue: default);
+
+                assemblyReferenceCache[cacheKey] = assemblyReference;
+            }
+
+            var namespaceHandle = metadataBuilder.GetOrAddString(type.Namespace ?? string.Empty);
+            var typeNameHandle = metadataBuilder.GetOrAddString(type.Name);
+
+            metadataBuilder.AddExportedType(
+                ForwarderAttribute,
+                namespaceHandle,
+                typeNameHandle,
+                assemblyReference,
+                typeDefinitionId: 0);
+        }
+    }
+
+    public void RegisterForwardedType(Type type)
+    {
+        if (type is null)
+            return;
+
+        _forwardedTypes.Add(type);
     }
 
     private void DetermineShimTypeRequirements()

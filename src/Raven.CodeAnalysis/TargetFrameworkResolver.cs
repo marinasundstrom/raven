@@ -154,8 +154,8 @@ public static class TargetFrameworkResolver
 
     public static string GetRuntimeDll(TargetFrameworkVersion version, string? sdkVersion = null, string packId = "Microsoft.NETCore.App.Ref")
     {
-        var dir = GetDirectoryPath(version, sdkVersion, packId);
-        return Path.Combine(dir!, "System.Runtime.dll");
+        EnsureInstalled(version.Moniker);
+        return ReferenceAssemblyPaths.GetRuntimeDll(sdkVersion, version.Moniker.ToTfm(), packId);
     }
 }
 
