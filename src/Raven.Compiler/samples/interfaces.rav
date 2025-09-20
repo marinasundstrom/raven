@@ -1,0 +1,13 @@
+import System.*;
+
+let foo = Foo()
+
+class Foo : IDisposable {
+    init() {
+
+    }
+
+    Dispose() -> unit {
+        return;
+    }
+}

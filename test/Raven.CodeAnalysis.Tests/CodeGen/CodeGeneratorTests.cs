@@ -135,8 +135,8 @@ class Foo : IFoo {
 import System.*;
 
 class Foo : IDisposable {
-    Foo() -> unit {
-        return;
+    init() {
+
     }
 
     Dispose() -> unit {
