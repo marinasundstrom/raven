@@ -852,9 +852,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
-            arms.Add(MatchArm(pattern, whenClause, arrowToken, expression));
+            TryConsumeTerminator(out var terminatorToken);
 
-            TryConsumeTerminator(out _);
+            arms.Add(MatchArm(pattern, whenClause, arrowToken, expression, terminatorToken));
         }
         ExitParens();
 

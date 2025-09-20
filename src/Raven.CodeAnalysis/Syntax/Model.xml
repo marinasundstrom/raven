@@ -304,6 +304,7 @@
     <Slot Name="WhenClause" Type="WhenClause" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="WhenClause" Inherits="Node">
     <Slot Name="WhenKeyword" Type="Token" />
