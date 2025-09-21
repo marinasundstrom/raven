@@ -120,6 +120,10 @@
     Title="Alias directive out of order"
     Message="Alias directives must appear before member declarations" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1007" Identifier="FieldDeclarationRequiresLetOrVar"
+    Title="Field declaration requires 'let' or 'var'"
+    Message="Field declarations must start with 'let' or 'var'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1009" Identifier="UnrecognizedEscapeSequence"
     Title="Unrecognized escape sequence" Message="Unrecognized escape sequence"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
