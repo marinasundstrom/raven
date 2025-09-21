@@ -28,6 +28,12 @@ internal class TypeDeclarationParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
+        ParameterListSyntax? parameterList = null;
+        if (typeKeyword.IsKind(SyntaxKind.ClassKeyword) && PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            parameterList = ParseParameterList();
+        }
+
         BaseListSyntax? baseList = ParseBaseList();
 
         List<GreenNode> memberList = new List<GreenNode>();
@@ -65,7 +71,7 @@ internal class TypeDeclarationParser : SyntaxParser
             return InterfaceDeclaration(modifiers, typeKeyword, identifier, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        return ClassDeclaration(modifiers, typeKeyword, identifier, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(modifiers, typeKeyword, identifier, baseList, parameterList, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
     private BaseListSyntax? ParseBaseList()

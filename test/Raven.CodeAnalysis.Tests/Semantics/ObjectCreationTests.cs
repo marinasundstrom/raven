@@ -160,5 +160,24 @@ public class ObjectCreationTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void PrimaryConstructor_CreatesInstanceFields()
+    {
+        string testCode =
+            """
+            class Person(name: string)
+            {
+                public GetName() -> string => name
+            }
+
+            let person = Person("John")
+            let name = person.GetName()
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }
 

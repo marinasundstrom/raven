@@ -1066,6 +1066,27 @@ class Counter
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
 
+### Primary constructors
+
+Classes may declare a primary constructor by adding an argument list to the
+type header. Each parameter is captured and stored in an implicit instance
+field with the same name. The compiler synthesizes an instance constructor
+whose signature matches the header parameters and assigns the arguments to
+those fields before any other field initializers execute. Supplying a primary
+constructor suppresses the implicit parameterless constructor; callers must
+provide the declared arguments.
+
+```raven
+class Person(name: string, age: int)
+{
+    public GetName() -> string => name
+    public GetAge() -> int => age
+}
+
+let person = Person("Ada", 42)
+let years = person.GetAge()
+```
+
 ### Properties
 
 Property declarations expose a value through accessor methods rather than by
