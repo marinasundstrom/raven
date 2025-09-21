@@ -40,6 +40,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _duplicateModifier;
     private static DiagnosticDescriptor? _importDirectiveOutOfOrder;
     private static DiagnosticDescriptor? _aliasDirectiveOutOfOrder;
+    private static DiagnosticDescriptor? _fieldDeclarationRequiresLetOrVar;
     private static DiagnosticDescriptor? _unrecognizedEscapeSequence;
     private static DiagnosticDescriptor? _newlineInConstant;
     private static DiagnosticDescriptor? _fileScopedCodeOutOfOrder;
@@ -507,6 +508,19 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV1007: Field declarations must start with 'let' or 'var'
+    /// </summary>
+    public static DiagnosticDescriptor FieldDeclarationRequiresLetOrVar => _fieldDeclarationRequiresLetOrVar ??= DiagnosticDescriptor.Create(
+        id: "RAV1007",
+        title: "Field declaration requires 'let' or 'var'",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Field declarations must start with 'let' or 'var'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV1009: Unrecognized escape sequence
     /// </summary>
     public static DiagnosticDescriptor UnrecognizedEscapeSequence => _unrecognizedEscapeSequence ??= DiagnosticDescriptor.Create(
@@ -841,6 +855,7 @@ internal static partial class CompilerDiagnostics
         DuplicateModifier,
         ImportDirectiveOutOfOrder,
         AliasDirectiveOutOfOrder,
+        FieldDeclarationRequiresLetOrVar,
         UnrecognizedEscapeSequence,
         NewlineInConstant,
         FileScopedCodeOutOfOrder,
@@ -902,6 +917,7 @@ internal static partial class CompilerDiagnostics
         "RAV1004" => DuplicateModifier,
         "RAV1005" => ImportDirectiveOutOfOrder,
         "RAV1006" => AliasDirectiveOutOfOrder,
+        "RAV1007" => FieldDeclarationRequiresLetOrVar,
         "RAV1009" => UnrecognizedEscapeSequence,
         "RAV1010" => NewlineInConstant,
         "RAV1011" => FileScopedCodeOutOfOrder,

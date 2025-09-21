@@ -276,6 +276,15 @@ type C {}
 alias x = int // RAV1006
 ```
 
+## RAV1007: Field declaration requires 'let' or 'var'
+Fields must specify `let` or `var` when declaring storage in a type.
+
+```raven
+class Foo {
+    name: string = "" // RAV1007
+}
+```
+
 ## RAV1009: Unrecognized escape sequence
 String or character literal contains an invalid escape.
 
