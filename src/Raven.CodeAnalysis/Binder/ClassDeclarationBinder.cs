@@ -19,7 +19,9 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
         {
             var classSyntax = (ClassDeclarationSyntax)Syntax;
 
-            if (!named.Constructors.Any(x => x.Parameters.Length == 0 && !x.IsStatic))
+            var hasPrimaryConstructor = classSyntax.ParameterList is not null;
+
+            if (!hasPrimaryConstructor && !named.Constructors.Any(x => x.Parameters.Length == 0 && !x.IsStatic))
             {
                 _ = new SourceMethodSymbol(
                     ".ctor",

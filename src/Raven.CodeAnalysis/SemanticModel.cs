@@ -673,6 +673,9 @@ public partial class SemanticModel
 
     private void RegisterClassMembers(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
     {
+        if (classDecl.ParameterList is not null)
+            RegisterPrimaryConstructor(classDecl, classBinder);
+
         foreach (var member in classDecl.Members)
         {
             switch (member)
@@ -836,6 +839,76 @@ public partial class SemanticModel
         }
 
         classBinder.EnsureDefaultConstructor();
+    }
+
+    private void RegisterPrimaryConstructor(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
+    {
+        var classSymbol = (SourceNamedTypeSymbol)classBinder.ContainingSymbol;
+        var namespaceSymbol = classBinder.CurrentNamespace!.AsSourceNamespace();
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        var constructorSymbol = new SourceMethodSymbol(
+            ".ctor",
+            unitType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            classSymbol,
+            classSymbol,
+            namespaceSymbol,
+            [classDecl.GetLocation()],
+            [classDecl.GetReference()],
+            isStatic: false,
+            methodKind: MethodKind.Constructor);
+
+        var parameters = new List<SourceParameterSymbol>();
+
+        foreach (var parameterSyntax in classDecl.ParameterList!.Parameters)
+        {
+            var refKind = RefKind.None;
+            if (parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword))
+                refKind = RefKind.Out;
+            else if (parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.InKeyword))
+                refKind = RefKind.In;
+            else if (parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.RefKeyword))
+                refKind = RefKind.Ref;
+
+            var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
+            if (typeSyntax is ByRefTypeSyntax byRefType)
+                typeSyntax = byRefType.ElementType;
+
+            var parameterType = typeSyntax is null
+                ? Compilation.ErrorTypeSymbol
+                : classBinder.ResolveType(typeSyntax);
+
+            var parameterSymbol = new SourceParameterSymbol(
+                parameterSyntax.Identifier.Text,
+                parameterType,
+                constructorSymbol,
+                classSymbol,
+                namespaceSymbol,
+                [parameterSyntax.GetLocation()],
+                [parameterSyntax.GetReference()],
+                refKind);
+
+            parameters.Add(parameterSymbol);
+
+            if (refKind == RefKind.None)
+            {
+                _ = new SourceFieldSymbol(
+                    parameterSyntax.Identifier.Text,
+                    parameterType,
+                    isStatic: false,
+                    isLiteral: false,
+                    constantValue: null,
+                    classSymbol,
+                    classSymbol,
+                    namespaceSymbol,
+                    [parameterSyntax.GetLocation()],
+                    [parameterSyntax.GetReference()],
+                    new BoundParameterAccess(parameterSymbol));
+            }
+        }
+
+        constructorSymbol.SetParameters(parameters);
     }
 
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
