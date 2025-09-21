@@ -42,4 +42,80 @@ public class PropertyBindingTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void GetterOnlyAutoProperty_AssignableInConstructor()
+    {
+        string testCode =
+            """
+            class Person {
+                public Name: string { get; }
+                init (name: string) {
+                    Name = name;
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void GetterOnlyAutoProperty_AssignableInNamedConstructor()
+    {
+        string testCode =
+            """
+            class Person {
+                public Name: string { get; }
+                public init WithName(name: string) {
+                    self.Name = name;
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void GetterOnlyAutoProperty_AssignmentOutsideConstructor_ProducesDiagnostic()
+    {
+        string testCode =
+            """
+            class Person {
+                public Name: string { get; }
+                public SetName(name: string) -> unit {
+                    Name = name;
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode,
+            [new DiagnosticResult("RAV0200").WithSpan(6, 9, 6, 13).WithArguments("Name")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void GetterOnlyPropertyWithAccessorBody_AssignmentInConstructor_ProducesDiagnostic()
+    {
+        string testCode =
+            """
+            class Person {
+                public Name: string {
+                    get => ""
+                }
+                init (name: string) {
+                    Name = name;
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode,
+            [new DiagnosticResult("RAV0200").WithSpan(8, 9, 8, 13).WithArguments("Name")]);
+
+        verifier.Verify();
+    }
 }
