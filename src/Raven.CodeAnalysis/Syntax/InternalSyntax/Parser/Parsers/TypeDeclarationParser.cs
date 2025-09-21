@@ -137,6 +137,32 @@ internal class TypeDeclarationParser : SyntaxParser
         }
         else
         {
+            if (keywordOrIdentifier.IsKind(SyntaxKind.IdentifierToken) && PeekToken(1).Kind == SyntaxKind.ColonToken)
+            {
+                var checkpoint = CreateCheckpoint();
+                ReadToken();
+                _ = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+
+                var nextToken = PeekToken();
+
+                bool looksLikeField = nextToken.Kind is SyntaxKind.EqualsToken
+                    or SyntaxKind.CommaToken
+                    or SyntaxKind.SemicolonToken
+                    or SyntaxKind.CloseBraceToken
+                    or SyntaxKind.EndOfFileToken
+                    or SyntaxKind.LineFeedToken
+                    or SyntaxKind.CarriageReturnToken
+                    or SyntaxKind.CarriageReturnLineFeedToken
+                    or SyntaxKind.NewLineToken;
+
+                checkpoint.Dispose();
+
+                if (looksLikeField)
+                {
+                    return ParseFieldDeclarationSyntax(modifiers);
+                }
+            }
+
             if (keywordOrIdentifier.IsKind(SyntaxKind.InitKeyword))
             {
                 return ParseConstructorDeclaration(modifiers, keywordOrIdentifier);
@@ -470,16 +496,46 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax()
     {
-        var letOrVarKeyword = ReadToken();
+        var firstToken = ReadToken();
 
+        SyntaxToken letOrVarKeyword;
         SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
+
+        if (firstToken.Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword)
         {
-            identifier = ReadIdentifierToken();
+            letOrVarKeyword = firstToken;
+
+            if (CanTokenBeIdentifier(PeekToken()))
+            {
+                identifier = ReadIdentifierToken();
+            }
+            else
+            {
+                identifier = ExpectToken(SyntaxKind.IdentifierToken);
+            }
         }
         else
         {
-            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.FieldDeclarationRequiresLetOrVar,
+                    GetSpanOfLastToken()));
+
+            letOrVarKeyword = MissingToken(SyntaxKind.LetKeyword);
+
+            if (CanTokenBeIdentifier(firstToken))
+            {
+                identifier = ToIdentifierToken(firstToken);
+                UpdateLastToken(identifier);
+            }
+            else if (CanTokenBeIdentifier(PeekToken()))
+            {
+                identifier = ReadIdentifierToken();
+            }
+            else
+            {
+                identifier = ExpectToken(SyntaxKind.IdentifierToken);
+            }
         }
 
         EqualsValueClauseSyntax? initializer = null;

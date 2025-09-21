@@ -107,6 +107,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportAliasDirectiveOutOfOrder(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.AliasDirectiveOutOfOrder, location));
 
+    public static void ReportFieldDeclarationRequiresLetOrVar(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.FieldDeclarationRequiresLetOrVar, location));
+
     public static void ReportUnrecognizedEscapeSequence(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.UnrecognizedEscapeSequence, location));
 
