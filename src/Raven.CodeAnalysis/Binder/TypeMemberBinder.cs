@@ -159,6 +159,30 @@ internal class TypeMemberBinder : Binder
 
         CheckForDuplicateSignature(name, name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), methodDecl.Identifier.GetLocation());
 
+        var modifiers = methodDecl.Modifiers;
+        var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
+        var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
+
+        IMethodSymbol? overriddenMethod = null;
+
+        if (isOverride)
+        {
+            var candidate = FindOverrideCandidate(name, paramInfos.Select(p => (p.type, p.refKind)).ToArray());
+
+            if (candidate is null || !candidate.IsVirtual)
+            {
+                _diagnostics.ReportOverrideMemberNotFound(name, methodDecl.Identifier.GetLocation());
+                isOverride = false;
+                isVirtual = false;
+            }
+            else
+            {
+                overriddenMethod = candidate;
+                isVirtual = true;
+            }
+        }
+
         var methodSymbol = new SourceMethodSymbol(
             name,
             returnType,
@@ -168,7 +192,12 @@ internal class TypeMemberBinder : Binder
             CurrentNamespace!.AsSourceNamespace(),
             [methodDecl.GetLocation()],
             [methodDecl.GetReference()],
-            isStatic: false);
+            isStatic: isStatic,
+            isVirtual: isVirtual,
+            isOverride: isOverride);
+
+        if (overriddenMethod is not null)
+            methodSymbol.SetOverriddenMethod(overriddenMethod);
 
         var parameters = new List<SourceParameterSymbol>();
         foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
@@ -520,6 +549,20 @@ internal class TypeMemberBinder : Binder
         propertySymbol.SetAccessors(getMethod, setMethod);
 
         return binders;
+    }
+
+    private IMethodSymbol? FindOverrideCandidate(string name, (ITypeSymbol type, RefKind refKind)[] parameters)
+    {
+        for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
+        {
+            foreach (var method in baseType.GetMembers(name).OfType<IMethodSymbol>())
+            {
+                if (SignaturesMatch(method, parameters))
+                    return method;
+            }
+        }
+
+        return null;
     }
 }
 

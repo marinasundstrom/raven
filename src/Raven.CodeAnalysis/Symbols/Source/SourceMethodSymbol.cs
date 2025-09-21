@@ -8,7 +8,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
     private IEnumerable<SourceParameterSymbol> _parameters;
 
-    public SourceMethodSymbol(string name, ITypeSymbol returnType, ImmutableArray<SourceParameterSymbol> parameters, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = true, MethodKind methodKind = MethodKind.Ordinary)
+    public SourceMethodSymbol(string name, ITypeSymbol returnType, ImmutableArray<SourceParameterSymbol> parameters, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = true, MethodKind methodKind = MethodKind.Ordinary, bool isVirtual = false, bool isOverride = false)
             : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         ReturnType = returnType;
@@ -17,6 +17,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         IsStatic = isStatic;
 
         MethodKind = methodKind;
+
+        IsOverride = isOverride;
+        IsVirtual = isVirtual || isOverride;
     }
 
     public ITypeSymbol ReturnType { get; }
@@ -55,5 +58,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsVirtual { get; }
 
+    public IMethodSymbol? OverriddenMethod { get; private set; }
+
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
+
+    internal void SetOverriddenMethod(IMethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
 }

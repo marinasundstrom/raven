@@ -252,6 +252,7 @@ internal class TypeGenerator
         if (TypeSymbol is INamedTypeSymbol named && named.TypeKind != TypeKind.Interface)
         {
             ImplementInterfaceMembers(named);
+            ImplementVirtualOverrides(named);
         }
     }
 
@@ -282,6 +283,32 @@ internal class TypeGenerator
 
                 TypeBuilder.DefineMethodOverride(methodBuilder, interfaceMethodInfo);
             }
+        }
+    }
+
+    private void ImplementVirtualOverrides(INamedTypeSymbol named)
+    {
+        if (TypeBuilder is null)
+            return;
+
+        foreach (var methodSymbol in named.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (methodSymbol is not SourceMethodSymbol sourceMethod)
+                continue;
+
+            if (sourceMethod.OverriddenMethod is null)
+                continue;
+
+            if (!_methodGenerators.TryGetValue(sourceMethod, out var implementationGenerator))
+                continue;
+
+            if (implementationGenerator.MethodBase is not MethodBuilder methodBuilder)
+                continue;
+
+            if (!TryGetMethodInfo(sourceMethod.OverriddenMethod, out var baseMethodInfo))
+                continue;
+
+            TypeBuilder.DefineMethodOverride(methodBuilder, baseMethodInfo);
         }
     }
 
@@ -337,6 +364,32 @@ internal class TypeGenerator
                 methodInfo = candidate;
                 return true;
             }
+        }
+
+        methodInfo = null!;
+        return false;
+    }
+
+    private bool TryGetMethodInfo(IMethodSymbol methodSymbol, out MethodInfo methodInfo)
+    {
+        switch (methodSymbol)
+        {
+            case SourceMethodSymbol sourceMethod:
+                {
+                    if (CodeGen.GetMemberBuilder(sourceMethod) is MethodInfo builder)
+                    {
+                        methodInfo = builder;
+                        return true;
+                    }
+
+                    break;
+                }
+            case PEMethodSymbol peMethod:
+                methodInfo = peMethod.GetMethodInfo();
+                return true;
+            case SubstitutedMethodSymbol substitutedMethod:
+                methodInfo = substitutedMethod.GetMethodInfo(CodeGen);
+                return true;
         }
 
         methodInfo = null!;

@@ -30,6 +30,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _unassignedOutParameter;
     private static DiagnosticDescriptor? _typeRequiresTypeArguments;
     private static DiagnosticDescriptor? _cannotInheritFromSealedType;
+    private static DiagnosticDescriptor? _overrideMemberNotFound;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
     private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
@@ -373,6 +374,19 @@ internal static partial class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "Type '{0}' is sealed and cannot be inherited",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0307: No virtual member named '{0}' was found in the base type to override
+    /// </summary>
+    public static DiagnosticDescriptor OverrideMemberNotFound => _overrideMemberNotFound ??= DiagnosticDescriptor.Create(
+        id: "RAV0307",
+        title: "No virtual member to override",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "No virtual member named '{0}' was found in the base type to override",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -845,6 +859,7 @@ internal static partial class CompilerDiagnostics
         UnassignedOutParameter,
         TypeRequiresTypeArguments,
         CannotInheritFromSealedType,
+        OverrideMemberNotFound,
         NullableTypeInUnion,
         TypeNameDoesNotExistInType,
         CannotAssignVoidToAnImplicitlyTypedVariable,
@@ -907,6 +922,7 @@ internal static partial class CompilerDiagnostics
         "RAV0269" => UnassignedOutParameter,
         "RAV0305" => TypeRequiresTypeArguments,
         "RAV0306" => CannotInheritFromSealedType,
+        "RAV0307" => OverrideMemberNotFound,
         "RAV0400" => NullableTypeInUnion,
         "RAV0426" => TypeNameDoesNotExistInType,
         "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,

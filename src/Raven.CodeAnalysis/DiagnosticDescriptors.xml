@@ -85,6 +85,10 @@
     Title="Cannot inherit from sealed type"
     Message="Type '{typeName}' is sealed and cannot be inherited" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0307" Identifier="OverrideMemberNotFound"
+    Title="No virtual member to override"
+    Message="No virtual member named '{memberName}' was found in the base type to override"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0400" Identifier="NullableTypeInUnion"
     Title="Nullable type not allowed in union"
     Message="Nullable types are not allowed in union types" Category="compiler" Severity="Error"

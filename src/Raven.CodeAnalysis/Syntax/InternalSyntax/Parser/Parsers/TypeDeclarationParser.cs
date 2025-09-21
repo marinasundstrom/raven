@@ -117,6 +117,7 @@ internal class TypeDeclarationParser : SyntaxParser
                      SyntaxKind.StaticKeyword or
                      SyntaxKind.AbstractKeyword or
                      SyntaxKind.SealedKeyword or
+                     SyntaxKind.VirtualKeyword or
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.OverrideKeyword)
             {

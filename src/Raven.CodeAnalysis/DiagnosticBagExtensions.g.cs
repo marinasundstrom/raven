@@ -77,6 +77,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportCannotInheritFromSealedType(this DiagnosticBag diagnostics, object? typeName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotInheritFromSealedType, location, typeName));
 
+    public static void ReportOverrideMemberNotFound(this DiagnosticBag diagnostics, object? memberName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.OverrideMemberNotFound, location, memberName));
+
     public static void ReportNullableTypeInUnion(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NullableTypeInUnion, location));
 
