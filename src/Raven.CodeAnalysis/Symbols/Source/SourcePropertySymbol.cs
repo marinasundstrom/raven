@@ -3,6 +3,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 {
     private readonly bool _isStatic;
+    private SourceFieldSymbol? _backingField;
 
     public SourcePropertySymbol(
         string name,
@@ -31,9 +32,18 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 
     public override bool IsStatic => _isStatic;
 
+    public bool IsAutoProperty => _backingField is not null;
+
+    public SourceFieldSymbol? BackingField => _backingField;
+
     internal void SetAccessors(IMethodSymbol? getMethod, IMethodSymbol? setMethod)
     {
         GetMethod = getMethod;
         SetMethod = setMethod;
+    }
+
+    internal void SetBackingField(SourceFieldSymbol backingField)
+    {
+        _backingField = backingField;
     }
 }

@@ -156,6 +156,11 @@ internal class MethodBodyGenerator
 
                     ILGenerator.Emit(OpCodes.Ret);
                 }
+                else if (MethodSymbol.ContainingSymbol is SourcePropertySymbol propertySymbol &&
+                         propertySymbol.BackingField is SourceFieldSymbol backingField)
+                {
+                    EmitAutoPropertyAccessor(accessorDeclaration, propertySymbol, backingField);
+                }
                 else
                 {
                     ILGenerator.Emit(OpCodes.Ret);
@@ -197,6 +202,43 @@ internal class MethodBodyGenerator
             var statement = new BoundAssignmentStatement((BoundAssignmentExpression)assignment);
             new StatementGenerator(baseGenerator, statement).Emit();
         }
+    }
+
+    private void EmitAutoPropertyAccessor(
+        AccessorDeclarationSyntax accessorDeclaration,
+        SourcePropertySymbol propertySymbol,
+        SourceFieldSymbol backingField)
+    {
+        var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+
+        if (accessorDeclaration.Kind == SyntaxKind.GetAccessorDeclaration)
+        {
+            if (propertySymbol.IsStatic)
+            {
+                ILGenerator.Emit(OpCodes.Ldsfld, fieldInfo);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
+            }
+        }
+        else
+        {
+            if (!propertySymbol.IsStatic)
+            {
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldarg_1);
+                ILGenerator.Emit(OpCodes.Stfld, fieldInfo);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Stsfld, fieldInfo);
+            }
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
     }
 
     private void EmitFunction(FunctionStatementSyntax localFunctionStmt)
