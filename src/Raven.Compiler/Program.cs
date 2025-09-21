@@ -87,7 +87,7 @@ if (showHelp)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../samples/classes{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../samples/interfaces{RavenFileExtensions.Raven}");
 
 for (int i = 0; i < sourceFiles.Count; i++)
 {

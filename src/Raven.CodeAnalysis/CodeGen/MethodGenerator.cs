@@ -26,7 +26,7 @@ internal class MethodGenerator
     internal void DefineMethodBuilder()
     {
         var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-            ? typeof(void)
+            ? Compilation.GetSpecialType(SpecialType.System_Void).GetClrType(TypeGenerator.CodeGen)
             : ResolveClrType(MethodSymbol.ReturnType);
 
         var parameterTypes = MethodSymbol.Parameters

@@ -132,7 +132,7 @@ class Foo : IFoo {
     public void Emit_ClassWithInterfaceMethod_EmitsInterfaceContract()
     {
         var code = """
-import System.*;
+import System.*
 
 class Foo : IDisposable {
     init() {
@@ -140,7 +140,7 @@ class Foo : IDisposable {
     }
 
     Dispose() -> unit {
-        return;
+
     }
 }
 """;

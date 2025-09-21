@@ -1,13 +1,14 @@
-import System.*;
+import System.*
 
 let foo = Foo()
+foo.Dispose()
 
 class Foo : IDisposable {
-    init() {
-
+    public init() {
+        Console.WriteLine("Init")
     }
 
-    Dispose() -> unit {
-        return;
+    public Dispose() -> unit {
+        Console.WriteLine("Dispose")
     }
 }
