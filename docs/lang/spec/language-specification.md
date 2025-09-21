@@ -1066,6 +1066,59 @@ class Counter
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
 
+### Properties
+
+Property declarations expose a value through accessor methods rather than by
+directly exposing a field. A property appears inside a class or struct and must
+declare a name, type, and one or more accessors:
+
+```raven
+public Value: int {
+    get {
+        return _value
+    }
+
+    set {
+        _value = value
+    }
+}
+```
+
+The compiler synthesizes accessor methods named `get_<PropertyName>` and
+`set_<PropertyName>`. Setters receive an implicit parameter named `value` whose
+type matches the property type. The `static` modifier may be applied to the
+property declaration to associate both accessors with the containing type.
+
+#### Accessor bodies
+
+Accessors may use block bodies or expression bodies. A property declaration may
+also collapse to a single expression-bodied member; it is shorthand for a `get`
+accessor with the same expression body.
+
+```raven
+public Value: int => _value
+
+public Value: int {
+    get => _value
+    private set => _value = value
+}
+```
+
+#### Auto-implemented properties
+
+When every accessor in a class or struct property omits both a block body and an
+expression body, the property is treated as **auto-implemented**. The compiler
+generates a hidden backing field of the same type and emits trivial accessor
+bodies that read from and write to that field. Auto-properties respect the
+property's modifiers: a `static` auto-property produces a static backing field,
+and accessor-level accessibility (for example `private set`) controls exposure
+without affecting code generation.
+
+Any accessor may be omitted. A property with only `get` remains read-only and
+exposes the default value of its backing field until assigned from within the
+type (e.g., via a constructor calling another accessor). Auto-properties are not
+available on interfaces, where accessors remain abstract.
+
 ### Class inheritance
 
 Classes are sealed by default. Marking a class `open` allows it to be used as a base type. A base class is specified with a colon

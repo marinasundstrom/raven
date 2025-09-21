@@ -352,6 +352,25 @@ internal class TypeMemberBinder : Binder
             [propertyDecl.GetReference()],
             isStatic: isStatic);
 
+        if (_containingType.TypeKind != TypeKind.Interface &&
+            propertyDecl.AccessorList is { } accessorList &&
+            accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null))
+        {
+            var backingField = new SourceFieldSymbol(
+                $"<{propertySymbol.Name}>k__BackingField",
+                propertyType,
+                isStatic: isStatic,
+                isLiteral: false,
+                constantValue: null,
+                _containingType,
+                _containingType,
+                CurrentNamespace!.AsSourceNamespace(),
+                [propertyDecl.GetLocation()],
+                [propertyDecl.GetReference()]);
+
+            propertySymbol.SetBackingField(backingField);
+        }
+
         var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
 
         SourceMethodSymbol? getMethod = null;

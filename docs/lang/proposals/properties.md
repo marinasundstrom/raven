@@ -102,8 +102,6 @@ Auto-properties are mainly intended to make it easier to define "pure" propertie
 
 They are properties with an auto-generated backing-field and auto-generated accessor methods.
 
-A `set` accessor is required.
-
 ```raven
 public class Person {
     init(name: string) {
@@ -116,6 +114,17 @@ public class Person {
     }
 }
 ```
+
+An auto-property is recognised when every accessor omits an explicit body. The
+compiler generates a hidden backing field and accessor bodies that simply read
+and write that storage. Accessor modifiers (such as `private set`) continue to
+govern accessibility, and marking the property `static` creates a shared backing
+field on the type itself. Accessors remain optional—a get-only auto-property is
+read-only and will expose the backing field's default value until it is assigned
+internally (for example from a constructor).
+
+> ℹ️ Auto-properties are available only on classes and structs; interface
+> accessors remain abstract requirements.
 
 ### Static properties
 
