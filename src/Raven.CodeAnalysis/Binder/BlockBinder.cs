@@ -2362,16 +2362,29 @@ partial class BlockBinder : Binder
         }
         else if (left.Symbol is IPropertySymbol propertySymbol)
         {
+            SourceFieldSymbol? backingField = null;
+
             if (propertySymbol.SetMethod is null)
             {
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
+                {
+                    _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, leftSyntax.GetLocation());
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                }
             }
 
             var right2 = BindExpression(rightSyntax);
 
             if (right2 is BoundEmptyCollectionExpression)
             {
-                return new BoundPropertyAssignmentExpression(right2, propertySymbol, new BoundEmptyCollectionExpression(propertySymbol.Type));
+                var empty = new BoundEmptyCollectionExpression(propertySymbol.Type);
+
+                if (backingField is not null)
+                {
+                    return new BoundFieldAssignmentExpression(right2, backingField, empty);
+                }
+
+                return new BoundPropertyAssignmentExpression(right2, propertySymbol, empty);
             }
 
             if (propertySymbol.Type.TypeKind != TypeKind.Error &&
@@ -2387,6 +2400,11 @@ partial class BlockBinder : Binder
                 }
 
                 right2 = ApplyConversion(right2, propertySymbol.Type, conversion);
+            }
+
+            if (backingField is not null)
+            {
+                return new BoundFieldAssignmentExpression(GetReceiver(left), backingField, right2);
             }
 
             return new BoundPropertyAssignmentExpression(GetReceiver(left), propertySymbol, right2);
@@ -2406,9 +2424,67 @@ partial class BlockBinder : Binder
             : new BoundExpressionStatement(bound);
     }
 
+    private bool TryGetWritableAutoPropertyBackingField(
+        IPropertySymbol propertySymbol,
+        BoundExpression left,
+        out SourceFieldSymbol? backingField)
+    {
+        backingField = null;
+
+        if (propertySymbol is not SourcePropertySymbol sourceProperty ||
+            !sourceProperty.IsAutoProperty ||
+            sourceProperty.BackingField is null)
+        {
+            return false;
+        }
+
+        if (_containingSymbol is not IMethodSymbol methodSymbol ||
+            !methodSymbol.IsConstructor)
+        {
+            return false;
+        }
+
+        if (!SymbolEqualityComparer.Default.Equals(methodSymbol.ContainingType, propertySymbol.ContainingType))
+        {
+            return false;
+        }
+
+        if (propertySymbol.IsStatic)
+        {
+            return false;
+        }
+
+        if (!IsConstructorSelfReceiver(methodSymbol, GetReceiver(left)))
+        {
+            return false;
+        }
+
+        backingField = sourceProperty.BackingField;
+        return true;
+    }
+
+    private static bool IsConstructorSelfReceiver(IMethodSymbol methodSymbol, BoundExpression? receiver)
+    {
+        if (receiver is null)
+            return true;
+
+        if (receiver is BoundSelfExpression)
+            return true;
+
+        if (methodSymbol.IsNamedConstructor &&
+            receiver is BoundLocalAccess localAccess &&
+            localAccess.Local is SourceLocalSymbol localSymbol &&
+            localSymbol.Name == "__self")
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private BoundExpression? GetReceiver(BoundExpression left)
     {
-        // Unwrap receive from member access 
+        // Unwrap receive from member access
 
         if (left is BoundMemberAccessExpression pa)
             return pa.Receiver;
