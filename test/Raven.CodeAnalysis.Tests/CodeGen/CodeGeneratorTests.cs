@@ -209,6 +209,55 @@ class Foo : IDisposable {
         });
     }
 
+    [Fact]
+    public void Emit_NamedConstructorWithImplicitReceivers_EmitsAndRuns()
+    {
+        var code = """
+class Person {
+    var storedName: string;
+
+    public init WithName(name: string) {
+        storedName = name;
+        let snapshot = storedName;
+        Normalize();
+    }
+
+    private Normalize() -> unit {
+        if storedName == "" {
+            storedName = "Unknown";
+        }
+    }
+
+    public GetName() -> string => storedName;
+}
+
+func main() -> unit {}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var personType = assembly.GetType("Person", throwOnError: true)!;
+        var factory = personType.GetMethod("WithName")!;
+        var instance = factory.Invoke(null, new object?[] { "" });
+
+        var getName = personType.GetMethod("GetName")!;
+        var value = (string)getName.Invoke(instance, Array.Empty<object?>())!;
+
+        Assert.Equal("Unknown", value);
+    }
+
     private static bool IsMethod(MetadataReader metadataReader, EntityHandle handle, string containingTypeName, string methodName)
     {
         return handle.Kind switch

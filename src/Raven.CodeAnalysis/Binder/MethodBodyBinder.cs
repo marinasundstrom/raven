@@ -31,7 +31,7 @@ class MethodBodyBinder : BlockBinder
                 [block.GetLocation()],
                 [block.GetReference()]);
 
-            var rewriter = new NamedConstructorRewriter(_methodSymbol, selfLocal, Compilation);
+            var rewriter = new NamedConstructorRewriter(_methodSymbol, selfLocal);
             bound = rewriter.Rewrite(bound);
         }
 
@@ -72,13 +72,28 @@ class MethodBodyBinder : BlockBinder
             _self = self;
         }
 
-        private readonly Compilation _compilation;
+        private BoundLocalAccess CreateSelfAccess() => new BoundLocalAccess(_self);
 
-        public NamedConstructorRewriter(IMethodSymbol methodSymbol, SourceLocalSymbol self, Compilation compilation)
+        private BoundExpression? RewriteReceiver(BoundExpression? receiver, ISymbol? member)
         {
-            _methodSymbol = methodSymbol;
-            _self = self;
-            _compilation = compilation;
+            if (receiver is not null)
+                return (BoundExpression?)Visit(receiver);
+
+            if (member is null)
+                return null;
+
+            return RequiresInstanceReceiver(member) ? CreateSelfAccess() : null;
+        }
+
+        private static bool RequiresInstanceReceiver(ISymbol member)
+        {
+            return member switch
+            {
+                IMethodSymbol method => !method.IsStatic,
+                IPropertySymbol property => !property.IsStatic,
+                IFieldSymbol field => !field.IsStatic,
+                _ => false,
+            };
         }
 
         public BoundBlockStatement Rewrite(BoundBlockStatement body)
@@ -140,8 +155,7 @@ class MethodBodyBinder : BlockBinder
         public override BoundNode? VisitBlockExpression(BoundBlockExpression node)
         {
             var statements = VisitList(node.Statements).Cast<BoundStatement>().ToList();
-            var unitType = _compilation.GetSpecialType(SpecialType.System_Unit);
-            return new BoundBlockExpression(statements, unitType);
+            return new BoundBlockExpression(statements, node.UnitType);
         }
 
         public override BoundNode? VisitAssignmentStatement(BoundAssignmentStatement node)
@@ -164,20 +178,20 @@ class MethodBodyBinder : BlockBinder
 
         public override BoundNode? VisitMemberAccessExpression(BoundMemberAccessExpression node)
         {
-            var receiver = node.Receiver is null ? null : (BoundExpression?)Visit(node.Receiver);
-            return new BoundMemberAccessExpression(receiver, node.Member);
+            var receiver = RewriteReceiver(node.Receiver, node.Member);
+            return new BoundMemberAccessExpression(receiver, node.Member, node.Reason);
         }
 
         public override BoundNode? VisitFieldAssignmentExpression(BoundFieldAssignmentExpression node)
         {
-            var receiver = node.Receiver is null ? null : (BoundExpression?)Visit(node.Receiver);
+            var receiver = RewriteReceiver(node.Receiver, node.Field);
             var right = (BoundExpression)Visit(node.Right)!;
             return new BoundFieldAssignmentExpression(receiver, node.Field, right);
         }
 
         public override BoundNode? VisitPropertyAssignmentExpression(BoundPropertyAssignmentExpression node)
         {
-            var receiver = node.Receiver is null ? null : (BoundExpression?)Visit(node.Receiver);
+            var receiver = RewriteReceiver(node.Receiver, node.Property);
             var right = (BoundExpression)Visit(node.Right)!;
             return new BoundPropertyAssignmentExpression(receiver, node.Property, right);
         }
@@ -191,9 +205,25 @@ class MethodBodyBinder : BlockBinder
 
         public override BoundNode? VisitInvocationExpression(BoundInvocationExpression node)
         {
-            var receiver = node.Receiver is null ? null : (BoundExpression?)Visit(node.Receiver);
+            var receiver = RewriteReceiver(node.Receiver, node.Method);
             var args = node.Arguments.Select(a => (BoundExpression)Visit(a)!).ToArray();
             return new BoundInvocationExpression(node.Method, args, receiver);
+        }
+
+        public override BoundNode? VisitFieldAccess(BoundFieldAccess node)
+        {
+            if (node.Field.IsStatic)
+                return node;
+
+            return new BoundMemberAccessExpression(CreateSelfAccess(), node.Field, node.Reason);
+        }
+
+        public override BoundNode? VisitPropertyAccess(BoundPropertyAccess node)
+        {
+            if (node.Property.IsStatic)
+                return node;
+
+            return new BoundMemberAccessExpression(CreateSelfAccess(), node.Property, node.Reason);
         }
 
         public override BoundNode? VisitSelfExpression(BoundSelfExpression node)

@@ -16,11 +16,19 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             yield return (T)node.Accept(this)!;
     }
 
-    public virtual IEnumerable<T> VisitSymbolList<T>(IEnumerable<ISymbol> symbols)
+    public virtual IEnumerable<T> VisitSymbolList<T>(IEnumerable<ISymbol?> symbols)
         where T : ISymbol
     {
         foreach (var symbol in symbols)
+        {
+            if (symbol is null)
+            {
+                yield return (T)symbol!;
+                continue;
+            }
+
             yield return (T)VisitSymbol(symbol)!;
+        }
     }
 
     public virtual BoundStatement VisitStatement(BoundStatement statement)
@@ -69,10 +77,11 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
         return @namespace;
     }
 
-    public virtual ISymbol VisitSymbol(ISymbol symbol)
+    public virtual ISymbol? VisitSymbol(ISymbol? symbol)
     {
         return symbol switch
         {
+            null => null,
             INamespaceSymbol ns => VisitNamespace(ns),
             ITypeSymbol type => VisitType(type),
             IMethodSymbol method => VisitMethod(method),
