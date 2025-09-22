@@ -53,6 +53,23 @@ internal class MethodGenerator
         {
             attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
         }
+        else
+        {
+            if (MethodSymbol.IsAbstract)
+            {
+                attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
+            }
+            else if (MethodSymbol.IsVirtual)
+            {
+                attributes |= MethodAttributes.Virtual;
+
+                if (!MethodSymbol.IsOverride)
+                    attributes |= MethodAttributes.NewSlot;
+            }
+
+            if (MethodSymbol.IsOverride && MethodSymbol.IsSealed)
+                attributes |= MethodAttributes.Final;
+        }
 
         if (MethodSymbol.IsStatic && !isInterfaceMethod)
             attributes |= MethodAttributes.Static;

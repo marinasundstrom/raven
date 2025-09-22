@@ -158,27 +158,57 @@ internal class TypeGenerator
                     }
                 case IPropertySymbol propertySymbol:
                     {
+                        var getterSymbol = propertySymbol.GetMethod as IMethodSymbol;
+                        var setterSymbol = propertySymbol.SetMethod as IMethodSymbol;
+
                         MethodGenerator? getGen = null;
                         MethodGenerator? setGen = null;
 
-                        if (propertySymbol.GetMethod is IMethodSymbol getMethod)
+                        if (getterSymbol is not null)
                         {
-                            getGen = new MethodGenerator(this, getMethod);
-                            _methodGenerators[getMethod] = getGen;
+                            getGen = new MethodGenerator(this, getterSymbol);
+                            _methodGenerators[getterSymbol] = getGen;
                             getGen.DefineMethodBuilder();
-                            CodeGen.AddMemberBuilder((SourceSymbol)getMethod, getGen.MethodBase);
+                            CodeGen.AddMemberBuilder((SourceSymbol)getterSymbol, getGen.MethodBase);
                         }
 
-                        if (propertySymbol.SetMethod is IMethodSymbol setMethod)
+                        if (setterSymbol is not null)
                         {
-                            setGen = new MethodGenerator(this, setMethod);
-                            _methodGenerators[setMethod] = setGen;
+                            setGen = new MethodGenerator(this, setterSymbol);
+                            _methodGenerators[setterSymbol] = setGen;
                             setGen.DefineMethodBuilder();
-                            CodeGen.AddMemberBuilder((SourceSymbol)setMethod, setGen.MethodBase);
+                            CodeGen.AddMemberBuilder((SourceSymbol)setterSymbol, setGen.MethodBase);
                         }
 
                         var propertyType = ResolveClrType(propertySymbol.Type);
-                        var paramTypes = propertySymbol.GetMethod?.Parameters.Select(p => ResolveClrType(p.Type)).ToArray() ?? Type.EmptyTypes;
+
+                        Type[]? paramTypes = null;
+                        if (getterSymbol is not null)
+                        {
+                            var getterParams = getterSymbol.Parameters
+                                .Select(p => ResolveClrType(p.Type))
+                                .ToArray();
+
+                            if (getterParams.Length > 0)
+                                paramTypes = getterParams;
+                        }
+                        else if (setterSymbol is not null)
+                        {
+                            var setterParams = setterSymbol.Parameters;
+                            var paramCount = setterSymbol.MethodKind == MethodKind.PropertySet
+                                ? setterParams.Length - 1
+                                : setterParams.Length;
+
+                            if (paramCount > 0)
+                            {
+                                var builder = new Type[paramCount];
+                                for (var i = 0; i < paramCount; i++)
+                                    builder[i] = ResolveClrType(setterParams[i].Type);
+
+                                paramTypes = builder;
+                            }
+                        }
+
                         var propBuilder = TypeBuilder.DefineProperty(propertySymbol.Name, PropertyAttributes.None, propertyType, paramTypes);
 
                         if (getGen != null)
@@ -252,6 +282,7 @@ internal class TypeGenerator
         if (TypeSymbol is INamedTypeSymbol named && named.TypeKind != TypeKind.Interface)
         {
             ImplementInterfaceMembers(named);
+            ImplementVirtualOverrides(named);
         }
     }
 
@@ -282,6 +313,32 @@ internal class TypeGenerator
 
                 TypeBuilder.DefineMethodOverride(methodBuilder, interfaceMethodInfo);
             }
+        }
+    }
+
+    private void ImplementVirtualOverrides(INamedTypeSymbol named)
+    {
+        if (TypeBuilder is null)
+            return;
+
+        foreach (var methodSymbol in named.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (methodSymbol is not SourceMethodSymbol sourceMethod)
+                continue;
+
+            if (sourceMethod.OverriddenMethod is null)
+                continue;
+
+            if (!_methodGenerators.TryGetValue(sourceMethod, out var implementationGenerator))
+                continue;
+
+            if (implementationGenerator.MethodBase is not MethodBuilder methodBuilder)
+                continue;
+
+            if (!TryGetMethodInfo(sourceMethod.OverriddenMethod, out var baseMethodInfo))
+                continue;
+
+            TypeBuilder.DefineMethodOverride(methodBuilder, baseMethodInfo);
         }
     }
 
@@ -337,6 +394,32 @@ internal class TypeGenerator
                 methodInfo = candidate;
                 return true;
             }
+        }
+
+        methodInfo = null!;
+        return false;
+    }
+
+    private bool TryGetMethodInfo(IMethodSymbol methodSymbol, out MethodInfo methodInfo)
+    {
+        switch (methodSymbol)
+        {
+            case SourceMethodSymbol sourceMethod:
+                {
+                    if (CodeGen.GetMemberBuilder(sourceMethod) is MethodInfo builder)
+                    {
+                        methodInfo = builder;
+                        return true;
+                    }
+
+                    break;
+                }
+            case PEMethodSymbol peMethod:
+                methodInfo = peMethod.GetMethodInfo();
+                return true;
+            case SubstitutedMethodSymbol substitutedMethod:
+                methodInfo = substitutedMethod.GetMethodInfo(CodeGen);
+                return true;
         }
 
         methodInfo = null!;

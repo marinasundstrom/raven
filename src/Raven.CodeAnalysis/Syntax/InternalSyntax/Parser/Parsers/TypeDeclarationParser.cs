@@ -117,6 +117,7 @@ internal class TypeDeclarationParser : SyntaxParser
                      SyntaxKind.StaticKeyword or
                      SyntaxKind.AbstractKeyword or
                      SyntaxKind.SealedKeyword or
+                     SyntaxKind.VirtualKeyword or
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.OverrideKeyword)
             {
@@ -418,19 +419,21 @@ internal class TypeDeclarationParser : SyntaxParser
 
             SetTreatNewlinesAsTokens(false);
 
+            var accessorKind = name.IsKind(SyntaxKind.GetKeyword)
+                ? SyntaxKind.GetAccessorDeclaration
+                : SyntaxKind.SetAccessorDeclaration;
+
             if (expressionBody is not null)
             {
-                accessorList.Add(AccessorDeclaration(
-                    name.IsKind(SyntaxKind.GetKeyword) ? SyntaxKind.GetAccessorDeclaration
-                    : SyntaxKind.SetAccessorDeclaration,
-                    modifiers, name, null, expressionBody, terminatorToken));
+                accessorList.Add(AccessorDeclaration(accessorKind, modifiers, name, null, expressionBody, terminatorToken));
             }
             else if (body is not null)
             {
-                accessorList.Add(AccessorDeclaration(
-                    name.IsKind(SyntaxKind.GetKeyword) ? SyntaxKind.GetAccessorDeclaration
-                    : SyntaxKind.SetAccessorDeclaration,
-                    modifiers, name, body, null, terminatorToken));
+                accessorList.Add(AccessorDeclaration(accessorKind, modifiers, name, body, null, terminatorToken));
+            }
+            else
+            {
+                accessorList.Add(AccessorDeclaration(accessorKind, modifiers, name, null, null, terminatorToken));
             }
         }
 
