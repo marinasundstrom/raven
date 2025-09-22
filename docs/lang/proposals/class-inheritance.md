@@ -30,7 +30,19 @@ default). A sealed class remains inheritable by its known children, allowing too
 
 ### Constructors
 
-If a derived class omits a constructor, the base class' default constructor is called automatically. Explicit constructors must chain to a base constructor; default constructors are planned but not yet available.
+If a derived class omits a constructor, the base class' default constructor is called automatically. A constructor that needs to forward arguments may declare an initializer clause between its parameter list and body:
+
+```raven
+open class Base { public init(value: int) {} }
+
+class Derived : Base {
+    public init(value: int): base(value) {
+        // Body runs after the base constructor finishes.
+    }
+}
+```
+
+The initializer runs before the derived body executes. It is only available on ordinary instance constructors; static constructors report `RAV0312`, and named constructors continue to build user-defined factory patterns without chaining.
 
 ### Access modifiers
 
@@ -41,7 +53,7 @@ Classes and their members support the existing access modifiers (`public`, `inte
 - ✅ `open` classes and base type syntax
 - ✅ Default constructor chaining to the base default constructor
 - ✅ Access modifiers on classes and members
-- ⚠️ Explicit base constructor invocation
+- ✅ Explicit base constructor invocation
 - ⚠️ Advanced inheritance features (interfaces, abstract classes, etc.)
 
 ## Limitations

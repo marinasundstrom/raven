@@ -441,7 +441,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return expr;
     }
 
-    private ArgumentListSyntax ParseArgumentListSyntax()
+    internal ArgumentListSyntax ParseArgumentListSyntax()
     {
         var openParenToken = ReadToken();
 

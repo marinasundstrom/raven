@@ -1177,10 +1177,24 @@ final override so the CLR records the implementation in the type's interface map
 aration rules and inheritance.
 
 If a derived class omits a constructor, the base class' parameterless constructor is invoked automatically. Access modifiers
-(`public`, `internal`, `protected`, `private`) apply as usual; `protected` members are accessible to derived classes.
+(`public`, `internal`, `protected`, `private`) apply as usual; `protected` members are accessible to derived classes. An
+instance constructor may chain to a specific base overload by adding a constructor initializer between its parameter list and
+body:
 
-> **Limitations:** Only single inheritance is supported. Derived classes may currently chain only to parameterless base
-> constructors.
+```raven
+open class Base { public init(value: int) {} }
+
+class Derived : Base {
+    public init(value: int): base(value) {
+        // The base invocation runs before the derived body executes.
+    }
+}
+```
+
+The initializer is only available on ordinary instance constructors. Static constructors report `RAV0312`, and named
+constructors continue to behave as user-defined factories without chaining.
+
+> **Limitations:** Only single inheritance is supported.
 
 ### Method overloading
 

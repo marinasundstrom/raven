@@ -2539,7 +2539,7 @@ partial class BlockBinder : Binder
         return new BoundCastExpression(expression, targetType, conversion);
     }
 
-    private BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundExpression> arguments, SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes)
+    protected BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundExpression> arguments, SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes)
     {
         var converted = new BoundExpression[arguments.Count];
 

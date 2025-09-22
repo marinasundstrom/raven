@@ -158,6 +158,7 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="InitKeyword" Type="Token" IsInherited="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
+    <Slot Name="Initializer" Type="ConstructorInitializer" IsNullable="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
@@ -170,6 +171,16 @@
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
+  </Node>
+  <Node Name="ConstructorInitializer" Inherits="Node" IsAbstract="true">
+    <Slot Name="ColonToken" Type="Token" IsAbstract="true" />
+    <Slot Name="Keyword" Type="Token" IsAbstract="true" />
+    <Slot Name="ArgumentList" Type="ArgumentList" IsAbstract="true" />
+  </Node>
+  <Node Name="BaseConstructorInitializer" Inherits="ConstructorInitializer">
+    <Slot Name="ColonToken" Type="Token" IsInherited="true" />
+    <Slot Name="Keyword" Type="Token" IsInherited="true" />
+    <Slot Name="ArgumentList" Type="ArgumentList" IsInherited="true" />
   </Node>
   <Node Name="ReturnStatement" Inherits="Statement">
     <Slot Name="ReturnKeyword" Type="Token" />

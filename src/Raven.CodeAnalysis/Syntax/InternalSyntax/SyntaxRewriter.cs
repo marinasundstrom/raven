@@ -68,6 +68,11 @@ internal abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return node.Accept(this);
     }
 
+    public virtual ConstructorInitializerSyntax? VisitConstructorInitializer(ConstructorInitializerSyntax? node)
+    {
+        return (ConstructorInitializerSyntax?)node?.Accept(this);
+    }
+
     public virtual SyntaxList? VisitList(SyntaxList list)
     {
         List<GreenNode> newList = [];

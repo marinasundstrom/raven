@@ -105,6 +105,10 @@
     Title="Static members cannot be virtual or override"
     Message="Static member '{memberName}' cannot be marked '{modifier}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0312" Identifier="ConstructorInitializerNotAllowedOnStaticConstructor"
+    Title="Static constructors cannot specify a base initializer"
+    Message="Static constructors cannot specify a base constructor initializer"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0400" Identifier="NullableTypeInUnion"
     Title="Nullable type not allowed in union"
     Message="Nullable types are not allowed in union types" Category="compiler" Severity="Error"
