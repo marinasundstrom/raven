@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -77,4 +78,12 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 
     internal void SetOverriddenMethod(IMethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
+
+    public BoundObjectCreationExpression? ConstructorInitializer { get; private set; }
+
+    public bool HasConstructorInitializerSyntax { get; private set; }
+
+    internal void MarkConstructorInitializerSyntax() => HasConstructorInitializerSyntax = true;
+
+    internal void SetConstructorInitializer(BoundObjectCreationExpression? initializer) => ConstructorInitializer = initializer;
 }

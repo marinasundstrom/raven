@@ -304,7 +304,30 @@ internal class TypeMemberBinder : Binder
         }
 
         ctorSymbol.SetParameters(parameters);
-        return new MethodBinder(ctorSymbol, this);
+
+        var methodBinder = new MethodBinder(ctorSymbol, this);
+
+        if (ctorDecl.Initializer is { } initializerSyntax)
+        {
+            ctorSymbol.MarkConstructorInitializerSyntax();
+
+            if (isStatic)
+            {
+                _diagnostics.ReportConstructorInitializerNotAllowedOnStaticConstructor(initializerSyntax.Keyword.GetLocation());
+            }
+            else
+            {
+                var initializerBinder = new ConstructorInitializerBinder(ctorSymbol, methodBinder);
+                var boundInitializer = initializerBinder.Bind(initializerSyntax);
+
+                foreach (var diagnostic in initializerBinder.Diagnostics.AsEnumerable())
+                    _diagnostics.Report(diagnostic);
+
+                ctorSymbol.SetConstructorInitializer(boundInitializer);
+            }
+        }
+
+        return methodBinder;
     }
 
     public MethodBinder BindNamedConstructorDeclaration(NamedConstructorDeclarationSyntax ctorDecl)

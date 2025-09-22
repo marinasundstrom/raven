@@ -207,6 +207,15 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var parameterList = ParseParameterList();
 
+        ConstructorInitializerSyntax? initializer = null;
+        if (PeekToken().IsKind(SyntaxKind.ColonToken))
+        {
+            var colonToken = ReadToken();
+            ConsumeTokenOrMissing(SyntaxKind.BaseKeyword, out var baseKeyword);
+            var argumentList = new ExpressionSyntaxParser(this).ParseArgumentListSyntax();
+            initializer = BaseConstructorInitializer(colonToken, baseKeyword, argumentList);
+        }
+
         var token = PeekToken();
 
         BlockStatementSyntax? body = null;
@@ -227,11 +236,11 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             if (expressionBody is not null)
             {
-                return ConstructorDeclaration(modifiers, initKeyword, parameterList, null, expressionBody, terminatorToken);
+                return ConstructorDeclaration(modifiers, initKeyword, parameterList, initializer, null, expressionBody, terminatorToken);
             }
             else if (body is not null)
             {
-                return ConstructorDeclaration(modifiers, initKeyword, parameterList, body, null, terminatorToken);
+                return ConstructorDeclaration(modifiers, initKeyword, parameterList, initializer, body, null, terminatorToken);
             }
         }
         else

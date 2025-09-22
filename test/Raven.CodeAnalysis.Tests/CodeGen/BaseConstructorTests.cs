@@ -80,4 +80,43 @@ class Derived : Base {
         var instance = Activator.CreateInstance(type);
         Assert.NotNull(instance);
     }
+
+    [Fact]
+    public void ExplicitBaseConstructor_WithArguments_IsCalled()
+    {
+        var code = """
+open class Base {
+    var stored: int = 0
+    public init(value: int) { stored = value }
+    public Value: int { get => stored }
+}
+
+class Derived : Base {
+    public init(value: int): base(value) {}
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion("net9.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver.GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var type = runtimeAssembly.GetType("Derived", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type, new object[] { 42 })!;
+        var prop = type.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance)!;
+        Assert.Equal(42, (int)prop.GetValue(instance)!);
+    }
 }

@@ -35,6 +35,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _sealedMemberMustOverride;
     private static DiagnosticDescriptor? _cannotOverrideSealedMember;
     private static DiagnosticDescriptor? _staticMemberCannotBeVirtualOrOverride;
+    private static DiagnosticDescriptor? _constructorInitializerNotAllowedOnStaticConstructor;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
     private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
@@ -443,6 +444,19 @@ internal static partial class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "Static member '{0}' cannot be marked '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0312: Static constructors cannot specify a base constructor initializer
+    /// </summary>
+    public static DiagnosticDescriptor ConstructorInitializerNotAllowedOnStaticConstructor => _constructorInitializerNotAllowedOnStaticConstructor ??= DiagnosticDescriptor.Create(
+        id: "RAV0312",
+        title: "Static constructors cannot specify a base initializer",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Static constructors cannot specify a base constructor initializer",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -920,6 +934,7 @@ internal static partial class CompilerDiagnostics
         SealedMemberMustOverride,
         CannotOverrideSealedMember,
         StaticMemberCannotBeVirtualOrOverride,
+        ConstructorInitializerNotAllowedOnStaticConstructor,
         NullableTypeInUnion,
         TypeNameDoesNotExistInType,
         CannotAssignVoidToAnImplicitlyTypedVariable,
@@ -987,6 +1002,7 @@ internal static partial class CompilerDiagnostics
         "RAV0309" => SealedMemberMustOverride,
         "RAV0310" => CannotOverrideSealedMember,
         "RAV0311" => StaticMemberCannotBeVirtualOrOverride,
+        "RAV0312" => ConstructorInitializerNotAllowedOnStaticConstructor,
         "RAV0400" => NullableTypeInUnion,
         "RAV0426" => TypeNameDoesNotExistInType,
         "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,

@@ -92,6 +92,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportStaticMemberCannotBeVirtualOrOverride(this DiagnosticBag diagnostics, object? memberName, object? modifier, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.StaticMemberCannotBeVirtualOrOverride, location, memberName, modifier));
 
+    public static void ReportConstructorInitializerNotAllowedOnStaticConstructor(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ConstructorInitializerNotAllowedOnStaticConstructor, location));
+
     public static void ReportNullableTypeInUnion(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NullableTypeInUnion, location));
 

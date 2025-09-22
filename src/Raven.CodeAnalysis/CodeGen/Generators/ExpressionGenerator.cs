@@ -1004,6 +1004,11 @@ internal class ExpressionGenerator : Generator
         var parameters = constructorSymbol.Parameters.ToArray();
         var arguments = objectCreationExpression.Arguments.ToArray();
 
+        if (objectCreationExpression.Receiver is not null)
+        {
+            EmitExpression(objectCreationExpression.Receiver);
+        }
+
         for (int i = 0; i < arguments.Length; i++)
         {
             var param = parameters[i];
@@ -1042,7 +1047,14 @@ internal class ExpressionGenerator : Generator
             _ => throw new Exception()
         };
 
-        ILGenerator.Emit(OpCodes.Newobj, constructorInfo);
+        if (objectCreationExpression.Receiver is not null)
+        {
+            ILGenerator.Emit(OpCodes.Call, constructorInfo);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Newobj, constructorInfo);
+        }
     }
 
     private void EmitAssignmentExpression(BoundAssignmentExpression node)

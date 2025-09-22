@@ -76,6 +76,11 @@ public abstract partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode?>
         return node?.Accept(this);
     }
 
+    public virtual ConstructorInitializerSyntax? VisitConstructorInitializer(ConstructorInitializerSyntax? node)
+    {
+        return (ConstructorInitializerSyntax?)node?.Accept(this);
+    }
+
     public virtual SyntaxList<TElement>? VisitList<TElement>(SyntaxList<TElement>? list0)
         where TElement : SyntaxNode
     {

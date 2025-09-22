@@ -111,9 +111,7 @@ internal class MethodBodyGenerator
 
                 if (ordinaryConstr && !MethodSymbol.IsStatic)
                 {
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
-                    var baseCtor = GetBaseConstructor();
-                    ILGenerator.Emit(OpCodes.Call, baseCtor);
+                    EmitConstructorInitializer();
                 }
 
                 EmitFieldInitializers(MethodSymbol.IsStatic);
@@ -170,9 +168,7 @@ internal class MethodBodyGenerator
             case ClassDeclarationSyntax:
                 if (!MethodSymbol.IsStatic)
                 {
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
-                    var baseCtor2 = GetBaseConstructor();
-                    ILGenerator.Emit(OpCodes.Call, baseCtor2);
+                    EmitConstructorInitializer();
                 }
 
                 EmitFieldInitializers(MethodSymbol.IsStatic);
@@ -377,6 +373,25 @@ internal class MethodBodyGenerator
         return Compilation
                         .GetSemanticModel(syntaxNode.SyntaxTree)
                         .GetDeclaredSymbol(syntaxNode) as TNode;
+    }
+
+    private void EmitConstructorInitializer()
+    {
+        if (MethodSymbol is SourceMethodSymbol sourceMethod)
+        {
+            if (sourceMethod.ConstructorInitializer is { } initializer)
+            {
+                new ExpressionGenerator(baseGenerator, initializer).Emit();
+                return;
+            }
+
+            if (sourceMethod.HasConstructorInitializerSyntax)
+                return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+        var baseCtor = GetBaseConstructor();
+        ILGenerator.Emit(OpCodes.Call, baseCtor);
     }
 
     private ConstructorInfo GetBaseConstructor()
