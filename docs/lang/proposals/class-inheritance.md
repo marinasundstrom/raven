@@ -22,10 +22,10 @@ class DerivedB : Parent {}
 
 ### Sealed hierarchies
 
-To support algebraic-style modeling and exhaustive pattern matching, Raven follows Kotlin's terminology. Applying the `sealed`
-modifier to a class keeps the hierarchy closed to subclasses defined alongside the base declaration (either in the same file or
-as nested types). This differs from the C# meaning of `sealed` (which Raven already provides by default). A sealed class remains
-inheritable by its known children, allowing tooling to reason about the entire closed family.
+To support algebraic-style modeling and exhaustive pattern matching, Raven follows the terminology used by Kotlin and modern
+Java. Applying the `sealed` modifier to a class keeps the hierarchy closed to subclasses defined alongside the base declaration
+(either in the same file or as nested types). This differs from the C# meaning of `sealed` (which Raven already provides by
+default). A sealed class remains inheritable by its known children, allowing tooling to reason about the entire closed family.
 
 ### Constructors
 

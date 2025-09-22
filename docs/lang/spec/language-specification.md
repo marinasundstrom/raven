@@ -1144,13 +1144,13 @@ available on interfaces, where accessors remain abstract.
 
 Classes are sealed by default. Marking a class `open` allows it to be used as a base type. The `abstract` modifier also enables
 inheritance: abstract classes are implicitly open and may serve as base types without the `open` keyword. Raven also supports
-Kotlin-style **sealed hierarchies**. Applying the `sealed` modifier to a class keeps the hierarchy closed to a known set of
-subclasses declared in the same source file (including nested types). The compiler treats those subclasses as the exhaustive set
-for purposes such as pattern-matching analysis.
+**sealed hierarchies** in the style of Kotlin and modern Java. Applying the `sealed` modifier to a class keeps the hierarchy
+closed to a known set of subclasses declared in the same source file (including nested types). The compiler treats those
+subclasses as the exhaustive set for purposes such as pattern-matching analysis.
 
-> **Note:** Raven's `sealed` keyword follows Kotlin's terminology rather than C#'s. In C#, `sealed` means "cannot be inherited".
-> In Raven that concept is already the default. The `sealed` modifier instead designates a hierarchy whose direct subclasses are
-> known at compile time.
+> **Note:** Raven's `sealed` keyword follows Kotlin and Java's terminology rather than C#'s. In C#, `sealed` means "cannot be
+> inherited". In Raven that concept is already the default. The `sealed` modifier instead designates a hierarchy whose direct
+> subclasses are known at compile time.
 
 A base class is specified with a colon followed by the type name:
 
