@@ -303,6 +303,9 @@ internal class TypeGenerator
         {
             foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
             {
+                if (interfaceMethod.IsStatic)
+                    continue;
+
                 if (!TryFindImplementation(interfaceMethod, out var implementation))
                     continue;
 
@@ -386,9 +389,12 @@ internal class TypeGenerator
                 .Select(GetParameterClrType)
                 .ToArray();
 
+            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic;
+            bindingFlags |= interfaceMethod.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
+
             var candidate = interfaceClrType.GetMethod(
                 interfaceMethod.Name,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                bindingFlags,
                 binder: null,
                 types: parameterTypes,
                 modifiers: null);

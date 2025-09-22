@@ -1244,10 +1244,10 @@ interface ILogger
 }
 ```
 
-Interfaces may be declared at the top level, inside namespaces, or nested inside other types. Like classes, they support the same
-set of member declarations (methods, properties, indexers, and nested types). Interface members are treated as abstract requireme
-nts—the implementation is supplied by a conforming type. When an interface member uses accessors, a bare `;` accessor denotes an
-unimplemented accessor requirement (`get;`/`set;`).
+Interfaces may be declared at the top level, inside namespaces, or nested inside other types. Like classes, they support the same set of member declarations (methods, properties, indexers, and nested types).
+Instance members are abstract requirements by default, but supplying a body for a method or accessor turns it into a default implementation emitted directly on the interface.
+Static members, by contrast, must provide a body and emit as real static members on the interface type; implementing types never participate in their implementation or override process.
+When an interface member uses accessors, a bare `;` accessor denotes an unimplemented accessor requirement (`get;`/`set;`).
 
 ### Base interfaces
 
