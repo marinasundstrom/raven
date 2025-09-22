@@ -1142,8 +1142,10 @@ available on interfaces, where accessors remain abstract.
 
 ### Class inheritance
 
-Classes are sealed by default. Marking a class `open` allows it to be used as a base type. The `abstract` modifier also enables
-inheritance: abstract classes are implicitly open and may serve as base types without the `open` keyword. Raven also supports
+Classes are sealed by default. Marking a class `open` allows it to be used as a base type. This explicit opt-in keeps instantiable
+classes from being inherited accidentally—the class author must deliberately allow derivation before clients can extend it. The
+`abstract` modifier also enables inheritance: abstract classes are implicitly open and may serve as base types without the `open`
+keyword. Raven also supports
 **sealed hierarchies** in the style of Kotlin and modern Java. Applying the `sealed` modifier to a class keeps the hierarchy
 closed to a known set of subclasses declared in the same source file (including nested types). The compiler treats those
 subclasses as the exhaustive set for purposes such as pattern-matching analysis.

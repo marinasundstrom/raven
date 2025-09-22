@@ -12,7 +12,8 @@ Allow classes to inherit from other classes while explicitly controlling whether
 
 ### Declaring an inheritable class
 
-Classes are sealed by default. A class must be marked `open` to allow derivation:
+Classes are sealed by default. A class must be marked `open` to allow derivation. This keeps instantiable classes from becoming
+base types unless their author consciously opts in:
 
 ```raven
 open class Parent {}
