@@ -33,6 +33,19 @@ public class LexerTests
     }
 
     [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    public void BooleanKeyword_ExposesBooleanValue(string text, bool expected)
+    {
+        var lexer = new Lexer(new StringReader(text));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(expected ? SyntaxKind.TrueKeyword : SyntaxKind.FalseKeyword, token.Kind);
+        var value = Assert.IsType<bool>(token.Value);
+        Assert.Equal(expected, value);
+    }
+
+    [Theory]
     [InlineData("$foo")]
     [InlineData("_value")]
     [InlineData("foo_bar")]
@@ -45,5 +58,69 @@ public class LexerTests
 
         Assert.Equal(SyntaxKind.IdentifierToken, token.Kind);
         Assert.Equal(identifier, token.Text);
+    }
+
+    [Fact]
+    public void NumericLiteral_WithUnderscores_IsParsedAsInteger()
+    {
+        var lexer = new Lexer(new StringReader("1_000"));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.NumericLiteralToken, token.Kind);
+        Assert.Equal("1_000", token.Text);
+        var value = Assert.IsType<int>(token.Value);
+        Assert.Equal(1_000, value);
+    }
+
+    [Fact]
+    public void LineFeed_WithUnifiedNewLineToken_ReturnsNewLineToken()
+    {
+        var lexer = new Lexer(new StringReader("\n"));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.NewLineToken, token.Kind);
+        Assert.Equal("\n", token.Text);
+    }
+
+    [Fact]
+    public void LineFeed_WithoutUnifiedNewLineToken_ReturnsLineFeedToken()
+    {
+        var lexer = new Lexer(new StringReader("\n"))
+        {
+            UseUnifiedNewLineToken = false,
+        };
+
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.LineFeedToken, token.Kind);
+        Assert.Equal("\n", token.Text);
+    }
+
+    [Fact]
+    public void CarriageReturnLineFeed_WhenMerged_ReturnsSingleNewLineToken()
+    {
+        var lexer = new Lexer(new StringReader("\r\n"));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.NewLineToken, token.Kind);
+        Assert.Equal("\r\n", token.Text);
+    }
+
+    [Fact]
+    public void CarriageReturnLineFeed_WhenNotMerged_ReturnsSeparateTokens()
+    {
+        var lexer = new Lexer(new StringReader("\r\n"))
+        {
+            MergeCarriageReturnAndLineFeed = false,
+            UseUnifiedNewLineToken = false,
+        };
+
+        var carriageReturn = lexer.ReadToken();
+        Assert.Equal(SyntaxKind.CarriageReturnToken, carriageReturn.Kind);
+        Assert.Equal("\r", carriageReturn.Text);
+
+        var lineFeed = lexer.ReadToken();
+        Assert.Equal(SyntaxKind.LineFeedToken, lineFeed.Kind);
+        Assert.Equal("\n", lineFeed.Text);
     }
 }
