@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
@@ -45,9 +46,14 @@ internal class MethodGenerator
             attributes |= MethodAttributes.SpecialName;
 
         var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
-        if (isInterfaceMethod)
+        var hasInterfaceBody = isInterfaceMethod && !MethodSymbol.IsStatic && HasInterfaceMethodBody(MethodSymbol);
+
+        if (isInterfaceMethod && !MethodSymbol.IsStatic)
         {
-            attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
+            attributes |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
+
+            if (!hasInterfaceBody)
+                attributes |= MethodAttributes.Abstract;
         }
         else if (TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
         {
@@ -71,7 +77,7 @@ internal class MethodGenerator
                 attributes |= MethodAttributes.Final;
         }
 
-        if (MethodSymbol.IsStatic && !isInterfaceMethod)
+        if (MethodSymbol.IsStatic)
             attributes |= MethodAttributes.Static;
 
         if (MethodSymbol.IsConstructor && !MethodSymbol.IsNamedConstructor)
@@ -161,7 +167,7 @@ internal class MethodGenerator
     {
         var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
 
-        if (isInterfaceMethod)
+        if (isInterfaceMethod && !MethodSymbol.IsStatic && !HasInterfaceMethodBody(MethodSymbol))
             return;
 
         var bodyGenerator = new MethodBodyGenerator(this);
@@ -174,4 +180,21 @@ internal class MethodGenerator
     }
 
     public override string ToString() => this.MethodSymbol.ToDisplayString();
+
+    private static bool HasInterfaceMethodBody(IMethodSymbol methodSymbol)
+    {
+        foreach (var syntaxRef in methodSymbol.DeclaringSyntaxReferences)
+        {
+            var syntax = syntaxRef.GetSyntax();
+            switch (syntax)
+            {
+                case MethodDeclarationSyntax methodDecl when methodDecl.Body is not null || methodDecl.ExpressionBody is not null:
+                    return true;
+                case AccessorDeclarationSyntax accessorDecl when accessorDecl.Body is not null || accessorDecl.ExpressionBody is not null:
+                    return true;
+            }
+        }
+
+        return false;
+    }
 }

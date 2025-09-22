@@ -35,6 +35,18 @@ class Foo {
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(references);
 
+        var interfaceSymbol = compilation.GlobalNamespace.GetMembers("IUtility").OfType<INamedTypeSymbol>().Single();
+        var getValueSymbol = interfaceSymbol.GetMembers("GetValue").OfType<IMethodSymbol>().Single();
+        Assert.True(getValueSymbol.IsStatic);
+        Assert.Single(interfaceSymbol.GetMembers("GetValue").Where(m => m.IsStatic));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var memberAccess = syntaxTree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
+        var typeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
+        Assert.Same(interfaceSymbol, typeInfo.Type);
+        var memberInfo = semanticModel.GetSymbolInfo(memberAccess.Name);
+        Assert.True(memberInfo.Success, memberInfo.ToString());
+
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
 
@@ -54,12 +66,10 @@ class Foo {
     public void Emit_ShouldAlwaysIncludeUnitType()
     {
         var code = """
-func main() {
-    let x = if true {
-        42
-    } else {
-        ()
-    }
+let x = if true {
+    42
+} else {
+    ()
 }
 """;
 
@@ -207,6 +217,103 @@ class Foo : IDisposable {
 
             return IsMethod(metadataReader, implementation.MethodDeclaration, "System.IDisposable", "Dispose");
         });
+    }
+
+    [Fact]
+    public void Emit_InterfaceStaticMembers_EmitsCallableStatics()
+    {
+        var code = """
+interface IUtility {
+    public static GetValue() -> int {
+        return 42;
+    }
+}
+
+class Consumer {
+    public Combine() -> int {
+        return IUtility.GetValue();
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        Assert.Empty(syntaxTree.GetDiagnostics());
+        var interfaceDecl = syntaxTree.GetRoot().Members.OfType<InterfaceDeclarationSyntax>().Single();
+        var methodDecl = interfaceDecl.Members.OfType<MethodDeclarationSyntax>().Single();
+        Assert.Contains(methodDecl.Modifiers, m => m.Kind == SyntaxKind.StaticKeyword);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+
+        var interfaceType = assembly.GetType("IUtility", throwOnError: true)!;
+        var staticMethod = interfaceType.GetMethod("GetValue", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.NotNull(staticMethod);
+        Assert.True(staticMethod!.IsStatic);
+        Assert.False(staticMethod.IsAbstract);
+        var methodResult = (int)staticMethod.Invoke(null, Array.Empty<object?>())!;
+        Assert.Equal(42, methodResult);
+
+        var consumerType = assembly.GetType("Consumer", throwOnError: true)!;
+        var combine = consumerType.GetMethod("Combine")!;
+        var instance = Activator.CreateInstance(consumerType);
+        var combined = (int)combine.Invoke(instance, Array.Empty<object?>())!;
+
+        Assert.Equal(42, combined);
+    }
+
+    [Fact]
+    public void Emit_InterfaceDefaultImplementations_EmitAndInvoke()
+    {
+        var code = """
+interface ILogger {
+    public Log(message: string) -> string {
+        return "[default]";
+    }
+}
+
+class ConsoleLogger : ILogger {
+    ConsoleLogger() -> unit { return; }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+
+        var interfaceType = assembly.GetType("ILogger", throwOnError: true)!;
+        var defaultMethod = interfaceType.GetMethod("Log", BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(defaultMethod);
+        Assert.False(defaultMethod!.IsAbstract);
+        Assert.NotNull(defaultMethod.GetMethodBody());
+
+        var loggerType = assembly.GetType("ConsoleLogger", throwOnError: true)!;
+        var instance = Activator.CreateInstance(loggerType);
+        var value = (string)defaultMethod.Invoke(instance, new object?[] { "ignored" })!;
+
+        Assert.Equal("[default]", value);
     }
 
     [Fact]

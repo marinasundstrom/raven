@@ -629,6 +629,7 @@ public partial class SemanticModel
 
                         var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
                         _binderCache[interfaceDecl] = interfaceBinder;
+                        RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
                         break;
                     }
 
@@ -802,6 +803,7 @@ public partial class SemanticModel
                         nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
                     var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
                     _binderCache[nestedInterface] = nestedInterfaceBinder;
+                    RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
                     break;
 
                 case EnumDeclarationSyntax enumDecl:
@@ -843,6 +845,78 @@ public partial class SemanticModel
         }
 
         classBinder.EnsureDefaultConstructor();
+    }
+
+    private void RegisterInterfaceMembers(InterfaceDeclarationSyntax interfaceDecl, InterfaceDeclarationBinder interfaceBinder)
+    {
+        foreach (var member in interfaceDecl.Members)
+        {
+            switch (member)
+            {
+                case MethodDeclarationSyntax methodDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
+                        _binderCache[methodDecl] = methodBinder;
+                        break;
+                    }
+                case PropertyDeclarationSyntax propertyDecl:
+                    {
+                        var propertyBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var accessorBinders = propertyBinder.BindPropertyDeclaration(propertyDecl);
+                        _binderCache[propertyDecl] = propertyBinder;
+                        foreach (var kv in accessorBinders)
+                            _binderCache[kv.Key] = kv.Value;
+                        break;
+                    }
+                case IndexerDeclarationSyntax indexerDecl:
+                    {
+                        var indexerBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var accessorBinders = indexerBinder.BindIndexerDeclaration(indexerDecl);
+                        _binderCache[indexerDecl] = indexerBinder;
+                        foreach (var kv in accessorBinders)
+                            _binderCache[kv.Key] = kv.Value;
+                        break;
+                    }
+                case InterfaceDeclarationSyntax nestedInterface:
+                    {
+                        var parentInterface = (INamedTypeSymbol)interfaceBinder.ContainingSymbol;
+                        ImmutableArray<INamedTypeSymbol> parentInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
+                        if (nestedInterface.BaseList is not null)
+                        {
+                            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                            foreach (var t in nestedInterface.BaseList.Types)
+                            {
+                                if (interfaceBinder.ResolveType(t) is INamedTypeSymbol resolved && resolved.TypeKind == TypeKind.Interface)
+                                    builder.Add(resolved);
+                            }
+
+                            if (builder.Count > 0)
+                                parentInterfaces = builder.ToImmutable();
+                        }
+
+                        var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
+                            nestedInterface.Identifier.Text,
+                            Compilation.GetTypeByMetadataName("System.Object")!,
+                            TypeKind.Interface,
+                            parentInterface,
+                            parentInterface,
+                            interfaceBinder.CurrentNamespace!.AsSourceNamespace(),
+                            [nestedInterface.GetLocation()],
+                            [nestedInterface.GetReference()],
+                            true,
+                            isAbstract: true);
+
+                        if (!parentInterfaces.IsDefaultOrEmpty)
+                            nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
+
+                        var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
+                        _binderCache[nestedInterface] = nestedInterfaceBinder;
+                        RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
+                        break;
+                    }
+            }
+        }
     }
 
     private void RegisterPrimaryConstructor(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)
