@@ -317,6 +317,69 @@ class ConsoleLogger : ILogger {
     }
 
     [Fact]
+    public void Emit_ExplicitInterfaceImplementation_EmitsPrivateOverride()
+    {
+        var code = """
+interface ILogger {
+    Log(message: string) -> string
+}
+
+class QuietLogger : ILogger {
+    string ILogger.Log(message: string) -> string {
+        return "[quiet]"
+    }
+
+    public Log(message: string) -> string {
+        return message
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+
+        var loggerInterface = assembly.GetType("ILogger", throwOnError: true)!;
+        var loggerType = assembly.GetType("QuietLogger", throwOnError: true)!;
+
+        Assert.True(loggerInterface.IsInterface);
+        Assert.Contains(loggerInterface, loggerType.GetInterfaces());
+
+        var explicitMethod = loggerType.GetMethod("ILogger.Log", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(explicitMethod);
+        Assert.True(explicitMethod!.IsPrivate);
+        Assert.True(explicitMethod.IsFinal);
+        Assert.True(explicitMethod.IsVirtual);
+        Assert.True(explicitMethod.IsHideBySig);
+
+        var publicMethod = loggerType.GetMethod("Log", BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(publicMethod);
+
+        var interfaceMap = loggerType.GetInterfaceMap(loggerInterface);
+        var slotIndex = Array.FindIndex(interfaceMap.InterfaceMethods, m => m.Name == "Log");
+        Assert.True(slotIndex >= 0);
+        Assert.Same(explicitMethod, interfaceMap.TargetMethods[slotIndex]);
+
+        var instance = Activator.CreateInstance(loggerType)!;
+        var explicitResult = (string)explicitMethod.Invoke(instance, new object?[] { "ignored" })!;
+        Assert.Equal("[quiet]", explicitResult);
+
+        var publicResult = (string)publicMethod!.Invoke(instance, new object?[] { "echo" })!;
+        Assert.Equal("echo", publicResult);
+    }
+
+    [Fact]
     public void Emit_NamedConstructorWithImplicitReceivers_EmitsAndRuns()
     {
         var code = """

@@ -40,7 +40,9 @@ internal class MethodGenerator
             })
             .ToArray();
 
-        MethodAttributes attributes = MethodAttributes.HideBySig | MethodAttributes.Public;
+        var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation;
+
+        MethodAttributes attributes = MethodAttributes.HideBySig;
 
         if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet)
             attributes |= MethodAttributes.SpecialName;
@@ -48,33 +50,43 @@ internal class MethodGenerator
         var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
         var hasInterfaceBody = isInterfaceMethod && !MethodSymbol.IsStatic && HasInterfaceMethodBody(MethodSymbol);
 
-        if (isInterfaceMethod && !MethodSymbol.IsStatic)
+        if (isExplicitInterfaceImplementation)
         {
+            attributes |= MethodAttributes.Private | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
+        }
+        else if (isInterfaceMethod && !MethodSymbol.IsStatic)
+        {
+            attributes |= MethodAttributes.Public;
             attributes |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
 
             if (!hasInterfaceBody)
                 attributes |= MethodAttributes.Abstract;
         }
-        else if (TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
-        {
-            attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
-        }
         else
         {
-            if (MethodSymbol.IsAbstract)
-            {
-                attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
-            }
-            else if (MethodSymbol.IsVirtual)
-            {
-                attributes |= MethodAttributes.Virtual;
+            attributes |= MethodAttributes.Public;
 
-                if (!MethodSymbol.IsOverride)
-                    attributes |= MethodAttributes.NewSlot;
+            if (TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
+            {
+                attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
             }
+            else
+            {
+                if (MethodSymbol.IsAbstract)
+                {
+                    attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
+                }
+                else if (MethodSymbol.IsVirtual)
+                {
+                    attributes |= MethodAttributes.Virtual;
 
-            if (MethodSymbol.IsOverride && MethodSymbol.IsSealed)
-                attributes |= MethodAttributes.Final;
+                    if (!MethodSymbol.IsOverride)
+                        attributes |= MethodAttributes.NewSlot;
+                }
+
+                if (MethodSymbol.IsOverride && MethodSymbol.IsSealed)
+                    attributes |= MethodAttributes.Final;
+            }
         }
 
         if (MethodSymbol.IsStatic)

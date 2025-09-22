@@ -36,6 +36,9 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _cannotOverrideSealedMember;
     private static DiagnosticDescriptor? _staticMemberCannotBeVirtualOrOverride;
     private static DiagnosticDescriptor? _constructorInitializerNotAllowedOnStaticConstructor;
+    private static DiagnosticDescriptor? _explicitInterfaceSpecifierMustBeInterface;
+    private static DiagnosticDescriptor? _containingTypeDoesNotImplementInterface;
+    private static DiagnosticDescriptor? _explicitInterfaceMemberNotFound;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
     private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
@@ -457,6 +460,45 @@ internal static partial class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "Static constructors cannot specify a base constructor initializer",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0313: Explicit interface specifier must name an interface type
+    /// </summary>
+    public static DiagnosticDescriptor ExplicitInterfaceSpecifierMustBeInterface => _explicitInterfaceSpecifierMustBeInterface ??= DiagnosticDescriptor.Create(
+        id: "RAV0313",
+        title: "Explicit interface specifier must name an interface",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Explicit interface specifier must name an interface type",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0314: Type '{0}' does not implement interface '{1}'
+    /// </summary>
+    public static DiagnosticDescriptor ContainingTypeDoesNotImplementInterface => _containingTypeDoesNotImplementInterface ??= DiagnosticDescriptor.Create(
+        id: "RAV0314",
+        title: "Type does not implement interface",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Type '{0}' does not implement interface '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0315: Interface '{0}' does not contain a member named '{1}' matching this signature
+    /// </summary>
+    public static DiagnosticDescriptor ExplicitInterfaceMemberNotFound => _explicitInterfaceMemberNotFound ??= DiagnosticDescriptor.Create(
+        id: "RAV0315",
+        title: "Explicit interface member not found",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Interface '{0}' does not contain a member named '{1}' matching this signature",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -935,6 +977,9 @@ internal static partial class CompilerDiagnostics
         CannotOverrideSealedMember,
         StaticMemberCannotBeVirtualOrOverride,
         ConstructorInitializerNotAllowedOnStaticConstructor,
+        ExplicitInterfaceSpecifierMustBeInterface,
+        ContainingTypeDoesNotImplementInterface,
+        ExplicitInterfaceMemberNotFound,
         NullableTypeInUnion,
         TypeNameDoesNotExistInType,
         CannotAssignVoidToAnImplicitlyTypedVariable,
@@ -1003,6 +1048,9 @@ internal static partial class CompilerDiagnostics
         "RAV0310" => CannotOverrideSealedMember,
         "RAV0311" => StaticMemberCannotBeVirtualOrOverride,
         "RAV0312" => ConstructorInitializerNotAllowedOnStaticConstructor,
+        "RAV0313" => ExplicitInterfaceSpecifierMustBeInterface,
+        "RAV0314" => ContainingTypeDoesNotImplementInterface,
+        "RAV0315" => ExplicitInterfaceMemberNotFound,
         "RAV0400" => NullableTypeInUnion,
         "RAV0426" => TypeNameDoesNotExistInType,
         "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,

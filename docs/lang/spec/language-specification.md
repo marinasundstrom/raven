@@ -1277,6 +1277,25 @@ class FileLogger : ILogger, IDisposable
 }
 ```
 
+An **explicit interface implementation** qualifies the member name with the interface type: `ILogger.Log`. Explicit members are
+always instance members, ignore `virtual`/`override` modifiers, and are not accessible through the implementing type by name; callers must reference the containing interface. The compiler emits these methods with metadata names like `Namespace.ILogger.Log` and wires them directly into the interface map.
+
+```raven
+class QuietLogger : ILogger
+{
+    string ILogger.Log(message: string) -> string
+    {
+        return "[quiet]"
+    }
+}
+```
+
+```
+let logger = QuietLogger()
+logger.Log("hi")              // error: member not found
+(logger :> ILogger).Log("hi") // ok
+```
+
 If a type lists only interfaces, the compiler still emits `System.Object` as the base type before attaching the interface impleme
 ntations.
 

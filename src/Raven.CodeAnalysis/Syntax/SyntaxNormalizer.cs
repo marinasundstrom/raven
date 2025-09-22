@@ -232,6 +232,14 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
+        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier = null;
+        if (node.ExplicitInterfaceSpecifier is not null)
+        {
+            var name = (TypeSyntax)Visit(node.ExplicitInterfaceSpecifier.Name)!;
+            var dotToken = VisitToken(node.ExplicitInterfaceSpecifier.DotToken)!;
+            explicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier.Update(name, dotToken);
+        }
+
         var identifier = VisitToken(node.Identifier)!
             .WithTrailingTrivia(SyntaxFactory.Space);
 
@@ -243,7 +251,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
                 .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(node.Modifiers, identifier, parameterList, returnType, (BlockStatementSyntax?)VisitBlockStatement(node.Body), null, node.TerminatorToken)
+        return node.Update(node.Modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnType, (BlockStatementSyntax?)VisitBlockStatement(node.Body), null, node.TerminatorToken)
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed

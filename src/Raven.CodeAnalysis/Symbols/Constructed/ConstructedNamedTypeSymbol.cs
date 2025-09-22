@@ -166,6 +166,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsReadOnly => _original.IsReadOnly;
     public bool IsSealed => _original.IsSealed;
     public bool IsVirtual => _original.IsVirtual;
+    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _original.ExplicitInterfaceImplementations;
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;

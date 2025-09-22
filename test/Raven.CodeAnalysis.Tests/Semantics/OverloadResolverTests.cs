@@ -312,6 +312,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
         public bool IsSealed => false;
 
         public bool IsVirtual => false;
+
+        public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
     }
 
     private sealed class FakeParameterSymbol : FakeSymbol, IParameterSymbol

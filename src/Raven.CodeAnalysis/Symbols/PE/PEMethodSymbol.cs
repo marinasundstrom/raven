@@ -171,6 +171,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public bool IsVirtual => _methodInfo.IsVirtual;
 
+    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
+
     public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
 
     public ConstructorInfo GetConstructorInfo() => (ConstructorInfo)_methodInfo;
