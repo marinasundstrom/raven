@@ -31,6 +31,10 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _typeRequiresTypeArguments;
     private static DiagnosticDescriptor? _cannotInheritFromSealedType;
     private static DiagnosticDescriptor? _overrideMemberNotFound;
+    private static DiagnosticDescriptor? _virtualMemberInSealedType;
+    private static DiagnosticDescriptor? _sealedMemberMustOverride;
+    private static DiagnosticDescriptor? _cannotOverrideSealedMember;
+    private static DiagnosticDescriptor? _staticMemberCannotBeVirtualOrOverride;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
     private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
@@ -387,6 +391,58 @@ internal static partial class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "No virtual member named '{0}' was found in the base type to override",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0308: Member '{0}' cannot be virtual because the containing type '{1}' is sealed
+    /// </summary>
+    public static DiagnosticDescriptor VirtualMemberInSealedType => _virtualMemberInSealedType ??= DiagnosticDescriptor.Create(
+        id: "RAV0308",
+        title: "Virtual member in sealed type",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Member '{0}' cannot be virtual because the containing type '{1}' is sealed",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0309: Member '{0}' cannot be marked 'sealed' because it is not an override
+    /// </summary>
+    public static DiagnosticDescriptor SealedMemberMustOverride => _sealedMemberMustOverride ??= DiagnosticDescriptor.Create(
+        id: "RAV0309",
+        title: "'sealed' modifier requires override",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Member '{0}' cannot be marked 'sealed' because it is not an override",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0310: Member '{0}' cannot override sealed member '{1}'
+    /// </summary>
+    public static DiagnosticDescriptor CannotOverrideSealedMember => _cannotOverrideSealedMember ??= DiagnosticDescriptor.Create(
+        id: "RAV0310",
+        title: "Cannot override sealed member",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Member '{0}' cannot override sealed member '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0311: Static member '{0}' cannot be marked '{1}'
+    /// </summary>
+    public static DiagnosticDescriptor StaticMemberCannotBeVirtualOrOverride => _staticMemberCannotBeVirtualOrOverride ??= DiagnosticDescriptor.Create(
+        id: "RAV0311",
+        title: "Static members cannot be virtual or override",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Static member '{0}' cannot be marked '{1}'",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -860,6 +916,10 @@ internal static partial class CompilerDiagnostics
         TypeRequiresTypeArguments,
         CannotInheritFromSealedType,
         OverrideMemberNotFound,
+        VirtualMemberInSealedType,
+        SealedMemberMustOverride,
+        CannotOverrideSealedMember,
+        StaticMemberCannotBeVirtualOrOverride,
         NullableTypeInUnion,
         TypeNameDoesNotExistInType,
         CannotAssignVoidToAnImplicitlyTypedVariable,
@@ -923,6 +983,10 @@ internal static partial class CompilerDiagnostics
         "RAV0305" => TypeRequiresTypeArguments,
         "RAV0306" => CannotInheritFromSealedType,
         "RAV0307" => OverrideMemberNotFound,
+        "RAV0308" => VirtualMemberInSealedType,
+        "RAV0309" => SealedMemberMustOverride,
+        "RAV0310" => CannotOverrideSealedMember,
+        "RAV0311" => StaticMemberCannotBeVirtualOrOverride,
         "RAV0400" => NullableTypeInUnion,
         "RAV0426" => TypeNameDoesNotExistInType,
         "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,

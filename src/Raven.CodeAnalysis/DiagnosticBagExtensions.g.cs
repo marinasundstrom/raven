@@ -80,6 +80,18 @@ public static partial class DiagnosticBagExtensions
     public static void ReportOverrideMemberNotFound(this DiagnosticBag diagnostics, object? memberName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.OverrideMemberNotFound, location, memberName));
 
+    public static void ReportVirtualMemberInSealedType(this DiagnosticBag diagnostics, object? memberName, object? typeName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.VirtualMemberInSealedType, location, memberName, typeName));
+
+    public static void ReportSealedMemberMustOverride(this DiagnosticBag diagnostics, object? memberName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.SealedMemberMustOverride, location, memberName));
+
+    public static void ReportCannotOverrideSealedMember(this DiagnosticBag diagnostics, object? memberName, object? overriddenMemberName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotOverrideSealedMember, location, memberName, overriddenMemberName));
+
+    public static void ReportStaticMemberCannotBeVirtualOrOverride(this DiagnosticBag diagnostics, object? memberName, object? modifier, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.StaticMemberCannotBeVirtualOrOverride, location, memberName, modifier));
+
     public static void ReportNullableTypeInUnion(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NullableTypeInUnion, location));
 

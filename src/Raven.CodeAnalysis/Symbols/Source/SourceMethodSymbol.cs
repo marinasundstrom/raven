@@ -8,7 +8,20 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
     private IEnumerable<SourceParameterSymbol> _parameters;
 
-    public SourceMethodSymbol(string name, ITypeSymbol returnType, ImmutableArray<SourceParameterSymbol> parameters, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = true, MethodKind methodKind = MethodKind.Ordinary, bool isVirtual = false, bool isOverride = false)
+    public SourceMethodSymbol(
+        string name,
+        ITypeSymbol returnType,
+        ImmutableArray<SourceParameterSymbol> parameters,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations,
+        SyntaxReference[] declaringSyntaxReferences,
+        bool isStatic = true,
+        MethodKind methodKind = MethodKind.Ordinary,
+        bool isVirtual = false,
+        bool isOverride = false,
+        bool isSealed = false)
             : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         ReturnType = returnType;
@@ -20,6 +33,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
         IsOverride = isOverride;
         IsVirtual = isVirtual || isOverride;
+        IsSealed = isSealed;
     }
 
     public ITypeSymbol ReturnType { get; }

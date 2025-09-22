@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -163,6 +164,31 @@ internal class TypeMemberBinder : Binder
         var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
+        var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+
+        if (isSealed && !isOverride)
+        {
+            _diagnostics.ReportSealedMemberMustOverride(name, methodDecl.Identifier.GetLocation());
+            isSealed = false;
+        }
+
+        if (isStatic && (isVirtual || isOverride))
+        {
+            if (isVirtual)
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(name, "virtual", methodDecl.Identifier.GetLocation());
+            if (isOverride)
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(name, "override", methodDecl.Identifier.GetLocation());
+
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+        }
+
+        if (isVirtual && !isOverride && _containingType.IsSealed)
+        {
+            _diagnostics.ReportVirtualMemberInSealedType(name, _containingType.Name, methodDecl.Identifier.GetLocation());
+            isVirtual = false;
+        }
 
         IMethodSymbol? overriddenMethod = null;
 
@@ -175,6 +201,14 @@ internal class TypeMemberBinder : Binder
                 _diagnostics.ReportOverrideMemberNotFound(name, methodDecl.Identifier.GetLocation());
                 isOverride = false;
                 isVirtual = false;
+                isSealed = false;
+            }
+            else if (candidate.IsSealed)
+            {
+                _diagnostics.ReportCannotOverrideSealedMember(name, candidate.Name, methodDecl.Identifier.GetLocation());
+                isOverride = false;
+                isVirtual = false;
+                isSealed = false;
             }
             else
             {
@@ -194,7 +228,8 @@ internal class TypeMemberBinder : Binder
             [methodDecl.GetReference()],
             isStatic: isStatic,
             isVirtual: isVirtual,
-            isOverride: isOverride);
+            isOverride: isOverride,
+            isSealed: isSealed);
 
         if (overriddenMethod is not null)
             methodSymbol.SetOverriddenMethod(overriddenMethod);
@@ -369,10 +404,39 @@ internal class TypeMemberBinder : Binder
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindPropertyDeclaration(PropertyDeclarationSyntax propertyDecl)
     {
         var propertyType = ResolveType(propertyDecl.Type.Type);
-        var isStatic = propertyDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var modifiers = propertyDecl.Modifiers;
+        var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
+        var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
+        var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var propertyName = propertyDecl.Identifier.Text;
+
+        if (isSealed && !isOverride)
+        {
+            _diagnostics.ReportSealedMemberMustOverride(propertyName, propertyDecl.Identifier.GetLocation());
+            isSealed = false;
+        }
+
+        if (isStatic && (isVirtual || isOverride))
+        {
+            if (isVirtual)
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(propertyName, "virtual", propertyDecl.Identifier.GetLocation());
+            if (isOverride)
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(propertyName, "override", propertyDecl.Identifier.GetLocation());
+
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+        }
+
+        if (isVirtual && !isOverride && _containingType.IsSealed)
+        {
+            _diagnostics.ReportVirtualMemberInSealedType(propertyName, _containingType.Name, propertyDecl.Identifier.GetLocation());
+            isVirtual = false;
+        }
 
         var propertySymbol = new SourcePropertySymbol(
-            propertyDecl.Identifier.Text,
+            propertyName,
             propertyType,
             _containingType,
             _containingType,
@@ -400,6 +464,73 @@ internal class TypeMemberBinder : Binder
             propertySymbol.SetBackingField(backingField);
         }
 
+        var hasGetter = propertyDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? false;
+        var hasSetter = propertyDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.SetAccessorDeclaration) ?? false;
+
+        IMethodSymbol? overriddenGetter = null;
+        IMethodSymbol? overriddenSetter = null;
+
+        if (isOverride)
+        {
+            var candidate = FindPropertyOverrideCandidate(propertyName, propertyType, isStatic, isIndexer: false, parameters: Array.Empty<(ITypeSymbol type, RefKind refKind)>());
+            bool overrideValid = true;
+
+            if (candidate is null)
+            {
+                _diagnostics.ReportOverrideMemberNotFound(propertyName, propertyDecl.Identifier.GetLocation());
+                overrideValid = false;
+            }
+            else
+            {
+                if (hasGetter)
+                {
+                    if (candidate.GetMethod is null || !candidate.GetMethod.IsVirtual)
+                    {
+                        _diagnostics.ReportOverrideMemberNotFound(propertyName, propertyDecl.Identifier.GetLocation());
+                        overrideValid = false;
+                    }
+                    else if (candidate.GetMethod.IsSealed)
+                    {
+                        _diagnostics.ReportCannotOverrideSealedMember(propertyName, candidate.Name, propertyDecl.Identifier.GetLocation());
+                        overrideValid = false;
+                    }
+                    else
+                    {
+                        overriddenGetter = candidate.GetMethod;
+                    }
+                }
+
+                if (overrideValid && hasSetter)
+                {
+                    if (candidate.SetMethod is null || !candidate.SetMethod.IsVirtual)
+                    {
+                        _diagnostics.ReportOverrideMemberNotFound(propertyName, propertyDecl.Identifier.GetLocation());
+                        overrideValid = false;
+                    }
+                    else if (candidate.SetMethod.IsSealed)
+                    {
+                        _diagnostics.ReportCannotOverrideSealedMember(propertyName, candidate.Name, propertyDecl.Identifier.GetLocation());
+                        overrideValid = false;
+                    }
+                    else
+                    {
+                        overriddenSetter = candidate.SetMethod;
+                    }
+                }
+            }
+
+            if (!overrideValid)
+            {
+                isOverride = false;
+                isVirtual = false;
+                isSealed = false;
+            }
+            else
+            {
+                isVirtual = true;
+            }
+        }
+
         var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
 
         SourceMethodSymbol? getMethod = null;
@@ -413,6 +544,10 @@ internal class TypeMemberBinder : Binder
                 var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Unit);
                 var name = (isGet ? "get_" : "set_") + propertySymbol.Name;
 
+                var accessorOverride = isOverride && (isGet ? overriddenGetter is not null : overriddenSetter is not null);
+                var accessorVirtual = accessorOverride || isVirtual;
+                var accessorSealed = accessorOverride && isSealed;
+
                 var methodSymbol = new SourceMethodSymbol(
                     name,
                     returnType,
@@ -423,7 +558,10 @@ internal class TypeMemberBinder : Binder
                     [accessor.GetLocation()],
                     [accessor.GetReference()],
                     isStatic: isStatic,
-                    methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet);
+                    methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
+                    isVirtual: accessorVirtual,
+                    isOverride: accessorOverride,
+                    isSealed: accessorSealed);
 
                 var parameters = new List<SourceParameterSymbol>();
                 if (!isGet)
@@ -438,6 +576,13 @@ internal class TypeMemberBinder : Binder
                         [accessor.GetReference()]));
                 }
                 methodSymbol.SetParameters(parameters);
+
+                if (accessorOverride)
+                {
+                    var overriddenMethod = isGet ? overriddenGetter : overriddenSetter;
+                    if (overriddenMethod is not null)
+                        methodSymbol.SetOverriddenMethod(overriddenMethod);
+                }
 
                 var binder = new MethodBinder(methodSymbol, this);
                 binders[accessor] = binder;
@@ -457,6 +602,35 @@ internal class TypeMemberBinder : Binder
     public Dictionary<AccessorDeclarationSyntax, MethodBinder> BindIndexerDeclaration(IndexerDeclarationSyntax indexerDecl)
     {
         var propertyType = ResolveType(indexerDecl.Type.Type);
+        var modifiers = indexerDecl.Modifiers;
+        var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
+        var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
+        var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+
+        if (isSealed && !isOverride)
+        {
+            _diagnostics.ReportSealedMemberMustOverride("Item", indexerDecl.Identifier.GetLocation());
+            isSealed = false;
+        }
+
+        if (isStatic && (isVirtual || isOverride))
+        {
+            if (isVirtual)
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride("Item", "virtual", indexerDecl.Identifier.GetLocation());
+            if (isOverride)
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride("Item", "override", indexerDecl.Identifier.GetLocation());
+
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+        }
+
+        if (isVirtual && !isOverride && _containingType.IsSealed)
+        {
+            _diagnostics.ReportVirtualMemberInSealedType("Item", _containingType.Name, indexerDecl.Identifier.GetLocation());
+            isVirtual = false;
+        }
 
         var propertySymbol = new SourcePropertySymbol(
             "Item",
@@ -466,7 +640,8 @@ internal class TypeMemberBinder : Binder
             CurrentNamespace!.AsSourceNamespace(),
             [indexerDecl.GetLocation()],
             [indexerDecl.GetReference()],
-            isIndexer: true);
+            isIndexer: true,
+            isStatic: isStatic);
 
         var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
 
@@ -487,6 +662,75 @@ internal class TypeMemberBinder : Binder
             })
             .ToArray();
 
+        var overrideParameters = indexerParameters.Select(p => (p.Type, p.RefKind)).ToArray();
+
+        var hasGetter = indexerDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? false;
+        var hasSetter = indexerDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.SetAccessorDeclaration) ?? false;
+
+        IMethodSymbol? overriddenGetter = null;
+        IMethodSymbol? overriddenSetter = null;
+
+        if (isOverride)
+        {
+            var candidate = FindPropertyOverrideCandidate("Item", propertyType, isStatic, isIndexer: true, overrideParameters);
+            bool overrideValid = true;
+
+            if (candidate is null)
+            {
+                _diagnostics.ReportOverrideMemberNotFound("Item", indexerDecl.Identifier.GetLocation());
+                overrideValid = false;
+            }
+            else
+            {
+                if (hasGetter)
+                {
+                    if (candidate.GetMethod is null || !candidate.GetMethod.IsVirtual)
+                    {
+                        _diagnostics.ReportOverrideMemberNotFound("Item", indexerDecl.Identifier.GetLocation());
+                        overrideValid = false;
+                    }
+                    else if (candidate.GetMethod.IsSealed)
+                    {
+                        _diagnostics.ReportCannotOverrideSealedMember("Item", candidate.Name, indexerDecl.Identifier.GetLocation());
+                        overrideValid = false;
+                    }
+                    else
+                    {
+                        overriddenGetter = candidate.GetMethod;
+                    }
+                }
+
+                if (overrideValid && hasSetter)
+                {
+                    if (candidate.SetMethod is null || !candidate.SetMethod.IsVirtual)
+                    {
+                        _diagnostics.ReportOverrideMemberNotFound("Item", indexerDecl.Identifier.GetLocation());
+                        overrideValid = false;
+                    }
+                    else if (candidate.SetMethod.IsSealed)
+                    {
+                        _diagnostics.ReportCannotOverrideSealedMember("Item", candidate.Name, indexerDecl.Identifier.GetLocation());
+                        overrideValid = false;
+                    }
+                    else
+                    {
+                        overriddenSetter = candidate.SetMethod;
+                    }
+                }
+            }
+
+            if (!overrideValid)
+            {
+                isOverride = false;
+                isVirtual = false;
+                isSealed = false;
+            }
+            else
+            {
+                isVirtual = true;
+            }
+        }
+
         SourceMethodSymbol? getMethod = null;
         SourceMethodSymbol? setMethod = null;
 
@@ -498,6 +742,10 @@ internal class TypeMemberBinder : Binder
                 var returnType = isGet ? propertyType : Compilation.GetSpecialType(SpecialType.System_Unit);
                 var name = (isGet ? "get_" : "set_") + propertySymbol.Name;
 
+                var accessorOverride = isOverride && (isGet ? overriddenGetter is not null : overriddenSetter is not null);
+                var accessorVirtual = accessorOverride || isVirtual;
+                var accessorSealed = accessorOverride && isSealed;
+
                 var methodSymbol = new SourceMethodSymbol(
                     name,
                     returnType,
@@ -507,8 +755,11 @@ internal class TypeMemberBinder : Binder
                     CurrentNamespace!.AsSourceNamespace(),
                     [accessor.GetLocation()],
                     [accessor.GetReference()],
-                    isStatic: false,
-                    methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet);
+                    isStatic: isStatic,
+                    methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
+                    isVirtual: accessorVirtual,
+                    isOverride: accessorOverride,
+                    isSealed: accessorSealed);
 
                 var parameters = new List<SourceParameterSymbol>();
                 foreach (var param in indexerParameters)
@@ -536,6 +787,13 @@ internal class TypeMemberBinder : Binder
                 }
                 methodSymbol.SetParameters(parameters);
 
+                if (accessorOverride)
+                {
+                    var overriddenMethod = isGet ? overriddenGetter : overriddenSetter;
+                    if (overriddenMethod is not null)
+                        methodSymbol.SetOverriddenMethod(overriddenMethod);
+                }
+
                 var binder = new MethodBinder(methodSymbol, this);
                 binders[accessor] = binder;
 
@@ -549,6 +807,66 @@ internal class TypeMemberBinder : Binder
         propertySymbol.SetAccessors(getMethod, setMethod);
 
         return binders;
+    }
+
+    private IPropertySymbol? FindPropertyOverrideCandidate(string name, ITypeSymbol propertyType, bool isStatic, bool isIndexer, (ITypeSymbol type, RefKind refKind)[] parameters)
+    {
+        for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
+        {
+            foreach (var property in baseType.GetMembers(name).OfType<IPropertySymbol>())
+            {
+                if (property.IsIndexer != isIndexer)
+                    continue;
+
+                if (property.IsStatic != isStatic)
+                    continue;
+
+                var existingType = StripNullableReference(property.Type);
+                var newType = StripNullableReference(propertyType);
+
+                if (!SymbolEqualityComparer.Default.Equals(existingType, newType))
+                    continue;
+
+                if (isIndexer && !IndexerParametersMatch(property, parameters))
+                    continue;
+
+                return property;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IndexerParametersMatch(IPropertySymbol property, (ITypeSymbol type, RefKind refKind)[] parameters)
+    {
+        IMethodSymbol? accessor = property.GetMethod ?? property.SetMethod;
+        if (accessor is null)
+            return false;
+
+        var accessorParameters = accessor.Parameters;
+        var compareLength = accessor.MethodKind == MethodKind.PropertySet
+            ? accessorParameters.Length - 1
+            : accessorParameters.Length;
+
+        if (compareLength != parameters.Length)
+            return false;
+
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var accessorParam = accessorParameters[i];
+            var expected = parameters[i];
+
+            if (accessorParam.RefKind != expected.refKind)
+                return false;
+
+            var accessorType = StripNullableReference(accessorParam.Type);
+            var expectedType = StripNullableReference(expected.type);
+
+            if (!SymbolEqualityComparer.Default.Equals(accessorType, expectedType))
+                return false;
+        }
+
+        return true;
     }
 
     private IMethodSymbol? FindOverrideCandidate(string name, (ITypeSymbol type, RefKind refKind)[] parameters)

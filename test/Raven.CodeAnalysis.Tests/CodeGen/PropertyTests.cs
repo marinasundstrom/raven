@@ -3,7 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -34,18 +36,23 @@ class Sample {
         Assert.NotNull(compilationType);
         Assert.Contains("Value", compilationType!.GetMembers().Select(m => m.Name));
 
+        var propertySymbol = Assert.Single(
+            compilationType.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "Value");
+        Assert.NotNull(propertySymbol.GetMethod);
+        Assert.NotNull(propertySymbol.SetMethod);
+
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
-        Assert.True(result.Success);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var type = runtimeAssembly.GetType("Sample", throwOnError: true)!;
         var instance = Activator.CreateInstance(type)!;
-        var instanceProperties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        var property = instanceProperties.FirstOrDefault(p => p.Name == "Value");
-        Assert.True(property is not null, $"Properties: {string.Join(", ", instanceProperties.Select(p => p.Name))}");
 
+        var property = type.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(property);
         Assert.Equal(0, (int)property!.GetValue(instance)!);
 
         property.SetValue(instance, 42);
@@ -77,17 +84,22 @@ class Counter {
         Assert.NotNull(compilationType);
         Assert.Contains("Count", compilationType!.GetMembers().Select(m => m.Name));
 
+        var propertySymbol = Assert.Single(
+            compilationType.GetMembers().OfType<IPropertySymbol>(),
+            p => p.Name == "Count");
+        Assert.NotNull(propertySymbol.GetMethod);
+        Assert.NotNull(propertySymbol.SetMethod);
+
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);
-        Assert.True(result.Success);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var type = runtimeAssembly.GetType("Counter", throwOnError: true)!;
-        var staticProperties = type.GetProperties(BindingFlags.Public | BindingFlags.Static);
-        var property = staticProperties.FirstOrDefault(p => p.Name == "Count");
-        Assert.True(property is not null, $"Properties: {string.Join(", ", staticProperties.Select(p => p.Name))}");
 
+        var property = type.GetProperty("Count", BindingFlags.Public | BindingFlags.Static);
+        Assert.NotNull(property);
         Assert.Equal(0, (int)property!.GetValue(null)!);
 
         property.SetValue(null, 7);

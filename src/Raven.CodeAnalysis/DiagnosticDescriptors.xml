@@ -89,6 +89,22 @@
     Title="No virtual member to override"
     Message="No virtual member named '{memberName}' was found in the base type to override"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0308" Identifier="VirtualMemberInSealedType"
+    Title="Virtual member in sealed type"
+    Message="Member '{memberName}' cannot be virtual because the containing type '{typeName}' is sealed"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0309" Identifier="SealedMemberMustOverride"
+    Title="'sealed' modifier requires override"
+    Message="Member '{memberName}' cannot be marked 'sealed' because it is not an override"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0310" Identifier="CannotOverrideSealedMember"
+    Title="Cannot override sealed member"
+    Message="Member '{memberName}' cannot override sealed member '{overriddenMemberName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0311" Identifier="StaticMemberCannotBeVirtualOrOverride"
+    Title="Static members cannot be virtual or override"
+    Message="Static member '{memberName}' cannot be marked '{modifier}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0400" Identifier="NullableTypeInUnion"
     Title="Nullable type not allowed in union"
     Message="Nullable types are not allowed in union types" Category="compiler" Severity="Error"
