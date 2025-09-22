@@ -568,8 +568,8 @@ public partial class SemanticModel
                                 interfaceList = builder.ToImmutable();
                         }
 
-                        var isSealed = !classDecl.Modifiers.Any(m =>
-                            m.Kind == SyntaxKind.OpenKeyword || m.Kind == SyntaxKind.AbstractKeyword);
+                        var isAbstract = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+                        var isSealed = !classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract;
 
                         var classSymbol = new SourceNamedTypeSymbol(
                             classDecl.Identifier.Text,
@@ -580,7 +580,8 @@ public partial class SemanticModel
                             parentNamespace.AsSourceNamespace(),
                             [classDecl.GetLocation()],
                             [classDecl.GetReference()],
-                            isSealed);
+                            isSealed,
+                            isAbstract);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             classSymbol.SetInterfaces(interfaceList);
@@ -620,7 +621,8 @@ public partial class SemanticModel
                             parentNamespace.AsSourceNamespace(),
                             [interfaceDecl.GetLocation()],
                             [interfaceDecl.GetReference()],
-                            true);
+                            true,
+                            isAbstract: true);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             interfaceSymbol.SetInterfaces(interfaceList);
@@ -743,8 +745,8 @@ public partial class SemanticModel
                         if (builder.Count > 0)
                             nestedInterfaces = builder.ToImmutable();
                     }
-                    var nestedSealed = !nestedClass.Modifiers.Any(m =>
-                        m.Kind == SyntaxKind.OpenKeyword || m.Kind == SyntaxKind.AbstractKeyword);
+                    var nestedAbstract = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+                    var nestedSealed = !nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract;
                     var nestedSymbol = new SourceNamedTypeSymbol(
                         nestedClass.Identifier.Text,
                         nestedBaseType!,
@@ -754,7 +756,8 @@ public partial class SemanticModel
                         classBinder.CurrentNamespace!.AsSourceNamespace(),
                         [nestedClass.GetLocation()],
                         [nestedClass.GetReference()],
-                        nestedSealed
+                        nestedSealed,
+                        nestedAbstract
                     );
 
                     if (!nestedInterfaces.IsDefaultOrEmpty)
@@ -792,7 +795,8 @@ public partial class SemanticModel
                         classBinder.CurrentNamespace!.AsSourceNamespace(),
                         [nestedInterface.GetLocation()],
                         [nestedInterface.GetReference()],
-                        true
+                        true,
+                        isAbstract: true
                     );
                     if (!parentInterfaces.IsDefaultOrEmpty)
                         nestedInterfaceSymbol.SetInterfaces(parentInterfaces);

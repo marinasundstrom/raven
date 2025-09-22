@@ -40,9 +40,13 @@ internal class TypeGenerator
             {
                 typeAttributes |= TypeAttributes.Interface | TypeAttributes.Abstract;
             }
-            else if (named.IsSealed)
+            else
             {
-                typeAttributes |= TypeAttributes.Sealed;
+                if (named.IsAbstract)
+                    typeAttributes |= TypeAttributes.Abstract;
+
+                if (named.IsSealed)
+                    typeAttributes |= TypeAttributes.Sealed;
             }
         }
 

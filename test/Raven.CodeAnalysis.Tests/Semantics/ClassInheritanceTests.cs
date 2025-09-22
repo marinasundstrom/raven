@@ -1,5 +1,6 @@
 using System.IO;
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Xunit;
 
@@ -21,5 +22,30 @@ class Derived : Parent {};
         Assert.False(result.Success);
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("RAV0306", diagnostic.Descriptor.Id);
+    }
+
+    [Fact]
+    public void AbstractBaseClass_DerivationWithoutOpen_Succeeds()
+    {
+        const string source = """
+abstract class Animal {}
+
+class Dog : Animal {}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+
+        Assert.True(result.Success);
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var abstractDeclaration = (ClassDeclarationSyntax)root.Members[0];
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(abstractDeclaration));
+
+        Assert.True(symbol.IsAbstract);
+        Assert.False(symbol.IsSealed);
     }
 }

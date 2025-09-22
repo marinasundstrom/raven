@@ -305,6 +305,9 @@ public class Compilation
                     interfaceList = builder.ToImmutable();
             }
 
+            var isAbstract = classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+            var isSealed = !classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract;
+
             var symbol = new SourceNamedTypeSymbol(
                 classDeclaration.Identifier.Text,
                 baseTypeSymbol,
@@ -313,7 +316,9 @@ public class Compilation
                 containingType,
                 containingNamespace,
                 locations,
-                references);
+                references,
+                isSealed,
+                isAbstract);
 
             if (!interfaceList.IsDefaultOrEmpty)
                 symbol.SetInterfaces(interfaceList);
@@ -359,7 +364,10 @@ public class Compilation
                 declaringSymbol,
                 containingType,
                 containingNamespace,
-            locations, references);
+                locations,
+                references,
+                true,
+                isAbstract: true);
 
             foreach (var memberDeclaration2 in interfaceDeclaration.Members)
             {

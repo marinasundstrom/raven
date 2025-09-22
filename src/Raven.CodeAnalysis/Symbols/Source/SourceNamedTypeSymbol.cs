@@ -17,15 +17,27 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
         TypeKind = TypeKind.Class;
         IsSealed = true;
+        IsAbstract = false;
     }
 
-    public SourceNamedTypeSymbol(string name, INamedTypeSymbol baseType, TypeKind typeKind, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isSealed = false)
+    public SourceNamedTypeSymbol(
+        string name,
+        INamedTypeSymbol baseType,
+        TypeKind typeKind,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations,
+        SyntaxReference[] declaringSyntaxReferences,
+        bool isSealed = false,
+        bool isAbstract = false)
     : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         BaseType = baseType;
 
         TypeKind = typeKind;
         IsSealed = isSealed;
+        IsAbstract = isAbstract;
     }
 
     public bool IsNamespace { get; } = false;
@@ -41,7 +53,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
     public ITypeSymbol? ConstructedFrom { get; }
-    public bool IsAbstract { get; } = false;
+    public bool IsAbstract { get; }
     public bool IsSealed { get; }
     public bool IsGenericType { get; }
     public bool IsUnboundGenericType { get; }

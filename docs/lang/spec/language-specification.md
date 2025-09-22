@@ -1142,8 +1142,9 @@ available on interfaces, where accessors remain abstract.
 
 ### Class inheritance
 
-Classes are sealed by default. Marking a class `open` allows it to be used as a base type. A base class is specified with a colon
-followed by the type name:
+Classes are sealed by default. Marking a class `open` allows it to be used as a base type. The `abstract` modifier also enables
+inheritance: abstract classes are implicitly open and may serve as base types without the `open` keyword. A base class is
+specified with a colon followed by the type name:
 
 ```raven
 open class Parent {}
@@ -1169,7 +1170,7 @@ If a derived class omits a constructor, the base class' parameterless constructo
 (`public`, `internal`, `protected`, `private`) apply as usual; `protected` members are accessible to derived classes.
 
 > **Limitations:** Only single inheritance is supported. Derived classes may currently chain only to parameterless base
-> constructors. Abstract base classes remain under design.
+> constructors.
 
 ### Method overloading
 
