@@ -379,6 +379,7 @@
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="BasePropertyDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
+    <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" IsAbstract="true" />
     <Slot Name="Identifier" Type="Token" IsAbstract="true" />
     <Slot Name="Type" Type="TypeAnnotationClause" IsAbstract="true" />
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsAbstract="true" />
@@ -431,6 +432,7 @@
   </Node>
   <Node Name="IndexerDeclaration" Inherits="BasePropertyDeclaration">
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="ParameterList" Type="BracketedParameterList" />
     <Slot Name="Type" Type="TypeAnnotationClause" IsInherited="true" />
@@ -465,6 +467,7 @@
   </Node>
   <Node Name="PropertyDeclaration" Inherits="BasePropertyDeclaration">
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
     <Slot Name="Type" Type="TypeAnnotationClause" IsInherited="true" />
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsInherited="true" />
