@@ -95,6 +95,15 @@ public static partial class DiagnosticBagExtensions
     public static void ReportConstructorInitializerNotAllowedOnStaticConstructor(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ConstructorInitializerNotAllowedOnStaticConstructor, location));
 
+    public static void ReportExplicitInterfaceSpecifierMustBeInterface(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ExplicitInterfaceSpecifierMustBeInterface, location));
+
+    public static void ReportContainingTypeDoesNotImplementInterface(this DiagnosticBag diagnostics, object? typeName, object? interfaceName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ContainingTypeDoesNotImplementInterface, location, typeName, interfaceName));
+
+    public static void ReportExplicitInterfaceMemberNotFound(this DiagnosticBag diagnostics, object? interfaceName, object? memberName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ExplicitInterfaceMemberNotFound, location, interfaceName, memberName));
+
     public static void ReportNullableTypeInUnion(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NullableTypeInUnion, location));
 

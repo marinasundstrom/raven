@@ -76,9 +76,11 @@ ConstructorDeclaration   ::= MemberModifiers?
                              ( Block | '=>' Expression ) ;
 
 MethodDeclaration        ::= MemberModifiers?
-                             Identifier '(' ParameterList? ')'
+                             ExplicitInterfaceSpecifier? Identifier '(' ParameterList? ')'
                              ReturnTypeClause?
                              ( Block | '=>' Expression ) ;
+
+ExplicitInterfaceSpecifier ::= Type '.' ;
 
 InvocationOperatorDeclaration
                            ::= MemberModifiers?

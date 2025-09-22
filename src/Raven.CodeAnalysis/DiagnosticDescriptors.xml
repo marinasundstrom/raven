@@ -109,6 +109,18 @@
     Title="Static constructors cannot specify a base initializer"
     Message="Static constructors cannot specify a base constructor initializer"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0313" Identifier="ExplicitInterfaceSpecifierMustBeInterface"
+    Title="Explicit interface specifier must name an interface"
+    Message="Explicit interface specifier must name an interface type" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0314" Identifier="ContainingTypeDoesNotImplementInterface"
+    Title="Type does not implement interface"
+    Message="Type '{typeName}' does not implement interface '{interfaceName}'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0315" Identifier="ExplicitInterfaceMemberNotFound"
+    Title="Explicit interface member not found"
+    Message="Interface '{interfaceName}' does not contain a member named '{memberName}' matching this signature"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0400" Identifier="NullableTypeInUnion"
     Title="Nullable type not allowed in union"
     Message="Nullable types are not allowed in union types" Category="compiler" Severity="Error"

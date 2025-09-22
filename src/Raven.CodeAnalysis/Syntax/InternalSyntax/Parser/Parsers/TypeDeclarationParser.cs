@@ -260,21 +260,13 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private MemberDeclarationSyntax ParseMethodOrConstructorDeclarationBase(SyntaxList modifiers)
     {
-        SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
-        {
-            identifier = ReadIdentifierToken();
-        }
-        else if (!ConsumeToken(SyntaxKind.SelfKeyword, out identifier))
-        {
-            identifier = MissingToken(SyntaxKind.IdentifierToken);
-        }
+        var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
 
         var potentialOpenParenToken = PeekToken();
 
         if (potentialOpenParenToken.IsKind(SyntaxKind.OpenParenToken))
         {
-            return ParseMethodOrConstructorDeclaration(modifiers, identifier);
+            return ParseMethodOrConstructorDeclaration(modifiers, explicitInterfaceSpecifier, identifier);
         }
 
         // Remove below
@@ -282,7 +274,10 @@ internal class TypeDeclarationParser : SyntaxParser
         throw new Exception();
     }
 
-    private MemberDeclarationSyntax ParseMethodOrConstructorDeclaration(SyntaxList modifiers, SyntaxToken identifier)
+    private MemberDeclarationSyntax ParseMethodOrConstructorDeclaration(
+        SyntaxList modifiers,
+        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier,
+        SyntaxToken identifier)
     {
         var parameterList = ParseParameterList();
 
@@ -312,14 +307,57 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (expressionBody is not null)
         {
-            return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, null, expressionBody, terminatorToken);
+            return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnParameterAnnotation, null, expressionBody, terminatorToken);
         }
         else if (body is not null)
         {
-            return MethodDeclaration(modifiers, identifier, parameterList, returnParameterAnnotation, body, null, terminatorToken);
+            return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnParameterAnnotation, body, null, terminatorToken);
         }
 
         throw new Exception();
+    }
+
+    private (ExplicitInterfaceSpecifierSyntax? ExplicitInterfaceSpecifier, SyntaxToken Identifier) ParseMemberNameWithExplicitInterface()
+    {
+        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier = null;
+
+        if (ConsumeToken(SyntaxKind.SelfKeyword, out var selfToken))
+            return (explicitInterfaceSpecifier, selfToken);
+
+        var checkpoint = CreateCheckpoint();
+        var typeName = new NameSyntaxParser(this).ParseTypeName();
+
+        if (PeekToken().IsKind(SyntaxKind.DotToken))
+        {
+            var dotToken = ReadToken();
+
+            SyntaxToken identifierToken;
+            if (CanTokenBeIdentifier(PeekToken()))
+            {
+                identifierToken = ReadIdentifierToken();
+            }
+            else
+            {
+                identifierToken = MissingToken(SyntaxKind.IdentifierToken);
+            }
+
+            explicitInterfaceSpecifier = ExplicitInterfaceSpecifier(typeName, dotToken);
+            return (explicitInterfaceSpecifier, identifierToken);
+        }
+
+        checkpoint.Dispose();
+
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else if (!ConsumeToken(SyntaxKind.SelfKeyword, out identifier))
+        {
+            identifier = MissingToken(SyntaxKind.IdentifierToken);
+        }
+
+        return (explicitInterfaceSpecifier, identifier);
     }
 
     private PropertyDeclarationSyntax ParsePropertyDeclaration(SyntaxList modifiers, SyntaxToken identifier)

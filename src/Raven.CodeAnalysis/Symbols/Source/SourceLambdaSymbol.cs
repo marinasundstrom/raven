@@ -49,6 +49,8 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public bool IsSealed => false;
     public bool IsVirtual => false;
 
+    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
+
     public void SetReturnType(ITypeSymbol returnType)
     {
         ReturnType = returnType;

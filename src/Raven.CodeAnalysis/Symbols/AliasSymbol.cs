@@ -262,6 +262,8 @@ internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
     public bool IsSealed => _method.IsSealed;
 
     public bool IsVirtual => _method.IsVirtual;
+
+    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _method.ExplicitInterfaceImplementations;
 }
 
 internal sealed class AliasPropertySymbol : AliasSymbol, IPropertySymbol

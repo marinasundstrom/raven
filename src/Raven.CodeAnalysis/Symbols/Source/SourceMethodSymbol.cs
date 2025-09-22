@@ -75,9 +75,13 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public IMethodSymbol? OverriddenMethod { get; private set; }
 
+    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations { get; private set; } = ImmutableArray<IMethodSymbol>.Empty;
+
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 
     internal void SetOverriddenMethod(IMethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
+
+    internal void SetExplicitInterfaceImplementations(ImmutableArray<IMethodSymbol> implementations) => ExplicitInterfaceImplementations = implementations;
 
     public BoundObjectCreationExpression? ConstructorInitializer { get; private set; }
 

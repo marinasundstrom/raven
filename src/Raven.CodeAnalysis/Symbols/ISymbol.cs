@@ -253,6 +253,8 @@ public interface IMethodSymbol : ISymbol
     bool IsSealed { get; }
     bool IsVirtual { get; }
 
+    ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations { get; }
+
 }
 
 public enum MethodKind

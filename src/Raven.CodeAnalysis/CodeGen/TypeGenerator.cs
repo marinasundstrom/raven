@@ -269,6 +269,18 @@ internal class TypeGenerator
         if (interfaces.IsDefaultOrEmpty)
             return false;
 
+        if (!methodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty)
+        {
+            foreach (var implemented in methodSymbol.ExplicitInterfaceImplementations)
+            {
+                if (implemented.ContainingType is INamedTypeSymbol containingInterface &&
+                    interfaces.Contains(containingInterface, SymbolEqualityComparer.Default))
+                    return true;
+            }
+
+            return false;
+        }
+
         foreach (var interfaceType in interfaces)
         {
             foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
@@ -359,6 +371,18 @@ internal class TypeGenerator
 
     private bool TryFindImplementation(IMethodSymbol interfaceMethod, out IMethodSymbol implementation)
     {
+        foreach (var candidate in TypeSymbol.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (candidate.ExplicitInterfaceImplementations.IsDefaultOrEmpty)
+                continue;
+
+            if (candidate.ExplicitInterfaceImplementations.Contains(interfaceMethod, SymbolEqualityComparer.Default))
+            {
+                implementation = candidate;
+                return true;
+            }
+        }
+
         foreach (var candidate in TypeSymbol.GetMembers(interfaceMethod.Name).OfType<IMethodSymbol>())
         {
             if (SignaturesMatch(candidate, interfaceMethod))
