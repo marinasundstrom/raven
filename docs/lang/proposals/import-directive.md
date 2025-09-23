@@ -42,7 +42,7 @@ namespace System.Net
 import Http.HttpClient // System.Net.Http.HttpClient
 import Http.* // System.Net.Http.*
 
-import SB = System.StringBuilder // System.StringBuilder
+alias SB = System.StringBuilder // Aliases use the separate `alias` directive
 ```
 
 ## Questions

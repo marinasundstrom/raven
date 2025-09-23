@@ -635,10 +635,11 @@ import System.Math.*
 let pi = PI
 ```
 
-Import directives appear at the beginning of a compilation unit or namespace. All
-imports for a given scope must come before any alias directives or member
-declarations. Placing an import directive after an alias or member is a
-compile-time error (`RAV1005`).
+Import directives appear at the beginning of a compilation unit or namespace and
+simply make existing namespaces or types available. They do not introduce new
+names. To bind a custom name, use an `alias` directive. All imports for a given
+scope must come before any alias directives or member declarations. Placing an
+import directive after an alias or member is a compile-time error (`RAV1005`).
 
 ### Alias directive
 
