@@ -554,27 +554,58 @@ partial class BlockBinder : Binder
             _ => throw new NotSupportedException("Unknown lambda syntax")
         };
 
+        var targetType = GetTargetType(syntax);
+        INamedTypeSymbol? targetDelegate = targetType as INamedTypeSymbol;
+        if (targetDelegate?.TypeKind != TypeKind.Delegate)
+            targetDelegate = null;
+        var targetSignature = targetDelegate?.DelegateInvokeMethod;
+
         // 2. Create parameter symbols
         var parameterSymbols = new List<IParameterSymbol>();
-        foreach (var p in parameterSyntaxes)
+        for (int index = 0; index < parameterSyntaxes.Length; index++)
         {
-            var typeSyntax = p.TypeAnnotation.Type;
+            var parameterSyntax = parameterSyntaxes[index];
+            var annotation = parameterSyntax.TypeAnnotation;
+            var typeSyntax = annotation?.Type;
             var refKind = RefKind.None;
+
             if (typeSyntax is ByRefTypeSyntax byRefSyntax)
             {
-                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+                refKind = parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
                 typeSyntax = byRefSyntax.ElementType;
             }
 
-            var type = ResolveType(typeSyntax);
+            var targetParam = targetSignature is { } invoke && invoke.Parameters.Length > index
+                ? invoke.Parameters[index]
+                : null;
+
+            ITypeSymbol parameterType;
+            if (typeSyntax is not null)
+            {
+                parameterType = ResolveType(typeSyntax);
+            }
+            else if (targetParam is not null)
+            {
+                parameterType = targetParam.Type;
+                if (refKind == RefKind.None)
+                    refKind = targetParam.RefKind;
+            }
+            else
+            {
+                parameterType = Compilation.ErrorTypeSymbol;
+                _diagnostics.ReportLambdaParameterTypeCannotBeInferred(
+                    parameterSyntax.Identifier.Text,
+                    parameterSyntax.Identifier.GetLocation());
+            }
+
             var symbol = new SourceParameterSymbol(
-                p.Identifier.Text,
-                type,
+                parameterSyntax.Identifier.Text,
+                parameterType,
                 _containingSymbol,
                 _containingSymbol.ContainingType as INamedTypeSymbol,
                 _containingSymbol.ContainingNamespace,
-                [p.GetLocation()],
-                [p.GetReference()],
+                [parameterSyntax.GetLocation()],
+                [parameterSyntax.GetReference()],
                 refKind
             );
 
@@ -594,7 +625,14 @@ partial class BlockBinder : Binder
             ? ResolveType(returnTypeSyntax)
             : Compilation.ErrorTypeSymbol; // Temporary fallback; real type inferred below
 
-        var lambdaSymbol = new SourceLambdaSymbol(parameterSymbols, inferredReturnType, _containingSymbol);
+        var lambdaSymbol = new SourceLambdaSymbol(
+            parameterSymbols,
+            inferredReturnType,
+            _containingSymbol,
+            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol.ContainingNamespace,
+            [syntax.GetLocation()],
+            [syntax.GetReference()]);
 
         // 5. Bind the body using a new binder scope
         var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
@@ -627,6 +665,26 @@ partial class BlockBinder : Binder
                 }
             }
         }
+        else if (targetSignature is { ReturnType: { } targetReturn } && targetReturn.TypeKind != TypeKind.Error)
+        {
+            returnType = targetReturn;
+            if (inferred is not null &&
+                inferred.TypeKind != TypeKind.Error &&
+                returnType.TypeKind != TypeKind.Error)
+            {
+                if (!IsAssignable(returnType, inferred, out var conversion))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        syntax.ExpressionBody.GetLocation());
+                }
+                else
+                {
+                    bodyExpr = ApplyConversion(bodyExpr, returnType, conversion);
+                }
+            }
+        }
         else
         {
             returnType = inferred ?? Compilation.ErrorTypeSymbol;
@@ -636,11 +694,23 @@ partial class BlockBinder : Binder
 
         var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
 
+        if (lambdaSymbol is SourceLambdaSymbol sourceLambdaSymbol)
+            sourceLambdaSymbol.SetCapturedVariables(capturedVariables);
+
         // 7. Construct delegate type (e.g., Func<...> or custom delegate)
-        var delegateType = Compilation.CreateFunctionTypeSymbol(
-            parameterSymbols.Select(p => p.Type).ToArray(),
-            returnType
-        );
+        var delegateType = targetDelegate is not null &&
+            targetSignature is not null &&
+            targetSignature.Parameters.Length == parameterSymbols.Count &&
+            SymbolEqualityComparer.Default.Equals(returnType, targetSignature.ReturnType) &&
+            parameterSymbols
+                .Zip(targetSignature.Parameters, (parameter, target) =>
+                    SymbolEqualityComparer.Default.Equals(parameter.Type, target.Type) && parameter.RefKind == target.RefKind)
+                .All(match => match)
+            ? targetDelegate
+            : Compilation.CreateFunctionTypeSymbol(
+                parameterSymbols.Select(p => p.Type).ToArray(),
+                returnType
+            );
 
         // 7. Update lambda symbol if needed
         if (lambdaSymbol is SourceLambdaSymbol mutable)
@@ -650,7 +720,7 @@ partial class BlockBinder : Binder
         }
 
         // 8. Return a fully bound lambda expression
-        return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, lambdaSymbol.DelegateType, capturedVariables);
+        return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables);
     }
 
     private BoundExpression BindMissingExpression(ExpressionSyntax.Missing missing)

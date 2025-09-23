@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -15,6 +16,8 @@ internal class MethodBodyGenerator
     private MethodBase _methodBase;
     private Compilation _compilation;
     private IMethodSymbol _methodSymbol;
+    private TypeGenerator.LambdaClosure? _lambdaClosure;
+    private readonly HashSet<ILocalSymbol> _capturedLocals = new(SymbolEqualityComparer.Default);
 
     public MethodBodyGenerator(MethodGenerator methodGenerator)
     {
@@ -31,6 +34,17 @@ internal class MethodBodyGenerator
     private Scope scope;
 
     public ILGenerator ILGenerator { get; private set; }
+
+    internal bool TryGetCapturedField(ISymbol symbol, out FieldBuilder fieldBuilder)
+        => _lambdaClosure is not null && _lambdaClosure.TryGetField(symbol, out fieldBuilder);
+
+    internal void EmitLoadClosure()
+    {
+        if (_lambdaClosure is null)
+            throw new InvalidOperationException("No closure parameter available for this lambda.");
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+    }
 
     public void Emit()
     {
@@ -181,6 +195,36 @@ internal class MethodBodyGenerator
         }
     }
 
+    public void EmitLambda(BoundLambdaExpression lambda, TypeGenerator.LambdaClosure? closure)
+    {
+        baseGenerator = new BaseGenerator(this);
+        scope = new Scope(baseGenerator);
+
+        ILGenerator = (MethodBase as MethodBuilder)?.GetILGenerator()
+                     ?? (MethodBase as ConstructorBuilder)?.GetILGenerator()
+                     ?? throw new InvalidOperationException();
+
+        _lambdaClosure = closure;
+
+        try
+        {
+            if (lambda.Body is BoundBlockExpression blockExpression)
+            {
+                var block = new BoundBlockStatement(blockExpression.Statements);
+                DeclareLocals(block);
+                EmitBoundBlock(block);
+                return;
+            }
+
+            var returnStatement = new BoundReturnStatement(lambda.Body);
+            EmitStatement(returnStatement);
+        }
+        finally
+        {
+            _lambdaClosure = null;
+        }
+    }
+
     private void EmitFieldInitializers(bool isStatic)
     {
         var fields = MethodSymbol.ContainingType!
@@ -252,9 +296,22 @@ internal class MethodBodyGenerator
         methodGenerator.EmitBody();
     }
 
+    internal bool IsCapturedLocal(ILocalSymbol local) => _capturedLocals.Contains(local);
+
+    private static Type MakeStrongBoxType(Type elementType)
+    {
+        return typeof(System.Runtime.CompilerServices.StrongBox<>).MakeGenericType(elementType);
+    }
+
+    internal static FieldInfo GetStrongBoxValueField(Type strongBoxType)
+    {
+        return strongBoxType.GetField("Value")
+               ?? throw new InvalidOperationException($"StrongBox field missing: {strongBoxType.FullName}.Value");
+    }
+
     private void DeclareLocals(BoundBlockStatement block)
     {
-        var collector = new LocalCollector();
+        var collector = new LocalCollector(MethodSymbol);
         collector.Visit(block);
 
         foreach (var localSymbol in collector.Locals)
@@ -265,7 +322,14 @@ internal class MethodBodyGenerator
                 continue;
 
             var clrType = ResolveClrType(localSymbol.Type);
-            var builder = ILGenerator.DeclareLocal(clrType);
+            var localType = collector.CapturedLocals.Contains(localSymbol)
+                ? MakeStrongBoxType(clrType)
+                : clrType;
+
+            if (collector.CapturedLocals.Contains(localSymbol))
+                _capturedLocals.Add(localSymbol);
+
+            var builder = ILGenerator.DeclareLocal(localType);
             builder.SetLocalSymInfo(localSymbol.Name);
             scope.AddLocal(localSymbol, builder);
         }
@@ -319,7 +383,16 @@ internal class MethodBodyGenerator
 
     private sealed class LocalCollector : Raven.CodeAnalysis.BoundTreeWalker
     {
+        private readonly ISymbol _containingSymbol;
+
+        public LocalCollector(ISymbol containingSymbol)
+        {
+            _containingSymbol = containingSymbol;
+        }
+
         public List<ILocalSymbol> Locals { get; } = new();
+
+        public HashSet<ILocalSymbol> CapturedLocals { get; } = new(SymbolEqualityComparer.Default);
 
         public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
         {
@@ -327,6 +400,20 @@ internal class MethodBodyGenerator
                 Locals.Add(d.Local);
 
             base.VisitLocalDeclarationStatement(node);
+        }
+
+        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        {
+            foreach (var symbol in node.CapturedVariables)
+            {
+                if (symbol is ILocalSymbol local &&
+                    SymbolEqualityComparer.Default.Equals(local.ContainingSymbol, _containingSymbol))
+                {
+                    CapturedLocals.Add(local);
+                }
+            }
+
+            base.VisitLambdaExpression(node);
         }
     }
 

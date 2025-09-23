@@ -93,7 +93,7 @@ public class PropertyBindingTests : DiagnosticTestBase
             """;
 
         var verifier = CreateVerifier(testCode,
-            [new DiagnosticResult("RAV0200").WithSpan(6, 9, 6, 13).WithArguments("Name")]);
+            [new DiagnosticResult("RAV0200").WithSpan(4, 9, 4, 13).WithArguments("Name")]);
 
         verifier.Verify();
     }

@@ -73,6 +73,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _matchExpressionNotExhaustive;
     private static DiagnosticDescriptor? _matchExpressionArmUnreachable;
     private static DiagnosticDescriptor? _matchExpressionArmPatternInvalid;
+    private static DiagnosticDescriptor? _lambdaParameterTypeCannotBeInferred;
 
     /// <summary>
     /// RAV0021: Cannot apply indexing with [] to an expression of type '{0}'
@@ -945,6 +946,19 @@ internal static partial class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV2200: Cannot infer the type of parameter '{0}'. Specify an explicit type or use the lambda in a delegate-typed context
+    /// </summary>
+    public static DiagnosticDescriptor LambdaParameterTypeCannotBeInferred => _lambdaParameterTypeCannotBeInferred ??= DiagnosticDescriptor.Create(
+        id: "RAV2200",
+        title: "Lambda parameter type cannot be inferred",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Cannot infer the type of parameter '{0}'. Specify an explicit type or use the lambda in a delegate-typed context",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         CannotApplyIndexingWithToAnExpressionOfType,
@@ -1014,6 +1028,7 @@ internal static partial class CompilerDiagnostics
         MatchExpressionNotExhaustive,
         MatchExpressionArmUnreachable,
         MatchExpressionArmPatternInvalid,
+        LambdaParameterTypeCannotBeInferred,
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId) => diagnosticId switch
@@ -1085,6 +1100,7 @@ internal static partial class CompilerDiagnostics
         "RAV2100" => MatchExpressionNotExhaustive,
         "RAV2101" => MatchExpressionArmUnreachable,
         "RAV2102" => MatchExpressionArmPatternInvalid,
+        "RAV2200" => LambdaParameterTypeCannotBeInferred,
         _ => null
     };
 }

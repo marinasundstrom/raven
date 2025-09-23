@@ -12,6 +12,9 @@ internal class TypeGenerator
 {
     readonly Dictionary<IMethodSymbol, MethodGenerator> _methodGenerators = new Dictionary<IMethodSymbol, MethodGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<IFieldSymbol, FieldBuilder> _fieldBuilders = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
+    readonly Dictionary<ILambdaSymbol, LambdaClosure> _lambdaClosures = new Dictionary<ILambdaSymbol, LambdaClosure>(SymbolEqualityComparer.Default);
+
+    private int _lambdaClosureOrdinal;
 
     private Compilation _compilation;
 
@@ -127,6 +130,13 @@ internal class TypeGenerator
                 case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
                     {
                         var methodGenerator = new MethodGenerator(this, methodSymbol);
+
+                        if (methodSymbol is SourceLambdaSymbol sourceLambda && sourceLambda.HasCaptures)
+                        {
+                            var closure = EnsureLambdaClosure(sourceLambda);
+                            methodGenerator.SetLambdaClosure(closure);
+                        }
+
                         _methodGenerators[methodSymbol] = methodGenerator;
                         methodGenerator.DefineMethodBuilder();
 
@@ -240,11 +250,25 @@ internal class TypeGenerator
         }
     }
 
-    public Type CreateType() => TypeBuilder!.CreateType();
+    public Type CreateType()
+    {
+        foreach (var closure in _lambdaClosures.Values)
+            closure.CreateType();
+
+        Type ??= TypeBuilder!.CreateType();
+        return Type!;
+    }
 
     public bool HasMethodGenerator(IMethodSymbol methodSymbol)
     {
         return _methodGenerators.ContainsKey(methodSymbol);
+    }
+
+    public MethodGenerator? GetMethodGenerator(IMethodSymbol methodSymbol)
+    {
+        return _methodGenerators.TryGetValue(methodSymbol, out var generator)
+            ? generator
+            : null;
     }
 
     public void Add(IMethodSymbol methodSymbol, MethodGenerator methodGenerator)
@@ -252,9 +276,107 @@ internal class TypeGenerator
         _methodGenerators[methodSymbol] = methodGenerator;
     }
 
+    public bool TryGetLambdaClosure(ILambdaSymbol lambdaSymbol, out LambdaClosure closure)
+    {
+        return _lambdaClosures.TryGetValue(lambdaSymbol, out closure);
+    }
+
+    internal LambdaClosure EnsureLambdaClosure(SourceLambdaSymbol lambdaSymbol)
+    {
+        if (_lambdaClosures.TryGetValue(lambdaSymbol, out var existing))
+            return existing;
+
+        if (TypeBuilder is null)
+            throw new InvalidOperationException("Type builder must be defined before creating a lambda closure.");
+
+        var closureName = $"<>c__LambdaClosure{_lambdaClosureOrdinal++}";
+        var objectType = ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Object));
+        var closureBuilder = TypeBuilder.DefineNestedType(
+            closureName,
+            TypeAttributes.NestedPrivate | TypeAttributes.Sealed | TypeAttributes.Class,
+            objectType);
+
+        var ctor = closureBuilder.DefineDefaultConstructor(MethodAttributes.Public);
+
+        var fields = new Dictionary<ISymbol, FieldBuilder>(SymbolEqualityComparer.Default);
+        var index = 0;
+        foreach (var captured in lambdaSymbol.CapturedVariables)
+        {
+            var fieldType = ResolveCapturedSymbolType(captured);
+            var fieldName = CreateClosureFieldName(captured, index++);
+            var fieldBuilder = closureBuilder.DefineField(fieldName, fieldType, FieldAttributes.Public);
+            fields[captured] = fieldBuilder;
+        }
+
+        var closure = new LambdaClosure(closureBuilder, ctor, fields);
+        _lambdaClosures[lambdaSymbol] = closure;
+        return closure;
+    }
+
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
         return typeSymbol.GetClrType(CodeGen);
+    }
+
+    private Type ResolveCapturedSymbolType(ISymbol symbol)
+    {
+        var typeSymbol = symbol switch
+        {
+            ILocalSymbol local when local.Type is not null => local.Type,
+            IParameterSymbol parameter when parameter.Type is not null => parameter.Type,
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            ITypeSymbol type => type,
+            _ => Compilation.ErrorTypeSymbol
+        };
+
+        if (symbol is ILocalSymbol localSymbol && localSymbol.Type is not null)
+        {
+            var elementType = ResolveClrType(localSymbol.Type);
+            return typeof(System.Runtime.CompilerServices.StrongBox<>).MakeGenericType(elementType);
+        }
+
+        return ResolveClrType(typeSymbol);
+    }
+
+    private static string CreateClosureFieldName(ISymbol symbol, int ordinal)
+    {
+        return symbol switch
+        {
+            ILocalSymbol local => $"<{local.Name}>__{ordinal}",
+            IParameterSymbol parameter => $"<{parameter.Name}>__{ordinal}",
+            ITypeSymbol => $"<>self__{ordinal}",
+            _ => $"<>capture__{ordinal}"
+        };
+    }
+
+    internal sealed class LambdaClosure
+    {
+        private readonly Dictionary<ISymbol, FieldBuilder> _fields;
+        private Type? _createdType;
+
+        public LambdaClosure(TypeBuilder typeBuilder, ConstructorBuilder constructor, Dictionary<ISymbol, FieldBuilder> fields)
+        {
+            TypeBuilder = typeBuilder;
+            Constructor = constructor;
+            _fields = fields;
+        }
+
+        public TypeBuilder TypeBuilder { get; }
+
+        public ConstructorBuilder Constructor { get; }
+
+        public bool TryGetField(ISymbol symbol, out FieldBuilder fieldBuilder) => _fields.TryGetValue(symbol, out fieldBuilder);
+
+        public FieldBuilder GetField(ISymbol symbol) => _fields[symbol];
+
+        public void CreateType()
+        {
+            if (_createdType is not null)
+                return;
+
+            _createdType = TypeBuilder.CreateType();
+        }
     }
 
     internal bool ImplementsInterfaceMethod(IMethodSymbol methodSymbol)

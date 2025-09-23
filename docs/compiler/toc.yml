@@ -44,6 +44,8 @@
       href: development/source-generation.md
     - name: Node generator
       href: development/node-generator.md
+    - name: Lambda functions
+      href: development/lambda-functions.md
     - name: Completion service
       href: development/completion-service.md
     - name: Analyzers

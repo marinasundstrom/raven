@@ -742,6 +742,28 @@ func outer() {
 }
 ```
 
+### Lambda expressions and captured variables
+
+Lambda expressions use the `func` keyword followed by a parameter list, an
+arrow, and either an expression or block body. Lambdas may appear wherever a
+function value is expected. When a lambda references a local defined in an
+outer scope, the compiler lifts that local into shared closure storage so both
+the outer scope and the lambda observe the same value. Each captured local is
+wrapped in a reference cell (implemented with `System.Runtime.CompilerServices.StrongBox<T>`)
+when the local is declared. Reads and writes in any scope dereference that
+shared cell, so mutating a `var` binding after creating a lambda immediately
+affects all delegates that captured it. Capturing `self` produces a reference to
+the enclosing instance, and capturing parameters preserves the argument value
+from the invoking scope. Nested lambdas reuse the closure instances produced by
+their enclosing scopes so that captures shared across multiple lambda layers
+continue to reference the same storage locations.
+
+Lambda parameter types are optional when the expression is converted to a known
+delegate type. The compiler infers the parameter types (and any `ref`/`out`
+modifiers) from the delegate's `Invoke` signature and converts the body to the
+delegate's return type. If no delegate context is available, diagnostic
+`RAV2200` is reported and explicit parameter annotations are required.
+
 ### `ref`/`out` arguments
 
 Parameters can be declared by reference using `&Type`. Use `out` before
