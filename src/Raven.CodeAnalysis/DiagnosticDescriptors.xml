@@ -244,4 +244,13 @@
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred" Title="Lambda parameter type cannot be inferred"
     Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2201" Identifier="MethodGroupRequiresDelegateType" Title="Method group requires delegate type"
+    Message="Method group '{methodName}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2202" Identifier="MethodGroupConversionIsAmbiguous" Title="Method group conversion is ambiguous"
+    Message="Method group '{methodName}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2203" Identifier="NoOverloadMatchesDelegate" Title="No overload matches delegate"
+    Message="No overload for method '{methodName}' matches delegate type '{delegateType}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

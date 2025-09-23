@@ -106,7 +106,7 @@ public static class SymbolExtensions
         return type switch
         {
             IArrayTypeSymbol array => array.ElementType,
-            INamedTypeSymbol named when named.IsGenericType =>
+            INamedTypeSymbol named when named.TypeKind != TypeKind.Delegate && named.IsGenericType =>
                 named.TypeArguments.Length == 1 ? named.TypeArguments[0] : null,
             _ => null
         };

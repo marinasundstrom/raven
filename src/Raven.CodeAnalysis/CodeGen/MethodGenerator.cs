@@ -144,8 +144,8 @@ internal class MethodGenerator
 
         if (_lambdaClosure is not null)
         {
-            if (MethodBase is MethodBuilder methodBuilder)
-                methodBuilder.DefineParameter(i, ParameterAttributes.None, "<closure>");
+            if (MethodBase is MethodBuilder closureBuilder)
+                closureBuilder.DefineParameter(i, ParameterAttributes.None, "<closure>");
             else
                 ((ConstructorBuilder)MethodBase).DefineParameter(i, ParameterAttributes.None, "<closure>");
 

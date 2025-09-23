@@ -62,6 +62,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundAsExpression asExpr:
                 VisitAsExpression(asExpr);
                 break;
+            case BoundDelegateCreationExpression delegateCreation:
+                VisitDelegateCreationExpression(delegateCreation);
+                break;
+            case BoundMethodGroupExpression methodGroup:
+                VisitMethodGroupExpression(methodGroup);
+                break;
             case BoundMemberAccessExpression memberAccess:
                 VisitMemberAccessExpression(memberAccess);
                 break;
@@ -187,6 +193,17 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitAsExpression(BoundAsExpression node)
     {
         VisitExpression(node.Expression);
+    }
+
+    public virtual void VisitDelegateCreationExpression(BoundDelegateCreationExpression node)
+    {
+        VisitMethodGroupExpression(node.MethodGroup);
+    }
+
+    public virtual void VisitMethodGroupExpression(BoundMethodGroupExpression node)
+    {
+        if (node.Receiver is not null)
+            VisitExpression(node.Receiver);
     }
 
     public virtual void VisitIfStatement(BoundIfStatement node)

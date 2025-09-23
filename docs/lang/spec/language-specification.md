@@ -764,6 +764,100 @@ modifiers) from the delegate's `Invoke` signature and converts the body to the
 delegate's return type. If no delegate context is available, diagnostic
 `RAV2200` is reported and explicit parameter annotations are required.
 
+### Function values and method references
+
+Functions and methods are first-class values. Referencing a function or method
+name without invoking it produces a delegate that can be stored, passed around,
+or invoked later. The compiler picks an appropriate delegate type using the
+same target-typing rules that guide overload resolution. In a binding such as
+`let` or `var`, the initializer (or an explicit type annotation) supplies that
+context so the delegate type—and corresponding overload—can be determined.
+When no delegate context is available, diagnostic `RAV2201` is reported and the
+method must either be invoked directly or annotated with a delegate type.
+
+```raven
+let writeLine: System.Action<string> = Console.WriteLine
+writeLine("Hello from Raven!")
+```
+
+If the referenced member has no overloads, the compiler may omit the
+annotation and still infer the delegate type from that unique signature.
+
+When the referenced method defines multiple overloads, Raven does **not** allow
+an unannotated binding to rely solely on type inference; such declarations are
+ambiguous and produce diagnostic `RAV2202`. To disambiguate, provide the
+delegate type explicitly or use another context with a well-defined target
+type.
+
+```raven
+let writeLine = Console.WriteLine             // error: overloaded method group
+let writeLine: System.Action<string> = Console.WriteLine // ok
+```
+
+Passing `Console.WriteLine` as an argument to a parameter of type
+`System.Action<string>` likewise selects the `string` overload without requiring
+an explicit annotation at the call site. If no overload matches the target
+delegate's signature, diagnostic `RAV2203` is produced.
+
+If no compatible delegate type exists in the current context, the compiler
+generates one whose signature matches the referenced function or method. The
+generated delegate observes the same parameter list (including `ref`/`out`
+modifiers) and return type as the source symbol so the resulting value behaves
+identically to directly invoking that member. Subsequent uses of the same
+signature within the compilation reuse the synthesized delegate.
+
+Instance method references capture their receiver automatically. Evaluating
+`self.Member` as a value stores the current instance alongside the referenced
+method so later invocations execute against the same object:
+
+```raven
+class Counter {
+    value: int = 3
+
+    Increment(delta: int) -> int { self.value + delta }
+
+    Run() -> int {
+        let increment = self.Increment
+        increment(7) // returns 10
+    }
+}
+```
+
+Method references may be passed directly to parameters of delegate type. The
+overload chosen for the receiving method is the one whose delegate parameter
+matches the referenced method's signature:
+
+```raven
+func Run(action: System.Action<string>) { action("ready") }
+func Run(value: string) { Console.WriteLine(value) }
+
+Run(Console.WriteLine) // selects the Action<string> overload
+```
+
+When a referenced method's signature requires a delegate that doesn't already
+exist—such as one with `ref`/`out` parameters—Raven synthesizes an internal
+delegate type and uses it as the expression's type. These delegates behave like
+framework-provided types and faithfully propagate modifiers:
+
+```raven
+class Accumulator {
+    static TryAccumulate(state: &int, out doubled: &int) -> bool {
+        state = state + 1
+        doubled = state * 2
+        true
+    }
+
+    static Execute(value: int) -> int {
+        let callback = Accumulator.TryAccumulate
+        var current = value
+        var doubled = 0
+
+        callback(&current, &doubled)
+        current + doubled // evaluates to 12 when value is 3
+    }
+}
+```
+
 ### `ref`/`out` arguments
 
 Parameters can be declared by reference using `&Type`. Use `out` before

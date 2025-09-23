@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Linq.Expressions;
 
 namespace Raven.CodeAnalysis;
@@ -16,19 +17,23 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             yield return (T)node.Accept(this)!;
     }
 
-    public virtual IEnumerable<T> VisitSymbolList<T>(IEnumerable<ISymbol?> symbols)
+    public virtual ImmutableArray<T> VisitSymbolList<T>(IEnumerable<ISymbol?> symbols)
         where T : ISymbol
     {
+        var builder = ImmutableArray.CreateBuilder<T>();
+
         foreach (var symbol in symbols)
         {
             if (symbol is null)
             {
-                yield return (T)symbol!;
+                builder.Add((T)symbol!);
                 continue;
             }
 
-            yield return (T)VisitSymbol(symbol)!;
+            builder.Add((T)VisitSymbol(symbol)!);
         }
+
+        return builder.MoveToImmutable();
     }
 
     public virtual BoundStatement VisitStatement(BoundStatement statement)
@@ -66,6 +71,8 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundAssignmentExpression assignment => (BoundExpression)VisitAssignmentExpression(assignment)!,
             BoundCastExpression cast => (BoundExpression)VisitCastExpression(cast)!,
             BoundAsExpression asExpr => (BoundExpression)VisitAsExpression(asExpr)!,
+            BoundDelegateCreationExpression delegateCreation => (BoundExpression)VisitDelegateCreationExpression(delegateCreation)!,
+            BoundMethodGroupExpression methodGroup => (BoundExpression)VisitMethodGroupExpression(methodGroup)!,
             _ => throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}"),
         };
     }

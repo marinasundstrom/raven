@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis;
 
@@ -5,6 +6,27 @@ static class BoundExpressionExtensions
 {
     public static SymbolInfo GetSymbolInfo(this BoundExpression expression)
     {
+        if (expression is BoundDelegateCreationExpression delegateCreation)
+        {
+            var group = delegateCreation.MethodGroup;
+            var candidates = ImmutableArray.CreateRange(group.Methods, static method => (ISymbol)method);
+
+            if (delegateCreation.Reason is BoundExpressionReason.None)
+                return new SymbolInfo(delegateCreation.Method, candidates);
+
+            return new SymbolInfo(Convert(delegateCreation.Reason), candidates);
+        }
+
+        if (expression is BoundMethodGroupExpression methodGroup)
+        {
+            var candidates = ImmutableArray.CreateRange(methodGroup.Methods, static method => (ISymbol)method);
+
+            if (methodGroup.Reason is BoundExpressionReason.None)
+                return new SymbolInfo(methodGroup.SelectedMethod, candidates, CandidateReason.MemberGroup);
+
+            return new SymbolInfo(Convert(methodGroup.Reason), candidates);
+        }
+
         if (expression.Reason is BoundExpressionReason.None)
             return new SymbolInfo(expression.Symbol!);
 
@@ -16,7 +38,7 @@ static class BoundExpressionExtensions
         return new SymbolInfo(statement.Symbol);
     }
 
-    private static CandidateReason Convert(BoundExpressionReason reason)
+    internal static CandidateReason Convert(BoundExpressionReason reason)
     {
         return reason switch
         {

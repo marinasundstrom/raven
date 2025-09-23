@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 using Raven.CodeAnalysis.Symbols;
 
@@ -236,5 +237,16 @@ public static partial class SymbolExtensions
 
         // Join types with '.'
         return string.Join(".", types);
+    }
+
+    public static IMethodSymbol? GetDelegateInvokeMethod(this INamedTypeSymbol typeSymbol)
+    {
+        if (typeSymbol.TypeKind != TypeKind.Delegate)
+            return null;
+
+        return typeSymbol
+            .GetMembers("Invoke")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault();
     }
 }

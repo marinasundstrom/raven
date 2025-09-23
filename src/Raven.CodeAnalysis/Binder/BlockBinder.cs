@@ -131,14 +131,34 @@ partial class BlockBinder : Binder
         }
         else if (variableDeclarator.TypeAnnotation is null)
         {
-            type = TypeSymbolNormalization.NormalizeForInference(boundInitializer!.Type!);
+            if (boundInitializer is BoundMethodGroupExpression methodGroup)
+            {
+                var inferredDelegate = methodGroup.DelegateType ?? methodGroup.DelegateTypeFactory?.Invoke();
+                if (inferredDelegate is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+                {
+                    boundInitializer = ConvertMethodGroupToDelegate(methodGroup, delegateType, initializer.Value);
+                    CacheBoundNode(initializer.Value, boundInitializer);
+                    type = delegateType;
+                }
+                else
+                {
+                    boundInitializer = ReportMethodGroupRequiresDelegate(methodGroup, initializer.Value);
+                    CacheBoundNode(initializer.Value, boundInitializer);
+                    type = Compilation.ErrorTypeSymbol;
+                }
+            }
+            else
+            {
+                type = TypeSymbolNormalization.NormalizeForInference(boundInitializer!.Type!);
+            }
         }
         else
         {
             type = ResolveType(variableDeclarator.TypeAnnotation.Type);
 
             if (type.TypeKind != TypeKind.Error &&
-                boundInitializer.Type!.TypeKind != TypeKind.Error)
+                boundInitializer is not null &&
+                ShouldAttemptConversion(boundInitializer))
             {
                 if (!IsAssignable(type, boundInitializer.Type!, out var conversion))
                 {
@@ -150,10 +170,14 @@ partial class BlockBinder : Binder
                 }
                 else
                 {
-                    boundInitializer = ApplyConversion(boundInitializer, type, conversion);
+                    boundInitializer = ApplyConversion(boundInitializer, type, conversion, initializer.Value);
+                    CacheBoundNode(initializer.Value, boundInitializer);
                 }
             }
         }
+
+        if (initializer is not null && boundInitializer is not null)
+            CacheBoundNode(initializer.Value, boundInitializer);
 
         var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer);
 
@@ -202,6 +226,13 @@ partial class BlockBinder : Binder
     private BoundStatement BindExpressionStatement(ExpressionStatementSyntax expressionStmt)
     {
         var expr = BindExpression(expressionStmt.Expression, allowReturn: true);
+
+        if (expr is BoundMethodGroupExpression methodGroup && methodGroup.GetConvertedType() is null)
+        {
+            expr = ReportMethodGroupRequiresDelegate(methodGroup, expressionStmt.Expression);
+            CacheBoundNode(expressionStmt.Expression, expr);
+        }
+
         return ExpressionToStatement(expr);
     }
 
@@ -248,8 +279,8 @@ partial class BlockBinder : Binder
                         method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         returnStatement.GetLocation());
             }
-            else if (expr.Type is not null &&
-                     expr.Type.TypeKind != TypeKind.Error &&
+            else if (expr is not null &&
+                     ShouldAttemptConversion(expr) &&
                      method.ReturnType.TypeKind != TypeKind.Error)
             {
                 if (!IsAssignable(method.ReturnType, expr.Type, out var conversion))
@@ -261,7 +292,7 @@ partial class BlockBinder : Binder
                 }
                 else
                 {
-                    expr = ApplyConversion(expr, method.ReturnType, conversion);
+                    expr = ApplyConversion(expr, method.ReturnType, conversion, returnStatement.Expression!);
                 }
             }
         }
@@ -471,9 +502,8 @@ partial class BlockBinder : Binder
                 var arg = tupleExpression.Arguments[i];
                 var boundExpr = BindExpression(arg.Expression);
                 var expected = target.TupleElements[i].Type;
-                if (boundExpr.Type is not null &&
-                    boundExpr.Type.TypeKind != TypeKind.Error &&
-                    expected.TypeKind != TypeKind.Error)
+                if (expected.TypeKind != TypeKind.Error &&
+                    ShouldAttemptConversion(boundExpr))
                 {
                     if (!IsAssignable(expected, boundExpr.Type!, out var conversion))
                     {
@@ -484,7 +514,7 @@ partial class BlockBinder : Binder
                     }
                     else
                     {
-                        boundExpr = ApplyConversion(boundExpr, expected, conversion);
+                        boundExpr = ApplyConversion(boundExpr, expected, conversion, arg.Expression);
                     }
                 }
 
@@ -558,7 +588,7 @@ partial class BlockBinder : Binder
         INamedTypeSymbol? targetDelegate = targetType as INamedTypeSymbol;
         if (targetDelegate?.TypeKind != TypeKind.Delegate)
             targetDelegate = null;
-        var targetSignature = targetDelegate?.DelegateInvokeMethod;
+        var targetSignature = targetDelegate?.GetDelegateInvokeMethod();
 
         // 2. Create parameter symbols
         var parameterSymbols = new List<IParameterSymbol>();
@@ -661,7 +691,7 @@ partial class BlockBinder : Binder
                 }
                 else
                 {
-                    bodyExpr = ApplyConversion(bodyExpr, returnType, conversion);
+                    bodyExpr = ApplyConversion(bodyExpr, returnType, conversion, syntax.ExpressionBody);
                 }
             }
         }
@@ -681,7 +711,7 @@ partial class BlockBinder : Binder
                 }
                 else
                 {
-                    bodyExpr = ApplyConversion(bodyExpr, returnType, conversion);
+                    bodyExpr = ApplyConversion(bodyExpr, returnType, conversion, syntax.ExpressionBody);
                 }
             }
         }
@@ -757,6 +787,104 @@ partial class BlockBinder : Binder
         }
 
         return new BoundCastExpression(expression, targetType, conversion);
+    }
+
+    private BoundExpression ConvertMethodGroupToDelegate(BoundMethodGroupExpression methodGroup, ITypeSymbol targetType, SyntaxNode? syntax)
+    {
+        if (targetType is not INamedTypeSymbol delegateType || delegateType.TypeKind != TypeKind.Delegate)
+            return methodGroup;
+
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+        {
+            var fallbackGroup = new BoundMethodGroupExpression(
+                methodGroup.Receiver,
+                methodGroup.Methods,
+                methodGroup.MethodGroupType,
+                delegateTypeFactory: () => targetType,
+                selectedMethod: methodGroup.SelectedMethod,
+                reason: methodGroup.Reason != BoundExpressionReason.None ? methodGroup.Reason : BoundExpressionReason.OverloadResolutionFailed);
+
+            return new BoundDelegateCreationExpression(fallbackGroup, delegateType);
+        }
+
+        var compatibleMethods = methodGroup.Methods
+            .Where(candidate => IsCompatibleWithDelegate(candidate, invoke, methodGroup.Receiver is not null))
+            .ToImmutableArray();
+
+        var selectedMethod = methodGroup.SelectedMethod;
+        var computedReason = BoundExpressionReason.None;
+
+        if (compatibleMethods.Length == 1)
+        {
+            selectedMethod = compatibleMethods[0];
+        }
+        else if (compatibleMethods.IsDefaultOrEmpty)
+        {
+            selectedMethod = null;
+            computedReason = BoundExpressionReason.OverloadResolutionFailed;
+        }
+        else
+        {
+            selectedMethod = null;
+            computedReason = BoundExpressionReason.Ambiguous;
+        }
+
+        var reason = methodGroup.Reason != BoundExpressionReason.None ? methodGroup.Reason : computedReason;
+        var reportReason = methodGroup.Reason == BoundExpressionReason.None ? computedReason : BoundExpressionReason.None;
+
+        var resolvedGroup = new BoundMethodGroupExpression(
+            methodGroup.Receiver,
+            methodGroup.Methods,
+            methodGroup.MethodGroupType,
+            delegateTypeFactory: () => targetType,
+            selectedMethod: selectedMethod,
+            reason: reason);
+
+        if (syntax is not null)
+        {
+            if (reportReason is BoundExpressionReason.Ambiguous)
+            {
+                _diagnostics.ReportMethodGroupConversionIsAmbiguous(GetMethodGroupDisplay(methodGroup), syntax.GetLocation());
+            }
+            else if (reportReason is BoundExpressionReason.OverloadResolutionFailed)
+            {
+                _diagnostics.ReportNoOverloadMatchesDelegate(
+                    GetMethodGroupDisplay(methodGroup),
+                    delegateType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.GetLocation());
+            }
+        }
+
+        return new BoundDelegateCreationExpression(resolvedGroup, delegateType);
+    }
+
+    private bool IsCompatibleWithDelegate(IMethodSymbol method, IMethodSymbol invoke, bool hasReceiver)
+    {
+        if (!hasReceiver && !method.IsStatic)
+            return false;
+
+        if (method.IsGenericMethod)
+            return false;
+
+        if (method.Parameters.Length != invoke.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < method.Parameters.Length; i++)
+        {
+            var methodParameter = method.Parameters[i];
+            var delegateParameter = invoke.Parameters[i];
+
+            if (methodParameter.RefKind != delegateParameter.RefKind)
+                return false;
+
+            var conversion = Compilation.ClassifyConversion(delegateParameter.Type, methodParameter.Type);
+            if (!conversion.Exists || !conversion.IsImplicit)
+                return false;
+        }
+
+        var returnConversion = Compilation.ClassifyConversion(method.ReturnType, invoke.ReturnType);
+        return returnConversion.Exists && returnConversion.IsImplicit;
     }
 
     private BoundExpression BindAsExpression(AsExpressionSyntax asExpression)
@@ -1260,8 +1388,16 @@ partial class BlockBinder : Binder
 
         if (receiver is BoundTypeExpression typeExpr)
         {
+            var methodCandidates = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+                .LookupMethods(this)
+                .ToImmutableArray();
+
+            if (!methodCandidates.IsDefaultOrEmpty)
+                return CreateMethodGroup(typeExpr, methodCandidates);
+
             var member = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
-                .Lookup(this).FirstOrDefault();
+                .Lookup(this)
+                .FirstOrDefault();
 
             if (member is null)
             {
@@ -1273,17 +1409,25 @@ partial class BlockBinder : Binder
             return new BoundMemberAccessExpression(typeExpr, member);
         }
 
-        var instanceMember = receiver.Type is null
-            ? null
-            : new SymbolQuery(name, receiver.Type, IsStatic: false).Lookup(this).FirstOrDefault();
-
-        if (instanceMember == null)
+        if (receiver.Type is not null)
         {
-            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberAccess.Name.GetLocation());
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+            var instanceMethods = new SymbolQuery(name, receiver.Type, IsStatic: false)
+                .LookupMethods(this)
+                .ToImmutableArray();
+
+            if (!instanceMethods.IsDefaultOrEmpty)
+                return CreateMethodGroup(receiver, instanceMethods);
+
+            var instanceMember = new SymbolQuery(name, receiver.Type, IsStatic: false)
+                .Lookup(this)
+                .FirstOrDefault();
+
+            if (instanceMember is not null)
+                return new BoundMemberAccessExpression(receiver, instanceMember);
         }
 
-        return new BoundMemberAccessExpression(receiver, instanceMember);
+        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberAccess.Name.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindMemberBindingExpression(MemberBindingExpressionSyntax memberBinding)
@@ -1294,8 +1438,16 @@ partial class BlockBinder : Binder
 
         if (expectedType is not null)
         {
+            var methodCandidates = new SymbolQuery(memberName, expectedType, IsStatic: true)
+                .LookupMethods(this)
+                .ToImmutableArray();
+
+            if (!methodCandidates.IsDefaultOrEmpty)
+                return CreateMethodGroup(new BoundTypeExpression(expectedType), methodCandidates);
+
             var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
-                .Lookup(this).FirstOrDefault();
+                .Lookup(this)
+                .FirstOrDefault();
 
             if (member is null)
             {
@@ -1357,14 +1509,32 @@ partial class BlockBinder : Binder
                             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
                             {
                                 var boundMember = BindMemberAccessExpression(memberAccess);
-                                if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
+                                if (boundMember is BoundMethodGroupExpression methodGroup)
+                                {
+                                    if (methodGroup.Methods.Length == 1)
+                                        targetMethod = methodGroup.Methods[0];
+                                    else if (TryGetCommonParameterType(methodGroup.Methods, index) is ITypeSymbol common)
+                                        return common;
+                                }
+                                else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
+                                {
                                     targetMethod = m;
+                                }
                             }
                             else if (invocation.Expression is MemberBindingExpressionSyntax memberBinding)
                             {
                                 var boundMember = BindMemberBindingExpression(memberBinding);
-                                if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
+                                if (boundMember is BoundMethodGroupExpression methodGroup)
+                                {
+                                    if (methodGroup.Methods.Length == 1)
+                                        targetMethod = methodGroup.Methods[0];
+                                    else if (TryGetCommonParameterType(methodGroup.Methods, index) is ITypeSymbol common)
+                                        return common;
+                                }
+                                else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
+                                {
                                     targetMethod = m;
+                                }
                             }
                             else if (invocation.Expression is IdentifierNameSyntax id)
                             {
@@ -1377,25 +1547,8 @@ partial class BlockBinder : Binder
                                 }
                                 else if (candidates.Length > 1)
                                 {
-                                    ITypeSymbol? paramType = null;
-                                    foreach (var cand in candidates)
-                                    {
-                                        if (cand.Parameters.Length <= index)
-                                        {
-                                            paramType = null;
-                                            break;
-                                        }
-                                        var pt = cand.Parameters[index].Type;
-                                        if (paramType is null)
-                                            paramType = pt;
-                                        else if (!SymbolEqualityComparer.Default.Equals(paramType, pt))
-                                        {
-                                            paramType = null;
-                                            break;
-                                        }
-                                    }
-                                    if (paramType is not null)
-                                        return paramType;
+                                    if (TryGetCommonParameterType(candidates.ToImmutableArray(), index) is ITypeSymbol common)
+                                        return common;
                                 }
                             }
 
@@ -1682,12 +1835,30 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax)
     {
-        var symbol = LookupSymbol(syntax.Identifier.Text);
+        var name = syntax.Identifier.Text;
+        var symbol = LookupSymbol(name);
 
         if (symbol is null)
         {
-            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(syntax.Identifier.Text, syntax.Identifier.GetLocation());
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, syntax.Identifier.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
+        if (symbol is IMethodSymbol)
+        {
+            var methods = LookupSymbols(name)
+                .OfType<IMethodSymbol>()
+                .ToImmutableArray();
+
+            if (methods.IsDefaultOrEmpty)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+
+            var receiver = BindImplicitMethodGroupReceiver(methods);
+
+            if (receiver is BoundErrorExpression error)
+                return error;
+
+            return CreateMethodGroup(receiver, methods);
         }
 
         return symbol switch
@@ -1700,6 +1871,33 @@ partial class BlockBinder : Binder
             IPropertySymbol prop => new BoundPropertyAccess(prop),
             _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
         };
+    }
+
+    private BoundMethodGroupExpression CreateMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods)
+    {
+        Func<ITypeSymbol?>? delegateFactory = null;
+
+        if (!methods.IsDefaultOrEmpty && methods.Length == 1)
+        {
+            var method = methods[0];
+            delegateFactory = () => Compilation.GetMethodReferenceDelegate(method);
+        }
+
+        return new BoundMethodGroupExpression(receiver, methods, Compilation.ErrorTypeSymbol, delegateFactory);
+    }
+
+    private BoundExpression? BindImplicitMethodGroupReceiver(ImmutableArray<IMethodSymbol> methods)
+    {
+        if (!methods.Any(static method => !method.IsStatic))
+            return null;
+
+        if (_containingSymbol is IMethodSymbol method && (!method.IsStatic || method.IsNamedConstructor))
+        {
+            var containingType = method.ContainingType ?? Compilation.ErrorTypeSymbol;
+            return new BoundSelfExpression(containingType);
+        }
+
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
     private BoundExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
@@ -1820,6 +2018,9 @@ partial class BlockBinder : Binder
             if (boundMember is BoundErrorExpression)
                 return boundMember;
 
+            if (boundMember is BoundMethodGroupExpression methodGroup)
+                return BindInvocationOnMethodGroup(methodGroup, syntax);
+
             if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
                 var argExprs = new List<BoundExpression>();
@@ -1874,6 +2075,9 @@ partial class BlockBinder : Binder
             if (boundMember is BoundErrorExpression)
                 return boundMember;
 
+            if (boundMember is BoundMethodGroupExpression methodGroup)
+                return BindInvocationOnMethodGroup(methodGroup, syntax);
+
             if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
                 var argExprs = new List<BoundExpression>();
@@ -1906,14 +2110,17 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is IdentifierNameSyntax id)
         {
-            var symbol = LookupSymbol(id.Identifier.Text);
+            var boundIdentifier = BindIdentifierName(id);
 
-            if (symbol is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol)
+            if (boundIdentifier is BoundErrorExpression)
+                return boundIdentifier;
+
+            if (boundIdentifier is BoundMethodGroupExpression methodGroup)
+                return BindInvocationOnMethodGroup(methodGroup, syntax);
+
+            if (boundIdentifier is BoundLocalAccess or BoundParameterAccess or BoundFieldAccess or BoundPropertyAccess)
             {
-                receiver = BindIdentifierName(id);
-                if (receiver is BoundErrorExpression)
-                    return receiver;
-
+                receiver = boundIdentifier;
                 methodName = "Invoke";
             }
             else
@@ -2101,6 +2308,91 @@ partial class BlockBinder : Binder
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntax.Expression.GetLocation());
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression[] BindInvocationArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, out bool hasErrors)
+    {
+        if (arguments.Count == 0)
+        {
+            hasErrors = false;
+            return Array.Empty<BoundExpression>();
+        }
+
+        var boundArguments = new BoundExpression[arguments.Count];
+        var seenErrors = false;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            var boundArg = BindExpression(arguments[i].Expression);
+            if (boundArg is BoundErrorExpression)
+                seenErrors = true;
+
+            boundArguments[i] = boundArg;
+        }
+
+        hasErrors = seenErrors;
+        return boundArguments;
+    }
+
+    private BoundExpression BindInvocationOnMethodGroup(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
+    {
+        var boundArguments = BindInvocationArguments(syntax.ArgumentList.Arguments, out var hasErrors);
+        if (hasErrors)
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+
+        var methodName = methodGroup.Methods[0].Name;
+        var selected = methodGroup.SelectedMethod;
+
+        if (selected is not null && selected.Parameters.Length == boundArguments.Length)
+        {
+            var converted = ConvertArguments(selected.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            return new BoundInvocationExpression(selected, converted, methodGroup.Receiver);
+        }
+
+        var resolution = OverloadResolver.ResolveOverload(methodGroup.Methods, boundArguments, Compilation);
+
+        if (resolution.Success)
+        {
+            var method = resolution.Method!;
+            var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            return new BoundInvocationExpression(method, convertedArgs, methodGroup.Receiver);
+        }
+
+        if (resolution.IsAmbiguous)
+        {
+            _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+        }
+
+        _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    private ITypeSymbol? TryGetCommonParameterType(ImmutableArray<IMethodSymbol> candidates, int index)
+    {
+        if (candidates.IsDefaultOrEmpty)
+            return null;
+
+        ITypeSymbol? parameterType = null;
+
+        foreach (var candidate in candidates)
+        {
+            if (candidate.Parameters.Length <= index)
+                return null;
+
+            var candidateType = candidate.Parameters[index].Type;
+
+            if (parameterType is null)
+            {
+                parameterType = candidateType;
+                continue;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterType, candidateType))
+                return null;
+        }
+
+        return parameterType;
     }
 
     private BoundExpression BindConstructorInvocation(
@@ -2321,8 +2613,7 @@ partial class BlockBinder : Binder
             if (receiver.Type is IArrayTypeSymbol arrayType)
             {
                 if (arrayType.ElementType.TypeKind != TypeKind.Error &&
-                    right.Type is not null &&
-                    right.Type.TypeKind != TypeKind.Error)
+                    ShouldAttemptConversion(right))
                 {
                     if (!IsAssignable(arrayType.ElementType, right.Type, out var conversion))
                     {
@@ -2333,7 +2624,7 @@ partial class BlockBinder : Binder
                         return new BoundErrorExpression(arrayType.ElementType, null, BoundExpressionReason.TypeMismatch);
                     }
 
-                    right = ApplyConversion(right, arrayType.ElementType, conversion);
+                    right = ApplyConversion(right, arrayType.ElementType, conversion, rightSyntax);
                 }
 
                 return new BoundArrayAssignmentExpression(
@@ -2351,8 +2642,7 @@ partial class BlockBinder : Binder
 
             var access = new BoundIndexerAccessExpression(receiver, args, indexer);
             if (indexer.Type.TypeKind != TypeKind.Error &&
-                right.Type is not null &&
-                right.Type.TypeKind != TypeKind.Error)
+                ShouldAttemptConversion(right))
             {
                 if (!IsAssignable(indexer.Type, right.Type, out var conversion))
                 {
@@ -2363,7 +2653,7 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 
-                right = ApplyConversion(right, indexer.Type, conversion);
+                right = ApplyConversion(right, indexer.Type, conversion, rightSyntax);
             }
 
             return new BoundIndexerAssignmentExpression(access, right);
@@ -2388,7 +2678,7 @@ partial class BlockBinder : Binder
             }
 
             if (localSymbol.Type.TypeKind != TypeKind.Error &&
-                right2.Type!.TypeKind != TypeKind.Error)
+                ShouldAttemptConversion(right2))
             {
                 if (!IsAssignable(localSymbol.Type, right2.Type!, out var conversion))
                 {
@@ -2399,7 +2689,7 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 
-                right2 = ApplyConversion(right2, localSymbol.Type, conversion);
+                right2 = ApplyConversion(right2, localSymbol.Type, conversion, rightSyntax);
             }
 
             return new BoundLocalAssignmentExpression(localSymbol, right2);
@@ -2414,7 +2704,7 @@ partial class BlockBinder : Binder
             }
 
             if (fieldSymbol.Type.TypeKind != TypeKind.Error &&
-                right2.Type!.TypeKind != TypeKind.Error)
+                ShouldAttemptConversion(right2))
             {
                 if (!IsAssignable(fieldSymbol.Type, right2.Type!, out var conversion))
                 {
@@ -2425,7 +2715,7 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 
-                right2 = ApplyConversion(right2, fieldSymbol.Type, conversion);
+                right2 = ApplyConversion(right2, fieldSymbol.Type, conversion, rightSyntax);
             }
 
             return new BoundFieldAssignmentExpression(GetReceiver(left), fieldSymbol, right2);
@@ -2458,7 +2748,7 @@ partial class BlockBinder : Binder
             }
 
             if (propertySymbol.Type.TypeKind != TypeKind.Error &&
-                right2.Type!.TypeKind != TypeKind.Error)
+                ShouldAttemptConversion(right2))
             {
                 if (!IsAssignable(propertySymbol.Type, right2.Type!, out var conversion))
                 {
@@ -2469,7 +2759,7 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
 
-                right2 = ApplyConversion(right2, propertySymbol.Type, conversion);
+                right2 = ApplyConversion(right2, propertySymbol.Type, conversion, rightSyntax);
             }
 
             if (backingField is not null)
@@ -2577,13 +2867,23 @@ partial class BlockBinder : Binder
         return conversion.Exists && conversion.IsImplicit;
     }
 
-    private BoundExpression ApplyConversion(BoundExpression expression, ITypeSymbol targetType, Conversion conversion)
+    private static bool ShouldAttemptConversion(BoundExpression expression)
+    {
+        return expression is BoundMethodGroupExpression || expression.Type is { TypeKind: not TypeKind.Error };
+    }
+
+    private BoundExpression ApplyConversion(BoundExpression expression, ITypeSymbol targetType, Conversion conversion, SyntaxNode? syntax = null)
     {
         if (!conversion.Exists || expression is BoundErrorExpression)
             return expression;
 
         if (targetType.TypeKind == TypeKind.Error)
             return expression;
+
+        if (expression is BoundMethodGroupExpression methodGroup)
+        {
+            return ConvertMethodGroupToDelegate(methodGroup, targetType, syntax);
+        }
 
         if (conversion.IsIdentity)
         {
@@ -2609,6 +2909,28 @@ partial class BlockBinder : Binder
         return new BoundCastExpression(expression, targetType, conversion);
     }
 
+    private static string GetMethodGroupDisplay(BoundMethodGroupExpression methodGroup)
+    {
+        var method = methodGroup.Methods[0];
+        return method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+    }
+
+    private BoundMethodGroupExpression ReportMethodGroupRequiresDelegate(BoundMethodGroupExpression methodGroup, SyntaxNode syntax)
+    {
+        _diagnostics.ReportMethodGroupRequiresDelegateType(GetMethodGroupDisplay(methodGroup), syntax.GetLocation());
+
+        if (methodGroup.Reason != BoundExpressionReason.None)
+            return methodGroup;
+
+        return new BoundMethodGroupExpression(
+            methodGroup.Receiver,
+            methodGroup.Methods,
+            methodGroup.MethodGroupType,
+            methodGroup.DelegateTypeFactory,
+            methodGroup.SelectedMethod,
+            BoundExpressionReason.OverloadResolutionFailed);
+    }
+
     protected BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundExpression> arguments, SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes)
     {
         var converted = new BoundExpression[arguments.Count];
@@ -2624,8 +2946,7 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            if (argument.Type is null ||
-                argument.Type.TypeKind == TypeKind.Error ||
+            if (!ShouldAttemptConversion(argument) ||
                 parameter.Type.TypeKind == TypeKind.Error)
             {
                 converted[i] = argument;
@@ -2643,7 +2964,7 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            converted[i] = ApplyConversion(argument, parameter.Type, conversion);
+            converted[i] = ApplyConversion(argument, parameter.Type, conversion, argumentSyntaxes[i].Expression);
         }
 
         return converted;
@@ -2662,15 +2983,18 @@ partial class BlockBinder : Binder
             return new BoundEmptyCollectionExpression();
         }
 
-        var elements = ImmutableArray.CreateBuilder<BoundExpression>();
+        var elements = new List<BoundExpression>(syntax.Elements.Count);
+        var elementNodes = new List<SyntaxNode>(syntax.Elements.Count);
 
         foreach (var elementSyntax in syntax.Elements)
         {
             BoundExpression boundElement;
+            SyntaxNode elementNode;
             switch (elementSyntax)
             {
                 case ExpressionElementSyntax exprElem:
                     boundElement = BindExpression(exprElem.Expression);
+                    elementNode = exprElem.Expression;
                     break;
                 case SpreadElementSyntax spreadElem:
                     var spreadExpr = BindExpression(spreadElem.Expression);
@@ -2682,12 +3006,14 @@ partial class BlockBinder : Binder
                     }
 
                     boundElement = new BoundSpreadElement(spreadExpr);
+                    elementNode = spreadElem.Expression;
                     break;
                 default:
                     continue;
             }
 
             elements.Add(boundElement);
+            elementNodes.Add(elementNode);
         }
 
         if (targetType is IArrayTypeSymbol arrayType)
@@ -2696,8 +3022,11 @@ partial class BlockBinder : Binder
 
             var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
-            foreach (var element in elements)
+            for (var i = 0; i < elements.Count; i++)
             {
+                var element = elements[i];
+                var elementSyntax = elementNodes[i];
+
                 if (element is BoundSpreadElement spread)
                 {
                     var sourceType = GetSpreadElementType(spread.Expression.Type!);
@@ -2713,21 +3042,19 @@ partial class BlockBinder : Binder
                     continue;
                 }
 
-                var elementExprType = element.Type;
-                if (elementExprType is not null &&
-                    elementExprType.TypeKind != TypeKind.Error &&
-                    elementType.TypeKind != TypeKind.Error)
+                if (elementType.TypeKind != TypeKind.Error &&
+                    ShouldAttemptConversion(element))
                 {
-                    if (!IsAssignable(elementType, elementExprType, out var conversion))
+                    if (!IsAssignable(elementType, element.Type!, out var conversion))
                     {
                         _diagnostics.ReportCannotConvertFromTypeToType(
-                            elementExprType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.GetLocation());
                     }
                     else
                     {
-                        converted.Add(ApplyConversion(element, elementType, conversion));
+                        converted.Add(ApplyConversion(element, elementType, conversion, elementSyntax));
                         continue;
                     }
                 }
@@ -2756,8 +3083,11 @@ partial class BlockBinder : Binder
 
             var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
-            foreach (var element in elements)
+            for (var i = 0; i < elements.Count; i++)
             {
+                var element = elements[i];
+                var elementSyntax = elementNodes[i];
+
                 if (element is BoundSpreadElement spread)
                 {
                     var sourceType = GetSpreadElementType(spread.Expression.Type!);
@@ -2773,21 +3103,19 @@ partial class BlockBinder : Binder
                     continue;
                 }
 
-                var elementExprType = element.Type;
-                if (elementExprType is not null &&
-                    elementExprType.TypeKind != TypeKind.Error &&
-                    elementType.TypeKind != TypeKind.Error)
+                if (elementType.TypeKind != TypeKind.Error &&
+                    ShouldAttemptConversion(element))
                 {
-                    if (!IsAssignable(elementType, elementExprType, out var conversion))
+                    if (!IsAssignable(elementType, element.Type!, out var conversion))
                     {
                         _diagnostics.ReportCannotConvertFromTypeToType(
-                            elementExprType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             syntax.GetLocation());
                     }
                     else
                     {
-                        converted.Add(ApplyConversion(element, elementType, conversion));
+                        converted.Add(ApplyConversion(element, elementType, conversion, elementSyntax));
                         continue;
                     }
                 }
@@ -2804,22 +3132,23 @@ partial class BlockBinder : Binder
 
         var convertedFallback = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
 
-        foreach (var element in elements)
+        for (var i = 0; i < elements.Count; i++)
         {
+            var element = elements[i];
+            var elementSyntax = elementNodes[i];
+
             if (element is BoundSpreadElement)
             {
                 convertedFallback.Add(element);
                 continue;
             }
 
-            var elementExprType = element.Type;
-            if (elementExprType is not null &&
-                elementExprType.TypeKind != TypeKind.Error &&
-                inferredElementType.TypeKind != TypeKind.Error)
+            if (inferredElementType.TypeKind != TypeKind.Error &&
+                ShouldAttemptConversion(element))
             {
-                if (IsAssignable(inferredElementType, elementExprType, out var conversion))
+                if (IsAssignable(inferredElementType, element.Type!, out var conversion))
                 {
-                    convertedFallback.Add(ApplyConversion(element, inferredElementType, conversion));
+                    convertedFallback.Add(ApplyConversion(element, inferredElementType, conversion, elementSyntax));
                     continue;
                 }
             }

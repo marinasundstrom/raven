@@ -379,9 +379,16 @@ internal class CodeGenerator
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 
+        var synthesizedDelegates = Compilation.GetSynthesizedDelegateTypes().ToArray();
+
         foreach (var typeSymbol in types)
         {
             GetOrCreateTypeGenerator(typeSymbol);
+        }
+
+        foreach (var delegateType in synthesizedDelegates)
+        {
+            GetOrCreateTypeGenerator(delegateType);
         }
 
         var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
@@ -390,6 +397,11 @@ internal class CodeGenerator
         foreach (var typeSymbol in types)
         {
             EnsureTypeBuilderDefined(typeSymbol, visited, visiting);
+        }
+
+        foreach (var delegateType in synthesizedDelegates)
+        {
+            EnsureTypeBuilderDefined(delegateType, visited, visiting);
         }
     }
 
