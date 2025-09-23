@@ -3,6 +3,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 {
     private readonly bool _isStatic;
+    private readonly string _metadataName;
     private SourceFieldSymbol? _backingField;
 
     public SourcePropertySymbol(
@@ -14,12 +15,14 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         bool isIndexer = false,
-        bool isStatic = false)
+        bool isStatic = false,
+        string? metadataName = null)
         : base(SymbolKind.Property, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Type = propertyType;
         IsIndexer = isIndexer;
         _isStatic = isStatic;
+        _metadataName = metadataName ?? name;
     }
 
     public ITypeSymbol Type { get; }
@@ -31,6 +34,8 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     public bool IsIndexer { get; }
 
     public override bool IsStatic => _isStatic;
+
+    public override string MetadataName => _metadataName;
 
     public bool IsAutoProperty => _backingField is not null;
 

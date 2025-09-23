@@ -1,8 +1,7 @@
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-
-using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -377,6 +376,80 @@ class QuietLogger : ILogger {
 
         var publicResult = (string)publicMethod!.Invoke(instance, new object?[] { "echo" })!;
         Assert.Equal("echo", publicResult);
+    }
+
+    [Fact]
+    public void Emit_ExplicitInterfacePropertyImplementation_EmitsPrivateOverride()
+    {
+        var code = """
+interface ILogger {
+    Message: string { get; set; }
+}
+
+class QuietLogger : ILogger {
+    var message: string = "[quiet]";
+
+    ILogger.Message: string {
+        get => message;
+        set => message = value;
+    }
+
+    public Echo: string {
+        get => message;
+        set => message = value;
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+
+        var loggerInterface = assembly.GetType("ILogger", throwOnError: true)!;
+        var loggerType = assembly.GetType("QuietLogger", throwOnError: true)!;
+
+        Assert.True(loggerInterface.IsInterface);
+        Assert.Contains(loggerInterface, loggerType.GetInterfaces());
+
+        var allProperties = loggerType.GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        var explicitProperty = Assert.Single(
+            allProperties,
+            p => p.Name == "ILogger.Message");
+        Assert.NotNull(explicitProperty.GetMethod);
+        Assert.NotNull(explicitProperty.SetMethod);
+        Assert.True(explicitProperty.GetMethod!.IsPrivate);
+        Assert.True(explicitProperty.GetMethod.IsFinal);
+        Assert.True(explicitProperty.GetMethod.IsVirtual);
+        Assert.True(explicitProperty.GetMethod.IsHideBySig);
+
+        var publicProperty = loggerType.GetProperty("Echo", BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(publicProperty);
+
+        var interfaceMap = loggerType.GetInterfaceMap(loggerInterface);
+        var getIndex = Array.FindIndex(interfaceMap.InterfaceMethods, m => m.Name == "get_Message");
+        var setIndex = Array.FindIndex(interfaceMap.InterfaceMethods, m => m.Name == "set_Message");
+        Assert.True(getIndex >= 0);
+        Assert.True(setIndex >= 0);
+        Assert.Same(explicitProperty.GetMethod, interfaceMap.TargetMethods[getIndex]);
+        Assert.Same(explicitProperty.SetMethod, interfaceMap.TargetMethods[setIndex]);
+
+        var instance = Activator.CreateInstance(loggerType)!;
+        Assert.Equal("[quiet]", (string)explicitProperty.GetValue(instance)!);
+
+        explicitProperty.SetValue(instance, "updated");
+        Assert.Equal("updated", (string)explicitProperty.GetValue(instance)!);
+        Assert.Equal("updated", (string)publicProperty!.GetValue(instance)!);
     }
 
     [Fact]

@@ -89,10 +89,10 @@ InvocationOperatorDeclaration
                                ( Block | '=>' Expression ) ;
 
 PropertyDeclaration      ::= MemberModifiers?
-                             Identifier ':' Type AccessorList ;
+                             ExplicitInterfaceSpecifier? Identifier ':' Type AccessorList ;
 
 IndexerDeclaration       ::= MemberModifiers?
-                             Identifier BracketedParameterList ':' Type AccessorList ;
+                             ExplicitInterfaceSpecifier? Identifier BracketedParameterList ':' Type AccessorList ;
 
 AccessorList             ::= '{' Accessor {Accessor} '}' ;
 Accessor                 ::= AccessorModifier? ('get' | 'set')

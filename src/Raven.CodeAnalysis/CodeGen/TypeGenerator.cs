@@ -213,7 +213,7 @@ internal class TypeGenerator
                             }
                         }
 
-                        var propBuilder = TypeBuilder.DefineProperty(propertySymbol.Name, PropertyAttributes.None, propertyType, paramTypes);
+                        var propBuilder = TypeBuilder.DefineProperty(propertySymbol.MetadataName, PropertyAttributes.None, propertyType, paramTypes);
 
                         if (getGen != null)
                             propBuilder.SetGetMethod((MethodBuilder)getGen.MethodBase);
