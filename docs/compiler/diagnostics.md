@@ -168,7 +168,7 @@ c.x = 0 // RAV0200
 Referenced a nested type or namespace that does not exist.
 
 ```raven
-use System.Missing // RAV0234
+import System.Missing // RAV0234
 ```
 
 ## RAV0235: Type expected without wildcard
@@ -265,7 +265,7 @@ Import directives must precede alias directives and declarations.
 
 ```raven
 type C {}
-use System // RAV1005
+import System // RAV1005
 ```
 
 ## RAV1006: Alias directive out of order
@@ -429,10 +429,10 @@ alias Bad = notatype // RAV2020
 ```
 
 ## RAV2021: Invalid import target
-`use` directives can only import namespaces or types.
+`import` directives can only bring namespaces or types into scope.
 
 ```raven
-use System.Console.WriteLine // RAV2021
+import System.Console.WriteLine // RAV2021
 ```
 
 ## RAV2022: Spread source must be enumerable
