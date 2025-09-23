@@ -99,12 +99,12 @@ public static class TypeSymbolExtensionsForCodeGen
                 return builtType;
 
             // Otherwise, attempt to resolve from metadata (reference assemblies)
-            var fullyQualifiedName = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            var metadataType = compilation.CoreAssembly.GetType(fullyQualifiedName, throwOnError: false);
+            var metadataName = namedType.ToFullyQualifiedMetadataName();
+            var metadataType = compilation.CoreAssembly.GetType(metadataName, throwOnError: false);
             if (metadataType != null)
                 return metadataType;
 
-            throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {fullyQualifiedName}");
+            throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {metadataName}");
         }
 
         // Handle union types

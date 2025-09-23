@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis.Symbols;
@@ -326,7 +327,37 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     TypeKind TypeKind { get; }
 
-    public string ToFullyQualifiedMetadataName() => ContainingNamespace is null ? Name : $"{ContainingNamespace.ToMetadataName()}.{Name}";
+    public string ToFullyQualifiedMetadataName()
+    {
+        string typeName;
+
+        if (this is INamedTypeSymbol named)
+        {
+            var segments = new Stack<string>();
+
+            for (INamedTypeSymbol? current = named; current is not null; current = current.ContainingType)
+                segments.Push(current.MetadataName);
+
+            typeName = segments.Count > 0
+                ? string.Join("+", segments)
+                : MetadataName;
+        }
+        else
+        {
+            typeName = MetadataName;
+        }
+
+        var containingNamespace = ContainingNamespace;
+
+        if (containingNamespace is null || containingNamespace.IsGlobalNamespace)
+            return typeName;
+
+        var namespaceName = containingNamespace.ToMetadataName();
+
+        return string.IsNullOrEmpty(namespaceName)
+            ? typeName
+            : $"{namespaceName}.{typeName}";
+    }
 
     bool IsReferenceType => !IsValueType;
 
