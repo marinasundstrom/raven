@@ -345,8 +345,8 @@ internal class TypeDeclarationParser : SyntaxParser
                 UpdateLastToken(identifierToken);
 
                 var explicitInterfaceName = (TypeSyntax)qualifiedName.Left;
-                var explicitInterfaceSpecifier = ExplicitInterfaceSpecifier(explicitInterfaceName, qualifiedName.DotToken);
-                return (explicitInterfaceSpecifier, identifierToken);
+                var explicitInterfaceSpecifier = ExplicitInterfaceSpecifier(explicitInterfaceName, qualifiedName.DotToken, identifierToken);
+                return (explicitInterfaceSpecifier, Token(SyntaxKind.None));
             }
         }
 

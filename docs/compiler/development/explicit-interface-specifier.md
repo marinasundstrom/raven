@@ -12,6 +12,10 @@ parsing.
   `MethodDeclaration`, which already exposed the specifier. Adding the slot to
   the base node ensures that both properties and indexers can surface the value
   without duplicating metadata in every derived node.
+* `ExplicitInterfaceSpecifier` itself gained an `Identifier` slot so the
+  explicit member name travels with the qualifier. When this slot is present on
+  a member declaration, the declaration's `Identifier` token is set to
+  `SyntaxKind.None`.
 * The generated red/green nodes and factories pick up the new slot after running
   `tools/NodeGenerator` in the `src/Raven.CodeAnalysis/Syntax` directory.
 
@@ -24,22 +28,22 @@ parsing.
   follows the parsed name, and rewinds the stream before delegating to the
   concrete member parser. This makes the decision resilient to interface
   qualifiers.
-* `ParsePropertyDeclaration()` and `ParseIndexerDeclaration()` were updated to
-  call `ParseMemberNameWithExplicitInterface()` directly. They now accept the
-  explicit interface specifier and reuse the same helper that methods rely on.
+* `ParsePropertyDeclaration()`, `ParseIndexerDeclaration()`, and
+  `ParseMethodOrConstructorDeclaration()` call
+  `ParseMemberNameWithExplicitInterface()` directly. They now accept the
+  explicit interface specifier and reuse the same helper regardless of member
+  kind.
 * `ParseMemberNameWithExplicitInterface()` handles the qualifier by parsing a
   `TypeSyntax` and, when the result is a `QualifiedNameSyntax`, splitting off
   the right-most simple name. The left side feeds the new
-  `ExplicitInterfaceSpecifier`, while the right-most token continues to populate
-  the existing `Identifier` slot. Falling back to the previous identifier logic
-  keeps the helper backwards-compatible for unqualified members.
+  `ExplicitInterfaceSpecifier`, while the right-most token populates the
+  specifier's `Identifier` slot. The member's own identifier token is replaced
+  with `SyntaxKind.None`, signalling to later phases that the name lives inside
+  the specifier.
 
 ## Implementation notes
 
 * The helper converts the right-most name token into an identifier with
-  `ToIdentifierToken` to preserve existing expectations about the kind stored in
-  the `Identifier` slot.
+  `ToIdentifierToken` before storing it on the explicit-interface specifier.
 * Because lookahead uses checkpoints, the parser rewinds cleanly after probing
   the stream to decide which member form to parse.
-* No semantic or emitter changes were required; the syntax tree now models the
-  qualifier and the rest of the pipeline can opt into consuming it later.

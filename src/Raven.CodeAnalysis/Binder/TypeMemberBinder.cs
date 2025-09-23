@@ -54,7 +54,8 @@ internal class TypeMemberBinder : Binder
 
     private ISymbol? BindMethodSymbol(MethodDeclarationSyntax method)
     {
-        var name = method.Identifier.Kind == SyntaxKind.SelfKeyword ? "Invoke" : method.Identifier.Text;
+        var identifierToken = ResolveExplicitInterfaceIdentifier(method.Identifier, method.ExplicitInterfaceSpecifier);
+        var name = identifierToken.Kind == SyntaxKind.SelfKeyword ? "Invoke" : identifierToken.Text;
 
         return _containingType.GetMembers()
             .OfType<IMethodSymbol>()
@@ -76,10 +77,11 @@ internal class TypeMemberBinder : Binder
 
     private ISymbol? BindPropertySymbol(PropertyDeclarationSyntax property)
     {
+        var identifierToken = ResolveExplicitInterfaceIdentifier(property.Identifier, property.ExplicitInterfaceSpecifier);
         return _containingType.GetMembers()
             .OfType<IPropertySymbol>()
             .FirstOrDefault(p => !p.IsIndexer &&
-                                 p.Name == property.Identifier.Text &&
+                                 p.Name == identifierToken.Text &&
                                  p.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == property));
     }
 
@@ -141,9 +143,9 @@ internal class TypeMemberBinder : Binder
             ? Compilation.GetSpecialType(SpecialType.System_Unit)
             : ResolveType(methodDecl.ReturnType.Type);
 
-        var name = methodDecl.Identifier.Kind == SyntaxKind.SelfKeyword ? "Invoke" : methodDecl.Identifier.Text;
-
         var explicitInterfaceSpecifier = methodDecl.ExplicitInterfaceSpecifier;
+        var identifierToken = ResolveExplicitInterfaceIdentifier(methodDecl.Identifier, explicitInterfaceSpecifier);
+        var name = identifierToken.Kind == SyntaxKind.SelfKeyword ? "Invoke" : identifierToken.Text;
         INamedTypeSymbol? explicitInterfaceType = null;
         IMethodSymbol? explicitInterfaceMember = null;
 
@@ -188,7 +190,7 @@ internal class TypeMemberBinder : Binder
             paramInfos.Add((p.Identifier.Text, pType, refKind, p));
         }
 
-        CheckForDuplicateSignature(metadataName, displayName, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), methodDecl.Identifier.GetLocation());
+        CheckForDuplicateSignature(metadataName, displayName, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), identifierToken.GetLocation());
 
         if (explicitInterfaceType is not null)
         {
@@ -203,7 +205,7 @@ internal class TypeMemberBinder : Binder
                 _diagnostics.ReportExplicitInterfaceMemberNotFound(
                     explicitInterfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     name,
-                    methodDecl.Identifier.GetLocation());
+                    identifierToken.GetLocation());
             }
         }
 
@@ -223,16 +225,16 @@ internal class TypeMemberBinder : Binder
 
         if (isSealed && !isOverride)
         {
-            _diagnostics.ReportSealedMemberMustOverride(name, methodDecl.Identifier.GetLocation());
+            _diagnostics.ReportSealedMemberMustOverride(name, identifierToken.GetLocation());
             isSealed = false;
         }
 
         if (isStatic && (isVirtual || isOverride))
         {
             if (isVirtual)
-                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(name, "virtual", methodDecl.Identifier.GetLocation());
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(name, "virtual", identifierToken.GetLocation());
             if (isOverride)
-                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(name, "override", methodDecl.Identifier.GetLocation());
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(name, "override", identifierToken.GetLocation());
 
             isVirtual = false;
             isOverride = false;
@@ -241,7 +243,7 @@ internal class TypeMemberBinder : Binder
 
         if (isVirtual && !isOverride && _containingType.IsSealed)
         {
-            _diagnostics.ReportVirtualMemberInSealedType(name, _containingType.Name, methodDecl.Identifier.GetLocation());
+            _diagnostics.ReportVirtualMemberInSealedType(name, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
 
@@ -253,14 +255,14 @@ internal class TypeMemberBinder : Binder
 
             if (candidate is null || !candidate.IsVirtual)
             {
-                _diagnostics.ReportOverrideMemberNotFound(name, methodDecl.Identifier.GetLocation());
+                _diagnostics.ReportOverrideMemberNotFound(name, identifierToken.GetLocation());
                 isOverride = false;
                 isVirtual = false;
                 isSealed = false;
             }
             else if (candidate.IsSealed)
             {
-                _diagnostics.ReportCannotOverrideSealedMember(name, candidate.Name, methodDecl.Identifier.GetLocation());
+                _diagnostics.ReportCannotOverrideSealedMember(name, candidate.Name, identifierToken.GetLocation());
                 isOverride = false;
                 isVirtual = false;
                 isSealed = false;
@@ -538,20 +540,21 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
-        var propertyName = propertyDecl.Identifier.Text;
+        var identifierToken = ResolveExplicitInterfaceIdentifier(propertyDecl.Identifier, propertyDecl.ExplicitInterfaceSpecifier);
+        var propertyName = identifierToken.Text;
 
         if (isSealed && !isOverride)
         {
-            _diagnostics.ReportSealedMemberMustOverride(propertyName, propertyDecl.Identifier.GetLocation());
+            _diagnostics.ReportSealedMemberMustOverride(propertyName, identifierToken.GetLocation());
             isSealed = false;
         }
 
         if (isStatic && (isVirtual || isOverride))
         {
             if (isVirtual)
-                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(propertyName, "virtual", propertyDecl.Identifier.GetLocation());
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(propertyName, "virtual", identifierToken.GetLocation());
             if (isOverride)
-                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(propertyName, "override", propertyDecl.Identifier.GetLocation());
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride(propertyName, "override", identifierToken.GetLocation());
 
             isVirtual = false;
             isOverride = false;
@@ -560,7 +563,7 @@ internal class TypeMemberBinder : Binder
 
         if (isVirtual && !isOverride && _containingType.IsSealed)
         {
-            _diagnostics.ReportVirtualMemberInSealedType(propertyName, _containingType.Name, propertyDecl.Identifier.GetLocation());
+            _diagnostics.ReportVirtualMemberInSealedType(propertyName, _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
 
@@ -606,7 +609,7 @@ internal class TypeMemberBinder : Binder
 
             if (candidate is null)
             {
-                _diagnostics.ReportOverrideMemberNotFound(propertyName, propertyDecl.Identifier.GetLocation());
+                _diagnostics.ReportOverrideMemberNotFound(propertyName, identifierToken.GetLocation());
                 overrideValid = false;
             }
             else
@@ -615,12 +618,12 @@ internal class TypeMemberBinder : Binder
                 {
                     if (candidate.GetMethod is null || !candidate.GetMethod.IsVirtual)
                     {
-                        _diagnostics.ReportOverrideMemberNotFound(propertyName, propertyDecl.Identifier.GetLocation());
+                        _diagnostics.ReportOverrideMemberNotFound(propertyName, identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else if (candidate.GetMethod.IsSealed)
                     {
-                        _diagnostics.ReportCannotOverrideSealedMember(propertyName, candidate.Name, propertyDecl.Identifier.GetLocation());
+                        _diagnostics.ReportCannotOverrideSealedMember(propertyName, candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else
@@ -633,12 +636,12 @@ internal class TypeMemberBinder : Binder
                 {
                     if (candidate.SetMethod is null || !candidate.SetMethod.IsVirtual)
                     {
-                        _diagnostics.ReportOverrideMemberNotFound(propertyName, propertyDecl.Identifier.GetLocation());
+                        _diagnostics.ReportOverrideMemberNotFound(propertyName, identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else if (candidate.SetMethod.IsSealed)
                     {
-                        _diagnostics.ReportCannotOverrideSealedMember(propertyName, candidate.Name, propertyDecl.Identifier.GetLocation());
+                        _diagnostics.ReportCannotOverrideSealedMember(propertyName, candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else
@@ -736,19 +739,20 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var identifierToken = ResolveExplicitInterfaceIdentifier(indexerDecl.Identifier, indexerDecl.ExplicitInterfaceSpecifier);
 
         if (isSealed && !isOverride)
         {
-            _diagnostics.ReportSealedMemberMustOverride("Item", indexerDecl.Identifier.GetLocation());
+            _diagnostics.ReportSealedMemberMustOverride("Item", identifierToken.GetLocation());
             isSealed = false;
         }
 
         if (isStatic && (isVirtual || isOverride))
         {
             if (isVirtual)
-                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride("Item", "virtual", indexerDecl.Identifier.GetLocation());
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride("Item", "virtual", identifierToken.GetLocation());
             if (isOverride)
-                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride("Item", "override", indexerDecl.Identifier.GetLocation());
+                _diagnostics.ReportStaticMemberCannotBeVirtualOrOverride("Item", "override", identifierToken.GetLocation());
 
             isVirtual = false;
             isOverride = false;
@@ -757,7 +761,7 @@ internal class TypeMemberBinder : Binder
 
         if (isVirtual && !isOverride && _containingType.IsSealed)
         {
-            _diagnostics.ReportVirtualMemberInSealedType("Item", _containingType.Name, indexerDecl.Identifier.GetLocation());
+            _diagnostics.ReportVirtualMemberInSealedType("Item", _containingType.Name, identifierToken.GetLocation());
             isVirtual = false;
         }
 
@@ -806,7 +810,7 @@ internal class TypeMemberBinder : Binder
 
             if (candidate is null)
             {
-                _diagnostics.ReportOverrideMemberNotFound("Item", indexerDecl.Identifier.GetLocation());
+                _diagnostics.ReportOverrideMemberNotFound("Item", identifierToken.GetLocation());
                 overrideValid = false;
             }
             else
@@ -815,12 +819,12 @@ internal class TypeMemberBinder : Binder
                 {
                     if (candidate.GetMethod is null || !candidate.GetMethod.IsVirtual)
                     {
-                        _diagnostics.ReportOverrideMemberNotFound("Item", indexerDecl.Identifier.GetLocation());
+                        _diagnostics.ReportOverrideMemberNotFound("Item", identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else if (candidate.GetMethod.IsSealed)
                     {
-                        _diagnostics.ReportCannotOverrideSealedMember("Item", candidate.Name, indexerDecl.Identifier.GetLocation());
+                        _diagnostics.ReportCannotOverrideSealedMember("Item", candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else
@@ -833,12 +837,12 @@ internal class TypeMemberBinder : Binder
                 {
                     if (candidate.SetMethod is null || !candidate.SetMethod.IsVirtual)
                     {
-                        _diagnostics.ReportOverrideMemberNotFound("Item", indexerDecl.Identifier.GetLocation());
+                        _diagnostics.ReportOverrideMemberNotFound("Item", identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else if (candidate.SetMethod.IsSealed)
                     {
-                        _diagnostics.ReportCannotOverrideSealedMember("Item", candidate.Name, indexerDecl.Identifier.GetLocation());
+                        _diagnostics.ReportCannotOverrideSealedMember("Item", candidate.Name, identifierToken.GetLocation());
                         overrideValid = false;
                     }
                     else
@@ -1010,6 +1014,16 @@ internal class TypeMemberBinder : Binder
         }
 
         return null;
+    }
+
+    private static SyntaxToken ResolveExplicitInterfaceIdentifier(
+        SyntaxToken identifier,
+        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier)
+    {
+        if (identifier.Kind == SyntaxKind.None && explicitInterfaceSpecifier is not null)
+            return explicitInterfaceSpecifier.Identifier;
+
+        return identifier;
     }
 }
 

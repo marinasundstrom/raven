@@ -516,6 +516,7 @@
   <Node Name="ExplicitInterfaceSpecifier" Inherits="Node">
     <Slot Name="Name" Type="Type" />
     <Slot Name="DotToken" Type="Token" />
+    <Slot Name="Identifier" Type="Token" />
   </Node>
   <Node Name="MethodDeclaration" Inherits="BaseMethodDeclaration">
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
