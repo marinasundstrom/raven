@@ -11,6 +11,23 @@
 
 - `MethodReference` overload disambiguation – a simple program such as `let callback: System.Action<string> = Logger.Log` still reports `RAV2202` even though the class defines both `Log(string)` and `Log(object)`. The binder's method-group conversion treats every overload that accepts the delegate parameter type via an implicit conversion as equally valid and immediately marks the binding ambiguous instead of preferring the exact signature. See `BlockBinder.ConvertMethodGroupToDelegate`, which surfaces ambiguity whenever more than one candidate survives compatibility filtering rather than running overload resolution to pick the best match.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L820-L852】
 
+### MethodReference overload disambiguation details
+
+#### Problem analysis
+
+* `ConvertMethodGroupToDelegate` currently stops after filtering the method group down to candidates that are merely *compatible* with the target delegate. Whenever more than one candidate survives, it always records ambiguity and reports `RAV2202`, even if one overload is a strictly better match (e.g., an identity conversion beats a reference conversion).
+* `IsCompatibleWithDelegate` only checks parameter/ref-kind equality and whether each delegate parameter type is implicitly convertible to the method parameter type, so several overloads may pass that filter without any ranking information.
+* The compiler already has rich overload-resolution logic that scores conversions, prefers identity matches, and breaks ties by specificity. That logic lives in `OverloadResolver.ResolveOverload`, which computes scores from the supplied argument expressions and tracks ambiguous candidates.
+* Existing tests demonstrate the desired diagnostics pipeline for method references, but they do not cover a “string vs. object” scenario, so the regression slipped through.
+
+#### Strategy to fix
+
+1. **Reuse overload-resolution scoring for delegate conversions.** Extend the conversion path so that, when multiple methods remain after compatibility filtering, we feed the delegate’s `Invoke` signature into the overload resolver instead of immediately flagging ambiguity. We can do this either by synthesizing lightweight `BoundExpression` placeholders for each delegate parameter type or by adding a dedicated helper (e.g., `ResolveDelegateMethodGroup`) inside `OverloadResolver` that works directly from parameter-type metadata. This helper must mirror the existing scoring rules—identity beats reference or boxing conversions, numeric conversions rank above user-defined ones, etc.—so the same heuristics used for invocation apply to delegate creation.
+2. **Handle `ref`/`out` delegates correctly.** Preserve the current compatibility guard that requires matching `RefKind`, but make sure the new resolution path can still evaluate such overloads. If we synthesize placeholder expressions, ensure they present the right by-ref surface (for example, by creating a tiny internal `DelegateArgumentExpression` that reports a `ByRefTypeSymbol` when needed) so the resolver treats them like real `ref` arguments.
+3. **Update `ConvertMethodGroupToDelegate` outcomes.** When the resolver picks a single best overload, reuse that symbol when constructing the new `BoundMethodGroupExpression` so downstream codegen/semantic queries see the resolved method. If the resolver reports ambiguity, fall back to the existing diagnostic flow (`RAV2202`). If no candidate matches, keep reporting `RAV2203`. This preserves the current diagnostic behavior while allowing true disambiguation.
+4. **Augment tests.** Add a semantic-model test that ensures `System.Action<string>` picks the `Log(string)` overload when `Log(object)` is also present, validating symbol selection and candidate reporting. Add or adjust a diagnostic test to assert no diagnostic is produced for that scenario, and re-evaluate whether the existing `Action<int>` + `{int,double}` test should now expect success (matching the resolver’s scoring rules) or be refocused on a truly ambiguous case, such as two equally ranked reference conversions.
+5. **Regression coverage.** Once the binder change is in place, run the full semantic and diagnostic test suites to ensure method-group invocation scenarios (which already rely on `OverloadResolver`) continue to behave and that delegate inference still flows through correctly.
+
 ## Skipped tests
 
 - `EntryPointDiagnosticsTests.ConsoleApp_WithoutMain_ProducesDiagnostic` – requires reference assemblies.
