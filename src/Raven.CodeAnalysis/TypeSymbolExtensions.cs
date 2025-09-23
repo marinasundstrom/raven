@@ -49,9 +49,13 @@ public static class TypeSymbolExtensions
         // Handle named types (classes, structs, enums, etc.)
         if (typeSymbol is INamedTypeSymbol namedTypeSymbol)
         {
-            // Attempt to resolve the fully qualified name
-            var fullyQualifiedName = namedTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            return compilation.CoreAssembly.GetType(fullyQualifiedName, throwOnError: false)!;
+            var metadataName = namedTypeSymbol.ToFullyQualifiedMetadataName();
+            var metadataType = compilation.CoreAssembly.GetType(metadataName, throwOnError: false);
+
+            if (metadataType is not null)
+                return metadataType;
+
+            throw new InvalidOperationException($"Unable to resolve metadata type '{metadataName}' from the core assembly.");
         }
 
         // Handle dynamic type
