@@ -40,7 +40,8 @@ internal class MethodGenerator
             })
             .ToArray();
 
-        var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation;
+        var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation
+            || !MethodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty;
 
         MethodAttributes attributes = MethodAttributes.HideBySig;
 

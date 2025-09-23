@@ -237,7 +237,8 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         {
             var name = (TypeSyntax)Visit(node.ExplicitInterfaceSpecifier.Name)!;
             var dotToken = VisitToken(node.ExplicitInterfaceSpecifier.DotToken)!;
-            explicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier.Update(name, dotToken);
+            var identifierToken = VisitToken(node.ExplicitInterfaceSpecifier.Identifier)!;
+            explicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier.Update(name, dotToken, identifierToken);
         }
 
         var identifier = VisitToken(node.Identifier)!

@@ -3,6 +3,8 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 using System;
 using System.Collections.Generic;
 
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
+
 using static SyntaxFactory;
 
 internal class TypeDeclarationParser : SyntaxParser
@@ -142,51 +144,54 @@ internal class TypeDeclarationParser : SyntaxParser
         {
             return ParseFieldDeclarationSyntax(modifiers);
         }
-        else
+
+        if (keywordOrIdentifier.IsKind(SyntaxKind.IdentifierToken) && PeekToken(1).Kind == SyntaxKind.ColonToken)
         {
-            if (keywordOrIdentifier.IsKind(SyntaxKind.IdentifierToken) && PeekToken(1).Kind == SyntaxKind.ColonToken)
-            {
-                var checkpoint = CreateCheckpoint();
-                ReadToken();
-                _ = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+            var checkpoint = CreateCheckpoint();
+            ReadToken();
+            _ = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
-                var nextToken = PeekToken();
+            var nextToken = PeekToken();
 
-                bool looksLikeField = nextToken.Kind is SyntaxKind.EqualsToken
-                    or SyntaxKind.CommaToken
-                    or SyntaxKind.SemicolonToken
-                    or SyntaxKind.CloseBraceToken
-                    or SyntaxKind.EndOfFileToken
-                    or SyntaxKind.LineFeedToken
-                    or SyntaxKind.CarriageReturnToken
-                    or SyntaxKind.CarriageReturnLineFeedToken
-                    or SyntaxKind.NewLineToken;
+            bool looksLikeField = nextToken.Kind is SyntaxKind.EqualsToken
+                or SyntaxKind.CommaToken
+                or SyntaxKind.SemicolonToken
+                or SyntaxKind.CloseBraceToken
+                or SyntaxKind.EndOfFileToken
+                or SyntaxKind.LineFeedToken
+                or SyntaxKind.CarriageReturnToken
+                or SyntaxKind.CarriageReturnLineFeedToken
+                or SyntaxKind.NewLineToken;
 
-                checkpoint.Dispose();
+            checkpoint.Dispose();
 
-                if (looksLikeField)
-                {
-                    return ParseFieldDeclarationSyntax(modifiers);
-                }
-            }
-
-            if (keywordOrIdentifier.IsKind(SyntaxKind.InitKeyword))
+            if (looksLikeField)
             {
-                return ParseConstructorDeclaration(modifiers, keywordOrIdentifier);
-            }
-            else if (PeekToken(1).Kind == SyntaxKind.OpenParenToken)
-            {
-                return ParseMethodOrConstructorDeclarationBase(modifiers);
-            }
-            else if (PeekToken(1).Kind == SyntaxKind.OpenBracketToken)
-            {
-                return ParseIndexerDeclaration(modifiers, keywordOrIdentifier);
-            }
-            else
-            {
-                return ParsePropertyDeclaration(modifiers, keywordOrIdentifier);
+                return ParseFieldDeclarationSyntax(modifiers);
             }
         }
+
+        if (keywordOrIdentifier.IsKind(SyntaxKind.InitKeyword))
+        {
+            return ParseConstructorDeclaration(modifiers, keywordOrIdentifier);
+        }
+
+        var nameCheckpoint = CreateCheckpoint();
+        _ = ParseMemberNameWithExplicitInterface();
+        var tokenAfterName = PeekToken();
+        nameCheckpoint.Dispose();
+
+        if (tokenAfterName.IsKind(SyntaxKind.OpenParenToken))
+        {
+            return ParseMethodOrConstructorDeclarationBase(modifiers);
+        }
+
+        if (tokenAfterName.IsKind(SyntaxKind.OpenBracketToken))
+        {
+            return ParseIndexerDeclaration(modifiers);
+        }
+
+        return ParsePropertyDeclaration(modifiers);
     }
 
     private MemberDeclarationSyntax ParseConstructorDeclaration(SyntaxList modifiers, SyntaxToken initKeyword)
@@ -319,30 +324,30 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private (ExplicitInterfaceSpecifierSyntax? ExplicitInterfaceSpecifier, SyntaxToken Identifier) ParseMemberNameWithExplicitInterface()
     {
-        ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier = null;
-
         if (ConsumeToken(SyntaxKind.SelfKeyword, out var selfToken))
-            return (explicitInterfaceSpecifier, selfToken);
+            return (null, selfToken);
 
         var checkpoint = CreateCheckpoint();
         var typeName = new NameSyntaxParser(this).ParseTypeName();
 
-        if (PeekToken().IsKind(SyntaxKind.DotToken))
+        if (typeName is QualifiedNameSyntax qualifiedName)
         {
-            var dotToken = ReadToken();
-
-            SyntaxToken identifierToken;
-            if (CanTokenBeIdentifier(PeekToken()))
+            SyntaxToken identifierToken = qualifiedName.Right switch
             {
-                identifierToken = ReadIdentifierToken();
-            }
-            else
-            {
-                identifierToken = MissingToken(SyntaxKind.IdentifierToken);
-            }
+                IdentifierNameSyntax identifierName => identifierName.Identifier,
+                GenericNameSyntax genericName => genericName.Identifier,
+                _ => default
+            };
 
-            explicitInterfaceSpecifier = ExplicitInterfaceSpecifier(typeName, dotToken);
-            return (explicitInterfaceSpecifier, identifierToken);
+            if (identifierToken != default)
+            {
+                identifierToken = ToIdentifierToken(identifierToken);
+                UpdateLastToken(identifierToken);
+
+                var explicitInterfaceName = (TypeSyntax)qualifiedName.Left;
+                var explicitInterfaceSpecifier = ExplicitInterfaceSpecifier(explicitInterfaceName, qualifiedName.DotToken, identifierToken);
+                return (explicitInterfaceSpecifier, Token(SyntaxKind.None));
+            }
         }
 
         checkpoint.Dispose();
@@ -357,12 +362,12 @@ internal class TypeDeclarationParser : SyntaxParser
             identifier = MissingToken(SyntaxKind.IdentifierToken);
         }
 
-        return (explicitInterfaceSpecifier, identifier);
+        return (null, identifier);
     }
 
-    private PropertyDeclarationSyntax ParsePropertyDeclaration(SyntaxList modifiers, SyntaxToken identifier)
+    private PropertyDeclarationSyntax ParsePropertyDeclaration(SyntaxList modifiers)
     {
-        ReadToken();
+        var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
 
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
@@ -384,12 +389,12 @@ internal class TypeDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return PropertyDeclaration(modifiers, identifier, typeAnnotation, accessorList, null, terminatorToken);
+        return PropertyDeclaration(modifiers, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, null, terminatorToken);
     }
 
-    private IndexerDeclarationSyntax ParseIndexerDeclaration(SyntaxList modifiers, SyntaxToken identifier)
+    private IndexerDeclarationSyntax ParseIndexerDeclaration(SyntaxList modifiers)
     {
-        ReadToken();
+        var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
 
         var parameterList = ParseBracketedParameterList();
 
@@ -413,7 +418,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return IndexerDeclaration(modifiers, identifier, parameterList, typeAnnotation, accessorList, null, terminatorToken);
+        return IndexerDeclaration(modifiers, explicitInterfaceSpecifier, identifier, parameterList, typeAnnotation, accessorList, null, terminatorToken);
     }
 
     private AccessorListSyntax ParseAccessorList()
