@@ -155,6 +155,10 @@ internal class ExpressionGenerator : Generator
                 EmitLambdaExpression(lambdaExpression);
                 break;
 
+            case BoundDelegateCreationExpression delegateCreation:
+                EmitDelegateCreationExpression(delegateCreation);
+                break;
+
             default:
                 throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
         }
@@ -166,6 +170,52 @@ internal class ExpressionGenerator : Generator
             return;
 
         ILGenerator.Emit(OpCodes.Ldarg_0);
+    }
+
+    private void EmitDelegateCreationExpression(BoundDelegateCreationExpression delegateCreation)
+    {
+        var method = delegateCreation.Method
+            ?? throw new InvalidOperationException("Delegate creation requires a resolved target method.");
+
+        if (delegateCreation.DelegateType is not INamedTypeSymbol delegateTypeSymbol)
+            throw new InvalidOperationException("Delegate creation requires a delegate type.");
+
+        if (delegateTypeSymbol is SynthesizedDelegateTypeSymbol synthesized)
+            MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(synthesized);
+
+        var delegateClrType = ResolveClrType(delegateTypeSymbol);
+        var ctor = delegateClrType.GetConstructor(new[] { typeof(object), typeof(IntPtr) })
+            ?? throw new InvalidOperationException($"Delegate '{delegateClrType}' lacks the expected constructor.");
+
+        var methodInfo = GetMethodInfo(method);
+
+        if (method.IsStatic)
+        {
+            ILGenerator.Emit(OpCodes.Ldnull);
+            ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
+        }
+        else
+        {
+            var receiver = delegateCreation.Receiver
+                ?? throw new InvalidOperationException("Instance delegate creation requires a receiver.");
+
+            EmitExpression(receiver);
+
+            if (receiver.Type is { IsValueType: true } receiverType)
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(receiverType));
+
+            if (method.IsVirtual && method.ContainingType is { IsValueType: false })
+            {
+                ILGenerator.Emit(OpCodes.Dup);
+                ILGenerator.Emit(OpCodes.Ldvirtftn, methodInfo);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
+            }
+        }
+
+        ILGenerator.Emit(OpCodes.Newobj, ctor);
     }
 
     private void EmitCapturedLambda(BoundLambdaExpression lambdaExpression, TypeGenerator.LambdaClosure closure, MethodInfo methodInfo, Type delegateType)

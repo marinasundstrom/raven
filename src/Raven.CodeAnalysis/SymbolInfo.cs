@@ -13,6 +13,13 @@ public readonly struct SymbolInfo
         CandidateSymbols = symbol is null ? ImmutableArray<ISymbol>.Empty : ImmutableArray.Create(symbol);
     }
 
+    internal SymbolInfo(ISymbol? symbol, ImmutableArray<ISymbol> candidateSymbols, CandidateReason candidateReason = CandidateReason.None) : this()
+    {
+        Symbol = symbol;
+        CandidateSymbols = candidateSymbols;
+        CandidateReason = candidateReason;
+    }
+
     internal SymbolInfo(CandidateReason candidateReason, ImmutableArray<ISymbol> candidateSymbols) : this()
     {
         CandidateReason = candidateReason;

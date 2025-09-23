@@ -74,6 +74,9 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _matchExpressionArmUnreachable;
     private static DiagnosticDescriptor? _matchExpressionArmPatternInvalid;
     private static DiagnosticDescriptor? _lambdaParameterTypeCannotBeInferred;
+    private static DiagnosticDescriptor? _methodGroupRequiresDelegateType;
+    private static DiagnosticDescriptor? _methodGroupConversionIsAmbiguous;
+    private static DiagnosticDescriptor? _noOverloadMatchesDelegate;
 
     /// <summary>
     /// RAV0021: Cannot apply indexing with [] to an expression of type '{0}'
@@ -959,6 +962,45 @@ internal static partial class CompilerDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// RAV2201: Method group '{0}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context
+    /// </summary>
+    public static DiagnosticDescriptor MethodGroupRequiresDelegateType => _methodGroupRequiresDelegateType ??= DiagnosticDescriptor.Create(
+        id: "RAV2201",
+        title: "Method group requires delegate type",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Method group '{0}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV2202: Method group '{0}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload
+    /// </summary>
+    public static DiagnosticDescriptor MethodGroupConversionIsAmbiguous => _methodGroupConversionIsAmbiguous ??= DiagnosticDescriptor.Create(
+        id: "RAV2202",
+        title: "Method group conversion is ambiguous",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Method group '{0}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV2203: No overload for method '{0}' matches delegate type '{1}'
+    /// </summary>
+    public static DiagnosticDescriptor NoOverloadMatchesDelegate => _noOverloadMatchesDelegate ??= DiagnosticDescriptor.Create(
+        id: "RAV2203",
+        title: "No overload matches delegate",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "No overload for method '{0}' matches delegate type '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     public static DiagnosticDescriptor[] AllDescriptors => _allDescriptors ??=
     [
         CannotApplyIndexingWithToAnExpressionOfType,
@@ -1029,6 +1071,9 @@ internal static partial class CompilerDiagnostics
         MatchExpressionArmUnreachable,
         MatchExpressionArmPatternInvalid,
         LambdaParameterTypeCannotBeInferred,
+        MethodGroupRequiresDelegateType,
+        MethodGroupConversionIsAmbiguous,
+        NoOverloadMatchesDelegate,
     ];
 
     public static DiagnosticDescriptor? GetDescriptor(string diagnosticId) => diagnosticId switch
@@ -1101,6 +1146,9 @@ internal static partial class CompilerDiagnostics
         "RAV2101" => MatchExpressionArmUnreachable,
         "RAV2102" => MatchExpressionArmPatternInvalid,
         "RAV2200" => LambdaParameterTypeCannotBeInferred,
+        "RAV2201" => MethodGroupRequiresDelegateType,
+        "RAV2202" => MethodGroupConversionIsAmbiguous,
+        "RAV2203" => NoOverloadMatchesDelegate,
         _ => null
     };
 }

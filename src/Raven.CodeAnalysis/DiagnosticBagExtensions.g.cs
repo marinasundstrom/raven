@@ -209,4 +209,13 @@ public static partial class DiagnosticBagExtensions
     public static void ReportLambdaParameterTypeCannotBeInferred(this DiagnosticBag diagnostics, object? parameterName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LambdaParameterTypeCannotBeInferred, location, parameterName));
 
+    public static void ReportMethodGroupRequiresDelegateType(this DiagnosticBag diagnostics, object? methodName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MethodGroupRequiresDelegateType, location, methodName));
+
+    public static void ReportMethodGroupConversionIsAmbiguous(this DiagnosticBag diagnostics, object? methodName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MethodGroupConversionIsAmbiguous, location, methodName));
+
+    public static void ReportNoOverloadMatchesDelegate(this DiagnosticBag diagnostics, object? methodName, object? delegateType, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NoOverloadMatchesDelegate, location, methodName, delegateType));
+
 }

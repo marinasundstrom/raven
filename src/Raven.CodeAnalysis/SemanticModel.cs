@@ -85,8 +85,26 @@ public partial class SemanticModel
         if (_symbolMappings.TryGetValue(node, out var symbolInfo))
             return symbolInfo;
 
-        var binder = GetBinder(node);
-        var info = binder.BindSymbol(node);
+        SymbolInfo info;
+
+        if (node is ExpressionSyntax expression)
+        {
+            EnsureDiagnosticsCollected();
+            var boundExpression = GetBoundNode(expression);
+            info = boundExpression.GetSymbolInfo();
+        }
+        else if (node is StatementSyntax statement)
+        {
+            EnsureDiagnosticsCollected();
+            var boundStatement = (BoundStatement)GetBoundNode(statement);
+            info = boundStatement.GetSymbolInfo();
+        }
+        else
+        {
+            var binder = GetBinder(node);
+            info = binder.BindSymbol(node);
+        }
+
         _symbolMappings[node] = info;
         return info;
     }

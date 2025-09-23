@@ -175,6 +175,31 @@ are:
 - Control-flow constructs (such as `if` expressions) contribute their branch
   types to inference, which may introduce unions automatically.
 
+## Delegate inference and method references
+
+Referencing a method as a value produces a delegate type. The inferred type is
+driven entirely by the surrounding context: a `let` binding without an
+annotation, an assignment, or a method argument supplies the delegate signature
+used to select a unique overload. When no compatible delegate type exists,
+Raven synthesizes one whose parameters (including `ref`/`out` modifiers) and
+return type match the method being referenced. Subsequent method references with
+the same signature reuse the synthesized delegate.
+
+Method groups cannot flow into typeless contexts. Writing `let callback =
+Logger.Log` produces diagnostic `RAV2201` because no delegate target is
+available. Likewise, when multiple overloads remain compatible with the target
+delegate (for example, `Action<int>` matching methods that accept `int` or
+`long`), diagnostic `RAV2202` is reported and an explicit annotation is required
+to disambiguate the binding. If none of the overloads satisfy the delegate's
+signature, diagnostic `RAV2203` is emitted.
+
+Instance method references capture the receiver automatically, so evaluating
+`self.Increment` stores the current instance along with the method. Invoking the
+delegate later observes the same receiver state that existed when the method was
+captured. Synthesized delegates participate in metadata emission just like
+framework `Func<>`/`Action<>` types, allowing reflection or interop scenarios to
+discover the generated `MulticastDelegate` definitions at runtime.
+
 ## Interoperability
 
 Because Raven reuses .NET types, existing libraries can be consumed seamlessly:

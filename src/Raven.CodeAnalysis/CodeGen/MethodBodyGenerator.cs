@@ -36,7 +36,15 @@ internal class MethodBodyGenerator
     public ILGenerator ILGenerator { get; private set; }
 
     internal bool TryGetCapturedField(ISymbol symbol, out FieldBuilder fieldBuilder)
-        => _lambdaClosure is not null && _lambdaClosure.TryGetField(symbol, out fieldBuilder);
+    {
+        if (_lambdaClosure is null)
+        {
+            fieldBuilder = default!;
+            return false;
+        }
+
+        return _lambdaClosure.TryGetField(symbol, out fieldBuilder);
+    }
 
     internal void EmitLoadClosure()
     {

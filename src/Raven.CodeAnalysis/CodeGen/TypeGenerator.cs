@@ -39,6 +39,15 @@ internal class TypeGenerator
 
         if (TypeSymbol is INamedTypeSymbol named)
         {
+            if (named.TypeKind == TypeKind.Delegate)
+            {
+                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                    named.MetadataName,
+                    TypeAttributes.Class | TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.AutoClass | TypeAttributes.AnsiClass,
+                    ResolveClrType(named.BaseType));
+                return;
+            }
+
             if (named.TypeKind == TypeKind.Interface)
             {
                 typeAttributes |= TypeAttributes.Interface | TypeAttributes.Abstract;
@@ -104,6 +113,12 @@ internal class TypeGenerator
 
     public void DefineMemberBuilders()
     {
+        if (TypeSymbol is SynthesizedDelegateTypeSymbol synthesizedDelegate)
+        {
+            DefineDelegateMembers(synthesizedDelegate);
+            return;
+        }
+
         if (TypeSymbol.BaseType.ContainingNamespace.Name == "System"
             && TypeSymbol.BaseType.Name == "Enum")
         {
@@ -240,6 +255,35 @@ internal class TypeGenerator
             }
         }
 
+    }
+
+    private void DefineDelegateMembers(SynthesizedDelegateTypeSymbol delegateType)
+    {
+        if (TypeBuilder is null)
+            throw new InvalidOperationException("Type builder must be defined before creating delegate members.");
+
+        var ctorParameters = delegateType.Constructor.Parameters
+            .Select(p => ResolveClrType(p.Type))
+            .ToArray();
+
+        var ctorBuilder = TypeBuilder.DefineConstructor(
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.SpecialName,
+            CallingConventions.Standard,
+            ctorParameters);
+        ctorBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+        CodeGen.AddMemberBuilder(delegateType.Constructor, ctorBuilder);
+
+        var invokeParameters = delegateType.InvokeMethod.Parameters
+            .Select(p => ResolveClrType(p.Type))
+            .ToArray();
+
+        var invokeBuilder = TypeBuilder.DefineMethod(
+            delegateType.InvokeMethod.Name,
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
+            ResolveClrType(delegateType.InvokeMethod.ReturnType),
+            invokeParameters);
+        invokeBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+        CodeGen.AddMemberBuilder(delegateType.InvokeMethod, invokeBuilder);
     }
 
     public void EmitMemberILBodies()

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -18,6 +19,8 @@ public class Compilation
     private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, IAssemblySymbol>();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new Dictionary<Assembly, IAssemblySymbol>();
+    private readonly Dictionary<DelegateSignature, SynthesizedDelegateTypeSymbol> _synthesizedDelegates = new(new DelegateSignatureComparer());
+    private int _synthesizedDelegateOrdinal;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
 
@@ -139,6 +142,51 @@ public class Compilation
 
         return main;
     }
+
+    internal INamedTypeSymbol GetMethodReferenceDelegate(IMethodSymbol methodSymbol)
+    {
+        var parameterTypes = methodSymbol.Parameters
+            .Select(p => p.Type)
+            .ToImmutableArray();
+        var refKinds = methodSymbol.Parameters
+            .Select(p => p.RefKind)
+            .ToImmutableArray();
+
+        return GetMethodReferenceDelegate(parameterTypes, refKinds, methodSymbol.ReturnType);
+    }
+
+    internal INamedTypeSymbol GetMethodReferenceDelegate(
+        ImmutableArray<ITypeSymbol> parameterTypes,
+        ImmutableArray<RefKind> refKinds,
+        ITypeSymbol returnType)
+    {
+        if (refKinds.All(static refKind => refKind == RefKind.None))
+        {
+            var functionType = CreateFunctionTypeSymbol(parameterTypes.ToArray(), returnType);
+            if (functionType is INamedTypeSymbol namedDelegate && namedDelegate.TypeKind == TypeKind.Delegate)
+                return namedDelegate;
+        }
+
+        var signature = new DelegateSignature(parameterTypes, refKinds, returnType);
+        if (_synthesizedDelegates.TryGetValue(signature, out var existing))
+            return existing;
+
+        var delegateName = $"<>f__Delegate{_synthesizedDelegateOrdinal++}";
+        var containingNamespace = SourceGlobalNamespace;
+        var synthesized = new SynthesizedDelegateTypeSymbol(
+            this,
+            delegateName,
+            parameterTypes,
+            refKinds,
+            returnType,
+            containingNamespace);
+
+        _synthesizedDelegates[signature] = synthesized;
+        return synthesized;
+    }
+
+    internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
+        => _synthesizedDelegates.Values;
 
     private readonly object _setupLock = new();
 
@@ -822,6 +870,22 @@ public class Compilation
         {
             return GetTypeByMetadataName("System.Array");
         }
+        else if (specialType is SpecialType.System_MulticastDelegate)
+        {
+            return GetTypeByMetadataName("System.MulticastDelegate");
+        }
+        else if (specialType is SpecialType.System_Delegate)
+        {
+            return GetTypeByMetadataName("System.Delegate");
+        }
+        else if (specialType is SpecialType.System_IntPtr)
+        {
+            return GetTypeByMetadataName("System.IntPtr");
+        }
+        else if (specialType is SpecialType.System_UIntPtr)
+        {
+            return GetTypeByMetadataName("System.UIntPtr");
+        }
         else if (specialType is SpecialType.System_Object)
         {
             return GetTypeByMetadataName("System.Object");
@@ -1011,5 +1075,59 @@ public class Compilation
     public ITypeSymbol ConstructGenericType(INamedTypeSymbol genericDefinition, ITypeSymbol[] typeArgs)
     {
         return genericDefinition.Construct(typeArgs);
+    }
+
+    private readonly struct DelegateSignature
+    {
+        public DelegateSignature(ImmutableArray<ITypeSymbol> parameterTypes, ImmutableArray<RefKind> refKinds, ITypeSymbol returnType)
+        {
+            ParameterTypes = parameterTypes;
+            RefKinds = refKinds;
+            ReturnType = returnType;
+        }
+
+        public ImmutableArray<ITypeSymbol> ParameterTypes { get; }
+
+        public ImmutableArray<RefKind> RefKinds { get; }
+
+        public ITypeSymbol ReturnType { get; }
+    }
+
+    private sealed class DelegateSignatureComparer : IEqualityComparer<DelegateSignature>
+    {
+        public bool Equals(DelegateSignature x, DelegateSignature y)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(x.ReturnType, y.ReturnType))
+                return false;
+
+            if (x.ParameterTypes.Length != y.ParameterTypes.Length || x.RefKinds.Length != y.RefKinds.Length)
+                return false;
+
+            for (var i = 0; i < x.ParameterTypes.Length; i++)
+            {
+                if (x.RefKinds[i] != y.RefKinds[i])
+                    return false;
+
+                if (!SymbolEqualityComparer.Default.Equals(x.ParameterTypes[i], y.ParameterTypes[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public int GetHashCode(DelegateSignature obj)
+        {
+            var hash = SymbolEqualityComparer.Default.GetHashCode(obj.ReturnType);
+
+            for (var i = 0; i < obj.ParameterTypes.Length; i++)
+            {
+                hash = HashCode.Combine(
+                    hash,
+                    SymbolEqualityComparer.Default.GetHashCode(obj.ParameterTypes[i]),
+                    obj.RefKinds[i]);
+            }
+
+            return hash;
+        }
     }
 }

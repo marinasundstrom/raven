@@ -14,6 +14,7 @@
 - `MissingReturnTypeAnnotationAnalyzerTests.MethodWithBranchesReturningVoid_NoDiagnostic` – same `BoundIsPatternExpression` null reference during semantic analysis (bug; spec gap).
 - `PatternVariableTests.PatternVariableInIfCondition_EmitsSuccessfully` – pattern binding null reference prevents emission (bug; spec gap).
 - `ConditionalAccessTests.ConditionalAccess_NullableValue_ReturnsValue` – code generation throws `NotSupportedException` for nullable conditional access (bug).
+- `MethodReference` overload disambiguation – a simple program such as `let callback: System.Action<string> = Logger.Log` still reports `RAV2202` even though the class defines both `Log(string)` and `Log(object)`. The binder's method-group conversion treats every overload that accepts the delegate parameter type via an implicit conversion as equally valid and immediately marks the binding ambiguous instead of preferring the exact signature. See `BlockBinder.ConvertMethodGroupToDelegate`, which surfaces ambiguity whenever more than one candidate survives compatibility filtering rather than running overload resolution to pick the best match.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L820-L852】
 
 ## Skipped tests
 
