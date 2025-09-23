@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -265,16 +266,19 @@ internal abstract class Binder
             var type = LookupType(ident.Identifier.Text);
             if (type is INamedTypeSymbol named)
             {
-                // Allow constructed generic types (e.g., from aliases) to be used without
-                // specifying additional type arguments. Only report an error for unbound
-                // generic type definitions referenced without type arguments.
                 if (named.Arity > 0 && named.IsUnboundGenericType)
                 {
-                    _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, ident.Identifier.GetLocation());
-                    return Compilation.ErrorTypeSymbol;
+                    var zeroArity = FindAccessibleNamedType(ident.Identifier.Text, 0);
+                    if (zeroArity is null)
+                    {
+                        _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, ident.Identifier.GetLocation());
+                        return Compilation.ErrorTypeSymbol;
+                    }
+
+                    return zeroArity;
                 }
 
-                return named;
+                return NormalizeDefinition(named);
             }
 
             if (type is not null)
@@ -283,15 +287,32 @@ internal abstract class Binder
 
         if (typeSyntax is GenericNameSyntax generic)
         {
-            var typeArgs = generic.TypeArgumentList.Arguments
-                .Select(arg => ResolveType(arg.Type))
-                .ToArray();
+            var arity = ComputeGenericArity(generic);
+            var typeArgs = ResolveGenericTypeArguments(generic);
 
             var symbol = LookupType(generic.Identifier.Text) as INamedTypeSymbol;
-            if (symbol is not null && symbol.Arity == typeArgs.Length)
+            if (symbol is not null)
             {
-                return Compilation.ConstructGenericType(symbol, typeArgs);
+                symbol = NormalizeDefinition(symbol);
+                if (symbol.Arity != arity)
+                    symbol = FindAccessibleNamedType(generic.Identifier.Text, arity);
             }
+            else
+            {
+                symbol = FindAccessibleNamedType(generic.Identifier.Text, arity);
+            }
+
+            if (symbol is null)
+            {
+                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(generic.Identifier.Text, generic.GetLocation());
+                return Compilation.ErrorTypeSymbol;
+            }
+
+            var constructed = TryConstructGeneric(symbol, typeArgs, arity);
+            if (constructed is not null)
+                return constructed;
+
+            return symbol;
         }
 
         if (typeSyntax is QualifiedNameSyntax qualified)
@@ -319,8 +340,11 @@ internal abstract class Binder
         {
             if (qualified.Right is IdentifierNameSyntax id)
             {
-                var type = ns.LookupType(id.Identifier.Text);
-                if (type is INamedTypeSymbol named && named.Arity > 0)
+                var type = SelectByArity(ns.GetMembers(id.Identifier.Text)
+                        .OfType<INamedTypeSymbol>(), 0)
+                    ?? ns.LookupType(id.Identifier.Text);
+
+                if (type is INamedTypeSymbol named && NormalizeDefinition(named).Arity > 0)
                 {
                     _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, id.Identifier.GetLocation());
                     return Compilation.ErrorTypeSymbol;
@@ -331,18 +355,7 @@ internal abstract class Binder
 
             if (qualified.Right is GenericNameSyntax gen)
             {
-                var unconstructed = ns.LookupType(gen.Identifier.Text) as INamedTypeSymbol;
-                if (unconstructed is null)
-                    return null;
-
-                var args = gen.TypeArgumentList.Arguments
-                    .Select(a => ResolveType(a.Type))
-                    .ToArray();
-
-                if (unconstructed.Arity != args.Length)
-                    return null;
-
-                return Compilation.ConstructGenericType(unconstructed, args);
+                return ResolveGenericMember(ns, gen);
             }
 
             return null;
@@ -352,25 +365,13 @@ internal abstract class Binder
         {
             if (qualified.Right is IdentifierNameSyntax id)
             {
-                return leftType.GetMembers(id.Identifier.Text)
-                    .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault(t => t.Arity == 0);
+                return SelectByArity(leftType.GetMembers(id.Identifier.Text)
+                    .OfType<INamedTypeSymbol>(), 0);
             }
 
             if (qualified.Right is GenericNameSyntax gen)
             {
-                var unconstructed = leftType.GetMembers(gen.Identifier.Text)
-                    .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault(t => t.Arity == gen.TypeArgumentList.Arguments.Count);
-
-                if (unconstructed is null)
-                    return null;
-
-                var args = gen.TypeArgumentList.Arguments
-                    .Select(a => ResolveType(a.Type))
-                    .ToArray();
-
-                return Compilation.ConstructGenericType(unconstructed, args);
+                return ResolveGenericMember(leftType, gen);
             }
 
             return null;
@@ -388,10 +389,22 @@ internal abstract class Binder
                 return ns;
 
             var type = LookupType(id.Identifier.Text);
-            if (type is INamedTypeSymbol named && named.Arity > 0)
+            if (type is INamedTypeSymbol named)
             {
-                _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, id.Identifier.GetLocation());
-                return Compilation.ErrorTypeSymbol;
+                var definition = NormalizeDefinition(named);
+                if (definition.Arity > 0)
+                {
+                    var zeroArity = FindAccessibleNamedType(id.Identifier.Text, 0);
+                    if (zeroArity is null)
+                    {
+                        _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, id.Identifier.GetLocation());
+                        return Compilation.ErrorTypeSymbol;
+                    }
+
+                    return zeroArity;
+                }
+
+                return definition;
             }
 
             if (type is not null)
@@ -402,17 +415,26 @@ internal abstract class Binder
 
         if (left is GenericNameSyntax gen)
         {
-            var args = gen.TypeArgumentList.Arguments
-                .Select(a => ResolveType(a.Type))
-                .ToArray();
+            var arity = ComputeGenericArity(gen);
+            var typeArgs = ResolveGenericTypeArguments(gen);
 
             var symbol = LookupType(gen.Identifier.Text) as INamedTypeSymbol;
-            if (symbol is not null && symbol.Arity == args.Length)
+            if (symbol is not null)
             {
-                return Compilation.ConstructGenericType(symbol, args);
+                symbol = NormalizeDefinition(symbol);
+                if (symbol.Arity != arity)
+                    symbol = FindAccessibleNamedType(gen.Identifier.Text, arity);
+            }
+            else
+            {
+                symbol = FindAccessibleNamedType(gen.Identifier.Text, arity);
             }
 
-            return null;
+            if (symbol is null)
+                return null;
+
+            var constructed = TryConstructGeneric(symbol, typeArgs, arity);
+            return constructed ?? symbol;
         }
 
         if (left is QualifiedNameSyntax qualified)
@@ -438,15 +460,25 @@ internal abstract class Binder
 
     private ISymbol? ResolveGenericName(GenericNameSyntax gen)
     {
-        var args = gen.TypeArgumentList.Arguments
-            .Select(a => ResolveType(a.Type))
-            .ToArray();
+        var arity = ComputeGenericArity(gen);
+        var typeArgs = ResolveGenericTypeArguments(gen);
 
         var symbol = LookupType(gen.Identifier.Text) as INamedTypeSymbol;
-        if (symbol is not null && symbol.Arity == args.Length)
-            return Compilation.ConstructGenericType(symbol, args);
+        if (symbol is not null)
+        {
+            symbol = NormalizeDefinition(symbol);
+            if (symbol.Arity != arity)
+                symbol = FindAccessibleNamedType(gen.Identifier.Text, arity);
+        }
+        else
+        {
+            symbol = FindAccessibleNamedType(gen.Identifier.Text, arity);
+        }
 
-        return null;
+        if (symbol is null)
+            return null;
+
+        return TryConstructGeneric(symbol, typeArgs, arity) ?? symbol;
     }
 
     private ISymbol? ResolveQualifiedName(QualifiedNameSyntax qn)
@@ -457,18 +489,13 @@ internal abstract class Binder
         {
             if (qn.Right is IdentifierNameSyntax id)
                 return (ISymbol?)ns.LookupNamespace(id.Identifier.Text)
+                    ?? SelectByArity(ns.GetMembers(id.Identifier.Text)
+                        .OfType<INamedTypeSymbol>(), 0)
                     ?? ns.LookupType(id.Identifier.Text);
 
             if (qn.Right is GenericNameSyntax gen)
             {
-                var unconstructed = ns.LookupType(gen.Identifier.Text) as INamedTypeSymbol;
-                if (unconstructed is null || unconstructed.Arity != gen.TypeArgumentList.Arguments.Count)
-                    return null;
-
-                var args = gen.TypeArgumentList.Arguments
-                    .Select(a => ResolveType(a.Type))
-                    .ToArray();
-                return Compilation.ConstructGenericType(unconstructed, args);
+                return ResolveGenericMember(ns, gen);
             }
 
             return null;
@@ -477,23 +504,12 @@ internal abstract class Binder
         if (left is ITypeSymbol type)
         {
             if (qn.Right is IdentifierNameSyntax id)
-                return type.GetMembers(id.Identifier.Text)
-                    .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault(t => t.Arity == 0);
+                return SelectByArity(type.GetMembers(id.Identifier.Text)
+                    .OfType<INamedTypeSymbol>(), 0);
 
             if (qn.Right is GenericNameSyntax gen)
             {
-                var unconstructed = type.GetMembers(gen.Identifier.Text)
-                    .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault(t => t.Arity == gen.TypeArgumentList.Arguments.Count);
-
-                if (unconstructed is null)
-                    return null;
-
-                var args = gen.TypeArgumentList.Arguments
-                    .Select(a => ResolveType(a.Type))
-                    .ToArray();
-                return Compilation.ConstructGenericType(unconstructed, args);
+                return ResolveGenericMember(type, gen);
             }
         }
 
@@ -533,5 +549,91 @@ internal abstract class Binder
             _ => throw new NotSupportedException($"Unsupported node kind: {node.Kind}")
         };
         return result;
+    }
+
+    private static int ComputeGenericArity(GenericNameSyntax generic)
+    {
+        var argumentCount = generic.TypeArgumentList.Arguments.Count;
+        var separators = generic.TypeArgumentList.Arguments.SeparatorCount + 1;
+
+        if (argumentCount == 0)
+            return Math.Max(1, separators);
+
+        return Math.Max(argumentCount, separators);
+    }
+
+    private ImmutableArray<ITypeSymbol> ResolveGenericTypeArguments(GenericNameSyntax generic)
+    {
+        if (generic.TypeArgumentList.Arguments.Count == 0)
+            return ImmutableArray<ITypeSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(generic.TypeArgumentList.Arguments.Count);
+        foreach (var argument in generic.TypeArgumentList.Arguments)
+            builder.Add(ResolveType(argument.Type));
+
+        return builder.MoveToImmutable();
+    }
+
+    protected INamedTypeSymbol? FindAccessibleNamedType(string name, int arity)
+    {
+        foreach (var symbol in LookupSymbols(name))
+        {
+            if (symbol is INamedTypeSymbol named)
+            {
+                var candidate = NormalizeDefinition(named);
+                if (candidate.Arity == arity)
+                    return candidate;
+            }
+        }
+
+        if (LookupType(name) is INamedTypeSymbol fallback)
+        {
+            var candidate = NormalizeDefinition(fallback);
+            if (candidate.Arity == arity)
+                return candidate;
+        }
+
+        return null;
+    }
+
+    protected static INamedTypeSymbol NormalizeDefinition(INamedTypeSymbol named)
+        => named.ConstructedFrom as INamedTypeSymbol ?? named;
+
+    protected ITypeSymbol? TryConstructGeneric(INamedTypeSymbol definition, ImmutableArray<ITypeSymbol> typeArguments, int arity)
+    {
+        if (typeArguments.Length != arity)
+            return null;
+
+        if (typeArguments.Any(t => t == Compilation.ErrorTypeSymbol))
+            return Compilation.ErrorTypeSymbol;
+
+        return Compilation.ConstructGenericType(definition, typeArguments.ToArray());
+    }
+
+    private ITypeSymbol? ResolveGenericMember(INamespaceOrTypeSymbol container, GenericNameSyntax generic)
+    {
+        var arity = ComputeGenericArity(generic);
+        var definition = SelectByArity(container.GetMembers(generic.Identifier.Text)
+            .OfType<INamedTypeSymbol>(), arity);
+
+        if (definition is null)
+            return null;
+
+        var typeArguments = ResolveGenericTypeArguments(generic);
+        var constructed = TryConstructGeneric(definition, typeArguments, arity);
+
+        return constructed ?? definition;
+    }
+
+    private static INamedTypeSymbol? SelectByArity(IEnumerable<INamedTypeSymbol> candidates, int arity)
+    {
+        foreach (var candidate in candidates)
+        {
+            var definition = NormalizeDefinition(candidate);
+            if (definition.Arity == arity)
+                return definition;
+        }
+
+        return null;
     }
 }

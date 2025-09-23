@@ -1730,21 +1730,39 @@ partial class BlockBinder : Binder
                 return new BoundTypeExpression(named);
             }
 
-            if (named.Arity != typeArguments.Length)
+            var definition = NormalizeDefinition(named);
+
+            if (definition.Arity != typeArguments.Length)
             {
-                //_diagnostics.ReportTypeArityMismatch(name, named.Arity, typeArguments.Length, location);
-                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                var match = FindAccessibleNamedType(name, typeArguments.Length);
+                if (match is null)
+                {
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+                }
+
+                definition = match;
             }
 
-            var constructed = typeArguments.IsEmpty
-                ? named
-                : Compilation.ConstructGenericType(named, typeArguments.ToArray());
+            if (typeArguments.IsEmpty)
+                return new BoundTypeExpression(definition);
+
+            var constructed = Compilation.ConstructGenericType(definition, typeArguments.ToArray());
 
             return new BoundTypeExpression(constructed);
         }
 
         if (symbol is INamespaceSymbol ns)
             return new BoundNamespaceExpression(ns);
+
+        var alternate = FindAccessibleNamedType(name, typeArguments.Length);
+        if (alternate is not null)
+        {
+            if (typeArguments.IsEmpty)
+                return new BoundTypeExpression(alternate);
+
+            var constructed = Compilation.ConstructGenericType(alternate, typeArguments.ToArray());
+            return new BoundTypeExpression(constructed);
+        }
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, location);
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
