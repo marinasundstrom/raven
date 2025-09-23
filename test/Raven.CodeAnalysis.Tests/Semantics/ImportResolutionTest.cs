@@ -84,6 +84,19 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void FullyQualifiedFuncWithMultipleTypeArguments_ShouldNot_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            System.Func<int, string>
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ImportFullyQualifiedOpenGenericType_ShouldNot_ProduceDiagnostic2()
     {
         string testCode =
@@ -91,6 +104,36 @@ public class ImportResolutionTest : DiagnosticTestBase
             import System.Collections.Generic.List<>
 
             List<int>
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ImportNamespaceProvidesFuncWithMultipleTypeArguments_ShouldNot_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            import System.*
+
+            Func<int, string>
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ImportOpenGenericFunc_MakesTypeAvailable()
+    {
+        string testCode =
+            """
+            import System.Func<,>
+
+            Func<int, string>
             """;
 
         var verifier = CreateVerifier(testCode);
