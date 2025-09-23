@@ -69,10 +69,31 @@ sealed class CapturedVariableWalker : BoundTreeWalker
 
     public override void VisitLocalAccess(BoundLocalAccess node)
     {
-        if (node.Symbol is ISymbol symbol)
-        {
-            _accessedSymbols.Add(symbol);
-        }
+        AddSymbol(node.Symbol);
         base.VisitLocalAccess(node);
+    }
+
+    public override void VisitParameterAccess(BoundParameterAccess node)
+    {
+        AddSymbol(node.Symbol);
+        base.VisitParameterAccess(node);
+    }
+
+    public override void VisitVariableExpression(BoundVariableExpression node)
+    {
+        AddSymbol(node.Symbol);
+        base.VisitVariableExpression(node);
+    }
+
+    public override void VisitSelfExpression(BoundSelfExpression node)
+    {
+        AddSymbol(node.Symbol);
+        base.VisitSelfExpression(node);
+    }
+
+    private void AddSymbol(ISymbol? symbol)
+    {
+        if (symbol is not null)
+            _accessedSymbols.Add(symbol);
     }
 }

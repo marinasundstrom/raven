@@ -13,6 +13,14 @@ internal class ExpressionGenerator : Generator
 {
     private readonly BoundExpression _expression;
 
+    private static readonly MethodInfo CreateDelegateMethod = typeof(Delegate)
+        .GetMethod(nameof(Delegate.CreateDelegate), new[] { typeof(Type), typeof(object), typeof(IntPtr) })
+        ?? throw new InvalidOperationException("Failed to resolve Delegate.CreateDelegate(Type, object, IntPtr).");
+
+    private static readonly MethodInfo GetTypeFromHandleMethod = typeof(Type)
+        .GetMethod(nameof(Type.GetTypeFromHandle), new[] { typeof(RuntimeTypeHandle) })
+        ?? throw new InvalidOperationException("Failed to resolve Type.GetTypeFromHandle(RuntimeTypeHandle).");
+
     public ExpressionGenerator(Generator parent, BoundExpression expression) : base(parent)
     {
         _expression = expression;
@@ -144,11 +152,7 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case BoundLambdaExpression lambdaExpression:
-                var x = lambdaExpression.Type.GetMembers().OfType<IMethodSymbol>().First();
-                var z = x.Parameters.First();
-                var t = z.Type;
-
-                var y = ResolveClrType(lambdaExpression.Type);
+                EmitLambdaExpression(lambdaExpression);
                 break;
 
             default:
@@ -158,7 +162,185 @@ internal class ExpressionGenerator : Generator
 
     private void EmitSelfExpression(BoundSelfExpression selfExpression)
     {
+        if (TryEmitCapturedVariableLoad(selfExpression.Symbol ?? selfExpression.Type))
+            return;
+
         ILGenerator.Emit(OpCodes.Ldarg_0);
+    }
+
+    private void EmitCapturedLambda(BoundLambdaExpression lambdaExpression, TypeGenerator.LambdaClosure closure, MethodInfo methodInfo, Type delegateType)
+    {
+        var closureLocal = ILGenerator.DeclareLocal(closure.TypeBuilder);
+        ILGenerator.Emit(OpCodes.Newobj, closure.Constructor);
+        ILGenerator.Emit(OpCodes.Stloc, closureLocal);
+
+        var capturedSymbols = lambdaExpression.CapturedVariables.ToArray();
+        for (var i = 0; i < capturedSymbols.Length; i++)
+        {
+            var captured = capturedSymbols[i];
+
+            ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
+            EmitCapturedValue(captured);
+            ILGenerator.Emit(OpCodes.Stfld, closure.GetField(captured));
+        }
+
+        ILGenerator.Emit(OpCodes.Ldtoken, delegateType);
+        ILGenerator.Emit(OpCodes.Call, GetTypeFromHandleMethod);
+        ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
+        ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
+        ILGenerator.Emit(OpCodes.Call, CreateDelegateMethod);
+        ILGenerator.Emit(OpCodes.Castclass, delegateType);
+    }
+
+    private void EmitCapturedValue(ISymbol symbol)
+    {
+        if (TryEmitCapturedClosureField(symbol))
+            return;
+
+        switch (symbol)
+        {
+            case ILocalSymbol localSymbol:
+                {
+                    var localBuilder = GetLocal(localSymbol)
+                        ?? throw new InvalidOperationException($"Missing local builder for captured local '{localSymbol.Name}'.");
+                    ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                    break;
+                }
+            case IParameterSymbol parameterSymbol:
+                {
+                    var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
+                    var position = parameterBuilder.Position;
+                    if (MethodSymbol.IsStatic)
+                        position -= 1;
+                    ILGenerator.Emit(OpCodes.Ldarg, position);
+                    break;
+                }
+            case ITypeSymbol:
+                {
+                    if (MethodSymbol.IsStatic)
+                        throw new InvalidOperationException("Cannot capture 'self' in a static context.");
+
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    break;
+                }
+            default:
+                throw new NotSupportedException($"Capturing symbol '{symbol}' is not supported.");
+        }
+    }
+
+    private bool TryEmitCapturedClosureField(ISymbol symbol)
+    {
+        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder))
+            return false;
+
+        MethodBodyGenerator.EmitLoadClosure();
+        ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
+        return true;
+    }
+
+    private bool TryEmitCapturedVariableLoad(ISymbol? symbol)
+    {
+        if (symbol is null)
+            return false;
+
+        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder))
+            return false;
+
+        MethodBodyGenerator.EmitLoadClosure();
+        ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
+
+        if (symbol is ILocalSymbol)
+            ILGenerator.Emit(OpCodes.Ldfld, MethodBodyGenerator.GetStrongBoxValueField(fieldBuilder.FieldType));
+
+        return true;
+    }
+
+    private bool TryEmitCapturedAssignment(ISymbol symbol, BoundExpression value)
+    {
+        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder))
+            return false;
+
+        MethodBodyGenerator.EmitLoadClosure();
+        if (symbol is ILocalSymbol localSymbol)
+        {
+            ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
+            EmitExpression(value);
+
+            if (value.Type is { IsValueType: true } &&
+                localSymbol.Type is not null &&
+                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            {
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(value.Type));
+            }
+
+            var valueField = MethodBodyGenerator.GetStrongBoxValueField(fieldBuilder.FieldType);
+            ILGenerator.Emit(OpCodes.Stfld, valueField);
+            return true;
+        }
+
+        EmitExpression(value);
+        ILGenerator.Emit(OpCodes.Stfld, fieldBuilder);
+        return true;
+    }
+
+    private void EmitLambdaExpression(BoundLambdaExpression lambdaExpression)
+    {
+        if (lambdaExpression.Symbol is not ILambdaSymbol lambdaSymbol)
+            throw new InvalidOperationException("Lambda symbol missing.");
+
+        var typeGenerator = MethodGenerator.TypeGenerator;
+        var lambdaGenerator = typeGenerator.GetMethodGenerator(lambdaSymbol);
+        var hasCaptures = lambdaExpression.CapturedVariables.Any();
+        TypeGenerator.LambdaClosure? closure = null;
+
+        if (lambdaGenerator is null)
+        {
+            lambdaGenerator = new MethodGenerator(typeGenerator, lambdaSymbol);
+
+            if (hasCaptures && lambdaSymbol is SourceLambdaSymbol sourceLambda)
+            {
+                closure = typeGenerator.EnsureLambdaClosure(sourceLambda);
+                lambdaGenerator.SetLambdaClosure(closure);
+            }
+
+            typeGenerator.Add(lambdaSymbol, lambdaGenerator);
+            lambdaGenerator.DefineMethodBuilder();
+
+            if (lambdaSymbol is SourceLambdaSymbol sourceLambdaSymbol)
+                typeGenerator.CodeGen.AddMemberBuilder(sourceLambdaSymbol, lambdaGenerator.MethodBase);
+        }
+        else if (hasCaptures && lambdaSymbol is SourceLambdaSymbol existingSource)
+        {
+            closure = typeGenerator.EnsureLambdaClosure(existingSource);
+            lambdaGenerator.SetLambdaClosure(closure);
+        }
+
+        if (hasCaptures && closure is null && lambdaSymbol is SourceLambdaSymbol lateSource)
+            closure = typeGenerator.EnsureLambdaClosure(lateSource);
+
+        if (!lambdaGenerator.HasEmittedBody)
+            lambdaGenerator.EmitLambdaBody(lambdaExpression, closure);
+
+        if (lambdaGenerator.MethodBase is not MethodInfo methodInfo)
+            throw new InvalidOperationException("Expected a method-backed lambda.");
+
+        var delegateType = ResolveClrType(lambdaExpression.DelegateType);
+
+        if (hasCaptures)
+        {
+            if (closure is null && !typeGenerator.TryGetLambdaClosure(lambdaSymbol, out closure))
+                throw new InvalidOperationException("Missing closure information for captured lambda.");
+
+            EmitCapturedLambda(lambdaExpression, closure!, methodInfo, delegateType);
+            return;
+        }
+
+        var ctor = delegateType.GetConstructor(new[] { typeof(object), typeof(IntPtr) })
+            ?? throw new InvalidOperationException($"Delegate '{delegateType}' lacks the expected constructor.");
+
+        ILGenerator.Emit(OpCodes.Ldnull);
+        ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
+        ILGenerator.Emit(OpCodes.Newobj, ctor);
     }
 
     private void EmitUnitExpression(BoundUnitExpression unitExpression)
@@ -203,15 +385,28 @@ internal class ExpressionGenerator : Generator
     }
     private void EmitLocalAccess(BoundLocalAccess localAccess)
     {
+        if (TryEmitCapturedVariableLoad(localAccess.Local))
+            return;
+
         var localBuilder = GetLocal(localAccess.Local);
         if (localBuilder is null)
             throw new InvalidOperationException($"Missing local builder for '{localAccess.Local.Name}'");
+
+        if (MethodBodyGenerator.IsCapturedLocal(localAccess.Local))
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+            ILGenerator.Emit(OpCodes.Ldfld, MethodBodyGenerator.GetStrongBoxValueField(localBuilder.LocalType));
+            return;
+        }
 
         ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
     }
 
     private void EmitParameterAccess(BoundParameterAccess parameterAccess)
     {
+        if (TryEmitCapturedVariableLoad(parameterAccess.Parameter))
+            return;
+
         int position = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter).Position;
         if (MethodSymbol.IsStatic)
             position -= 1;
@@ -1062,6 +1257,32 @@ internal class ExpressionGenerator : Generator
         switch (node)
         {
             case BoundLocalAssignmentExpression localAssignmentExpression:
+                if (TryEmitCapturedAssignment(localAssignmentExpression.Local, localAssignmentExpression.Right))
+                    break;
+
+                var localBuilder = GetLocal(localAssignmentExpression.Local);
+                if (localBuilder is null)
+                    throw new InvalidOperationException($"Missing local builder for '{localAssignmentExpression.Local.Name}'");
+
+                if (MethodBodyGenerator.IsCapturedLocal(localAssignmentExpression.Local))
+                {
+                    ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                    EmitExpression(localAssignmentExpression.Right);
+
+                    var rightType = localAssignmentExpression.Right.Type;
+                    var localType = localAssignmentExpression.Local.Type;
+                    if (rightType is { IsValueType: true } &&
+                        localType is not null &&
+                        (localType.SpecialType is SpecialType.System_Object || localType is IUnionTypeSymbol))
+                    {
+                        ILGenerator.Emit(OpCodes.Box, ResolveClrType(rightType));
+                    }
+
+                    var valueField = MethodBodyGenerator.GetStrongBoxValueField(localBuilder.LocalType);
+                    ILGenerator.Emit(OpCodes.Stfld, valueField);
+                    break;
+                }
+
                 EmitExpression(localAssignmentExpression.Right);
 
                 if (localAssignmentExpression.Right.Type.IsValueType && localAssignmentExpression.Type.SpecialType is SpecialType.System_Object)
@@ -1069,7 +1290,7 @@ internal class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(localAssignmentExpression.Right.Type));
                 }
 
-                ILGenerator.Emit(OpCodes.Stloc, GetLocal(localAssignmentExpression.Local));
+                ILGenerator.Emit(OpCodes.Stloc, localBuilder);
                 break;
 
             case BoundFieldAssignmentExpression fieldAssignmentExpression:

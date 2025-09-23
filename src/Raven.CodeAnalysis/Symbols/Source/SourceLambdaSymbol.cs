@@ -4,6 +4,8 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 {
+    private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
+
     public SourceLambdaSymbol(
         IReadOnlyList<IParameterSymbol> parameters,
         ITypeSymbol returnType,
@@ -58,8 +60,17 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public ITypeSymbol? DelegateType { get; private set; }
 
+    public ImmutableArray<ISymbol> CapturedVariables => _capturedVariables;
+
+    public bool HasCaptures => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0;
+
     public void SetDelegateType(ITypeSymbol delegateType)
     {
         DelegateType = delegateType;
+    }
+
+    public void SetCapturedVariables(IEnumerable<ISymbol> capturedVariables)
+    {
+        _capturedVariables = capturedVariables.ToImmutableArray();
     }
 }

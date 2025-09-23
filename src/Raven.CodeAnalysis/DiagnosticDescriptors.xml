@@ -241,4 +241,7 @@
   <Descriptor Id="RAV2102" Identifier="MatchExpressionArmPatternInvalid" Title="Match arm pattern is not valid"
     Message="Pattern {patternType} is not valid for scrutinee of type '{scrutineeType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred" Title="Lambda parameter type cannot be inferred"
+    Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

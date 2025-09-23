@@ -1,4 +1,5 @@
 
+using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -10,7 +11,9 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal class MethodGenerator
 {
     private readonly IDictionary<ISymbol, ParameterBuilder> _parameterBuilders = new Dictionary<ISymbol, ParameterBuilder>(SymbolEqualityComparer.Default);
+    private bool _bodyEmitted;
     private Compilation _compilation;
+    private TypeGenerator.LambdaClosure? _lambdaClosure;
 
     public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol)
     {
@@ -18,11 +21,18 @@ internal class MethodGenerator
         MethodSymbol = methodSymbol;
     }
 
+    internal void SetLambdaClosure(TypeGenerator.LambdaClosure closure)
+    {
+        _lambdaClosure = closure;
+    }
+
     public Compilation Compilation => _compilation ??= TypeGenerator.Compilation;
     public TypeGenerator TypeGenerator { get; }
     public IMethodSymbol MethodSymbol { get; }
     public MethodBase MethodBase { get; private set; }
+    internal TypeGenerator.LambdaClosure? LambdaClosure => _lambdaClosure;
     public bool IsEntryPointCandidate { get; private set; }
+    internal bool HasEmittedBody => _bodyEmitted;
 
     internal void DefineMethodBuilder()
     {
@@ -30,15 +40,20 @@ internal class MethodGenerator
             ? Compilation.GetSpecialType(SpecialType.System_Void).GetClrType(TypeGenerator.CodeGen)
             : ResolveClrType(MethodSymbol.ReturnType);
 
-        var parameterTypes = MethodSymbol.Parameters
-            .Select(p =>
-            {
-                var clrType = ResolveClrType(p.Type);
-                if (p.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
-                    return clrType.MakeByRefType();
-                return clrType;
-            })
-            .ToArray();
+        var parameterTypesBuilder = new List<Type>();
+
+        if (_lambdaClosure is not null)
+            parameterTypesBuilder.Add(_lambdaClosure.TypeBuilder);
+
+        foreach (var parameter in MethodSymbol.Parameters)
+        {
+            var clrType = ResolveClrType(parameter.Type);
+            if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+                clrType = clrType.MakeByRefType();
+            parameterTypesBuilder.Add(clrType);
+        }
+
+        var parameterTypes = parameterTypesBuilder.ToArray();
 
         var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation
             || !MethodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty;
@@ -126,6 +141,17 @@ internal class MethodGenerator
             returnParamBuilder.SetCustomAttribute(nullableReturnAttr);
 
         int i = 1;
+
+        if (_lambdaClosure is not null)
+        {
+            if (MethodBase is MethodBuilder methodBuilder)
+                methodBuilder.DefineParameter(i, ParameterAttributes.None, "<closure>");
+            else
+                ((ConstructorBuilder)MethodBase).DefineParameter(i, ParameterAttributes.None, "<closure>");
+
+            i++;
+        }
+
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {
             ParameterAttributes attrs = ParameterAttributes.None;
@@ -178,13 +204,30 @@ internal class MethodGenerator
 
     public void EmitBody()
     {
+        if (_bodyEmitted)
+            return;
+
         var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
 
         if (isInterfaceMethod && !MethodSymbol.IsStatic && !HasInterfaceMethodBody(MethodSymbol))
+        {
+            _bodyEmitted = true;
             return;
+        }
 
         var bodyGenerator = new MethodBodyGenerator(this);
         bodyGenerator.Emit();
+        _bodyEmitted = true;
+    }
+
+    internal void EmitLambdaBody(BoundLambdaExpression lambda, TypeGenerator.LambdaClosure? closure)
+    {
+        if (_bodyEmitted)
+            return;
+
+        var bodyGenerator = new MethodBodyGenerator(this);
+        bodyGenerator.EmitLambda(lambda, closure);
+        _bodyEmitted = true;
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)

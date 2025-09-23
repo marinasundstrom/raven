@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Linq;
 using System.Reflection.Emit;
@@ -318,13 +319,20 @@ internal class StatementGenerator : Generator
 
     private void EmitDeclarator(BoundLocalDeclarationStatement localDeclarationStatement, BoundVariableDeclarator declarator)
     {
+        var localSymbol = declarator.Local;
+        var localBuilder = GetLocal(localSymbol);
+
+        if (MethodBodyGenerator.IsCapturedLocal(localSymbol))
+        {
+            EmitCapturedLocalDeclaration(localSymbol, localBuilder, declarator.Initializer);
+            return;
+        }
+
         if (declarator.Initializer is not null)
         {
             new ExpressionGenerator(this, declarator.Initializer).Emit();
 
-            var localBuilder = GetLocal(declarator.Local);
             var expressionType = declarator.Initializer.Type;
-            var localSymbol = declarator.Local;
 
             // If the local wasn't declared (e.g., the initializer returns early),
             // there's nothing to store.
@@ -370,5 +378,41 @@ internal class StatementGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Stloc, localBuilder);
         }
+    }
+
+    private void EmitCapturedLocalDeclaration(ILocalSymbol localSymbol, LocalBuilder? localBuilder, BoundExpression? initializer)
+    {
+        if (localBuilder is null)
+            return;
+
+        var strongBoxType = localBuilder.LocalType;
+
+        if (initializer is not null)
+        {
+            new ExpressionGenerator(this, initializer).Emit();
+
+            var expressionType = initializer.Type;
+            if (expressionType is not null &&
+                localSymbol.Type is not null &&
+                expressionType.IsValueType &&
+                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            {
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+            }
+
+            var valueType = ResolveClrType(localSymbol.Type!);
+            var ctor = strongBoxType.GetConstructor(new[] { valueType })
+                ?? throw new InvalidOperationException($"StrongBox constructor missing for {strongBoxType}");
+
+            ILGenerator.Emit(OpCodes.Newobj, ctor);
+            ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+            return;
+        }
+
+        var defaultCtor = strongBoxType.GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException($"StrongBox default constructor missing for {strongBoxType}");
+
+        ILGenerator.Emit(OpCodes.Newobj, defaultCtor);
+        ILGenerator.Emit(OpCodes.Stloc, localBuilder);
     }
 }
