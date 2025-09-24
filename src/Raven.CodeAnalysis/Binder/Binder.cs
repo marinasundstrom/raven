@@ -40,6 +40,26 @@ internal abstract class Binder
         }
     }
 
+    protected bool IsSymbolAccessible(ISymbol symbol)
+    {
+        if (symbol is null)
+            return true;
+
+        var within = GetAccessibilityContext();
+        return AccessibilityUtilities.IsAccessible(symbol, within);
+    }
+
+    private ISymbol? GetAccessibilityContext()
+    {
+        for (var current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current.ContainingSymbol is not null)
+                return current.ContainingSymbol;
+        }
+
+        return null;
+    }
+
     public virtual SemanticModel SemanticModel
     {
         get

@@ -129,6 +129,10 @@
     Title="Type name does not exist in type"
     Message="The type name '{name}' does not exist in the type '{container}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0500" Identifier="SymbolIsInaccessible"
+    Title="Symbol is inaccessible"
+    Message="The {symbolKind} '{name}' is inaccessible due to its protection level"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0815" Identifier="CannotAssignVoidToAnImplicitlyTypedVariable"
     Title="Cannot assign void to an implicitly-typed variable"
     Message="Cannot assign void to an implicitly-typed variable" Category="compiler"

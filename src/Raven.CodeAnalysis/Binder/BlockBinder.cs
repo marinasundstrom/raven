@@ -111,6 +111,8 @@ partial class BlockBinder : Binder
         BoundExpression? boundInitializer = null;
 
         var initializer = variableDeclarator.Initializer;
+        var typeLocation = variableDeclarator.TypeAnnotation?.Type.GetLocation()
+            ?? decl.LetOrVarKeyword.GetLocation();
         if (initializer is not null)
         {
             // Initializers are always evaluated for their value; return statements
@@ -176,12 +178,91 @@ partial class BlockBinder : Binder
             }
         }
 
+        type = EnsureTypeAccessible(type, typeLocation);
+
         if (initializer is not null && boundInitializer is not null)
             CacheBoundNode(initializer.Value, boundInitializer);
 
         var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer);
 
         return new BoundLocalDeclarationStatement([declarator]);
+    }
+
+    private ITypeSymbol EnsureTypeAccessible(ITypeSymbol type, Location location)
+    {
+        if (type.TypeKind == TypeKind.Error)
+            return type;
+
+        if (EnsureMemberAccessible(type, location, "type"))
+            return type;
+
+        return Compilation.ErrorTypeSymbol;
+    }
+
+    private bool EnsureMemberAccessible(ISymbol symbol, Location location, string symbolKind)
+    {
+        if (symbol is null)
+            return true;
+
+        if (symbol.DeclaredAccessibility == Accessibility.NotApplicable)
+            return true;
+
+        if (IsSymbolAccessible(symbol))
+            return true;
+
+        var display = symbol is ITypeSymbol typeSymbol
+            ? typeSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            : symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        _diagnostics.ReportSymbolIsInaccessible(symbolKind, display, location);
+        return false;
+    }
+
+    private ImmutableArray<IMethodSymbol> GetAccessibleMethods(
+        ImmutableArray<IMethodSymbol> methods,
+        Location location,
+        bool reportIfInaccessible = true)
+    {
+        if (methods.IsDefaultOrEmpty)
+            return methods;
+
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        foreach (var method in methods)
+        {
+            if (IsSymbolAccessible(method))
+                builder.Add(method);
+        }
+
+        if (builder.Count > 0)
+            return builder.ToImmutable();
+
+        if (reportIfInaccessible)
+            EnsureMemberAccessible(methods[0], location, "method");
+        return ImmutableArray<IMethodSymbol>.Empty;
+    }
+
+    private BoundExpression BindMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods, Location location)
+    {
+        var accessibleMethods = GetAccessibleMethods(methods, location);
+
+        if (accessibleMethods.IsDefaultOrEmpty)
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+        return CreateMethodGroup(receiver, accessibleMethods);
+    }
+
+    private static string GetSymbolKindForDiagnostic(ISymbol symbol)
+    {
+        return symbol switch
+        {
+            IMethodSymbol method when method.MethodKind == MethodKind.Constructor => "constructor",
+            IMethodSymbol => "method",
+            IPropertySymbol => "property",
+            IFieldSymbol => "field",
+            INamedTypeSymbol => "type",
+            _ => "member"
+        };
     }
 
     private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type)
@@ -1393,7 +1474,7 @@ partial class BlockBinder : Binder
                 .ToImmutableArray();
 
             if (!methodCandidates.IsDefaultOrEmpty)
-                return CreateMethodGroup(typeExpr, methodCandidates);
+                return BindMethodGroup(typeExpr, methodCandidates, memberAccess.Name.GetLocation());
 
             var member = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
                 .Lookup(this)
@@ -1406,6 +1487,9 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
+            if (!EnsureMemberAccessible(member, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
             return new BoundMemberAccessExpression(typeExpr, member);
         }
 
@@ -1416,14 +1500,19 @@ partial class BlockBinder : Binder
                 .ToImmutableArray();
 
             if (!instanceMethods.IsDefaultOrEmpty)
-                return CreateMethodGroup(receiver, instanceMethods);
+                return BindMethodGroup(receiver, instanceMethods, memberAccess.Name.GetLocation());
 
             var instanceMember = new SymbolQuery(name, receiver.Type, IsStatic: false)
                 .Lookup(this)
                 .FirstOrDefault();
 
             if (instanceMember is not null)
+            {
+                if (!EnsureMemberAccessible(instanceMember, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(instanceMember)))
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
                 return new BoundMemberAccessExpression(receiver, instanceMember);
+            }
         }
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberAccess.Name.GetLocation());
@@ -1443,7 +1532,7 @@ partial class BlockBinder : Binder
                 .ToImmutableArray();
 
             if (!methodCandidates.IsDefaultOrEmpty)
-                return CreateMethodGroup(new BoundTypeExpression(expectedType), methodCandidates);
+                return BindMethodGroup(new BoundTypeExpression(expectedType), methodCandidates, memberBinding.Name.GetLocation());
 
             var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
                 .Lookup(this)
@@ -1454,6 +1543,9 @@ partial class BlockBinder : Binder
                 _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(memberName, memberBinding.Name.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
+
+            if (!EnsureMemberAccessible(member, memberBinding.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
 
             return new BoundMemberAccessExpression(new BoundTypeExpression(expectedType), member);
         }
@@ -1540,14 +1632,15 @@ partial class BlockBinder : Binder
                             {
                                 var candidates = new SymbolQuery(id.Identifier.Text)
                                     .LookupMethods(this)
-                                    .ToArray();
-                                if (candidates.Length == 1)
+                                    .ToImmutableArray();
+                                var accessible = GetAccessibleMethods(candidates, id.Identifier.GetLocation(), reportIfInaccessible: false);
+                                if (accessible.Length == 1)
                                 {
-                                    targetMethod = candidates[0];
+                                    targetMethod = accessible[0];
                                 }
-                                else if (candidates.Length > 1)
+                                else if (!accessible.IsDefaultOrEmpty)
                                 {
-                                    if (TryGetCommonParameterType(candidates.ToImmutableArray(), index) is ITypeSymbol common)
+                                    if (TryGetCommonParameterType(accessible, index) is ITypeSymbol common)
                                         return common;
                                 }
                             }
@@ -1876,19 +1969,36 @@ partial class BlockBinder : Binder
             if (receiver is BoundErrorExpression error)
                 return error;
 
-            return CreateMethodGroup(receiver, methods);
+            return BindMethodGroup(receiver, methods, syntax.Identifier.GetLocation());
         }
 
-        return symbol switch
+        switch (symbol)
         {
-            INamespaceSymbol ns => new BoundNamespaceExpression(ns),
-            ITypeSymbol type => new BoundTypeExpression(type),
-            ILocalSymbol local => new BoundLocalAccess(local),
-            IParameterSymbol param => new BoundParameterAccess(param),
-            IFieldSymbol field => new BoundFieldAccess(field),
-            IPropertySymbol prop => new BoundPropertyAccess(prop),
-            _ => new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound)
-        };
+            case INamespaceSymbol ns:
+                return new BoundNamespaceExpression(ns);
+            case ITypeSymbol type:
+                return new BoundTypeExpression(type);
+            case ILocalSymbol local:
+                return new BoundLocalAccess(local);
+            case IParameterSymbol param:
+                return new BoundParameterAccess(param);
+            case IFieldSymbol field:
+                {
+                    if (!EnsureMemberAccessible(field, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(field)))
+                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+                    return new BoundFieldAccess(field);
+                }
+            case IPropertySymbol prop:
+                {
+                    if (!EnsureMemberAccessible(prop, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(prop)))
+                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+                    return new BoundPropertyAccess(prop);
+                }
+            default:
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
     }
 
     private BoundMethodGroupExpression CreateMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods)
@@ -2215,11 +2325,16 @@ partial class BlockBinder : Binder
         {
             var candidateMethods = new SymbolQuery(methodName, typeReceiver.Type, IsStatic: true)
                 .LookupMethods(this)
-                .ToArray();
+                .ToImmutableArray();
 
-            if (candidateMethods.Length > 0)
+            if (!candidateMethods.IsDefaultOrEmpty)
             {
-                var resolution = OverloadResolver.ResolveOverload(candidateMethods, boundArguments, Compilation);
+                var accessibleMethods = GetAccessibleMethods(candidateMethods, syntax.Expression.GetLocation());
+
+                if (accessibleMethods.IsDefaultOrEmpty)
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+                var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation);
                 if (resolution.Success)
                 {
                     var method = resolution.Method!;
@@ -2262,9 +2377,9 @@ partial class BlockBinder : Binder
         {
             var candidates = new SymbolQuery(methodName, receiver.Type, IsStatic: false)
                 .LookupMethods(this)
-                .ToArray();
+                .ToImmutableArray();
 
-            if (candidates.Length == 0)
+            if (candidates.IsDefaultOrEmpty)
             {
                 if (methodName == "Invoke")
                     _diagnostics.ReportInvalidInvocation(syntax.Expression.GetLocation());
@@ -2274,7 +2389,12 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
-            var resolution = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
+            var accessibleCandidates = GetAccessibleMethods(candidates, syntax.Expression.GetLocation());
+
+            if (accessibleCandidates.IsDefaultOrEmpty)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -2293,11 +2413,16 @@ partial class BlockBinder : Binder
         }
 
         // No receiver -> try methods first, then constructors
-        var methodCandidates = new SymbolQuery(methodName).LookupMethods(this).ToArray();
+        var methodCandidates = new SymbolQuery(methodName).LookupMethods(this).ToImmutableArray();
 
-        if (methodCandidates.Length > 0)
+        if (!methodCandidates.IsDefaultOrEmpty)
         {
-            var resolution = OverloadResolver.ResolveOverload(methodCandidates, boundArguments, Compilation);
+            var accessibleMethods = GetAccessibleMethods(methodCandidates, syntax.Expression.GetLocation());
+
+            if (accessibleMethods.IsDefaultOrEmpty)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+            var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -2423,6 +2548,8 @@ partial class BlockBinder : Binder
         if (resolution.Success)
         {
             var constructor = resolution.Method!;
+            if (!EnsureMemberAccessible(constructor, syntax.Expression.GetLocation(), "constructor"))
+                return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
             return new BoundObjectCreationExpression(constructor, convertedArgs, receiver);
         }
@@ -2465,6 +2592,13 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
+        if (typeSymbol.TypeKind != TypeKind.Error)
+        {
+            var validatedType = EnsureTypeAccessible(typeSymbol, syntax.Type.GetLocation());
+            if (validatedType.TypeKind == TypeKind.Error)
+                return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
+        }
+
         // Bind arguments
         var boundArguments = new BoundExpression[syntax.ArgumentList.Arguments.Count];
         bool hasErrors = false;
@@ -2485,6 +2619,9 @@ partial class BlockBinder : Binder
         if (resolution.Success)
         {
             var constructor = resolution.Method!;
+            if (!EnsureMemberAccessible(constructor, syntax.Type.GetLocation(), "constructor"))
+                return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
+
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
             return new BoundObjectCreationExpression(constructor, convertedArgs);
         }
@@ -2524,7 +2661,14 @@ partial class BlockBinder : Binder
                     }
                     else
                     {
-                        whenNotNull = new BoundMemberAccessExpression(receiver, member);
+                        if (!EnsureMemberAccessible(member, memberBinding.Name.GetLocation(), GetSymbolKindForDiagnostic(member)))
+                        {
+                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                        }
+                        else
+                        {
+                            whenNotNull = new BoundMemberAccessExpression(receiver, member);
+                        }
                     }
                     break;
                 }
@@ -2535,30 +2679,39 @@ partial class BlockBinder : Binder
                     var boundArguments = invocation.ArgumentList.Arguments.Select(a => BindExpression(a.Expression)).ToArray();
 
                     var candidates = receiver.Type is null
-                        ? Array.Empty<IMethodSymbol>()
-                        : new SymbolQuery(name, receiver.Type, IsStatic: false).LookupMethods(this).ToArray();
+                        ? ImmutableArray<IMethodSymbol>.Empty
+                        : new SymbolQuery(name, receiver.Type, IsStatic: false).LookupMethods(this).ToImmutableArray();
 
-                    if (candidates.Length == 0)
+                    if (candidates.IsDefaultOrEmpty)
                     {
                         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, memberBinding.Name.GetLocation());
                         whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
                     }
                     else
                     {
-                        var resolution = OverloadResolver.ResolveOverload(candidates, boundArguments, Compilation);
-                        if (resolution.Success)
+                        var accessibleCandidates = GetAccessibleMethods(candidates, memberBinding.Name.GetLocation());
+
+                        if (accessibleCandidates.IsDefaultOrEmpty)
                         {
-                            whenNotNull = new BoundInvocationExpression(resolution.Method!, boundArguments, receiver);
-                        }
-                        else if (resolution.IsAmbiguous)
-                        {
-                            _diagnostics.ReportCallIsAmbiguous(name, resolution.AmbiguousCandidates, invocation.GetLocation());
-                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
                         }
                         else
                         {
-                            _diagnostics.ReportNoOverloadForMethod(name, boundArguments.Length, invocation.GetLocation());
-                            whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation);
+                            if (resolution.Success)
+                            {
+                                whenNotNull = new BoundInvocationExpression(resolution.Method!, boundArguments, receiver);
+                            }
+                            else if (resolution.IsAmbiguous)
+                            {
+                                _diagnostics.ReportCallIsAmbiguous(name, resolution.AmbiguousCandidates, invocation.GetLocation());
+                                whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                            }
+                            else
+                            {
+                                _diagnostics.ReportNoOverloadForMethod(name, boundArguments.Length, invocation.GetLocation());
+                                whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                            }
                         }
                     }
                     break;

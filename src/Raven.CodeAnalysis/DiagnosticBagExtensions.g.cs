@@ -110,6 +110,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportTypeNameDoesNotExistInType(this DiagnosticBag diagnostics, object? name, object? container, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.TypeNameDoesNotExistInType, location, name, container));
 
+    public static void ReportSymbolIsInaccessible(this DiagnosticBag diagnostics, object? symbolKind, object? name, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.SymbolIsInaccessible, location, symbolKind, name));
+
     public static void ReportCannotAssignVoidToAnImplicitlyTypedVariable(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotAssignVoidToAnImplicitlyTypedVariable, location));
 
