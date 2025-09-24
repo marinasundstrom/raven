@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -9,6 +10,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private readonly List<ISymbol> _members = new List<ISymbol>();
     private ImmutableArray<INamedTypeSymbol> _interfaces = ImmutableArray<INamedTypeSymbol>.Empty;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
+    private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
 
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, Accessibility declaredAccessibility = Accessibility.NotApplicable)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
@@ -51,13 +54,13 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         .ToImmutableArray();
 
     public IMethodSymbol? StaticConstructor { get; }
-    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
-    public ITypeSymbol? ConstructedFrom { get; }
+    public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
+    public ITypeSymbol? ConstructedFrom => this;
     public bool IsAbstract { get; }
     public bool IsSealed { get; }
-    public bool IsGenericType { get; }
-    public bool IsUnboundGenericType { get; }
+    public bool IsGenericType => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0;
+    public bool IsUnboundGenericType => false;
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
@@ -79,9 +82,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public TypeKind TypeKind { get; }
 
-    public ITypeSymbol? OriginalDefinition { get; }
+    public ITypeSymbol? OriginalDefinition => this;
 
-    public int Arity { get; } = 0;
+    public int Arity => _typeParameters.Length;
 
     public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
 
@@ -97,10 +100,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         return _members.Where(x => x.Name == name).ToImmutableArray();
     }
 
-    public ITypeSymbol? LookupType(string name)
-    {
-        throw new NotImplementedException();
-    }
+    public ITypeSymbol? LookupType(string name) =>
+        _members.OfType<INamedTypeSymbol>().FirstOrDefault(t => t.Name == name);
 
     internal void AddMember(ISymbol member)
     {
@@ -111,6 +112,14 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         _interfaces = interfaces.ToImmutableArray();
         _allInterfaces = null;
+    }
+
+    internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)
+    {
+        _typeParameters = typeParameters.ToImmutableArray();
+        _typeArguments = _typeParameters.Length == 0
+            ? ImmutableArray<ITypeSymbol>.Empty
+            : _typeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
     }
 
     private ImmutableArray<INamedTypeSymbol> ComputeAllInterfaces()
@@ -159,6 +168,12 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
     {
-        throw new NotImplementedException();
+        if (!IsGenericType)
+            return this;
+
+        if (typeArguments.Length != Arity)
+            throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments but received {typeArguments.Length}.", nameof(typeArguments));
+
+        return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
     }
 }

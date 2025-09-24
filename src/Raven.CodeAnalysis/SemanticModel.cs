@@ -605,6 +605,8 @@ public partial class SemanticModel
                             isAbstract,
                             declaredAccessibility: typeAccessibility);
 
+                        InitializeTypeParameters(classSymbol, classDecl.TypeParameterList);
+
                         if (!interfaceList.IsDefaultOrEmpty)
                             classSymbol.SetInterfaces(interfaceList);
 
@@ -648,6 +650,8 @@ public partial class SemanticModel
                             declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
                                 interfaceDecl.Modifiers,
                                 AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace())));
+
+                        InitializeTypeParameters(interfaceSymbol, interfaceDecl.TypeParameterList);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             interfaceSymbol.SetInterfaces(interfaceList);
@@ -795,6 +799,8 @@ public partial class SemanticModel
                         declaredAccessibility: nestedAccessibility
                     );
 
+                    InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList);
+
                     if (!nestedInterfaces.IsDefaultOrEmpty)
                         nestedSymbol.SetInterfaces(nestedInterfaces);
 
@@ -836,6 +842,9 @@ public partial class SemanticModel
                             nestedInterface.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentForInterface))
                     );
+
+                    InitializeTypeParameters(nestedInterfaceSymbol, nestedInterface.TypeParameterList);
+
                     if (!parentInterfaces.IsDefaultOrEmpty)
                         nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
                     var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
@@ -961,6 +970,31 @@ public partial class SemanticModel
                     }
             }
         }
+    }
+
+    private static void InitializeTypeParameters(SourceNamedTypeSymbol typeSymbol, TypeParameterListSyntax? typeParameterList)
+    {
+        if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
+            return;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        var ordinal = 0;
+
+        foreach (var parameter in typeParameterList.Parameters)
+        {
+            var typeParameter = new SourceTypeParameterSymbol(
+                parameter.Identifier.Text,
+                typeSymbol,
+                typeSymbol,
+                typeSymbol.ContainingNamespace,
+                [parameter.GetLocation()],
+                [parameter.GetReference()],
+                ordinal++);
+
+            builder.Add(typeParameter);
+        }
+
+        typeSymbol.SetTypeParameters(builder.MoveToImmutable());
     }
 
     private void RegisterPrimaryConstructor(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)

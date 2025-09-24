@@ -21,6 +21,20 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void ClassDeclaration_WithTypeParameters_ParsesTypeParameterList()
+    {
+        var source = "class Box<TValue, TOther> {}";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.NotNull(declaration.TypeParameterList);
+        Assert.Equal(2, declaration.TypeParameterList!.Parameters.Count);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void Constructor_WithExpressionBody_ParsesExpressionBody()
     {
         var source = """

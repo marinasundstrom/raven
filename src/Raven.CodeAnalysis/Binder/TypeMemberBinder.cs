@@ -29,6 +29,15 @@ internal class TypeMemberBinder : Binder
         return base.LookupSymbol(name);
     }
 
+    public override ITypeSymbol? LookupType(string name)
+    {
+        var typeParameter = _containingType.TypeParameters.FirstOrDefault(tp => tp.Name == name);
+        if (typeParameter is not null)
+            return typeParameter;
+
+        return base.LookupType(name);
+    }
+
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {
         return node switch

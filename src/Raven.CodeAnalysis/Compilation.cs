@@ -372,6 +372,8 @@ public class Compilation
                 isAbstract,
                 declaredAccessibility: typeAccessibility);
 
+            InitializeTypeParameters(symbol, classDeclaration.TypeParameterList, syntaxTree);
+
             if (!interfaceList.IsDefaultOrEmpty)
                 symbol.SetInterfaces(interfaceList);
 
@@ -423,6 +425,8 @@ public class Compilation
                 declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
                     interfaceDeclaration.Modifiers,
                     AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol)));
+
+            InitializeTypeParameters(symbol, interfaceDeclaration.TypeParameterList, syntaxTree);
 
             foreach (var memberDeclaration2 in interfaceDeclaration.Members)
             {
@@ -1157,5 +1161,33 @@ public class Compilation
 
             return hash;
         }
+    }
+
+    private static void InitializeTypeParameters(SourceNamedTypeSymbol typeSymbol, TypeParameterListSyntax? typeParameterList, SyntaxTree syntaxTree)
+    {
+        if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
+            return;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        int ordinal = 0;
+        foreach (var parameter in typeParameterList.Parameters)
+        {
+            var identifier = parameter.Identifier;
+            var location = syntaxTree.GetLocation(identifier.Span);
+            var reference = parameter.GetReference();
+
+            var typeParameter = new SourceTypeParameterSymbol(
+                identifier.Text,
+                typeSymbol,
+                typeSymbol,
+                typeSymbol.ContainingNamespace,
+                [location],
+                [reference],
+                ordinal++);
+
+            builder.Add(typeParameter);
+        }
+
+        typeSymbol.SetTypeParameters(builder.MoveToImmutable());
     }
 }
