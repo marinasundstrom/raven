@@ -1,0 +1,7 @@
+import System.*
+
+try {
+    let i = int.Parse("ff")
+} catch (FormatException exc) {
+    Console.WriteLine("Foo")
+}

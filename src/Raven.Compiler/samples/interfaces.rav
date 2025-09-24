@@ -2,7 +2,6 @@ import System.*
 
 using let foo = Foo()
 foo.Do()
-//foo.Dispose()
 
 class Foo : IDisposable {
     let x = 1
