@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -110,6 +111,8 @@ internal class MethodBodyGenerator
                     }
                 }
 
+                var topLevelDisposables = ImmutableArray.CreateBuilder<ILocalSymbol>();
+
                 foreach (var usingDeclStmt in syntax.DescendantNodes()
                     .OfType<UsingDeclarationStatementSyntax>())
                 {
@@ -124,6 +127,9 @@ internal class MethodBodyGenerator
                         builder.SetLocalSymInfo(localSymbol.Name);
 
                         scope.AddLocal(localSymbol, builder);
+
+                        if (usingDeclStmt.Parent is GlobalStatementSyntax)
+                            topLevelDisposables.Add(localSymbol);
                     }
                 }
 
@@ -139,7 +145,7 @@ internal class MethodBodyGenerator
 
                 var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
                     .Select(x => x.Statement);
-                EmitIL(statements);
+                EmitIL(statements, topLevelDisposables.ToImmutable());
                 break;
 
             case FunctionStatementSyntax functionStatement:
@@ -480,23 +486,34 @@ internal class MethodBodyGenerator
         }
     }
 
-    private void EmitIL(IEnumerable<StatementSyntax> statements, bool withReturn = true)
+    private void EmitIL(IEnumerable<StatementSyntax> statements, ImmutableArray<ILocalSymbol> localsToDispose, bool withReturn = true)
     {
-        if (!statements.Any())
+        var statementArray = statements as StatementSyntax[] ?? statements.ToArray();
+
+        if (statementArray.Length == 0)
         {
             ILGenerator.Emit(OpCodes.Nop);
             ILGenerator.Emit(OpCodes.Ret);
             return;
         }
 
-        var semanticModel = Compilation.GetSemanticModel(statements.First().SyntaxTree);
+        var executionScope = localsToDispose.IsDefaultOrEmpty
+            ? scope
+            : new Scope(scope, localsToDispose);
 
-        foreach (var statement in statements.ToArray())
+        var semanticModel = Compilation.GetSemanticModel(statementArray.First().SyntaxTree);
+
+        foreach (var statement in statementArray)
         {
             var boundNode = semanticModel.GetBoundNode(statement) as BoundStatement;
 
-            EmitStatement(boundNode);
+            if (boundNode is null)
+                continue;
+
+            new StatementGenerator(executionScope, boundNode).Emit();
         }
+
+        executionScope.EmitDispose(localsToDispose);
 
         if (withReturn)
         {
