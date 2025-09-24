@@ -112,6 +112,7 @@ partial class BlockBinder : Binder
 
         ITypeSymbol type = Compilation.ErrorTypeSymbol;
         BoundExpression? boundInitializer = null;
+        ITypeSymbol? initializerValueType = null;
 
         var initializer = variableDeclarator.Initializer;
         var typeLocation = variableDeclarator.TypeAnnotation?.Type.GetLocation()
@@ -124,6 +125,7 @@ partial class BlockBinder : Binder
             // `return` keywords trigger diagnostics rather than method return
             // validation.
             boundInitializer = BindExpression(initializer.Value, allowReturn: false);
+            initializerValueType = boundInitializer?.Type;
         }
 
         if (initializer is null)
@@ -186,16 +188,31 @@ partial class BlockBinder : Binder
         if (initializer is not null && boundInitializer is not null)
             CacheBoundNode(initializer.Value, boundInitializer);
 
-        if (isUsingDeclaration && type.TypeKind != TypeKind.Error)
+        if (isUsingDeclaration)
         {
             var disposableType = Compilation.GetSpecialType(SpecialType.System_IDisposable);
-            if (disposableType.TypeKind != TypeKind.Error && !IsAssignable(disposableType, type, out _))
+            if (disposableType.TypeKind != TypeKind.Error)
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
-                    type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    disposableType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    variableDeclarator.Identifier.GetLocation());
-                shouldDispose = false;
+                var initializerSupportsDispose = initializerValueType is not null &&
+                    initializerValueType.TypeKind != TypeKind.Error &&
+                    IsAssignable(disposableType, initializerValueType, out _);
+
+                if (!initializerSupportsDispose && initializerValueType is not null && initializerValueType.TypeKind != TypeKind.Error)
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        initializerValueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        disposableType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        initializer?.Value.GetLocation() ?? variableDeclarator.Identifier.GetLocation());
+                    shouldDispose = false;
+                }
+                else if (type.TypeKind != TypeKind.Error && !IsAssignable(disposableType, type, out _))
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        disposableType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        variableDeclarator.Identifier.GetLocation());
+                    shouldDispose = false;
+                }
             }
         }
 
