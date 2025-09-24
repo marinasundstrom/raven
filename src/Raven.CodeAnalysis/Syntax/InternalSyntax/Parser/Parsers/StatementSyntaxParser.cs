@@ -32,10 +32,11 @@ internal class StatementSyntaxParser : SyntaxParser
             case SyntaxKind.IfKeyword:
                 statement = ParseIfStatementSyntax();
                 break;
-                
+
             case SyntaxKind.UsingKeyword:
                 statement = ParseUsingDeclarationStatementSyntax();
-                
+                break;
+
             case SyntaxKind.TryKeyword:
                 statement = ParseTryStatementSyntax();
                 break;
