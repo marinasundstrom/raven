@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -40,6 +44,84 @@ internal abstract class Generator
     public virtual LocalBuilder? GetLocal(ILocalSymbol localSymbol)
     {
         return Parent?.GetLocal(localSymbol);
+    }
+
+    public virtual IEnumerable<ILocalSymbol> EnumerateLocalsToDispose()
+    {
+        return Parent?.EnumerateLocalsToDispose() ?? Enumerable.Empty<ILocalSymbol>();
+    }
+
+    public void EmitDispose(ImmutableArray<ILocalSymbol> locals)
+    {
+        if (locals.IsDefaultOrEmpty || locals.Length == 0)
+            return;
+
+        var disposableType = Compilation.GetSpecialType(SpecialType.System_IDisposable);
+        if (disposableType.TypeKind == TypeKind.Error)
+            return;
+
+        var disposableClr = ResolveClrType(disposableType);
+        var disposeMethod = disposableClr.GetMethod(nameof(IDisposable.Dispose), Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing IDisposable.Dispose method.");
+
+        for (int i = locals.Length - 1; i >= 0; i--)
+        {
+            EmitDispose(locals[i], disposableClr, disposeMethod);
+        }
+    }
+
+    private void EmitDispose(ILocalSymbol local, Type disposableClr, MethodInfo disposeMethod)
+    {
+        if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
+            return;
+
+        var localBuilder = GetLocal(local);
+        if (localBuilder is null)
+            return;
+
+        if (MethodBodyGenerator.IsCapturedLocal(local))
+        {
+            var valueField = MethodBodyGenerator.GetStrongBoxValueField(localBuilder.LocalType);
+
+            if (local.Type.IsReferenceType || local.Type.TypeKind == TypeKind.Null)
+            {
+                var skipLabel = ILGenerator.DefineLabel();
+                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                ILGenerator.Emit(OpCodes.Ldfld, valueField);
+                ILGenerator.Emit(OpCodes.Brfalse_S, skipLabel);
+                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                ILGenerator.Emit(OpCodes.Ldfld, valueField);
+                ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
+                ILGenerator.MarkLabel(skipLabel);
+            }
+            else
+            {
+                var clrType = ResolveClrType(local.Type);
+                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+                ILGenerator.Emit(OpCodes.Ldflda, valueField);
+                ILGenerator.Emit(OpCodes.Constrained, clrType);
+                ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
+            }
+
+            return;
+        }
+
+        if (local.Type.IsReferenceType || local.Type.TypeKind == TypeKind.Null)
+        {
+            var skipLabel = ILGenerator.DefineLabel();
+            ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+            ILGenerator.Emit(OpCodes.Brfalse_S, skipLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
+            ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
+            ILGenerator.MarkLabel(skipLabel);
+        }
+        else
+        {
+            var clrType = ResolveClrType(local.Type);
+            ILGenerator.Emit(OpCodes.Ldloca, localBuilder);
+            ILGenerator.Emit(OpCodes.Constrained, clrType);
+            ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
+        }
     }
 
     protected BoundNode GetBoundNode(SyntaxNode syntaxNode)
