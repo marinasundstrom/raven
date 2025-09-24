@@ -4,7 +4,9 @@ let foo = Foo()
 foo.Dispose()
 
 class Foo : IDisposable {
+    let x = 1
+    
     public init() => Console.WriteLine("Init")
 
-    public Dispose() -> unit => Console.WriteLine("Dispose")
+    public Dispose() -> unit => Console.WriteLine("Dispose ${x}")
 }
