@@ -1,12 +1,15 @@
 import System.*
 
-let foo = Foo()
-foo.Dispose()
+using let foo = Foo()
+foo.Do()
+//foo.Dispose()
 
 class Foo : IDisposable {
     let x = 1
     
     public init() => Console.WriteLine("Init")
+
+    public Do() => Console.WriteLine("Do")
 
     public Dispose() -> unit => Console.WriteLine("Dispose ${x}")
 }
