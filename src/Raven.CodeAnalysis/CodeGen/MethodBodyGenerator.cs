@@ -110,6 +110,23 @@ internal class MethodBodyGenerator
                     }
                 }
 
+                foreach (var usingDeclStmt in syntax.DescendantNodes()
+                    .OfType<UsingDeclarationStatementSyntax>())
+                {
+                    foreach (var localDeclarator in usingDeclStmt.Declaration.Declarators)
+                    {
+                        var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
+                        if (localSymbol?.Type is null)
+                            continue;
+
+                        var clrType = ResolveClrType(localSymbol.Type);
+                        var builder = ILGenerator.DeclareLocal(clrType);
+                        builder.SetLocalSymInfo(localSymbol.Name);
+
+                        scope.AddLocal(localSymbol, builder);
+                    }
+                }
+
                 foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<FunctionStatementSyntax>())
                 {
                     var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
