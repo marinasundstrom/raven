@@ -894,6 +894,10 @@ public class Compilation
         {
             return GetTypeByMetadataName("System.Delegate");
         }
+        else if (specialType is SpecialType.System_IDisposable)
+        {
+            return GetTypeByMetadataName("System.IDisposable");
+        }
         else if (specialType is SpecialType.System_IntPtr)
         {
             return GetTypeByMetadataName("System.IntPtr");
