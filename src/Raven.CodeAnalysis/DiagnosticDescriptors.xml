@@ -186,6 +186,14 @@
     Title="Console application requires entry point"
     Message="Program.Main entry point not found" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1015" Identifier="TryStatementRequiresCatchOrFinally"
+    Title="try statement requires catch or finally"
+    Message="A try statement must include at least one catch clause or a finally clause"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1016" Identifier="CatchTypeMustDeriveFromSystemException"
+    Title="Catch type must derive from System.Exception"
+    Message="Type '{typeName}' is not derived from System.Exception"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1501" Identifier="NoOverloadForMethod"
     Title="No overload for method taking argument"
     Message="No overload for method '{method}' takes {count} arguments" Category="compiler"

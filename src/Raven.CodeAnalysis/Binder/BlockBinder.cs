@@ -312,6 +312,7 @@ partial class BlockBinder : Binder
             AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
+            TryStatementSyntax tryStmt => BindTryStatement(tryStmt),
             FunctionStatementSyntax function => BindFunction(function),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
@@ -345,6 +346,67 @@ partial class BlockBinder : Binder
         if (ifStmt.ElseStatement is not null)
             elseBound = BindStatement(ifStmt.ElseStatement);
         return new BoundIfStatement(condition, thenBound, elseBound);
+    }
+
+    private BoundStatement BindTryStatement(TryStatementSyntax tryStmt)
+    {
+        var tryBlock = BindBlockStatement(tryStmt.Block);
+
+        var catchBuilder = ImmutableArray.CreateBuilder<BoundCatchClause>();
+        foreach (var catchClause in tryStmt.CatchClauses)
+        {
+            catchBuilder.Add(BindCatchClause(catchClause));
+        }
+
+        BoundBlockStatement? finallyBlock = null;
+        if (tryStmt.FinallyClause is { } finallyClause)
+            finallyBlock = BindBlockStatement(finallyClause.Block);
+
+        if (catchBuilder.Count == 0 && finallyBlock is null)
+            return tryBlock;
+
+        return new BoundTryStatement(tryBlock, catchBuilder.ToImmutable(), finallyBlock);
+    }
+
+    private BoundCatchClause BindCatchClause(CatchClauseSyntax catchClause)
+    {
+        var exceptionBase = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
+        var exceptionType = exceptionBase;
+
+        SourceLocalSymbol? localSymbol = null;
+
+        if (catchClause.Declaration is { } declaration)
+        {
+            var declaredType = ResolveType(declaration.Type);
+            exceptionType = declaredType;
+
+            if (exceptionBase.TypeKind != TypeKind.Error &&
+                declaredType.TypeKind != TypeKind.Error &&
+                !IsAssignable(exceptionBase, declaredType, out _))
+            {
+                _diagnostics.ReportCatchTypeMustDeriveFromSystemException(
+                    declaredType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    declaration.Type.GetLocation());
+            }
+
+            if (declaration.Identifier is { } identifier &&
+                !identifier.IsMissing &&
+                identifier.Kind == SyntaxKind.IdentifierToken)
+            {
+                var name = identifier.Text;
+
+                if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+                    _diagnostics.ReportVariableShadowsOuterScope(name, identifier.GetLocation());
+
+                _scopeDepth++;
+                localSymbol = CreateLocalSymbol(declaration, name, isMutable: false, declaredType);
+                _scopeDepth--;
+            }
+        }
+
+        var block = BindBlockStatement(catchClause.Block);
+
+        return new BoundCatchClause(exceptionType, localSymbol, block);
     }
 
     private BoundStatement ExpressionToStatement(BoundExpression expression)

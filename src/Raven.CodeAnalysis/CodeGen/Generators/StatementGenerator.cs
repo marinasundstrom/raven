@@ -50,6 +50,10 @@ internal class StatementGenerator : Generator
                 EmitForStatement(forStatement);
                 break;
 
+            case BoundTryStatement tryStatement:
+                EmitTryStatement(tryStatement);
+                break;
+
             case BoundBlockStatement blockStatement:
                 EmitBlockStatement(blockStatement);
                 break;
@@ -248,6 +252,51 @@ internal class StatementGenerator : Generator
             ILGenerator.Emit(OpCodes.Br_S, beginLabel);
             ILGenerator.MarkLabel(endLabel);
         }
+    }
+
+    private void EmitTryStatement(BoundTryStatement tryStatement)
+    {
+        ILGenerator.BeginExceptionBlock();
+
+        var tryScope = new Scope(this);
+        new StatementGenerator(tryScope, tryStatement.TryBlock).Emit();
+
+        foreach (var catchClause in tryStatement.CatchClauses)
+        {
+            var catchType = catchClause.ExceptionType;
+            if (catchType.TypeKind == TypeKind.Error)
+                catchType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+            ILGenerator.BeginCatchBlock(ResolveClrType(catchType));
+
+            var catchScope = new Scope(this);
+
+            if (catchClause.Local is { } localSymbol)
+            {
+                var localType = localSymbol.Type;
+                if (localType.TypeKind == TypeKind.Error)
+                    localType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+                var localBuilder = ILGenerator.DeclareLocal(ResolveClrType(localType));
+                catchScope.AddLocal(localSymbol, localBuilder);
+                ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+            }
+            else
+            {
+                ILGenerator.Emit(OpCodes.Pop);
+            }
+
+            new StatementGenerator(catchScope, catchClause.Block).Emit();
+        }
+
+        if (tryStatement.FinallyBlock is { } finallyBlock)
+        {
+            ILGenerator.BeginFinallyBlock();
+            var finallyScope = new Scope(this);
+            new StatementGenerator(finallyScope, finallyBlock).Emit();
+        }
+
+        ILGenerator.EndExceptionBlock();
     }
 
     private void EmitBlockStatement(BoundBlockStatement blockStatement)

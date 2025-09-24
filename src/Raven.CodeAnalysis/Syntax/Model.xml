@@ -119,6 +119,13 @@
     <Slot Name="Declaration" Type="VariableDeclaration" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
+  <Node Name="TryStatement" Inherits="Statement">
+    <Slot Name="TryKeyword" Type="Token" />
+    <Slot Name="Block" Type="BlockStatement" />
+    <Slot Name="CatchClauses" Type="List" ElementType="CatchClause" />
+    <Slot Name="FinallyClause" Type="FinallyClause" IsNullable="true" />
+    <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
   <Node Name="LocalDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="VariableDeclaration" />
     <Slot Name="TerminatorToken" Type="Token" />
@@ -191,6 +198,21 @@
     <Slot Name="ReturnKeyword" Type="Token" />
     <Slot Name="Expression" Type="Expression" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
+  <Node Name="CatchClause" Inherits="Node">
+    <Slot Name="CatchKeyword" Type="Token" />
+    <Slot Name="Declaration" Type="CatchDeclaration" IsNullable="true" />
+    <Slot Name="Block" Type="BlockStatement" />
+  </Node>
+  <Node Name="CatchDeclaration" Inherits="Node">
+    <Slot Name="OpenParenToken" Type="Token" />
+    <Slot Name="Type" Type="Type" />
+    <Slot Name="Identifier" Type="Token" IsNullable="true" />
+    <Slot Name="CloseParenToken" Type="Token" />
+  </Node>
+  <Node Name="FinallyClause" Inherits="Node">
+    <Slot Name="FinallyKeyword" Type="Token" />
+    <Slot Name="Block" Type="BlockStatement" />
   </Node>
   <Node Name="CompilationUnit" Inherits="Node">
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" />

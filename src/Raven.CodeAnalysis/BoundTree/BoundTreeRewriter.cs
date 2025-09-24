@@ -45,6 +45,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundLocalDeclarationStatement localDecl => (BoundStatement)VisitLocalDeclarationStatement(localDecl)!,
             BoundFunctionStatement func => (BoundStatement)VisitFunctionStatement(func)!,
             BoundIfStatement ifStmt => (BoundStatement)VisitIfStatement(ifStmt)!,
+            BoundTryStatement tryStmt => (BoundStatement)VisitTryStatement(tryStmt)!,
             BoundWhileStatement whileStmt => (BoundStatement)VisitWhileStatement(whileStmt)!,
             BoundForStatement forStmt => (BoundStatement)VisitForStatement(forStmt)!,
             BoundBlockStatement blockStmt => (BoundStatement)VisitBlockStatement(blockStmt)!,

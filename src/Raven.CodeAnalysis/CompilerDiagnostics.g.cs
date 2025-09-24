@@ -57,6 +57,8 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _fileScopedCodeRequiresConsole;
     private static DiagnosticDescriptor? _fileScopedCodeMultipleFiles;
     private static DiagnosticDescriptor? _consoleApplicationRequiresEntryPoint;
+    private static DiagnosticDescriptor? _tryStatementRequiresCatchOrFinally;
+    private static DiagnosticDescriptor? _catchTypeMustDeriveFromSystemException;
     private static DiagnosticDescriptor? _noOverloadForMethod;
     private static DiagnosticDescriptor? _cannotConvertFromTypeToType;
     private static DiagnosticDescriptor? _cannotAssignFromTypeToType;
@@ -743,6 +745,32 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV1015: A try statement must include at least one catch clause or a finally clause
+    /// </summary>
+    public static DiagnosticDescriptor TryStatementRequiresCatchOrFinally => _tryStatementRequiresCatchOrFinally ??= DiagnosticDescriptor.Create(
+        id: "RAV1015",
+        title: "try statement requires catch or finally",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "A try statement must include at least one catch clause or a finally clause",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV1016: Type '{0}' is not derived from System.Exception
+    /// </summary>
+    public static DiagnosticDescriptor CatchTypeMustDeriveFromSystemException => _catchTypeMustDeriveFromSystemException ??= DiagnosticDescriptor.Create(
+        id: "RAV1016",
+        title: "Catch type must derive from System.Exception",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Type '{0}' is not derived from System.Exception",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV1501: No overload for method '{0}' takes {1} arguments
     /// </summary>
     public static DiagnosticDescriptor NoOverloadForMethod => _noOverloadForMethod ??= DiagnosticDescriptor.Create(
@@ -1068,6 +1096,8 @@ internal static partial class CompilerDiagnostics
         FileScopedCodeRequiresConsole,
         FileScopedCodeMultipleFiles,
         ConsoleApplicationRequiresEntryPoint,
+        TryStatementRequiresCatchOrFinally,
+        CatchTypeMustDeriveFromSystemException,
         NoOverloadForMethod,
         CannotConvertFromTypeToType,
         CannotAssignFromTypeToType,
@@ -1144,6 +1174,8 @@ internal static partial class CompilerDiagnostics
         "RAV1012" => FileScopedCodeRequiresConsole,
         "RAV1013" => FileScopedCodeMultipleFiles,
         "RAV1014" => ConsoleApplicationRequiresEntryPoint,
+        "RAV1015" => TryStatementRequiresCatchOrFinally,
+        "RAV1016" => CatchTypeMustDeriveFromSystemException,
         "RAV1501" => NoOverloadForMethod,
         "RAV1503" => CannotConvertFromTypeToType,
         "RAV1504" => CannotAssignFromTypeToType,

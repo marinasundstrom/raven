@@ -32,9 +32,12 @@ internal class StatementSyntaxParser : SyntaxParser
             case SyntaxKind.IfKeyword:
                 statement = ParseIfStatementSyntax();
                 break;
-
+                
             case SyntaxKind.UsingKeyword:
                 statement = ParseUsingDeclarationStatementSyntax();
+                
+            case SyntaxKind.TryKeyword:
+                statement = ParseTryStatementSyntax();
                 break;
 
             case SyntaxKind.OpenBraceToken:
@@ -75,6 +78,79 @@ internal class StatementSyntaxParser : SyntaxParser
         TryConsumeTerminator(out var terminatorToken);
 
         return IfStatement(ifKeyword, condition!, thenStatement!, elseKeyword, elseStatement, terminatorToken);
+    }
+
+    private TryStatementSyntax ParseTryStatementSyntax()
+    {
+        var tryKeyword = ReadToken();
+
+        var block = ParseBlockStatementSyntax();
+
+        var catchClauses = new List<CatchClauseSyntax>();
+
+        while (IsNextToken(SyntaxKind.CatchKeyword, out _))
+        {
+            catchClauses.Add(ParseCatchClauseSyntax());
+        }
+
+        FinallyClauseSyntax? finallyClause = null;
+
+        if (IsNextToken(SyntaxKind.FinallyKeyword, out _))
+        {
+            finallyClause = ParseFinallyClauseSyntax();
+        }
+
+        if (catchClauses.Count == 0 && finallyClause is null)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.TryStatementRequiresCatchOrFinally,
+                GetSpanOfLastToken()));
+        }
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+
+        return TryStatement(
+            tryKeyword,
+            block,
+            List(catchClauses.ToArray()),
+            finallyClause,
+            terminatorToken,
+            Diagnostics);
+    }
+
+    private CatchClauseSyntax ParseCatchClauseSyntax()
+    {
+        var catchKeyword = ReadToken();
+
+        CatchDeclarationSyntax? declaration = null;
+
+        if (ConsumeToken(SyntaxKind.OpenParenToken, out var openParenToken))
+        {
+            var type = new NameSyntaxParser(this).ParseTypeName();
+
+            SyntaxToken? identifier = null;
+
+            if (CanTokenBeIdentifier(PeekToken()))
+            {
+                identifier = ReadIdentifierToken();
+            }
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+            declaration = CatchDeclaration(openParenToken, type!, identifier, closeParenToken);
+        }
+
+        var block = ParseBlockStatementSyntax();
+
+        return CatchClause(catchKeyword, declaration, block);
+    }
+
+    private FinallyClauseSyntax ParseFinallyClauseSyntax()
+    {
+        var finallyKeyword = ReadToken();
+        var block = ParseBlockStatementSyntax();
+        return FinallyClause(finallyKeyword, block);
     }
 
     private StatementSyntax? ParseFunctionSyntax()
