@@ -41,6 +41,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _explicitInterfaceMemberNotFound;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
+    private static DiagnosticDescriptor? _symbolIsInaccessible;
     private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
     private static DiagnosticDescriptor? _expressionExpected;
     private static DiagnosticDescriptor? _identifierExpected;
@@ -529,6 +530,19 @@ internal static partial class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "The type name '{0}' does not exist in the type '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0500: The {0} '{1}' is inaccessible due to its protection level
+    /// </summary>
+    public static DiagnosticDescriptor SymbolIsInaccessible => _symbolIsInaccessible ??= DiagnosticDescriptor.Create(
+        id: "RAV0500",
+        title: "Symbol is inaccessible",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The {0} '{1}' is inaccessible due to its protection level",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -1038,6 +1052,7 @@ internal static partial class CompilerDiagnostics
         ExplicitInterfaceMemberNotFound,
         NullableTypeInUnion,
         TypeNameDoesNotExistInType,
+        SymbolIsInaccessible,
         CannotAssignVoidToAnImplicitlyTypedVariable,
         ExpressionExpected,
         IdentifierExpected,
@@ -1113,6 +1128,7 @@ internal static partial class CompilerDiagnostics
         "RAV0315" => ExplicitInterfaceMemberNotFound,
         "RAV0400" => NullableTypeInUnion,
         "RAV0426" => TypeNameDoesNotExistInType,
+        "RAV0500" => SymbolIsInaccessible,
         "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,
         "RAV1000" => ExpressionExpected,
         "RAV1001" => IdentifierExpected,
