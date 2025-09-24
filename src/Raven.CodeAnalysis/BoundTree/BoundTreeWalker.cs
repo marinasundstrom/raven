@@ -136,6 +136,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundForStatement forStmt:
                 VisitForStatement(forStmt);
                 break;
+            case BoundTryStatement tryStmt:
+                VisitTryStatement(tryStmt);
+                break;
             case BoundBlockStatement blockStmt:
                 VisitBlockStatement(blockStmt);
                 break;
@@ -224,6 +227,22 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         VisitExpression(node.Collection);
         VisitStatement(node.Body);
+    }
+
+    public virtual void VisitTryStatement(BoundTryStatement node)
+    {
+        VisitBlockStatement(node.TryBlock);
+
+        foreach (var catchClause in node.CatchClauses)
+            VisitCatchClause(catchClause);
+
+        if (node.FinallyBlock is not null)
+            VisitBlockStatement(node.FinallyBlock);
+    }
+
+    public virtual void VisitCatchClause(BoundCatchClause node)
+    {
+        VisitBlockStatement(node.Block);
     }
 
     public virtual void VisitBlockStatement(BoundBlockStatement node)

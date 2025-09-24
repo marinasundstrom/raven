@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
@@ -283,5 +284,24 @@ public class ParserNewlineTests
 
         Assert.Equal(SyntaxKind.None, token.Kind);
         Assert.Equal(SyntaxKind.EndOfFileToken, context.PeekToken().Kind);
+    }
+
+    [Fact]
+    public void TryStatement_WithCatchAndFinally_ParsesClauses()
+    {
+        var source = "try { } catch (Exception ex) { } finally { }";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (TryStatementSyntax)parser.ParseStatement().CreateRed();
+
+        Assert.Equal(SyntaxKind.TryStatement, statement.Kind);
+        Assert.Single(statement.CatchClauses);
+
+        var catchClause = statement.CatchClauses[0];
+        Assert.NotNull(catchClause.Declaration);
+        Assert.Equal("ex", catchClause.Declaration!.Identifier?.Text);
+        Assert.NotNull(statement.FinallyClause);
     }
 }

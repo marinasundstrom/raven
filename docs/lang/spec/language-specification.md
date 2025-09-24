@@ -182,6 +182,24 @@ func log(msg: string) {
 }
 ```
 
+### Try statements
+
+`try` statements provide structured exception handling. A `try` statement wraps a block and must include at least one `catch` clause or a `finally` clause. Omitting both results in diagnostic `RAV1015`.
+
+```
+try {
+    operation()
+} catch (FormatException ex) {
+    Console.WriteLine($"Bad input: {ex.Message}")
+} finally {
+    cleanup()
+}
+```
+
+Each `catch` may declare an exception type and optional identifier using `catch (Type name)`. The declared type must be or derive from `System.Exception`; otherwise the compiler reports `RAV1016`. When the identifier is omitted, the exception value is still available for pattern-based filtering but is not bound to a local. A bare `catch` with no parentheses is equivalent to `catch (System.Exception)` and handles all exceptions of that type.
+
+The optional `finally` clause executes regardless of whether the `try` block or any `catch` clause complete normally.
+
 ## Expressions
 
 ### Target typing
