@@ -58,7 +58,7 @@ internal class MethodGenerator
         var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation
             || !MethodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty;
 
-        MethodAttributes attributes = MethodAttributes.HideBySig;
+        MethodAttributes attributes = MethodAttributes.HideBySig | GetMethodAccessibilityAttributes(MethodSymbol);
 
         if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet)
             attributes |= MethodAttributes.SpecialName;
@@ -68,11 +68,10 @@ internal class MethodGenerator
 
         if (isExplicitInterfaceImplementation)
         {
-            attributes |= MethodAttributes.Private | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
+            attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
         }
         else if (isInterfaceMethod && !MethodSymbol.IsStatic)
         {
-            attributes |= MethodAttributes.Public;
             attributes |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
 
             if (!hasInterfaceBody)
@@ -80,8 +79,6 @@ internal class MethodGenerator
         }
         else
         {
-            attributes |= MethodAttributes.Public;
-
             if (TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
             {
                 attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
@@ -185,6 +182,20 @@ internal class MethodGenerator
         {
             IsEntryPointCandidate = true;
         }
+    }
+
+    private static MethodAttributes GetMethodAccessibilityAttributes(IMethodSymbol methodSymbol)
+    {
+        return methodSymbol.DeclaredAccessibility switch
+        {
+            Accessibility.Public => MethodAttributes.Public,
+            Accessibility.Private => MethodAttributes.Private,
+            Accessibility.Internal => MethodAttributes.Assembly,
+            Accessibility.ProtectedAndProtected => MethodAttributes.Family,
+            Accessibility.ProtectedOrInternal => MethodAttributes.FamORAssem,
+            Accessibility.ProtectedAndInternal => MethodAttributes.FamANDAssem,
+            _ => MethodAttributes.Private
+        };
     }
 
     private CustomAttributeBuilder CreateUnionTypeAttribute(ITypeSymbol type)

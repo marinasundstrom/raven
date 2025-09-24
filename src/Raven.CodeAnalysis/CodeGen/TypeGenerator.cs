@@ -41,19 +41,21 @@ internal class TypeGenerator
         {
             if (named.TypeKind == TypeKind.Delegate)
             {
+                var accessibilityAttributes = GetTypeAccessibilityAttributes(named);
                 TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                     named.MetadataName,
-                    TypeAttributes.Class | TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.AutoClass | TypeAttributes.AnsiClass,
+                    accessibilityAttributes | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.AutoClass | TypeAttributes.AnsiClass,
                     ResolveClrType(named.BaseType));
                 return;
             }
 
             if (named.TypeKind == TypeKind.Interface)
             {
-                typeAttributes |= TypeAttributes.Interface | TypeAttributes.Abstract;
+                typeAttributes = GetTypeAccessibilityAttributes(named) | TypeAttributes.Interface | TypeAttributes.Abstract;
             }
             else
             {
+                typeAttributes = GetTypeAccessibilityAttributes(named);
                 if (named.IsAbstract)
                     typeAttributes |= TypeAttributes.Abstract;
 
@@ -64,9 +66,10 @@ internal class TypeGenerator
 
         if (TypeSymbol.BaseType.Name == "Enum")
         {
+            var accessibilityAttributes = GetTypeAccessibilityAttributes((INamedTypeSymbol)TypeSymbol);
             TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                 TypeSymbol.MetadataName,
-                TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Serializable,
+                accessibilityAttributes | TypeAttributes.Sealed | TypeAttributes.Serializable,
                 ResolveClrType(TypeSymbol.BaseType) // bör vara System.Enum
             );
 
@@ -103,12 +106,55 @@ internal class TypeGenerator
                 typeAttributes,
                 ResolveClrType(TypeSymbol.BaseType));
 
-            if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
-            {
-                foreach (var iface in nt2.Interfaces)
-                    TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
-            }
         }
+
+        if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
+        {
+            foreach (var iface in nt2.Interfaces)
+                TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
+        }
+    }
+
+    private static TypeAttributes GetTypeAccessibilityAttributes(INamedTypeSymbol typeSymbol)
+    {
+        if (typeSymbol.ContainingType is null)
+        {
+            return typeSymbol.DeclaredAccessibility switch
+            {
+                Accessibility.Public => TypeAttributes.Public,
+                Accessibility.Internal => TypeAttributes.NotPublic,
+                Accessibility.Private => TypeAttributes.NotPublic,
+                Accessibility.ProtectedAndProtected => TypeAttributes.NotPublic,
+                Accessibility.ProtectedOrInternal => TypeAttributes.NotPublic,
+                Accessibility.ProtectedAndInternal => TypeAttributes.NotPublic,
+                _ => TypeAttributes.NotPublic
+            };
+        }
+
+        return typeSymbol.DeclaredAccessibility switch
+        {
+            Accessibility.Public => TypeAttributes.NestedPublic,
+            Accessibility.Private => TypeAttributes.NestedPrivate,
+            Accessibility.ProtectedAndProtected => TypeAttributes.NestedFamily,
+            Accessibility.Internal => TypeAttributes.NestedAssembly,
+            Accessibility.ProtectedOrInternal => TypeAttributes.NestedFamORAssem,
+            Accessibility.ProtectedAndInternal => TypeAttributes.NestedFamANDAssem,
+            _ => TypeAttributes.NestedPrivate
+        };
+    }
+
+    private static FieldAttributes GetFieldAccessibilityAttributes(IFieldSymbol fieldSymbol)
+    {
+        return fieldSymbol.DeclaredAccessibility switch
+        {
+            Accessibility.Public => FieldAttributes.Public,
+            Accessibility.Private => FieldAttributes.Private,
+            Accessibility.Internal => FieldAttributes.Assembly,
+            Accessibility.ProtectedAndProtected => FieldAttributes.Family,
+            Accessibility.ProtectedOrInternal => FieldAttributes.FamORAssem,
+            Accessibility.ProtectedAndInternal => FieldAttributes.FamANDAssem,
+            _ => FieldAttributes.Private
+        };
     }
 
     public void DefineMemberBuilders()
@@ -162,7 +208,7 @@ internal class TypeGenerator
                     {
                         var type = fieldSymbol.Type.Equals(TypeSymbol, SymbolEqualityComparer.Default) ? TypeBuilder : ResolveClrType(fieldSymbol.Type);
 
-                        FieldAttributes attr = FieldAttributes.Public;
+                        FieldAttributes attr = GetFieldAccessibilityAttributes(fieldSymbol);
 
                         if (fieldSymbol.IsLiteral)
                         {

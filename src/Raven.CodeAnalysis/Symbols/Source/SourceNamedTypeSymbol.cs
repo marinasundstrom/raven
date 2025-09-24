@@ -10,8 +10,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private ImmutableArray<INamedTypeSymbol> _interfaces = ImmutableArray<INamedTypeSymbol>.Empty;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
 
-    public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences)
-        : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+    public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, Accessibility declaredAccessibility = Accessibility.NotApplicable)
+        : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object");
 
@@ -30,8 +30,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         bool isSealed = false,
-        bool isAbstract = false)
-    : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+        bool isAbstract = false,
+        Accessibility declaredAccessibility = Accessibility.NotApplicable)
+    : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         BaseType = baseType;
 

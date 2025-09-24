@@ -33,7 +33,8 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                     [classSyntax.GetLocation()],
                     [classSyntax.GetReference()],
                     isStatic: false,
-                    methodKind: MethodKind.Constructor);
+                    methodKind: MethodKind.Constructor,
+                    declaredAccessibility: Accessibility.Public);
             }
 
             bool hasStaticCtor = named.GetMembers()
@@ -58,7 +59,8 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
                         [classSyntax.GetLocation()],
                         [classSyntax.GetReference()],
                         isStatic: true,
-                        methodKind: MethodKind.Constructor);
+                        methodKind: MethodKind.Constructor,
+                        declaredAccessibility: Accessibility.Private);
                 }
             }
         }

@@ -46,7 +46,8 @@ class FunctionBinder : Binder
             container.ContainingNamespace,
             [_syntax.GetLocation()],
             [_syntax.GetReference()],
-            isStatic: true);
+            isStatic: true,
+            declaredAccessibility: Accessibility.Internal);
 
         var parameters = _syntax.ParameterList.Parameters
             .Select(p =>

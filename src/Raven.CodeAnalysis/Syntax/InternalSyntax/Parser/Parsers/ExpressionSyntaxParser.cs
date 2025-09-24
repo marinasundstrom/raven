@@ -320,9 +320,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var parameterList = new StatementSyntaxParser(this).ParseParameterList();
 
-        var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+        var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation()
+            ?? ArrowTypeClause(
+                MissingToken(SyntaxKind.ArrowToken),
+                IdentifierName(MissingToken(SyntaxKind.IdentifierToken)));
 
-        ConsumeTokenOrMissing(SyntaxKind.ArrowToken, out var fatArrowToken);
+        ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 

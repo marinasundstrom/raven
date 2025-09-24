@@ -61,7 +61,8 @@ internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol
             s_emptyLocations,
             s_emptySyntax,
             isStatic: false,
-            methodKind: MethodKind.Constructor);
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: Accessibility.Public);
 
         var parameters = new List<SourceParameterSymbol>
         {
@@ -104,7 +105,8 @@ internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol
             s_emptySyntax,
             isStatic: false,
             methodKind: MethodKind.Ordinary,
-            isVirtual: true);
+            isVirtual: true,
+            declaredAccessibility: Accessibility.Public);
 
         if (!parameterTypes.IsDefaultOrEmpty)
         {

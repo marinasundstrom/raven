@@ -22,8 +22,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         MethodKind methodKind = MethodKind.Ordinary,
         bool isVirtual = false,
         bool isOverride = false,
-        bool isSealed = false)
-            : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+        bool isSealed = false,
+        Accessibility declaredAccessibility = Accessibility.NotApplicable)
+            : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         ReturnType = returnType;
         _parameters = parameters;

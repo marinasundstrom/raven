@@ -104,6 +104,9 @@ internal class TypeMemberBinder : Binder
     public void BindFieldDeclaration(FieldDeclarationSyntax fieldDecl)
     {
         var isStatic = fieldDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(
+            fieldDecl.Modifiers,
+            AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType));
 
         foreach (var decl in fieldDecl.Declaration.Declarators)
         {
@@ -132,7 +135,8 @@ internal class TypeMemberBinder : Binder
                 CurrentNamespace!.AsSourceNamespace(),
                 [decl.GetLocation()],
                 [decl.GetReference()],
-                initializer
+                initializer,
+                declaredAccessibility: fieldAccessibility
             );
         }
     }
@@ -215,6 +219,8 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+        var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
 
         if (explicitInterfaceType is not null)
         {
@@ -222,6 +228,7 @@ internal class TypeMemberBinder : Binder
             isVirtual = false;
             isOverride = false;
             isSealed = false;
+            methodAccessibility = Accessibility.Private;
         }
 
         if (isSealed && !isOverride)
@@ -290,7 +297,8 @@ internal class TypeMemberBinder : Binder
             methodKind: methodKind,
             isVirtual: isVirtual,
             isOverride: isOverride,
-            isSealed: isSealed);
+            isSealed: isSealed,
+            declaredAccessibility: methodAccessibility);
 
         if (overriddenMethod is not null)
             methodSymbol.SetOverriddenMethod(overriddenMethod);
@@ -402,6 +410,10 @@ internal class TypeMemberBinder : Binder
     public MethodBinder BindConstructorDeclaration(ConstructorDeclarationSyntax ctorDecl)
     {
         var isStatic = ctorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+        var ctorAccessibility = AccessibilityUtilities.DetermineAccessibility(ctorDecl.Modifiers, defaultAccessibility);
+        if (isStatic)
+            ctorAccessibility = Accessibility.Private;
 
         var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
@@ -430,7 +442,8 @@ internal class TypeMemberBinder : Binder
             [ctorDecl.GetLocation()],
             [ctorDecl.GetReference()],
             isStatic: isStatic,
-            methodKind: MethodKind.Constructor);
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: ctorAccessibility);
 
         var parameters = new List<SourceParameterSymbol>();
         foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
@@ -477,6 +490,9 @@ internal class TypeMemberBinder : Binder
 
     public MethodBinder BindNamedConstructorDeclaration(NamedConstructorDeclarationSyntax ctorDecl)
     {
+        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+        var ctorAccessibility = AccessibilityUtilities.DetermineAccessibility(ctorDecl.Modifiers, defaultAccessibility);
+
         var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
         foreach (var p in ctorDecl.ParameterList.Parameters)
         {
@@ -504,7 +520,8 @@ internal class TypeMemberBinder : Binder
             [ctorDecl.GetLocation()],
             [ctorDecl.GetReference()],
             isStatic: true,
-            methodKind: MethodKind.NamedConstructor);
+            methodKind: MethodKind.NamedConstructor,
+            declaredAccessibility: ctorAccessibility);
 
         var parameters = new List<SourceParameterSymbol>();
         foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
@@ -577,6 +594,8 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+        var propertyAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = propertyDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(propertyDecl.Identifier, explicitInterfaceSpecifier);
         var propertyName = identifierToken.Text;
@@ -594,6 +613,7 @@ internal class TypeMemberBinder : Binder
                 var interfaceMetadataName = GetInterfaceMetadataName(interfaceType);
                 metadataName = $"{interfaceMetadataName}.{propertyName}";
                 explicitInterfaceMetadataName = interfaceMetadataName;
+                propertyAccessibility = Accessibility.Private;
 
                 if (!ImplementsInterface(interfaceType))
                 {
@@ -665,7 +685,8 @@ internal class TypeMemberBinder : Binder
             [propertyDecl.GetLocation()],
             [propertyDecl.GetReference()],
             isStatic: isStatic,
-            metadataName: metadataName);
+            metadataName: metadataName,
+            declaredAccessibility: propertyAccessibility);
 
         if (_containingType.TypeKind != TypeKind.Interface &&
             propertyDecl.AccessorList is { } accessorList &&
@@ -681,7 +702,8 @@ internal class TypeMemberBinder : Binder
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
                 [propertyDecl.GetLocation()],
-                [propertyDecl.GetReference()]);
+                [propertyDecl.GetReference()],
+                declaredAccessibility: Accessibility.Private);
 
             propertySymbol.SetBackingField(backingField);
         }
@@ -786,7 +808,8 @@ internal class TypeMemberBinder : Binder
                     methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
-                    isSealed: accessorSealed);
+                    isSealed: accessorSealed,
+                    declaredAccessibility: propertyAccessibility);
 
                 var parameters = new List<SourceParameterSymbol>();
                 if (!isGet)
@@ -851,6 +874,8 @@ internal class TypeMemberBinder : Binder
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
+        var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
+        var indexerAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
         var explicitInterfaceSpecifier = indexerDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(indexerDecl.Identifier, explicitInterfaceSpecifier);
 
@@ -885,6 +910,7 @@ internal class TypeMemberBinder : Binder
                 var interfaceMetadataName = GetInterfaceMetadataName(interfaceType);
                 metadataName = $"{interfaceMetadataName}.Item";
                 explicitInterfaceMetadataName = interfaceMetadataName;
+                indexerAccessibility = Accessibility.Private;
 
                 if (!ImplementsInterface(interfaceType))
                 {
@@ -957,7 +983,8 @@ internal class TypeMemberBinder : Binder
             [indexerDecl.GetReference()],
             isIndexer: true,
             isStatic: isStatic,
-            metadataName: metadataName);
+            metadataName: metadataName,
+            declaredAccessibility: indexerAccessibility);
 
         var binders = new Dictionary<AccessorDeclarationSyntax, MethodBinder>();
 
@@ -1059,7 +1086,8 @@ internal class TypeMemberBinder : Binder
                     methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
-                    isSealed: accessorSealed);
+                    isSealed: accessorSealed,
+                    declaredAccessibility: indexerAccessibility);
 
                 var parameters = new List<SourceParameterSymbol>();
                 foreach (var param in indexerParameters)

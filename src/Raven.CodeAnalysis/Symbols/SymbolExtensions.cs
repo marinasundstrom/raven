@@ -50,7 +50,7 @@ public static partial class SymbolExtensions
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
         {
             var fullName = typeSymbol.ToFullyQualifiedMetadataName(); // e.g. "System.Int32"
-            if (s_specialTypeNames.TryGetValue(fullName, out var keyword))
+            if (fullName is not null && s_specialTypeNames.TryGetValue(fullName, out var keyword))
                 return keyword;
         }
 

@@ -4,7 +4,7 @@ sealed partial class SynthesizedProgramClassSymbol : SourceNamedTypeSymbol, ITyp
 {
 
     public SynthesizedProgramClassSymbol(Compilation compilation, INamespaceSymbol @namespace, Location[] location, SyntaxReference[] syntaxReferences)
-        : base("Program", @namespace, null, @namespace, location, syntaxReferences)
+        : base("Program", @namespace, null, @namespace, location, syntaxReferences, declaredAccessibility: Accessibility.Internal)
     {
 
     }

@@ -50,6 +50,11 @@ public static class TypeSymbolExtensions
         if (typeSymbol is INamedTypeSymbol namedTypeSymbol)
         {
             var metadataName = namedTypeSymbol.ToFullyQualifiedMetadataName();
+
+            var runtimeType = Type.GetType(metadataName, throwOnError: false);
+            if (runtimeType is not null)
+                return runtimeType;
+
             var metadataType = compilation.CoreAssembly.GetType(metadataName, throwOnError: false);
 
             if (metadataType is not null)

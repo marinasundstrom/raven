@@ -313,7 +313,8 @@ internal class MethodBodyGenerator
 
     internal static FieldInfo GetStrongBoxValueField(Type strongBoxType)
     {
-        return strongBoxType.GetField("Value")
+        var definition = strongBoxType.IsGenericType ? strongBoxType.GetGenericTypeDefinition() : strongBoxType;
+        return definition.GetField("Value")
                ?? throw new InvalidOperationException($"StrongBox field missing: {strongBoxType.FullName}.Value");
     }
 

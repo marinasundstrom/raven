@@ -16,8 +16,9 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
         SyntaxReference[] declaringSyntaxReferences,
         bool isIndexer = false,
         bool isStatic = false,
-        string? metadataName = null)
-        : base(SymbolKind.Property, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+        string? metadataName = null,
+        Accessibility declaredAccessibility = Accessibility.NotApplicable)
+        : base(SymbolKind.Property, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         Type = propertyType;
         IsIndexer = isIndexer;

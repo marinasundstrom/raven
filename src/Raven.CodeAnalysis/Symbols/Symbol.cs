@@ -9,6 +9,8 @@ namespace Raven.CodeAnalysis.Symbols;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal abstract class Symbol : ISymbol
 {
+    private readonly Accessibility _declaredAccessibility;
+
     protected Symbol(
         SymbolKind kind,
         string name,
@@ -16,8 +18,9 @@ internal abstract class Symbol : ISymbol
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
-        SyntaxReference[] declaringSyntaxReferences)
-        : this(containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+        SyntaxReference[] declaringSyntaxReferences,
+        Accessibility declaredAccessibility = Accessibility.NotApplicable)
+        : this(containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         Kind = kind;
         Name = name;
@@ -28,8 +31,10 @@ internal abstract class Symbol : ISymbol
         INamedTypeSymbol? containingType,
         INamespaceSymbol? containingNamespace,
         Location[] locations,
-        SyntaxReference[] declaringSyntaxReferences)
+        SyntaxReference[] declaringSyntaxReferences,
+        Accessibility declaredAccessibility = Accessibility.NotApplicable)
     {
+        _declaredAccessibility = declaredAccessibility;
         ContainingType = containingType;
         ContainingNamespace = containingNamespace;
         ContainingSymbol = containingSymbol;
@@ -118,7 +123,7 @@ internal abstract class Symbol : ISymbol
         private set;
     }
 
-    public virtual Accessibility DeclaredAccessibility { get; }
+    public virtual Accessibility DeclaredAccessibility => _declaredAccessibility;
 
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences
     {
