@@ -143,19 +143,19 @@ class MethodBodyBinder : BlockBinder
                 }
             }
 
-            return new BoundBlockStatement(statements);
+            return new BoundBlockStatement(statements, body.LocalsToDispose);
         }
 
         public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
         {
             var statements = VisitList(node.Statements).Cast<BoundStatement>().ToList();
-            return new BoundBlockStatement(statements);
+            return new BoundBlockStatement(statements, node.LocalsToDispose);
         }
 
         public override BoundNode? VisitBlockExpression(BoundBlockExpression node)
         {
             var statements = VisitList(node.Statements).Cast<BoundStatement>().ToList();
-            return new BoundBlockExpression(statements, node.UnitType);
+            return new BoundBlockExpression(statements, node.UnitType, node.LocalsToDispose);
         }
 
         public override BoundNode? VisitAssignmentStatement(BoundAssignmentStatement node)

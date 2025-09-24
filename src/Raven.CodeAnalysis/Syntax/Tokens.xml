@@ -11,6 +11,7 @@
   <TokenKind Name="ObjectKeyword" Text="object" IsReservedWord="true" />
   <TokenKind Name="ImportKeyword" Text="import" IsReservedWord="false" />
   <TokenKind Name="AliasKeyword" Text="alias" IsReservedWord="false" />
+  <TokenKind Name="UsingKeyword" Text="using" IsReservedWord="false" />
   <TokenKind Name="NamespaceKeyword" Text="namespace" IsReservedWord="false" />
   <TokenKind Name="LetKeyword" Text="let" IsReservedWord="true" />
   <TokenKind Name="VarKeyword" Text="var" IsReservedWord="true" />

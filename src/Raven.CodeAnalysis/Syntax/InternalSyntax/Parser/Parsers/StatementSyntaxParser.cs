@@ -32,7 +32,10 @@ internal class StatementSyntaxParser : SyntaxParser
             case SyntaxKind.IfKeyword:
                 statement = ParseIfStatementSyntax();
                 break;
-
+                
+            case SyntaxKind.UsingKeyword:
+                statement = ParseUsingDeclarationStatementSyntax();
+                
             case SyntaxKind.TryKeyword:
                 statement = ParseTryStatementSyntax();
                 break;
@@ -275,6 +278,15 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return ReturnStatement(returnKeyword, expression, terminatorToken, Diagnostics);
+    }
+
+    private UsingDeclarationStatementSyntax ParseUsingDeclarationStatementSyntax()
+    {
+        var usingKeyword = ReadToken();
+        var declaration = ParseVariableDeclarationSyntax();
+        var terminatorToken = ConsumeTerminator();
+
+        return UsingDeclarationStatement(usingKeyword, declaration, terminatorToken, Diagnostics);
     }
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()

@@ -12,6 +12,7 @@ partial class BlockBinder : Binder
 {
     private readonly ISymbol _containingSymbol;
     protected readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals = new();
+    private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose = new();
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
 
@@ -106,6 +107,8 @@ partial class BlockBinder : Binder
 
         var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
         var isMutable = decl!.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
+        var isUsingDeclaration = decl.Parent is UsingDeclarationStatementSyntax;
+        var shouldDispose = isUsingDeclaration;
 
         ITypeSymbol type = Compilation.ErrorTypeSymbol;
         BoundExpression? boundInitializer = null;
@@ -183,9 +186,25 @@ partial class BlockBinder : Binder
         if (initializer is not null && boundInitializer is not null)
             CacheBoundNode(initializer.Value, boundInitializer);
 
+        if (isUsingDeclaration && type.TypeKind != TypeKind.Error)
+        {
+            var disposableType = Compilation.GetSpecialType(SpecialType.System_IDisposable);
+            if (disposableType.TypeKind != TypeKind.Error && !IsAssignable(disposableType, type, out _))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    disposableType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    variableDeclarator.Identifier.GetLocation());
+                shouldDispose = false;
+            }
+        }
+
         var declarator = new BoundVariableDeclarator(CreateLocalSymbol(variableDeclarator, name, isMutable, type), boundInitializer);
 
-        return new BoundLocalDeclarationStatement([declarator]);
+        if (shouldDispose)
+            _localsToDispose.Add((declarator.Local, _scopeDepth));
+
+        return new BoundLocalDeclarationStatement([declarator], isUsingDeclaration);
     }
 
     private ITypeSymbol EnsureTypeAccessible(ITypeSymbol type, Location location)
@@ -289,6 +308,7 @@ partial class BlockBinder : Binder
         BoundStatement boundNode = statement switch
         {
             LocalDeclarationStatementSyntax localDeclaration => BindLocalDeclaration(localDeclaration.Declaration.Declarators[0]),
+            UsingDeclarationStatementSyntax usingDeclaration => BindLocalDeclaration(usingDeclaration.Declaration.Declarators[0]),
             AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
@@ -398,7 +418,7 @@ partial class BlockBinder : Binder
                 ifExpr.ElseBranch is not null ? ExpressionToStatement(ifExpr.ElseBranch) : null),
             BoundWhileExpression whileExpr => new BoundWhileStatement(whileExpr.Condition, ExpressionToStatement(whileExpr.Body)),
             BoundForExpression forExpr => new BoundForStatement(forExpr.Local, forExpr.Collection, ExpressionToStatement(forExpr.Body)),
-            BoundBlockExpression blockExpr => new BoundBlockStatement(blockExpr.Statements),
+            BoundBlockExpression blockExpr => new BoundBlockStatement(blockExpr.Statements, blockExpr.LocalsToDispose),
             BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
             _ => new BoundExpressionStatement(expression),
         };
@@ -490,7 +510,15 @@ partial class BlockBinder : Binder
             boundStatements.Add(bound);
         }
 
-        var blockStmt = new BoundBlockStatement(boundStatements.ToArray());
+        var localsAtDepth = _localsToDispose
+            .Where(l => l.Depth == depth)
+            .Select(l => l.Local)
+            .ToList();
+
+        if (localsAtDepth.Count > 0)
+            _localsToDispose.RemoveAll(l => l.Depth == depth);
+
+        var blockStmt = new BoundBlockStatement(boundStatements.ToArray(), localsAtDepth.ToImmutableArray());
         CacheBoundNode(block, blockStmt);
 
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
@@ -553,7 +581,15 @@ partial class BlockBinder : Binder
 
         // Step 3: Create and cache the block
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
-        var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType);
+        var localsAtDepth = _localsToDispose
+            .Where(l => l.Depth == depth)
+            .Select(l => l.Local)
+            .ToList();
+
+        if (localsAtDepth.Count > 0)
+            _localsToDispose.RemoveAll(l => l.Depth == depth);
+
+        var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType, localsAtDepth.ToImmutableArray());
         CacheBoundNode(block, blockExpr);
 
         foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
@@ -1133,78 +1169,78 @@ partial class BlockBinder : Binder
             case BoundDiscardPattern:
                 return;
             case BoundDeclarationPattern declaration:
-            {
-                var patternType = UnwrapAlias(declaration.DeclaredType);
-
-                if (patternType.TypeKind == TypeKind.Error)
-                    return;
-
-                if (PatternCanMatch(scrutineeType, patternType))
-                    return;
-
-                var patternDisplay = GetMatchPatternDisplay(patternType);
-                var location = patternSyntax switch
                 {
-                    DeclarationPatternSyntax declarationSyntax => declarationSyntax.Type.GetLocation(),
-                    _ => patternSyntax.GetLocation(),
-                };
+                    var patternType = UnwrapAlias(declaration.DeclaredType);
 
-                _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                    patternDisplay,
-                    scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    location);
-                return;
-            }
+                    if (patternType.TypeKind == TypeKind.Error)
+                        return;
+
+                    if (PatternCanMatch(scrutineeType, patternType))
+                        return;
+
+                    var patternDisplay = GetMatchPatternDisplay(patternType);
+                    var location = patternSyntax switch
+                    {
+                        DeclarationPatternSyntax declarationSyntax => declarationSyntax.Type.GetLocation(),
+                        _ => patternSyntax.GetLocation(),
+                    };
+
+                    _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                        patternDisplay,
+                        scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        location);
+                    return;
+                }
             case BoundConstantPattern constant:
-            {
-                var underlyingType = UnwrapAlias(constant.LiteralType.UnderlyingType);
-
-                if (underlyingType.TypeKind == TypeKind.Error)
-                    return;
-
-                if (PatternCanMatch(scrutineeType, underlyingType))
-                    return;
-
-                var patternDisplay = GetMatchPatternDisplay(constant.LiteralType);
-                var location = patternSyntax switch
                 {
-                    DeclarationPatternSyntax declarationSyntax => declarationSyntax.Type.GetLocation(),
-                    _ => patternSyntax.GetLocation(),
-                };
+                    var underlyingType = UnwrapAlias(constant.LiteralType.UnderlyingType);
 
-                _diagnostics.ReportMatchExpressionArmPatternInvalid(
-                    patternDisplay,
-                    scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    location);
-                return;
-            }
+                    if (underlyingType.TypeKind == TypeKind.Error)
+                        return;
+
+                    if (PatternCanMatch(scrutineeType, underlyingType))
+                        return;
+
+                    var patternDisplay = GetMatchPatternDisplay(constant.LiteralType);
+                    var location = patternSyntax switch
+                    {
+                        DeclarationPatternSyntax declarationSyntax => declarationSyntax.Type.GetLocation(),
+                        _ => patternSyntax.GetLocation(),
+                    };
+
+                    _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                        patternDisplay,
+                        scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        location);
+                    return;
+                }
             case BoundOrPattern orPattern:
-            {
-                if (patternSyntax is BinaryPatternSyntax binarySyntax)
                 {
-                    EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Left, orPattern.Left);
-                    EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Right, orPattern.Right);
-                }
+                    if (patternSyntax is BinaryPatternSyntax binarySyntax)
+                    {
+                        EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Left, orPattern.Left);
+                        EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Right, orPattern.Right);
+                    }
 
-                return;
-            }
+                    return;
+                }
             case BoundAndPattern andPattern:
-            {
-                if (patternSyntax is BinaryPatternSyntax binarySyntax)
                 {
-                    EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Left, andPattern.Left);
-                    EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Right, andPattern.Right);
+                    if (patternSyntax is BinaryPatternSyntax binarySyntax)
+                    {
+                        EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Left, andPattern.Left);
+                        EnsureMatchArmPatternValid(scrutineeType, binarySyntax.Right, andPattern.Right);
+                    }
+
+                    return;
                 }
-
-                return;
-            }
             case BoundNotPattern notPattern:
-            {
-                if (patternSyntax is UnaryPatternSyntax unarySyntax)
-                    EnsureMatchArmPatternValid(scrutineeType, unarySyntax.Pattern, notPattern.Pattern);
+                {
+                    if (patternSyntax is UnaryPatternSyntax unarySyntax)
+                        EnsureMatchArmPatternValid(scrutineeType, unarySyntax.Pattern, notPattern.Pattern);
 
-                return;
-            }
+                    return;
+                }
         }
     }
 
@@ -1353,14 +1389,14 @@ partial class BlockBinder : Binder
             case BoundDiscardPattern:
                 return true;
             case BoundDeclarationPattern { Designator: BoundDiscardDesignator } declaration:
-            {
-                var declaredType = UnwrapAlias(declaration.DeclaredType);
+                {
+                    var declaredType = UnwrapAlias(declaration.DeclaredType);
 
-                if (SymbolEqualityComparer.Default.Equals(declaredType, scrutineeType))
-                    return true;
+                    if (SymbolEqualityComparer.Default.Equals(declaredType, scrutineeType))
+                        return true;
 
-                return declaredType.SpecialType == SpecialType.System_Object;
-            }
+                    return declaredType.SpecialType == SpecialType.System_Object;
+                }
             case BoundOrPattern orPattern:
                 return IsCatchAllPattern(scrutineeType, orPattern.Left) ||
                        IsCatchAllPattern(scrutineeType, orPattern.Right);
@@ -1380,19 +1416,19 @@ partial class BlockBinder : Binder
                 RemoveMembersAssignableToPattern(remaining, declaration.DeclaredType);
                 break;
             case BoundConstantPattern constant:
-            {
-                var literalType = UnwrapAlias(constant.LiteralType);
-
-                foreach (var candidate in remaining.ToArray())
                 {
-                    var candidateType = UnwrapAlias(candidate);
+                    var literalType = UnwrapAlias(constant.LiteralType);
 
-                    if (SymbolEqualityComparer.Default.Equals(candidateType, literalType))
-                        remaining.Remove(candidate);
+                    foreach (var candidate in remaining.ToArray())
+                    {
+                        var candidateType = UnwrapAlias(candidate);
+
+                        if (SymbolEqualityComparer.Default.Equals(candidateType, literalType))
+                            remaining.Remove(candidate);
+                    }
+
+                    break;
                 }
-
-                break;
-            }
             case BoundOrPattern orPattern:
                 RemoveCoveredUnionMembers(remaining, orPattern.Left);
                 RemoveCoveredUnionMembers(remaining, orPattern.Right);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection.Emit;
 
@@ -61,20 +62,39 @@ internal class StatementGenerator : Generator
 
     private void EmitReturnStatement(BoundReturnStatement returnStatement)
     {
-        if (returnStatement.Expression is not null)
-        {
-            new ExpressionGenerator(this, returnStatement.Expression).Emit();
+        var localsToDispose = EnumerateLocalsToDispose().ToImmutableArray();
+        var returnType = MethodSymbol.ReturnType;
+        var expression = returnStatement.Expression;
+        ITypeSymbol? expressionType = expression?.Type;
+        LocalBuilder? resultTemp = null;
 
-            var expressionType = returnStatement.Expression.Type;
-            var returnType = MethodSymbol.ReturnType;
+        if (expression is not null)
+        {
+            new ExpressionGenerator(this, expression).Emit();
 
             if (returnType.SpecialType == SpecialType.System_Unit)
             {
-                // The method returns void in IL, so discard the unit value.
                 ILGenerator.Emit(OpCodes.Pop);
+                expression = null;
+                expressionType = null;
             }
-            else if (expressionType?.IsValueType == true &&
-                     (returnType.SpecialType is SpecialType.System_Object || returnType is IUnionTypeSymbol))
+            else if (localsToDispose.Length > 0 && expressionType is not null)
+            {
+                var clrType = ResolveClrType(expressionType);
+                resultTemp = ILGenerator.DeclareLocal(clrType);
+                ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+            }
+        }
+
+        EmitDispose(localsToDispose);
+
+        if (expression is not null)
+        {
+            if (resultTemp is not null)
+                ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+
+            if (expressionType?.IsValueType == true &&
+                (returnType.SpecialType is SpecialType.System_Object || returnType is IUnionTypeSymbol))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
             }
@@ -281,8 +301,11 @@ internal class StatementGenerator : Generator
 
     private void EmitBlockStatement(BoundBlockStatement blockStatement)
     {
+        var scope = new Scope(this, blockStatement.LocalsToDispose);
         foreach (var s in blockStatement.Statements)
-            new StatementGenerator(this, s).Emit();
+            new StatementGenerator(scope, s).Emit();
+
+        EmitDispose(blockStatement.LocalsToDispose);
     }
 
     private void EmitBranchOpForCondition(BoundExpression expression, Label end, Scope scope)

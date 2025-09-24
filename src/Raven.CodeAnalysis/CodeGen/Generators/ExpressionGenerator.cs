@@ -2235,23 +2235,52 @@ internal class ExpressionGenerator : Generator
 
     private void EmitBlock(BoundBlockExpression block)
     {
+        var scope = new Scope(this, block.LocalsToDispose);
         var statements = block.Statements.ToArray();
 
-        for (int i = 0; i < statements.Length; i++)
+        BoundExpression? resultExpression = null;
+        var count = statements.Length;
+
+        if (count > 0 &&
+            statements[^1] is BoundExpressionStatement exprStmt &&
+            exprStmt.Expression.Type?.SpecialType is not SpecialType.System_Void)
+        {
+            resultExpression = exprStmt.Expression;
+            count--;
+        }
+
+        for (int i = 0; i < count; i++)
         {
             var statement = statements[i];
-            var isLast = i == statements.Length - 1;
+            EmitStatement(statement, scope);
+        }
 
-            if (isLast && statement is BoundExpressionStatement exprStmt &&
-                exprStmt.Expression.Type?.SpecialType is not SpecialType.System_Void)
+        LocalBuilder? resultTemp = null;
+        if (resultExpression is not null)
+        {
+            new ExpressionGenerator(scope, resultExpression).Emit();
+
+            if (!block.LocalsToDispose.IsDefaultOrEmpty && block.LocalsToDispose.Length > 0)
             {
-                new ExpressionGenerator(this, exprStmt.Expression).Emit();
-            }
-            else
-            {
-                EmitStatement(statement);
+                var resultType = resultExpression.Type;
+                if (resultType is not null)
+                {
+                    var clrType = ResolveClrType(resultType);
+                    resultTemp = ILGenerator.DeclareLocal(clrType);
+                    ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+                }
             }
         }
+
+        EmitDispose(block.LocalsToDispose);
+
+        if (resultTemp is not null)
+            ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+    }
+
+    private void EmitStatement(BoundStatement statement, Scope scope)
+    {
+        new StatementGenerator(scope, statement).Emit();
     }
 
     private void EmitStatement(BoundStatement statement)
