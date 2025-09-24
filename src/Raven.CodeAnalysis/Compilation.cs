@@ -776,6 +776,14 @@ public class Compilation
             current = current.BaseType;
         }
 
+        if (destination is INamedTypeSymbol destinationNamed &&
+            destinationNamed.TypeKind == TypeKind.Interface &&
+            source is INamedTypeSymbol sourceNamed)
+        {
+            if (sourceNamed.AllInterfaces.Contains(destinationNamed, SymbolEqualityComparer.Default))
+                return true;
+        }
+
         return false;
     }
 

@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Text;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -49,6 +50,9 @@ public static partial class SymbolExtensions
 
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
         {
+            if (typeSymbol.SpecialType == SpecialType.System_Unit)
+                return "unit";
+
             var fullName = typeSymbol.ToFullyQualifiedMetadataName(); // e.g. "System.Int32"
             if (fullName is not null && s_specialTypeNames.TryGetValue(fullName, out var keyword))
                 return keyword;
