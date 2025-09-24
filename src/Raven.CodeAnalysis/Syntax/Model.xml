@@ -31,6 +31,14 @@
     <Slot Name="Parameters" Type="SeparatedList" ElementType="Parameter" />
     <Slot Name="CloseParenToken" Type="Token" />
   </Node>
+  <Node Name="TypeParameterList" Inherits="Node">
+    <Slot Name="LessThanToken" Type="Token" />
+    <Slot Name="Parameters" Type="SeparatedList" ElementType="TypeParameter" />
+    <Slot Name="GreaterThanToken" Type="Token" />
+  </Node>
+  <Node Name="TypeParameter" Inherits="Node">
+    <Slot Name="Identifier" Type="Token" />
+  </Node>
   <Node Name="Expression" Inherits="ExpressionOrPattern" IsAbstract="true" />
   <Node Name="VariableDesignation" Inherits="Node" IsAbstract="true" />
   <Node Name="SingleVariableDesignation" Inherits="VariableDesignation">
@@ -74,6 +82,7 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Keyword" Type="Token" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="BaseList" Type="BaseList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" IsInherited="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" />
@@ -89,6 +98,7 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Keyword" Type="Token" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="BaseList" Type="BaseList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" IsInherited="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true" />

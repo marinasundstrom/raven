@@ -36,6 +36,12 @@ internal class TypeDeclarationParser : SyntaxParser
             parameterList = ParseParameterList();
         }
 
+        TypeParameterListSyntax? typeParameterList = null;
+        if (PeekToken().IsKind(SyntaxKind.LessThanToken))
+        {
+            typeParameterList = ParseTypeParameterList();
+        }
+
         BaseListSyntax? baseList = ParseBaseList();
 
         List<GreenNode> memberList = new List<GreenNode>();
@@ -70,10 +76,53 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
         {
-            return InterfaceDeclaration(modifiers, typeKeyword, identifier, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return InterfaceDeclaration(modifiers, typeKeyword, identifier, typeParameterList, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        return ClassDeclaration(modifiers, typeKeyword, identifier, baseList, parameterList, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+    }
+
+    private TypeParameterListSyntax ParseTypeParameterList()
+    {
+        var lessThanToken = ReadToken();
+
+        List<GreenNode> parameters = new List<GreenNode>();
+
+        while (true)
+        {
+            var token = PeekToken();
+
+            if (token.IsKind(SyntaxKind.GreaterThanToken))
+                break;
+
+            SyntaxToken identifier;
+            if (CanTokenBeIdentifier(token))
+            {
+                identifier = ReadIdentifierToken();
+            }
+            else
+            {
+                identifier = ExpectToken(SyntaxKind.IdentifierToken);
+            }
+
+            parameters.Add(TypeParameter(identifier));
+
+            var commaToken = PeekToken();
+            if (commaToken.IsKind(SyntaxKind.CommaToken))
+            {
+                ReadToken();
+                parameters.Add(commaToken);
+            }
+            else
+            {
+                if (!commaToken.IsKind(SyntaxKind.GreaterThanToken))
+                    break;
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
+
+        return TypeParameterList(lessThanToken, List(parameters), greaterThanToken);
     }
 
     private BaseListSyntax? ParseBaseList()

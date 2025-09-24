@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.Symbols;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 {
-    private readonly PENamedTypeSymbol _originalDefinition;
+    private readonly INamedTypeSymbol _originalDefinition;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
     private ImmutableArray<ISymbol>? _members;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
@@ -18,7 +18,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
 
-    public ConstructedNamedTypeSymbol(PENamedTypeSymbol originalDefinition, ImmutableArray<ITypeSymbol> typeArguments)
+    public ConstructedNamedTypeSymbol(INamedTypeSymbol originalDefinition, ImmutableArray<ITypeSymbol> typeArguments)
     {
         ConstructedFrom = originalDefinition;
         _originalDefinition = originalDefinition;
@@ -39,7 +39,10 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
             var args = named.TypeArguments.Select(Substitute).ToImmutableArray();
-            return new ConstructedNamedTypeSymbol((PENamedTypeSymbol)named.ConstructedFrom!, args);
+            if (named.ConstructedFrom is INamedTypeSymbol original)
+                return new ConstructedNamedTypeSymbol(original, args);
+
+            return type;
         }
 
         return type;
@@ -72,12 +75,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public ISymbol? ContainingSymbol => _originalDefinition.ContainingSymbol;
     public IAssemblySymbol? ContainingAssembly => _originalDefinition.ContainingAssembly;
     public IModuleSymbol? ContainingModule => _originalDefinition.ContainingModule;
-    public Accessibility DeclaredAccessibility => Accessibility.Public;
+    public Accessibility DeclaredAccessibility => _originalDefinition.DeclaredAccessibility;
     public bool IsStatic => false;
     public bool IsImplicitlyDeclared => true;
     public bool CanBeReferencedByName => true;
     public ImmutableArray<Location> Locations => _originalDefinition.Locations;
-    public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => ImmutableArray<SyntaxReference>.Empty;
+    public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _originalDefinition.DeclaringSyntaxReferences;
     public ISymbol UnderlyingSymbol => this;
     public bool IsAlias => false;
     public int Arity => TypeArguments.Length;
