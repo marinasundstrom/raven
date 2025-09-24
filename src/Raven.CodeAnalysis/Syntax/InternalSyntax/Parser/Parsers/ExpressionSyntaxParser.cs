@@ -978,9 +978,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         var arrowToken = ReadToken();
 
+        var previous = TreatNewlinesAsTokens;
+
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
-        SetTreatNewlinesAsTokens(true);
+        SetTreatNewlinesAsTokens(previous);
 
         return ArrowExpressionClause(arrowToken, expression);
     }
