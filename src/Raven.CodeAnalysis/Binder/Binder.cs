@@ -290,17 +290,7 @@ internal abstract class Binder
             var arity = ComputeGenericArity(generic);
             var typeArgs = ResolveGenericTypeArguments(generic);
 
-            var symbol = LookupType(generic.Identifier.Text) as INamedTypeSymbol;
-            if (symbol is not null)
-            {
-                symbol = NormalizeDefinition(symbol);
-                if (symbol.Arity != arity)
-                    symbol = FindAccessibleNamedType(generic.Identifier.Text, arity);
-            }
-            else
-            {
-                symbol = FindAccessibleNamedType(generic.Identifier.Text, arity);
-            }
+            var symbol = FindNamedTypeForGeneric(generic, arity);
 
             if (symbol is null)
             {
@@ -418,18 +408,7 @@ internal abstract class Binder
             var arity = ComputeGenericArity(gen);
             var typeArgs = ResolveGenericTypeArguments(gen);
 
-            var symbol = LookupType(gen.Identifier.Text) as INamedTypeSymbol;
-            if (symbol is not null)
-            {
-                symbol = NormalizeDefinition(symbol);
-                if (symbol.Arity != arity)
-                    symbol = FindAccessibleNamedType(gen.Identifier.Text, arity);
-            }
-            else
-            {
-                symbol = FindAccessibleNamedType(gen.Identifier.Text, arity);
-            }
-
+            var symbol = FindNamedTypeForGeneric(gen, arity);
             if (symbol is null)
                 return null;
 
@@ -463,17 +442,7 @@ internal abstract class Binder
         var arity = ComputeGenericArity(gen);
         var typeArgs = ResolveGenericTypeArguments(gen);
 
-        var symbol = LookupType(gen.Identifier.Text) as INamedTypeSymbol;
-        if (symbol is not null)
-        {
-            symbol = NormalizeDefinition(symbol);
-            if (symbol.Arity != arity)
-                symbol = FindAccessibleNamedType(gen.Identifier.Text, arity);
-        }
-        else
-        {
-            symbol = FindAccessibleNamedType(gen.Identifier.Text, arity);
-        }
+        var symbol = FindNamedTypeForGeneric(gen, arity);
 
         if (symbol is null)
             return null;
@@ -635,5 +604,22 @@ internal abstract class Binder
         }
 
         return null;
+    }
+
+    private INamedTypeSymbol? FindNamedTypeForGeneric(GenericNameSyntax generic, int arity)
+    {
+        var symbol = LookupType(generic.Identifier.Text) as INamedTypeSymbol;
+        if (symbol is not null)
+        {
+            symbol = NormalizeDefinition(symbol);
+            if (symbol.Arity != arity)
+                symbol = FindAccessibleNamedType(generic.Identifier.Text, arity);
+        }
+        else
+        {
+            symbol = FindAccessibleNamedType(generic.Identifier.Text, arity);
+        }
+
+        return symbol;
     }
 }
