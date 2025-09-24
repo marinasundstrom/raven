@@ -162,6 +162,34 @@ public sealed class ClassifyConversionTests : CompilationTestBase
     }
 
     [Fact]
+    public void ReferenceConversion_ToImplementedInterface_IsImplicit()
+    {
+        var source = """
+import System.*
+
+class Foo : IDisposable {
+    init() {}
+
+    Dispose() -> unit {}
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
+        var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var foo = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var disposable = compilation.GetTypeByMetadataName("System.IDisposable")!;
+
+        var conversion = compilation.ClassifyConversion(foo, disposable);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsReference);
+        Assert.False(conversion.IsIdentity);
+    }
+
+    [Fact]
     public void BoxingConversion_ValueTypeToObject_IsImplicit()
     {
         var compilation = CreateCompilation();
