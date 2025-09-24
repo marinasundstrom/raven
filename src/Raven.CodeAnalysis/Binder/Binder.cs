@@ -263,6 +263,9 @@ internal abstract class Binder
 
         if (typeSyntax is IdentifierNameSyntax ident)
         {
+            if (ident.Identifier.IsMissing)
+                return Compilation.ErrorTypeSymbol;
+
             var type = LookupType(ident.Identifier.Text);
             if (type is INamedTypeSymbol named)
             {

@@ -355,6 +355,9 @@ public class Compilation
 
             var isAbstract = classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
             var isSealed = !classDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract;
+            var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                classDeclaration.Modifiers,
+                AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
 
             var symbol = new SourceNamedTypeSymbol(
                 classDeclaration.Identifier.Text,
@@ -366,7 +369,8 @@ public class Compilation
                 locations,
                 references,
                 isSealed,
-                isAbstract);
+                isAbstract,
+                declaredAccessibility: typeAccessibility);
 
             if (!interfaceList.IsDefaultOrEmpty)
                 symbol.SetInterfaces(interfaceList);
@@ -415,7 +419,10 @@ public class Compilation
                 locations,
                 references,
                 true,
-                isAbstract: true);
+                isAbstract: true,
+                declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                    interfaceDeclaration.Modifiers,
+                    AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol)));
 
             foreach (var memberDeclaration2 in interfaceDeclaration.Members)
             {
@@ -437,6 +444,13 @@ public class Compilation
             };
 
             var returnType = GetSpecialType(SpecialType.System_Unit);
+            var isStatic = methodDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+            var defaultAccessibility = containingType is not null
+                ? AccessibilityUtilities.GetDefaultMemberAccessibility(containingType)
+                : AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol);
+            var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                methodDeclaration.Modifiers,
+                defaultAccessibility);
 
             var symbol = new SourceMethodSymbol(
                 methodDeclaration.Identifier.Text.ToString(), returnType,
@@ -444,7 +458,9 @@ public class Compilation
                 declaringSymbol,
                 containingType,
                 containingNamespace,
-                locations, references);
+                locations, references,
+                isStatic: isStatic,
+                declaredAccessibility: methodAccessibility);
         }
     }
 

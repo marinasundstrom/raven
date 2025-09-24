@@ -7,8 +7,8 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
     private readonly object _constantValue;
     private readonly bool _isStatic;
 
-    public SourceFieldSymbol(string name, ITypeSymbol fieldType, bool isStatic, bool isLiteral, object constantValue, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, BoundExpression? initializer = null)
-        : base(SymbolKind.Field, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+    public SourceFieldSymbol(string name, ITypeSymbol fieldType, bool isStatic, bool isLiteral, object constantValue, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, BoundExpression? initializer = null, Accessibility declaredAccessibility = Accessibility.NotApplicable)
+        : base(SymbolKind.Field, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         Type = fieldType;
         _isStatic = isStatic;

@@ -588,6 +588,9 @@ public partial class SemanticModel
 
                         var isAbstract = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                         var isSealed = !classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract;
+                        var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                            classDecl.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
 
                         var classSymbol = new SourceNamedTypeSymbol(
                             classDecl.Identifier.Text,
@@ -599,7 +602,8 @@ public partial class SemanticModel
                             [classDecl.GetLocation()],
                             [classDecl.GetReference()],
                             isSealed,
-                            isAbstract);
+                            isAbstract,
+                            declaredAccessibility: typeAccessibility);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             classSymbol.SetInterfaces(interfaceList);
@@ -640,7 +644,10 @@ public partial class SemanticModel
                             [interfaceDecl.GetLocation()],
                             [interfaceDecl.GetReference()],
                             true,
-                            isAbstract: true);
+                            isAbstract: true,
+                            declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                                interfaceDecl.Modifiers,
+                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace())));
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             interfaceSymbol.SetInterfaces(interfaceList);
@@ -653,6 +660,9 @@ public partial class SemanticModel
 
                 case EnumDeclarationSyntax enumDecl:
                     {
+                        var enumAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                            enumDecl.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
                         var enumSymbol = new SourceNamedTypeSymbol(
                             enumDecl.Identifier.Text,
                             Compilation.GetTypeByMetadataName("System.Enum"),
@@ -662,7 +672,8 @@ public partial class SemanticModel
                             parentNamespace.AsSourceNamespace(),
                             [enumDecl.GetLocation()],
                             [enumDecl.GetReference()],
-                            true
+                            true,
+                            declaredAccessibility: enumAccessibility
                         );
 
                         var enumBinder = new EnumDeclarationBinder(parentBinder, enumSymbol, enumDecl);
@@ -682,7 +693,8 @@ public partial class SemanticModel
                                 parentNamespace.AsSourceNamespace(),
                                 [enumMember.GetLocation()],
                                 [enumMember.GetReference()],
-                                null
+                                null,
+                                declaredAccessibility: Accessibility.Public
                             );
                         }
 
@@ -766,6 +778,9 @@ public partial class SemanticModel
                     }
                     var nestedAbstract = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                     var nestedSealed = !nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract;
+                    var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                        nestedClass.Modifiers,
+                        AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
                     var nestedSymbol = new SourceNamedTypeSymbol(
                         nestedClass.Identifier.Text,
                         nestedBaseType!,
@@ -776,7 +791,8 @@ public partial class SemanticModel
                         [nestedClass.GetLocation()],
                         [nestedClass.GetReference()],
                         nestedSealed,
-                        nestedAbstract
+                        nestedAbstract,
+                        declaredAccessibility: nestedAccessibility
                     );
 
                     if (!nestedInterfaces.IsDefaultOrEmpty)
@@ -815,7 +831,10 @@ public partial class SemanticModel
                         [nestedInterface.GetLocation()],
                         [nestedInterface.GetReference()],
                         true,
-                        isAbstract: true
+                        isAbstract: true,
+                        declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                            nestedInterface.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentForInterface))
                     );
                     if (!parentInterfaces.IsDefaultOrEmpty)
                         nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
@@ -835,7 +854,10 @@ public partial class SemanticModel
                         classBinder.CurrentNamespace!.AsSourceNamespace(),
                         [enumDecl.GetLocation()],
                         [enumDecl.GetReference()],
-                        true
+                        true,
+                        declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                            enumDecl.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentTypeForEnum))
                     );
 
                     var enumBinder = new EnumDeclarationBinder(classBinder, enumSymbol, enumDecl);
@@ -855,7 +877,8 @@ public partial class SemanticModel
                             classBinder.CurrentNamespace!.AsSourceNamespace(),
                             [enumMember.GetLocation()],
                             [enumMember.GetReference()],
-                            null
+                            null,
+                            declaredAccessibility: Accessibility.Public
                         );
                     }
                     break;
@@ -923,7 +946,10 @@ public partial class SemanticModel
                             [nestedInterface.GetLocation()],
                             [nestedInterface.GetReference()],
                             true,
-                            isAbstract: true);
+                            isAbstract: true,
+                            declaredAccessibility: AccessibilityUtilities.DetermineAccessibility(
+                                nestedInterface.Modifiers,
+                                AccessibilityUtilities.GetDefaultTypeAccessibility(parentInterface)));
 
                         if (!parentInterfaces.IsDefaultOrEmpty)
                             nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
@@ -953,7 +979,8 @@ public partial class SemanticModel
             [classDecl.GetLocation()],
             [classDecl.GetReference()],
             isStatic: false,
-            methodKind: MethodKind.Constructor);
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: classSymbol.DeclaredAccessibility);
 
         var parameters = new List<SourceParameterSymbol>();
 
@@ -1000,7 +1027,8 @@ public partial class SemanticModel
                     namespaceSymbol,
                     [parameterSyntax.GetLocation()],
                     [parameterSyntax.GetReference()],
-                    new BoundParameterAccess(parameterSymbol));
+                    new BoundParameterAccess(parameterSymbol),
+                    declaredAccessibility: Accessibility.Private);
             }
         }
 

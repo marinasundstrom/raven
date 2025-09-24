@@ -1183,6 +1183,45 @@ class Counter
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
 
+#### Accessibility
+
+Types and members accept the standard access modifiers. Applying more than
+one keyword produces the expected CLR combinations:
+
+| Modifier syntax            | Meaning |
+|----------------------------|---------|
+| `public`                   | Visible from any assembly. |
+| `internal`                 | Visible only within the current assembly. |
+| `protected`                | Visible to the declaring type and to derived types. |
+| `private`                  | Visible only inside the declaring type. |
+| `protected internal`       | Visible to derived types or any code in the same assembly. |
+| `private protected`        | Visible to derived types declared in the same assembly. |
+
+Default accessibility depends on the declaration context:
+
+* Top-level classes, structs, interfaces, and enums default to `internal` and
+  must be marked `public` to be exposed from the assembly. Other accessibility
+  keywords collapse to the same effective visibility when applied at the
+  top level.
+* Nested types default to `private` unless they are declared inside an
+  interface, in which case they are implicitly `public`.
+* Member declarations (fields, methods, properties, indexers, and constructors)
+  default to `public`. Members of interfaces are always public, even when no
+  modifier is written.
+
+Constructors follow these rules as well. An explicitly declared parameterless
+constructor may specify any of the modifiers above to control how instances
+are created:
+
+```raven
+class Widget
+{
+    private init() { /* singleton helper */ }
+    protected init(name: string) { /* subclass hook */ }
+    protected internal init Clone(source: Widget) { /* reuse state */ }
+}
+```
+
 ### Primary constructors
 
 Classes may declare a primary constructor by adding an argument list to the

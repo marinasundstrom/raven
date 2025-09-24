@@ -136,9 +136,16 @@ internal class TypeDeclarationParser : SyntaxParser
 
     private MemberDeclarationSyntax ParseMember()
     {
+        var typeDeclarationCheckpoint = CreateCheckpoint();
         var modifiers = ParseModifiers();
 
         var keywordOrIdentifier = PeekToken();
+
+        if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword))
+        {
+            typeDeclarationCheckpoint.Dispose();
+            return new TypeDeclarationParser(this).Parse();
+        }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.LetKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.VarKeyword))
         {
@@ -319,7 +326,7 @@ internal class TypeDeclarationParser : SyntaxParser
             return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnParameterAnnotation, body, null, terminatorToken);
         }
 
-        throw new Exception();
+        return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnParameterAnnotation, null, null, terminatorToken);
     }
 
     private (ExplicitInterfaceSpecifierSyntax? ExplicitInterfaceSpecifier, SyntaxToken Identifier) ParseMemberNameWithExplicitInterface()

@@ -9,8 +9,9 @@ internal abstract class SourceSymbol : Symbol
 {
     protected SourceSymbol(SymbolKind kind, string name, ISymbol containingSymbol,
         INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
-        Location[] locations, SyntaxReference[] declaringSyntaxReferences)
-        : base(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
+        Location[] locations, SyntaxReference[] declaringSyntaxReferences,
+        Accessibility declaredAccessibility = Accessibility.NotApplicable)
+        : base(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
     }
 
