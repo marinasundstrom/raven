@@ -33,6 +33,10 @@ internal class StatementSyntaxParser : SyntaxParser
                 statement = ParseIfStatementSyntax();
                 break;
 
+            case SyntaxKind.UsingKeyword:
+                statement = ParseUsingDeclarationStatementSyntax();
+                break;
+
             case SyntaxKind.OpenBraceToken:
                 statement = ParseBlockStatementSyntax();
                 break;
@@ -198,6 +202,15 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return ReturnStatement(returnKeyword, expression, terminatorToken, Diagnostics);
+    }
+
+    private UsingDeclarationStatementSyntax ParseUsingDeclarationStatementSyntax()
+    {
+        var usingKeyword = ReadToken();
+        var declaration = ParseVariableDeclarationSyntax();
+        var terminatorToken = ConsumeTerminator();
+
+        return UsingDeclarationStatement(usingKeyword, declaration, terminatorToken, Diagnostics);
     }
 
     private StatementSyntax? ParseDeclarationOrExpressionStatementSyntax()

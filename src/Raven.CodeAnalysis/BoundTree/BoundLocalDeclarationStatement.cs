@@ -3,10 +3,12 @@ namespace Raven.CodeAnalysis;
 sealed partial class BoundLocalDeclarationStatement : BoundStatement
 {
     public IEnumerable<BoundVariableDeclarator> Declarators { get; }
+    public bool IsUsing { get; }
 
-    public BoundLocalDeclarationStatement(IEnumerable<BoundVariableDeclarator> declarators)
+    public BoundLocalDeclarationStatement(IEnumerable<BoundVariableDeclarator> declarators, bool isUsing = false)
     {
         Declarators = declarators;
+        IsUsing = isUsing;
     }
 
     public override ISymbol Symbol => Declarators.First().Local;

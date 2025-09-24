@@ -114,6 +114,11 @@
     <Slot Name="ElseStatement" Type="Statement" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
+  <Node Name="UsingDeclarationStatement" Inherits="Statement">
+    <Slot Name="UsingKeyword" Type="Token" />
+    <Slot Name="Declaration" Type="VariableDeclaration" />
+    <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
   <Node Name="LocalDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="VariableDeclaration" />
     <Slot Name="TerminatorToken" Type="Token" />

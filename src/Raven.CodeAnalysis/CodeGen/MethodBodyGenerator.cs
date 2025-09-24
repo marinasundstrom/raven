@@ -395,6 +395,8 @@ internal class MethodBodyGenerator
 
     private void EmitBoundBlock(BoundBlockStatement block, bool withReturn = true)
     {
+        var blockScope = new Scope(scope, block.LocalsToDispose);
+
         for (var i = 0; i < block.Statements.Count(); i++)
         {
             var statement = block.Statements.ElementAt(i);
@@ -408,29 +410,15 @@ internal class MethodBodyGenerator
                 MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void &&
                 statement is BoundExpressionStatement exprStmt)
             {
-                new ExpressionGenerator(baseGenerator, exprStmt.Expression).Emit();
-
-                var expressionType = exprStmt.Expression.Type;
-                var returnType = MethodSymbol.ReturnType;
-
-                if (returnType.SpecialType == SpecialType.System_Unit)
-                {
-                    ILGenerator.Emit(OpCodes.Pop);
-                }
-                else if (expressionType is not null &&
-                         expressionType.IsValueType &&
-                         (returnType.SpecialType is SpecialType.System_Object ||
-                          returnType is IUnionTypeSymbol))
-                {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
-                }
-
-                ILGenerator.Emit(OpCodes.Ret);
+                var returnStatement = new BoundReturnStatement(exprStmt.Expression);
+                new StatementGenerator(blockScope, returnStatement).Emit();
                 return;
             }
 
-            EmitStatement(statement);
+            new StatementGenerator(blockScope, statement).Emit();
         }
+
+        blockScope.EmitDispose(block.LocalsToDispose);
 
         if (withReturn)
         {
