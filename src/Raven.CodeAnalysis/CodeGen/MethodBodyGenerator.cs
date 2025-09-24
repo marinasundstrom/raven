@@ -76,6 +76,17 @@ internal class MethodBodyGenerator
             _ => null
         };
 
+        BoundExpression? expressionBody = syntax switch
+        {
+            MethodDeclarationSyntax m when m.ExpressionBody is not null
+                => semanticModel.GetBoundNode(m.ExpressionBody.Expression) as BoundExpression,
+            BaseConstructorDeclarationSyntax c when c.ExpressionBody is not null
+                => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
+            AccessorDeclarationSyntax a when a.ExpressionBody is not null
+                => semanticModel.GetBoundNode(a.ExpressionBody.Expression) as BoundExpression,
+            _ => null
+        };
+
         if (boundBody != null)
             DeclareLocals(boundBody);
 
@@ -124,6 +135,8 @@ internal class MethodBodyGenerator
             case MethodDeclarationSyntax methodDeclaration:
                 if (boundBody != null)
                     EmitBoundBlock(boundBody);
+                else if (expressionBody is not null)
+                    EmitExpressionBody(expressionBody);
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
@@ -140,6 +153,8 @@ internal class MethodBodyGenerator
 
                 if (boundBody != null)
                     EmitBoundBlock(boundBody, false);
+                else if (expressionBody is not null)
+                    EmitExpressionBody(expressionBody, includeReturn: !ordinaryConstr);
 
                 if (ordinaryConstr)
                 {
@@ -152,24 +167,22 @@ internal class MethodBodyGenerator
                 {
                     EmitBoundBlock(boundBody);
                 }
-                else if (accessorDeclaration.ExpressionBody is not null)
+                else if (expressionBody is not null)
                 {
-                    var boundExpr = (BoundExpression)semanticModel.GetBoundNode(accessorDeclaration.ExpressionBody.Expression)!;
-
                     if (MethodSymbol.MethodKind == MethodKind.PropertyGet)
                     {
-                        new ExpressionGenerator(baseGenerator, boundExpr).Emit();
+                        new ExpressionGenerator(baseGenerator, expressionBody).Emit();
                     }
                     else
                     {
-                        if (boundExpr is BoundAssignmentExpression assignment)
+                        if (expressionBody is BoundAssignmentExpression assignment)
                         {
                             var stmt = new BoundAssignmentStatement(assignment);
                             new StatementGenerator(baseGenerator, stmt).Emit();
                         }
                         else
                         {
-                            var stmt = new BoundExpressionStatement(boundExpr);
+                            var stmt = new BoundExpressionStatement(expressionBody);
                             new StatementGenerator(baseGenerator, stmt).Emit();
                         }
                     }
@@ -287,6 +300,42 @@ internal class MethodBodyGenerator
         }
 
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitExpressionBody(BoundExpression expression, bool includeReturn = true)
+    {
+        var returnType = MethodSymbol.ReturnType;
+
+        if (returnType is null || returnType.SpecialType == SpecialType.System_Void)
+        {
+            EmitExpressionStatement(expression);
+
+            if (includeReturn)
+                ILGenerator.Emit(OpCodes.Ret);
+
+            return;
+        }
+
+        new ExpressionGenerator(baseGenerator, expression).Emit();
+
+        if (returnType.SpecialType == SpecialType.System_Unit)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+        }
+        else if (expression.Type is { IsValueType: true } expressionType &&
+                 (returnType.SpecialType is SpecialType.System_Object || returnType is IUnionTypeSymbol))
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+        }
+
+        if (includeReturn)
+            ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitExpressionStatement(BoundExpression expression)
+    {
+        var statement = new BoundExpressionStatement(expression);
+        new StatementGenerator(baseGenerator, statement).Emit();
     }
 
     private void EmitFunction(FunctionStatementSyntax localFunctionStmt)
