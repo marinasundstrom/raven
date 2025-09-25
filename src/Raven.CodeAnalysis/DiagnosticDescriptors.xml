@@ -198,6 +198,10 @@
     Title="Catch type must derive from System.Exception"
     Message="Type '{typeName}' is not derived from System.Exception"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1017" Identifier="FileScopedNamespaceOutOfOrder"
+    Title="File-scoped namespace out of order"
+    Message="File-scoped namespace declarations must appear before any other members" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1501" Identifier="NoOverloadForMethod"
     Title="No overload for method taking argument"
     Message="No overload for method '{method}' takes {count} arguments" Category="compiler"

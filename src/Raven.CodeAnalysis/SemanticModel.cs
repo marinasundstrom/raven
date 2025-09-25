@@ -522,9 +522,21 @@ public partial class SemanticModel
         }
 
         if (fileScopedNamespace != null)
+        {
+            foreach (var member in cu.Members)
+            {
+                if (member == fileScopedNamespace)
+                    break;
+
+                parentBinder.Diagnostics.ReportFileScopedNamespaceOutOfOrder(member.GetLocation());
+            }
+
             CheckOrder(fileScopedNamespace.Members);
+        }
         else
+        {
             CheckOrder(cu.Members);
+        }
 
         if (bindableGlobals.Count > 0)
         {
