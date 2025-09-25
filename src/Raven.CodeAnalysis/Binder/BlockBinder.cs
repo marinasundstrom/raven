@@ -2203,6 +2203,14 @@ partial class BlockBinder : Binder
 
         if (symbol is null)
         {
+            var type = LookupType(name);
+            if (type is not null)
+                return new BoundTypeExpression(type);
+
+            var ns = LookupNamespace(name);
+            if (ns is not null)
+                return new BoundNamespaceExpression(ns);
+
             _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, syntax.Identifier.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }

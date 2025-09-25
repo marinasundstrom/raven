@@ -55,6 +55,14 @@ class TopLevelBinder : BlockBinder
         if (parentSymbol != null)
             return parentSymbol;
 
+        var currentNamespace = CurrentNamespace;
+        if (currentNamespace is not null)
+        {
+            var namespaceMember = currentNamespace.GetMembers(name).FirstOrDefault();
+            if (namespaceMember is not null)
+                return namespaceMember;
+        }
+
         return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
     }
 

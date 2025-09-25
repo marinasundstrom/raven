@@ -334,6 +334,37 @@ public partial class SemanticModel
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
         RegisterNamespaceMembers(cu, compilationUnitBinder, targetNamespace);
 
+        if (fileScopedNamespace is not null)
+        {
+            foreach (var alias in fileScopedNamespace.Aliases)
+            {
+                IReadOnlyList<ISymbol> symbols;
+                if (alias.Target is NameSyntax name)
+                {
+                    symbols = ResolveAlias(targetNamespace, name);
+                }
+                else
+                {
+                    var typeSymbol = provisionalImportBinder.ResolveType(alias.Target);
+                    symbols = typeSymbol == Compilation.ErrorTypeSymbol
+                        ? Array.Empty<ISymbol>()
+                        : new ISymbol[] { typeSymbol };
+                }
+
+                if (symbols.Count > 0)
+                {
+                    var aliasSymbols = symbols
+                        .Select(s => AliasSymbolFactory.Create(alias.Identifier.Text, s))
+                        .ToArray();
+                    aliases[alias.Identifier.Text] = aliasSymbols;
+                }
+                else
+                {
+                    namespaceBinder.Diagnostics.ReportInvalidAliasType(alias.Target.GetLocation());
+                }
+            }
+        }
+
         CreateTopLevelBinder(cu, targetNamespace, importBinder);
 
         _binderCache[cu] = importBinder;
