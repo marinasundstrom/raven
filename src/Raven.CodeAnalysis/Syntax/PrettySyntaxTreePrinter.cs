@@ -82,58 +82,209 @@ public static class PrettySyntaxTreePrinter
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
-        ChildSyntaxListItem[] children = !printerOptions.IncludeTokens
-            ? node.ChildNodesAndTokens().Where(x => x.IsNode).ToArray()
-            : node.ChildNodesAndTokens().ToArray();
+        ChildSyntaxListItem[] children = node.ChildNodesAndTokens().ToArray();
+        var printableChildren = GetPrintableChildren(children, printerOptions);
 
-        for (int i = 0; i < children.Length; i++)
+        for (int i = 0; i < printableChildren.Count; i++)
         {
-            var isChildLast = i == children.Length - 1;
-            if (children[i].TryGetNode(out var childNode))
+            var printableChild = printableChildren[i];
+            var isChildLast = i == printableChildren.Count - 1;
+
+            if (printableChild.IsList)
+            {
+                PrintListProperty(printableChild, writer, newIndent, isChildLast, printerOptions, currentDepth + 1);
+            }
+            else if (printableChild.Item is { } child && child.TryGetNode(out var childNode))
             {
                 PrintSyntaxTreeCore(childNode, writer, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
             }
-            else if (printerOptions.IncludeTokens && children[i].TryGetToken(out var token))
+            else if (printerOptions.IncludeTokens && printableChild.Item is { } tokenChild && tokenChild.TryGetToken(out var token))
             {
-                // Include trivia if specified
-                if (printerOptions.IncludeTrivia)
-                {
-                    var triviaList = token.LeadingTrivia;
-                    PrintTrivia(triviaList, true, writer, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
-                }
-
-                var propertyName2 = string.Empty;
-
-                if (printerOptions.IncludeNames)
-                {
-                    propertyName2 = token.Parent?.GetPropertyNameForChild(token);
-
-                    if (propertyName2 is not null)
-                    {
-                        propertyName2 = $"{propertyName2}: ";
-                    }
-                }
-
-                string marker2 = isChildLast ? MarkerBottom : MarkerMiddle;
-
-                string newIndent2 = newIndent;
-
-                if (node.GetPropertyNameForChild(token) is null)
-                {
-                    marker2 = isChildLast ? MarkerBottom : MarkerMiddle;
-                }
-
-                // Print token
-                writer.WriteLine($"{newIndent}{marker2}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
-
-                // Include trivia if specified
-                if (printerOptions.IncludeTrivia)
-                {
-                    var triviaList = token.TrailingTrivia;
-                    PrintTrivia(triviaList, false, writer, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
-                }
+                PrintToken(token, writer, newIndent, isChildLast, printerOptions, currentDepth + 1);
             }
         }
+    }
+
+    private static IReadOnlyList<PrintableChild> GetPrintableChildren(ChildSyntaxListItem[] children, PrinterOptions printerOptions)
+    {
+        var result = new List<PrintableChild>();
+
+        if (!printerOptions.ExpandListsAsProperties && printerOptions.IncludeNames)
+        {
+            var listPropertyIndices = new Dictionary<string, List<int>>();
+
+            for (int i = 0; i < children.Length; i++)
+            {
+                var child = children[i];
+
+                if (!printerOptions.IncludeTokens && child.IsToken)
+                    continue;
+
+                if (child.ParentListGreen is null)
+                    continue;
+
+                var propertyName = GetListPropertyName(child, printerOptions);
+
+                if (propertyName is null)
+                    continue;
+
+                if (!listPropertyIndices.TryGetValue(propertyName, out var indices))
+                {
+                    indices = new List<int>();
+                    listPropertyIndices[propertyName] = indices;
+                }
+
+                indices.Add(i);
+            }
+
+            var handled = new HashSet<int>();
+
+            for (int i = 0; i < children.Length; i++)
+            {
+                if (!printerOptions.IncludeTokens && children[i].IsToken)
+                    continue;
+
+                if (handled.Contains(i))
+                    continue;
+
+                var child = children[i];
+
+                var propertyName = GetListPropertyName(child, printerOptions);
+
+                if (propertyName is not null && listPropertyIndices.TryGetValue(propertyName, out var indices) && indices.Count > 0 && indices[0] == i)
+                {
+                    var items = indices
+                        .Select(index => children[index])
+                        .Where(item => printerOptions.IncludeTokens || item.IsNode)
+                        .ToArray();
+
+                    foreach (var index in indices)
+                        handled.Add(index);
+
+                    if (items.Length > 0)
+                        result.Add(PrintableChild.ForList(propertyName, items));
+
+                    continue;
+                }
+
+                handled.Add(i);
+                result.Add(PrintableChild.ForSingle(child));
+            }
+
+            return result;
+        }
+
+        foreach (var child in children)
+        {
+            if (!printerOptions.IncludeTokens && child.IsToken)
+                continue;
+
+            result.Add(PrintableChild.ForSingle(child));
+        }
+
+        return result;
+    }
+
+    private static string? GetListPropertyName(ChildSyntaxListItem child, PrinterOptions printerOptions)
+    {
+        if (child.ParentListGreen is null)
+            return null;
+
+        if (child.TryGetNode(out var childNode))
+            return childNode.Parent?.GetPropertyNameForListItem(childNode);
+
+        if (printerOptions.IncludeTokens && child.TryGetToken(out var token))
+            return token.Parent?.GetPropertyNameForListItem(token);
+
+        return null;
+    }
+
+    private static void PrintListProperty(PrintableChild printableChild, TextWriter writer, string indent, bool isChildLast, PrinterOptions printerOptions, int currentDepth)
+    {
+        if (currentDepth > printerOptions.MaxDepth)
+            return;
+
+        var marker = isChildLast ? MarkerBottom : MarkerMiddle;
+        writer.WriteLine($"{indent}{marker}" + MaybeColorize(printableChild.ListPropertyName!, AnsiColor.BrightBlue, printerOptions.Colorize));
+
+        var childIndent = indent + (isChildLast ? IndentationStr : MarkerStraight);
+
+        var items = printableChild.ListItems!;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            var listChild = items[i];
+            var isListChildLast = i == items.Count - 1;
+
+            if (listChild.TryGetNode(out var childNode))
+            {
+                PrintSyntaxTreeCore(childNode, writer, childIndent, false, isListChildLast, printerOptions, currentDepth + 1);
+            }
+            else if (printerOptions.IncludeTokens && listChild.TryGetToken(out var token))
+            {
+                PrintToken(token, writer, childIndent, isListChildLast, printerOptions, currentDepth + 1);
+            }
+        }
+    }
+
+    private static void PrintToken(SyntaxToken token, TextWriter writer, string indent, bool isChildLast, PrinterOptions printerOptions, int currentDepth)
+    {
+        if (currentDepth > printerOptions.MaxDepth)
+            return;
+
+        if (printerOptions.IncludeTrivia)
+        {
+            var triviaList = token.LeadingTrivia;
+            PrintTrivia(triviaList, true, writer, indent, false, isChildLast, printerOptions, currentDepth + 1);
+        }
+
+        var propertyName = string.Empty;
+
+        if (printerOptions.IncludeNames)
+        {
+            propertyName = token.Parent?.GetPropertyNameForChild(token);
+
+            if (propertyName is not null)
+            {
+                propertyName = $"{propertyName}: ";
+            }
+        }
+
+        var marker = isChildLast ? MarkerBottom : MarkerMiddle;
+
+        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
+
+        if (printerOptions.IncludeTrivia)
+        {
+            var triviaList = token.TrailingTrivia;
+            PrintTrivia(triviaList, false, writer, indent, false, isChildLast, printerOptions, currentDepth + 1);
+        }
+    }
+
+    private sealed class PrintableChild
+    {
+        private PrintableChild(ChildSyntaxListItem item)
+        {
+            Item = item ?? throw new ArgumentNullException(nameof(item));
+        }
+
+        private PrintableChild(string propertyName, IReadOnlyList<ChildSyntaxListItem> items)
+        {
+            ListPropertyName = propertyName ?? throw new ArgumentNullException(nameof(propertyName));
+            ListItems = items ?? throw new ArgumentNullException(nameof(items));
+        }
+
+        public ChildSyntaxListItem? Item { get; }
+
+        public IReadOnlyList<ChildSyntaxListItem>? ListItems { get; }
+
+        public string? ListPropertyName { get; }
+
+        public bool IsList => ListItems is not null;
+
+        public static PrintableChild ForSingle(ChildSyntaxListItem item) => new(item);
+
+        public static PrintableChild ForList(string propertyName, IReadOnlyList<ChildSyntaxListItem> items) => new(propertyName, items);
     }
 
     private static string GetTokenText(ref SyntaxToken token)

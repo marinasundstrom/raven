@@ -9,10 +9,7 @@ public class PrettySyntaxTreePrinterTests
     [Fact]
     public void PrintSyntaxTree_ToTextWriter_ProducesExpectedOutput()
     {
-        var code = "let x = 1;";
-        var tree = SyntaxTree.ParseText(code);
-        var root = tree.GetRoot();
-        var options = new PrinterOptions
+        var (printed, representation) = PrintTree("let x = 1;", new PrinterOptions
         {
             IncludeTokens = true,
             IncludeTrivia = false,
@@ -20,13 +17,44 @@ public class PrettySyntaxTreePrinterTests
             IncludeLocations = false,
             IncludeNames = true,
             Colorize = false
-        };
+        });
 
-        using var writer = new StringWriter();
-        root.PrintSyntaxTree(options, writer);
-        var printed = writer.ToString();
+        const string expected =
+            """
+            CompilationUnit
+            ├── Members
+            │   └── GlobalStatement
+            │       └── Statement: LocalDeclarationStatement
+            │           ├── Declaration: VariableDeclaration
+            │           │   ├── LetOrVarKeyword: let LetKeyword
+            │           │   └── Declarators
+            │           │       └── VariableDeclarator
+            │           │           ├── Identifier: x IdentifierToken
+            │           │           └── Initializer: EqualsValueClause
+            │           │               ├── EqualsToken: = EqualsToken
+            │           │               └── Value: NumericLiteralExpression
+            │           │                   └── Token: 1 NumericLiteralToken
+            │           └── TerminatorToken: ; SemicolonToken
+            └── EndOfFileToken:  EndOfFileToken
+            """ + "\n";
 
-        var representation = root.GetSyntaxTreeRepresentation(options);
+        Assert.Equal(representation, printed);
+        Assert.Equal(expected, printed);
+    }
+
+    [Fact]
+    public void PrintSyntaxTree_ToTextWriter_WithExpandedLists_ProducesPreviousStructure()
+    {
+        var (printed, representation) = PrintTree("let x = 1;", new PrinterOptions
+        {
+            IncludeTokens = true,
+            IncludeTrivia = false,
+            IncludeSpans = false,
+            IncludeLocations = false,
+            IncludeNames = true,
+            Colorize = false,
+            ExpandListsAsProperties = true
+        });
 
         const string expected =
             """
@@ -47,5 +75,18 @@ public class PrettySyntaxTreePrinterTests
 
         Assert.Equal(representation, printed);
         Assert.Equal(expected, printed);
+    }
+
+    private static (string Printed, string Representation) PrintTree(string code, PrinterOptions options)
+    {
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+
+        using var writer = new StringWriter();
+        root.PrintSyntaxTree(options, writer);
+        var printed = writer.ToString();
+
+        var representation = root.GetSyntaxTreeRepresentation(options);
+        return (printed, representation);
     }
 }
