@@ -811,14 +811,14 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// RAV1504: Cannot assign '{0}' to '{1}'
+    /// RAV1504: Cannot assign {0} to {1}
     /// </summary>
     public static DiagnosticDescriptor CannotAssignFromTypeToType => _cannotAssignFromTypeToType ??= DiagnosticDescriptor.Create(
         id: "RAV1504",
         title: "Cannot assign to type",
         description: "",
         helpLinkUri: "",
-        messageFormat: "Cannot assign '{0}' to '{1}'",
+        messageFormat: "Cannot assign {0} to {1}",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);

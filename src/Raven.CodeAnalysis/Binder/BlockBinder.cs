@@ -170,8 +170,8 @@ partial class BlockBinder : Binder
                 if (!IsAssignable(type, boundInitializer.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
-                        boundInitializer.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        boundInitializer.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         initializer.Value.GetLocation());
                     boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
                 }
@@ -3059,8 +3059,8 @@ partial class BlockBinder : Binder
                     if (!IsAssignable(arrayType.ElementType, right.Type, out var conversion))
                     {
                         _diagnostics.ReportCannotAssignFromTypeToType(
-                            right.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            arrayType.ElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            right.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            arrayType.ElementType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             rightSyntax.GetLocation());
                         return new BoundErrorExpression(arrayType.ElementType, null, BoundExpressionReason.TypeMismatch);
                     }
@@ -3088,8 +3088,8 @@ partial class BlockBinder : Binder
                 if (!IsAssignable(indexer.Type, right.Type, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
-                        right.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        indexer.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        right.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        indexer.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         rightSyntax.GetLocation());
                     return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.TypeMismatch);
                 }
@@ -3124,8 +3124,8 @@ partial class BlockBinder : Binder
                 if (!IsAssignable(localSymbol.Type, right2.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
-                        right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        localSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        localSymbol.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         rightSyntax.GetLocation());
                     return new BoundErrorExpression(localSymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
@@ -3150,8 +3150,8 @@ partial class BlockBinder : Binder
                 if (!IsAssignable(fieldSymbol.Type, right2.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
-                        right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        fieldSymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        fieldSymbol.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         rightSyntax.GetLocation());
                     return new BoundErrorExpression(fieldSymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }
@@ -3194,8 +3194,8 @@ partial class BlockBinder : Binder
                 if (!IsAssignable(propertySymbol.Type, right2.Type!, out var conversion))
                 {
                     _diagnostics.ReportCannotAssignFromTypeToType(
-                        right2.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        propertySymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        right2.Type!.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        propertySymbol.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         rightSyntax.GetLocation());
                     return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
                 }

@@ -207,7 +207,7 @@
     Message="Cannot convert from '{fromType}' to '{toType}'" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1504" Identifier="CannotAssignFromTypeToType" Title="Cannot assign to type"
-    Message="Cannot assign '{fromType}' to '{toType}'" Category="compiler" Severity="Error"
+    Message="Cannot assign {fromType} to {toType}" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1525" Identifier="InvalidExpressionTerm" Title="Invalid expression term"
     Message="Invalid expression term '{tokenText}'" Category="compiler" Severity="Error"
