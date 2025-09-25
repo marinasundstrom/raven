@@ -1,9 +1,11 @@
 using System;
 using System.IO;
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.Completion;
@@ -139,6 +141,41 @@ Console.
         Assert.DoesNotContain(items, i => i.DisplayText == "set_Out");
         Assert.DoesNotContain(items, i => i.DisplayText == "add_CancelKeyPress");
         Assert.DoesNotContain(items, i => i.DisplayText == "remove_CancelKeyPress");
+    }
+
+    [Fact]
+    public void GetCompletions_OnType_ExcludesInaccessibleMembers()
+    {
+        var code = """
+class Container {
+    private static Hidden() -> unit { }
+    public static Visible() -> unit { }
+}
+
+Container.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences([
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.InteropServices.dll")),
+                MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.Marshal).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            ]);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Visible");
+        Assert.DoesNotContain(items, i => i.DisplayText == "Hidden");
     }
 
     [Fact]
