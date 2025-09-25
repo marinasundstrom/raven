@@ -14,11 +14,11 @@ internal class ExpressionGenerator : Generator
     private readonly BoundExpression _expression;
 
     private static readonly MethodInfo CreateDelegateMethod = typeof(Delegate)
-        .GetMethod(nameof(Delegate.CreateDelegate), new[] { typeof(Type), typeof(object), typeof(IntPtr) })
+        .GetMethod(nameof(Delegate.CreateDelegate), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(Type), typeof(object), typeof(IntPtr) }, modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Delegate.CreateDelegate(Type, object, IntPtr).");
 
     private static readonly MethodInfo GetTypeFromHandleMethod = typeof(Type)
-        .GetMethod(nameof(Type.GetTypeFromHandle), new[] { typeof(RuntimeTypeHandle) })
+        .GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(RuntimeTypeHandle) }, modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Type.GetTypeFromHandle(RuntimeTypeHandle).");
 
     public ExpressionGenerator(Generator parent, BoundExpression expression) : base(parent)

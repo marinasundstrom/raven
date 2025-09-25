@@ -241,8 +241,19 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             explicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier.Update(name, dotToken, identifierToken);
         }
 
-        var identifier = VisitToken(node.Identifier)!
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var identifier = VisitToken(node.Identifier)!;
+
+        TypeParameterListSyntax? typeParameterList = null;
+        if (node.TypeParameterList is not null)
+        {
+            identifier = identifier.WithTrailingTrivia(SyntaxFactory.TriviaList());
+            typeParameterList = (TypeParameterListSyntax)Visit(node.TypeParameterList)!;
+            typeParameterList = typeParameterList.WithTrailingTrivia(SyntaxFactory.Space);
+        }
+        else
+        {
+            identifier = identifier.WithTrailingTrivia(SyntaxFactory.Space);
+        }
 
         var parameterList = (ParameterListSyntax)VisitParameterList(node.ParameterList)!
             .WithTrailingTrivia(SyntaxFactory.Space);
@@ -252,7 +263,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
                 .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(node.Modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnType, (BlockStatementSyntax?)VisitBlockStatement(node.Body), null, node.TerminatorToken)
+        return node.Update(node.Modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnType, (BlockStatementSyntax?)VisitBlockStatement(node.Body), null, node.TerminatorToken)
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed

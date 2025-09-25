@@ -264,8 +264,6 @@ internal class TypeDeclarationParser : SyntaxParser
             ConsumeTokenOrNull(SyntaxKind.IdentifierToken, out identifier);
         }
 
-        // Check is open paren
-
         var parameterList = ParseParameterList();
 
         ConstructorInitializerSyntax? initializer = null;
@@ -340,6 +338,12 @@ internal class TypeDeclarationParser : SyntaxParser
         ExplicitInterfaceSpecifierSyntax? explicitInterfaceSpecifier,
         SyntaxToken identifier)
     {
+        TypeParameterListSyntax? typeParameterList = null;
+        if (PeekToken().IsKind(SyntaxKind.LessThanToken))
+        {
+            typeParameterList = ParseTypeParameterList();
+        }
+
         var parameterList = ParseParameterList();
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
@@ -368,14 +372,14 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (expressionBody is not null)
         {
-            return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnParameterAnnotation, null, expressionBody, terminatorToken);
+            return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, null, expressionBody, terminatorToken);
         }
         else if (body is not null)
         {
-            return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnParameterAnnotation, body, null, terminatorToken);
+            return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, body, null, terminatorToken);
         }
 
-        return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, parameterList, returnParameterAnnotation, null, null, terminatorToken);
+        return MethodDeclaration(modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnParameterAnnotation, null, null, terminatorToken);
     }
 
     private (ExplicitInterfaceSpecifierSyntax? ExplicitInterfaceSpecifier, SyntaxToken Identifier) ParseMemberNameWithExplicitInterface()

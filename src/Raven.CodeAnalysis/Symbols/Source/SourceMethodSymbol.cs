@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
@@ -8,6 +10,12 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
     private IEnumerable<SourceParameterSymbol> _parameters;
+    private ITypeSymbol _returnType;
+    private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
+    private bool _isOverride;
+    private bool _isVirtual;
+    private bool _isSealed;
 
     public SourceMethodSymbol(
         string name,
@@ -26,19 +34,19 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         Accessibility declaredAccessibility = Accessibility.NotApplicable)
             : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
-        ReturnType = returnType;
+        _returnType = returnType;
         _parameters = parameters;
 
         IsStatic = isStatic;
 
         MethodKind = methodKind;
 
-        IsOverride = isOverride;
-        IsVirtual = isVirtual || isOverride;
-        IsSealed = isSealed;
+        _isOverride = isOverride;
+        _isVirtual = isVirtual || isOverride;
+        _isSealed = isSealed;
     }
 
-    public ITypeSymbol ReturnType { get; }
+    public ITypeSymbol ReturnType => _returnType;
 
     public ImmutableArray<IParameterSymbol> Parameters => _parameters.OfType<IParameterSymbol>().ToImmutableArray();
 
@@ -50,7 +58,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public MethodKind MethodKind { get; }
 
-    public IMethodSymbol? OriginalDefinition { get; }
+    public IMethodSymbol? OriginalDefinition => this;
 
     public bool IsAbstract { get; }
 
@@ -64,19 +72,25 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsExtern { get; }
 
-    public bool IsGenericMethod { get; }
+    public bool IsGenericMethod => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0;
 
-    public bool IsOverride { get; }
+    public bool IsOverride => _isOverride;
 
     public bool IsReadOnly { get; }
 
-    public bool IsSealed { get; }
+    public bool IsSealed => _isSealed;
 
-    public bool IsVirtual { get; }
+    public bool IsVirtual => _isVirtual;
 
     public IMethodSymbol? OverriddenMethod { get; private set; }
 
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations { get; private set; } = ImmutableArray<IMethodSymbol>.Empty;
+
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
+
+    public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
+
+    public IMethodSymbol? ConstructedFrom => this;
 
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 
@@ -91,4 +105,29 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     internal void MarkConstructorInitializerSyntax() => HasConstructorInitializerSyntax = true;
 
     internal void SetConstructorInitializer(BoundObjectCreationExpression? initializer) => ConstructorInitializer = initializer;
+
+    internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)
+    {
+        _typeParameters = typeParameters.ToImmutableArray();
+        _typeArguments = _typeParameters.IsDefaultOrEmpty
+            ? ImmutableArray<ITypeSymbol>.Empty
+            : _typeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+    }
+
+    internal void SetReturnType(ITypeSymbol returnType) => _returnType = returnType;
+
+    internal void UpdateModifiers(bool isVirtual, bool isOverride, bool isSealed)
+    {
+        _isOverride = isOverride;
+        _isVirtual = isVirtual || isOverride;
+        _isSealed = isSealed;
+    }
+
+    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    {
+        if (typeArguments is null)
+            throw new ArgumentNullException(nameof(typeArguments));
+
+        return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
+    }
 }

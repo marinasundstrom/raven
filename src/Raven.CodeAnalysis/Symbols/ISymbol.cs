@@ -256,6 +256,14 @@ public interface IMethodSymbol : ISymbol
 
     ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations { get; }
 
+    ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+
+    ImmutableArray<ITypeSymbol> TypeArguments { get; }
+
+    IMethodSymbol? ConstructedFrom { get; }
+
+    IMethodSymbol Construct(params ITypeSymbol[] typeArguments);
+
 }
 
 public enum MethodKind

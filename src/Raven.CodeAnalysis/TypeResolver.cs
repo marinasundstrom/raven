@@ -8,6 +8,8 @@ internal class TypeResolver(Compilation compilation)
 {
     private readonly Dictionary<Type, ITypeSymbol> _cache = new();
     private readonly NullabilityInfoContext _nullabilityContext = new();
+    private readonly Dictionary<MethodBase, PEMethodSymbol> _methodSymbols = new();
+    private readonly Dictionary<(MethodBase method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
 
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
@@ -19,7 +21,7 @@ internal class TypeResolver(Compilation compilation)
             return CreateUnionTypeSymbol(unionAttribute);
         }
 
-        var type = ResolveType(parameterInfo.ParameterType);
+        var type = ResolveType(parameterInfo.ParameterType, parameterInfo.Member as MethodBase);
 
         if (type is ITypeParameterSymbol typeParameterSymbol)
             return type;
@@ -95,7 +97,15 @@ internal class TypeResolver(Compilation compilation)
         return new UnionTypeSymbol(types.ToArray(), null, null, null, []);
     }
 
+    public void RegisterMethodSymbol(MethodBase method, PEMethodSymbol symbol)
+    {
+        _methodSymbols[method] = symbol;
+    }
+
     public ITypeSymbol? ResolveType(Type type)
+        => ResolveType(type, null);
+
+    public ITypeSymbol? ResolveType(Type type, MethodBase? methodContext)
     {
         if (_cache.TryGetValue(type, out var cached))
             return cached;
@@ -135,6 +145,18 @@ internal class TypeResolver(Compilation compilation)
             if (ResolveType(type.DeclaringType) is not INamedTypeSymbol declaringNamedType)
                 throw new InvalidOperationException($"Could not resolve declaring type for type parameter: {type}");
 
+            if (type.IsGenericMethodParameter)
+            {
+                var method = methodContext ?? type.DeclaringMethod;
+                if (method is null)
+                    throw new InvalidOperationException($"Unable to resolve declaring method for type parameter: {type}");
+
+                if (!_methodSymbols.TryGetValue(method, out var methodSymbol))
+                    throw new InvalidOperationException($"Method symbol not registered for {method}.");
+
+                return ResolveMethodTypeParameter(type, methodSymbol);
+            }
+
             return new PETypeParameterSymbol(type, declaringNamedType, declaringNamedType, declaringNamedType.ContainingNamespace, []);
         }
 
@@ -148,6 +170,18 @@ internal class TypeResolver(Compilation compilation)
 
         _cache[type] = symbol!;
 
+        return symbol;
+    }
+
+    internal ITypeParameterSymbol ResolveMethodTypeParameter(Type type, PEMethodSymbol methodSymbol)
+    {
+        var key = (methodSymbol.GetMethodInfo(), type);
+
+        if (_methodTypeParameters.TryGetValue(key, out var existing))
+            return existing;
+
+        var symbol = new PETypeParameterSymbol(type, methodSymbol, methodSymbol.ContainingType, methodSymbol.ContainingNamespace, [new MetadataLocation(methodSymbol.ContainingModule!)]);
+        _methodTypeParameters[key] = symbol;
         return symbol;
     }
 

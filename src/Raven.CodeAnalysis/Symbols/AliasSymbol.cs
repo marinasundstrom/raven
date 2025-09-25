@@ -264,6 +264,14 @@ internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
     public bool IsVirtual => _method.IsVirtual;
 
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _method.ExplicitInterfaceImplementations;
+
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _method.TypeParameters;
+
+    public ImmutableArray<ITypeSymbol> TypeArguments => _method.TypeArguments;
+
+    public IMethodSymbol? ConstructedFrom => _method.ConstructedFrom;
+
+    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments) => _method.Construct(typeArguments);
 }
 
 internal sealed class AliasPropertySymbol : AliasSymbol, IPropertySymbol

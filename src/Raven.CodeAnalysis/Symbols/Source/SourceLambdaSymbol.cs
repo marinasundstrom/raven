@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -39,6 +40,12 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public IMethodSymbol? OriginalDefinition => null;
 
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => ImmutableArray<ITypeParameterSymbol>.Empty;
+
+    public ImmutableArray<ITypeSymbol> TypeArguments => ImmutableArray<ITypeSymbol>.Empty;
+
+    public IMethodSymbol? ConstructedFrom => null;
+
     public bool IsAbstract => false;
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
@@ -72,5 +79,10 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public void SetCapturedVariables(IEnumerable<ISymbol> capturedVariables)
     {
         _capturedVariables = capturedVariables.ToImmutableArray();
+    }
+
+    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    {
+        throw new NotSupportedException("Lambdas cannot be constructed with type arguments.");
     }
 }

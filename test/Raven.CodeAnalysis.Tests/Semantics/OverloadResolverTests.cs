@@ -314,6 +314,23 @@ public sealed class OverloadResolverTests : CompilationTestBase
         public bool IsVirtual => false;
 
         public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
+
+        public ImmutableArray<ITypeParameterSymbol> TypeParameters => ImmutableArray<ITypeParameterSymbol>.Empty;
+
+        public ImmutableArray<ITypeSymbol> TypeArguments => ImmutableArray<ITypeSymbol>.Empty;
+
+        public IMethodSymbol? ConstructedFrom => this;
+
+        public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+        {
+            if (typeArguments is null)
+                throw new ArgumentNullException(nameof(typeArguments));
+
+            if (typeArguments.Length != 0)
+                throw new InvalidOperationException("FakeMethodSymbol does not support generic construction.");
+
+            return this;
+        }
     }
 
     private sealed class FakeParameterSymbol : FakeSymbol, IParameterSymbol
