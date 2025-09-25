@@ -34,5 +34,33 @@ public class NamespaceDirectiveTests
         Assert.NotNull(containingNamespace);
         Assert.Equal("Samples", containingNamespace!.ToString());
     }
+
+    [Fact]
+    public void NamespaceDeclaration_BindsMembersInDeclaredNamespace()
+    {
+        const string source = """
+        namespace Outer
+        {
+            namespace Inner
+            {
+                class C {}
+            }
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "app",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+
+        var type = compilation.GetTypeByMetadataName("Outer.Inner.C");
+        Assert.NotNull(type);
+        Assert.Equal("Outer.Inner", type!.ContainingNamespace?.ToString());
+    }
 }
 
