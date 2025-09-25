@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 using Raven.CodeAnalysis.Text;
@@ -83,52 +85,109 @@ public static class PrettySyntaxTreePrinter
             ? node.ChildNodesAndTokens().Where(x => x.IsNode).ToArray()
             : node.ChildNodesAndTokens().ToArray();
 
+        Dictionary<SyntaxNodeOrToken, SyntaxNodeReflectionExtensions.ChildGroup>? listPropertyMap = null;
+        Dictionary<string, (int FirstIndex, bool IsLast)>? listPropertyInfo = null;
+
+        if (printerOptions.ExpandListsAsProperties)
+        {
+            var grouped = node.GetChildrenGroupedByProperty(printerOptions.IncludeTokens);
+            var listGroups = grouped.Properties.Where(p => p.IsList).ToList();
+
+            if (listGroups.Count > 0)
+            {
+                listPropertyMap = new Dictionary<SyntaxNodeOrToken, SyntaxNodeReflectionExtensions.ChildGroup>();
+                listPropertyInfo = new Dictionary<string, (int, bool)>();
+
+                var orderedChildren = children.Select(c => (SyntaxNodeOrToken)c).ToArray();
+
+                foreach (var group in listGroups)
+                {
+                    int firstIndex = int.MaxValue;
+                    int lastIndex = -1;
+
+                    foreach (var item in group.Items)
+                    {
+                        var childItem = item.Item;
+                        listPropertyMap[childItem] = group;
+
+                        var index = Array.IndexOf(orderedChildren, childItem);
+                        if (index >= 0)
+                        {
+                            if (index < firstIndex)
+                                firstIndex = index;
+
+                            if (index > lastIndex)
+                                lastIndex = index;
+                        }
+                    }
+
+                    if (firstIndex != int.MaxValue)
+                    {
+                        bool groupIsLast = lastIndex == orderedChildren.Length - 1;
+                        listPropertyInfo[group.PropertyName] = (firstIndex, groupIsLast);
+                    }
+                }
+            }
+        }
+
         for (int i = 0; i < children.Length; i++)
         {
             var isChildLast = i == children.Length - 1;
+            var childNodeOrToken = (SyntaxNodeOrToken)children[i];
+
+            if (printerOptions.ExpandListsAsProperties && listPropertyMap is not null && listPropertyMap.TryGetValue(childNodeOrToken, out var listGroup))
+            {
+                if (listPropertyInfo is not null && listPropertyInfo.TryGetValue(listGroup.PropertyName, out var info))
+                {
+                    if (info.FirstIndex == i)
+                    {
+                        if (currentDepth + 1 <= printerOptions.MaxDepth)
+                        {
+                            PrintListProperty(sb, listGroup, newIndent, info.IsLast, printerOptions, currentDepth + 1);
+                        }
+                    }
+
+                    continue;
+                }
+            }
+
             if (children[i].TryGetNode(out var childNode))
             {
                 PrintSyntaxTreeCore(childNode, sb, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
             }
             else if (printerOptions.IncludeTokens && children[i].TryGetToken(out var token))
             {
-                // Include trivia if specified
-                if (printerOptions.IncludeTrivia)
-                {
-                    var triviaList = token.LeadingTrivia;
-                    PrintTrivia(triviaList, true, sb, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
-                }
+                PrintToken(sb, newIndent, isChildLast, printerOptions, ref token, currentDepth + 1);
+            }
+        }
+    }
 
-                var propertyName2 = string.Empty;
+    private static void PrintListProperty(StringBuilder sb, SyntaxNodeReflectionExtensions.ChildGroup group, string indent, bool isLast, PrinterOptions printerOptions, int currentDepth)
+    {
+        if (currentDepth > printerOptions.MaxDepth)
+            return;
 
-                if (printerOptions.IncludeNames)
-                {
-                    propertyName2 = token.Parent?.GetPropertyNameForChild(token);
+        var marker = isLast ? MarkerBottom : MarkerMiddle;
+        var propertyLabel = printerOptions.IncludeNames ? $"{group.PropertyName}: " : group.PropertyName;
+        var propertyName = MaybeColorize(propertyLabel, AnsiColor.BrightBlue, printerOptions.Colorize);
 
-                    if (propertyName2 is not null)
-                    {
-                        propertyName2 = $"{propertyName2}: ";
-                    }
-                }
+        sb.AppendLine($"{indent}{marker}{propertyName}");
 
-                string marker2 = isChildLast ? MarkerBottom : MarkerMiddle;
+        var listIndent = indent + (isLast ? IndentationStr : MarkerStraight);
 
-                string newIndent2 = newIndent;
+        var items = group.Items;
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i].Item;
+            var isItemLast = i == items.Count - 1;
 
-                if (node.GetPropertyNameForChild(token) is null)
-                {
-                    marker2 = isChildLast ? MarkerBottom : MarkerMiddle;
-                }
-
-                // Print token
-                sb.AppendLine($"{newIndent}{marker2}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
-
-                // Include trivia if specified
-                if (printerOptions.IncludeTrivia)
-                {
-                    var triviaList = token.TrailingTrivia;
-                    PrintTrivia(triviaList, false, sb, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
-                }
+            if (item.TryGetNode(out var childNode))
+            {
+                PrintSyntaxTreeCore(childNode, sb, listIndent, false, isItemLast, printerOptions, currentDepth + 1);
+            }
+            else if (printerOptions.IncludeTokens && item.TryGetToken(out var token))
+            {
+                PrintToken(sb, listIndent, isItemLast, printerOptions, ref token, currentDepth + 1);
             }
         }
     }
@@ -138,6 +197,45 @@ public static class PrettySyntaxTreePrinter
         return token.Text
             .Replace("\r", "\\r")
             .Replace("\n", "\\n");
+    }
+
+    private static void PrintToken(StringBuilder sb, string indent, bool isChildLast, PrinterOptions printerOptions, ref SyntaxToken token, int currentDepth)
+    {
+        if (currentDepth > printerOptions.MaxDepth)
+            return;
+
+        if (printerOptions.IncludeTrivia)
+        {
+            var triviaList = token.LeadingTrivia;
+            PrintTrivia(triviaList, true, sb, indent, false, isChildLast, printerOptions, currentDepth + 1);
+        }
+
+        var propertyName = string.Empty;
+
+        if (printerOptions.IncludeNames)
+        {
+            propertyName = token.Parent?.GetPropertyNameForChild(token);
+
+            if (propertyName is null && printerOptions.ExpandListsAsProperties)
+            {
+                propertyName = token.Parent?.GetPropertyNameForListItem(token);
+            }
+
+            if (propertyName is not null)
+            {
+                propertyName = $"{propertyName}: ";
+            }
+        }
+
+        string marker = isChildLast ? MarkerBottom : MarkerMiddle;
+
+        sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
+
+        if (printerOptions.IncludeTrivia)
+        {
+            var triviaList = token.TrailingTrivia;
+            PrintTrivia(triviaList, false, sb, indent, false, isChildLast, printerOptions, currentDepth + 1);
+        }
     }
 
     private static string Value(SyntaxNode node)
