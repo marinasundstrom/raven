@@ -170,6 +170,9 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsSealed => _original.IsSealed;
     public bool IsVirtual => _original.IsVirtual;
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _original.ExplicitInterfaceImplementations;
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _original.TypeParameters;
+    public ImmutableArray<ITypeSymbol> TypeArguments => _original.TypeArguments;
+    public IMethodSymbol? ConstructedFrom => _original.ConstructedFrom ?? _original;
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
@@ -199,6 +202,11 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     public bool Equals(ISymbol? other) =>
         SymbolEqualityComparer.Default.Equals(this, other);
+
+    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    {
+        return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
+    }
 
     internal ConstructorInfo GetConstructorInfo(CodeGenerator codeGen)
     {

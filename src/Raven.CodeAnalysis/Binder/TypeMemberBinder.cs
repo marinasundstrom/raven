@@ -152,10 +152,6 @@ internal class TypeMemberBinder : Binder
 
     public MethodBinder BindMethodDeclaration(MethodDeclarationSyntax methodDecl)
     {
-        var returnType = methodDecl.ReturnType is null
-            ? Compilation.GetSpecialType(SpecialType.System_Unit)
-            : ResolveType(methodDecl.ReturnType.Type);
-
         var explicitInterfaceSpecifier = methodDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(methodDecl.Identifier, explicitInterfaceSpecifier);
         var name = identifierToken.Kind == SyntaxKind.SelfKeyword ? "Invoke" : identifierToken.Text;
@@ -189,7 +185,7 @@ internal class TypeMemberBinder : Binder
             }
         }
 
-        var paramInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
+        var paramInfos = new List<(string name, TypeSyntax typeSyntax, RefKind refKind, ParameterSyntax syntax)>();
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
             var typeSyntax = p.TypeAnnotation!.Type;
@@ -200,27 +196,7 @@ internal class TypeMemberBinder : Binder
                 typeSyntax = byRefSyntax.ElementType;
             }
 
-            var pType = ResolveType(typeSyntax);
-            paramInfos.Add((p.Identifier.Text, pType, refKind, p));
-        }
-
-        CheckForDuplicateSignature(metadataName, displayName, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), identifierToken.GetLocation());
-
-        if (explicitInterfaceType is not null)
-        {
-            explicitInterfaceMember = FindExplicitInterfaceImplementation(
-                explicitInterfaceType,
-                name,
-                returnType,
-                paramInfos.Select(p => (p.type, p.refKind)).ToArray());
-
-            if (explicitInterfaceMember is null)
-            {
-                _diagnostics.ReportExplicitInterfaceMemberNotFound(
-                    explicitInterfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    name,
-                    identifierToken.GetLocation());
-            }
+            paramInfos.Add((p.Identifier.Text, typeSyntax, refKind, p));
         }
 
         var modifiers = methodDecl.Modifiers;
@@ -266,9 +242,77 @@ internal class TypeMemberBinder : Binder
 
         IMethodSymbol? overriddenMethod = null;
 
+        var methodKind = explicitInterfaceType is not null ? MethodKind.ExplicitInterfaceImplementation : MethodKind.Ordinary;
+
+        var methodSymbol = new SourceMethodSymbol(
+            metadataName,
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            _containingType,
+            _containingType,
+            CurrentNamespace!.AsSourceNamespace(),
+            [methodDecl.GetLocation()],
+            [methodDecl.GetReference()],
+            isStatic: isStatic,
+            methodKind: methodKind,
+            isVirtual: isVirtual,
+            isOverride: isOverride,
+            isSealed: isSealed,
+            declaredAccessibility: methodAccessibility);
+
+        if (methodDecl.TypeParameterList is not null)
+        {
+            var typeParametersBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(methodDecl.TypeParameterList.Parameters.Count);
+            int ordinal = 0;
+            foreach (var typeParameterSyntax in methodDecl.TypeParameterList.Parameters)
+            {
+                var typeParameterSymbol = new SourceTypeParameterSymbol(
+                    typeParameterSyntax.Identifier.Text,
+                    methodSymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [typeParameterSyntax.GetLocation()],
+                    [typeParameterSyntax.GetReference()],
+                    ordinal++);
+                typeParametersBuilder.Add(typeParameterSymbol);
+            }
+
+            methodSymbol.SetTypeParameters(typeParametersBuilder);
+        }
+
+        var methodBinder = new MethodBinder(methodSymbol, this);
+
+        var returnType = methodDecl.ReturnType is null
+            ? Compilation.GetSpecialType(SpecialType.System_Unit)
+            : methodBinder.ResolveType(methodDecl.ReturnType.Type);
+
+        var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
+        foreach (var (paramName, typeSyntax, refKind, syntax) in paramInfos)
+        {
+            var resolvedType = methodBinder.ResolveType(typeSyntax);
+            resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax));
+        }
+
+        if (explicitInterfaceType is not null)
+        {
+            explicitInterfaceMember = FindExplicitInterfaceImplementation(
+                explicitInterfaceType,
+                name,
+                returnType,
+                resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray());
+
+            if (explicitInterfaceMember is null)
+            {
+                _diagnostics.ReportExplicitInterfaceMemberNotFound(
+                    explicitInterfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    name,
+                    identifierToken.GetLocation());
+            }
+        }
+
         if (explicitInterfaceType is null && isOverride)
         {
-            var candidate = FindOverrideCandidate(name, paramInfos.Select(p => (p.type, p.refKind)).ToArray());
+            var candidate = FindOverrideCandidate(name, resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray());
 
             if (candidate is null || !candidate.IsVirtual)
             {
@@ -291,23 +335,9 @@ internal class TypeMemberBinder : Binder
             }
         }
 
-        var methodKind = explicitInterfaceType is not null ? MethodKind.ExplicitInterfaceImplementation : MethodKind.Ordinary;
+        methodSymbol.UpdateModifiers(isVirtual, isOverride, isSealed);
 
-        var methodSymbol = new SourceMethodSymbol(
-            metadataName,
-            returnType,
-            ImmutableArray<SourceParameterSymbol>.Empty,
-            _containingType,
-            _containingType,
-            CurrentNamespace!.AsSourceNamespace(),
-            [methodDecl.GetLocation()],
-            [methodDecl.GetReference()],
-            isStatic: isStatic,
-            methodKind: methodKind,
-            isVirtual: isVirtual,
-            isOverride: isOverride,
-            isSealed: isSealed,
-            declaredAccessibility: methodAccessibility);
+        CheckForDuplicateSignature(metadataName, displayName, resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray(), identifierToken.GetLocation(), methodDecl);
 
         if (overriddenMethod is not null)
             methodSymbol.SetOverriddenMethod(overriddenMethod);
@@ -316,7 +346,7 @@ internal class TypeMemberBinder : Binder
             methodSymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(explicitInterfaceMember));
 
         var parameters = new List<SourceParameterSymbol>();
-        foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
+        foreach (var (paramName, paramType, refKind, syntax) in resolvedParamInfos)
         {
             var pSymbol = new SourceParameterSymbol(
                 paramName,
@@ -331,8 +361,9 @@ internal class TypeMemberBinder : Binder
             parameters.Add(pSymbol);
         }
 
+        methodSymbol.SetReturnType(returnType);
         methodSymbol.SetParameters(parameters);
-        return new MethodBinder(methodSymbol, this);
+        return methodBinder;
     }
 
     private bool ImplementsInterface(INamedTypeSymbol interfaceType)
@@ -439,7 +470,7 @@ internal class TypeMemberBinder : Binder
             paramInfos.Add((p.Identifier.Text, pType, refKind, p));
         }
 
-        CheckForDuplicateSignature(".ctor", _containingType.Name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.GetLocation());
+        CheckForDuplicateSignature(".ctor", _containingType.Name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.GetLocation(), ctorDecl);
 
         var ctorSymbol = new SourceMethodSymbol(
             ".ctor",
@@ -517,7 +548,7 @@ internal class TypeMemberBinder : Binder
             paramInfos.Add((p.Identifier.Text, pType, refKind, p));
         }
 
-        CheckForDuplicateSignature(ctorDecl.Identifier.Text, ctorDecl.Identifier.Text, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.Identifier.GetLocation());
+        CheckForDuplicateSignature(ctorDecl.Identifier.Text, ctorDecl.Identifier.Text, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.Identifier.GetLocation(), ctorDecl);
 
         var ctorSymbol = new SourceMethodSymbol(
             ctorDecl.Identifier.Text,
@@ -552,10 +583,13 @@ internal class TypeMemberBinder : Binder
         return new MethodBinder(ctorSymbol, this);
     }
 
-    private void CheckForDuplicateSignature(string searchName, string displayName, (ITypeSymbol type, RefKind refKind)[] parameters, Location location)
+    private void CheckForDuplicateSignature(string searchName, string displayName, (ITypeSymbol type, RefKind refKind)[] parameters, Location location, SyntaxNode? currentDeclaration)
     {
         foreach (var method in _containingType.GetMembers(searchName).OfType<IMethodSymbol>())
         {
+            if (currentDeclaration is not null && method.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == currentDeclaration))
+                continue;
+
             if (SignaturesMatch(method, parameters))
             {
                 _diagnostics.ReportTypeAlreadyDefinesMember(_containingType.Name, displayName, location);

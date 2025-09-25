@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
@@ -10,6 +12,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
     private ImmutableArray<IParameterSymbol>? _parameters;
+    private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
+    private ImmutableArray<ITypeSymbol>? _typeArguments;
     private Accessibility? _accessibility;
 
     public PEMethodSymbol(TypeResolver typeResolver, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations)
@@ -17,6 +21,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     {
         _typeResolver = typeResolver;
         _methodInfo = methodInfo;
+        _typeResolver.RegisterMethodSymbol(_methodInfo, this);
 
         if (Name.StartsWith("op_Implicit") || Name.StartsWith("op_Explicit"))
         {
@@ -61,6 +66,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     {
         _typeResolver = typeResolver;
         _methodInfo = methodInfo;
+        _typeResolver.RegisterMethodSymbol(_methodInfo, this);
 
 
         if (Name.StartsWith("op_Implicit") || Name.StartsWith("op_Explicit"))
@@ -110,7 +116,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             if (_returnType == null)
             {
                 var returnParam = ((MethodInfo)_methodInfo).ReturnParameter;
-                _returnType = _typeResolver.ResolveType(returnParam)!;
+                _returnType = _typeResolver.ResolveType(returnParam.ParameterType, _methodInfo)!;
             }
             return _returnType;
         }
@@ -138,7 +144,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public MethodKind MethodKind { get; }
 
-    public IMethodSymbol? OriginalDefinition { get; }
+    public IMethodSymbol? OriginalDefinition => this;
 
     public bool IsAbstract => _methodInfo.IsAbstract;
 
@@ -173,7 +179,29 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
 
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters =>
+        _typeParameters ??= !_methodInfo.IsGenericMethodDefinition
+            ? ImmutableArray<ITypeParameterSymbol>.Empty
+            : ((MethodInfo)_methodInfo).GetGenericArguments()
+                .Select(t => (ITypeParameterSymbol)_typeResolver.ResolveMethodTypeParameter(t, this)!)
+                .ToImmutableArray();
+
+    public ImmutableArray<ITypeSymbol> TypeArguments =>
+        _typeArguments ??= TypeParameters.IsDefaultOrEmpty
+            ? ImmutableArray<ITypeSymbol>.Empty
+            : TypeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+
+    public IMethodSymbol? ConstructedFrom => this;
+
     public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
 
     public ConstructorInfo GetConstructorInfo() => (ConstructorInfo)_methodInfo;
+
+    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    {
+        if (typeArguments is null)
+            throw new ArgumentNullException(nameof(typeArguments));
+
+        return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
+    }
 }
