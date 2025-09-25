@@ -106,6 +106,8 @@ public class Compilation
     {
         EnsureSetup();
 
+        EnsureSemanticModelsCreated();
+
         if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
         {
             return semanticModel;
@@ -119,6 +121,32 @@ public class Compilation
         semanticModel = new SemanticModel(this, syntaxTree);
         _semanticModels[syntaxTree] = semanticModel;
         return semanticModel;
+    }
+
+    private void EnsureSemanticModelsCreated()
+    {
+        if (_sourceTypesInitialized || _isPopulatingSourceTypes)
+            return;
+
+        try
+        {
+            _isPopulatingSourceTypes = true;
+
+            foreach (var syntaxTree in _syntaxTrees)
+            {
+                if (_semanticModels.ContainsKey(syntaxTree))
+                    continue;
+
+                var model = new SemanticModel(this, syntaxTree);
+                _semanticModels[syntaxTree] = model;
+            }
+
+            _sourceTypesInitialized = true;
+        }
+        finally
+        {
+            _isPopulatingSourceTypes = false;
+        }
     }
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);
