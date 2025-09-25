@@ -31,6 +31,7 @@ string? targetFrameworkTfm = null;
 string? outputPath = null;
 
 var printSyntaxTree = false;
+var expandGroups = false;
 var printSyntax = false;
 var printRawSyntax = false;
 var printBinders = false;
@@ -42,19 +43,30 @@ for (int i = 0; i < args.Length; i++)
     switch (args[i])
     {
         case "-o":
+        case "--output":
             if (i + 1 < args.Length)
                 outputPath = args[++i];
             break;
         case "-s":
+        case "--display-tree":
             printSyntaxTree = true;
+            expandGroups = true;
+            break;
+        case "-se":
+        case "--display-expanded-tree":
+            printSyntaxTree = true;
+            expandGroups = false;
             break;
         case "-d":
-            printSyntax = true;
-            break;
-        case "-r":
+        case "--print-syntax":
             printRawSyntax = true;
             break;
+        case "-dp":
+        case "--pretty-print":
+            printSyntax = true;
+            break;
         case "-b":
+        case "--display-binders":
             printBinders = true;
             break;
         case "--no-emit":
@@ -217,7 +229,7 @@ if (allowConsoleOutput)
     if (printSyntaxTree)
     {
         var includeLocations = true;
-        root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = includeLocations, Colorize = true, ExpandListsAsProperties = true });
+        root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = includeLocations, Colorize = true, ExpandListsAsProperties = expandGroups });
     }
 
     if (printSyntax)
