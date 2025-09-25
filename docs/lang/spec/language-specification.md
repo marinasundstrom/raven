@@ -749,6 +749,27 @@ Function declarations (local function statements) within file-scope code are
 hoisted and may be referenced from anywhere in that file-scoped region,
 regardless of their order.
 
+### Entry point resolution
+
+Console applications begin executing at the synthesized `Program.Main` method
+that backs file-scope code. When a project does not contain file-scope
+statements, the compiler instead looks for a user-defined entry point. Any
+static method named `Main` qualifies when it meets the following requirements:
+
+* The method returns `unit`, `void`, or `int`.
+* It has no type parameters.
+* It declares either no parameters or a single parameter of type `string[]`
+  (representing the command-line arguments).
+
+If exactly one method satisfies these conditions, it becomes the entry point for
+the compilation. When no method qualifies, the compiler reports
+`RAV1014` *Program.Main entry point not found*. Declaring more than one valid
+`Main` (including mixing top-level statements with a matching method) causes the
+compiler to emit `RAV1017` *Program has more than one entry point defined*.
+
+Library and script output kinds ignore the entry point search; they never report
+missing or ambiguous entry-point diagnostics.
+
 ## Functions
 
 ```raven
