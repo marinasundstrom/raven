@@ -143,8 +143,7 @@ internal class MethodBodyGenerator
                     EmitFunction(localFunctionStmt);
                 }
 
-                var statements = compilationUnit.Members.OfType<GlobalStatementSyntax>()
-                    .Select(x => x.Statement);
+                var statements = GetTopLevelStatements(compilationUnit);
                 EmitIL(statements, topLevelDisposables.ToImmutable());
                 break;
 
@@ -579,5 +578,22 @@ internal class MethodBodyGenerator
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
         return typeSymbol.GetClrType(MethodGenerator.TypeGenerator.CodeGen);
+    }
+
+    private static IEnumerable<StatementSyntax> GetTopLevelStatements(CompilationUnitSyntax compilationUnit)
+    {
+        foreach (var member in compilationUnit.Members)
+        {
+            switch (member)
+            {
+                case GlobalStatementSyntax global:
+                    yield return global.Statement;
+                    break;
+                case FileScopedNamespaceDeclarationSyntax fileScoped:
+                    foreach (var nestedGlobal in fileScoped.Members.OfType<GlobalStatementSyntax>())
+                        yield return nestedGlobal.Statement;
+                    break;
+            }
+        }
     }
 }
