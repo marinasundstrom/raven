@@ -348,17 +348,15 @@ static bool TryParseSyntaxTreeFormat(string[] args, ref int index, out SyntaxTre
         return true;
     }
 
-    if (value.Equals("group", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("grouped", StringComparison.OrdinalIgnoreCase))
+    switch (value.ToLowerInvariant())
     {
-        format = SyntaxTreeFormat.Group;
-        return true;
-    }
-
-    if (value.Equals("flat", StringComparison.OrdinalIgnoreCase))
-    {
-        format = SyntaxTreeFormat.Flat;
-        return true;
+        case "group":
+        case "grouped":
+            format = SyntaxTreeFormat.Group;
+            return true;
+        case "flat":
+            format = SyntaxTreeFormat.Flat;
+            return true;
     }
 
     AnsiConsole.MarkupLine($"[red]Unknown syntax tree format '{value}'.[/]");
@@ -387,43 +385,40 @@ static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool prin
         return true;
     }
 
-    var mode = segments[0];
-    if (mode.Equals("plain", StringComparison.OrdinalIgnoreCase))
+    switch (segments[0].ToLowerInvariant())
     {
-        if (segments.Length > 1)
-        {
-            AnsiConsole.MarkupLine("[red]The 'plain' syntax dump does not accept modifiers.[/]");
-            return false;
-        }
-
-        printRawSyntax = true;
-        return true;
-    }
-
-    if (mode.Equals("pretty", StringComparison.OrdinalIgnoreCase))
-    {
-        includeDiagnostics = true;
-        foreach (var modifier in segments.Skip(1))
-        {
-            if (modifier.Equals("no-diagnostics", StringComparison.OrdinalIgnoreCase) ||
-                modifier.Equals("no-underline", StringComparison.OrdinalIgnoreCase))
+        case "plain":
+            if (segments.Length > 1)
             {
-                includeDiagnostics = false;
-            }
-            else if (modifier.Equals("diagnostics", StringComparison.OrdinalIgnoreCase) ||
-                     modifier.Equals("underline", StringComparison.OrdinalIgnoreCase))
-            {
-                includeDiagnostics = true;
-            }
-            else
-            {
-                AnsiConsole.MarkupLine($"[red]Unknown modifier '{modifier}' for pretty syntax dump.[/]");
+                AnsiConsole.MarkupLine("[red]The 'plain' syntax dump does not accept modifiers.[/]");
                 return false;
             }
-        }
 
-        printSyntax = true;
-        return true;
+            printRawSyntax = true;
+            return true;
+
+        case "pretty":
+            includeDiagnostics = true;
+            foreach (var modifier in segments.Skip(1))
+            {
+                switch (modifier.ToLowerInvariant())
+                {
+                    case "no-diagnostics":
+                    case "no-underline":
+                        includeDiagnostics = false;
+                        break;
+                    case "diagnostics":
+                    case "underline":
+                        includeDiagnostics = true;
+                        break;
+                    default:
+                        AnsiConsole.MarkupLine($"[red]Unknown modifier '{modifier}' for pretty syntax dump.[/]");
+                        return false;
+                }
+            }
+
+            printSyntax = true;
+            return true;
     }
 
     AnsiConsole.MarkupLine($"[red]Unknown syntax dump format '{value}'.[/]");
