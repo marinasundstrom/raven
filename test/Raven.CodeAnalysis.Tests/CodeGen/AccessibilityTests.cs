@@ -114,6 +114,31 @@ public class CtorContainer {
     }
 
     [Fact]
+    public void NamedConstructor_SynthesizesPrivateDefaultConstructor()
+    {
+        var code = """
+public class Person {
+    var name: string;
+
+    public init WithName(name: string) {
+        self.name = name;
+    }
+}
+""";
+
+        using var metadataContext = Emit(code, out var assembly);
+
+        var person = assembly.GetType("Person", throwOnError: true)!;
+
+        var publicCtor = person.GetConstructor(BindingFlags.Instance | BindingFlags.Public, binder: null, types: Type.EmptyTypes, modifiers: null);
+        Assert.Null(publicCtor);
+
+        var nonPublicCtor = person.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, binder: null, types: Type.EmptyTypes, modifiers: null);
+        Assert.NotNull(nonPublicCtor);
+        Assert.Equal(MethodAttributes.Private, nonPublicCtor!.Attributes & MethodAttributes.MemberAccessMask);
+    }
+
+    [Fact]
     public void SemanticModel_ReportsDeclaredAccessibility()
     {
         var code = """
