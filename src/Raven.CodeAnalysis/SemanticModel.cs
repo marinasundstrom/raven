@@ -239,7 +239,7 @@ public partial class SemanticModel
 
         if (fileScopedNamespace != null)
         {
-            targetNamespace = Compilation.GetNamespaceSymbol(fileScopedNamespace.Name.ToString())
+            targetNamespace = Compilation.GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToString())
                              ?? throw new Exception("Namespace not found");
 
             namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace);
