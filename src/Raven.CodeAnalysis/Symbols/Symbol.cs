@@ -120,7 +120,7 @@ internal abstract class Symbol : ISymbol
     public ImmutableArray<Location> Locations
     {
         get;
-        private set;
+        protected set;
     }
 
     public virtual Accessibility DeclaredAccessibility => _declaredAccessibility;
@@ -128,7 +128,7 @@ internal abstract class Symbol : ISymbol
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences
     {
         get;
-        private set;
+        protected set;
     }
 
     public virtual bool IsImplicitlyDeclared => false;
