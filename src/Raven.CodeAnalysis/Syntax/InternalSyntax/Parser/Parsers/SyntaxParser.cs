@@ -169,6 +169,13 @@ internal class SyntaxParser : ParseContext
             return true;
         }
 
+        if (IsPotentialStatementStart(current))
+        {
+            token = Token(SyntaxKind.None);
+            SetTreatNewlinesAsTokens(previous);
+            return true;
+        }
+
         var skippedTokens = new List<SyntaxToken>();
 
         while (true)
@@ -178,6 +185,14 @@ internal class SyntaxParser : ParseContext
                 t = t.WithLeadingTrivia(Array.Empty<SyntaxTrivia>());
             skippedTokens.Add(t);
             current = PeekToken();
+
+            if (IsPotentialStatementStart(current))
+            {
+                AddSkippedToPending(skippedTokens);
+                token = Token(SyntaxKind.None);
+                SetTreatNewlinesAsTokens(previous);
+                return true;
+            }
 
             if (current.Kind == SyntaxKind.SemicolonToken)
             {
@@ -202,6 +217,26 @@ internal class SyntaxParser : ParseContext
                 return true;
             }
         }
+    }
+
+    private static bool IsPotentialStatementStart(SyntaxToken token)
+    {
+        return token.Kind switch
+        {
+            SyntaxKind.None => false,
+            SyntaxKind.EndOfFileToken => false,
+            SyntaxKind.CloseBraceToken => false,
+            SyntaxKind.CloseParenToken => false,
+            SyntaxKind.CloseBracketToken => false,
+            SyntaxKind.SemicolonToken => false,
+            SyntaxKind.CommaToken => false,
+            SyntaxKind.ColonToken => false,
+            SyntaxKind.NewLineToken => false,
+            SyntaxKind.LineFeedToken => false,
+            SyntaxKind.CarriageReturnToken => false,
+            SyntaxKind.CarriageReturnLineFeedToken => false,
+            _ => true,
+        };
     }
 
     private SyntaxToken ConsumeWithLeadingSkipped(List<SyntaxToken> skippedTokens)
