@@ -69,6 +69,16 @@ public static partial class SymbolExtensions
         return typeSymbol.ToDisplayStringKeywordAware(format);
     }
 
+    public static string ToDisplayStringForTypeMismatchDiagnostic(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    {
+        var display = typeSymbol.ToDisplayStringKeywordAware(format);
+
+        if (display.IndexOf('\'') >= 0 || display.IndexOf('"') >= 0)
+            return display;
+
+        return $"'{display}'";
+    }
+
     public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat? format = default!)
     {
         format ??= SymbolDisplayFormat.CSharpErrorMessageFormat;
