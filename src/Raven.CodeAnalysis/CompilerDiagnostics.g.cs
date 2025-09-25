@@ -800,10 +800,10 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// RAV1017: File-scoped namespace declarations must appear before any other members
+    /// RAV1018: File-scoped namespace declarations must appear before any other members
     /// </summary>
     public static DiagnosticDescriptor FileScopedNamespaceOutOfOrder => _fileScopedNamespaceOutOfOrder ??= DiagnosticDescriptor.Create(
-        id: "RAV1017",
+        id: "RAV1018",
         title: "File-scoped namespace out of order",
         description: "",
         helpLinkUri: "",
@@ -1223,7 +1223,7 @@ internal static partial class CompilerDiagnostics
         "RAV1017" => EntryPointIsAmbiguous,
         "RAV1015" => TryStatementRequiresCatchOrFinally,
         "RAV1016" => CatchTypeMustDeriveFromSystemException,
-        "RAV1017" => FileScopedNamespaceOutOfOrder,
+        "RAV1018" => FileScopedNamespaceOutOfOrder,
         "RAV1501" => NoOverloadForMethod,
         "RAV1503" => CannotConvertFromTypeToType,
         "RAV1504" => CannotAssignFromTypeToType,
