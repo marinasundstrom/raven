@@ -75,8 +75,8 @@ static class AppHostBuilder
             throw new FileNotFoundException($"AppHost template not found at '{appHostTemplate}'.", appHostTemplate);
 
         // 5) Destination apphost (next to your produced .dll)
-        var exeName = GetExeFileName(Path.GetFileNameWithoutExtension(outputPath));
-        var appHostDestination = Path.Combine(Path.GetDirectoryName(outputPath)!, exeName);
+        var outputDirectory = Path.GetDirectoryName(Path.GetFullPath(outputPath))!;
+        var appHostDestination = ResolveAppHostDestination(outputDirectory, Path.GetFileNameWithoutExtension(outputPath));
 
         // 6) Call HostModel with the full overload
         HostWriter.CreateAppHost(
@@ -105,6 +105,30 @@ static class AppHostBuilder
     }}
   }}
 }}");
+    }
+
+    private static string ResolveAppHostDestination(string directory, string baseName)
+    {
+        string candidate = Path.Combine(directory, GetExeFileName(baseName));
+        if (!Directory.Exists(candidate))
+        {
+            if (File.Exists(candidate))
+                File.Delete(candidate);
+
+            return candidate;
+        }
+
+        for (var suffix = 1; ; suffix++)
+        {
+            candidate = Path.Combine(directory, GetExeFileName($"{baseName}-{suffix}"));
+            if (Directory.Exists(candidate))
+                continue;
+
+            if (File.Exists(candidate))
+                File.Delete(candidate);
+
+            return candidate;
+        }
     }
 
     private static string? GetDotnetRoot()

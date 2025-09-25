@@ -132,7 +132,15 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
             return genericTypeDef.MakeGenericType(TypeArguments.Select(x => x.GetClrType(codeGen)).ToArray()).GetTypeInfo();
         }
 
-        throw new InvalidOperationException("ConstructedNamedTypeSymbol is not based on a PE symbol.");
+        if (_originalDefinition is SourceNamedTypeSymbol source)
+        {
+            var definitionType = codeGen.GetTypeBuilder(source) ?? throw new InvalidOperationException("Missing type builder for generic definition.");
+            var runtimeArgs = TypeArguments.Select(x => x.GetClrType(codeGen)).ToArray();
+            var constructed = definitionType.MakeGenericType(runtimeArgs);
+            return constructed.GetTypeInfo();
+        }
+
+        throw new InvalidOperationException("ConstructedNamedTypeSymbol is not based on a supported symbol type.");
     }
 }
 
@@ -222,6 +230,17 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             }
 
             return baseCtor;
+        }
+
+        if (_original is SourceMethodSymbol sourceMethod)
+        {
+            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
+            if (codeGen.GetMemberBuilder(sourceMethod) is ConstructorInfo definitionCtor)
+            {
+                return TypeBuilder.GetConstructor(constructedType, definitionCtor);
+            }
+
+            throw new InvalidOperationException("Constructor builder not found for source method.");
         }
 
         throw new Exception("Unexpected method kind");

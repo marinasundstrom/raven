@@ -97,9 +97,13 @@ public static class TypeSymbolExtensionsForCodeGen
         // Handle constructed generic types (from metadata or emitted)
         if (typeSymbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
-            var genericDef = named.ConstructedFrom.GetClrType(codeGen);
-            var args = named.TypeArguments.Select(arg => arg.GetClrType(codeGen)).ToArray();
-            return genericDef.MakeGenericType(args);
+            if (named.ConstructedFrom is INamedTypeSymbol constructedFrom &&
+                !SymbolEqualityComparer.Default.Equals(constructedFrom, named))
+            {
+                var genericDef = constructedFrom.GetClrType(codeGen);
+                var args = named.TypeArguments.Select(arg => arg.GetClrType(codeGen)).ToArray();
+                return genericDef.MakeGenericType(args);
+            }
         }
 
         // Handle regular named types

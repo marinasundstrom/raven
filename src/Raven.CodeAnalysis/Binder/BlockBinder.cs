@@ -2061,7 +2061,7 @@ partial class BlockBinder : Binder
             // like `alias StringList = System.Collections.Generic.List<string>`), then we don't
             // expect any additional type arguments when the alias is used. Return the constructed
             // type directly.
-            if (named.ConstructedFrom is not null)
+            if (named.ConstructedFrom is not null && !SymbolEqualityComparer.Default.Equals(named.ConstructedFrom, named))
             {
                 if (!typeArguments.IsEmpty)
                 {
@@ -2078,9 +2078,7 @@ partial class BlockBinder : Binder
             {
                 var match = FindAccessibleNamedType(name, typeArguments.Length);
                 if (match is null)
-                {
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
-                }
 
                 definition = match;
             }
@@ -2092,7 +2090,6 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
             var constructed = TryConstructGeneric(definition, typeArguments, definition.Arity) ?? definition;
-
             return new BoundTypeExpression(constructed);
         }
 
