@@ -1,7 +1,3 @@
-/*
- * WIP
- * */
- 
 namespace Samples
 
 import System.Console.*
