@@ -85,70 +85,23 @@ public static class PrettySyntaxTreePrinter
             ? node.ChildNodesAndTokens().Where(x => x.IsNode).ToArray()
             : node.ChildNodesAndTokens().ToArray();
 
-        Dictionary<SyntaxNodeOrToken, SyntaxNodeReflectionExtensions.ChildGroup>? listPropertyMap = null;
-        Dictionary<string, (int FirstIndex, bool IsLast)>? listPropertyInfo = null;
-
-        if (!printerOptions.ExpandListsAsProperties)
-        {
-            var grouped = node.GetChildrenGroupedByProperty(printerOptions.IncludeTokens);
-            var listGroups = grouped.Properties.Where(p => p.IsList).ToList();
-
-            if (listGroups.Count > 0)
-            {
-                listPropertyMap = new Dictionary<SyntaxNodeOrToken, SyntaxNodeReflectionExtensions.ChildGroup>();
-                listPropertyInfo = new Dictionary<string, (int, bool)>();
-
-                var orderedChildren = children.Select(c => (SyntaxNodeOrToken)c).ToArray();
-
-                foreach (var group in listGroups)
-                {
-                    int firstIndex = int.MaxValue;
-                    int lastIndex = -1;
-
-                    foreach (var item in group.Items)
-                    {
-                        var childItem = item.Item;
-                        listPropertyMap[childItem] = group;
-
-                        var index = Array.IndexOf(orderedChildren, childItem);
-                        if (index >= 0)
-                        {
-                            if (index < firstIndex)
-                                firstIndex = index;
-
-                            if (index > lastIndex)
-                                lastIndex = index;
-                        }
-                    }
-
-                    if (firstIndex != int.MaxValue)
-                    {
-                        bool groupIsLast = lastIndex == orderedChildren.Length - 1;
-                        listPropertyInfo[group.PropertyName] = (firstIndex, groupIsLast);
-                    }
-                }
-            }
-        }
+        ListPropertyLayout? listLayout = printerOptions.ExpandListsAsProperties
+            ? null
+            : ListPropertyLayout.Create(node, children, printerOptions.IncludeTokens);
 
         for (int i = 0; i < children.Length; i++)
         {
             var isChildLast = i == children.Length - 1;
             var childNodeOrToken = (SyntaxNodeOrToken)children[i];
 
-            if (!printerOptions.ExpandListsAsProperties && listPropertyMap is not null && listPropertyMap.TryGetValue(childNodeOrToken, out var listGroup))
+            if (!printerOptions.ExpandListsAsProperties && listLayout is not null && listLayout.TryGetGroup(childNodeOrToken, i, out var listGroup, out var groupIsLast))
             {
-                if (listPropertyInfo is not null && listPropertyInfo.TryGetValue(listGroup.PropertyName, out var info))
+                if (currentDepth + 1 <= printerOptions.MaxDepth)
                 {
-                    if (info.FirstIndex == i)
-                    {
-                        if (currentDepth + 1 <= printerOptions.MaxDepth)
-                        {
-                            PrintListProperty(sb, listGroup, newIndent, info.IsLast, printerOptions, currentDepth + 1);
-                        }
-                    }
-
-                    continue;
+                    PrintListProperty(sb, listGroup, newIndent, groupIsLast, printerOptions, currentDepth + 1);
                 }
+
+                continue;
             }
 
             if (children[i].TryGetNode(out var childNode))
