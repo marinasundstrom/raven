@@ -144,11 +144,60 @@ expected. Attempting to write `string? | int` still produces diagnostic
 `RAV0400` because nullable wrappers may not appear explicitly inside unions.
 ### Generics
 
-Generic parameters compile directly to .NET generics:
+Types and functions declare type parameters by appending `<...>` to their
+identifier. Each parameter represents a placeholder that is substituted with a
+concrete type when the generic is used. The type parameters introduced on a
+declaration are in scope for all of its members and may appear anywhere a type
+annotation is allowed.
+
+```raven
+class Box<T>
+{
+    public Value: T { get; }
+
+    init(value: T) { Value = value }
+}
+```
+
+Supplying type arguments between `<` and `>` constructs the desired
+instantiation. Raven flows those type arguments through the declaration and
+emits regular CLR generic instantiations, so generic Raven code interops with
+existing .NET libraries.
+
+```raven
+let box = Box<string>("hi")
+let copy = box.Value
+```
+
+Generic methods use the same syntax. Call sites may provide explicit type
+arguments or rely on inference. The compiler infers a type argument when all
+arguments (including the expected return type) lead to a single consistent
+choice; otherwise, type arguments must be written explicitly.
 
 ```raven
 func identity<T>(value: T) -> T { value }
+
+let inferred = identity(42)      // infers T = int
+let explicit = identity<double>(42)
 ```
+
+Type parameters optionally declare constraints after a colon. The keywords
+`class` and `struct` require reference types or non-nullable value types
+respectively. Additional constraints must be nominal types (classes or
+interfaces) implemented by the argument. Constraints are comma-separated and
+may appear in any order.
+
+```raven
+class Repository<TContext: class, IDisposable>
+{
+    init(context: TContext) { /* ... */ }
+}
+```
+
+Constraint satisfaction is transitive: substituting a constrained type
+parameter for another parameter carries its constraint set. Nullable value
+types (`T?`) do not satisfy the `struct` constraint. Violations produce
+diagnostics identifying the failing argument and unmet constraint.
 
 ## Type identity and aliases
 

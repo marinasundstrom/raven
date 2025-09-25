@@ -749,6 +749,41 @@ Arrow bodies are allowed:
 func add(a: int, b: int) -> int => a + b
 ```
 
+### Generic functions and methods
+
+Functions—including methods declared inside types—may introduce type parameters
+by placing `<...>` after the function name. Each type parameter can be used in
+the parameter list, return type, and body just like any other type annotation.
+
+```raven
+func identity<T>(value: T) -> T { value }
+
+let number = identity(42)         // inferred T = int
+let text = identity<string>("hi")
+```
+
+Call sites may omit explicit type arguments when inference can determine a
+unique solution from the arguments and expected return type. When inference
+fails—for example, because multiple type choices satisfy the call—the type
+arguments must be provided explicitly.
+
+Method declarations use the same syntax:
+
+```raven
+class Cache
+{
+    static store<T: class>(value: T) { /* ... */ }
+}
+
+Cache.store(System.Text.StringBuilder())   // inference picks T = System.Text.StringBuilder
+Cache.store<string>(null)                  // explicit type argument when passing null
+```
+
+Type parameter constraints mirror those on generic types. After the colon, list
+`class`, `struct`, or specific base/interface types that each argument must
+implement. Violating a constraint produces a diagnostic identifying the failing
+type argument and the unmet requirement.
+
 ### Nested functions
 
 Functions may be declared inside other functions. Such a function is
@@ -1200,6 +1235,45 @@ class Counter
 * Accessor-level access (e.g., `private set`) is supported.
 * Methods/ctors/properties/indexers may use arrow bodies.
 * Members can be marked `static` to associate them with the type rather than an instance.
+
+### Generic types
+
+Classes and structs optionally declare type parameters immediately after the
+type name. The parameters become part of the type's identity and are available
+throughout the member list.
+
+```raven
+class Box<T>
+{
+    public Value: T { get; }
+
+    init(value: T) { Value = value }
+}
+
+let ints = Box<int>(1)
+let words = Box<string>("ok")
+```
+
+Instantiating a generic type supplies concrete type arguments between `<` and
+`>` in the same order the parameters were declared. The compiler emits standard
+CLR constructed types, so Raven generics interoperate seamlessly with existing
+.NET APIs. When a type argument itself is generic, nest the constructions as
+needed (`Dictionary<string, List<int>>`).
+
+Type parameters support constraints using the `:` syntax. After the colon,
+specify `class`, `struct`, and/or nominal types that the argument must derive
+from or implement. Constraints are comma-separated and may appear in any order.
+
+```raven
+class Repository<TContext: class, IDisposable>
+{
+    init(context: TContext) { /* ... */ }
+}
+```
+
+The compiler enforces the constraint set whenever the generic type is
+constructed. Passing an argument that does not satisfy one of the constraints
+reports an error and identifies the unmet requirement.
 
 #### Accessibility
 
