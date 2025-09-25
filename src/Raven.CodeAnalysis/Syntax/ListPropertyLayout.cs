@@ -70,7 +70,11 @@ internal sealed class ListPropertyLayout
         return new ListPropertyLayout(childToGroupMap, groupPlacements);
     }
 
-    public bool TryGetGroup(SyntaxNodeOrToken child, int index, out SyntaxNodeReflectionExtensions.ChildGroup group, out bool groupIsLast)
+    public bool TryStartGroup(
+        SyntaxNodeOrToken child,
+        int index,
+        out SyntaxNodeReflectionExtensions.ChildGroup group,
+        out bool groupIsLast)
     {
         if (_childToGroupMap.TryGetValue(child, out group)
             && _groupPlacements.TryGetValue(group.PropertyName, out var placement)
@@ -83,6 +87,11 @@ internal sealed class ListPropertyLayout
         group = default!;
         groupIsLast = default;
         return false;
+    }
+
+    public bool IsGroupedMember(SyntaxNodeOrToken child)
+    {
+        return _childToGroupMap.ContainsKey(child);
     }
 
     private readonly record struct GroupPlacement(int FirstIndex, bool IsLast);

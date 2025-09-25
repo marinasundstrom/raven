@@ -94,13 +94,22 @@ public static class PrettySyntaxTreePrinter
             var isChildLast = i == children.Length - 1;
             var childNodeOrToken = (SyntaxNodeOrToken)children[i];
 
-            if (!printerOptions.ExpandListsAsProperties && listLayout is not null && listLayout.TryGetGroup(childNodeOrToken, i, out var listGroup, out var groupIsLast))
+            if (!printerOptions.ExpandListsAsProperties
+                && listLayout is not null
+                && listLayout.TryStartGroup(childNodeOrToken, i, out var listGroup, out var groupIsLast))
             {
                 if (currentDepth + 1 <= printerOptions.MaxDepth)
                 {
                     PrintListProperty(sb, listGroup, newIndent, groupIsLast, printerOptions, currentDepth + 1);
                 }
 
+                continue;
+            }
+
+            if (!printerOptions.ExpandListsAsProperties
+                && listLayout is not null
+                && listLayout.IsGroupedMember(childNodeOrToken))
+            {
                 continue;
             }
 
