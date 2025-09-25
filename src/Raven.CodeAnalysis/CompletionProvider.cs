@@ -10,6 +10,17 @@ public static class CompletionProvider
         var completions = new List<CompletionItem>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
+        bool IsAccessible(ISymbol symbol)
+        {
+            if (symbol is null)
+                return false;
+
+            if (symbol.DeclaredAccessibility == Accessibility.NotApplicable)
+                return true;
+
+            return binder.IsSymbolAccessible(symbol);
+        }
+
         static string SafeToDisplayString(ISymbol symbol)
         {
             try
@@ -196,7 +207,8 @@ public static class CompletionProvider
             {
                 if (symbol is INamedTypeSymbol type &&
                     !type.IsAbstract &&
-                    type.Constructors.Any(c => c.DeclaredAccessibility == Accessibility.Public))
+                    IsAccessible(type) &&
+                    type.Constructors.Any(IsAccessible))
                 {
                     if (seen.Add(type.Name))
                     {
@@ -287,19 +299,17 @@ public static class CompletionProvider
                 if (symbol is INamespaceSymbol ns)
                 {
                     // Namespace or namespace alias: list its public members
-                    members = ns.GetMembers().Where(m =>
-                        m.DeclaredAccessibility == Accessibility.NotApplicable ||
-                        m.DeclaredAccessibility == Accessibility.Public);
+                    members = ns.GetMembers().Where(IsAccessible);
                 }
                 else if (symbol is INamedTypeSymbol typeSymbol && SymbolEqualityComparer.Default.Equals(symbol, type))
                 {
                     // Accessing a type name: show static members
-                    members = typeSymbol.GetMembers().Where(m => m.IsStatic && m.DeclaredAccessibility == Accessibility.Public);
+                    members = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
                 }
                 else if (type is INamedTypeSymbol instanceType)
                 {
                     // Accessing an instance: show instance members
-                    members = instanceType.GetMembers().Where(m => !m.IsStatic && m.DeclaredAccessibility == Accessibility.Public);
+                    members = instanceType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
                 }
 
                 if (members is not null)
@@ -358,7 +368,7 @@ public static class CompletionProvider
                 foreach (var member in nsOrType.GetMembers()
                     .Where(m => string.IsNullOrEmpty(prefix)
                     || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    .Where(m => m.DeclaredAccessibility == Accessibility.NotApplicable || m.DeclaredAccessibility == Accessibility.Public))
+                    .Where(IsAccessible))
                 {
                     if (seen.Add(member.Name))
                     {
@@ -394,8 +404,7 @@ public static class CompletionProvider
         {
             foreach (var symbol in binder.LookupAvailableSymbols())
             {
-                if (symbol.DeclaredAccessibility != Accessibility.Public &&
-                    symbol.DeclaredAccessibility != Accessibility.NotApplicable)
+                if (!IsAccessible(symbol))
                     continue;
 
                 if (symbol is IMethodSymbol { IsConstructor: true })

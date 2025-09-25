@@ -40,7 +40,7 @@ internal abstract class Binder
         }
     }
 
-    protected bool IsSymbolAccessible(ISymbol symbol)
+    protected internal bool IsSymbolAccessible(ISymbol symbol)
     {
         if (symbol is null)
             return true;
