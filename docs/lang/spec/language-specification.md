@@ -40,6 +40,21 @@ Identifiers name values, members, and types. They must begin with an ASCII
 letter, `_`, or `$`. Subsequent characters may also include ASCII digits.
 Reserved keywords cannot be used as identifiers.
 
+### Keyword summary
+
+The lexer defines the complete keyword set in [`Tokens.xml`](../../../src/Raven.CodeAnalysis/Syntax/Tokens.xml), which
+classifies each keyword as either reserved or contextual.
+
+| Kind | Keywords |
+| --- | --- |
+| Reserved | `and`, `as`, `base`, `bool`, `catch`, `char`, `class`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `true`, `try`, `var`, `when`, `while` |
+| Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
+
+Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
+their presence optional (for example, omitting `each` in a `for` expression). Contextual keywords behave like ordinary
+identifiers except in the syntactic positions that demand their special meaning—for example, accessibility modifiers
+(`public`, `internal`, `protected`, `private`) or accessor modifiers (`get`, `set`).
+
 The single-character `_` token is reserved for discards. When a pattern,
 deconstruction, or other declaration spells its designation as `_` (optionally
 with a type annotation), the compiler suppresses the binding and treats the
