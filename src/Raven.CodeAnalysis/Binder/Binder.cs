@@ -163,13 +163,13 @@ internal abstract class Binder
 
     public virtual INamespaceSymbol? LookupNamespace(string name)
     {
-        var ns = CurrentNamespace?.LookupNamespace(name);
-        if (ns != null)
-            return ns;
+        var globalNamespace = Compilation.GlobalNamespace.LookupNamespace(name);
+        if (globalNamespace is not null)
+            return globalNamespace;
 
-        ns = Compilation.GlobalNamespace.LookupNamespace(name);
-        if (ns != null)
-            return ns;
+        var currentNamespace = CurrentNamespace?.LookupNamespace(name);
+        if (currentNamespace is not null)
+            return currentNamespace;
 
         return ParentBinder?.LookupNamespace(name);
     }
@@ -289,6 +289,9 @@ internal abstract class Binder
             var type = LookupType(ident.Identifier.Text);
             if (type is INamedTypeSymbol named)
             {
+                if (named.IsAlias)
+                    return named;
+
                 if (named.Arity > 0 && named.IsUnboundGenericType)
                 {
                     var zeroArity = FindAccessibleNamedType(ident.Identifier.Text, 0);

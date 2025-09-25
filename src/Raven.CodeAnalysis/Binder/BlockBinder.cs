@@ -3353,7 +3353,16 @@ partial class BlockBinder : Binder
     private static string GetMethodGroupDisplay(BoundMethodGroupExpression methodGroup)
     {
         var method = methodGroup.Methods[0];
-        return method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var containingType = method.ContainingType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var parameterTypes = method.Parameters
+            .Select(p => p.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .ToArray();
+        var parameterList = string.Join(", ", parameterTypes);
+        var name = containingType is null or { Length: 0 }
+            ? method.Name
+            : $"{containingType}.{method.Name}";
+
+        return parameterTypes.Length == 0 ? name : $"{name}({parameterList})";
     }
 
     private BoundMethodGroupExpression ReportMethodGroupRequiresDelegate(BoundMethodGroupExpression methodGroup, SyntaxNode syntax)
