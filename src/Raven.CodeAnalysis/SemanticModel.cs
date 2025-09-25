@@ -982,6 +982,8 @@ public partial class SemanticModel
 
         foreach (var parameter in typeParameterList.Parameters)
         {
+            var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(parameter);
+
             var typeParameter = new SourceTypeParameterSymbol(
                 parameter.Identifier.Text,
                 typeSymbol,
@@ -989,12 +991,43 @@ public partial class SemanticModel
                 typeSymbol.ContainingNamespace,
                 [parameter.GetLocation()],
                 [parameter.GetReference()],
-                ordinal++);
+                ordinal++,
+                constraintKind,
+                constraintTypeReferences);
 
             builder.Add(typeParameter);
         }
 
         typeSymbol.SetTypeParameters(builder.MoveToImmutable());
+    }
+
+    private static (TypeParameterConstraintKind constraintKind, ImmutableArray<SyntaxReference> constraintTypeReferences) AnalyzeTypeParameterConstraints(TypeParameterSyntax parameter)
+    {
+        var constraints = parameter.Constraints;
+        if (constraints.Count == 0)
+            return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
+
+        var constraintKind = TypeParameterConstraintKind.None;
+        var typeConstraintReferences = ImmutableArray.CreateBuilder<SyntaxReference>();
+
+        foreach (var constraint in constraints)
+        {
+            switch (constraint)
+            {
+                case ClassConstraintSyntax:
+                    constraintKind |= TypeParameterConstraintKind.ReferenceType;
+                    break;
+                case StructConstraintSyntax:
+                    constraintKind |= TypeParameterConstraintKind.ValueType;
+                    break;
+                case TypeConstraintSyntax typeConstraint:
+                    constraintKind |= TypeParameterConstraintKind.TypeConstraint;
+                    typeConstraintReferences.Add(typeConstraint.GetReference());
+                    break;
+            }
+        }
+
+        return (constraintKind, typeConstraintReferences.ToImmutable());
     }
 
     private void RegisterPrimaryConstructor(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)

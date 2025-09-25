@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
@@ -398,6 +399,15 @@ public enum TypeKind
     Unit
 }
 
+[Flags]
+public enum TypeParameterConstraintKind
+{
+    None = 0,
+    ReferenceType = 1 << 0,
+    ValueType = 1 << 1,
+    TypeConstraint = 1 << 2,
+}
+
 public interface INamedTypeSymbol : ITypeSymbol
 {
     int Arity { get; }
@@ -438,6 +448,9 @@ public interface IUnionTypeSymbol : ITypeSymbol
 
 public interface ITypeParameterSymbol : ITypeSymbol
 {
+    TypeParameterConstraintKind ConstraintKind { get; }
+
+    ImmutableArray<ITypeSymbol> ConstraintTypes { get; }
 }
 
 public interface ILocalSymbol : ISymbol

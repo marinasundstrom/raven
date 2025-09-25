@@ -121,6 +121,10 @@
     Title="Explicit interface member not found"
     Message="Interface '{interfaceName}' does not contain a member named '{memberName}' matching this signature"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0320" Identifier="TypeArgumentDoesNotSatisfyConstraint"
+    Title="Type argument does not satisfy constraint"
+    Message="The type '{typeArgument}' must satisfy the '{constraint}' constraint for type parameter '{typeParameter}' of '{genericName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0400" Identifier="NullableTypeInUnion"
     Title="Nullable type not allowed in union"
     Message="Nullable types are not allowed in union types" Category="compiler" Severity="Error"

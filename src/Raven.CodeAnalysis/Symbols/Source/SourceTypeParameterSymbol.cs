@@ -11,13 +11,21 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
-        int ordinal)
+        int ordinal,
+        TypeParameterConstraintKind constraintKind,
+        ImmutableArray<SyntaxReference> constraintTypeReferences)
         : base(SymbolKind.TypeParameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Ordinal = ordinal;
+        ConstraintKind = constraintKind;
+        ConstraintTypeReferences = constraintTypeReferences;
     }
 
     public int Ordinal { get; }
+
+    public TypeParameterConstraintKind ConstraintKind { get; }
+
+    internal ImmutableArray<SyntaxReference> ConstraintTypeReferences { get; }
 
     public override string MetadataName => Name;
 
@@ -48,6 +56,8 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
         symbol = null;
         return false;
     }
+
+    public ImmutableArray<ITypeSymbol> ConstraintTypes => ImmutableArray<ITypeSymbol>.Empty;
 
     public override void Accept(SymbolVisitor visitor)
     {

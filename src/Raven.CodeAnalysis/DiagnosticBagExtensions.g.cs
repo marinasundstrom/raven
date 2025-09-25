@@ -104,6 +104,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportExplicitInterfaceMemberNotFound(this DiagnosticBag diagnostics, object? interfaceName, object? memberName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ExplicitInterfaceMemberNotFound, location, interfaceName, memberName));
 
+    public static void ReportTypeArgumentDoesNotSatisfyConstraint(this DiagnosticBag diagnostics, object? typeArgument, object? constraint, object? typeParameter, object? genericName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint, location, typeArgument, constraint, typeParameter, genericName));
+
     public static void ReportNullableTypeInUnion(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NullableTypeInUnion, location));
 
