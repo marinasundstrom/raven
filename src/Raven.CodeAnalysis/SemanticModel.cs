@@ -611,6 +611,7 @@ public partial class SemanticModel
                             classSymbol.SetInterfaces(interfaceList);
 
                         var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
+                        classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
                         _binderCache[classDecl] = classBinder;
                         RegisterClassSymbol(classDecl, classSymbol);
                         if (classDecl.BaseList is not null && baseTypeSymbol!.IsSealed)
@@ -657,6 +658,7 @@ public partial class SemanticModel
                             interfaceSymbol.SetInterfaces(interfaceList);
 
                         var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
+                        interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
                         _binderCache[interfaceDecl] = interfaceBinder;
                         RegisterInterfaceMembers(interfaceDecl, interfaceBinder);
                         break;
@@ -805,6 +807,7 @@ public partial class SemanticModel
                         nestedSymbol.SetInterfaces(nestedInterfaces);
 
                     var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
+                    nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);
                     _binderCache[nestedClass] = nestedBinder;
                     RegisterClassSymbol(nestedClass, nestedSymbol);
                     if (nestedClass.BaseList is not null && nestedBaseType!.IsSealed)
@@ -848,6 +851,7 @@ public partial class SemanticModel
                     if (!parentInterfaces.IsDefaultOrEmpty)
                         nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
                     var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
+                    nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
                     _binderCache[nestedInterface] = nestedInterfaceBinder;
                     RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
                     break;
@@ -964,6 +968,7 @@ public partial class SemanticModel
                             nestedInterfaceSymbol.SetInterfaces(parentInterfaces);
 
                         var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
+                        nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
                         _binderCache[nestedInterface] = nestedInterfaceBinder;
                         RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
                         break;
@@ -982,6 +987,8 @@ public partial class SemanticModel
 
         foreach (var parameter in typeParameterList.Parameters)
         {
+            var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(parameter);
+
             var typeParameter = new SourceTypeParameterSymbol(
                 parameter.Identifier.Text,
                 typeSymbol,
@@ -989,12 +996,43 @@ public partial class SemanticModel
                 typeSymbol.ContainingNamespace,
                 [parameter.GetLocation()],
                 [parameter.GetReference()],
-                ordinal++);
+                ordinal++,
+                constraintKind,
+                constraintTypeReferences);
 
             builder.Add(typeParameter);
         }
 
         typeSymbol.SetTypeParameters(builder.MoveToImmutable());
+    }
+
+    private static (TypeParameterConstraintKind constraintKind, ImmutableArray<SyntaxReference> constraintTypeReferences) AnalyzeTypeParameterConstraints(TypeParameterSyntax parameter)
+    {
+        var constraints = parameter.Constraints;
+        if (constraints.Count == 0)
+            return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
+
+        var constraintKind = TypeParameterConstraintKind.None;
+        var typeConstraintReferences = ImmutableArray.CreateBuilder<SyntaxReference>();
+
+        foreach (var constraint in constraints)
+        {
+            switch (constraint)
+            {
+                case ClassConstraintSyntax:
+                    constraintKind |= TypeParameterConstraintKind.ReferenceType;
+                    break;
+                case StructConstraintSyntax:
+                    constraintKind |= TypeParameterConstraintKind.ValueType;
+                    break;
+                case TypeConstraintSyntax typeConstraint:
+                    constraintKind |= TypeParameterConstraintKind.TypeConstraint;
+                    typeConstraintReferences.Add(typeConstraint.GetReference());
+                    break;
+            }
+        }
+
+        return (constraintKind, typeConstraintReferences.ToImmutable());
     }
 
     private void RegisterPrimaryConstructor(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)

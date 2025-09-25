@@ -307,16 +307,36 @@ partial class BlockBinder : Binder
         return builder.MoveToImmutable();
     }
 
-    private ImmutableArray<IMethodSymbol> InstantiateMethodCandidates(ImmutableArray<IMethodSymbol> methods, ImmutableArray<ITypeSymbol> typeArguments)
+    private ImmutableArray<IMethodSymbol> InstantiateMethodCandidates(
+        ImmutableArray<IMethodSymbol> methods,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        GenericNameSyntax? typeArgumentSyntax = null,
+        Location? fallbackLocation = null)
     {
         if (methods.IsDefaultOrEmpty)
             return methods;
 
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
 
+        Location GetArgumentLocation(int index)
+        {
+            if (typeArgumentSyntax is not null)
+            {
+                var arguments = typeArgumentSyntax.TypeArgumentList.Arguments;
+                if (index >= 0 && index < arguments.Count)
+                    return arguments[index].GetLocation();
+                return typeArgumentSyntax.GetLocation();
+            }
+
+            return fallbackLocation ?? Location.None;
+        }
+
         foreach (var method in methods)
         {
             if (method.TypeParameters.Length != typeArguments.Length)
+                continue;
+
+            if (!ValidateMethodTypeArgumentConstraints(method, typeArguments, GetArgumentLocation))
                 continue;
 
             try
@@ -1614,6 +1634,7 @@ partial class BlockBinder : Binder
 
         var name = simpleName.Identifier.Text;
         ImmutableArray<ITypeSymbol>? explicitTypeArguments = null;
+        GenericNameSyntax? genericTypeSyntax = null;
 
         if (simpleName is GenericNameSyntax genericName)
         {
@@ -1622,6 +1643,7 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
             explicitTypeArguments = boundTypeArguments;
+            genericTypeSyntax = genericName;
         }
 
         var nameLocation = simpleName.GetLocation();
@@ -1648,9 +1670,9 @@ partial class BlockBinder : Binder
 
             if (!methodCandidates.IsDefaultOrEmpty)
             {
-                if (explicitTypeArguments is { } typeArgs)
+                if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                 {
-                    var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs);
+                    var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
                     if (!instantiated.IsDefaultOrEmpty)
                         return BindMethodGroup(typeExpr, instantiated, nameLocation);
                 }
@@ -1685,9 +1707,9 @@ partial class BlockBinder : Binder
 
             if (!instanceMethods.IsDefaultOrEmpty)
             {
-                if (explicitTypeArguments is { } typeArgs)
+                if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                 {
-                    var instantiated = InstantiateMethodCandidates(instanceMethods, typeArgs);
+                    var instantiated = InstantiateMethodCandidates(instanceMethods, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
                     if (!instantiated.IsDefaultOrEmpty)
                         return BindMethodGroup(receiver, instantiated, nameLocation);
                 }
@@ -1719,6 +1741,7 @@ partial class BlockBinder : Binder
         var simpleName = memberBinding.Name;
         var memberName = simpleName.Identifier.Text;
         ImmutableArray<ITypeSymbol>? explicitTypeArguments = null;
+        GenericNameSyntax? genericTypeSyntax = null;
 
         if (simpleName is GenericNameSyntax genericName)
         {
@@ -1727,6 +1750,7 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
             explicitTypeArguments = typeArgs;
+            genericTypeSyntax = genericName;
         }
 
         var nameLocation = simpleName.GetLocation();
@@ -1741,9 +1765,9 @@ partial class BlockBinder : Binder
 
             if (!methodCandidates.IsDefaultOrEmpty)
             {
-                if (explicitTypeArguments is { } typeArgs)
+                if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                 {
-                    var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs);
+                    var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, simpleName.GetLocation());
                     if (!instantiated.IsDefaultOrEmpty)
                         return BindMethodGroup(new BoundTypeExpression(expectedType), instantiated, nameLocation);
                 }
@@ -1952,7 +1976,7 @@ partial class BlockBinder : Binder
             if (typeArgs.Length != generic.TypeArgumentList.Arguments.Count)
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
-            return BindTypeName(generic.Identifier.Text, generic.GetLocation(), typeArgs);
+            return BindTypeName(generic.Identifier.Text, generic.GetLocation(), typeArgs, generic.TypeArgumentList.Arguments);
         }
 
         if (syntax is QualifiedNameSyntax qualified)
@@ -1965,6 +1989,8 @@ partial class BlockBinder : Binder
             string name;
             ImmutableArray<ITypeSymbol> typeArgs = [];
 
+            GenericNameSyntax? rightGeneric = null;
+
             if (qualified.Right is IdentifierNameSyntax id2)
             {
                 name = id2.Identifier.Text;
@@ -1972,6 +1998,7 @@ partial class BlockBinder : Binder
             else if (qualified.Right is GenericNameSyntax generic2)
             {
                 name = generic2.Identifier.Text;
+                rightGeneric = generic2;
                 typeArgs = generic2.TypeArgumentList.Arguments
                     .Select(arg => BindTypeSyntax(arg.Type))
                     .OfType<BoundTypeExpression>()
@@ -2008,9 +2035,12 @@ partial class BlockBinder : Binder
                 if (namedType.Arity != typeArgs.Length)
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
+                if (!typeArgs.IsEmpty && rightGeneric is not null && !ValidateTypeArgumentConstraints(namedType, typeArgs, i => GetTypeArgumentLocation(rightGeneric.TypeArgumentList.Arguments, rightGeneric.GetLocation(), i), namedType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
                 var constructed = typeArgs.IsEmpty
                     ? namedType
-                    : Compilation.ConstructGenericType(namedType, typeArgs.ToArray());
+                    : TryConstructGeneric(namedType, typeArgs, namedType.Arity) ?? namedType;
 
                 return new BoundTypeExpression(constructed);
             }
@@ -2021,7 +2051,7 @@ partial class BlockBinder : Binder
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
-    private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments)
+    private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments, SeparatedSyntaxList<TypeArgumentSyntax> typeArgumentSyntax = default)
     {
         var symbol = LookupType(name);
 
@@ -2058,7 +2088,10 @@ partial class BlockBinder : Binder
             if (typeArguments.IsEmpty)
                 return new BoundTypeExpression(definition);
 
-            var constructed = Compilation.ConstructGenericType(definition, typeArguments.ToArray());
+            if (!ValidateTypeArgumentConstraints(definition, typeArguments, i => GetTypeArgumentLocation(typeArgumentSyntax, location, i), definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+            var constructed = TryConstructGeneric(definition, typeArguments, definition.Arity) ?? definition;
 
             return new BoundTypeExpression(constructed);
         }
@@ -2072,7 +2105,10 @@ partial class BlockBinder : Binder
             if (typeArguments.IsEmpty)
                 return new BoundTypeExpression(alternate);
 
-            var constructed = Compilation.ConstructGenericType(alternate, typeArguments.ToArray());
+            if (!ValidateTypeArgumentConstraints(alternate, typeArguments, i => GetTypeArgumentLocation(typeArgumentSyntax, location, i), alternate.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+            var constructed = TryConstructGeneric(alternate, typeArguments, alternate.Arity) ?? alternate;
             return new BoundTypeExpression(constructed);
         }
 
@@ -2488,7 +2524,7 @@ partial class BlockBinder : Binder
 
             if (!symbolCandidates.IsDefaultOrEmpty)
             {
-                var instantiated = InstantiateMethodCandidates(symbolCandidates, boundTypeArguments.Value);
+                var instantiated = InstantiateMethodCandidates(symbolCandidates, boundTypeArguments.Value, generic, syntax.GetLocation());
                 if (!instantiated.IsDefaultOrEmpty)
                 {
                     var methodGroup = CreateMethodGroup(null, instantiated);

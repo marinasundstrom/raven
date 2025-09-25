@@ -321,6 +321,9 @@ internal abstract class Binder
                 return Compilation.ErrorTypeSymbol;
             }
 
+            if (!ValidateTypeArgumentConstraints(symbol, typeArgs, i => GetTypeArgumentLocation(generic.TypeArgumentList.Arguments, generic.GetLocation(), i), symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                return Compilation.ErrorTypeSymbol;
+
             var constructed = TryConstructGeneric(symbol, typeArgs, arity);
             if (constructed is not null)
                 return constructed;
@@ -435,6 +438,9 @@ internal abstract class Binder
             if (symbol is null)
                 return null;
 
+            if (!ValidateTypeArgumentConstraints(symbol, typeArgs, i => GetTypeArgumentLocation(gen.TypeArgumentList.Arguments, gen.GetLocation(), i), symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                return Compilation.ErrorTypeSymbol;
+
             var constructed = TryConstructGeneric(symbol, typeArgs, arity);
             return constructed ?? symbol;
         }
@@ -469,6 +475,9 @@ internal abstract class Binder
 
         if (symbol is null)
             return null;
+
+        if (!ValidateTypeArgumentConstraints(symbol, typeArgs, i => GetTypeArgumentLocation(gen.TypeArgumentList.Arguments, gen.GetLocation(), i), symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+            return Compilation.ErrorTypeSymbol;
 
         return TryConstructGeneric(symbol, typeArgs, arity) ?? symbol;
     }
@@ -602,6 +611,259 @@ internal abstract class Binder
         return Compilation.ConstructGenericType(definition, typeArguments.ToArray());
     }
 
+    protected bool ValidateTypeArgumentConstraints(
+        INamedTypeSymbol definition,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        Func<int, Location> getArgumentLocation,
+        string? genericDisplayName = null)
+    {
+        var typeParameters = definition.TypeParameters;
+        if (typeParameters.Length != typeArguments.Length)
+            return true;
+
+        bool allSatisfied = true;
+        var displayName = genericDisplayName ?? definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        EnsureTypeParameterConstraintTypesResolved(typeParameters);
+
+        for (int i = 0; i < typeParameters.Length; i++)
+        {
+            var typeParameter = typeParameters[i];
+            var typeArgument = typeArguments[i];
+            var constraintKind = typeParameter.ConstraintKind;
+
+            if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 && !SatisfiesReferenceTypeConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "class", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 && !SatisfiesValueTypeConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "struct", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
+            {
+                foreach (var constraintType in typeParameter.ConstraintTypes)
+                {
+                    if (constraintType is IErrorTypeSymbol)
+                        continue;
+
+                    if (constraintType is INamedTypeSymbol namedConstraint)
+                    {
+                        if (SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                            continue;
+
+                        var constraintDisplay = namedConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        ReportConstraintViolation(typeArgument, constraintDisplay, typeParameter, displayName, getArgumentLocation(i));
+                        allSatisfied = false;
+                        continue;
+                    }
+
+                    if (SatisfiesTypeConstraint(typeArgument, constraintType))
+                        continue;
+
+                    var display = constraintType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    ReportConstraintViolation(typeArgument, display, typeParameter, displayName, getArgumentLocation(i));
+                    allSatisfied = false;
+                }
+            }
+        }
+
+        return allSatisfied;
+    }
+
+    internal void EnsureTypeParameterConstraintTypesResolved(ImmutableArray<ITypeParameterSymbol> typeParameters)
+    {
+        foreach (var parameter in typeParameters)
+            EnsureTypeParameterConstraintTypesResolved(parameter);
+    }
+
+    private void EnsureTypeParameterConstraintTypesResolved(ITypeParameterSymbol typeParameter)
+    {
+        if (typeParameter is not SourceTypeParameterSymbol source || source.HasResolvedConstraintTypes)
+            return;
+
+        if (source.ConstraintTypeReferences.IsDefaultOrEmpty)
+        {
+            source.SetConstraintTypes(ImmutableArray<ITypeSymbol>.Empty);
+            return;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(source.ConstraintTypeReferences.Length);
+        foreach (var reference in source.ConstraintTypeReferences)
+        {
+            if (reference.GetSyntax() is TypeConstraintSyntax typeConstraint)
+            {
+                var resolved = ResolveType(typeConstraint.Type);
+                builder.Add(resolved);
+            }
+        }
+
+        source.SetConstraintTypes(builder.MoveToImmutable());
+    }
+
+    private void ReportConstraintViolation(ITypeSymbol typeArgument, string constraintDisplay, ITypeParameterSymbol typeParameter, string genericDisplayName, Location location)
+    {
+        var argumentDisplay = typeArgument.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        _diagnostics.ReportTypeArgumentDoesNotSatisfyConstraint(argumentDisplay, constraintDisplay, typeParameter.Name, genericDisplayName, location);
+    }
+
+    protected static Location GetTypeArgumentLocation<TNode>(SeparatedSyntaxList<TNode> arguments, Location fallback, int index)
+        where TNode : SyntaxNode
+    {
+        if (index >= 0 && index < arguments.Count)
+            return arguments[index].GetLocation();
+
+        return fallback;
+    }
+
+    private static bool SatisfiesReferenceTypeConstraint(ITypeSymbol type)
+    {
+        if (type.IsReferenceType)
+            return true;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
+
+        return false;
+    }
+
+    private bool SatisfiesTypeConstraint(ITypeSymbol typeArgument, ITypeSymbol constraintType)
+    {
+        if (typeArgument is IErrorTypeSymbol || constraintType is IErrorTypeSymbol)
+            return true;
+
+        if (SymbolEqualityComparer.Default.Equals(typeArgument, constraintType))
+            return true;
+
+        if (constraintType is INamedTypeSymbol namedConstraint)
+            return SatisfiesNamedTypeConstraint(typeArgument, namedConstraint);
+
+        return true;
+    }
+
+    private bool SatisfiesNamedTypeConstraint(ITypeSymbol typeArgument, INamedTypeSymbol constraintType)
+    {
+        if (typeArgument is INamedTypeSymbol namedArgument)
+        {
+            if (SymbolEqualityComparer.Default.Equals(namedArgument, constraintType))
+                return true;
+
+            if (constraintType.TypeKind == TypeKind.Interface)
+            {
+                if (namedArgument.TypeKind == TypeKind.Interface && SymbolEqualityComparer.Default.Equals(namedArgument, constraintType))
+                    return true;
+
+                foreach (var implemented in namedArgument.AllInterfaces)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(implemented, constraintType))
+                        return true;
+                }
+
+                return false;
+            }
+
+            for (var current = namedArgument; current is not null; current = current.BaseType)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, constraintType))
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (typeArgument is ITypeParameterSymbol typeParameter)
+        {
+            foreach (var nestedConstraint in typeParameter.ConstraintTypes)
+            {
+                if (nestedConstraint is INamedTypeSymbol nestedNamed && SatisfiesNamedTypeConstraint(nestedNamed, constraintType))
+                    return true;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool SatisfiesValueTypeConstraint(ITypeSymbol type)
+    {
+        if (type.TypeKind == TypeKind.Nullable)
+            return false;
+
+        if (type.IsValueType)
+            return true;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
+
+        return false;
+    }
+
+    protected bool ValidateMethodTypeArgumentConstraints(
+        IMethodSymbol method,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        Func<int, Location> getArgumentLocation)
+    {
+        var typeParameters = method.TypeParameters;
+        if (typeParameters.Length != typeArguments.Length)
+            return true;
+
+        bool allSatisfied = true;
+        var displayName = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        for (int i = 0; i < typeParameters.Length; i++)
+        {
+            var typeParameter = typeParameters[i];
+            var typeArgument = typeArguments[i];
+            var constraintKind = typeParameter.ConstraintKind;
+
+            if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 && !SatisfiesReferenceTypeConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "class", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 && !SatisfiesValueTypeConstraint(typeArgument))
+            {
+                ReportConstraintViolation(typeArgument, "struct", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
+            {
+                foreach (var constraintType in typeParameter.ConstraintTypes)
+                {
+                    if (constraintType is IErrorTypeSymbol)
+                        continue;
+
+                    if (constraintType is INamedTypeSymbol namedConstraint)
+                    {
+                        if (SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                            continue;
+
+                        var constraintDisplay = namedConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        ReportConstraintViolation(typeArgument, constraintDisplay, typeParameter, displayName, getArgumentLocation(i));
+                        allSatisfied = false;
+                        continue;
+                    }
+
+                    if (SatisfiesTypeConstraint(typeArgument, constraintType))
+                        continue;
+
+                    var display = constraintType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    ReportConstraintViolation(typeArgument, display, typeParameter, displayName, getArgumentLocation(i));
+                    allSatisfied = false;
+                }
+            }
+        }
+
+        return allSatisfied;
+    }
+
     private ITypeSymbol? ResolveGenericMember(INamespaceOrTypeSymbol container, GenericNameSyntax generic)
     {
         var arity = ComputeGenericArity(generic);
@@ -612,6 +874,9 @@ internal abstract class Binder
             return null;
 
         var typeArguments = ResolveGenericTypeArguments(generic);
+        if (!ValidateTypeArgumentConstraints(definition, typeArguments, i => GetTypeArgumentLocation(generic.TypeArgumentList.Arguments, generic.GetLocation(), i), definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+            return Compilation.ErrorTypeSymbol;
+
         var constructed = TryConstructGeneric(definition, typeArguments, arity);
 
         return constructed ?? definition;
