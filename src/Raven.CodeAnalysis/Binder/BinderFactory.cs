@@ -22,7 +22,7 @@ class BinderFactory
         // Now safely construct this node's binder with a guaranteed parent
         Binder? newBinder = node switch
         {
-            NamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
+            BaseNamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
             MethodDeclarationSyntax => parentBinder,
             BlockSyntax => CreateBlockBinder(parentBinder),
             BlockStatementSyntax => CreateBlockBinder(parentBinder),
@@ -64,7 +64,7 @@ class BinderFactory
         return null;
     }
 
-    private Binder CreateNamespaceBinder(NamespaceDeclarationSyntax nsSyntax, Binder parentBinder)
+    private Binder CreateNamespaceBinder(BaseNamespaceDeclarationSyntax nsSyntax, Binder parentBinder)
     {
         var nsSymbol = _compilation.GetNamespaceSymbol(nsSyntax.Name.ToString());
         var nsBinder = new NamespaceBinder(parentBinder, nsSymbol!);
