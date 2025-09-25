@@ -62,6 +62,53 @@ class Foo {
     }
 
     [Fact]
+    public void Emit_WithMultipleMainMethods_UsesProgramMainAsEntryPoint()
+    {
+        var code = """
+class Program {
+    Main() -> int {
+        return 42;
+    }
+}
+
+class Helper {
+    Main() -> int {
+        return 0;
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references = [
+                MetadataReference.CreateFromFile(runtimePath)];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Seek(0, SeekOrigin.Begin);
+
+        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
+        using var mlc = new MetadataLoadContext(resolver);
+
+        var assembly = mlc.LoadFromStream(peStream);
+        var entryPoint = assembly.EntryPoint;
+
+        Assert.NotNull(entryPoint);
+        Assert.Equal("Program", entryPoint!.DeclaringType!.Name);
+    }
+
+    [Fact]
     public void Emit_ShouldAlwaysIncludeUnitType()
     {
         var code = """

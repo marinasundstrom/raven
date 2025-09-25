@@ -180,7 +180,7 @@ internal class MethodGenerator
             i++;
         }
 
-        if (MethodSymbol.Name == "Main")
+        if (MethodSymbol.Name == "Main" && MethodSymbol.ContainingType?.Name == "Program")
         {
             IsEntryPointCandidate = true;
         }
