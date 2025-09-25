@@ -88,7 +88,7 @@ public static class PrettySyntaxTreePrinter
         Dictionary<SyntaxNodeOrToken, SyntaxNodeReflectionExtensions.ChildGroup>? listPropertyMap = null;
         Dictionary<string, (int FirstIndex, bool IsLast)>? listPropertyInfo = null;
 
-        if (printerOptions.ExpandListsAsProperties)
+        if (!printerOptions.ExpandListsAsProperties)
         {
             var grouped = node.GetChildrenGroupedByProperty(printerOptions.IncludeTokens);
             var listGroups = grouped.Properties.Where(p => p.IsList).ToList();
@@ -135,7 +135,7 @@ public static class PrettySyntaxTreePrinter
             var isChildLast = i == children.Length - 1;
             var childNodeOrToken = (SyntaxNodeOrToken)children[i];
 
-            if (printerOptions.ExpandListsAsProperties && listPropertyMap is not null && listPropertyMap.TryGetValue(childNodeOrToken, out var listGroup))
+            if (!printerOptions.ExpandListsAsProperties && listPropertyMap is not null && listPropertyMap.TryGetValue(childNodeOrToken, out var listGroup))
             {
                 if (listPropertyInfo is not null && listPropertyInfo.TryGetValue(listGroup.PropertyName, out var info))
                 {
@@ -216,7 +216,7 @@ public static class PrettySyntaxTreePrinter
         {
             propertyName = token.Parent?.GetPropertyNameForChild(token);
 
-            if (propertyName is null && printerOptions.ExpandListsAsProperties)
+            if (propertyName is null && !printerOptions.ExpandListsAsProperties)
             {
                 propertyName = token.Parent?.GetPropertyNameForListItem(token);
             }
