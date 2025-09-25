@@ -38,5 +38,18 @@ struct S {}
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
     }
+
+    [Fact(Skip = "Requires reference assemblies in this environment")]
+    public void FileScopedNamespace_AfterGlobalStatement_ProducesDiagnostic()
+    {
+        var code = """
+0
+namespace Foo;
+""";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("app", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedNamespaceOutOfOrder);
+    }
 }
 

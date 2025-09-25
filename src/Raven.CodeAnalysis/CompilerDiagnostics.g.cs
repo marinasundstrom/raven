@@ -60,6 +60,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _consoleApplicationRequiresEntryPoint;
     private static DiagnosticDescriptor? _tryStatementRequiresCatchOrFinally;
     private static DiagnosticDescriptor? _catchTypeMustDeriveFromSystemException;
+    private static DiagnosticDescriptor? _fileScopedNamespaceOutOfOrder;
     private static DiagnosticDescriptor? _noOverloadForMethod;
     private static DiagnosticDescriptor? _cannotConvertFromTypeToType;
     private static DiagnosticDescriptor? _cannotAssignFromTypeToType;
@@ -785,6 +786,19 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV1017: File-scoped namespace declarations must appear before any other members
+    /// </summary>
+    public static DiagnosticDescriptor FileScopedNamespaceOutOfOrder => _fileScopedNamespaceOutOfOrder ??= DiagnosticDescriptor.Create(
+        id: "RAV1017",
+        title: "File-scoped namespace out of order",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "File-scoped namespace declarations must appear before any other members",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV1501: No overload for method '{0}' takes {1} arguments
     /// </summary>
     public static DiagnosticDescriptor NoOverloadForMethod => _noOverloadForMethod ??= DiagnosticDescriptor.Create(
@@ -1113,6 +1127,7 @@ internal static partial class CompilerDiagnostics
         ConsoleApplicationRequiresEntryPoint,
         TryStatementRequiresCatchOrFinally,
         CatchTypeMustDeriveFromSystemException,
+        FileScopedNamespaceOutOfOrder,
         NoOverloadForMethod,
         CannotConvertFromTypeToType,
         CannotAssignFromTypeToType,
@@ -1192,6 +1207,7 @@ internal static partial class CompilerDiagnostics
         "RAV1014" => ConsoleApplicationRequiresEntryPoint,
         "RAV1015" => TryStatementRequiresCatchOrFinally,
         "RAV1016" => CatchTypeMustDeriveFromSystemException,
+        "RAV1017" => FileScopedNamespaceOutOfOrder,
         "RAV1501" => NoOverloadForMethod,
         "RAV1503" => CannotConvertFromTypeToType,
         "RAV1504" => CannotAssignFromTypeToType,

@@ -167,6 +167,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportCatchTypeMustDeriveFromSystemException(this DiagnosticBag diagnostics, object? typeName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CatchTypeMustDeriveFromSystemException, location, typeName));
 
+    public static void ReportFileScopedNamespaceOutOfOrder(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.FileScopedNamespaceOutOfOrder, location));
+
     public static void ReportNoOverloadForMethod(this DiagnosticBag diagnostics, object? method, object? count, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NoOverloadForMethod, location, method, count));
 
