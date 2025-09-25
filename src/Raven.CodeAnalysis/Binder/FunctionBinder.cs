@@ -32,6 +32,19 @@ class FunctionBinder : Binder
 
         //ISymbol container = null; //this.ContainingSymbol;
         var container = Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
+        if (container is null)
+            throw new InvalidOperationException("Synthesized Program type not found.");
+
+        var existingMethod = container
+            .GetMembers(_syntax.Identifier.Text)
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == _syntax));
+
+        if (existingMethod is SourceMethodSymbol existingSource)
+        {
+            _methodSymbol = existingSource;
+            return _methodSymbol;
+        }
 
         var returnType = _syntax.ReturnType is null
             ? Compilation.GetSpecialType(SpecialType.System_Unit)
