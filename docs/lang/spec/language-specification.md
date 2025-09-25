@@ -48,12 +48,13 @@ classifies each keyword as either reserved or contextual.
 | Kind | Keywords |
 | --- | --- |
 | Reserved | `and`, `as`, `base`, `bool`, `catch`, `char`, `class`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `true`, `try`, `var`, `when`, `while` |
-| Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
+| Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
 their presence optional (for example, omitting `each` in a `for` expression). Contextual keywords behave like ordinary
 identifiers except in the syntactic positions that demand their special meaning—for example, accessibility modifiers
-(`public`, `internal`, `protected`, `private`) or accessor modifiers (`get`, `set`).
+(`public`, `internal`, `protected`, `private`) or accessor modifiers (`get`, `set`). The `partial` keyword is only recognised
+when declaring types and controls whether multiple declarations of the same class merge; see [Partial classes](#partial-classes).
 
 The single-character `_` token is reserved for discards. When a pattern,
 deconstruction, or other declaration spells its designation as `_` (optionally
@@ -1479,6 +1480,18 @@ The initializer is only available on ordinary instance constructors. Static cons
 constructors continue to behave as user-defined factories without chaining.
 
 > **Limitations:** Only single inheritance is supported.
+
+### Partial classes
+
+Applying the `partial` modifier to a class declaration allows the type to be defined across multiple declarations in the same
+assembly. All declarations must use the `partial` modifier; omitting it on any declaration produces a diagnostic and prevents the
+declarations from merging. When two declarations with the same name and containing scope appear without `partial`, the compiler
+reports a duplicate-type diagnostic.
+
+Partial declarations combine their members and share a single type identity. Modifiers, accessibility, and the base list are
+interpreted as a whole—Raven currently resolves the base class, implemented interfaces, and type parameters from the first
+declaration it processes, so later declarations should match or omit those clauses. Apart from these shared attributes, each
+partial declaration may contribute additional members, and the aggregate behaves exactly like a class declared in one piece.
 
 ### Method overloading
 

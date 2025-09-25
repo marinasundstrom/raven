@@ -600,27 +600,73 @@ public partial class SemanticModel
 
                         var isAbstract = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                         var isSealed = !classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract;
+                        var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                         var typeAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             classDecl.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
 
-                        var classSymbol = new SourceNamedTypeSymbol(
-                            classDecl.Identifier.Text,
-                            baseTypeSymbol!,
-                            TypeKind.Class,
-                            parentNamespace.AsSourceNamespace(),
-                            null,
-                            parentNamespace.AsSourceNamespace(),
-                            [classDecl.GetLocation()],
-                            [classDecl.GetReference()],
-                            isSealed,
-                            isAbstract,
-                            declaredAccessibility: typeAccessibility);
+                        var declarationLocation = classDecl.GetLocation();
+                        var declarationReference = classDecl.GetReference();
 
-                        InitializeTypeParameters(classSymbol, classDecl.TypeParameterList);
+                        var parentSourceNamespace = parentNamespace.AsSourceNamespace();
+                        SourceNamedTypeSymbol classSymbol;
+                        var isNewSymbol = true;
 
-                        if (!interfaceList.IsDefaultOrEmpty)
-                            classSymbol.SetInterfaces(interfaceList);
+                        if (parentSourceNamespace is not null &&
+                            parentSourceNamespace.IsMemberDefined(classDecl.Identifier.Text, out var existingMember) &&
+                            existingMember is SourceNamedTypeSymbol existingType &&
+                            existingType.TypeKind == TypeKind.Class)
+                        {
+                            var hadPartial = existingType.HasPartialModifier;
+                            var hadNonPartial = existingType.HasNonPartialDeclaration;
+                            var previouslyMixed = hadPartial && hadNonPartial;
+                            var willBeMixed = (hadPartial || isPartial) && (hadNonPartial || !isPartial);
+
+                            if (willBeMixed && !previouslyMixed)
+                            {
+                                parentBinder.Diagnostics.ReportPartialTypeDeclarationMissingPartial(
+                                    classDecl.Identifier.Text,
+                                    classDecl.Identifier.GetLocation());
+                            }
+                            else if (hadNonPartial && !isPartial)
+                            {
+                                parentBinder.Diagnostics.ReportTypeAlreadyDefined(
+                                    classDecl.Identifier.Text,
+                                    classDecl.Identifier.GetLocation());
+                            }
+
+                            existingType.AddDeclaration(declarationLocation, declarationReference);
+                            existingType.UpdateDeclarationModifiers(isSealed, isAbstract);
+                            existingType.RegisterPartialModifier(isPartial);
+
+                            classSymbol = existingType;
+                            isNewSymbol = false;
+                        }
+                        else
+                        {
+                            classSymbol = new SourceNamedTypeSymbol(
+                                classDecl.Identifier.Text,
+                                baseTypeSymbol!,
+                                TypeKind.Class,
+                                parentNamespace.AsSourceNamespace(),
+                                null,
+                                parentNamespace.AsSourceNamespace(),
+                                [declarationLocation],
+                                [declarationReference],
+                                isSealed,
+                                isAbstract,
+                                declaredAccessibility: typeAccessibility);
+
+                            classSymbol.RegisterPartialModifier(isPartial);
+                        }
+
+                        if (isNewSymbol)
+                        {
+                            InitializeTypeParameters(classSymbol, classDecl.TypeParameterList);
+
+                            if (!interfaceList.IsDefaultOrEmpty)
+                                classSymbol.SetInterfaces(interfaceList);
+                        }
 
                         var classBinder = new ClassDeclarationBinder(parentBinder, classSymbol, classDecl);
                         classBinder.EnsureTypeParameterConstraintTypesResolved(classSymbol.TypeParameters);
@@ -796,27 +842,73 @@ public partial class SemanticModel
                     }
                     var nestedAbstract = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
                     var nestedSealed = !nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract;
+                    var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                     var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                         nestedClass.Modifiers,
                         AccessibilityUtilities.GetDefaultTypeAccessibility(parentType));
-                    var nestedSymbol = new SourceNamedTypeSymbol(
-                        nestedClass.Identifier.Text,
-                        nestedBaseType!,
-                        TypeKind.Class,
-                        parentType,
-                        parentType,
-                        classBinder.CurrentNamespace!.AsSourceNamespace(),
-                        [nestedClass.GetLocation()],
-                        [nestedClass.GetReference()],
-                        nestedSealed,
-                        nestedAbstract,
-                        declaredAccessibility: nestedAccessibility
-                    );
 
-                    InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList);
+                    var nestedLocation = nestedClass.GetLocation();
+                    var nestedReference = nestedClass.GetReference();
 
-                    if (!nestedInterfaces.IsDefaultOrEmpty)
-                        nestedSymbol.SetInterfaces(nestedInterfaces);
+                    SourceNamedTypeSymbol nestedSymbol;
+                    var isNewNestedSymbol = true;
+
+                    if (parentType is SourceNamedTypeSymbol parentSourceType &&
+                        parentSourceType.IsMemberDefined(nestedClass.Identifier.Text, out var existingNestedMember) &&
+                        existingNestedMember is SourceNamedTypeSymbol existingNested &&
+                        existingNested.TypeKind == TypeKind.Class)
+                    {
+                        var hadPartial = existingNested.HasPartialModifier;
+                        var hadNonPartial = existingNested.HasNonPartialDeclaration;
+                        var previouslyMixed = hadPartial && hadNonPartial;
+                        var willBeMixed = (hadPartial || nestedPartial) && (hadNonPartial || !nestedPartial);
+
+                        if (willBeMixed && !previouslyMixed)
+                        {
+                            classBinder.Diagnostics.ReportPartialTypeDeclarationMissingPartial(
+                                nestedClass.Identifier.Text,
+                                nestedClass.Identifier.GetLocation());
+                        }
+                        else if (hadNonPartial && !nestedPartial)
+                        {
+                            classBinder.Diagnostics.ReportTypeAlreadyDefined(
+                                nestedClass.Identifier.Text,
+                                nestedClass.Identifier.GetLocation());
+                        }
+
+                        existingNested.AddDeclaration(nestedLocation, nestedReference);
+                        existingNested.UpdateDeclarationModifiers(nestedSealed, nestedAbstract);
+                        existingNested.RegisterPartialModifier(nestedPartial);
+
+                        nestedSymbol = existingNested;
+                        isNewNestedSymbol = false;
+                    }
+                    else
+                    {
+                        nestedSymbol = new SourceNamedTypeSymbol(
+                            nestedClass.Identifier.Text,
+                            nestedBaseType!,
+                            TypeKind.Class,
+                            parentType,
+                            parentType,
+                            classBinder.CurrentNamespace!.AsSourceNamespace(),
+                            [nestedLocation],
+                            [nestedReference],
+                            nestedSealed,
+                            nestedAbstract,
+                            declaredAccessibility: nestedAccessibility
+                        );
+
+                        nestedSymbol.RegisterPartialModifier(nestedPartial);
+                    }
+
+                    if (isNewNestedSymbol)
+                    {
+                        InitializeTypeParameters(nestedSymbol, nestedClass.TypeParameterList);
+
+                        if (!nestedInterfaces.IsDefaultOrEmpty)
+                            nestedSymbol.SetInterfaces(nestedInterfaces);
+                    }
 
                     var nestedBinder = new ClassDeclarationBinder(classBinder, nestedSymbol, nestedClass);
                     nestedBinder.EnsureTypeParameterConstraintTypesResolved(nestedSymbol.TypeParameters);

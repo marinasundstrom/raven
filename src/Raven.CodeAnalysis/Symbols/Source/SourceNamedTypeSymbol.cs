@@ -57,10 +57,14 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
     public ITypeSymbol? ConstructedFrom => this;
-    public bool IsAbstract { get; }
-    public bool IsSealed { get; }
+    public bool IsAbstract { get; private set; }
+    public bool IsSealed { get; private set; }
     public bool IsGenericType => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0;
     public bool IsUnboundGenericType => false;
+
+    public bool HasPartialModifier { get; private set; }
+
+    public bool HasNonPartialDeclaration { get; private set; }
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
@@ -112,6 +116,30 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         _interfaces = interfaces.ToImmutableArray();
         _allInterfaces = null;
+    }
+
+    internal void AddDeclaration(Location location, SyntaxReference reference)
+    {
+        Locations = Locations.Add(location);
+        DeclaringSyntaxReferences = DeclaringSyntaxReferences.Add(reference);
+    }
+
+    internal void UpdateDeclarationModifiers(bool isSealed, bool isAbstract)
+    {
+        if (!isSealed)
+            IsSealed = false;
+
+        if (isAbstract)
+            IsAbstract = true;
+    }
+
+    internal void RegisterPartialModifier(bool hasPartialModifier)
+    {
+        if (hasPartialModifier)
+            HasPartialModifier = true;
+
+        if (!hasPartialModifier)
+            HasNonPartialDeclaration = true;
     }
 
     internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)

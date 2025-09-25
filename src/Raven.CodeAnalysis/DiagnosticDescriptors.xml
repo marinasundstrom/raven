@@ -105,6 +105,13 @@
     Title="Static members cannot be virtual or override"
     Message="Static member '{memberName}' cannot be marked '{modifier}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0600" Identifier="TypeAlreadyDefined" Title="Type already defined"
+    Message="A type named '{name}' is already defined in this scope" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0601" Identifier="PartialTypeDeclarationMissingPartial"
+    Title="'partial' modifier missing"
+    Message="Type '{name}' has multiple declarations; all declarations must include the 'partial' modifier"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0312" Identifier="ConstructorInitializerNotAllowedOnStaticConstructor"
     Title="Static constructors cannot specify a base initializer"
     Message="Static constructors cannot specify a base constructor initializer"

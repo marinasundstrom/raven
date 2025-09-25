@@ -98,6 +98,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
                  nextToken.IsKind(SyntaxKind.SealedKeyword) || nextToken.IsKind(SyntaxKind.OpenKeyword) ||
+                 nextToken.IsKind(SyntaxKind.PartialKeyword) ||
                  nextToken.IsKind(SyntaxKind.OverrideKeyword))
         {
             var typeDeclaration = new TypeDeclarationParser(this).Parse();

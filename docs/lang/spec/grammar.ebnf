@@ -20,7 +20,7 @@ AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 AccessorModifier         ::= AccessModifier ;
 
 TypeModifiers            ::= { TypeModifier } ;
-TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'static' ;
+TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' ;
 
 FunctionModifiers        ::= { FunctionModifier } ;
 FunctionModifier         ::= AccessModifier | 'async' | 'extern' | 'static' ;
