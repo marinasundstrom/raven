@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
@@ -18,8 +19,8 @@ var stopwatch = Stopwatch.StartNew();
 // --framework <tfm> - target framework
 // --refs <path>     - additional metadata reference (repeatable)
 // -o <path>         - output assembly path
-// -s                - display the syntax tree (single file only)
-// -d                - dump syntax with highlighting (single file only)
+// -s [flat|group]   - display the syntax tree (single file only)
+// -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
 // --no-emit         - skip emitting the output assembly
@@ -31,12 +32,14 @@ string? targetFrameworkTfm = null;
 string? outputPath = null;
 
 var printSyntaxTree = false;
-var expandGroups = false;
+var syntaxTreeFormat = SyntaxTreeFormat.Flat;
 var printSyntax = false;
 var printRawSyntax = false;
+var prettyIncludeDiagnostics = true;
 var printBinders = false;
 var showHelp = false;
 var noEmit = false;
+var hasInvalidOption = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -48,22 +51,37 @@ for (int i = 0; i < args.Length; i++)
                 outputPath = args[++i];
             break;
         case "-s":
+        case "--syntax-tree":
+            printSyntaxTree = true;
+            if (!TryParseSyntaxTreeFormat(args, ref i, out syntaxTreeFormat))
+                hasInvalidOption = true;
+            break;
         case "--display-tree":
             printSyntaxTree = true;
-            expandGroups = true;
+            syntaxTreeFormat = SyntaxTreeFormat.Group;
             break;
         case "-se":
         case "--display-expanded-tree":
             printSyntaxTree = true;
-            expandGroups = false;
+            syntaxTreeFormat = SyntaxTreeFormat.Flat;
             break;
         case "-d":
+        case "--dump":
+            if (!TryParseSyntaxDumpFormat(args, ref i, out printRawSyntax, out printSyntax,
+                    out prettyIncludeDiagnostics))
+            {
+                hasInvalidOption = true;
+            }
+            break;
         case "--print-syntax":
             printRawSyntax = true;
+            printSyntax = false;
             break;
         case "-dp":
         case "--pretty-print":
+            printRawSyntax = false;
             printSyntax = true;
+            prettyIncludeDiagnostics = true;
             break;
         case "-b":
         case "--display-binders":
@@ -92,7 +110,7 @@ for (int i = 0; i < args.Length; i++)
     }
 }
 
-if (showHelp)
+if (showHelp || hasInvalidOption)
 {
     PrintHelp();
     return;
@@ -229,13 +247,22 @@ if (allowConsoleOutput)
     if (printSyntaxTree)
     {
         var includeLocations = true;
-        root.PrintSyntaxTree(new PrinterOptions { IncludeNames = true, IncludeTokens = true, IncludeTrivia = true, IncludeSpans = true, IncludeLocations = includeLocations, Colorize = true, ExpandListsAsProperties = expandGroups });
+        root.PrintSyntaxTree(new PrinterOptions
+        {
+            IncludeNames = true,
+            IncludeTokens = true,
+            IncludeTrivia = true,
+            IncludeSpans = true,
+            IncludeLocations = includeLocations,
+            Colorize = true,
+            ExpandListsAsProperties = syntaxTreeFormat == SyntaxTreeFormat.Group
+        });
     }
 
     if (printSyntax)
     {
         ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
-        Console.WriteLine(root.WriteNodeToText(compilation, includeDiagnostics: true));
+        Console.WriteLine(root.WriteNodeToText(compilation, includeDiagnostics: prettyIncludeDiagnostics));
         Console.WriteLine();
     }
 
@@ -301,10 +328,125 @@ static void PrintHelp()
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
     Console.WriteLine("  -o <path>          Output assembly path");
-    Console.WriteLine("  -s                 Display the syntax tree (single file only)");
-    Console.WriteLine("  -d                 Dump syntax with highlighting (single file only)");
+    Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
+    Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
+    Console.WriteLine("  -d [plain|pretty[:no-diagnostics]] Dump syntax (single file only)");
+    Console.WriteLine("                     'plain' writes the source text, 'pretty' writes highlighted syntax.");
+    Console.WriteLine("                     Append ':no-diagnostics' to skip diagnostic underlines when using 'pretty'.");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  -h, --help         Display help");
+}
+
+static bool TryParseSyntaxTreeFormat(string[] args, ref int index, out SyntaxTreeFormat format)
+{
+    var value = ConsumeOptionValue(args, ref index);
+    if (value is null)
+    {
+        format = SyntaxTreeFormat.Flat;
+        return true;
+    }
+
+    if (value.Equals("group", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("grouped", StringComparison.OrdinalIgnoreCase))
+    {
+        format = SyntaxTreeFormat.Group;
+        return true;
+    }
+
+    if (value.Equals("flat", StringComparison.OrdinalIgnoreCase))
+    {
+        format = SyntaxTreeFormat.Flat;
+        return true;
+    }
+
+    AnsiConsole.MarkupLine($"[red]Unknown syntax tree format '{value}'.[/]");
+    format = SyntaxTreeFormat.Flat;
+    return false;
+}
+
+static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool printRawSyntax, out bool printSyntax,
+    out bool includeDiagnostics)
+{
+    printRawSyntax = false;
+    printSyntax = false;
+    includeDiagnostics = true;
+
+    var value = ConsumeOptionValue(args, ref index);
+    if (value is null)
+    {
+        printRawSyntax = true;
+        return true;
+    }
+
+    var segments = value.Split(':', StringSplitOptions.RemoveEmptyEntries);
+    if (segments.Length == 0)
+    {
+        printRawSyntax = true;
+        return true;
+    }
+
+    var mode = segments[0];
+    if (mode.Equals("plain", StringComparison.OrdinalIgnoreCase))
+    {
+        if (segments.Length > 1)
+        {
+            AnsiConsole.MarkupLine("[red]The 'plain' syntax dump does not accept modifiers.[/]");
+            return false;
+        }
+
+        printRawSyntax = true;
+        return true;
+    }
+
+    if (mode.Equals("pretty", StringComparison.OrdinalIgnoreCase))
+    {
+        includeDiagnostics = true;
+        foreach (var modifier in segments.Skip(1))
+        {
+            if (modifier.Equals("no-diagnostics", StringComparison.OrdinalIgnoreCase) ||
+                modifier.Equals("no-underline", StringComparison.OrdinalIgnoreCase))
+            {
+                includeDiagnostics = false;
+            }
+            else if (modifier.Equals("diagnostics", StringComparison.OrdinalIgnoreCase) ||
+                     modifier.Equals("underline", StringComparison.OrdinalIgnoreCase))
+            {
+                includeDiagnostics = true;
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"[red]Unknown modifier '{modifier}' for pretty syntax dump.[/]");
+                return false;
+            }
+        }
+
+        printSyntax = true;
+        return true;
+    }
+
+    AnsiConsole.MarkupLine($"[red]Unknown syntax dump format '{value}'.[/]");
+    return false;
+}
+
+static string? ConsumeOptionValue(string[] args, ref int index)
+{
+    if (index + 1 < args.Length)
+    {
+        var candidate = args[index + 1];
+        if (!candidate.StartsWith('-'))
+        {
+            index++;
+            return candidate;
+        }
+    }
+
+    return null;
+}
+
+enum SyntaxTreeFormat
+{
+    Flat,
+    Group
 }
