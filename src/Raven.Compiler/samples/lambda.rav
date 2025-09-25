@@ -1,12 +1,36 @@
 /*
- * Lambda expressions (WIP)
+ * Lambda expressions
  * * * */
 
-let i = 2
+import System.Console.*
 
-let f = func (a : int, b : int) -> int = a + b + i
+// Expression-bodied lambda assigned to a local delegate
+let add = func (a: int, b: int) -> int => a + b
+WriteLine("2 + 3 = " + add(2, 3).ToString())
 
-let f2 = func (a: int, b: int) -> int = {
-    let sum = a + b
-    return sum + i
+// Block-bodied lambda that captures and mutates an outer variable
+var offset = 10
+let adjust = func (value: int) -> int => {
+    let result = value + offset
+    offset = offset + 1
+    result
 }
+
+WriteLine("adjust(5) = " + adjust(5).ToString())
+WriteLine("offset after adjust = " + offset.ToString())
+
+// Nested lambda returning a closure that shares captured state
+let makeIncrementer = func (start: int) => {
+    var current = start
+
+    let increment = func (delta: int) -> int => {
+        current = current + delta
+        current
+    }
+
+    return increment
+}
+
+let increment = makeIncrementer(3)
+WriteLine("first call = " + increment(2).ToString())
+WriteLine("second call = " + increment(4).ToString())
