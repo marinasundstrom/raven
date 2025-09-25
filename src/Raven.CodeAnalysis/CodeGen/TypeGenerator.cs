@@ -46,6 +46,7 @@ internal class TypeGenerator
                     named.MetadataName,
                     accessibilityAttributes | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.AutoClass | TypeAttributes.AnsiClass,
                     ResolveClrType(named.BaseType));
+                DefineTypeGenericParameters(named);
                 return;
             }
 
@@ -91,6 +92,7 @@ internal class TypeGenerator
                 TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                     TypeSymbol.MetadataName,
                     typeAttributes);
+                DefineTypeGenericParameters(nt);
 
                 if (!nt.Interfaces.IsDefaultOrEmpty)
                 {
@@ -103,8 +105,13 @@ internal class TypeGenerator
 
             TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                 TypeSymbol.MetadataName,
-                typeAttributes,
-                ResolveClrType(TypeSymbol.BaseType));
+                typeAttributes);
+
+            if (TypeSymbol is INamedTypeSymbol namedType)
+                DefineTypeGenericParameters(namedType);
+
+            if (TypeSymbol.BaseType is not null)
+                TypeBuilder.SetParent(ResolveClrType(TypeSymbol.BaseType));
 
         }
 
@@ -113,6 +120,18 @@ internal class TypeGenerator
             foreach (var iface in nt2.Interfaces)
                 TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
         }
+    }
+
+    private void DefineTypeGenericParameters(INamedTypeSymbol namedType)
+    {
+        if (TypeBuilder is null)
+            return;
+
+        if (namedType.TypeParameters.IsDefaultOrEmpty)
+            return;
+
+        var parameterBuilders = TypeBuilder.DefineGenericParameters(namedType.TypeParameters.Select(tp => tp.Name).ToArray());
+        CodeGen.RegisterGenericParameters(namedType.TypeParameters, parameterBuilders);
     }
 
     private static TypeAttributes GetTypeAccessibilityAttributes(INamedTypeSymbol typeSymbol)

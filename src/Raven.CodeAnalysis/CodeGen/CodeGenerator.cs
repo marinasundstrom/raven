@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -16,10 +17,71 @@ internal class CodeGenerator
 {
     readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
+    readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new Dictionary<ITypeParameterSymbol, Type>(SymbolEqualityComparer.Default);
 
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
 
     public MemberInfo? GetMemberBuilder(SourceSymbol symbol) => _mappings[symbol];
+
+    internal void RegisterGenericParameters(ImmutableArray<ITypeParameterSymbol> parameters, GenericTypeParameterBuilder[] builders)
+    {
+        if (parameters.IsDefaultOrEmpty || builders.Length == 0)
+            return;
+
+        var count = Math.Min(parameters.Length, builders.Length);
+
+        for (var i = 0; i < count; i++)
+        {
+            var parameter = parameters[i];
+            var builder = builders[i];
+            _genericParameterMap[parameter] = builder;
+        }
+
+        for (var i = 0; i < count; i++)
+        {
+            ApplyGenericParameterConstraints(parameters[i], builders[i]);
+        }
+    }
+
+    private void ApplyGenericParameterConstraints(ITypeParameterSymbol parameter, GenericTypeParameterBuilder builder)
+    {
+        var attributes = GenericParameterAttributes.None;
+
+        if ((parameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0)
+            attributes |= GenericParameterAttributes.ReferenceTypeConstraint;
+
+        if ((parameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0)
+            attributes |= GenericParameterAttributes.NotNullableValueTypeConstraint;
+
+        builder.SetGenericParameterAttributes(attributes);
+
+        if (parameter.ConstraintTypes.IsDefaultOrEmpty)
+            return;
+
+        Type? baseType = null;
+        List<Type>? interfaces = null;
+
+        foreach (var constraintType in parameter.ConstraintTypes)
+        {
+            var constraintClrType = constraintType.GetClrType(this);
+
+            if (constraintClrType.IsInterface)
+            {
+                interfaces ??= new List<Type>();
+                interfaces.Add(constraintClrType);
+            }
+            else
+            {
+                baseType = constraintClrType;
+            }
+        }
+
+        if (baseType is not null)
+            builder.SetBaseTypeConstraint(baseType);
+
+        if (interfaces is { Count: > 0 })
+            builder.SetInterfaceConstraints(interfaces.ToArray());
+    }
 
     private readonly Compilation _compilation;
 
@@ -507,6 +569,11 @@ internal class CodeGenerator
 
         type = null!;
         return false;
+    }
+
+    internal bool TryGetRuntimeTypeForTypeParameter(ITypeParameterSymbol symbol, out Type type)
+    {
+        return _genericParameterMap.TryGetValue(symbol, out type!);
     }
 
 }
