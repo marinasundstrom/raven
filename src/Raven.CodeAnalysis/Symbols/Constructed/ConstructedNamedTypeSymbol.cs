@@ -256,7 +256,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
 
             // Use metadata name and parameter types to resolve the method on the constructed type
-            var parameterTypes = this.Parameters.Select(x => x.Type.GetClrType(codeGen)).ToArray(); //baseMethod.GetParameters().Select(p => p.ParameterType).ToArray();
+            var parameterTypes = Parameters.Select(x => x.Type.GetClrType(codeGen)).ToArray();
             var method = constructedType.GetMethod(
                 baseMethod.Name,
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static,
@@ -271,7 +271,36 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             throw new MissingMethodException($"Method '{baseMethod.Name}' with specified parameters not found on constructed type '{constructedType}'.");
         }
 
-        throw new InvalidOperationException("Expected PEMethodSymbol.");
+        if (_original is SourceMethodSymbol sourceMethod)
+        {
+            if (codeGen.GetMemberBuilder(sourceMethod) is not MethodInfo definitionMethod)
+                throw new InvalidOperationException("Method builder not found for source method.");
+
+            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
+
+            if (!ReferenceEquals(constructedType, definitionMethod.DeclaringType) && constructedType.IsGenericType)
+            {
+                var constructedMethod = TypeBuilder.GetMethod(constructedType, definitionMethod);
+                if (constructedMethod is not null)
+                    return constructedMethod;
+            }
+
+            if (ReferenceEquals(constructedType, definitionMethod.DeclaringType))
+                return definitionMethod;
+
+            var parameterTypes = sourceMethod.Parameters
+                .Select(p => p.Type.GetClrType(codeGen))
+                .ToArray();
+
+            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+            var resolved = constructedType.GetMethod(definitionMethod.Name, bindingFlags, null, parameterTypes, null);
+            if (resolved is not null)
+                return resolved;
+
+            throw new MissingMethodException($"Method '{definitionMethod.Name}' with specified parameters not found on constructed type '{constructedType}'.");
+        }
+
+        throw new InvalidOperationException("Expected PE or source method symbol.");
     }
 }
 
@@ -321,7 +350,32 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
             return constructedType.GetField(field.Name)!;
         }
 
-        throw new Exception("Not a PE field.");
+        if (_original is SourceFieldSymbol sourceField)
+        {
+            if (codeGen.GetMemberBuilder(sourceField) is not FieldInfo definitionField)
+                throw new InvalidOperationException("Field builder not found for source field.");
+
+            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
+
+            if (!ReferenceEquals(constructedType, definitionField.DeclaringType) && constructedType.IsGenericType)
+            {
+                var constructedField = TypeBuilder.GetField(constructedType, definitionField);
+                if (constructedField is not null)
+                    return constructedField;
+            }
+
+            if (ReferenceEquals(constructedType, definitionField.DeclaringType))
+                return definitionField;
+
+            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+            var resolved = constructedType.GetField(definitionField.Name, bindingFlags);
+            if (resolved is not null)
+                return resolved;
+
+            throw new MissingFieldException(constructedType.FullName, definitionField.Name);
+        }
+
+        throw new Exception("Not a supported field symbol.");
     }
 }
 
@@ -371,7 +425,40 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
             return constructedType.GetProperty(property.Name)!;
         }
 
-        throw new Exception("Not a PE property.");
+        if (_original is SourcePropertySymbol sourceProperty)
+        {
+            if (codeGen.GetMemberBuilder(sourceProperty) is not PropertyInfo definitionProperty)
+                throw new InvalidOperationException("Property builder not found for source property.");
+
+            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
+
+            if (ReferenceEquals(constructedType, definitionProperty.DeclaringType))
+                return definitionProperty;
+
+            var propertyType = sourceProperty.Type.GetClrType(codeGen);
+
+            Type[]? parameterTypes = null;
+            if (sourceProperty.GetMethod is not null)
+                parameterTypes = sourceProperty.GetMethod.Parameters.Select(p => p.Type.GetClrType(codeGen)).ToArray();
+            else if (sourceProperty.SetMethod is not null)
+            {
+                var parameters = sourceProperty.SetMethod.Parameters;
+                var count = sourceProperty.SetMethod.MethodKind == MethodKind.PropertySet ? parameters.Length - 1 : parameters.Length;
+                if (count > 0)
+                {
+                    parameterTypes = parameters.Take(count).Select(p => p.Type.GetClrType(codeGen)).ToArray();
+                }
+            }
+
+            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+            var resolved = constructedType.GetProperty(definitionProperty.Name, bindingFlags, null, propertyType, parameterTypes, null);
+            if (resolved is not null)
+                return resolved;
+
+            throw new MissingMemberException(constructedType.FullName, definitionProperty.Name);
+        }
+
+        throw new Exception("Not a supported property symbol.");
     }
 }
 
