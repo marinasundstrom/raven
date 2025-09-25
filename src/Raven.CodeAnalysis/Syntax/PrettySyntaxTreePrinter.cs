@@ -1,4 +1,4 @@
-using System.Text;
+using System.IO;
 
 using Raven.CodeAnalysis.Text;
 
@@ -20,16 +20,19 @@ public static class PrettySyntaxTreePrinter
 {
     public static void PrintSyntaxTree(this SyntaxNode node, PrinterOptions printerOptions)
     {
-        var sb = new StringBuilder();
-        PrintSyntaxTreeCore(node, sb, "", true, true, printerOptions, printerOptions.MaxDepth);
-        Console.WriteLine(sb.ToString());
+        Console.WriteLine(node.GetSyntaxTreeRepresentation(printerOptions));
+    }
+
+    public static void PrintSyntaxTree(this SyntaxNode node, PrinterOptions printerOptions, TextWriter writer)
+    {
+        PrintSyntaxTreeCore(node, writer, string.Empty, true, true, printerOptions, printerOptions.MaxDepth);
     }
 
     public static string GetSyntaxTreeRepresentation(this SyntaxNode node, PrinterOptions printerOptions)
     {
-        var sb = new StringBuilder();
-        PrintSyntaxTreeCore(node, sb, "", true, false, printerOptions, printerOptions.MaxDepth);
-        return sb.ToString();
+        using var writer = new StringWriter();
+        PrintSyntaxTreeCore(node, writer, string.Empty, true, false, printerOptions, printerOptions.MaxDepth);
+        return writer.ToString();
     }
 
     private const string IndentationStr = "    ";
@@ -38,7 +41,7 @@ public static class PrettySyntaxTreePrinter
     private const string MarkerMiddle = "├── ";
     private const string MarkerBottom = "└── ";
 
-    private static void PrintSyntaxTreeCore(SyntaxNode node, StringBuilder sb, string indent, bool isFirst, bool isLast, PrinterOptions printerOptions, int currentDepth)
+    private static void PrintSyntaxTreeCore(SyntaxNode node, TextWriter writer, string indent, bool isFirst, bool isLast, PrinterOptions printerOptions, int currentDepth)
     {
         if (currentDepth > printerOptions.MaxDepth)
             return;
@@ -75,7 +78,7 @@ public static class PrettySyntaxTreePrinter
 
         var value = !printerOptions.IncludeTokens ? MaybeColorize(Value(node), AnsiColor.Yellow, printerOptions.Colorize) : string.Empty;
 
-        sb.AppendLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightBlue, printerOptions.Colorize) + value + MaybeColorize($"{node.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(node.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(node.GetLocation())}" : string.Empty)}");
+        writer.WriteLine($"{indent}{marker}" + MaybeColorize($"{propertyName}", AnsiColor.BrightBlue, printerOptions.Colorize) + value + MaybeColorize($"{node.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(node.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(node.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(node.GetLocation())}" : string.Empty)}");
 
         var newIndent = isFirst ? string.Empty : indent + (isLast ? IndentationStr : MarkerStraight);
 
@@ -88,7 +91,7 @@ public static class PrettySyntaxTreePrinter
             var isChildLast = i == children.Length - 1;
             if (children[i].TryGetNode(out var childNode))
             {
-                PrintSyntaxTreeCore(childNode, sb, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
+                PrintSyntaxTreeCore(childNode, writer, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
             }
             else if (printerOptions.IncludeTokens && children[i].TryGetToken(out var token))
             {
@@ -96,7 +99,7 @@ public static class PrettySyntaxTreePrinter
                 if (printerOptions.IncludeTrivia)
                 {
                     var triviaList = token.LeadingTrivia;
-                    PrintTrivia(triviaList, true, sb, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
+                    PrintTrivia(triviaList, true, writer, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
                 }
 
                 var propertyName2 = string.Empty;
@@ -121,13 +124,13 @@ public static class PrettySyntaxTreePrinter
                 }
 
                 // Print token
-                sb.AppendLine($"{newIndent}{marker2}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                writer.WriteLine($"{newIndent}{marker2}" + MaybeColorize($"{propertyName2}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{GetTokenText(ref token)} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(token.IsMissing ? " (Missing)" : string.Empty)}{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
 
                 // Include trivia if specified
                 if (printerOptions.IncludeTrivia)
                 {
                     var triviaList = token.TrailingTrivia;
-                    PrintTrivia(triviaList, false, sb, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
+                    PrintTrivia(triviaList, false, writer, newIndent, false, isChildLast, printerOptions, currentDepth + 1);
                 }
             }
         }
@@ -158,7 +161,7 @@ public static class PrettySyntaxTreePrinter
         };
     }
 
-    private static void PrintTrivia(SyntaxTriviaList triviaList, bool isLeading, StringBuilder sb, string indent, bool isFirst, bool isLast, PrinterOptions printerOptions, int currentDepth)
+    private static void PrintTrivia(SyntaxTriviaList triviaList, bool isLeading, TextWriter writer, string indent, bool isFirst, bool isLast, PrinterOptions printerOptions, int currentDepth)
     {
         var newIndent = isFirst ? string.Empty : indent + (isLast ? (isLeading ? MarkerStraight : IndentationStr) : MarkerStraight);
 
@@ -187,18 +190,18 @@ public static class PrettySyntaxTreePrinter
                 }
             }
 
-            sb.AppendLine($"{newIndent}{childMarker}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
+            writer.WriteLine($"{newIndent}{childMarker}" + $"{TriviaToString(trivia)}" + MaybeColorize($"{trivia.Kind}", AnsiColor.BrightRed, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(trivia.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(trivia.GetLocation())}" : string.Empty)}");
 
             if (trivia.HasStructure)
             {
                 var newIndent2 = newIndent + MarkerStraight;
 
-                PrintStructuredTrivia(sb, printerOptions, trivia, isFirstChild, isChildLast, newIndent2);
+                PrintStructuredTrivia(writer, printerOptions, trivia, isFirstChild, isChildLast, newIndent2);
             }
         }
     }
 
-    private static void PrintStructuredTrivia(StringBuilder sb, PrinterOptions printerOptions, SyntaxTrivia trivia, bool isFirstChild, bool isChildLast, string newIndent2)
+    private static void PrintStructuredTrivia(TextWriter writer, PrinterOptions printerOptions, SyntaxTrivia trivia, bool isFirstChild, bool isChildLast, string newIndent2)
     {
         string name = string.Empty;
         if (printerOptions.IncludeNames)
@@ -207,7 +210,7 @@ public static class PrettySyntaxTreePrinter
         }
 
         var structure = trivia.GetStructure()!;
-        sb.AppendLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(structure.GetLocation())}" : string.Empty)}");
+        writer.WriteLine($"{newIndent2}{MarkerBottom}" + MaybeColorize($"{name}{structure.Kind}", AnsiColor.BrightBlue, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(structure.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(structure.GetLocation())}" : string.Empty)}");
 
         int i2 = 0;
         var structureChildren = structure.ChildNodesAndTokens();
@@ -220,7 +223,7 @@ public static class PrettySyntaxTreePrinter
 
             if (triviaChild.TryGetToken(out var token))
             {
-                sb.AppendLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
+                writer.WriteLine($"{newIndent4}{(isChildLast2 ? MarkerBottom : MarkerMiddle)}" + $"{token.Text} " + MaybeColorize($"{token.Kind}", AnsiColor.BrightGreen, printerOptions.Colorize) + $"{(printerOptions.IncludeSpans ? $" {Span(token.Span)}" : string.Empty)}{(printerOptions.IncludeLocations ? $" {Location(token.GetLocation())}" : string.Empty)}");
             }
             i2++;
         }
