@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -15,12 +17,16 @@ internal sealed class OverloadResolver
         int bestScore = int.MaxValue;
         ImmutableArray<IMethodSymbol>.Builder? ambiguous = null;
 
-        foreach (var method in methods)
+        foreach (var originalMethod in methods)
         {
-            var parameters = method.Parameters;
-            if (parameters.Length != arguments.Length)
+            if (originalMethod.Parameters.Length != arguments.Length)
                 continue;
 
+            var method = PrepareCandidate(originalMethod, arguments);
+            if (method is null)
+                continue;
+
+            var parameters = method.Parameters;
             int score = 0;
             bool allMatch = true;
 
@@ -119,6 +125,266 @@ internal sealed class OverloadResolver
             return OverloadResolutionResult.Ambiguous(ambiguous.ToImmutable());
 
         return new OverloadResolutionResult(bestMatch);
+    }
+
+    private static IMethodSymbol? PrepareCandidate(
+        IMethodSymbol method,
+        BoundExpression[] arguments)
+    {
+        if (method.TypeParameters.IsDefaultOrEmpty || method.TypeParameters.Length == 0)
+            return method;
+
+        if (!HasOpenTypeArguments(method))
+            return method;
+
+        return TryInferMethodTypeArguments(method, arguments);
+    }
+
+    private static bool HasOpenTypeArguments(IMethodSymbol method)
+    {
+        if (method.TypeArguments.IsDefaultOrEmpty || method.TypeArguments.Length == 0)
+            return false;
+
+        foreach (var typeArgument in method.TypeArguments)
+        {
+            if (typeArgument is ITypeParameterSymbol tp && ContainsMethodTypeParameter(method.TypeParameters, tp))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static IMethodSymbol? TryInferMethodTypeArguments(
+        IMethodSymbol method,
+        BoundExpression[] arguments)
+    {
+        var typeParameters = method.TypeParameters;
+        if (typeParameters.IsDefaultOrEmpty || typeParameters.Length == 0)
+            return method;
+
+        var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        var parameters = method.Parameters;
+
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var argumentType = GetArgumentTypeForInference(arguments[i]);
+            if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
+                return null;
+
+            if (!TryUnifyParameter(
+                    parameters[i].Type,
+                    argumentType,
+                    typeParameters,
+                    map))
+            {
+                return null;
+            }
+        }
+
+        if (map.Count == 0)
+            return null;
+
+        var inferredArguments = new ITypeSymbol[typeParameters.Length];
+
+        for (int i = 0; i < typeParameters.Length; i++)
+        {
+            var typeParameter = typeParameters[i];
+            if (!map.TryGetValue(typeParameter, out var inferred))
+                return null;
+
+            inferredArguments[i] = inferred;
+        }
+
+        try
+        {
+            return method.Construct(inferredArguments);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static ITypeSymbol? GetArgumentTypeForInference(BoundExpression argument)
+    {
+        if (argument is BoundAddressOfExpression addressOf)
+            return addressOf.ValueType;
+
+        return argument.Type;
+    }
+
+    private static bool TryUnifyParameter(
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+    {
+        parameterType = Normalize(parameterType);
+        argumentType = Normalize(argumentType);
+
+        if (parameterType is ITypeParameterSymbol paramTypeParameter)
+        {
+            if (!ContainsMethodTypeParameter(methodTypeParameters, paramTypeParameter))
+                return true;
+
+            if (argumentType.TypeKind == TypeKind.Null)
+                return false;
+
+            if (map.TryGetValue(paramTypeParameter, out var existing))
+                return SymbolEqualityComparer.Default.Equals(existing, argumentType);
+
+            map[paramTypeParameter] = argumentType;
+            return true;
+        }
+
+        if (!ContainsMethodTypeParameter(parameterType, methodTypeParameters))
+            return true;
+
+        switch (parameterType)
+        {
+            case NullableTypeSymbol nullableParameter:
+                {
+                    if (argumentType is NullableTypeSymbol nullableArgument)
+                        return TryUnifyParameter(nullableParameter.UnderlyingType, nullableArgument.UnderlyingType, methodTypeParameters, map);
+
+                    if (argumentType.TypeKind == TypeKind.Null)
+                        return false;
+
+                    return TryUnifyParameter(nullableParameter.UnderlyingType, argumentType, methodTypeParameters, map);
+                }
+
+            case IArrayTypeSymbol arrayParameter when argumentType is IArrayTypeSymbol arrayArgument:
+                return TryUnifyParameter(arrayParameter.ElementType, arrayArgument.ElementType, methodTypeParameters, map);
+
+            case INamedTypeSymbol namedParameter:
+                {
+                    if (argumentType is not INamedTypeSymbol namedArgument)
+                        return false;
+
+                    var match = FindMatchingConstructedType(namedArgument, namedParameter);
+                    if (match is null)
+                        return false;
+
+                    var parameterArguments = namedParameter.TypeArguments;
+                    var argumentArguments = match.TypeArguments;
+
+                    if (parameterArguments.Length != argumentArguments.Length)
+                        return false;
+
+                    for (int i = 0; i < parameterArguments.Length; i++)
+                    {
+                        if (!TryUnifyParameter(parameterArguments[i], argumentArguments[i], methodTypeParameters, map))
+                            return false;
+                    }
+
+                    return true;
+                }
+
+            case IUnionTypeSymbol unionParameter:
+                {
+                    foreach (var branch in unionParameter.Types)
+                    {
+                        var snapshot = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(map, SymbolEqualityComparer.Default);
+                        if (TryUnifyParameter(branch, argumentType, methodTypeParameters, snapshot))
+                        {
+                            foreach (var entry in snapshot)
+                                map[entry.Key] = entry.Value;
+
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsMethodTypeParameter(
+        ITypeSymbol type,
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+    {
+        type = Normalize(type);
+
+        return type switch
+        {
+            ITypeParameterSymbol tp => ContainsMethodTypeParameter(methodTypeParameters, tp),
+            INamedTypeSymbol named => named.TypeArguments.Any(arg => ContainsMethodTypeParameter(arg, methodTypeParameters)),
+            IArrayTypeSymbol array => ContainsMethodTypeParameter(array.ElementType, methodTypeParameters),
+            NullableTypeSymbol nullable => ContainsMethodTypeParameter(nullable.UnderlyingType, methodTypeParameters),
+            IUnionTypeSymbol union => union.Types.Any(arg => ContainsMethodTypeParameter(arg, methodTypeParameters)),
+            _ => false,
+        };
+    }
+
+    private static bool ContainsMethodTypeParameter(
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters,
+        ITypeParameterSymbol candidate)
+    {
+        foreach (var methodTypeParameter in methodTypeParameters)
+        {
+            if (SymbolEqualityComparer.Default.Equals(methodTypeParameter, candidate))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static INamedTypeSymbol? FindMatchingConstructedType(
+        INamedTypeSymbol argumentType,
+        INamedTypeSymbol parameterType)
+    {
+        var targetDefinition = GetGenericDefinition(parameterType);
+
+        for (INamedTypeSymbol? current = argumentType; current is not null; current = current.BaseType)
+        {
+            if (AreSameGenericDefinition(current, targetDefinition))
+                return current;
+        }
+
+        foreach (var interfaceType in argumentType.AllInterfaces)
+        {
+            if (AreSameGenericDefinition(interfaceType, targetDefinition))
+                return interfaceType;
+        }
+
+        return null;
+    }
+
+    private static bool AreSameGenericDefinition(INamedTypeSymbol candidate, INamedTypeSymbol targetDefinition)
+    {
+        var candidateDefinition = GetGenericDefinition(candidate);
+        return SymbolEqualityComparer.Default.Equals(candidateDefinition, targetDefinition);
+    }
+
+    private static INamedTypeSymbol GetGenericDefinition(INamedTypeSymbol symbol)
+    {
+        var constructedFrom = symbol.ConstructedFrom as INamedTypeSymbol;
+        if (constructedFrom is not null && !SymbolEqualityComparer.Default.Equals(constructedFrom, symbol))
+            return GetGenericDefinition(constructedFrom);
+
+        if (symbol.OriginalDefinition is INamedTypeSymbol original && !SymbolEqualityComparer.Default.Equals(original, symbol))
+            return GetGenericDefinition(original);
+
+        return symbol;
+    }
+
+    private static ITypeSymbol Normalize(ITypeSymbol type)
+    {
+        while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+            type = alias;
+
+        switch (type)
+        {
+            case LiteralTypeSymbol literal:
+                return Normalize(literal.UnderlyingType);
+            case ByRefTypeSymbol byRef:
+                return Normalize(byRef.ElementType);
+            default:
+                return type;
+        }
     }
 
     private static void AddCandidateIfMissing(ImmutableArray<IMethodSymbol>.Builder builder, IMethodSymbol candidate)
