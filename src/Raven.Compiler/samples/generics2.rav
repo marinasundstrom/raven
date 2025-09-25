@@ -1,0 +1,11 @@
+import System.*
+
+let ints = Box<int>(1)
+let words = Box<string>("ok")
+
+class Box<T>
+{
+    public Value: T { get; }
+
+    init(value: T) { Value = value }
+}
