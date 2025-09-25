@@ -190,6 +190,10 @@
     Title="Console application requires entry point"
     Message="Program.Main entry point not found" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1017" Identifier="EntryPointIsAmbiguous"
+    Title="Program has more than one entry point defined"
+    Message="Program has more than one entry point defined" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1015" Identifier="TryStatementRequiresCatchOrFinally"
     Title="try statement requires catch or finally"
     Message="A try statement must include at least one catch clause or a finally clause"

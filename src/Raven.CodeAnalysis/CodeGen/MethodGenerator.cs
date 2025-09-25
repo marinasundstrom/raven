@@ -180,7 +180,7 @@ internal class MethodGenerator
             i++;
         }
 
-        if (MethodSymbol.Name == "Main" && MethodSymbol.ContainingType?.Name == "Program")
+        if (TypeGenerator.CodeGen.Compilation.IsEntryPointCandidate(MethodSymbol))
         {
             IsEntryPointCandidate = true;
         }

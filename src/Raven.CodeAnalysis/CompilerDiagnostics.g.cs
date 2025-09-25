@@ -58,6 +58,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _fileScopedCodeRequiresConsole;
     private static DiagnosticDescriptor? _fileScopedCodeMultipleFiles;
     private static DiagnosticDescriptor? _consoleApplicationRequiresEntryPoint;
+    private static DiagnosticDescriptor? _entryPointIsAmbiguous;
     private static DiagnosticDescriptor? _tryStatementRequiresCatchOrFinally;
     private static DiagnosticDescriptor? _catchTypeMustDeriveFromSystemException;
     private static DiagnosticDescriptor? _noOverloadForMethod;
@@ -759,6 +760,19 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV1017: Program has more than one entry point defined
+    /// </summary>
+    public static DiagnosticDescriptor EntryPointIsAmbiguous => _entryPointIsAmbiguous ??= DiagnosticDescriptor.Create(
+        id: "RAV1017",
+        title: "Program has more than one entry point defined",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Program has more than one entry point defined",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV1015: A try statement must include at least one catch clause or a finally clause
     /// </summary>
     public static DiagnosticDescriptor TryStatementRequiresCatchOrFinally => _tryStatementRequiresCatchOrFinally ??= DiagnosticDescriptor.Create(
@@ -1111,6 +1125,7 @@ internal static partial class CompilerDiagnostics
         FileScopedCodeRequiresConsole,
         FileScopedCodeMultipleFiles,
         ConsoleApplicationRequiresEntryPoint,
+        EntryPointIsAmbiguous,
         TryStatementRequiresCatchOrFinally,
         CatchTypeMustDeriveFromSystemException,
         NoOverloadForMethod,
@@ -1190,6 +1205,7 @@ internal static partial class CompilerDiagnostics
         "RAV1012" => FileScopedCodeRequiresConsole,
         "RAV1013" => FileScopedCodeMultipleFiles,
         "RAV1014" => ConsoleApplicationRequiresEntryPoint,
+        "RAV1017" => EntryPointIsAmbiguous,
         "RAV1015" => TryStatementRequiresCatchOrFinally,
         "RAV1016" => CatchTypeMustDeriveFromSystemException,
         "RAV1501" => NoOverloadForMethod,

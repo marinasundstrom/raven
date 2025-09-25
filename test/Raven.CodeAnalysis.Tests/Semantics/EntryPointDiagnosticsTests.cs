@@ -15,4 +15,48 @@ public class EntryPointDiagnosticsTests
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
     }
+
+    [Fact]
+    public void ConsoleApp_WithMultipleMainMethods_ProducesAmbiguousDiagnostic()
+    {
+        var code = """
+class Program {
+    Main() -> unit {
+        return;
+    }
+}
+
+class Helper {
+    Main() -> unit {
+        return;
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("app", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
+    }
+
+    [Fact]
+    public void TopLevelStatements_WithUserDefinedMain_ProducesAmbiguousDiagnostic()
+    {
+        var topLevel = SyntaxTree.ParseText("let x = 0");
+        var mainClass = SyntaxTree.ParseText("""
+class App {
+    Main() -> unit {
+        return;
+    }
+}
+""");
+
+        var compilation = Compilation.Create("app", new[] { topLevel, mainClass }, TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
+    }
 }

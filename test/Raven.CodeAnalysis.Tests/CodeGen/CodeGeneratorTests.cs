@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -62,15 +63,9 @@ class Foo {
     }
 
     [Fact]
-    public void Emit_WithMultipleMainMethods_UsesProgramMainAsEntryPoint()
+    public void Emit_WithSingleMainInNonProgramType_UsesThatEntryPoint()
     {
         var code = """
-class Program {
-    Main() -> int {
-        return 42;
-    }
-}
-
 class Helper {
     Main() -> int {
         return 0;
@@ -105,7 +100,45 @@ class Helper {
         var entryPoint = assembly.EntryPoint;
 
         Assert.NotNull(entryPoint);
-        Assert.Equal("Program", entryPoint!.DeclaringType!.Name);
+        Assert.Equal("Helper", entryPoint!.DeclaringType!.Name);
+    }
+
+    [Fact]
+    public void Emit_WithMultipleValidMainMethods_FailsWithAmbiguousEntryPointDiagnostic()
+    {
+        var code = """
+class Program {
+    Main() -> int {
+        return 42;
+    }
+}
+
+class Helper {
+    Main() -> int {
+        return 0;
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references = [
+                MetadataReference.CreateFromFile(runtimePath)];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.EntryPointIsAmbiguous);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Descriptor == CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
     }
 
     [Fact]
