@@ -1,9 +1,13 @@
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Syntax;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
+    private ImmutableArray<ITypeSymbol> _constraintTypes;
+
     public SourceTypeParameterSymbol(
         string name,
         ISymbol containingSymbol,
@@ -11,13 +15,23 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
         INamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
-        int ordinal)
+        int ordinal,
+        TypeParameterConstraintKind constraintKind,
+        ImmutableArray<SyntaxReference> constraintTypeReferences)
         : base(SymbolKind.TypeParameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Ordinal = ordinal;
+        ConstraintKind = constraintKind;
+        ConstraintTypeReferences = constraintTypeReferences;
     }
 
     public int Ordinal { get; }
+
+    public TypeParameterConstraintKind ConstraintKind { get; }
+
+    internal ImmutableArray<SyntaxReference> ConstraintTypeReferences { get; }
+
+    internal bool HasResolvedConstraintTypes => !_constraintTypes.IsDefault;
 
     public override string MetadataName => Name;
 
@@ -47,6 +61,16 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
     {
         symbol = null;
         return false;
+    }
+
+    public ImmutableArray<ITypeSymbol> ConstraintTypes =>
+        _constraintTypes.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _constraintTypes;
+
+    internal void SetConstraintTypes(ImmutableArray<ITypeSymbol> constraintTypes)
+    {
+        _constraintTypes = constraintTypes.IsDefault
+            ? ImmutableArray<ITypeSymbol>.Empty
+            : constraintTypes;
     }
 
     public override void Accept(SymbolVisitor visitor)

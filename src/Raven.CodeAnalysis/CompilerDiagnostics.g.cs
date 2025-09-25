@@ -39,6 +39,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _explicitInterfaceSpecifierMustBeInterface;
     private static DiagnosticDescriptor? _containingTypeDoesNotImplementInterface;
     private static DiagnosticDescriptor? _explicitInterfaceMemberNotFound;
+    private static DiagnosticDescriptor? _typeArgumentDoesNotSatisfyConstraint;
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
     private static DiagnosticDescriptor? _symbolIsInaccessible;
@@ -506,6 +507,19 @@ internal static partial class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "Interface '{0}' does not contain a member named '{1}' matching this signature",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0320: The type '{0}' must satisfy the '{1}' constraint for type parameter '{2}' of '{3}'
+    /// </summary>
+    public static DiagnosticDescriptor TypeArgumentDoesNotSatisfyConstraint => _typeArgumentDoesNotSatisfyConstraint ??= DiagnosticDescriptor.Create(
+        id: "RAV0320",
+        title: "Type argument does not satisfy constraint",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The type '{0}' must satisfy the '{1}' constraint for type parameter '{2}' of '{3}'",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -1078,6 +1092,7 @@ internal static partial class CompilerDiagnostics
         ExplicitInterfaceSpecifierMustBeInterface,
         ContainingTypeDoesNotImplementInterface,
         ExplicitInterfaceMemberNotFound,
+        TypeArgumentDoesNotSatisfyConstraint,
         NullableTypeInUnion,
         TypeNameDoesNotExistInType,
         SymbolIsInaccessible,
@@ -1156,6 +1171,7 @@ internal static partial class CompilerDiagnostics
         "RAV0313" => ExplicitInterfaceSpecifierMustBeInterface,
         "RAV0314" => ContainingTypeDoesNotImplementInterface,
         "RAV0315" => ExplicitInterfaceMemberNotFound,
+        "RAV0320" => TypeArgumentDoesNotSatisfyConstraint,
         "RAV0400" => NullableTypeInUnion,
         "RAV0426" => TypeNameDoesNotExistInType,
         "RAV0500" => SymbolIsInaccessible,

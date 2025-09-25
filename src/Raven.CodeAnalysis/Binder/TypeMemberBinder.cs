@@ -266,6 +266,8 @@ internal class TypeMemberBinder : Binder
             int ordinal = 0;
             foreach (var typeParameterSyntax in methodDecl.TypeParameterList.Parameters)
             {
+                var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(typeParameterSyntax);
+
                 var typeParameterSymbol = new SourceTypeParameterSymbol(
                     typeParameterSyntax.Identifier.Text,
                     methodSymbol,
@@ -273,7 +275,9 @@ internal class TypeMemberBinder : Binder
                     CurrentNamespace!.AsSourceNamespace(),
                     [typeParameterSyntax.GetLocation()],
                     [typeParameterSyntax.GetReference()],
-                    ordinal++);
+                    ordinal++,
+                    constraintKind,
+                    constraintTypeReferences);
                 typeParametersBuilder.Add(typeParameterSymbol);
             }
 
@@ -281,6 +285,7 @@ internal class TypeMemberBinder : Binder
         }
 
         var methodBinder = new MethodBinder(methodSymbol, this);
+        methodBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
         var returnType = methodDecl.ReturnType is null
             ? Compilation.GetSpecialType(SpecialType.System_Unit)
@@ -1281,6 +1286,35 @@ internal class TypeMemberBinder : Binder
             return explicitInterfaceSpecifier.Identifier;
 
         return identifier;
+    }
+
+    private static (TypeParameterConstraintKind constraintKind, ImmutableArray<SyntaxReference> constraintTypeReferences) AnalyzeTypeParameterConstraints(TypeParameterSyntax parameter)
+    {
+        var constraints = parameter.Constraints;
+        if (constraints.Count == 0)
+            return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
+
+        var constraintKind = TypeParameterConstraintKind.None;
+        var typeConstraintReferences = ImmutableArray.CreateBuilder<SyntaxReference>();
+
+        foreach (var constraint in constraints)
+        {
+            switch (constraint)
+            {
+                case ClassConstraintSyntax:
+                    constraintKind |= TypeParameterConstraintKind.ReferenceType;
+                    break;
+                case StructConstraintSyntax:
+                    constraintKind |= TypeParameterConstraintKind.ValueType;
+                    break;
+                case TypeConstraintSyntax typeConstraint:
+                    constraintKind |= TypeParameterConstraintKind.TypeConstraint;
+                    typeConstraintReferences.Add(typeConstraint.GetReference());
+                    break;
+            }
+        }
+
+        return (constraintKind, typeConstraintReferences.ToImmutable());
     }
 }
 

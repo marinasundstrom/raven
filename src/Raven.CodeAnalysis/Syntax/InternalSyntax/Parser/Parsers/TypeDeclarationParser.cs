@@ -105,7 +105,31 @@ internal class TypeDeclarationParser : SyntaxParser
                 identifier = ExpectToken(SyntaxKind.IdentifierToken);
             }
 
-            parameters.Add(TypeParameter(identifier));
+            SyntaxToken? colonToken = null;
+            SyntaxList? constraints = null;
+
+            if (PeekToken().IsKind(SyntaxKind.ColonToken))
+            {
+                colonToken = ReadToken();
+
+                var constraintNodes = new List<GreenNode>();
+                while (true)
+                {
+                    var constraint = ParseTypeParameterConstraint();
+                    constraintNodes.Add(constraint);
+
+                    var separator = PeekToken();
+                    if (!separator.IsKind(SyntaxKind.CommaToken))
+                        break;
+
+                    ReadToken();
+                    constraintNodes.Add(separator);
+                }
+
+                constraints = List(constraintNodes);
+            }
+
+            parameters.Add(TypeParameter(identifier, colonToken, constraints));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -123,6 +147,26 @@ internal class TypeDeclarationParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.GreaterThanToken, out var greaterThanToken);
 
         return TypeParameterList(lessThanToken, List(parameters), greaterThanToken);
+    }
+
+    private TypeParameterConstraintSyntax ParseTypeParameterConstraint()
+    {
+        var token = PeekToken();
+
+        if (token.IsKind(SyntaxKind.ClassKeyword))
+        {
+            var classKeyword = ReadToken();
+            return ClassConstraint(classKeyword);
+        }
+
+        if (token.IsKind(SyntaxKind.StructKeyword))
+        {
+            var structKeyword = ReadToken();
+            return StructConstraint(structKeyword);
+        }
+
+        var type = new NameSyntaxParser(this).ParseTypeName();
+        return TypeConstraint(type);
     }
 
     private BaseListSyntax? ParseBaseList()

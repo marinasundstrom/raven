@@ -157,7 +157,7 @@ internal class TypeResolver(Compilation compilation)
                 return ResolveMethodTypeParameter(type, methodSymbol);
             }
 
-            return new PETypeParameterSymbol(type, declaringNamedType, declaringNamedType, declaringNamedType.ContainingNamespace, []);
+            return new PETypeParameterSymbol(type, declaringNamedType, declaringNamedType, declaringNamedType.ContainingNamespace, [], this);
         }
 
         if (type.IsArray)
@@ -180,7 +180,7 @@ internal class TypeResolver(Compilation compilation)
         if (_methodTypeParameters.TryGetValue(key, out var existing))
             return existing;
 
-        var symbol = new PETypeParameterSymbol(type, methodSymbol, methodSymbol.ContainingType, methodSymbol.ContainingNamespace, [new MetadataLocation(methodSymbol.ContainingModule!)]);
+        var symbol = new PETypeParameterSymbol(type, methodSymbol, methodSymbol.ContainingType, methodSymbol.ContainingNamespace, [new MetadataLocation(methodSymbol.ContainingModule!)], this);
         _methodTypeParameters[key] = symbol;
         return symbol;
     }

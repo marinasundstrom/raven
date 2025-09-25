@@ -38,6 +38,18 @@
   </Node>
   <Node Name="TypeParameter" Inherits="Node">
     <Slot Name="Identifier" Type="Token" />
+    <Slot Name="ColonToken" Type="Token" IsNullable="true" />
+    <Slot Name="Constraints" Type="SeparatedList" ElementType="TypeParameterConstraint" IsNullable="true" />
+  </Node>
+  <Node Name="TypeParameterConstraint" Inherits="Node" IsAbstract="true" />
+  <Node Name="ClassConstraint" Inherits="TypeParameterConstraint">
+    <Slot Name="ClassKeyword" Type="Token" />
+  </Node>
+  <Node Name="StructConstraint" Inherits="TypeParameterConstraint">
+    <Slot Name="StructKeyword" Type="Token" />
+  </Node>
+  <Node Name="TypeConstraint" Inherits="TypeParameterConstraint">
+    <Slot Name="Type" Type="Type" />
   </Node>
   <Node Name="Expression" Inherits="ExpressionOrPattern" IsAbstract="true" />
   <Node Name="VariableDesignation" Inherits="Node" IsAbstract="true" />
