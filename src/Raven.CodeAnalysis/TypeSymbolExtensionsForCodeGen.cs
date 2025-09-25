@@ -95,13 +95,38 @@ public static class TypeSymbolExtensionsForCodeGen
         }
 
         // Handle constructed generic types (from metadata or emitted)
-        if (typeSymbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+        if (typeSymbol is ConstructedNamedTypeSymbol constructedNamed)
         {
-            if (named.ConstructedFrom is INamedTypeSymbol constructedFrom &&
-                !SymbolEqualityComparer.Default.Equals(constructedFrom, named))
+            var definition = constructedNamed.ConstructedFrom as INamedTypeSymbol
+                ?? throw new InvalidOperationException("Constructed type without named definition.");
+
+            var genericDef = definition.GetClrType(codeGen);
+            var args = constructedNamed.TypeArguments.Select(arg => arg.GetClrType(codeGen)).ToArray();
+
+            if (!genericDef.IsGenericTypeDefinition && !genericDef.ContainsGenericParameters)
             {
-                var genericDef = constructedFrom.GetClrType(codeGen);
+                // The definition is already fully constructed (e.g. metadata bug). Just return it.
+                return genericDef;
+            }
+
+            return genericDef.MakeGenericType(args);
+        }
+
+        if (typeSymbol is INamedTypeSymbol named &&
+            named.IsGenericType &&
+            !named.IsUnboundGenericType)
+        {
+            if (named.ConstructedFrom is INamedTypeSymbol definition &&
+                !ReferenceEquals(named, definition))
+            {
+                var genericDef = definition.GetClrType(codeGen);
                 var args = named.TypeArguments.Select(arg => arg.GetClrType(codeGen)).ToArray();
+
+                if (!genericDef.IsGenericTypeDefinition && !genericDef.ContainsGenericParameters)
+                {
+                    return genericDef;
+                }
+
                 return genericDef.MakeGenericType(args);
             }
         }
