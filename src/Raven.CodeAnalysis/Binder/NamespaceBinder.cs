@@ -19,7 +19,7 @@ class NamespaceBinder : Binder
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {
-        if (node is NamespaceDeclarationSyntax)
+        if (node is BaseNamespaceDeclarationSyntax)
             return _namespaceSymbol;
 
         return base.BindDeclaredSymbol(node);
