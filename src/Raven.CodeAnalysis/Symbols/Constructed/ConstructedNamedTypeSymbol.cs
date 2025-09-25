@@ -416,50 +416,6 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
     public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
 
-    internal PropertyInfo GetPropertyInfo(CodeGenerator codeGen)
-    {
-        if (_original is PEPropertySymbol peProperty)
-        {
-            var property = peProperty.GetPropertyInfo();
-            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
-            return constructedType.GetProperty(property.Name)!;
-        }
-
-        if (_original is SourcePropertySymbol sourceProperty)
-        {
-            if (codeGen.GetMemberBuilder(sourceProperty) is not PropertyInfo definitionProperty)
-                throw new InvalidOperationException("Property builder not found for source property.");
-
-            var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
-
-            if (ReferenceEquals(constructedType, definitionProperty.DeclaringType))
-                return definitionProperty;
-
-            var propertyType = sourceProperty.Type.GetClrType(codeGen);
-
-            Type[]? parameterTypes = null;
-            if (sourceProperty.GetMethod is not null)
-                parameterTypes = sourceProperty.GetMethod.Parameters.Select(p => p.Type.GetClrType(codeGen)).ToArray();
-            else if (sourceProperty.SetMethod is not null)
-            {
-                var parameters = sourceProperty.SetMethod.Parameters;
-                var count = sourceProperty.SetMethod.MethodKind == MethodKind.PropertySet ? parameters.Length - 1 : parameters.Length;
-                if (count > 0)
-                {
-                    parameterTypes = parameters.Take(count).Select(p => p.Type.GetClrType(codeGen)).ToArray();
-                }
-            }
-
-            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-            var resolved = constructedType.GetProperty(definitionProperty.Name, bindingFlags, null, propertyType, parameterTypes, null);
-            if (resolved is not null)
-                return resolved;
-
-            throw new MissingMemberException(constructedType.FullName, definitionProperty.Name);
-        }
-
-        throw new Exception("Not a supported property symbol.");
-    }
 }
 
 internal sealed class SubstitutedParameterSymbol : IParameterSymbol
