@@ -279,26 +279,39 @@ public class Compilation
         if (ns is null)
             return GlobalNamespace;
 
-        // Split the namespace into parts
-        var namespaceParts = ns.Split('.');
+        var existing = this.GetNamespaceSymbol(ns);
+        if (existing is not null)
+            return existing;
 
-        // Start with the global namespace
-        var currentNamespace = GlobalNamespace;
+        var namespaceParts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (namespaceParts.Length == 0)
+            return SourceGlobalNamespace;
 
-        // Traverse the namespace hierarchy
+        var currentSourceNamespace = SourceGlobalNamespace;
+
         foreach (var part in namespaceParts)
         {
-            var parent = currentNamespace;
-            currentNamespace = currentNamespace.GetMembers().FirstOrDefault(n => n.Name == part) as INamespaceSymbol;
+            var next = currentSourceNamespace
+                .GetMembers(part)
+                .OfType<SourceNamespaceSymbol>()
+                .FirstOrDefault();
 
-            if (currentNamespace == null)
+            if (next is null)
             {
-                currentNamespace = new PENamespaceSymbol(TypeResolver, part, null!, parent);
-                return currentNamespace; // Namespace not found
+                next = new SourceNamespaceSymbol(
+                    part,
+                    currentSourceNamespace,
+                    currentSourceNamespace,
+                    [],
+                    []);
+
+                currentSourceNamespace.AddMember(next);
             }
+
+            currentSourceNamespace = next;
         }
 
-        return currentNamespace;
+        return this.GetNamespaceSymbol(ns);
     }
 
     private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)

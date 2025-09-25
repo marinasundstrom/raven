@@ -2,7 +2,7 @@
  * WIP
  * */
  
-//namespace Test
+namespace Samples
 
 import System.Console.*
 import System.Collections.Generic.List<>
