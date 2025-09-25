@@ -1008,6 +1008,9 @@ public partial class SemanticModel
 
     private static (TypeParameterConstraintKind constraintKind, ImmutableArray<SyntaxReference> constraintTypeReferences) AnalyzeTypeParameterConstraints(TypeParameterSyntax parameter)
     {
+        if (parameter.ColonToken is null)
+            return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
+
         var constraints = parameter.Constraints;
         if (constraints.Count == 0)
             return (TypeParameterConstraintKind.None, ImmutableArray<SyntaxReference>.Empty);
