@@ -33,6 +33,17 @@ public static class TypeSymbolExtensionsForCodeGen
             return namedTypeSymbol.GetTypeInfo();
         }
 
+        if (typeSymbol is ITypeParameterSymbol typeParameterSymbol)
+        {
+            if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameterSymbol, out var parameterType))
+                return parameterType;
+
+            if (typeParameterSymbol is PETypeParameterSymbol peTypeParameter)
+                return peTypeParameter.GetTypeInfo();
+
+            throw new InvalidOperationException($"Unable to resolve runtime type for type parameter: {typeParameterSymbol.Name}");
+        }
+
         var compilation = codeGen.Compilation;
 
         // Handle arrays

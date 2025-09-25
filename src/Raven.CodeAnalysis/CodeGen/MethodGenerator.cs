@@ -1,4 +1,4 @@
-
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -36,25 +36,6 @@ internal class MethodGenerator
 
     internal void DefineMethodBuilder()
     {
-        var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
-            ? Compilation.GetSpecialType(SpecialType.System_Void).GetClrType(TypeGenerator.CodeGen)
-            : ResolveClrType(MethodSymbol.ReturnType);
-
-        var parameterTypesBuilder = new List<Type>();
-
-        if (_lambdaClosure is not null)
-            parameterTypesBuilder.Add(_lambdaClosure.TypeBuilder);
-
-        foreach (var parameter in MethodSymbol.Parameters)
-        {
-            var clrType = ResolveClrType(parameter.Type);
-            if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
-                clrType = clrType.MakeByRefType();
-            parameterTypesBuilder.Add(clrType);
-        }
-
-        var parameterTypes = parameterTypesBuilder.ToArray();
-
         var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation
             || !MethodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty;
 
@@ -105,8 +86,12 @@ internal class MethodGenerator
         if (MethodSymbol.IsStatic)
             attributes |= MethodAttributes.Static;
 
+        var parameterTypes = Array.Empty<Type>();
+
         if (MethodSymbol.IsConstructor && !MethodSymbol.IsNamedConstructor)
         {
+            parameterTypes = BuildParameterTypes();
+
             if (MethodSymbol.IsStatic)
                 MethodBase = TypeGenerator.TypeBuilder!.DefineTypeInitializer();
             else
@@ -115,15 +100,32 @@ internal class MethodGenerator
         }
         else
         {
-            MethodBase = TypeGenerator.TypeBuilder!
+            var methodBuilder = TypeGenerator.TypeBuilder!
                 .DefineMethod(MethodSymbol.Name,
-                    attributes, CallingConventions.Standard,
-                    returnType,
-                    parameterTypes);
+                    attributes, CallingConventions.Standard);
+
+            MethodBase = methodBuilder;
+
+            if (!MethodSymbol.TypeParameters.IsDefaultOrEmpty)
+            {
+                var genericBuilders = methodBuilder.DefineGenericParameters(MethodSymbol.TypeParameters.Select(tp => tp.Name).ToArray());
+                TypeGenerator.CodeGen.RegisterGenericParameters(MethodSymbol.TypeParameters, genericBuilders);
+            }
+
+            var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
+                ? Compilation.GetSpecialType(SpecialType.System_Void).GetClrType(TypeGenerator.CodeGen)
+                : ResolveClrType(MethodSymbol.ReturnType);
+
+            methodBuilder.SetReturnType(returnType);
+
+            parameterTypes = BuildParameterTypes();
+
+            if (parameterTypes.Length > 0)
+                methodBuilder.SetParameters(parameterTypes);
         }
 
-        ParameterBuilder? returnParamBuilder = MethodBase is MethodBuilder methodBuilder
-            ? methodBuilder.DefineParameter(0, ParameterAttributes.Retval, null)
+        ParameterBuilder? returnParamBuilder = MethodBase is MethodBuilder methodBuilderInstance
+            ? methodBuilderInstance.DefineParameter(0, ParameterAttributes.Retval, null)
             : ((ConstructorBuilder)MethodBase).DefineParameter(0, ParameterAttributes.Retval, null);
 
         if (MethodSymbol.ReturnType.IsUnion)
@@ -181,6 +183,24 @@ internal class MethodGenerator
         if (MethodSymbol.Name == "Main")
         {
             IsEntryPointCandidate = true;
+        }
+
+        Type[] BuildParameterTypes()
+        {
+            var builder = new List<Type>();
+
+            if (_lambdaClosure is not null)
+                builder.Add(_lambdaClosure.TypeBuilder);
+
+            foreach (var parameter in MethodSymbol.Parameters)
+            {
+                var clrType = ResolveClrType(parameter.Type);
+                if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+                    clrType = clrType.MakeByRefType();
+                builder.Add(clrType);
+            }
+
+            return builder.ToArray();
         }
     }
 

@@ -130,4 +130,6 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         symbol = null;
         return false;
     }
+
+    internal Type GetTypeInfo() => _type;
 }
