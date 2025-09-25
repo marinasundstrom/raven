@@ -289,6 +289,9 @@ internal abstract class Binder
             var type = LookupType(ident.Identifier.Text);
             if (type is INamedTypeSymbol named)
             {
+                if (named.IsAlias)
+                    return named;
+
                 if (named.Arity > 0 && named.IsUnboundGenericType)
                 {
                     var zeroArity = FindAccessibleNamedType(ident.Identifier.Text, 0);
