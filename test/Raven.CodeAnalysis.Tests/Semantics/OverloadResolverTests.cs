@@ -146,6 +146,24 @@ public sealed class OverloadResolverTests : CompilationTestBase
         Assert.Contains(toDouble, result.AmbiguousCandidates, SymbolEqualityComparer.Default);
     }
 
+    [Fact]
+    public void ResolveOverload_PrefersInstanceMethodOverExtensionCandidate()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var receiver = new TestBoundExpression(intType);
+        var argument = new TestBoundExpression(intType);
+
+        var extension = CreateExtensionMethod(compilation, "Format", intType, intType);
+        var instance = CreateMethod(compilation, "Format", intType);
+
+        var result = OverloadResolver.ResolveOverload([extension, instance], CreateArguments(argument), compilation, receiver);
+
+        Assert.True(result.Success);
+        Assert.Same(instance, result.Method);
+    }
+
     protected override MetadataReference[] GetMetadataReferences()
     {
         var runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
@@ -182,6 +200,22 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var parameter = new FakeParameterSymbol("arg", parameterType, RefKind.None, isParams: false);
         var parameters = ImmutableArray.Create<IParameterSymbol>(parameter);
         return new FakeMethodSymbol(name, compilation.GetSpecialType(SpecialType.System_Unit), parameters);
+    }
+
+    private static FakeMethodSymbol CreateExtensionMethod(
+        Compilation compilation,
+        string name,
+        ITypeSymbol receiverType,
+        ITypeSymbol parameterType)
+    {
+        var receiver = new FakeParameterSymbol("receiver", receiverType, RefKind.None, isParams: false);
+        var argument = new FakeParameterSymbol("arg", parameterType, RefKind.None, isParams: false);
+        var parameters = ImmutableArray.Create<IParameterSymbol>(receiver, argument);
+        return new FakeMethodSymbol(
+            name,
+            compilation.GetSpecialType(SpecialType.System_Unit),
+            parameters,
+            isExtensionMethod: true);
     }
 
     private static BoundExpression[] CreateArguments(params BoundExpression[] expressions)
@@ -268,11 +302,18 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
     private sealed class FakeMethodSymbol : FakeSymbol, IMethodSymbol
     {
-        public FakeMethodSymbol(string name, ITypeSymbol returnType, ImmutableArray<IParameterSymbol> parameters)
+        private readonly bool _isExtensionMethod;
+
+        public FakeMethodSymbol(
+            string name,
+            ITypeSymbol returnType,
+            ImmutableArray<IParameterSymbol> parameters,
+            bool isExtensionMethod = false)
             : base(SymbolKind.Method, name)
         {
             ReturnType = returnType;
             Parameters = parameters;
+            _isExtensionMethod = isExtensionMethod;
 
             foreach (var parameter in parameters)
             {
@@ -299,7 +340,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public bool IsDefinition => true;
 
-        public bool IsExtensionMethod => false;
+        public bool IsExtensionMethod => _isExtensionMethod;
 
         public bool IsExtern => false;
 
