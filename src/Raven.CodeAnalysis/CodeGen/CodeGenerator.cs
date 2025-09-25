@@ -90,7 +90,7 @@ internal class CodeGenerator
     public PersistedAssemblyBuilder AssemblyBuilder { get; private set; }
     public ModuleBuilder ModuleBuilder { get; private set; }
 
-    private MethodBase EntryPoint { get; set; }
+    private MethodBase? EntryPoint { get; set; }
 
     public Type? TypeUnionAttributeType { get; private set; }
     public Type? NullType { get; private set; }
@@ -200,13 +200,39 @@ internal class CodeGenerator
 
         CreateTypes();
 
-        EntryPoint = _typeGenerators.Values
-            .SelectMany(x => x.MethodGenerators)
-            .Where(x => x.IsEntryPointCandidate)
-            .First().MethodBase;
+        var entryPointSymbol = _compilation.GetEntryPoint();
+        MethodGenerator? entryPointGenerator = null;
+
+        if (entryPointSymbol is not null)
+        {
+            foreach (var typeGenerator in _typeGenerators.Values)
+            {
+                var generator = typeGenerator.GetMethodGenerator(entryPointSymbol);
+                if (generator is not null)
+                {
+                    entryPointGenerator = generator;
+                    break;
+                }
+            }
+
+            if (entryPointGenerator is null)
+            {
+                throw new InvalidOperationException("Failed to locate entry point method.");
+            }
+        }
+        else
+        {
+            entryPointGenerator = _typeGenerators.Values
+                .SelectMany(x => x.MethodGenerators)
+                .FirstOrDefault(x => x.IsEntryPointCandidate);
+        }
+
+        EntryPoint = entryPointGenerator?.MethodBase;
 
         MetadataBuilder metadataBuilder = AssemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out _, out MetadataBuilder pdbBuilder);
-        MethodDefinitionHandle entryPointHandle = MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken);
+        MethodDefinitionHandle entryPointHandle = EntryPoint is not null
+            ? MetadataTokens.MethodDefinitionHandle(EntryPoint.MetadataToken)
+            : default;
         DebugDirectoryBuilder debugDirectoryBuilder = EmitPdb(pdbBuilder, metadataBuilder.GetRowCounts(), entryPointHandle);
 
         Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
