@@ -161,6 +161,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportConsoleApplicationRequiresEntryPoint(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint, location));
 
+    public static void ReportEntryPointIsAmbiguous(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.EntryPointIsAmbiguous, location));
+
     public static void ReportTryStatementRequiresCatchOrFinally(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.TryStatementRequiresCatchOrFinally, location));
 

@@ -325,11 +325,26 @@ print("hi") // RAV1013
 ```
 
 ## RAV1014: Console application requires entry point
-Console applications must define a `func main` entry point.
+Console applications must provide an entry point. Either include file-scope
+statements (which synthesize `Program.Main`) or declare a static `Main` method
+that matches one of the supported signatures.
 
 ```raven
-// Console project without a main function
+// Console project without top-level statements or a matching Main method
 // RAV1014: Program.Main entry point not found
+```
+
+## RAV1017: Program has more than one entry point defined
+Only one method may satisfy the entry-point requirements. Declaring multiple
+matching `Main` methods—or mixing top-level statements with a qualifying
+method—causes the compiler to reject the program.
+
+```raven
+let message = "hi"
+
+class App {
+    Main() -> unit { } // RAV1017: Program has more than one entry point defined
+}
 ```
 
 ## RAV1501: No overload for method takes argument

@@ -23,6 +23,10 @@ public class Compilation
     private int _synthesizedDelegateOrdinal;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
+    private readonly object _entryPointGate = new();
+    private bool _entryPointComputed;
+    private IMethodSymbol? _entryPoint;
+    private ImmutableArray<Diagnostic> _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -135,12 +139,105 @@ public class Compilation
 
     public IMethodSymbol? GetEntryPoint(CancellationToken cancellationToken = default)
     {
-        var main = SourceGlobalNamespace
-            .GetAllMembersRecursive()
-            .OfType<IMethodSymbol>()
-            .FirstOrDefault(x => x.Name == "Main" && x.ContainingType?.Name == "Program");
+        EnsureEntryPointComputed();
+        return _entryPoint;
+    }
 
-        return main;
+    internal ImmutableArray<Diagnostic> GetEntryPointDiagnostics(CancellationToken cancellationToken = default)
+    {
+        EnsureEntryPointComputed();
+        return _entryPointDiagnostics;
+    }
+
+    internal bool IsEntryPointCandidate(IMethodSymbol method)
+    {
+        if (method.Name != "Main" || !method.IsStatic || method.IsGenericMethod)
+            return false;
+
+        if (!method.TypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        var returnType = method.ReturnType;
+        var returnSpecialType = returnType.SpecialType;
+
+        if (returnSpecialType is not (SpecialType.System_Int32 or SpecialType.System_Void or SpecialType.System_Unit))
+            return false;
+
+        var parameters = method.Parameters;
+
+        if (parameters.Length == 0)
+            return true;
+
+        if (parameters.Length > 1)
+            return false;
+
+        var parameter = parameters[0];
+
+        if (parameter.RefKind != RefKind.None)
+            return false;
+
+        if (parameter.Type is not IArrayTypeSymbol arrayType)
+            return false;
+
+        var stringType = GetSpecialType(SpecialType.System_String);
+        return SymbolEqualityComparer.Default.Equals(arrayType.ElementType, stringType);
+    }
+
+    private void EnsureEntryPointComputed()
+    {
+        if (_entryPointComputed)
+            return;
+
+        lock (_entryPointGate)
+        {
+            if (_entryPointComputed)
+                return;
+
+            var uniqueCandidates = new Dictionary<string, IMethodSymbol>(StringComparer.Ordinal);
+
+            foreach (var method in SourceGlobalNamespace
+                .GetAllMembersRecursive()
+                .OfType<IMethodSymbol>()
+                .Where(IsEntryPointCandidate))
+            {
+                var key = method.ToDisplayString(SymbolDisplayFormat.CSharpSymbolKeyFormat);
+                if (!uniqueCandidates.ContainsKey(key))
+                    uniqueCandidates.Add(key, method);
+            }
+
+            var candidates = uniqueCandidates.Values.ToImmutableArray();
+
+            if (Options.OutputKind != OutputKind.ConsoleApplication)
+            {
+                _entryPoint = candidates.Length == 1 ? candidates[0] : null;
+                _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
+            }
+            else if (candidates.Length == 1)
+            {
+                _entryPoint = candidates[0];
+                _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
+            }
+            else if (candidates.Length > 1)
+            {
+                _entryPoint = null;
+                var builder = ImmutableArray.CreateBuilder<Diagnostic>(candidates.Length);
+
+                foreach (var candidate in candidates)
+                {
+                    var location = candidate.Locations.FirstOrDefault() ?? Location.None;
+                    builder.Add(Diagnostic.Create(CompilerDiagnostics.EntryPointIsAmbiguous, location));
+                }
+
+                _entryPointDiagnostics = builder.ToImmutable();
+            }
+            else
+            {
+                _entryPoint = null;
+                _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
+            }
+
+            _entryPointComputed = true;
+        }
     }
 
     internal INamedTypeSymbol GetMethodReferenceDelegate(IMethodSymbol methodSymbol)
@@ -497,8 +594,16 @@ public class Compilation
                 Add(diagnostic);
         }
 
-        if (Options.OutputKind == OutputKind.ConsoleApplication && GetEntryPoint(cancellationToken) is null)
+        var entryPointDiagnostics = GetEntryPointDiagnostics(cancellationToken);
+        foreach (var diagnostic in entryPointDiagnostics)
+            Add(diagnostic);
+
+        if (Options.OutputKind == OutputKind.ConsoleApplication
+            && entryPointDiagnostics.IsDefaultOrEmpty
+            && GetEntryPoint(cancellationToken) is null)
+        {
             Add(Diagnostic.Create(CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint, Location.None));
+        }
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
 
