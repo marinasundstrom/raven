@@ -396,6 +396,23 @@ The `()` call operator invokes a function-valued expression. If the target
 expression's type defines an invocation operator via a `self` method, that
 member is invoked instead; see [Invocation operator](#invocation-operator).
 
+#### Extension method invocation
+
+Raven participates in the .NET extension method model for consumption. When a
+method-style member access does not resolve to an instance member, the compiler
+searches imported namespaces and type scopes for extension methods whose first
+parameter (the `this` receiver in C#) accepts the receiver expression. Eligible
+candidates are merged into overload resolution alongside instance methods, with
+instance members winning any ties. Once selected, the receiver expression is
+passed as the leading argument to the static method.
+
+Extension methods become available by importing their declaring type or
+namespace using `import`. For example, `import System.Linq.*` exposes the LINQ
+operators from `System.Linq.Enumerable`, and `import System.MemoryExtensions`
+brings the span helpers from `System.MemoryExtensions`. Accessibility checks and
+diagnostics mirror those for ordinary methods; the compiler reports an error
+when no applicable extension can be found.
+
 ### Object creation
 
 Objects are created by **calling the type name** directly, just like any
@@ -668,6 +685,24 @@ import System.Math.*
 
 let pi = PI
 ```
+
+Extension methods defined on imported types are also brought into scope. This
+enables consuming .NET helpers such as `System.Linq.Enumerable.Where` or
+`System.MemoryExtensions.AsSpan` directly from Raven source:
+
+```raven
+import System.Collections.Generic.*
+import System.Linq.*
+
+let odds = List<int>()
+odds.Add(1)
+odds.Add(3)
+let filtered = odds.Where(func (value) => value % 2 == 1)
+```
+
+The compiler treats `Where` as an instance-style invocation even though it is
+declared as a static C# extension method, inserting the receiver as the first
+argument when emitting IL.
 
 Import directives appear at the beginning of a compilation unit or namespace and
 simply make existing namespaces or types available. They do not introduce new
@@ -1111,7 +1146,7 @@ outer pattern.
 
 #### Member access on unions (nominal CLR members only)
 
-A member access `u.M(...)` on `u : T1 | … | Tn` is permitted **only** when all element types share the **same CLR member origin** via a common base class or interface (same original definition/slot). This is purely **nominal**—extension methods and structural “duck typing” are not considered.
+A member access `u.M(...)` on `u : T1 | … | Tn` is permitted **only** when all element types share the **same CLR member origin** via a common base class or interface (same original definition/slot). The intersection remains purely **nominal**: only members declared on the hierarchy can satisfy the rule. Extension methods may still be invoked when in scope, but they do not cause a member to be considered common to the union.
 
 * **What counts as common**: a method/property/indexer/event declared on the nearest common base class or on an interface implemented by **all** `Ti`, where each `Ti` inherits/overrides/implements that same original member.
 * **Overloads**: intersect overload sets by original definition; only the common overloads remain available.
@@ -1175,6 +1210,7 @@ Enum literals retain the enum type identity; matching respects the enum, not jus
 * Member access:
 
   * Allowed iff a single base/interface original member is common to **all** elements; overloads intersect by original definition; lower via an ancestor cast and virtual/interface call.
+  * Extension methods are discovered separately. They may be invoked when in scope and applicable to the receiver, but they do not satisfy the nominal intersection requirement above.
 
 For .NET representation and lowering strategies (switches, interface dispatch), see [implementation notes](dotnet-implementation.md#union-types).
 

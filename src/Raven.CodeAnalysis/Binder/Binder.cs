@@ -184,6 +184,42 @@ internal abstract class Binder
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
     }
 
+    public virtual IEnumerable<IMethodSymbol> LookupExtensionMethods(string name, ITypeSymbol receiverType)
+    {
+        return ParentBinder?.LookupExtensionMethods(name, receiverType) ?? Enumerable.Empty<IMethodSymbol>();
+    }
+
+    protected static IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(INamespaceOrTypeSymbol scope, string name)
+    {
+        if (scope is INamespaceSymbol ns)
+        {
+            foreach (var member in ns.GetMembers())
+            {
+                if (member is INamedTypeSymbol typeMember)
+                {
+                    foreach (var method in GetExtensionMethodsFromScope(typeMember, name))
+                        yield return method;
+                }
+            }
+            yield break;
+        }
+
+        if (scope is not INamedTypeSymbol type)
+            yield break;
+
+        foreach (var member in type.GetMembers(name).OfType<IMethodSymbol>())
+        {
+            if (member.IsExtensionMethod)
+                yield return member;
+        }
+
+        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        {
+            foreach (var method in GetExtensionMethodsFromScope(nested, name))
+                yield return method;
+        }
+    }
+
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)
     {
         if (TryGetCachedBoundNode(expression) is BoundExpression cached)

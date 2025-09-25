@@ -8,6 +8,15 @@ When interacting with .NET, methods that return `void` are projected as returnin
 ## Return statements
 A `return` without an expression in a method that returns `unit` emits IL with no value. If the underlying method returns `void`, `Unit.Value` is loaded to produce a `unit` result before the `ret` instruction.
 
+## Extension methods
+Raven does not declare extension methods directly, but it consumes existing .NET
+extension methods using the same lowering strategy as C#. After overload
+resolution chooses an extension method, the compiler rewrites the invocation to
+call the static method on its declaring type and supplies the receiver as the
+first argument. For example, `items.Where(predicate)` lowers to
+`Enumerable.Where(items, predicate)` in IL. Accessibility is enforced prior to
+rewriting, so the emitted call is always valid for the imported method.
+
 ## Union types
 When emitted to .NET metadata, a union is projected as the narrowest common denominator of its members. If every member shares a base class, that base type becomes the metadata type; otherwise, `object` is used. Including `null` in the union marks the emitted type as nullable.
 

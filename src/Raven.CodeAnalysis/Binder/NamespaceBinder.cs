@@ -33,4 +33,17 @@ class NamespaceBinder : Binder
     public IEnumerable<SourceNamedTypeSymbol> DeclaredTypes => _declaredTypes;
 
     public INamespaceSymbol NamespaceSymbol => _namespaceSymbol;
+
+    public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string name, ITypeSymbol receiverType)
+    {
+        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var method in GetExtensionMethodsFromScope(_namespaceSymbol, name))
+            if (seen.Add(method))
+                yield return method;
+
+        foreach (var method in base.LookupExtensionMethods(name, receiverType))
+            if (seen.Add(method))
+                yield return method;
+    }
 }
