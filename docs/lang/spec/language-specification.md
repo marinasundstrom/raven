@@ -73,6 +73,40 @@ let 数据 = call()
 let сумма = total1 + total2
 ```
 
+### Comments
+
+Comments provide source-level annotations that the compiler ignores during
+semantic analysis. They may appear anywhere whitespace is permitted, including
+between tokens and at the end of a line. Comments never contribute tokens to
+the syntax tree; they are attached as trivia instead.
+
+Two forms of comments are supported:
+
+* **Single-line comments** start with `//` and continue until the next newline
+  or the end of the file. The terminating newline is not part of the comment.
+* **Multi-line comments** start with `/*` and end with the next `*/`. They may
+  span multiple lines but **do not nest**—a `/*` encountered inside a
+  multi-line comment is treated as ordinary text. If the end of the file is
+  reached before `*/`, the comment consumes the remainder of the file.
+
+Comment contents are treated as uninterpreted Unicode text. Any Unicode scalar
+value may appear inside a comment without escaping, including characters that
+would otherwise form tokens. This includes emoji and other symbols outside the
+Basic Multilingual Plane as long as the source file's encoding can represent
+them. The lexer preserves the original spelling (other than omitting the
+terminator), so encodings such as UTF-8 or UTF-16 must supply valid code units
+for the desired characters.
+
+```raven
+let answer = 42  // the ultimate answer
+let greeting = "hello"  // 😀 emoji and other symbols are fine
+
+/*
+ Multi-line comments can document larger blocks of code.
+ The first */ encountered closes the comment.
+*/
+```
+
 ## Syntax node model
 
 The syntax node model defines the **logical structure** of Raven programs.
