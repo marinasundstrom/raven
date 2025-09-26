@@ -44,9 +44,6 @@ public static class SemanticFacts
         if (comparer.Equals(type, interfaceType))
             return true;
 
-        if (type is IArrayTypeSymbol array && ImplementsArrayInterface(array, interfaceType, comparer))
-            return true;
-
         if (type is ITypeParameterSymbol typeParameter)
             return ImplementsInterfaceTypeParameter(typeParameter, interfaceType, comparer, CreateVisitedSet(comparer));
 
@@ -127,48 +124,10 @@ public static class SemanticFacts
         if (type is INamedTypeSymbol named)
             return named.AllInterfaces;
 
-        if (type is ArrayTypeSymbol array && array.BaseType is INamedTypeSymbol arrayBase)
-            return arrayBase.AllInterfaces;
+        if (type is ArrayTypeSymbol array)
+            return array.AllInterfaces;
 
         return Array.Empty<INamedTypeSymbol>();
-    }
-
-    private static bool ImplementsArrayInterface(IArrayTypeSymbol array, INamedTypeSymbol interfaceType, SymbolEqualityComparer comparer)
-    {
-        var interfaceDefinition = interfaceType.ConstructedFrom as INamedTypeSymbol ?? interfaceType;
-        var metadataName = interfaceDefinition.ToFullyQualifiedMetadataName();
-
-        return metadataName switch
-        {
-            "System.Collections.IEnumerable" => true,
-            "System.Collections.ICollection" => true,
-            "System.Collections.IList" => true,
-            "System.Collections.Generic.IEnumerable`1" =>
-                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
-            "System.Collections.Generic.ICollection`1" =>
-                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
-            "System.Collections.Generic.IList`1" =>
-                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
-            "System.Collections.Generic.IReadOnlyCollection`1" =>
-                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
-            "System.Collections.Generic.IReadOnlyList`1" =>
-                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
-            _ => false,
-        };
-    }
-
-    private static bool ImplementsArrayGenericInterface(
-        IArrayTypeSymbol array,
-        INamedTypeSymbol interfaceType,
-        SymbolEqualityComparer comparer)
-    {
-        if (interfaceType.TypeArguments.Length != 1)
-            return false;
-
-        var elementType = array.ElementType;
-        var targetArgument = interfaceType.TypeArguments[0];
-
-        return comparer.Equals(elementType, targetArgument);
     }
 
     private static HashSet<ISymbol> CreateVisitedSet(SymbolEqualityComparer comparer)
