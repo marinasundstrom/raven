@@ -123,18 +123,21 @@ class ImportBinder : Binder
 
     public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
     {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            yield break;
+
         var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
-            foreach (var method in GetExtensionMethodsFromScope(scope, name, includePartialMatches))
+            foreach (var method in GetExtensionMethodsFromScope(scope, name, receiverType, includePartialMatches))
                 if (seen.Add(method))
                     yield return method;
         }
 
         foreach (var type in _typeImports)
         {
-            foreach (var method in GetExtensionMethodsFromScope(type, name, includePartialMatches))
+            foreach (var method in GetExtensionMethodsFromScope(type, name, receiverType, includePartialMatches))
                 if (seen.Add(method))
                     yield return method;
         }
