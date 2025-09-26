@@ -12,3 +12,17 @@ Since Raven is a .NET language, it supports interop with C#, projecting Raven ty
 
 The compiler is based on the Roslyn compiler architecture, which provides compiler-as-a-service and tooling such as analyzers.
 
+## String interpolation example
+
+In Raven, `${...}` interpolation works inside ordinary quoted strings—there is no `$` prefix like C#'s interpolated strings. For example:
+
+```raven
+let name = "Avery"
+let product = "Raven"
+let message = "Hello ${name}, welcome to ${product}!"
+```
+
+The compiler substitutes the embedded expressions, so `message` evaluates to `Hello Avery, welcome to Raven!`.
+
+The `string-interpolation.rav` sample provides a second example with right-to-left text. Running it produces the greeting `שלום דניאל! ברוך הבא לתל אביב`, showing that interpolation works correctly even when the output mixes RTL and Latin characters.
+
