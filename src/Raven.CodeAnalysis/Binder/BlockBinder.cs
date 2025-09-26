@@ -2207,7 +2207,7 @@ partial class BlockBinder : Binder
             {
                 InterpolatedStringTextSyntax text => new BoundLiteralExpression(
                     BoundLiteralExpressionKind.StringLiteral,
-                    text.Token.Text,
+                    text.Token.ValueText ?? string.Empty,
                     Compilation.GetSpecialType(SpecialType.System_String)),
                 InterpolationSyntax interpolation => BindExpression(interpolation.Expression),
                 _ => throw new InvalidOperationException("Unknown interpolated string content")

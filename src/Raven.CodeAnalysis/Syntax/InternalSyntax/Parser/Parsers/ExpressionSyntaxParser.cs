@@ -633,9 +633,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             case SyntaxKind.StringLiteralToken:
                 ReadToken();
-                var str = token.GetValueText() ?? string.Empty;
-                expr = str.Contains("${")
-                    ? ParseInterpolatedStringExpression(token, str)
+                var tokenText = token.Text;
+                var inner = tokenText.Length >= 2 ? tokenText.Substring(1, tokenText.Length - 2) : string.Empty;
+                expr = ContainsInterpolation(inner)
+                    ? ParseInterpolatedStringExpression(token)
                     : LiteralExpression(SyntaxKind.StringLiteralExpression, token);
                 break;
 
@@ -1007,19 +1008,21 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return ArrowExpressionClause(arrowToken, expression);
     }
 
-    private InterpolatedStringExpressionSyntax ParseInterpolatedStringExpression(SyntaxToken token, string text)
+    private InterpolatedStringExpressionSyntax ParseInterpolatedStringExpression(SyntaxToken token)
     {
         var contents = new List<InterpolatedStringContentSyntax>();
-        var sb = new StringBuilder();
-        for (int i = 0; i < text.Length;)
+        var raw = token.Text;
+        var inner = raw.Length >= 2 ? raw.Substring(1, raw.Length - 2) : string.Empty;
+
+        int segmentStart = 0;
+        for (int i = 0; i < inner.Length;)
         {
-            if (text[i] == '$' && i + 1 < text.Length && text[i + 1] == '{')
+            if (IsInterpolationStart(inner, i))
             {
-                if (sb.Length > 0)
+                if (i > segmentStart)
                 {
-                    var segment = sb.ToString();
-                    sb.Clear();
-                    contents.Add(InterpolatedStringText(new SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
+                    var segmentRaw = inner.Substring(segmentStart, i - segmentStart);
+                    AddTextSegment(segmentRaw);
                 }
 
                 var dollarToken = new SyntaxToken(SyntaxKind.DollarToken, "$");
@@ -1028,29 +1031,33 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 i += 2; // skip ${
                 int depth = 1;
                 int start = i;
-                while (i < text.Length && depth > 0)
+                while (i < inner.Length && depth > 0)
                 {
-                    if (text[i] == '{') depth++;
-                    else if (text[i] == '}') depth--;
+                    if (inner[i] == '{')
+                        depth++;
+                    else if (inner[i] == '}')
+                        depth--;
                     i++;
                 }
+
                 int end = i - 1;
-                var exprText = text.Substring(start, end - start);
+                var exprText = end >= start ? inner.Substring(start, end - start) : string.Empty;
                 var exprSyntax = ParseExpressionFromText(exprText);
                 var closeBraceToken = new SyntaxToken(SyntaxKind.CloseBraceToken, "}");
                 contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+
+                segmentStart = i;
             }
             else
             {
-                sb.Append(text[i]);
                 i++;
             }
         }
 
-        if (sb.Length > 0)
+        if (segmentStart < inner.Length)
         {
-            var segment = sb.ToString();
-            contents.Add(InterpolatedStringText(new SyntaxToken(SyntaxKind.StringLiteralToken, segment, segment, segment.Length)));
+            var segmentRaw = inner.Substring(segmentStart);
+            AddTextSegment(segmentRaw);
         }
 
         var startToken = new SyntaxToken(
@@ -1066,6 +1073,47 @@ internal class ExpressionSyntaxParser : SyntaxParser
             token.TrailingTrivia);
 
         return InterpolatedStringExpression(startToken, List(contents), endToken);
+
+        void AddTextSegment(string segmentRaw)
+        {
+            if (segmentRaw.Length == 0)
+            {
+                return;
+            }
+
+            var decoded = SyntaxFacts.DecodeStringLiteralContent(segmentRaw.AsSpan(), out _);
+            var interned = string.Intern(decoded);
+            contents.Add(InterpolatedStringText(new SyntaxToken(SyntaxKind.StringLiteralToken, interned, interned, interned.Length)));
+        }
+    }
+
+    private static bool ContainsInterpolation(string text)
+    {
+        for (int i = 0; i < text.Length - 1; i++)
+        {
+            if (text[i] == '$' && text[i + 1] == '{' && !IsEscaped(text, i))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsInterpolationStart(string text, int index)
+    {
+        return index + 1 < text.Length && text[index] == '$' && text[index + 1] == '{' && !IsEscaped(text, index);
+    }
+
+    private static bool IsEscaped(string text, int index)
+    {
+        int backslashCount = 0;
+        for (int i = index - 1; i >= 0 && text[i] == '\\'; i--)
+        {
+            backslashCount++;
+        }
+
+        return (backslashCount & 1) == 1;
     }
 
     private static ExpressionSyntax ParseExpressionFromText(string text)

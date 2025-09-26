@@ -15,7 +15,7 @@ public class InterpolatedStringTriviaTest
 
         var parser = new ExpressionSyntaxParser(new BaseParseContext(new Lexer(new StringReader(string.Empty))));
         var method = typeof(ExpressionSyntaxParser).GetMethod("ParseInterpolatedStringExpression", BindingFlags.Instance | BindingFlags.NonPublic);
-        var green = (IS.InterpolatedStringExpressionSyntax)method!.Invoke(parser, new object[] { token, "foo{bar}" })!;
+        var green = (IS.InterpolatedStringExpressionSyntax)method!.Invoke(parser, new object[] { token })!;
         var interpolated = (InterpolatedStringExpressionSyntax)green.CreateRed()!;
 
         var startTrivia = interpolated.StringStartToken.LeadingTrivia;

@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Text;
 using Raven.CodeAnalysis.Syntax;
@@ -530,8 +531,24 @@ internal class Lexer : ILexer
                         }
 
                         var str = GetStringBuilderValue();
+                        ReadOnlySpan<char> innerText = str.Length >= 2
+                            ? str.AsSpan(1, str.Length - 2)
+                            : ReadOnlySpan<char>.Empty;
+                        var decoded = SyntaxFacts.DecodeStringLiteralContent(innerText, out var hadInvalidEscape);
 
-                        return new Token(SyntaxKind.StringLiteralToken, str, string.Intern(str[1..^1]), diagnostics: diagnostics);
+                        if (hadInvalidEscape)
+                        {
+                            diagnostics.Add(
+                                DiagnosticInfo.Create(
+                                    CompilerDiagnostics.InvalidEscapeSequence,
+                                    GetTokenStartPositionSpan()));
+                        }
+
+                        return new Token(
+                            SyntaxKind.StringLiteralToken,
+                            str,
+                            string.Intern(decoded),
+                            diagnostics: diagnostics);
 
                     /*
 

@@ -72,6 +72,20 @@ public class LexerTests
         Assert.Equal(1_000, value);
     }
 
+    [Theory]
+    [InlineData("\"\\u0041\"", "A")]
+    [InlineData("\"\\u{1F600}\"", "\U0001F600")]
+    [InlineData("\"\\U0001F642\"", "\U0001F642")]
+    public void StringLiteral_SupportsUnicodeEscapes(string text, string expected)
+    {
+        var lexer = new Lexer(new StringReader(text));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.StringLiteralToken, token.Kind);
+        var value = Assert.IsType<string>(token.Value);
+        Assert.Equal(expected, value);
+    }
+
     [Fact]
     public void LineFeed_WithUnifiedNewLineToken_ReturnsNewLineToken()
     {
