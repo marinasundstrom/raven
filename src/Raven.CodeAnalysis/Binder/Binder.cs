@@ -186,10 +186,20 @@ internal abstract class Binder
 
     public virtual IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
     {
+        if (receiverType is null)
+            return Enumerable.Empty<IMethodSymbol>();
+
+        if (receiverType.TypeKind == TypeKind.Error)
+            return Enumerable.Empty<IMethodSymbol>();
+
         return ParentBinder?.LookupExtensionMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
     }
 
-    protected static IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(INamespaceOrTypeSymbol scope, string? name, bool includePartialMatches)
+    protected static IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(
+        INamespaceOrTypeSymbol scope,
+        string? name,
+        ITypeSymbol receiverType,
+        bool includePartialMatches)
     {
         if (scope is INamespaceSymbol ns)
         {
@@ -197,7 +207,12 @@ internal abstract class Binder
             {
                 if (member is INamedTypeSymbol typeMember)
                 {
-                    foreach (var method in GetExtensionMethodsFromScope(typeMember, name, includePartialMatches))
+                    foreach (var method in GetExtensionMethodsFromScope(typeMember, name, receiverType, includePartialMatches))
+                        yield return method;
+                }
+                else if (member is INamespaceSymbol nestedNs)
+                {
+                    foreach (var method in GetExtensionMethodsFromScope(nestedNs, name, receiverType, includePartialMatches))
                         yield return method;
                 }
             }
@@ -224,7 +239,7 @@ internal abstract class Binder
 
         foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
         {
-            foreach (var method in GetExtensionMethodsFromScope(nested, name, includePartialMatches))
+            foreach (var method in GetExtensionMethodsFromScope(nested, name, receiverType, includePartialMatches))
                 yield return method;
         }
     }

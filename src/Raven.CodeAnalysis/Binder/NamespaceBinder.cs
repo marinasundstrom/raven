@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -36,9 +37,12 @@ class NamespaceBinder : Binder
 
     public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
     {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            yield break;
+
         var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
 
-        foreach (var method in GetExtensionMethodsFromScope(_namespaceSymbol, name, includePartialMatches))
+        foreach (var method in GetExtensionMethodsFromScope(_namespaceSymbol, name, receiverType, includePartialMatches))
             if (seen.Add(method))
                 yield return method;
 
