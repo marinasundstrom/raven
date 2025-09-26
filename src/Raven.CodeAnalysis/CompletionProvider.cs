@@ -1,3 +1,4 @@
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -35,6 +36,109 @@ public static class CompletionProvider
 
         var tokenText = token.Text;
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
+        var literalReplacementSpan = new TextSpan(position, 0);
+
+        static ITypeSymbol UnwrapAliases(ITypeSymbol type)
+        {
+            while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+                type = alias;
+
+            return type;
+        }
+
+        ITypeSymbol? TryGetLiteralCompletionTargetType()
+        {
+            if (token.GetAncestor<EqualsValueClauseSyntax>() is { } equalsClause)
+            {
+                if (position < equalsClause.EqualsToken.Span.End)
+                    return null;
+
+                return equalsClause.Parent switch
+                {
+                    VariableDeclaratorSyntax declarator => model.GetDeclaredSymbol(declarator) switch
+                    {
+                        ILocalSymbol local => local.Type,
+                        IFieldSymbol field => field.Type,
+                        _ => null
+                    },
+                    PropertyDeclarationSyntax property => (model.GetDeclaredSymbol(property) as IPropertySymbol)?.Type,
+                    IndexerDeclarationSyntax indexer => (model.GetDeclaredSymbol(indexer) as IPropertySymbol)?.Type,
+                    ParameterSyntax parameter => (model.GetDeclaredSymbol(parameter) as IParameterSymbol)?.Type,
+                    EnumMemberDeclarationSyntax enumMember => (model.GetDeclaredSymbol(enumMember) as IFieldSymbol)?.Type,
+                    _ => null
+                };
+            }
+
+            if (token.GetAncestor<AssignmentExpressionSyntax>() is { } assignment)
+            {
+                if (position < assignment.OperatorToken.Span.End)
+                    return null;
+
+                return model.GetTypeInfo(assignment.Left).Type;
+            }
+
+            return null;
+        }
+
+        bool TryCollectLiteralMembers(ITypeSymbol? type, List<ISymbol> results)
+        {
+            if (type is null)
+                return false;
+
+            type = UnwrapAliases(type);
+
+            switch (type)
+            {
+                case LiteralTypeSymbol literal:
+                    results.Add(literal);
+                    return true;
+
+                case NullTypeSymbol nullType:
+                    results.Add(nullType);
+                    return true;
+
+                case IUnionTypeSymbol union:
+                {
+                    var start = results.Count;
+                    foreach (var member in union.Types)
+                    {
+                        if (!TryCollectLiteralMembers(member, results))
+                        {
+                            results.RemoveRange(start, results.Count - start);
+                            return false;
+                        }
+                    }
+
+                    return results.Count > start;
+                }
+
+                default:
+                    return false;
+            }
+        }
+
+        var literalTargetType = TryGetLiteralCompletionTargetType();
+        if (literalTargetType is not null)
+        {
+            var literalMembers = new List<ISymbol>();
+            if (TryCollectLiteralMembers(literalTargetType, literalMembers))
+            {
+                foreach (var literal in literalMembers)
+                {
+                    var display = literal.Name;
+                    if (seen.Add(display))
+                    {
+                        completions.Add(new CompletionItem(
+                            DisplayText: display,
+                            InsertionText: display,
+                            ReplacementSpan: literalReplacementSpan,
+                            Description: SafeToDisplayString(literal),
+                            Symbol: literal
+                        ));
+                    }
+                }
+            }
+        }
 
         var importDirective = token.GetAncestor<ImportDirectiveSyntax>();
         if (importDirective is not null)
