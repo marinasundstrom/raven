@@ -40,4 +40,8 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     }
 
     public ParameterInfo GetParameterInfo() => _parameterInfo;
+
+    public bool HasExplicitDefaultValue => _parameterInfo.HasDefaultValue;
+
+    public object? ExplicitDefaultValue => _parameterInfo.HasDefaultValue ? _parameterInfo.DefaultValue : null;
 }

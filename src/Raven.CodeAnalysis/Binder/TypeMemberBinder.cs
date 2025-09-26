@@ -353,6 +353,7 @@ internal class TypeMemberBinder : Binder
         var parameters = new List<SourceParameterSymbol>();
         foreach (var (paramName, paramType, refKind, syntax) in resolvedParamInfos)
         {
+            var hasDefaultValue = TryEvaluateParameterDefaultValue(syntax, paramType, out var defaultValue);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 paramType,
@@ -361,7 +362,9 @@ internal class TypeMemberBinder : Binder
                 CurrentNamespace!.AsSourceNamespace(),
                 [syntax.GetLocation()],
                 [syntax.GetReference()],
-                refKind
+                refKind,
+                hasDefaultValue,
+                defaultValue
             );
             parameters.Add(pSymbol);
         }
@@ -493,6 +496,7 @@ internal class TypeMemberBinder : Binder
         var parameters = new List<SourceParameterSymbol>();
         foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
         {
+            var hasDefaultValue = TryEvaluateParameterDefaultValue(syntax, paramType, out var defaultValue);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 paramType,
@@ -501,7 +505,9 @@ internal class TypeMemberBinder : Binder
                 CurrentNamespace!.AsSourceNamespace(),
                 [syntax.GetLocation()],
                 [syntax.GetReference()],
-                refKind
+                refKind,
+                hasDefaultValue,
+                defaultValue
             );
             parameters.Add(pSymbol);
         }
@@ -571,6 +577,7 @@ internal class TypeMemberBinder : Binder
         var parameters = new List<SourceParameterSymbol>();
         foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
         {
+            var hasDefaultValue = TryEvaluateParameterDefaultValue(syntax, paramType, out var defaultValue);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 paramType,
@@ -579,7 +586,9 @@ internal class TypeMemberBinder : Binder
                 CurrentNamespace!.AsSourceNamespace(),
                 [syntax.GetLocation()],
                 [syntax.GetReference()],
-                refKind
+                refKind,
+                hasDefaultValue,
+                defaultValue
             );
             parameters.Add(pSymbol);
         }
@@ -939,7 +948,8 @@ internal class TypeMemberBinder : Binder
                 }
 
                 var type = ResolveType(typeSyntax);
-                return new { Syntax = p, Type = type, RefKind = refKind };
+                var hasDefaultValue = TryEvaluateParameterDefaultValue(p, type, out var defaultValue);
+                return new { Syntax = p, Type = type, RefKind = refKind, HasDefaultValue = hasDefaultValue, DefaultValue = defaultValue };
             })
             .ToArray();
 
@@ -1148,7 +1158,9 @@ internal class TypeMemberBinder : Binder
                         CurrentNamespace!.AsSourceNamespace(),
                         [param.Syntax.GetLocation()],
                         [param.Syntax.GetReference()],
-                        param.RefKind));
+                        param.RefKind,
+                        param.HasDefaultValue,
+                        param.DefaultValue));
                 }
                 if (!isGet)
                 {
@@ -1286,6 +1298,199 @@ internal class TypeMemberBinder : Binder
             return explicitInterfaceSpecifier.Identifier;
 
         return identifier;
+    }
+
+    internal static bool TryEvaluateParameterDefaultValue(
+        ParameterSyntax parameterSyntax,
+        ITypeSymbol parameterType,
+        out object? defaultValue)
+    {
+        defaultValue = null;
+
+        if (parameterSyntax.DefaultValue is null)
+            return false;
+
+        if (!TryEvaluateDefaultExpression(parameterSyntax.DefaultValue.Value, out var rawValue))
+            return false;
+
+        return TryConvertParameterDefault(parameterType, rawValue, out defaultValue);
+    }
+
+    private static bool TryEvaluateDefaultExpression(ExpressionSyntax expression, out object? value)
+    {
+        switch (expression)
+        {
+            case LiteralExpressionSyntax literal:
+                return TryGetLiteralValue(literal, out value);
+            case UnaryExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryMinusExpression:
+                if (TryEvaluateDefaultExpression(unary.Expression, out var operand) && TryNegate(operand, out var negated))
+                {
+                    value = negated;
+                    return true;
+                }
+                break;
+            case UnaryExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryPlusExpression:
+                return TryEvaluateDefaultExpression(unary.Expression, out value);
+            case ParenthesizedExpressionSyntax parenthesized:
+                return TryEvaluateDefaultExpression(parenthesized.Expression, out value);
+        }
+
+        value = null;
+        return false;
+    }
+
+    private static bool TryGetLiteralValue(LiteralExpressionSyntax literal, out object? value)
+    {
+        if (literal.Kind == SyntaxKind.NullLiteralExpression)
+        {
+            value = null;
+            return true;
+        }
+
+        value = literal.Token.Value;
+        if (value is not null)
+            return true;
+
+        if (literal.Kind == SyntaxKind.StringLiteralExpression)
+        {
+            value = literal.Token.ValueText;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryNegate(object? operand, out object? value)
+    {
+        switch (operand)
+        {
+            case int i:
+                value = -i;
+                return true;
+            case long l:
+                value = -l;
+                return true;
+            case float f:
+                value = -f;
+                return true;
+            case double d:
+                value = -d;
+                return true;
+        }
+
+        value = null;
+        return false;
+    }
+
+    private static bool TryConvertParameterDefault(ITypeSymbol parameterType, object? value, out object? converted)
+    {
+        if (parameterType is NullableTypeSymbol nullable)
+        {
+            if (value is null)
+            {
+                converted = null;
+                return true;
+            }
+
+            parameterType = nullable.UnderlyingType;
+        }
+
+        if (value is null)
+        {
+            if (!parameterType.IsValueType || parameterType.TypeKind == TypeKind.Nullable)
+            {
+                converted = null;
+                return true;
+            }
+
+            converted = null;
+            return false;
+        }
+
+        if (parameterType.SpecialType == SpecialType.System_Object)
+        {
+            converted = value;
+            return true;
+        }
+
+        switch (parameterType.SpecialType)
+        {
+            case SpecialType.System_Boolean when value is bool boolValue:
+                converted = boolValue;
+                return true;
+            case SpecialType.System_String when value is string stringValue:
+                converted = stringValue;
+                return true;
+            case SpecialType.System_Char when value is char charValue:
+                converted = charValue;
+                return true;
+            case SpecialType.System_Int32:
+                if (value is int intValue)
+                {
+                    converted = intValue;
+                    return true;
+                }
+                break;
+            case SpecialType.System_Int64:
+                if (value is long longValue)
+                {
+                    converted = longValue;
+                    return true;
+                }
+                if (value is int intToLong)
+                {
+                    converted = (long)intToLong;
+                    return true;
+                }
+                break;
+            case SpecialType.System_Single:
+                if (value is float floatValue)
+                {
+                    converted = floatValue;
+                    return true;
+                }
+                if (value is int intToFloat)
+                {
+                    converted = (float)intToFloat;
+                    return true;
+                }
+                if (value is long longToFloat)
+                {
+                    converted = (float)longToFloat;
+                    return true;
+                }
+                if (value is double doubleToFloat)
+                {
+                    converted = (float)doubleToFloat;
+                    return true;
+                }
+                break;
+            case SpecialType.System_Double:
+                if (value is double doubleValue)
+                {
+                    converted = doubleValue;
+                    return true;
+                }
+                if (value is int intToDouble)
+                {
+                    converted = (double)intToDouble;
+                    return true;
+                }
+                if (value is long longToDouble)
+                {
+                    converted = (double)longToDouble;
+                    return true;
+                }
+                if (value is float floatToDouble)
+                {
+                    converted = (double)floatToDouble;
+                    return true;
+                }
+                break;
+        }
+
+        converted = null;
+        return false;
     }
 
     private static (TypeParameterConstraintKind constraintKind, ImmutableArray<SyntaxReference> constraintTypeReferences) AnalyzeTypeParameterConstraints(TypeParameterSyntax parameter)

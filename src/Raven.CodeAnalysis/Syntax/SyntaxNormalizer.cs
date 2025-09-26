@@ -294,10 +294,22 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
     public override SyntaxNode? VisitParameter(ParameterSyntax node)
     {
-        var name = node.Identifier.WithTrailingTrivia(SyntaxFactory.Space);
+        var identifier = node.Identifier;
 
-        return node.Update(node.Modifiers, name,
-            node.TypeAnnotation is not null ? (TypeAnnotationClauseSyntax?)VisitTypeAnnotationClause(node.TypeAnnotation) : null);
+        if (node.TypeAnnotation is not null || node.DefaultValue is not null)
+        {
+            identifier = identifier.WithTrailingTrivia(SyntaxFactory.Space);
+        }
+
+        var typeAnnotation = node.TypeAnnotation is not null
+            ? (TypeAnnotationClauseSyntax?)VisitTypeAnnotationClause(node.TypeAnnotation)
+            : null;
+
+        var defaultValue = node.DefaultValue is not null
+            ? (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.DefaultValue)
+            : null;
+
+        return node.Update(node.Modifiers, identifier, typeAnnotation, defaultValue);
     }
 
     public override SyntaxNode? VisitTypeAnnotationClause(TypeAnnotationClauseSyntax node)

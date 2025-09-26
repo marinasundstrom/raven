@@ -2458,7 +2458,7 @@ partial class BlockBinder : Binder
                 if (argErrors)
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
-                if (method.Parameters.Length == argExprs.Count)
+                if (AreArgumentsCompatibleWithMethod(method, argExprs.Count, memberExpr.Receiver))
                 {
                     var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax.ArgumentList.Arguments);
                     return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
@@ -2515,7 +2515,7 @@ partial class BlockBinder : Binder
                 if (argErrors)
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
-                if (method.Parameters.Length == argExprs.Count)
+                if (AreArgumentsCompatibleWithMethod(method, argExprs.Count, memberExpr.Receiver))
                 {
                     var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax.ArgumentList.Arguments);
                     return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
@@ -3437,9 +3437,10 @@ partial class BlockBinder : Binder
 
     protected BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundExpression> arguments, SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes)
     {
-        var converted = new BoundExpression[arguments.Count];
+        var converted = new BoundExpression[parameters.Length];
 
-        for (int i = 0; i < arguments.Count; i++)
+        int i = 0;
+        for (; i < arguments.Count && i < parameters.Length; i++)
         {
             var argument = arguments[i];
             var parameter = parameters[i];
@@ -3459,19 +3460,63 @@ partial class BlockBinder : Binder
 
             if (!IsAssignable(parameter.Type, argument.Type, out var conversion))
             {
-                _diagnostics.ReportCannotConvertFromTypeToType(
-                    argument.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    argumentSyntaxes[i].Expression.GetLocation());
+                var syntax = i < argumentSyntaxes.Count ? argumentSyntaxes[i].Expression : null;
+                var location = syntax?.GetLocation() ?? parameter.Locations.FirstOrDefault();
+
+                if (location is not null)
+                {
+                    _diagnostics.ReportCannotConvertFromTypeToType(
+                        argument.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        location);
+                }
 
                 converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
                 continue;
             }
 
-            converted[i] = ApplyConversion(argument, parameter.Type, conversion, argumentSyntaxes[i].Expression);
+            var syntaxNode = i < argumentSyntaxes.Count ? argumentSyntaxes[i].Expression : null;
+            converted[i] = ApplyConversion(argument, parameter.Type, conversion, syntaxNode);
+        }
+
+        for (; i < parameters.Length; i++)
+        {
+            converted[i] = CreateOptionalArgument(parameters[i]);
         }
 
         return converted;
+    }
+
+    protected BoundExpression CreateOptionalArgument(IParameterSymbol parameter)
+    {
+        if (!parameter.HasExplicitDefaultValue)
+            return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
+
+        var value = parameter.ExplicitDefaultValue;
+
+        if (value is null)
+        {
+            return new BoundLiteralExpression(
+                BoundLiteralExpressionKind.NullLiteral,
+                null!,
+                Compilation.NullTypeSymbol,
+                parameter.Type);
+        }
+
+        return value switch
+        {
+            bool b => new BoundLiteralExpression(
+                b ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral,
+                b,
+                parameter.Type),
+            string s => new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, s, parameter.Type),
+            char c => new BoundLiteralExpression(BoundLiteralExpressionKind.CharLiteral, c, parameter.Type),
+            int i => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, i, parameter.Type),
+            long l => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, l, parameter.Type),
+            float f => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, f, parameter.Type),
+            double d => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, d, parameter.Type),
+            _ => new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed)
+        };
     }
 
     private BoundExpression[] ConvertInvocationArguments(
@@ -3528,12 +3573,32 @@ partial class BlockBinder : Binder
         return ApplyConversion(argument, parameter.Type, conversion, syntax);
     }
 
-    private static bool AreArgumentsCompatibleWithMethod(IMethodSymbol method, int argumentCount, BoundExpression? receiver)
+    protected static bool AreArgumentsCompatibleWithMethod(IMethodSymbol method, int argumentCount, BoundExpression? receiver)
     {
-        if (method.IsExtensionMethod && IsExtensionReceiver(receiver))
-            return method.Parameters.Length == argumentCount + 1;
+        var providedCount = argumentCount;
 
-        return method.Parameters.Length == argumentCount;
+        if (method.IsExtensionMethod && IsExtensionReceiver(receiver))
+            providedCount++;
+
+        return SupportsArgumentCount(method.Parameters, providedCount);
+    }
+
+    protected static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int providedCount)
+    {
+        if (providedCount > parameters.Length)
+            return false;
+
+        var required = GetRequiredParameterCount(parameters);
+        return providedCount >= required;
+    }
+
+    protected static int GetRequiredParameterCount(ImmutableArray<IParameterSymbol> parameters)
+    {
+        var required = parameters.Length;
+        while (required > 0 && parameters[required - 1].HasExplicitDefaultValue)
+            required--;
+
+        return required;
     }
 
     private static bool IsExtensionReceiver(BoundExpression? receiver)
