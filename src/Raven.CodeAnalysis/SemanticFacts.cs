@@ -135,7 +135,8 @@ public static class SemanticFacts
 
     private static bool ImplementsArrayInterface(IArrayTypeSymbol array, INamedTypeSymbol interfaceType, SymbolEqualityComparer comparer)
     {
-        var metadataName = interfaceType.ToFullyQualifiedMetadataName();
+        var interfaceDefinition = interfaceType.ConstructedFrom as INamedTypeSymbol ?? interfaceType;
+        var metadataName = interfaceDefinition.ToFullyQualifiedMetadataName();
 
         return metadataName switch
         {
@@ -143,17 +144,31 @@ public static class SemanticFacts
             "System.Collections.ICollection" => true,
             "System.Collections.IList" => true,
             "System.Collections.Generic.IEnumerable`1" =>
-                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
             "System.Collections.Generic.ICollection`1" =>
-                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
             "System.Collections.Generic.IList`1" =>
-                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
             "System.Collections.Generic.IReadOnlyCollection`1" =>
-                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
             "System.Collections.Generic.IReadOnlyList`1" =>
-                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+                array.Rank == 1 && ImplementsArrayGenericInterface(array, interfaceType, comparer),
             _ => false,
         };
+    }
+
+    private static bool ImplementsArrayGenericInterface(
+        IArrayTypeSymbol array,
+        INamedTypeSymbol interfaceType,
+        SymbolEqualityComparer comparer)
+    {
+        if (interfaceType.TypeArguments.Length != 1)
+            return false;
+
+        var elementType = array.ElementType;
+        var targetArgument = interfaceType.TypeArguments[0];
+
+        return comparer.Equals(elementType, targetArgument);
     }
 
     private static HashSet<ISymbol> CreateVisitedSet(SymbolEqualityComparer comparer)

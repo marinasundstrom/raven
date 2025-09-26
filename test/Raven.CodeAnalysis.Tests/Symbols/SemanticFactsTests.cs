@@ -109,4 +109,28 @@ public class SemanticFactsTests
 
         Assert.True(SemanticFacts.ImplementsInterface(arrayType, enumerable));
     }
+
+    [Fact]
+    public void ImplementsInterface_ArrayHonorsConstructedGenericInterfaces()
+    {
+        var tree = SyntaxTree.ParseText("class C {}");
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var arrayType = compilation.CreateArrayTypeSymbol(intType);
+
+        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfInt = (INamedTypeSymbol)enumerableDefinition.Construct(intType);
+        var enumerableOfString = (INamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        var listDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IList`1")!;
+        var listOfInt = (INamedTypeSymbol)listDefinition.Construct(intType);
+
+        Assert.True(SemanticFacts.ImplementsInterface(arrayType, enumerableOfInt));
+        Assert.False(SemanticFacts.ImplementsInterface(arrayType, enumerableOfString));
+        Assert.True(SemanticFacts.ImplementsInterface(arrayType, listOfInt));
+    }
 }

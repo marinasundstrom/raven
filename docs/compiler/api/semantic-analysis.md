@@ -61,7 +61,9 @@ analysis scenarios. `IsDerivedFrom` walks base types (including type-parameter
 constraints) while `ImplementsInterface` traverses the interface closure (and
 considers interface identity), and both accept optional
 `SymbolEqualityComparer` instances so tooling can align with Roslyn's equality
-semantics when desired.【F:src/Raven.CodeAnalysis/SemanticFacts.cs†L1-L150】
+semantics when desired. Array types mirror Roslyn's behavior by mapping their
+single-dimensional interfaces (`IEnumerable<T>`, `IList<T>`, etc.) to
+constructed interface instances using the array's element type.【F:src/Raven.CodeAnalysis/SemanticFacts.cs†L1-L180】
 
 ## Operations
 
