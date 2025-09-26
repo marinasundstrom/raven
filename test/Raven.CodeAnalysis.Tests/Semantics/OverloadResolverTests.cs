@@ -164,6 +164,31 @@ public sealed class OverloadResolverTests : CompilationTestBase
         Assert.Same(instance, result.Method);
     }
 
+    [Fact]
+    public void ResolveOverload_AllowsOmittedOptionalParameters()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var optionalParameter = new FakeParameterSymbol(
+            "value",
+            intType,
+            RefKind.None,
+            isParams: false,
+            hasExplicitDefaultValue: true,
+            explicitDefaultValue: 42);
+
+        var optionalMethod = new FakeMethodSymbol(
+            "Optional",
+            compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray.Create<IParameterSymbol>(optionalParameter));
+
+        var result = OverloadResolver.ResolveOverload([optionalMethod], Array.Empty<BoundExpression>(), compilation);
+
+        Assert.True(result.Success);
+        Assert.Same(optionalMethod, result.Method);
+    }
+
     protected override MetadataReference[] GetMetadataReferences()
     {
         var runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
@@ -376,12 +401,20 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
     private sealed class FakeParameterSymbol : FakeSymbol, IParameterSymbol
     {
-        public FakeParameterSymbol(string name, ITypeSymbol type, RefKind refKind, bool isParams)
+        public FakeParameterSymbol(
+            string name,
+            ITypeSymbol type,
+            RefKind refKind,
+            bool isParams,
+            bool hasExplicitDefaultValue = false,
+            object? explicitDefaultValue = null)
             : base(SymbolKind.Parameter, name)
         {
             Type = type;
             RefKind = refKind;
             IsParams = isParams;
+            HasExplicitDefaultValue = hasExplicitDefaultValue;
+            ExplicitDefaultValue = explicitDefaultValue;
         }
 
         public ITypeSymbol Type { get; }
@@ -389,6 +422,10 @@ public sealed class OverloadResolverTests : CompilationTestBase
         public bool IsParams { get; }
 
         public RefKind RefKind { get; }
+
+        public bool HasExplicitDefaultValue { get; }
+
+        public object? ExplicitDefaultValue { get; }
 
         public void SetContainer(ISymbol? container)
             => base.SetContainer(container);

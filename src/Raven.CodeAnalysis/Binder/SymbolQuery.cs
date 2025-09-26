@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 namespace Raven.CodeAnalysis;
@@ -30,11 +31,23 @@ internal readonly record struct SymbolQuery(
             symbols = symbols.Where(s => s.IsStatic == isStatic.Value);
 
         if (arity.HasValue)
-            symbols = symbols.Where(s => s is IMethodSymbol m && m.Parameters.Length == arity.Value);
+            symbols = symbols.Where(s => s is IMethodSymbol m && SupportsArgumentCount(m.Parameters, arity.Value));
 
         return symbols;
     }
 
     public IEnumerable<IMethodSymbol> LookupMethods(Binder binder) =>
         Lookup(binder).OfType<IMethodSymbol>();
+
+    private static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int argumentCount)
+    {
+        if (argumentCount > parameters.Length)
+            return false;
+
+        var required = parameters.Length;
+        while (required > 0 && parameters[required - 1].HasExplicitDefaultValue)
+            required--;
+
+        return argumentCount >= required;
+    }
 }

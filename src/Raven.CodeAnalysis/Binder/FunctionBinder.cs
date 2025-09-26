@@ -74,6 +74,7 @@ class FunctionBinder : Binder
                 }
 
                 var type = ResolveType(typeSyntax);
+                var hasDefaultValue = TypeMemberBinder.TryEvaluateParameterDefaultValue(p, type, out var defaultValue);
                 return new SourceParameterSymbol(
                     p.Identifier.Text,
                     type,
@@ -82,7 +83,9 @@ class FunctionBinder : Binder
                     container.ContainingNamespace,
                     [p.GetLocation()],
                     [p.GetReference()],
-                    refKind);
+                    refKind,
+                    hasDefaultValue,
+                    defaultValue);
             })
             .ToArray();
 

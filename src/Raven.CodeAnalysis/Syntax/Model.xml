@@ -446,6 +446,7 @@
     <Slot Name="Modifiers" Type="TokenList" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" IsNullable="true" />
+    <Slot Name="DefaultValue" Type="EqualsValueClause" IsNullable="true" />
   </Node>
   <Node Name="EnumMemberDeclaration" Inherits="MemberDeclaration">
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />

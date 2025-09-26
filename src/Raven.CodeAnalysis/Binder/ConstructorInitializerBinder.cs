@@ -58,7 +58,9 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
                 return null;
             }
 
-            var matchingByArity = constructors.Where(c => c.Parameters.Length == boundArguments.Count).ToImmutableArray();
+            var matchingByArity = constructors
+                .Where(c => SupportsArgumentCount(c.Parameters, boundArguments.Count))
+                .ToImmutableArray();
             if (matchingByArity.Length == 1)
             {
                 var candidate = matchingByArity[0];
