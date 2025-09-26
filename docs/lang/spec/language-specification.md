@@ -410,6 +410,20 @@ Escapes inside the literal portions of an interpolated string follow the same
 rules as ordinary string literals, ensuring Unicode escapes work uniformly in
 both forms.
 
+Interpolated strings preserve Unicode content from both left-to-right and
+right-to-left scripts. Literal segments keep their original characters so that
+text such as Japanese kana or Arabic phrases stay intact around the embedded
+expressions.
+
+```raven
+let name = "ليلى"
+let city = "دبي"
+let welcome = "\u200Fمرحبا ${name}! أهلا بك في ${city}"
+```
+
+The `\u200F` right-to-left mark keeps the greeting flowing correctly even when
+mixing scripts in the same interpolated string.
+
 ### Collection expressions
 
 Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional
