@@ -16,14 +16,14 @@ public class UsingDeclarationCodeGenTests
         var code = """
 import System.*
 
+using let foo = Foo()
+foo.Do()
+
 class Foo : IDisposable {
     public init() => Console.WriteLine("Init")
     public Do() => Console.WriteLine("Do")
     public Dispose() -> unit => Console.WriteLine("Dispose")
 }
-
-using let foo = Foo()
-foo.Do()
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
