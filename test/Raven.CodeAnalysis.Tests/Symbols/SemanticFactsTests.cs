@@ -27,7 +27,7 @@ public class SemanticFactsTests
     [Fact]
     public void IsDerivedFrom_ReturnsTrueForTypeParameterConstraint()
     {
-        var source = "class Base {} class Container<T> where T : Base {}";
+        var source = "class Base {} class Container<T : Base> {}";
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create(
             "test",
@@ -62,7 +62,7 @@ public class SemanticFactsTests
     [Fact]
     public void ImplementsInterface_ReturnsTrueForTypeParameterConstraint()
     {
-        var source = "interface IMarker {} class Container<T> where T : IMarker {}";
+        var source = "interface IMarker {} class Container<T : IMarker> {}";
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create(
             "test",
