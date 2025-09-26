@@ -40,7 +40,7 @@ using let foo = Foo()
             [
                 new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                     .WithSpan(5, 17, 5, 22)
-                    .WithArguments("Foo", "System.IDisposable")
+                    .WithArguments("Foo", "IDisposable")
             ]);
 
         verifier.Verify();
@@ -65,7 +65,7 @@ using let foo: object = Foo()
             [
                 new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
                     .WithSpan(8, 11, 8, 14)
-                    .WithArguments("object", "System.IDisposable")
+                    .WithArguments("object", "IDisposable")
             ]);
 
         verifier.Verify();
