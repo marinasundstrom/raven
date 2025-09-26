@@ -427,11 +427,16 @@ public static class CompletionProvider
                     // Accessing a type name: show static members
                     members = typeSymbol.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
                 }
-                else if (type is INamedTypeSymbol instanceType)
+                else if (type is ITypeSymbol instanceType)
                 {
                     // Accessing an instance: show instance members
                     members = instanceType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
-                    instanceTypeForExtensions = instanceType;
+                    instanceTypeForExtensions = instanceType switch
+                    {
+                        INamedTypeSymbol named => named,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as INamedTypeSymbol,
+                        _ => null
+                    };
                 }
 
                 if (members is not null)
