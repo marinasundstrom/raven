@@ -206,6 +206,22 @@ public EnumDeclarationSyntax Update(SyntaxToken enumKeyword, SyntaxToken identif
 }
 ```
 
+### Factory overloads and synthesized tokens
+
+Red factory methods are emitted with two overloads when possible: a full overload that mirrors the green constructor and a
+minimal overload that omits arguments the generator can supply automatically. Two metadata attributes inside `Model.xml`
+control which parameters are elided:
+
+* `IsOptionalToken="true"` marks token slots whose minimal overload should create a missing token via
+  `SyntaxFactory.Token(SyntaxKind.None)`. This keeps the factory convenient without forcing callers to supply placeholder
+  tokens.
+* `DefaultToken="TokenName"` marks token slots whose minimal overload should call
+  `SyntaxFactory.Token(SyntaxKind.TokenName)`. This covers punctuation and fixed keywords so consumers receive a syntactically
+  valid tree by default.
+
+When either attribute is present, the minimal factory overload omits the parameter and forwards the synthesized token to the
+full overload. Nullable slots fall back to `default`/`null`, while all remaining slots stay as required parameters.
+
 ### Rewriter `Visit` method
 
 The rewriter method for `EnumDeclarationSyntax` looks like this:
