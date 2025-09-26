@@ -101,6 +101,145 @@ internal class CodeGenerator
     bool _emitTypeUnionAttribute;
     bool _emitNullType;
 
+    internal void ApplyCustomAttributes(ImmutableArray<AttributeData> attributes, Action<CustomAttributeBuilder> apply)
+    {
+        if (attributes.IsDefaultOrEmpty)
+            return;
+
+        foreach (var attribute in attributes)
+        {
+            var builder = CreateCustomAttribute(attribute);
+            if (builder is not null)
+                apply(builder);
+        }
+    }
+
+    internal CustomAttributeBuilder? CreateCustomAttribute(AttributeData attribute)
+    {
+        if (attribute is null)
+            return null;
+
+        var constructor = ResolveAttributeConstructor(attribute);
+        if (constructor is null)
+            return null;
+
+        var parameters = attribute.AttributeConstructor.Parameters;
+        var args = new object?[attribute.ConstructorArguments.Length];
+
+        for (var i = 0; i < attribute.ConstructorArguments.Length; i++)
+        {
+            var parameterType = i < parameters.Length ? parameters[i].Type : null;
+            var parameterClrType = parameterType is not null ? parameterType.GetClrType(this) : null;
+            args[i] = GetAttributeValue(attribute.ConstructorArguments[i], parameterClrType, parameterType);
+        }
+
+        var attributeType = constructor.DeclaringType ?? attribute.AttributeClass.GetClrType(this);
+
+        List<PropertyInfo>? properties = null;
+        List<object?>? propertyValues = null;
+        List<FieldInfo>? fields = null;
+        List<object?>? fieldValues = null;
+
+        foreach (var (name, value) in attribute.NamedArguments)
+        {
+            var property = attributeType.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property is not null)
+            {
+                properties ??= new List<PropertyInfo>();
+                propertyValues ??= new List<object?>();
+                properties.Add(property);
+                propertyValues.Add(GetAttributeValue(value, property.PropertyType, value.Type));
+                continue;
+            }
+
+            var field = attributeType.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field is not null)
+            {
+                fields ??= new List<FieldInfo>();
+                fieldValues ??= new List<object?>();
+                fields.Add(field);
+                fieldValues.Add(GetAttributeValue(value, field.FieldType, value.Type));
+            }
+        }
+
+        return new CustomAttributeBuilder(
+            constructor,
+            args,
+            properties is not null ? properties.ToArray() : Array.Empty<PropertyInfo>(),
+            propertyValues is not null ? propertyValues.ToArray() : Array.Empty<object?>(),
+            fields is not null ? fields.ToArray() : Array.Empty<FieldInfo>(),
+            fieldValues is not null ? fieldValues.ToArray() : Array.Empty<object?>());
+    }
+
+    private ConstructorInfo? ResolveAttributeConstructor(AttributeData attribute)
+    {
+        var constructorSymbol = attribute.AttributeConstructor;
+
+        if (constructorSymbol is SourceMethodSymbol sourceConstructor)
+        {
+            if (GetMemberBuilder(sourceConstructor) is ConstructorInfo sourceCtorInfo)
+                return sourceCtorInfo;
+        }
+
+        var attributeType = attribute.AttributeClass.GetClrType(this);
+        var parameterTypes = constructorSymbol.Parameters
+            .Select(p => p.Type.GetClrType(this))
+            .ToArray();
+
+        return attributeType.GetConstructor(parameterTypes);
+    }
+
+    private object? GetAttributeValue(TypedConstant constant, Type? targetClrType, ITypeSymbol? targetSymbol)
+    {
+        switch (constant.Kind)
+        {
+            case TypedConstantKind.Null:
+                return null;
+            case TypedConstantKind.Type:
+                return constant.Value switch
+                {
+                    ITypeSymbol typeSymbol => typeSymbol.GetClrType(this),
+                    Type type => type,
+                    _ => null
+                };
+            case TypedConstantKind.Array:
+            {
+                var values = constant.Values;
+                if (values.IsDefaultOrEmpty)
+                    return Array.CreateInstance((targetClrType ?? typeof(object)).GetElementType() ?? typeof(object), 0);
+
+                var arraySymbol = targetSymbol as IArrayTypeSymbol ?? constant.Type as IArrayTypeSymbol;
+                var elementSymbol = arraySymbol?.ElementType;
+                var elementClrType = targetClrType?.GetElementType()
+                    ?? (elementSymbol is not null ? elementSymbol.GetClrType(this) : typeof(object));
+
+                var array = Array.CreateInstance(elementClrType, values.Length);
+                for (var i = 0; i < values.Length; i++)
+                {
+                    array.SetValue(GetAttributeValue(values[i], elementClrType, elementSymbol), i);
+                }
+
+                return array;
+            }
+            case TypedConstantKind.Enum:
+            {
+                if (constant.Value is null)
+                    return null;
+
+                var enumType = targetClrType ?? (constant.Type as INamedTypeSymbol)?.GetClrType(this);
+                if (enumType is not null && enumType.IsEnum)
+                    return Enum.ToObject(enumType, constant.Value);
+
+                return constant.Value;
+            }
+            case TypedConstantKind.Primitive:
+                return constant.Value;
+            case TypedConstantKind.Error:
+            default:
+                return null;
+        }
+    }
+
     internal CustomAttributeBuilder? CreateNullableAttribute(ITypeSymbol type)
     {
         var needsNullable = false;

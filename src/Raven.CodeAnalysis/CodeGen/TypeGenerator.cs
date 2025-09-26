@@ -47,6 +47,7 @@ internal class TypeGenerator
                     accessibilityAttributes | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.AutoClass | TypeAttributes.AnsiClass,
                     ResolveClrType(named.BaseType));
                 DefineTypeGenericParameters(named);
+                CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
                 return;
             }
 
@@ -81,6 +82,7 @@ internal class TypeGenerator
                 FieldAttributes.Public | FieldAttributes.SpecialName | FieldAttributes.RTSpecialName
             );
 
+            CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
             return;
         }
 
@@ -100,6 +102,7 @@ internal class TypeGenerator
                         TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
                 }
 
+                CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
                 return;
             }
 
@@ -120,6 +123,8 @@ internal class TypeGenerator
             foreach (var iface in nt2.Interfaces)
                 TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
         }
+
+        CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
     }
 
     private void DefineTypeGenericParameters(INamedTypeSymbol namedType)
@@ -198,6 +203,7 @@ internal class TypeGenerator
                 fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
 
                 CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);
+                CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => fieldBuilder.SetCustomAttribute(attribute));
             }
 
             return;
@@ -245,6 +251,7 @@ internal class TypeGenerator
                         var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
                         if (nullableAttr is not null)
                             fieldBuilder.SetCustomAttribute(nullableAttr);
+                        CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => fieldBuilder.SetCustomAttribute(attribute));
                         _fieldBuilders[fieldSymbol] = fieldBuilder;
 
                         CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);
@@ -313,6 +320,8 @@ internal class TypeGenerator
                         var nullableAttr = CodeGen.CreateNullableAttribute(propertySymbol.Type);
                         if (nullableAttr is not null)
                             propBuilder.SetCustomAttribute(nullableAttr);
+
+                        CodeGen.ApplyCustomAttributes(propertySymbol.GetAttributes(), attribute => propBuilder.SetCustomAttribute(attribute));
 
                         CodeGen.AddMemberBuilder((SourceSymbol)propertySymbol, propBuilder);
                         break;

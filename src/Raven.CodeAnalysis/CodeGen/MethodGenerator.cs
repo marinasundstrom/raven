@@ -139,6 +139,8 @@ internal class MethodGenerator
         if (nullableReturnAttr is not null)
             returnParamBuilder.SetCustomAttribute(nullableReturnAttr);
 
+        TypeGenerator.CodeGen.ApplyCustomAttributes(MethodSymbol.GetReturnTypeAttributes(), attribute => returnParamBuilder.SetCustomAttribute(attribute));
+
         int i = 1;
 
         if (_lambdaClosure is not null)
@@ -176,9 +178,20 @@ internal class MethodGenerator
             if (nullableAttr is not null)
                 parameterBuilder.SetCustomAttribute(nullableAttr);
 
+            TypeGenerator.CodeGen.ApplyCustomAttributes(parameterSymbol.GetAttributes(), attribute => parameterBuilder.SetCustomAttribute(attribute));
+
             _parameterBuilders[parameterSymbol] = parameterBuilder;
             i++;
         }
+
+        Action<CustomAttributeBuilder> applyMethodAttribute = MethodBase switch
+        {
+            MethodBuilder methodBuilder => methodBuilder.SetCustomAttribute,
+            ConstructorBuilder constructorBuilder => constructorBuilder.SetCustomAttribute,
+            _ => throw new InvalidOperationException("Unexpected method base type for attribute emission.")
+        };
+
+        TypeGenerator.CodeGen.ApplyCustomAttributes(MethodSymbol.GetAttributes(), applyMethodAttribute);
 
         if (TypeGenerator.CodeGen.Compilation.IsEntryPointCandidate(MethodSymbol))
         {
