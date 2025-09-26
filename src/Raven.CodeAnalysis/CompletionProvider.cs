@@ -34,6 +34,22 @@ public static class CompletionProvider
             }
         }
 
+        INamedTypeSymbol? GetSelfType()
+        {
+            for (Binder? current = binder; current is not null; current = current.ParentBinder)
+            {
+                if (current.ContainingSymbol is IMethodSymbol method)
+                {
+                    if (!method.IsStatic || method.IsNamedConstructor)
+                        return method.ContainingType;
+
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
         var tokenText = token.Text;
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
         var literalReplacementSpan = new TextSpan(position, 0);
@@ -533,7 +549,27 @@ public static class CompletionProvider
         }
 
         // Visible symbols (locals, globals, etc.)
-        if (token.Parent is IdentifierNameSyntax { Parent: BlockStatementSyntax or ExpressionStatementSyntax } || token.IsKind(SyntaxKind.IdentifierToken))
+        var offerValueCompletions = token.Parent is IdentifierNameSyntax { Parent: BlockStatementSyntax or ExpressionStatementSyntax }
+            || token.IsKind(SyntaxKind.IdentifierToken);
+
+        if (offerValueCompletions)
+        {
+            var selfType = GetSelfType();
+            if (selfType is not null &&
+                (string.IsNullOrEmpty(tokenText) || "self".StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)) &&
+                seen.Add("self"))
+            {
+                completions.Add(new CompletionItem(
+                    DisplayText: "self",
+                    InsertionText: "self",
+                    ReplacementSpan: replacementSpan,
+                    Description: $"Current instance of {SafeToDisplayString(selfType)}",
+                    Symbol: selfType
+                ));
+            }
+        }
+
+        if (offerValueCompletions)
         {
             foreach (var symbol in binder.LookupAvailableSymbols())
             {
