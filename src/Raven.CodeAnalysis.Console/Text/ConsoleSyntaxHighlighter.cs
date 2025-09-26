@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -94,14 +95,14 @@ public static class ConsoleSyntaxHighlighter
         {
             if (kvp.Value == SemanticClassification.Default)
                 continue;
-            AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
+            AddTokenSpan(lineTokens, lines, sourceText, kvp.Key, kvp.Value);
         }
 
         foreach (var kvp in classification.Trivia)
         {
             if (kvp.Value == SemanticClassification.Default)
                 continue;
-            AddTokenSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
+            AddTriviaSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
         }
 
         if (includeDiagnostics)
@@ -182,8 +183,20 @@ public static class ConsoleSyntaxHighlighter
         return SemanticClassification.Default;
     }
 
-    private static void AddTokenSpan(List<TokenSpan>[] lineTokens, string[] lines, SourceText text, TextSpan span,
+    private static void AddTokenSpan(List<TokenSpan>[] lineTokens, string[] lines, SourceText text, SyntaxToken token,
         SemanticClassification classification)
+    {
+        AddTokenSpan(lineTokens, lines, text, token.Span, classification, token.Text);
+    }
+
+    private static void AddTriviaSpan(List<TokenSpan>[] lineTokens, string[] lines, SourceText text, TextSpan span,
+        SemanticClassification classification)
+    {
+        AddTokenSpan(lineTokens, lines, text, span, classification, tokenText: null);
+    }
+
+    private static void AddTokenSpan(List<TokenSpan>[] lineTokens, string[] lines, SourceText text, TextSpan span,
+        SemanticClassification classification, string? tokenText)
     {
         var (startLine1, startCol1) = text.GetLineAndColumn(span);
         var (endLine1, endCol1) = text.GetLineAndColumn(new TextSpan(span.End, 0));
@@ -195,8 +208,24 @@ public static class ConsoleSyntaxHighlighter
         {
             var start = line == startLine ? startCol : 0;
             var end = line == endLine ? endCol : lines[line].Length;
+
+            if (tokenText is { Length: > 0 } && startLine == endLine)
+            {
+                var lineText = lines[line];
+                var searchStart = Math.Clamp(start, 0, lineText.Length);
+                var actualIndex = lineText.IndexOf(tokenText, searchStart, StringComparison.Ordinal);
+                if (actualIndex < 0 && searchStart > 0)
+                    actualIndex = lineText.LastIndexOf(tokenText, searchStart, StringComparison.Ordinal);
+                if (actualIndex >= 0)
+                {
+                    start = actualIndex;
+                    end = Math.Min(lineText.Length, actualIndex + tokenText.Length);
+                }
+            }
+
             var list = lineTokens[line] ??= new List<TokenSpan>();
-            list.Add(new TokenSpan(start, end, classification));
+            if (end > start)
+                list.Add(new TokenSpan(start, end, classification));
         }
     }
 

@@ -138,4 +138,40 @@ Console.WriteLine2("Foo")
             ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
         }
     }
+
+    [Fact]
+    public void MethodInvocation_AfterInterpolatedString_UsesCorrectSpans()
+    {
+        var source = """
+import System.*
+
+let name = "Marina"
+let city = "Ystad"
+let welcome = "${name}\u200F مرحبا!  ١٥ ${city}"
+
+System.Console.WriteLine(welcome)
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var originalScheme = ConsoleSyntaxHighlighter.ColorScheme;
+        try
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Dark;
+
+            var text = root.WriteNodeToText(compilation);
+
+            var methodAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.Method}m";
+            var localAnsi = $"\u001b[{(int)ConsoleSyntaxHighlighter.ColorScheme.Local}m";
+
+            Assert.Contains($"{methodAnsi}WriteLine", text);
+            Assert.Contains($"{localAnsi}welcome", text);
+            Assert.DoesNotContain($"{methodAnsi}Write{localAnsi}Line", text);
+        }
+        finally
+        {
+            ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
+        }
+    }
 }
