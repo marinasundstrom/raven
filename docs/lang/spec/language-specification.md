@@ -389,6 +389,12 @@ Console.WriteLine(hello + "World!")
 Console.WriteLine("Hello, " + 2)
 ```
 
+String literals recognize the standard escape sequences (`\"`, `\\`, `\n`, and
+so on) as well as Unicode escapes. Use `\uXXXX` or `\UXXXXXXXX` for fixed-width
+hexadecimal escapes, or `\u{...}` for variable-length scalars up to `0x10_FFFF`.
+Each escape expands to the corresponding UTF-16 sequence, so `"\u{1F600}"`
+produces the 😀 emoji.
+
 ### String interpolation
 
 Embed expressions directly into strings using `${...}` without requiring a prefix.
@@ -399,6 +405,10 @@ let age = 30
 let msg = "Name: ${name}, Age: ${age}"
 Console.WriteLine(msg)
 ```
+
+Escapes inside the literal portions of an interpolated string follow the same
+rules as ordinary string literals, ensuring Unicode escapes work uniformly in
+both forms.
 
 ### Collection expressions
 
