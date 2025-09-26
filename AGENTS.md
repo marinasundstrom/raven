@@ -57,3 +57,4 @@ If your changes touch documentation only, you may skip `dotnet build` and `dotne
 * Consult `docs/` for language grammar and feature design before modifying syntax or semantics.
 * Instruct Codex to conclude the diff instead of showing every change, and avoid gathering all line numbers for very large diffs.
 * When debugging the `ravc` output assemblies (e.g., `test.dll`), leverage `ilspycmd` for inspection and analysis.
+* When implementing new language features, prefer representing them through lowering when appropriate.
