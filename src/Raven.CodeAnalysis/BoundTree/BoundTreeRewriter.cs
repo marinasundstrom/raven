@@ -141,10 +141,4 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     {
         return designator.Accept(this);
     }
-
-    public virtual BoundNode? VisitTypeOfExpression(BoundTypeOfExpression node)
-    {
-        return node;
-    }
-
 }
