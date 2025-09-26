@@ -396,6 +396,10 @@ The `()` call operator invokes a function-valued expression. If the target
 expression's type defines an invocation operator via a `self` method, that
 member is invoked instead; see [Invocation operator](#invocation-operator).
 
+When the target has optional parameters, omitted trailing arguments are filled
+in using the defaults declared on the parameter list. The supplied arguments are
+matched positionally before defaults are considered.
+
 #### Extension method invocation
 
 Raven participates in the .NET extension method model for consumption. When a
@@ -820,6 +824,34 @@ Arrow bodies are allowed:
 ```raven
 func add(a: int, b: int) -> int => a + b
 ```
+
+### Parameters
+
+Function, method, and accessor parameters use the `name: Type` syntax. Parameter
+names are required and participate in overload resolution alongside their types
+and any `ref`/`out` modifiers.
+
+Parameters may provide a default value using `= expression` after the type. A
+parameter with a default value is optional when invoking the function: callers
+can omit that argument and the compiler supplies the stored constant instead.
+Only trailing parameters may be optional; omitting an argument fixes the default
+for that position and all following parameters must also declare defaults.
+
+```raven
+func greet(name: string, punctuation: string = "!")
+{
+    Console.WriteLine($"Hello, ${name}${punctuation}")
+}
+
+greet("Raven")          // prints "Hello, Raven!"
+greet("Raven", "!!!")    // caller-provided punctuation wins
+```
+
+Default expressions must be compile-time constants: literals (including `null`),
+parenthesized literals, and unary `+`/`-` applied to numeric literals. The value
+must convert to the parameter type using an implicit conversion. Nullable value
+types accept `null` defaults; other value types require a literal of the
+underlying type. Reference-type parameters accept `null` defaults.
 
 ### Generic functions and methods
 
