@@ -259,6 +259,25 @@ public class ParserNewlineTests
         Assert.True(declarator.Identifier.IsMissing);
     }
 
+    [Theory]
+    [InlineData("変数")]
+    [InlineData("данные")]
+    [InlineData("δοκιμή")]
+    [InlineData("مجموع")]
+    public void VariableDeclaration_AllowsUnicodeIdentifier(string identifier)
+    {
+        var source = $"let {identifier} = 1";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (LocalDeclarationStatementSyntax)parser.ParseStatement().CreateRed();
+        var declarator = statement.Declaration.Declarators.Single();
+
+        Assert.Equal(identifier, declarator.Identifier.Text);
+        Assert.False(declarator.Identifier.IsMissing);
+    }
+
     [Fact]
     public void ParameterList_MissingIdentifier_ProducesMissingToken()
     {

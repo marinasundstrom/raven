@@ -36,9 +36,13 @@ throughout this language specification.
 
 ### Identifiers
 
-Identifiers name values, members, and types. They must begin with an ASCII
-letter, `_`, or `$`. Subsequent characters may also include ASCII digits.
-Reserved keywords cannot be used as identifiers.
+Identifiers name values, members, and types. They may begin with `_`, `$`, or
+any Unicode character classified as a letter (including letter numbers such as
+Roman numerals). ASCII letters therefore continue to work as before. Subsequent
+characters may also include decimal digits, connector punctuation (such as
+`_`), combining marks, and format characters. These rules mirror .NET identifier
+support so Raven source can interoperate with existing APIs. Reserved keywords
+cannot be used as identifiers.
 
 ### Keyword summary
 
@@ -65,6 +69,8 @@ underscores, and `$` is available for interop- or DSL-oriented naming schemes.
 ```raven
 let $ffiResult = call()
 let value_1 = value0
+let 数据 = call()
+let сумма = total1 + total2
 ```
 
 ## Syntax node model
