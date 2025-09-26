@@ -15,13 +15,13 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="NamespaceKeyword" Type="Token" DefaultToken="NamespaceKeyword"/>
     <Slot Name="Name" Type="Name" IsInherited="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" IsInherited="true" />
     <Slot Name="Aliases" Type="List" ElementType="AliasDirective" IsInherited="true" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
   </Node>
   <Node Name="EmptyStatement" Inherits="Statement">
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="EqualsValueClause" Inherits="Node">
     <Slot Name="EqualsToken" Type="Token" DefaultToken="EqualsToken"/>
@@ -79,7 +79,7 @@
     <Slot Name="Aliases" Type="List" ElementType="AliasDirective" IsInherited="true" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken"/>
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="UnaryExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="OperatorToken" Type="Token" />
@@ -104,7 +104,7 @@
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true"  DefaultToken="OpenBraceToken"/>
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true"  DefaultToken="CloseBraceToken"/>
-    <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsInherited="true"  IsOptionalToken="true"/>
   </Node>
   <Node Name="BaseList" Inherits="Node">
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken"/>
@@ -121,17 +121,17 @@
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true"  DefaultToken="OpenBraceToken"/>
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsInherited="true" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true"  DefaultToken="CloseBraceToken"/>
-    <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsInherited="true"  IsOptionalToken="true"/>
   </Node>
   <Node Name="ExpressionStatement" Inherits="Statement">
     <Slot Name="Expression" Type="Expression" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="AssignmentStatement" Inherits="Statement" HasExplicitKind="true">
     <Slot Name="Left" Type="Expression" />
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Right" Type="Expression" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="IfStatement" Inherits="Statement">
     <Slot Name="IfKeyword" Type="Token" DefaultToken="IfKeyword"/>
@@ -139,19 +139,19 @@
     <Slot Name="ThenStatement" Type="Statement" />
     <Slot Name="ElseKeyword" Type="Token" IsNullable="true" />
     <Slot Name="ElseStatement" Type="Statement" IsNullable="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="UsingDeclarationStatement" Inherits="Statement">
     <Slot Name="UsingKeyword" Type="Token" DefaultToken="UsingKeyword"/>
     <Slot Name="Declaration" Type="VariableDeclaration" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="TryStatement" Inherits="Statement">
     <Slot Name="TryKeyword" Type="Token" DefaultToken="TryKeyword"/>
     <Slot Name="Block" Type="BlockStatement" />
     <Slot Name="CatchClauses" Type="List" ElementType="CatchClause" />
     <Slot Name="FinallyClause" Type="FinallyClause" IsNullable="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="LabeledStatement" Inherits="Statement">
     <Slot Name="Identifier" Type="Token" />
@@ -161,25 +161,25 @@
   <Node Name="GotoStatement" Inherits="Statement">
     <Slot Name="GotoKeyword" Type="Token" DefaultToken="GotoKeyword"/>
     <Slot Name="Identifier" Type="Token" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="BreakStatement" Inherits="Statement">
     <Slot Name="BreakKeyword" Type="Token" DefaultToken="BreakKeyword"/>
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="ContinueStatement" Inherits="Statement">
     <Slot Name="ContinueKeyword" Type="Token" DefaultToken="ContinueKeyword"/>
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="LocalDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="VariableDeclaration" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="BaseTypeDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
     <Slot Name="Identifier" Type="Token" IsAbstract="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsAbstract="true"  DefaultToken="OpenBraceToken"/>
     <Slot Name="CloseBraceToken" Type="Token" IsAbstract="true"  DefaultToken="CloseBraceToken"/>
-    <Slot Name="TerminatorToken" Type="Token" IsAbstract="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsAbstract="true"  IsOptionalToken="true"/>
   </Node>
   <Node Name="TupleExpression" Inherits="Expression">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken"/>
@@ -209,7 +209,7 @@
   </Node>
   <Node Name="BaseConstructorDeclaration" Inherits="BaseMethodDeclaration" IsAbstract="true">
     <Slot Name="InitKeyword" Type="Token" IsAbstract="true"  DefaultToken="InitKeyword"/>
-    <Slot Name="TerminatorToken" Type="Token" IsAbstract="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsAbstract="true"  IsOptionalToken="true"/>
   </Node>
   <Node Name="ConstructorDeclaration" Inherits="BaseConstructorDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
@@ -219,7 +219,7 @@
     <Slot Name="Initializer" Type="ConstructorInitializer" IsNullable="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
-    <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsInherited="true"  IsOptionalToken="true"/>
   </Node>
   <Node Name="NamedConstructorDeclaration" Inherits="BaseConstructorDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
@@ -229,7 +229,7 @@
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
-    <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsInherited="true"  IsOptionalToken="true"/>
   </Node>
   <Node Name="ConstructorInitializer" Inherits="Node" IsAbstract="true">
     <Slot Name="ColonToken" Type="Token" IsAbstract="true"  DefaultToken="ColonToken"/>
@@ -244,7 +244,7 @@
   <Node Name="ReturnStatement" Inherits="Statement">
     <Slot Name="ReturnKeyword" Type="Token" DefaultToken="ReturnKeyword"/>
     <Slot Name="Expression" Type="Expression" IsNullable="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="CatchClause" Inherits="Node">
     <Slot Name="CatchKeyword" Type="Token" DefaultToken="CatchKeyword"/>
@@ -399,7 +399,7 @@
     <Slot Name="WhenClause" Type="WhenClause" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken"/>
     <Slot Name="Expression" Type="Expression" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="WhenClause" Inherits="Node">
     <Slot Name="WhenKeyword" Type="Token" DefaultToken="WhenKeyword"/>
@@ -444,14 +444,14 @@
   <Node Name="ImportDirective" Inherits="Node">
     <Slot Name="ImportKeyword" Type="Token" DefaultToken="ImportKeyword"/>
     <Slot Name="Name" Type="Name" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="AliasDirective" Inherits="Node">
     <Slot Name="AliasKeyword" Type="Token" DefaultToken="AliasKeyword"/>
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="EqualsToken" Type="Token" DefaultToken="EqualsToken"/>
     <Slot Name="Target" Type="Type" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="ElseClause" Inherits="Node">
     <Slot Name="ElseKeyword" Type="Token" DefaultToken="ElseKeyword"/>
@@ -461,7 +461,7 @@
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Declaration" Type="VariableDeclaration" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="BasePropertyDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
@@ -519,7 +519,7 @@
     <Slot Name="OpenBraceToken" Type="Token" IsInherited="true"  DefaultToken="OpenBraceToken"/>
     <Slot Name="Members" Type="SeparatedList" ElementType="EnumMemberDeclaration" />
     <Slot Name="CloseBraceToken" Type="Token" IsInherited="true"  DefaultToken="CloseBraceToken"/>
-    <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsInherited="true"  IsOptionalToken="true"/>
   </Node>
   <Node Name="IndexerDeclaration" Inherits="BasePropertyDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
@@ -530,7 +530,7 @@
     <Slot Name="Type" Type="TypeAnnotationClause" IsInherited="true" />
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsInherited="true" />
     <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="WhileExpression" Inherits="Expression">
     <Slot Name="WhileKeyword" Type="Token" DefaultToken="WhileKeyword"/>
@@ -539,7 +539,7 @@
   </Node>
   <Node Name="ForExpression" Inherits="Expression">
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword"/>
-    <Slot Name="EachKeyword" Type="Token" DefaultToken="EachKeyword"/>
+    <Slot Name="EachKeyword" Type="Token" DefaultToken="EachKeyword" IsOptionalToken="true"/>
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword"/>
     <Slot Name="Expression" Type="Expression" />
@@ -580,7 +580,7 @@
     <Slot Name="Type" Type="TypeAnnotationClause" IsInherited="true" />
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsInherited="true" />
     <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="BinaryExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Left" Type="Expression" />
@@ -614,7 +614,7 @@
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="ObjectCreationExpression" Inherits="Expression">
     <Slot Name="NewKeyword" Type="Token" DefaultToken="NewKeyword"/>
@@ -636,7 +636,7 @@
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsInherited="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsInherited="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="BracketedParameterList" Inherits="Node">
     <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken"/>
@@ -659,7 +659,7 @@
     <Slot Name="Keyword" Type="Token" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
-    <Slot Name="TerminatorToken" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="BaseMethodDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />

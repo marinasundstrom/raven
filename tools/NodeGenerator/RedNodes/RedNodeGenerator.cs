@@ -501,7 +501,12 @@ public static class RedNodeGenerator
 
             constructorArguments.Add(Argument(IdentifierName(parameterName)));
 
-            if (prop.Type == "Token" && prop.DefaultToken is { } defaultToken)
+            if (prop.Type == "Token" && prop.IsOptionalToken)
+            {
+                requiresConvenienceOverload = true;
+                invocationArguments.Add(Argument(CreateMissingTokenExpression()));
+            }
+            else if (prop.Type == "Token" && prop.DefaultToken is { } defaultToken)
             {
                 requiresConvenienceOverload = true;
                 invocationArguments.Add(Argument(IdentifierName(defaultToken)));
@@ -561,6 +566,14 @@ public static class RedNodeGenerator
             ? LiteralExpression(SyntaxKind.NullLiteralExpression)
             : DefaultExpression(ParseTypeName(mappedType));
     }
+
+    private static ExpressionSyntax CreateMissingTokenExpression() =>
+        InvocationExpression(IdentifierName("Token"))
+            .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                Argument(MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("SyntaxKind"),
+                    IdentifierName("None"))))));
 
     private static string MapRedType(string rawType, bool nullable) => rawType switch
     {
