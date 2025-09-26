@@ -29,4 +29,34 @@ public class InterpolatedStringTests
         var trailingText = Assert.IsType<InterpolatedStringTextSyntax>(interpolated.Contents[^1]);
         Assert.Equal(" A", trailingText.Token.ValueText);
     }
+
+    [Fact]
+    public void InterpolatedStringText_PreservesLeftToRightUnicodeSegments()
+    {
+        var source = "let s = \"こんにちは ${name} 世界\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        var leadingText = Assert.IsType<InterpolatedStringTextSyntax>(interpolated.Contents[0]);
+        Assert.Equal("こんにちは ", leadingText.Token.ValueText);
+
+        var trailingText = Assert.IsType<InterpolatedStringTextSyntax>(interpolated.Contents[^1]);
+        Assert.Equal(" 世界", trailingText.Token.ValueText);
+    }
+
+    [Fact]
+    public void InterpolatedStringText_PreservesRightToLeftUnicodeSegments()
+    {
+        var source = "let s = \"\u200Fمرحبا ${name} بالعالم\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        var leadingText = Assert.IsType<InterpolatedStringTextSyntax>(interpolated.Contents[0]);
+        Assert.Equal("\u200Fمرحبا ", leadingText.Token.ValueText);
+
+        var trailingText = Assert.IsType<InterpolatedStringTextSyntax>(interpolated.Contents[^1]);
+        Assert.Equal(" بالعالم", trailingText.Token.ValueText);
+    }
 }

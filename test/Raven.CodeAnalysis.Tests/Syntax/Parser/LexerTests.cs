@@ -1,6 +1,7 @@
 using System.IO;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
+using Raven.CodeAnalysis.Text;
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -84,6 +85,39 @@ public class LexerTests
         Assert.Equal(SyntaxKind.StringLiteralToken, token.Kind);
         var value = Assert.IsType<string>(token.Value);
         Assert.Equal(expected, value);
+    }
+
+    [Fact]
+    public void StringLiteral_SupportsNonAsciiCharacters()
+    {
+        var sourceText = SourceText.From("ああ\"世界\"");
+        using var reader = sourceText.GetTextReader(2);
+        var lexer = new Lexer(reader, 2);
+
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.StringLiteralToken, token.Kind);
+        Assert.Equal("\"世界\"", token.Text);
+        var value = Assert.IsType<string>(token.Value);
+        Assert.Equal("世界", value);
+    }
+
+    [Theory]
+    [InlineData("序章\"こんにちは ${name} 世界\"", "\"こんにちは ${name} 世界\"", "こんにちは ${name} 世界")]
+    [InlineData("مقدمة\"مرحبا ${name} بالعالم\"", "\"مرحبا ${name} بالعالم\"", "مرحبا ${name} بالعالم")]
+    public void StringLiteral_WithInterpolation_SupportsNonAsciiCharacters(string source, string expectedText, string expectedValue)
+    {
+        var start = source.IndexOf('\"');
+        var sourceText = SourceText.From(source);
+        using var reader = sourceText.GetTextReader(start);
+        var lexer = new Lexer(reader, start);
+
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.StringLiteralToken, token.Kind);
+        Assert.Equal(expectedText, token.Text);
+        var value = Assert.IsType<string>(token.Value);
+        Assert.Equal(expectedValue, value);
     }
 
     [Fact]

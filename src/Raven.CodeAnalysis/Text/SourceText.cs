@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Text;
 
@@ -90,10 +91,34 @@ public class SourceText
 
     public TextReader GetTextReader(int position)
     {
-        MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(_text));
-        StreamReader reader = new StreamReader(stream);
-        stream.Seek(position, SeekOrigin.Begin);
-        return reader;
+        if (position <= 0)
+        {
+            return new StringReader(_text);
+        }
+
+        if (position >= _text.Length)
+        {
+            return new StringReader(string.Empty);
+        }
+
+        var current = _text[position];
+
+        // Fast path for the common case where the current character is ASCII. In that
+        // case we can slice directly without any additional checks.
+        if (current <= 0x7F)
+        {
+            return new StringReader(_text[position..]);
+        }
+
+        // For non-ASCII content make sure we don't start reading in the middle of a
+        // surrogate pair. This still keeps slicing fast for Latin text while keeping
+        // Unicode content intact.
+        if (char.IsLowSurrogate(current) && position > 0 && char.IsHighSurrogate(_text[position - 1]))
+        {
+            position--;
+        }
+
+        return new StringReader(_text[position..]);
     }
 
     public IReadOnlyList<TextChange> GetTextChanges(SourceText oldText)
