@@ -1,5 +1,7 @@
 using System.IO.Pipelines;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 public static partial class SymbolExtensions
@@ -68,4 +70,7 @@ public static partial class SymbolExtensions
 
         return symbol.Name; // fallback för andra symboltyper
     }
+
+    public static ITypeSymbol? UnwrapLiteralType(this ITypeSymbol? type)
+        => type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
 }

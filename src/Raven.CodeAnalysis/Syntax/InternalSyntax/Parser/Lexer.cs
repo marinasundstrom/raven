@@ -171,12 +171,26 @@ internal class Lexer : ILexer
                         // Decimal point
                         if (PeekChar(out ch) && ch == '.')
                         {
-                            hasDecimal = true;
-                            ReadChar(); _stringBuilder.Append('.');
-                            while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
+                            var decimalCheckpoint = _currentPosition;
+                            _textSource.PushPosition();
+                            ReadChar();
+
+                            if (PeekChar(out ch) && char.IsDigit(ch))
                             {
-                                ReadChar();
-                                _stringBuilder.Append(ch);
+                                _textSource.PopPosition();
+                                hasDecimal = true;
+                                _stringBuilder.Append('.');
+                                do
+                                {
+                                    ReadChar();
+                                    _stringBuilder.Append(ch);
+                                }
+                                while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'));
+                            }
+                            else
+                            {
+                                _textSource.PopAndRestorePosition();
+                                _currentPosition = decimalCheckpoint;
                             }
                         }
                     }

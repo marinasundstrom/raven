@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -96,6 +97,75 @@ public class LiteralTypeFlowTests : DiagnosticTestBase
         var code = "let x: bool = true";
         var verifier = CreateVerifier(code);
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MemberAccess_OnLiteralTypeVariable_UsesUnderlyingMembers()
+    {
+        var code = """
+import System.*;
+
+let literal: "foo" = "foo";
+let length = literal.Length;
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MemberAccess_OnLiteralExpression_UsesUnderlyingMembers()
+    {
+        var code = """
+import System.*;
+
+let length = 10.ToString().Length;
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MemberAccess_OnLiteralExpression_MethodLookup_ResolvesToString()
+    {
+        var code = """
+import System.*;
+
+let length = 10.ToString().Length;
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .First(ma => ma.Name.Identifier.Text == "ToString");
+
+        var binder = (BlockBinder)model.GetBinder(memberAccess)!;
+        var receiver = binder.BindExpression(memberAccess.Expression);
+        var literalType = Assert.IsType<LiteralTypeSymbol>(receiver.Type);
+        Assert.NotEmpty(literalType.UnderlyingType.GetMembers("ToString"));
+
+        var methods = new SymbolQuery("ToString", receiver.Type, IsStatic: false)
+            .LookupMethods(binder)
+            .ToImmutableArray();
+
+        Assert.NotEmpty(methods);
+    }
+
+    [Fact]
+    public void Int32_ProvidesToString()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.Contains(intType.GetMembers("ToString"), m => m is IMethodSymbol);
     }
 
     [Fact]
