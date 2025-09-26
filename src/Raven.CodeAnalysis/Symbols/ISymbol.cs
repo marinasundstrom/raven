@@ -16,6 +16,7 @@ public enum SymbolKind
     Method,
     Parameter,
     Local,
+    Label,
     Property,
     Field,
     ErrorType,
@@ -110,6 +111,7 @@ public interface ISymbol : IEquatable<ISymbol?>
         IFieldSymbol => true,
         IParameterSymbol => true,
         ILocalSymbol => true,
+        ILabelSymbol => true,
         _ => false
     };
 
@@ -227,6 +229,10 @@ public interface INamespaceSymbol : INamespaceOrTypeSymbol
 public interface ILambdaSymbol : IMethodSymbol
 {
     ITypeSymbol? DelegateType { get; }
+}
+
+public interface ILabelSymbol : ISymbol
+{
 }
 
 public interface IAliasSymbol : ISymbol

@@ -238,6 +238,33 @@ func log(msg: string) {
 }
 ```
 
+### Labeled statements
+
+A **labeled statement** prefixes another statement with an identifier followed by a colon:
+
+```raven
+start:
+print("running")
+```
+
+Labels introduce symbolic targets that `goto` statements can reference. A label applies to the next statement in the source. When a newline immediately follows the colon, the compiler synthesizes an empty statement so the label remains a valid target even without an explicit body. Multiple labels may precede the same statement.
+
+Label names are scoped to the containing function body. Declaring the same label more than once in the same body is an error (`RAV2500`). Labels participate in semantic lookup just like other declarations, so tools can navigate to them.
+
+### `goto` statements
+
+The `goto` statement jumps to a labeled statement within the same function-like body:
+
+```raven
+start:
+print("loop")
+goto start
+```
+
+Evaluation of a `goto` statement ends the current statement immediately and transfers control to the target label. Targets may appear before or after the `goto`; backward jumps form loops while forward jumps skip ahead in the block. Jumping to a nonexistent label produces diagnostic `RAV2501`.
+
+Gotos cannot escape the body they are declared in. A `goto` inside a function, lambda, or accessor may only refer to labels declared in that same body. The compiler ensures any scopes exited by the jump are correctly unwound before branching.
+
 ### Try statements
 
 `try` statements provide structured exception handling. A `try` statement wraps a block and must include at least one `catch` clause or a `finally` clause. Omitting both results in diagnostic `RAV1015`.

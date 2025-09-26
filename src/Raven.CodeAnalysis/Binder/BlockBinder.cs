@@ -13,6 +13,10 @@ partial class BlockBinder : Binder
     private readonly ISymbol _containingSymbol;
     protected readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals = new();
     private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose = new();
+    private readonly Dictionary<string, ILabelSymbol> _labelsByName = new(StringComparer.Ordinal);
+    private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelsBySyntax = new();
+    private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _syntaxByLabel = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
 
@@ -31,6 +35,7 @@ partial class BlockBinder : Binder
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
             SingleVariableDesignationSyntax singleVariableDesignation => BindSingleVariableDesignation(singleVariableDesignation).Local,
             FunctionStatementSyntax functionStatement => BindFunction(functionStatement).Method,
+            LabeledStatementSyntax labeledStatement => DeclareLabelSymbol(labeledStatement),
             _ => base.BindDeclaredSymbol(node)
         };
     }
@@ -398,6 +403,8 @@ partial class BlockBinder : Binder
             FunctionStatementSyntax function => BindFunction(function),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
+            LabeledStatementSyntax labeledStatement => BindLabeledStatement(labeledStatement),
+            GotoStatementSyntax gotoStatement => BindGotoStatement(gotoStatement),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
@@ -569,6 +576,8 @@ partial class BlockBinder : Binder
         _scopeDepth++;
         var depth = _scopeDepth;
 
+        EnsureLabelsDeclared(block);
+
         foreach (var stmt in block.Statements)
         {
             if (stmt is FunctionStatementSyntax func)
@@ -617,6 +626,8 @@ partial class BlockBinder : Binder
 
         _scopeDepth++;
         var depth = _scopeDepth;
+
+        EnsureLabelsDeclared(block);
 
         // Step 1: Pre-declare all functions
         foreach (var stmt in block.Statements)
@@ -679,6 +690,109 @@ partial class BlockBinder : Binder
 
         _scopeDepth--;
         return blockExpr;
+    }
+
+    private void EnsureLabelsDeclared(SyntaxNode node)
+    {
+        if (!_labelDeclarationNodes.Add(node))
+            return;
+
+        var stack = new Stack<SyntaxNode>();
+        stack.Push(node);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+
+            if (current is FunctionStatementSyntax)
+                continue;
+
+            if (current is LabeledStatementSyntax labeled)
+            {
+                _ = DeclareLabelSymbol(labeled);
+                stack.Push(labeled.Statement);
+                continue;
+            }
+
+            foreach (var child in current.ChildNodes())
+                stack.Push(child);
+        }
+    }
+
+    private ILabelSymbol DeclareLabelSymbol(LabeledStatementSyntax labeledStatement)
+    {
+        if (_labelsBySyntax.TryGetValue(labeledStatement, out var existing))
+            return existing;
+
+        var identifier = labeledStatement.Identifier;
+        if (identifier.IsMissing)
+            return CreateLabelSymbol(string.Empty, identifier.GetLocation(), labeledStatement.GetReference());
+
+        var name = identifier.Text;
+
+        if (_labelsByName.TryGetValue(name, out var conflict))
+        {
+            _diagnostics.ReportLabelAlreadyDefined(name, identifier.GetLocation());
+            return conflict;
+        }
+
+        var symbol = CreateLabelSymbol(name, identifier.GetLocation(), labeledStatement.GetReference());
+
+        _labelsByName[name] = symbol;
+        _labelsBySyntax[labeledStatement] = symbol;
+        _syntaxByLabel[symbol] = labeledStatement;
+        SemanticModel?.RegisterLabel(labeledStatement, symbol);
+
+        return symbol;
+    }
+
+    private BoundStatement BindLabeledStatement(LabeledStatementSyntax labeledStatement)
+    {
+        var labelSymbol = DeclareLabelSymbol(labeledStatement);
+        var boundStatement = BindStatement(labeledStatement.Statement);
+        var bound = new BoundLabeledStatement(labelSymbol, boundStatement);
+        CacheBoundNode(labeledStatement, bound);
+        return bound;
+    }
+
+    private BoundStatement BindGotoStatement(GotoStatementSyntax gotoStatement)
+    {
+        var identifier = gotoStatement.Identifier;
+        if (identifier.IsMissing)
+        {
+            var errorSymbol = CreateLabelSymbol(string.Empty, identifier.GetLocation(), gotoStatement.GetReference());
+            var boundError = new BoundGotoStatement(errorSymbol);
+            CacheBoundNode(gotoStatement, boundError);
+            return boundError;
+        }
+
+        var name = identifier.Text;
+        if (!_labelsByName.TryGetValue(name, out var label))
+        {
+            _diagnostics.ReportLabelNotFound(name, identifier.GetLocation());
+            label = CreateLabelSymbol(name, identifier.GetLocation(), gotoStatement.GetReference());
+        }
+
+        var isBackward = false;
+        if (_syntaxByLabel.TryGetValue(label, out var labeledSyntax))
+            isBackward = labeledSyntax.Span.Start < gotoStatement.Span.Start;
+
+        SemanticModel?.RegisterGoto(gotoStatement, label);
+
+        var bound = new BoundGotoStatement(label, isBackward);
+        CacheBoundNode(gotoStatement, bound);
+        return bound;
+    }
+
+    private ILabelSymbol CreateLabelSymbol(string name, Location location, SyntaxReference reference)
+    {
+        return new LabelSymbol(
+            name,
+            _containingSymbol,
+            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol?.ContainingNamespace,
+            [location],
+            [reference]);
     }
 
     public BoundExpression BindExpression(ExpressionSyntax syntax, bool allowReturn)
@@ -3911,6 +4025,9 @@ partial class BlockBinder : Binder
 
                 if (block._functions.TryGetValue(name, out var func) && seen.Add(func))
                     yield return func;
+
+                if (block._labelsByName.TryGetValue(name, out var label) && seen.Add(label))
+                    yield return label;
             }
 
             if (current is TopLevelBinder topLevelBinder)
@@ -3980,6 +4097,15 @@ partial class BlockBinder : Binder
                 {
                     if (seen.Add(local.Symbol.Name))
                         yield return local.Symbol;
+                }
+
+                foreach (var label in block._labelsByName.Values)
+                {
+                    if (string.IsNullOrEmpty(label.Name))
+                        continue;
+
+                    if (seen.Add(label.Name))
+                        yield return label;
                 }
             }
 

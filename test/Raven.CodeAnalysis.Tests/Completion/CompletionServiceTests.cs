@@ -492,4 +492,29 @@ ST.
         Assert.Contains(items, i => i.DisplayText == "\"כן\"");
         Assert.Contains(items, i => i.DisplayText == "\"לא\"");
     }
+
+    [Fact]
+    public void GetCompletions_InGotoStatement_IncludesLabels()
+    {
+        var code = """
+func main() {
+label:
+    goto 
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("goto ", StringComparison.Ordinal) + "goto ".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "label");
+    }
 }

@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -8,6 +11,8 @@ public partial class SemanticModel
 {
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax statement)
     {
+        EnsureDiagnosticsCollected();
+
         var region = new ControlFlowRegion(statement);
         var walker = new ControlFlowWalker(this, region);
         walker.Visit(statement); // only need to walk the single node
@@ -17,6 +22,8 @@ public partial class SemanticModel
 
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
     {
+        EnsureDiagnosticsCollected();
+
         var region = new ControlFlowRegion(firstStatement, lastStatement);
         var walker = new ControlFlowWalker(this, region);
         walker.Visit(region.EnclosingBlock);
@@ -106,19 +113,30 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
         }
     }
 
-    /*
     public override void VisitGotoStatement(GotoStatementSyntax node)
     {
         if (_region is not null)
         {
-            var label = node.Identifier.Text;
-            var target = _semanticModel.GetLabelTarget(label);
+            var target = _semanticModel.GetLabelTarget(node);
 
-            if (_region.Contains(node) && target is not null && !_region.Contains(target))
+            if (target is not null)
             {
-                _exitPoints.Add(node);
+                var gotoInsideRegion = _region.Contains(node) || IsWithinRegionBounds(node);
+                var targetInsideRegion = _region.Contains(target) || IsWithinRegionBounds(target);
+
+                if (gotoInsideRegion && !targetInsideRegion)
+                {
+                    if (!_exitPoints.Contains(node))
+                        _exitPoints.Add(node);
+                }
+                else if (!gotoInsideRegion && targetInsideRegion)
+                {
+                    if (!_entryPoints.Contains(target))
+                        _entryPoints.Add(target);
+                }
             }
         }
+
         base.VisitGotoStatement(node);
     }
 
@@ -126,15 +144,33 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
     {
         if (_region is not null && _region.Contains(node))
         {
-            var label = node.Identifier.Text;
-            if (_semanticModel.HasExternalGotoToLabel(label, _region))
+            if (_semanticModel.HasExternalGotoToLabel(node, _region))
             {
-                _entryPoints.Add(node);
+                if (!_entryPoints.Contains(node))
+                    _entryPoints.Add(node);
             }
         }
+
         base.VisitLabeledStatement(node);
     }
-    */
+
+    private bool IsWithinRegionBounds(SyntaxNode node)
+    {
+        if (_region is null)
+            return false;
+
+        var first = _region.FirstStatement;
+        var last = _region.LastStatement;
+
+        if (first is null || last is null)
+            return false;
+
+        var start = first.Span.Start;
+        var end = last.Span.End;
+
+        var span = node.Span;
+        return span.Start >= start && span.Start < end && span.End <= end;
+    }
 
     public ControlFlowAnalysis ToResult()
     {
@@ -152,19 +188,53 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
 
 public partial class SemanticModel
 {
-    /*
-    // Stub for label resolution
-    public LabeledStatementSyntax? GetLabelTarget(string label)
+    public LabeledStatementSyntax? GetLabelTarget(GotoStatementSyntax gotoStatement)
     {
-        // In a real implementation, index all label declarations and return the one matching
+        EnsureDiagnosticsCollected();
+
+        if (_gotoTargets.TryGetValue(gotoStatement, out var symbol))
+        {
+            if (_labelSyntax.TryGetValue(symbol, out var syntax))
+                return syntax;
+        }
+
+        var identifier = gotoStatement.Identifier;
+        if (identifier.IsMissing)
+            return null;
+
+        if (_labelsByName.TryGetValue(identifier.Text, out var candidates))
+        {
+            foreach (var candidate in candidates)
+            {
+                if (_labelSyntax.TryGetValue(candidate, out var syntax))
+                    return syntax;
+            }
+        }
+
         return null;
     }
-    */
 
-    // Stub for checking if any goto exists outside the region targeting the label
-    public bool HasExternalGotoToLabel(string label, ControlFlowRegion region)
+    public bool HasExternalGotoToLabel(LabeledStatementSyntax labeledStatement, ControlFlowRegion region)
     {
-        // Track all gotos globally and match those targeting label where origin is outside the region
+        EnsureDiagnosticsCollected();
+
+        if (!_labelDeclarations.TryGetValue(labeledStatement, out var labelSymbol))
+            return false;
+
+        foreach (var entry in _gotoTargets)
+        {
+            var gotoSyntax = entry.Key;
+            var targetSymbol = entry.Value;
+
+            if (!SymbolEqualityComparer.Default.Equals(targetSymbol, labelSymbol))
+                continue;
+
+            if (region.Contains(gotoSyntax))
+                continue;
+
+            return true;
+        }
+
         return false;
     }
 }

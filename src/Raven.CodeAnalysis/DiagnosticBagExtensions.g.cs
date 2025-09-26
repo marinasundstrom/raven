@@ -242,4 +242,10 @@ public static partial class DiagnosticBagExtensions
     public static void ReportNoOverloadMatchesDelegate(this DiagnosticBag diagnostics, object? methodName, object? delegateType, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NoOverloadMatchesDelegate, location, methodName, delegateType));
 
+    public static void ReportLabelAlreadyDefined(this DiagnosticBag diagnostics, object? name, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LabelAlreadyDefined, location, name));
+
+    public static void ReportLabelNotFound(this DiagnosticBag diagnostics, object? name, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LabelNotFound, location, name));
+
 }

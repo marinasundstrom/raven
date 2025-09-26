@@ -19,43 +19,123 @@ internal class StatementSyntaxParser : SyntaxParser
 
         StatementSyntax? statement;
 
-        switch (token.Kind)
+        if (IsPossibleLabeledStatementStart(token))
         {
-            case SyntaxKind.FuncKeyword:
-                statement = ParseFunctionSyntax();
-                break;
+            statement = ParseLabeledStatementSyntax();
+        }
+        else
+        {
+            switch (token.Kind)
+            {
+                case SyntaxKind.FuncKeyword:
+                    statement = ParseFunctionSyntax();
+                    break;
 
-            case SyntaxKind.ReturnKeyword:
-                statement = ParseReturnStatementSyntax();
-                break;
+                case SyntaxKind.ReturnKeyword:
+                    statement = ParseReturnStatementSyntax();
+                    break;
 
-            case SyntaxKind.IfKeyword:
-                statement = ParseIfStatementSyntax();
-                break;
+                case SyntaxKind.IfKeyword:
+                    statement = ParseIfStatementSyntax();
+                    break;
 
-            case SyntaxKind.UsingKeyword:
-                statement = ParseUsingDeclarationStatementSyntax();
-                break;
+                case SyntaxKind.UsingKeyword:
+                    statement = ParseUsingDeclarationStatementSyntax();
+                    break;
 
-            case SyntaxKind.TryKeyword:
-                statement = ParseTryStatementSyntax();
-                break;
+                case SyntaxKind.TryKeyword:
+                    statement = ParseTryStatementSyntax();
+                    break;
 
-            case SyntaxKind.OpenBraceToken:
-                statement = ParseBlockStatementSyntax();
-                break;
+                case SyntaxKind.OpenBraceToken:
+                    statement = ParseBlockStatementSyntax();
+                    break;
 
-            case SyntaxKind.SemicolonToken:
-                ReadToken();
-                statement = EmptyStatement(token);
-                break;
+                case SyntaxKind.GotoKeyword:
+                    statement = ParseGotoStatementSyntax();
+                    break;
 
-            default:
-                statement = ParseDeclarationOrExpressionStatementSyntax();
-                break;
+                case SyntaxKind.SemicolonToken:
+                    ReadToken();
+                    statement = EmptyStatement(token);
+                    break;
+
+                default:
+                    statement = ParseDeclarationOrExpressionStatementSyntax();
+                    break;
+            }
         }
 
         return statement;
+    }
+
+    private bool IsPossibleLabeledStatementStart(SyntaxToken token)
+    {
+        if (!CanTokenBeIdentifier(token))
+        {
+            return false;
+        }
+
+        var colonCandidate = PeekToken(1);
+        return colonCandidate.Kind == SyntaxKind.ColonToken;
+    }
+
+    private LabeledStatementSyntax ParseLabeledStatementSyntax()
+    {
+        var identifier = ReadIdentifierToken();
+        var colonToken = ExpectToken(SyntaxKind.ColonToken);
+
+        StatementSyntax statement;
+        if (IsTokenPotentialStatementStart(PeekToken()))
+        {
+            statement = ParseStatement();
+        }
+        else
+        {
+            var terminator = Token(SyntaxKind.None);
+            statement = EmptyStatement(terminator);
+        }
+
+        return LabeledStatement(identifier, colonToken, statement);
+    }
+
+    private static bool IsTokenPotentialStatementStart(SyntaxToken token)
+    {
+        return token.Kind switch
+        {
+            SyntaxKind.None => false,
+            SyntaxKind.EndOfFileToken => false,
+            SyntaxKind.CloseBraceToken => false,
+            SyntaxKind.CloseParenToken => false,
+            SyntaxKind.CloseBracketToken => false,
+            SyntaxKind.SemicolonToken => true,
+            SyntaxKind.CommaToken => false,
+            SyntaxKind.ColonToken => false,
+            SyntaxKind.NewLineToken => false,
+            SyntaxKind.LineFeedToken => false,
+            SyntaxKind.CarriageReturnToken => false,
+            SyntaxKind.CarriageReturnLineFeedToken => false,
+            _ => true,
+        };
+    }
+
+    private GotoStatementSyntax ParseGotoStatementSyntax()
+    {
+        var gotoKeyword = ReadToken();
+
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
+
+        var terminatorToken = ConsumeTerminator();
+
+        return GotoStatement(gotoKeyword, identifier, terminatorToken, Diagnostics);
     }
 
     private IfStatementSyntax ParseIfStatementSyntax()
