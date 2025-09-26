@@ -402,4 +402,51 @@ ST.
         Assert.Contains(items, i => i.DisplayText == "\"כן\"");
         Assert.Contains(items, i => i.DisplayText == "\"לא\"");
     }
+
+    [Fact]
+    public void GetCompletions_InInstanceMethod_SuggestsSelfKeyword()
+    {
+        var code = """
+        class Counter {
+            public Increment() -> unit {
+                sel
+            }
+        }
+        """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("sel", StringComparison.Ordinal) + "sel".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "self");
+    }
+
+    [Fact]
+    public void GetCompletions_OnNumericLiteral_SuggestsLiteralValue()
+    {
+        var code = "let value: 100 = ";
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var service = new CompletionService();
+        var position = code.Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "100");
+    }
 }
