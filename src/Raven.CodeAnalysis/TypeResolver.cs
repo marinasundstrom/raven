@@ -21,13 +21,33 @@ internal class TypeResolver(Compilation compilation)
             return CreateUnionTypeSymbol(unionAttribute);
         }
 
-        var type = ResolveType(parameterInfo.ParameterType, parameterInfo.Member as MethodBase);
+        var methodContext = parameterInfo.Member as MethodBase;
+        var parameterType = parameterInfo.ParameterType;
+
+        if (parameterType.IsByRef)
+        {
+            var elementType = ResolveType(parameterType.GetElementType()!, methodContext);
+            if (elementType is null)
+                return null;
+
+            var nullInfo = _nullabilityContext.Create(parameterInfo);
+            if (nullInfo.ElementType is not null)
+                elementType = ApplyNullability(elementType, nullInfo.ElementType);
+
+            var refKind = parameterInfo.IsOut
+                ? RefKind.Out
+                : parameterInfo.IsIn ? RefKind.In : RefKind.Ref;
+
+            return new ByRefTypeSymbol(elementType, refKind);
+        }
+
+        var type = ResolveType(parameterType, methodContext);
 
         if (type is ITypeParameterSymbol typeParameterSymbol)
             return type;
 
-        var nullInfo = _nullabilityContext.Create(parameterInfo);
-        return ApplyNullability(type!, nullInfo);
+        var parameterNullInfo = _nullabilityContext.Create(parameterInfo);
+        return ApplyNullability(type!, parameterNullInfo);
     }
 
     public ITypeSymbol? ResolveType(FieldInfo fieldInfo)
