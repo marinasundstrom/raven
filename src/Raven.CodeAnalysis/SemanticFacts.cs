@@ -41,10 +41,16 @@ public static class SemanticFacts
 
         comparer ??= SymbolEqualityComparer.Default;
 
+        if (comparer.Equals(type, interfaceType))
+            return true;
+
+        if (type is IArrayTypeSymbol array && ImplementsArrayInterface(array, interfaceType, comparer))
+            return true;
+
         if (type is ITypeParameterSymbol typeParameter)
             return ImplementsInterfaceTypeParameter(typeParameter, interfaceType, comparer, CreateVisitedSet(comparer));
 
-        foreach (var implementedInterface in type.AllInterfaces)
+        foreach (var implementedInterface in GetAllInterfaces(type))
         {
             if (comparer.Equals(implementedInterface, interfaceType))
                 return true;
@@ -96,8 +102,11 @@ public static class SemanticFacts
                 if (comparer.Equals(namedConstraint, interfaceType))
                     return true;
 
-                if (namedConstraint.AllInterfaces.Contains(interfaceType, comparer))
-                    return true;
+                foreach (var implementedInterface in namedConstraint.AllInterfaces)
+                {
+                    if (comparer.Equals(implementedInterface, interfaceType))
+                        return true;
+                }
             }
             else if (constraint is ITypeParameterSymbol nestedTypeParameter &&
                      ImplementsInterfaceTypeParameter(nestedTypeParameter, interfaceType, comparer, visited))
@@ -111,6 +120,40 @@ public static class SemanticFacts
         }
 
         return false;
+    }
+
+    private static IEnumerable<INamedTypeSymbol> GetAllInterfaces(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol named)
+            return named.AllInterfaces;
+
+        if (type is ArrayTypeSymbol array && array.BaseType is INamedTypeSymbol arrayBase)
+            return arrayBase.AllInterfaces;
+
+        return Array.Empty<INamedTypeSymbol>();
+    }
+
+    private static bool ImplementsArrayInterface(IArrayTypeSymbol array, INamedTypeSymbol interfaceType, SymbolEqualityComparer comparer)
+    {
+        var metadataName = interfaceType.ToFullyQualifiedMetadataName();
+
+        return metadataName switch
+        {
+            "System.Collections.IEnumerable" => true,
+            "System.Collections.ICollection" => true,
+            "System.Collections.IList" => true,
+            "System.Collections.Generic.IEnumerable`1" =>
+                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+            "System.Collections.Generic.ICollection`1" =>
+                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+            "System.Collections.Generic.IList`1" =>
+                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+            "System.Collections.Generic.IReadOnlyCollection`1" =>
+                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+            "System.Collections.Generic.IReadOnlyList`1" =>
+                interfaceType.TypeArguments.Length == 1 && comparer.Equals(interfaceType.TypeArguments[0], array.ElementType),
+            _ => false,
+        };
     }
 
     private static HashSet<ISymbol> CreateVisitedSet(SymbolEqualityComparer comparer)

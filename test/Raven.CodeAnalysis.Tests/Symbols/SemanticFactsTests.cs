@@ -35,7 +35,7 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container`1")!;
+        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
         var typeParameter = container.TypeParameters[0];
         var baseType = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Base")!;
 
@@ -70,11 +70,27 @@ public class SemanticFactsTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container`1")!;
+        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
         var typeParameter = container.TypeParameters[0];
         var marker = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IMarker")!;
 
         Assert.True(SemanticFacts.ImplementsInterface(typeParameter, marker));
+    }
+
+    [Fact]
+    public void ImplementsInterface_ReturnsTrueForInterfaceItself()
+    {
+        var source = "interface IMarker {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var marker = (INamedTypeSymbol)compilation.GetTypeByMetadataName("IMarker")!;
+
+        Assert.True(SemanticFacts.ImplementsInterface(marker, marker));
     }
 
     [Fact]

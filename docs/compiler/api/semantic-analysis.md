@@ -58,9 +58,10 @@ parent contexts while preserving local information.【F:docs/compiler/architectu
 
 The compiler exposes relationship helpers in `SemanticFacts` for advanced
 analysis scenarios. `IsDerivedFrom` walks base types (including type-parameter
-constraints) while `ImplementsInterface` traverses the interface closure, and
-both accept optional `SymbolEqualityComparer` instances so tooling can align
-with Roslyn's equality semantics when desired.【F:src/Raven.CodeAnalysis/SemanticFacts.cs†L1-L146】
+constraints) while `ImplementsInterface` traverses the interface closure (and
+considers interface identity), and both accept optional
+`SymbolEqualityComparer` instances so tooling can align with Roslyn's equality
+semantics when desired.【F:src/Raven.CodeAnalysis/SemanticFacts.cs†L1-L150】
 
 ## Operations
 
