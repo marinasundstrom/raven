@@ -470,55 +470,91 @@ public static class GreenNodeGenerator
         var methodName = node.Name;
         var typeName = node.Name + "Syntax";
         var parameters = new List<ParameterSyntax>();
-        var arguments = new List<ArgumentSyntax>();
+        var minimalParameters = new List<ParameterSyntax>();
+        var constructorArguments = new List<ArgumentSyntax>();
+        var invocationArguments = new List<ArgumentSyntax>();
+        var hasNullableSlot = false;
 
         if (node.HasExplicitKind)
         {
-            parameters.Add(
-                Parameter(Identifier("kind"))
-                    .WithType(IdentifierName("SyntaxKind")));
+            var kindParameter = Parameter(Identifier("kind"))
+                .WithType(IdentifierName("SyntaxKind"));
+            parameters.Add(kindParameter);
+            minimalParameters.Add(Parameter(Identifier("kind")).WithType(IdentifierName("SyntaxKind")));
 
-            arguments.Add(Argument(IdentifierName("kind")));
+            var kindArgument = Argument(IdentifierName("kind"));
+            constructorArguments.Add(kindArgument);
+            invocationArguments.Add(kindArgument);
         }
 
         foreach (var prop in node.Slots)
         {
+            var parameterName = ToCamelCase(prop.Name);
+            var mappedType = MapType(prop.FullTypeName, prop.IsNullable);
             parameters.Add(
-                Parameter(Identifier(ToCamelCase(prop.Name)))
-                    .WithType(IdentifierName(MapType(prop.FullTypeName, prop.IsNullable))));
+                Parameter(Identifier(parameterName))
+                    .WithType(IdentifierName(mappedType)));
 
-            arguments.Add(Argument(IdentifierName(ToCamelCase(prop.Name))));
+            constructorArguments.Add(Argument(IdentifierName(parameterName)));
+
+            if (prop.IsNullable)
+            {
+                hasNullableSlot = true;
+                invocationArguments.Add(Argument(GetDefaultValueExpression(mappedType)));
+            }
+            else
+            {
+                minimalParameters.Add(
+                    Parameter(Identifier(parameterName))
+                        .WithType(IdentifierName(mappedType)));
+                invocationArguments.Add(Argument(IdentifierName(parameterName)));
+            }
         }
 
-        // diagnostics (optional)
-        parameters.Add(
-            Parameter(Identifier("diagnostics"))
-                .WithType(NullableType(IdentifierName("IEnumerable<DiagnosticInfo>")))
-                .WithDefault(EqualsValueClause(
-                    LiteralExpression(SyntaxKind.NullLiteralExpression))));
+        var diagnosticsParameter = Parameter(Identifier("diagnostics"))
+            .WithType(NullableType(IdentifierName("IEnumerable<DiagnosticInfo>")))
+            .WithDefault(EqualsValueClause(
+                LiteralExpression(SyntaxKind.NullLiteralExpression)));
+        parameters.Add(diagnosticsParameter);
 
-        arguments.Add(Argument(IdentifierName("diagnostics")));
+        constructorArguments.Add(Argument(IdentifierName("diagnostics")));
+        invocationArguments.Add(Argument(LiteralExpression(SyntaxKind.NullLiteralExpression)));
 
-        // annotations (optional)
-        parameters.Add(
-            Parameter(Identifier("annotations"))
-                .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
-                .WithDefault(EqualsValueClause(
-                    LiteralExpression(SyntaxKind.NullLiteralExpression))));
+        var annotationsParameter = Parameter(Identifier("annotations"))
+            .WithType(NullableType(IdentifierName("IEnumerable<SyntaxAnnotation>")))
+            .WithDefault(EqualsValueClause(
+                LiteralExpression(SyntaxKind.NullLiteralExpression)));
+        parameters.Add(annotationsParameter);
 
-        arguments.Add(Argument(IdentifierName("annotations")));
+        constructorArguments.Add(Argument(IdentifierName("annotations")));
+        invocationArguments.Add(Argument(LiteralExpression(SyntaxKind.NullLiteralExpression)));
 
         var method = MethodDeclaration(IdentifierName(typeName), methodName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
             .WithParameterList(ParameterList(SeparatedList(parameters)))
             .WithExpressionBody(ArrowExpressionClause(
                 ObjectCreationExpression(IdentifierName(typeName))
-                    .WithArgumentList(ArgumentList(SeparatedList(arguments)))))
+                    .WithArgumentList(ArgumentList(SeparatedList(constructorArguments)))))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+        var members = new List<MemberDeclarationSyntax> { method };
+
+        if (hasNullableSlot && minimalParameters.Count < parameters.Count)
+        {
+            var minimalMethod = MethodDeclaration(IdentifierName(typeName), methodName)
+                .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
+                .WithParameterList(ParameterList(SeparatedList(minimalParameters)))
+                .WithExpressionBody(ArrowExpressionClause(
+                    InvocationExpression(IdentifierName(methodName))
+                        .WithArgumentList(ArgumentList(SeparatedList(invocationArguments)))))
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+            members.Insert(0, minimalMethod);
+        }
 
         var factoryClass = ClassDeclaration("SyntaxFactory")
             .AddModifiers(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.PartialKeyword))
-            .AddMembers(method);
+            .AddMembers(members.ToArray());
 
         return CompilationUnit()
             .AddUsings(
@@ -527,6 +563,13 @@ public static class GreenNodeGenerator
                 UsingDirective(ParseName("Raven.CodeAnalysis.Syntax")))
             .AddMembers(NamespaceDeclaration(ParseName("Raven.CodeAnalysis.Syntax.InternalSyntax")).AddMembers(factoryClass))
             .NormalizeWhitespace();
+    }
+
+    private static ExpressionSyntax GetDefaultValueExpression(string mappedType)
+    {
+        return mappedType.EndsWith("?")
+            ? LiteralExpression(SyntaxKind.NullLiteralExpression)
+            : DefaultExpression(ParseTypeName(mappedType));
     }
 
     private static string ToCamelCase(string name)
