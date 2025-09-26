@@ -295,6 +295,7 @@ public static class CompletionProvider
                 var typeInfo = model.GetTypeInfo(memberAccess.Expression).Type;
                 var type = typeInfo?.UnderlyingSymbol as ITypeSymbol;
                 IEnumerable<ISymbol>? members = null;
+                INamedTypeSymbol? instanceTypeForExtensions = null;
 
                 if (symbol is INamespaceSymbol ns)
                 {
@@ -310,6 +311,7 @@ public static class CompletionProvider
                 {
                     // Accessing an instance: show instance members
                     members = instanceType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
+                    instanceTypeForExtensions = instanceType;
                 }
 
                 if (members is not null)
@@ -347,6 +349,33 @@ public static class CompletionProvider
                                 Description: SafeToDisplayString(member),
                                 Symbol: member
                             ));
+                        }
+                    }
+
+                    if (instanceTypeForExtensions is not null)
+                    {
+                        foreach (var method in binder.LookupExtensionMethods(null, instanceTypeForExtensions, includePartialMatches: true))
+                        {
+                            if (!IsAccessible(method))
+                                continue;
+
+                            if (!string.IsNullOrEmpty(prefix) && !method.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                                continue;
+
+                            var insertText = method.Name + "()";
+                            var cursorOffset = insertText.Length - 1;
+
+                            if (seen.Add(method.Name))
+                            {
+                                completions.Add(new CompletionItem(
+                                    DisplayText: method.Name,
+                                    InsertionText: insertText,
+                                    ReplacementSpan: nameSpan,
+                                    CursorOffset: cursorOffset,
+                                    Description: SafeToDisplayString(method),
+                                    Symbol: method
+                                ));
+                            }
                         }
                     }
 

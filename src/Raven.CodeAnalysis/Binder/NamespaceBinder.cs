@@ -34,15 +34,15 @@ class NamespaceBinder : Binder
 
     public INamespaceSymbol NamespaceSymbol => _namespaceSymbol;
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string name, ITypeSymbol receiverType)
+    public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
     {
         var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
 
-        foreach (var method in GetExtensionMethodsFromScope(_namespaceSymbol, name))
+        foreach (var method in GetExtensionMethodsFromScope(_namespaceSymbol, name, includePartialMatches))
             if (seen.Add(method))
                 yield return method;
 
-        foreach (var method in base.LookupExtensionMethods(name, receiverType))
+        foreach (var method in base.LookupExtensionMethods(name, receiverType, includePartialMatches))
             if (seen.Add(method))
                 yield return method;
     }
