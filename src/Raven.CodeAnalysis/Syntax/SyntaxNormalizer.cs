@@ -215,7 +215,15 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed);
 
-        return node.Update(node.Modifiers, namespaceKeyword, name, terminatorToken, VisitList(node.Imports)!, VisitList(node.Aliases)!, VisitList(node.Members)!);
+        return node.Update(
+            node.AttributeLists,
+            node.Modifiers,
+            namespaceKeyword,
+            name,
+            terminatorToken,
+            VisitList(node.Imports)!,
+            VisitList(node.Aliases)!,
+            VisitList(node.Members)!);
     }
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
@@ -263,7 +271,17 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             returnType = (ArrowTypeClauseSyntax)VisitArrowTypeClause(node.ReturnType)!
                 .WithTrailingTrivia(SyntaxFactory.Space);
 
-        return node.Update(node.Modifiers, explicitInterfaceSpecifier, identifier, typeParameterList, parameterList, returnType, (BlockStatementSyntax?)VisitBlockStatement(node.Body), null, node.TerminatorToken)
+        return node.Update(
+                node.AttributeLists,
+                node.Modifiers,
+                explicitInterfaceSpecifier,
+                identifier,
+                typeParameterList,
+                parameterList,
+                returnType,
+                (BlockStatementSyntax?)VisitBlockStatement(node.Body),
+                null,
+                node.TerminatorToken)
             .WithLeadingTrivia(SyntaxFactory.TriviaList(
                 SyntaxFactory.CarriageReturnLineFeed,
                 SyntaxFactory.CarriageReturnLineFeed

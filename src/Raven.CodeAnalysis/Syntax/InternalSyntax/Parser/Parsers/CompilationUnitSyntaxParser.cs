@@ -96,34 +96,56 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenBracketToken))
         {
-            var typeKeywordKind = TypeDeclarationParser.PeekTypeKeyword(this);
+            var checkpoint = CreateCheckpoint();
+            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+            var modifiers = ParseModifiers();
+
+            var tokenAfterModifiers = PeekToken();
+
+            if (tokenAfterModifiers.IsKind(SyntaxKind.NamespaceKeyword))
+            {
+                checkpoint.Dispose();
+
+                var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
+
+                memberDeclarations.Add(namespaceDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            var typeKeywordKind = tokenAfterModifiers.Kind;
 
             if (typeKeywordKind == SyntaxKind.EnumKeyword)
             {
+                checkpoint.Dispose();
+
                 var enumDeclaration = new EnumDeclarationParser(this).Parse();
 
                 memberDeclarations.Add(enumDeclaration);
                 order = MemberOrder.Members;
+                return;
             }
-            else if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword)
+
+            if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword or SyntaxKind.StructKeyword)
             {
+                checkpoint.Dispose();
+
                 var typeDeclaration = new TypeDeclarationParser(this).Parse();
 
                 memberDeclarations.Add(typeDeclaration);
                 order = MemberOrder.Members;
+                return;
             }
-            else
-            {
-                var statement = new StatementSyntaxParser(this).ParseStatement();
 
-                if (statement is null)
-                    return;
+            var statement = new StatementSyntaxParser(this).ParseStatement();
 
-                var globalStatement = GlobalStatement(SyntaxList.Empty, statement);
+            if (statement is null)
+                return;
 
-                memberDeclarations.Add(globalStatement);
-                order = MemberOrder.Members;
-            }
+            var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Diagnostics);
+
+            memberDeclarations.Add(globalStatement);
+            order = MemberOrder.Members;
         }
         else
         {
@@ -134,10 +156,41 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             if (statement is null)
                 return;
 
-            var globalStatement = GlobalStatement(SyntaxList.Empty, statement);
+            var globalStatement = GlobalStatement(SyntaxList.Empty, SyntaxList.Empty, statement, Diagnostics);
 
             memberDeclarations.Add(globalStatement);
             order = MemberOrder.Members;
         }
+    }
+
+    private SyntaxList ParseModifiers()
+    {
+        SyntaxList modifiers = SyntaxList.Empty;
+
+        while (true)
+        {
+            var kind = PeekToken().Kind;
+
+            if (kind is SyntaxKind.PublicKeyword or
+                     SyntaxKind.PrivateKeyword or
+                     SyntaxKind.InternalKeyword or
+                     SyntaxKind.ProtectedKeyword or
+                     SyntaxKind.StaticKeyword or
+                     SyntaxKind.AbstractKeyword or
+                     SyntaxKind.SealedKeyword or
+                     SyntaxKind.PartialKeyword or
+                     SyntaxKind.VirtualKeyword or
+                     SyntaxKind.OpenKeyword or
+                     SyntaxKind.OverrideKeyword)
+            {
+                modifiers = modifiers.Add(ReadToken());
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return modifiers;
     }
 }

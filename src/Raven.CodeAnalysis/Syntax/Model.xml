@@ -11,6 +11,7 @@
     <Slot Name="CloseBraceToken" Type="Token" />
   </Node>
   <Node Name="FileScopedNamespaceDeclaration" Inherits="BaseNamespaceDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="NamespaceKeyword" Type="Token" />
     <Slot Name="Name" Type="Name" IsInherited="true" />
@@ -69,6 +70,7 @@
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="NamespaceDeclaration" Inherits="BaseNamespaceDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="NamespaceKeyword" Type="Token" />
     <Slot Name="Name" Type="Name" IsInherited="true" />
@@ -155,7 +157,6 @@
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="BaseTypeDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
-    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsAbstract="true" />
     <Slot Name="Identifier" Type="Token" IsAbstract="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsAbstract="true" />
     <Slot Name="CloseBraceToken" Type="Token" IsAbstract="true" />
@@ -192,6 +193,7 @@
     <Slot Name="TerminatorToken" Type="Token" IsAbstract="true" />
   </Node>
   <Node Name="ConstructorDeclaration" Inherits="BaseConstructorDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="InitKeyword" Type="Token" IsInherited="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsInherited="true" />
@@ -201,6 +203,7 @@
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
   </Node>
   <Node Name="NamedConstructorDeclaration" Inherits="BaseConstructorDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="InitKeyword" Type="Token" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" />
@@ -268,6 +271,8 @@
     <Slot Name="CloseBraceToken" Type="Token" />
   </Node>
   <Node Name="BaseNamespaceDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Name" Type="Name" IsAbstract="true" />
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" IsAbstract="true" />
     <Slot Name="Aliases" Type="List" ElementType="AliasDirective" IsAbstract="true" />
@@ -331,6 +336,7 @@
     <Slot Name="CloseBraceToken" Type="Token" />
   </Node>
   <Node Name="MemberDeclaration" Inherits="Node" IsAbstract="true">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsAbstract="true" />
     <Slot Name="Modifiers" Type="TokenList" IsAbstract="true" />
   </Node>
   <Node Name="ParenthesizedExpression" Inherits="Expression">
@@ -432,11 +438,14 @@
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="FieldDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Declaration" Type="VariableDeclaration" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="BasePropertyDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" IsAbstract="true" />
     <Slot Name="Identifier" Type="Token" IsAbstract="true" />
     <Slot Name="Type" Type="TypeAnnotationClause" IsAbstract="true" />
@@ -458,6 +467,7 @@
     <Slot Name="DefaultValue" Type="EqualsValueClause" IsNullable="true" />
   </Node>
   <Node Name="EnumMemberDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="EqualsValueClauseSyntax" Type="EqualsValueClause" IsNullable="true" />
@@ -491,6 +501,7 @@
     <Slot Name="TerminatorToken" Type="Token" IsInherited="true" />
   </Node>
   <Node Name="IndexerDeclaration" Inherits="BasePropertyDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
@@ -531,10 +542,12 @@
     <Slot Name="Type" Type="Type" />
   </Node>
   <Node Name="GlobalStatement" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Statement" Type="Statement" />
   </Node>
   <Node Name="PropertyDeclaration" Inherits="BasePropertyDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
@@ -588,6 +601,7 @@
     <Slot Name="Identifier" Type="Token" />
   </Node>
   <Node Name="MethodDeclaration" Inherits="BaseMethodDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifier" IsNullable="true" />
     <Slot Name="Identifier" Type="Token" />
@@ -614,6 +628,7 @@
     <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
   </Node>
   <Node Name="AccessorDeclaration" Inherits="Node" HasExplicitKind="true">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="Modifiers" Type="TokenList" />
     <Slot Name="Keyword" Type="Token" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
@@ -621,6 +636,8 @@
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="BaseMethodDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsAbstract="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" IsAbstract="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" IsAbstract="true" />
