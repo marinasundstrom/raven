@@ -327,7 +327,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             ? (EqualsValueClauseSyntax?)VisitEqualsValueClause(node.DefaultValue)
             : null;
 
-        return node.Update(node.Modifiers, identifier, typeAnnotation, defaultValue);
+        return node.Update(node.AttributeLists, node.Modifiers, identifier, typeAnnotation, defaultValue);
     }
 
     public override SyntaxNode? VisitTypeAnnotationClause(TypeAnnotationClauseSyntax node)

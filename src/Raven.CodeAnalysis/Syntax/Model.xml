@@ -86,6 +86,7 @@
     <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="ArrowTypeClause" Inherits="Node">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="ArrowToken" Type="Token" />
     <Slot Name="Type" Type="Type" />
   </Node>
@@ -480,6 +481,7 @@
     <Slot Name="ExpressionBody" Type="Expression" IsAbstract="true" />
   </Node>
   <Node Name="Parameter" Inherits="Node">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="Modifiers" Type="TokenList" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" IsNullable="true" />

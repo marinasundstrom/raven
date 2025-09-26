@@ -22,9 +22,11 @@ internal class TypeAnnotationClauseSyntaxParser : SyntaxParser
     {
         if (ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
         {
+            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
             TypeSyntax type = new NameSyntaxParser(this).ParseTypeName();
 
-            return SyntaxFactory.ArrowTypeClause(arrowToken, type);
+            return SyntaxFactory.ArrowTypeClause(attributeLists, arrowToken, type);
         }
 
         return null;

@@ -580,7 +580,6 @@ internal class TypeDeclarationParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseBraceToken))
                 break;
 
-            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
             SyntaxList modifiers = SyntaxList.Empty;
 
             SyntaxToken modifier;
@@ -654,6 +653,8 @@ internal class TypeDeclarationParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
+            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
             SyntaxList modifiers = SyntaxList.Empty;
 
             SyntaxToken modifier;
@@ -680,7 +681,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-            parameterList.Add(Parameter(modifiers, name, typeAnnotation, defaultValue));
+            parameterList.Add(Parameter(attributeLists, modifiers, name, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
