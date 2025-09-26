@@ -60,6 +60,8 @@ internal class EnumDeclarationParser : SyntaxParser
 
     private GreenNode ParseMember()
     {
+        var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
         {
@@ -70,7 +72,7 @@ internal class EnumDeclarationParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
-        return EnumMemberDeclaration(SyntaxList.Empty, identifier, null);
+        return EnumMemberDeclaration(attributeLists, SyntaxList.Empty, identifier);
     }
 
     private SyntaxList ParseModifiers()
