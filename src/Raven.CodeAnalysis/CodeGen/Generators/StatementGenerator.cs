@@ -65,6 +65,14 @@ internal class StatementGenerator : Generator
             case BoundGotoStatement gotoStatement:
                 EmitGotoStatement(gotoStatement);
                 break;
+
+            case BoundBreakStatement breakStatement:
+                EmitBreakStatement(breakStatement);
+                break;
+
+            case BoundContinueStatement continueStatement:
+                EmitContinueStatement(continueStatement);
+                break;
         }
     }
 
@@ -170,6 +178,7 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Nop);
 
         var scope = new Scope(this);
+        scope.SetLoopTargets(endLabel, conditionLabel);
         new StatementGenerator(scope, whileStatement.Body).Emit();
 
         ILGenerator.MarkLabel(conditionLabel);
@@ -182,9 +191,11 @@ internal class StatementGenerator : Generator
     private void EmitForStatement(BoundForStatement forStatement)
     {
         var beginLabel = ILGenerator.DefineLabel();
+        var continueLabel = ILGenerator.DefineLabel();
         var endLabel = ILGenerator.DefineLabel();
 
         var scope = new Scope(this);
+        scope.SetLoopTargets(endLabel, continueLabel);
 
         new ExpressionGenerator(scope, forStatement.Collection).Emit();
 
@@ -215,6 +226,7 @@ internal class StatementGenerator : Generator
 
             new StatementGenerator(scope, forStatement.Body).Emit();
 
+            ILGenerator.MarkLabel(continueLabel);
             ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
             ILGenerator.Emit(OpCodes.Add);
@@ -257,6 +269,7 @@ internal class StatementGenerator : Generator
 
             new StatementGenerator(scope, forStatement.Body).Emit();
 
+            ILGenerator.MarkLabel(continueLabel);
             ILGenerator.Emit(OpCodes.Br_S, beginLabel);
             ILGenerator.MarkLabel(endLabel);
         }
@@ -339,6 +352,65 @@ internal class StatementGenerator : Generator
 
         var ilLabel = MethodBodyGenerator.GetOrCreateLabel(gotoStatement.Target);
         ILGenerator.Emit(OpCodes.Br, ilLabel);
+    }
+
+    private void EmitBreakStatement(BoundBreakStatement breakStatement)
+    {
+        if (Parent is not Scope scope)
+            throw new InvalidOperationException("Break statements require an enclosing scope.");
+
+        var loopScope = FindEnclosingLoopScope(scope)
+            ?? throw new InvalidOperationException("Break statements require an enclosing loop scope.");
+
+        if (!loopScope.TryGetBreakLabel(out var breakLabel))
+            throw new InvalidOperationException("Missing break label for enclosing loop.");
+
+        var targetScope = FindEnclosingScope(loopScope.Parent);
+        EmitScopeDisposals(scope, targetScope);
+
+        ILGenerator.Emit(OpCodes.Br, breakLabel);
+    }
+
+    private void EmitContinueStatement(BoundContinueStatement continueStatement)
+    {
+        if (Parent is not Scope scope)
+            throw new InvalidOperationException("Continue statements require an enclosing scope.");
+
+        var loopScope = FindEnclosingLoopScope(scope)
+            ?? throw new InvalidOperationException("Continue statements require an enclosing loop scope.");
+
+        if (!loopScope.TryGetContinueLabel(out var continueLabel))
+            throw new InvalidOperationException("Missing continue label for enclosing loop.");
+
+        EmitScopeDisposals(scope, loopScope);
+
+        ILGenerator.Emit(OpCodes.Br, continueLabel);
+    }
+
+    private static Scope? FindEnclosingLoopScope(Generator? generator)
+    {
+        while (generator is not null)
+        {
+            if (generator is Scope scope && scope.IsLoopScope)
+                return scope;
+
+            generator = generator.Parent;
+        }
+
+        return null;
+    }
+
+    private static Scope? FindEnclosingScope(Generator? generator)
+    {
+        while (generator is not null)
+        {
+            if (generator is Scope scope)
+                return scope;
+
+            generator = generator.Parent;
+        }
+
+        return null;
     }
 
     private void EmitScopeDisposals(Scope startScope, Scope? targetScope)

@@ -238,6 +238,39 @@ func log(msg: string) {
 }
 ```
 
+### `break` statements
+
+`break` exits the innermost enclosing loop statement immediately. Execution resumes at the statement following that loop.
+
+```raven
+var i = 0
+while true {
+    if i == 10 {
+        break
+    }
+
+    i += 1
+}
+```
+
+A `break` statement must appear within a `while` or `for` *statement*. Placing `break` in any expression context, including the bodies of `if`, `while`, or `for` expressions, produces diagnostic `RAV1902`. Using `break` outside a loop reports diagnostic `RAV2600`.
+
+### `continue` statements
+
+`continue` skips the remainder of the current loop iteration and jumps to the loop's re-check point.
+
+```raven
+for each value in values {
+    if value.isOdd {
+        continue
+    }
+
+    print(value)
+}
+```
+
+`continue` follows the same placement rules as `break`: it may only appear inside `while` or `for` statements. Using it from an expression context results in diagnostic `RAV1903`, and placing it outside a loop reports diagnostic `RAV2601`.
+
 ### Labeled statements
 
 A **labeled statement** prefixes another statement with an identifier followed by a colon:
