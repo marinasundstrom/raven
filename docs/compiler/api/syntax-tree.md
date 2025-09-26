@@ -41,6 +41,13 @@ For inspection and tooling, syntax trees can be printed using the `PrintSyntaxTr
 extension showcased in the API README. That routine walks the red tree and emits
 kind names, spans, and trivia so callers can visualize structure.
 
+While trivia (comments, whitespace, and directives) is preserved on tokens for
+round-tripping and tooling scenarios, semantic analysis only cares about the
+well-formedness of the tree. As long as the parser produces a structurally
+correct syntax tree, the binder can reason about declarations and expressions;
+trivia influences parsing decisions but carries no meaning for the compiler
+itself.
+
 ## Visitors and rewriters
 
 The compiler ships source-generated visitor bases that align with Roslyn's
