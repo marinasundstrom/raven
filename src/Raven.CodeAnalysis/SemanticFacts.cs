@@ -1,0 +1,112 @@
+using System;
+using System.Collections.Generic;
+using Raven.CodeAnalysis.Symbols;
+
+namespace Raven.CodeAnalysis;
+
+public static class SemanticFacts
+{
+    public static bool IsDerivedFrom(
+        ITypeSymbol? type,
+        ITypeSymbol? potentialBase,
+        SymbolEqualityComparer? comparer = null)
+    {
+        if (type is null || potentialBase is null)
+            return false;
+
+        comparer ??= SymbolEqualityComparer.Default;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return IsDerivedFromTypeParameter(typeParameter, potentialBase, comparer, new HashSet<ITypeSymbol>());
+
+        for (var current = type.BaseType; current is not null; current = current.BaseType)
+        {
+            if (comparer.Equals(current, potentialBase))
+                return true;
+        }
+
+        return false;
+    }
+
+    public static bool ImplementsInterface(
+        ITypeSymbol? type,
+        INamedTypeSymbol? interfaceType,
+        SymbolEqualityComparer? comparer = null)
+    {
+        if (type is null || interfaceType is null)
+            return false;
+
+        if (interfaceType.TypeKind != TypeKind.Interface)
+            throw new ArgumentException("interfaceType must be an interface symbol.", nameof(interfaceType));
+
+        comparer ??= SymbolEqualityComparer.Default;
+
+        return type switch
+        {
+            INamedTypeSymbol namedType => namedType.AllInterfaces.Contains(interfaceType, comparer),
+            IArrayTypeSymbol arrayType => ImplementsInterface(arrayType.ElementType, interfaceType, comparer),
+            ITypeParameterSymbol typeParameter => ImplementsInterfaceTypeParameter(typeParameter, interfaceType, comparer, new HashSet<ITypeSymbol>()),
+            _ => false,
+        };
+    }
+
+    private static bool IsDerivedFromTypeParameter(
+        ITypeParameterSymbol typeParameter,
+        ITypeSymbol potentialBase,
+        SymbolEqualityComparer comparer,
+        HashSet<ITypeSymbol> visited)
+    {
+        if (!visited.Add(typeParameter))
+            return false;
+
+        foreach (var constraint in typeParameter.ConstraintTypes)
+        {
+            if (comparer.Equals(constraint, potentialBase))
+                return true;
+
+            if (constraint is ITypeParameterSymbol nestedTypeParameter &&
+                IsDerivedFromTypeParameter(nestedTypeParameter, potentialBase, comparer, visited))
+            {
+                return true;
+            }
+
+            if (IsDerivedFrom(constraint, potentialBase, comparer))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ImplementsInterfaceTypeParameter(
+        ITypeParameterSymbol typeParameter,
+        INamedTypeSymbol interfaceType,
+        SymbolEqualityComparer comparer,
+        HashSet<ITypeSymbol> visited)
+    {
+        if (!visited.Add(typeParameter))
+            return false;
+
+        foreach (var constraint in typeParameter.ConstraintTypes)
+        {
+            if (constraint is INamedTypeSymbol namedConstraint)
+            {
+                if (comparer.Equals(namedConstraint, interfaceType))
+                    return true;
+
+                if (namedConstraint.AllInterfaces.Contains(interfaceType, comparer))
+                    return true;
+            }
+            else if (constraint is ITypeParameterSymbol nestedTypeParameter &&
+                     ImplementsInterfaceTypeParameter(nestedTypeParameter, interfaceType, comparer, visited))
+            {
+                return true;
+            }
+            else if (constraint is not null && ImplementsInterface(constraint, interfaceType, comparer))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
