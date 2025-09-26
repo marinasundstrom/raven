@@ -13,6 +13,9 @@ internal class EnumDeclarationParser : SyntaxParser
 
     internal EnumDeclarationSyntax Parse()
     {
+        var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+        var modifiers = ParseModifiers();
+
         var enumKeyword = ReadToken();
 
         SyntaxToken identifier;
@@ -52,7 +55,7 @@ internal class EnumDeclarationParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return EnumDeclaration(SyntaxList.Empty, enumKeyword, identifier, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
+        return EnumDeclaration(attributeLists, modifiers, enumKeyword, identifier, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
     }
 
     private GreenNode ParseMember()
@@ -68,5 +71,36 @@ internal class EnumDeclarationParser : SyntaxParser
         }
 
         return EnumMemberDeclaration(SyntaxList.Empty, identifier, null);
+    }
+
+    private SyntaxList ParseModifiers()
+    {
+        SyntaxList modifiers = SyntaxList.Empty;
+
+        while (true)
+        {
+            var kind = PeekToken().Kind;
+
+            if (kind is SyntaxKind.PublicKeyword or
+                     SyntaxKind.PrivateKeyword or
+                     SyntaxKind.InternalKeyword or
+                     SyntaxKind.ProtectedKeyword or
+                     SyntaxKind.StaticKeyword or
+                     SyntaxKind.AbstractKeyword or
+                     SyntaxKind.SealedKeyword or
+                     SyntaxKind.PartialKeyword or
+                     SyntaxKind.VirtualKeyword or
+                     SyntaxKind.OpenKeyword or
+                     SyntaxKind.OverrideKeyword)
+            {
+                modifiers = modifiers.Add(ReadToken());
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return modifiers;
     }
 }

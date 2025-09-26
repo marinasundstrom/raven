@@ -40,4 +40,21 @@ public class InterfaceDeclarationParserTests
 
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void InterfaceDeclaration_WithAttributeList_ParsesAttributes()
+    {
+        var source = "[Service] interface IService {}";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<InterfaceDeclarationSyntax>(Assert.Single(root.Members));
+
+        var attributeList = Assert.Single(declaration.AttributeLists);
+        var attribute = Assert.Single(attributeList.Attributes);
+
+        var name = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("Service", name.Identifier.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

@@ -91,6 +91,7 @@
     <Slot Name="SelfKeyword" Type="Token" />
   </Node>
   <Node Name="ClassDeclaration" Inherits="TypeDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Keyword" Type="Token" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
@@ -107,6 +108,7 @@
     <Slot Name="Types" Type="SeparatedList" ElementType="Type" />
   </Node>
   <Node Name="InterfaceDeclaration" Inherits="TypeDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Keyword" Type="Token" IsInherited="true" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
@@ -153,6 +155,7 @@
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
   <Node Name="BaseTypeDeclaration" Inherits="MemberDeclaration" IsAbstract="true">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsAbstract="true" />
     <Slot Name="Identifier" Type="Token" IsAbstract="true" />
     <Slot Name="OpenBraceToken" Type="Token" IsAbstract="true" />
     <Slot Name="CloseBraceToken" Type="Token" IsAbstract="true" />
@@ -478,6 +481,7 @@
     <Slot Name="Designation" Type="VariableDesignation" />
   </Node>
   <Node Name="EnumDeclaration" Inherits="BaseTypeDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="EnumKeyword" Type="Token" />
     <Slot Name="Identifier" Type="Token" IsInherited="true" />
@@ -513,6 +517,15 @@
     <Slot Name="OpenParenToken" Type="Token" />
     <Slot Name="Arguments" Type="SeparatedList" ElementType="Argument" />
     <Slot Name="CloseParenToken" Type="Token" />
+  </Node>
+  <Node Name="AttributeList" Inherits="Node">
+    <Slot Name="OpenBracketToken" Type="Token" />
+    <Slot Name="Attributes" Type="SeparatedList" ElementType="Attribute" />
+    <Slot Name="CloseBracketToken" Type="Token" />
+  </Node>
+  <Node Name="Attribute" Inherits="Node">
+    <Slot Name="Name" Type="Name" />
+    <Slot Name="ArgumentList" Type="ArgumentList" IsNullable="true" />
   </Node>
   <Node Name="TypeArgument" Inherits="Node">
     <Slot Name="Type" Type="Type" />

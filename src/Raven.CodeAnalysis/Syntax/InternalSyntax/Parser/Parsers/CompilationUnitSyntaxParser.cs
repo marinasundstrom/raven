@@ -86,25 +86,44 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             memberDeclarations.Add(namespaceDeclaration);
             order = MemberOrder.Members;
         }
-        else if (nextToken.IsKind(SyntaxKind.EnumKeyword))
-        {
-            var enumDeclaration = new EnumDeclarationParser(this).Parse();
-
-            memberDeclarations.Add(enumDeclaration);
-            order = MemberOrder.Members;
-        }
-        else if (nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) ||
+        else if (nextToken.IsKind(SyntaxKind.EnumKeyword) ||
+                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) ||
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
                  nextToken.IsKind(SyntaxKind.SealedKeyword) || nextToken.IsKind(SyntaxKind.OpenKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) ||
-                 nextToken.IsKind(SyntaxKind.OverrideKeyword))
+                 nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
+                 nextToken.IsKind(SyntaxKind.OpenBracketToken))
         {
-            var typeDeclaration = new TypeDeclarationParser(this).Parse();
+            var typeKeywordKind = TypeDeclarationParser.PeekTypeKeyword(this);
 
-            memberDeclarations.Add(typeDeclaration);
-            order = MemberOrder.Members;
+            if (typeKeywordKind == SyntaxKind.EnumKeyword)
+            {
+                var enumDeclaration = new EnumDeclarationParser(this).Parse();
+
+                memberDeclarations.Add(enumDeclaration);
+                order = MemberOrder.Members;
+            }
+            else if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword)
+            {
+                var typeDeclaration = new TypeDeclarationParser(this).Parse();
+
+                memberDeclarations.Add(typeDeclaration);
+                order = MemberOrder.Members;
+            }
+            else
+            {
+                var statement = new StatementSyntaxParser(this).ParseStatement();
+
+                if (statement is null)
+                    return;
+
+                var globalStatement = GlobalStatement(SyntaxList.Empty, statement);
+
+                memberDeclarations.Add(globalStatement);
+                order = MemberOrder.Members;
+            }
         }
         else
         {

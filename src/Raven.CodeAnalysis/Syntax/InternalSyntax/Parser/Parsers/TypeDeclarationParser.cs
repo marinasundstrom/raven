@@ -9,6 +9,17 @@ using static SyntaxFactory;
 
 internal class TypeDeclarationParser : SyntaxParser
 {
+    internal static SyntaxKind PeekTypeKeyword(ParseContext context)
+    {
+        using var checkpoint = context.CreateCheckpoint("TypeDeclarationPeek");
+
+        var parser = new TypeDeclarationParser(context);
+        _ = AttributeDeclarationParser.ParseAttributeLists(parser);
+        _ = parser.ParseModifiers();
+
+        return context.PeekToken().Kind;
+    }
+
     public TypeDeclarationParser(ParseContext context) : base(context)
     {
 
@@ -16,6 +27,8 @@ internal class TypeDeclarationParser : SyntaxParser
 
     internal BaseTypeDeclarationSyntax Parse()
     {
+        var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
         var modifiers = ParseModifiers();
 
         var typeKeyword = ReadToken();
@@ -76,10 +89,10 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
         {
-            return InterfaceDeclaration(modifiers, typeKeyword, identifier, typeParameterList, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return InterfaceDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, null, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        return ClassDeclaration(modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
     private TypeParameterListSyntax ParseTypeParameterList()
@@ -234,6 +247,23 @@ internal class TypeDeclarationParser : SyntaxParser
         var modifiers = ParseModifiers();
 
         var keywordOrIdentifier = PeekToken();
+
+        if (keywordOrIdentifier.IsKind(SyntaxKind.OpenBracketToken))
+        {
+            var typeKeywordKind = PeekTypeKeyword(this);
+
+            if (typeKeywordKind is SyntaxKind.ClassKeyword or SyntaxKind.InterfaceKeyword)
+            {
+                typeDeclarationCheckpoint.Dispose();
+                return new TypeDeclarationParser(this).Parse();
+            }
+
+            if (typeKeywordKind == SyntaxKind.EnumKeyword)
+            {
+                typeDeclarationCheckpoint.Dispose();
+                return new EnumDeclarationParser(this).Parse();
+            }
+        }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.ClassKeyword) || keywordOrIdentifier.IsKind(SyntaxKind.InterfaceKeyword))
         {
