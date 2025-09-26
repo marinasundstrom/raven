@@ -410,6 +410,12 @@ _site
 api
 *.log
 
+# Keep hand-written compiler API docs
+!docs/
+!docs/compiler/
+!docs/compiler/api/
+!docs/compiler/api/*.md
+
 # Generated files
 *.g.cs
 *.stamp
