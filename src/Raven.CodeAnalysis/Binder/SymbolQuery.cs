@@ -2,6 +2,10 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Microsoft.CodeAnalysis;
+
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 internal readonly record struct SymbolQuery(
@@ -13,11 +17,12 @@ internal readonly record struct SymbolQuery(
     public IEnumerable<ISymbol> Lookup(Binder binder)
     {
         IEnumerable<ISymbol> symbols;
-        if (ContainingType is not null)
+        var containingType = NormalizeContainingType(ContainingType);
+        if (containingType is not null)
         {
             symbols = IsStatic == true
-                ? ContainingType.GetMembers(Name)
-                : ContainingType.ResolveMembers(Name);
+                ? containingType.GetMembers(Name)
+                : containingType.ResolveMembers(Name);
         }
         else
         {
@@ -38,6 +43,17 @@ internal readonly record struct SymbolQuery(
 
     public IEnumerable<IMethodSymbol> LookupMethods(Binder binder) =>
         Lookup(binder).OfType<IMethodSymbol>();
+
+    private static ITypeSymbol? NormalizeContainingType(ITypeSymbol? type)
+    {
+        while (type is IAliasSymbol alias && alias.UnderlyingSymbol is ITypeSymbol aliasType)
+            type = aliasType;
+
+        if (type is LiteralTypeSymbol literal)
+            return literal.UnderlyingType;
+
+        return type;
+    }
 
     private static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int argumentCount)
     {

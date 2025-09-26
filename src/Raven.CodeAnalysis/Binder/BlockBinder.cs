@@ -1717,9 +1717,11 @@ partial class BlockBinder : Binder
 
         if (receiver.Type is not null)
         {
+            var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
+
             var methodCandidates = ImmutableArray<IMethodSymbol>.Empty;
 
-            var instanceMethods = new SymbolQuery(name, receiver.Type, IsStatic: false)
+            var instanceMethods = new SymbolQuery(name, receiverType, IsStatic: false)
                 .LookupMethods(this)
                 .ToImmutableArray();
 
@@ -1728,7 +1730,7 @@ partial class BlockBinder : Binder
 
             if (IsExtensionReceiver(receiver))
             {
-                var extensionMethods = LookupExtensionMethods(name, receiver.Type)
+                var extensionMethods = LookupExtensionMethods(name, receiverType)
                     .ToImmutableArray();
 
                 if (!extensionMethods.IsDefaultOrEmpty)
@@ -1753,7 +1755,7 @@ partial class BlockBinder : Binder
                 }
             }
 
-            var instanceMember = new SymbolQuery(name, receiver.Type, IsStatic: false)
+            var instanceMember = new SymbolQuery(name, receiverType, IsStatic: false)
                 .Lookup(this)
                 .FirstOrDefault();
 
@@ -2974,9 +2976,11 @@ partial class BlockBinder : Binder
             case MemberBindingExpressionSyntax memberBinding:
                 {
                     var name = memberBinding.Name.Identifier.Text;
-                    var member = receiver.Type is null
+                    var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
+
+                    var member = receiverType is null
                         ? null
-                        : new SymbolQuery(name, receiver.Type, IsStatic: false).Lookup(this).FirstOrDefault();
+                        : new SymbolQuery(name, receiverType, IsStatic: false).Lookup(this).FirstOrDefault();
 
                     if (member is null)
                     {
@@ -3002,9 +3006,11 @@ partial class BlockBinder : Binder
                     var name = memberBinding.Name.Identifier.Text;
                     var boundArguments = invocation.ArgumentList.Arguments.Select(a => BindExpression(a.Expression)).ToArray();
 
-                    var candidates = receiver.Type is null
+                    var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
+
+                    var candidates = receiverType is null
                         ? ImmutableArray<IMethodSymbol>.Empty
-                        : new SymbolQuery(name, receiver.Type, IsStatic: false).LookupMethods(this).ToImmutableArray();
+                        : new SymbolQuery(name, receiverType, IsStatic: false).LookupMethods(this).ToImmutableArray();
 
                     if (candidates.IsDefaultOrEmpty)
                     {
