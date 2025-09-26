@@ -359,7 +359,7 @@ public class Compilation
         BinderFactory = new BinderFactory(this);
         DeclarationTable = new DeclarationTable(SyntaxTrees);
 
-        Assembly = new SourceAssemblySymbol(AssemblyName, []);
+        Assembly = new SourceAssemblySymbol(this, AssemblyName, []);
 
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
 

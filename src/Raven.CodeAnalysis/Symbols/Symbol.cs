@@ -139,6 +139,8 @@ internal abstract class Symbol : ISymbol
 
     public virtual bool IsAlias => false;
 
+    public virtual ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
+
     public virtual bool CanBeReferencedByName { get; } = false;
 
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)

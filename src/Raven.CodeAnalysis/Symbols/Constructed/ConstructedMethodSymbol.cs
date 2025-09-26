@@ -46,6 +46,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ImmutableArray<Location> Locations => _definition.Locations;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _definition.DeclaringSyntaxReferences;
 
+    public ImmutableArray<AttributeData> GetAttributes() => _definition.GetAttributes();
+
     public ITypeSymbol ReturnType => _returnType ??= Substitute(_definition.ReturnType);
 
     public ImmutableArray<IParameterSymbol> Parameters =>
@@ -168,5 +170,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitParameter(this);
         public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
         public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
+
+        public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
     }
 }

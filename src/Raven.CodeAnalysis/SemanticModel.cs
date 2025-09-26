@@ -186,12 +186,10 @@ public partial class SemanticModel
         return binder.GetOrBind(node);
     }
 
-    public AttributeData? GetAttribute(AttributeSyntax attribute, CancellationToken cancellationToken = default)
+    internal AttributeData? BindAttribute(AttributeSyntax attribute)
     {
         if (attribute is null)
             throw new ArgumentNullException(nameof(attribute));
-
-        cancellationToken.ThrowIfCancellationRequested();
 
         if (_attributeCache.TryGetValue(attribute, out var cached))
             return cached;
@@ -204,24 +202,7 @@ public partial class SemanticModel
         if (boundExpression is null && binder is AttributeBinder attributeBinder)
             boundExpression = attributeBinder.BindAttribute(attribute);
 
-        AttributeData? data = null;
-
-        if (boundExpression is BoundObjectCreationExpression creation &&
-            creation.Constructor is IMethodSymbol ctor &&
-            ctor.ContainingType is INamedTypeSymbol attributeType)
-        {
-            var argumentConstants = ImmutableArray.CreateBuilder<TypedConstant>();
-
-            foreach (var argument in creation.Arguments)
-                argumentConstants.Add(CreateTypedConstant(argument));
-
-            data = new AttributeData(
-                attributeType,
-                ctor,
-                argumentConstants.MoveToImmutable(),
-                ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
-                attribute.GetReference());
-        }
+        var data = AttributeDataFactory.Create(boundExpression, attribute);
 
         _attributeCache[attribute] = data;
         return data;
@@ -256,45 +237,6 @@ public partial class SemanticModel
     internal BoundExpression GetBoundNode(ExpressionSyntax expression)
     {
         return (BoundExpression)GetBoundNode((SyntaxNode)expression);
-    }
-
-    private TypedConstant CreateTypedConstant(BoundExpression expression)
-    {
-        switch (expression)
-        {
-            case BoundLiteralExpression literal:
-            {
-                var type = literal.GetConvertedType() ?? literal.Type;
-
-                if (literal.Kind == BoundLiteralExpressionKind.NullLiteral)
-                    return TypedConstant.CreateNull(type);
-
-                return TypedConstant.CreatePrimitive(type, literal.Value);
-            }
-
-            case BoundCastExpression cast:
-                return CreateTypedConstant(cast.Expression).WithType(cast.Type);
-
-            case BoundTypeOfExpression typeOfExpression:
-                return TypedConstant.CreateType(typeOfExpression.SystemType, typeOfExpression.OperandType);
-
-            case BoundCollectionExpression collection when collection.Type is IArrayTypeSymbol arrayType:
-            {
-                var elements = ImmutableArray.CreateBuilder<TypedConstant>();
-                foreach (var element in collection.Elements)
-                    elements.Add(CreateTypedConstant(element));
-
-                return TypedConstant.CreateArray(arrayType, elements.MoveToImmutable());
-            }
-
-            case BoundEmptyCollectionExpression emptyCollection:
-                return TypedConstant.CreateArray(emptyCollection.Type, ImmutableArray<TypedConstant>.Empty);
-
-            case BoundErrorExpression error:
-                return TypedConstant.CreateError(error.Type);
-        }
-
-        return TypedConstant.CreateError(expression.Type);
     }
 
     /// <summary>

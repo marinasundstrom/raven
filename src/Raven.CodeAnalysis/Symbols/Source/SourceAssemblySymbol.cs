@@ -1,3 +1,8 @@
+using System.Collections.Generic;
+using System.Linq;
+
+using Raven.CodeAnalysis;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
@@ -5,11 +10,13 @@ internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
     private readonly List<SourceModuleSymbol> _modules = new List<SourceModuleSymbol>();
     private INamespaceSymbol _globalNamespace;
 
-    public SourceAssemblySymbol(string name, Location[] locations)
+    public SourceAssemblySymbol(Compilation compilation, string name, Location[] locations)
         : base(SymbolKind.Assembly, name, null!, null, null, locations, [])
     {
-
+        Compilation = compilation;
     }
+
+    internal Compilation Compilation { get; }
 
     public string FullName => Name;
 

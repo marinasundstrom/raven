@@ -28,13 +28,15 @@ class Widget {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var attribute = root.DescendantNodes().OfType<AttributeSyntax>().Single();
+        var widgetDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "Widget");
 
         var symbolInfo = model.GetSymbolInfo(attribute);
         var constructor = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
         var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(constructor.ContainingType);
         Assert.Equal("InfoAttribute", containingType.Name);
 
-        var data = Assert.IsType<AttributeData>(model.GetAttribute(attribute));
+        var widgetSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
+        var data = Assert.Single(widgetSymbol.GetAttributes());
         Assert.Same(constructor, data.AttributeConstructor);
         Assert.Equal("InfoAttribute", data.AttributeClass.Name);
         Assert.Equal(2, data.ConstructorArguments.Length);
