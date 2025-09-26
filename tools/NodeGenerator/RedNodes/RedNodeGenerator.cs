@@ -474,22 +474,45 @@ public static class RedNodeGenerator
         var methodName = node.Name;
         var typeName = node.Name + "Syntax";
         var parameters = new List<ParameterSyntax>();
-        var arguments = new List<ArgumentSyntax>();
+        var minimalParameters = new List<ParameterSyntax>();
+        var constructorArguments = new List<ArgumentSyntax>();
+        var invocationArguments = new List<ArgumentSyntax>();
+        var hasNullableSlot = false;
 
         if (node.HasExplicitKind)
         {
-            parameters.Add(
-                Parameter(Identifier("kind"))
-                    .WithType(IdentifierName("SyntaxKind")));
-            arguments.Add(Argument(IdentifierName("kind")));
+            var kindParameter = Parameter(Identifier("kind"))
+                .WithType(IdentifierName("SyntaxKind"));
+            parameters.Add(kindParameter);
+            minimalParameters.Add(Parameter(Identifier("kind")).WithType(IdentifierName("SyntaxKind")));
+
+            var kindArgument = Argument(IdentifierName("kind"));
+            constructorArguments.Add(kindArgument);
+            invocationArguments.Add(kindArgument);
         }
 
         foreach (var prop in node.Slots)
         {
+            var parameterName = ToCamelCase(prop.Name);
+            var mappedType = MapRedType(prop.FullTypeName, prop.IsNullable);
             parameters.Add(
-                Parameter(Identifier(ToCamelCase(prop.Name)))
-                    .WithType(IdentifierName(MapRedType(prop.FullTypeName, prop.IsNullable))));
-            arguments.Add(Argument(IdentifierName(ToCamelCase(prop.Name))));
+                Parameter(Identifier(parameterName))
+                    .WithType(IdentifierName(mappedType)));
+
+            constructorArguments.Add(Argument(IdentifierName(parameterName)));
+
+            if (prop.IsNullable)
+            {
+                hasNullableSlot = true;
+                invocationArguments.Add(Argument(GetDefaultValueExpression(mappedType)));
+            }
+            else
+            {
+                minimalParameters.Add(
+                    Parameter(Identifier(parameterName))
+                        .WithType(IdentifierName(mappedType)));
+                invocationArguments.Add(Argument(IdentifierName(parameterName)));
+            }
         }
 
         var method = MethodDeclaration(IdentifierName(typeName), methodName)
@@ -497,12 +520,27 @@ public static class RedNodeGenerator
             .WithParameterList(ParameterList(SeparatedList(parameters)))
             .WithExpressionBody(ArrowExpressionClause(
                 ObjectCreationExpression(IdentifierName(typeName))
-                    .WithArgumentList(ArgumentList(SeparatedList(arguments)))))
+                    .WithArgumentList(ArgumentList(SeparatedList(constructorArguments)))))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+        var members = new List<MemberDeclarationSyntax> { method };
+
+        if (hasNullableSlot && minimalParameters.Count < parameters.Count)
+        {
+            var minimalMethod = MethodDeclaration(IdentifierName(typeName), methodName)
+                .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
+                .WithParameterList(ParameterList(SeparatedList(minimalParameters)))
+                .WithExpressionBody(ArrowExpressionClause(
+                    InvocationExpression(IdentifierName(methodName))
+                        .WithArgumentList(ArgumentList(SeparatedList(invocationArguments)))))
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+            members.Insert(0, minimalMethod);
+        }
 
         var factoryClass = ClassDeclaration("SyntaxFactory")
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.PartialKeyword))
-            .AddMembers(method);
+            .AddMembers(members.ToArray());
 
         return CompilationUnit()
             .AddUsings(
@@ -510,6 +548,13 @@ public static class RedNodeGenerator
                 UsingDirective(ParseName("Raven.CodeAnalysis.Syntax")))
             .AddMembers(NamespaceDeclaration(ParseName("Raven.CodeAnalysis.Syntax")).AddMembers(factoryClass))
             .NormalizeWhitespace();
+    }
+
+    private static ExpressionSyntax GetDefaultValueExpression(string mappedType)
+    {
+        return mappedType.EndsWith("?")
+            ? LiteralExpression(SyntaxKind.NullLiteralExpression)
+            : DefaultExpression(ParseTypeName(mappedType));
     }
 
     private static string MapRedType(string rawType, bool nullable) => rawType switch
