@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -540,7 +542,24 @@ public static class CompletionProvider
         }
 
         // Language keywords
-        var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "new", "true", "false", "null" };
+        var keywords = new List<string>
+        {
+            "if",
+            "else",
+            "while",
+            "for",
+            "return",
+            "let",
+            "var",
+            "new",
+            "true",
+            "false",
+            "null"
+        };
+
+        if (ShouldOfferSelfKeyword(binder))
+            keywords.Add("self");
+
         foreach (var keyword in keywords.Where(k => string.IsNullOrEmpty(tokenText) || k.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)))
         {
             if (seen.Add(keyword))
@@ -620,5 +639,16 @@ public static class CompletionProvider
         }
 
         return completions;
+    }
+
+    private static bool ShouldOfferSelfKeyword(Binder? binder)
+    {
+        for (var current = binder; current is not null; current = current.ParentBinder)
+        {
+            if (current.ContainingSymbol is IMethodSymbol method)
+                return !method.IsStatic || method.IsNamedConstructor;
+        }
+
+        return false;
     }
 }
