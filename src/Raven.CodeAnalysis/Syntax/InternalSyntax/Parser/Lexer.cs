@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
@@ -119,17 +120,17 @@ internal class Lexer : ILexer
         {
             if (_stringBuilder.Length > 0) _stringBuilder.Clear();
 
-            if (char.IsLetter(ch) || ch == '_' || ch == '$' ||
+            if (SyntaxFacts.IsIdentifierStartCharacter(ch) ||
                 char.IsDigit(ch) || (ch == '.' && PeekChar(out ch2) && char.IsDigit(ch2)))
             {
 
                 _stringBuilder.Append(ch);
 
-                if (char.IsLetter(ch) || ch == '_' || ch == '$')
+                if (SyntaxFacts.IsIdentifierStartCharacter(ch))
                 {
                     SyntaxKind syntaxKind = SyntaxKind.IdentifierToken;
 
-                    while (PeekChar(out ch) && (char.IsLetter(ch) || char.IsDigit(ch) || ch == '_' || ch == '$'))
+                    while (PeekChar(out ch) && SyntaxFacts.IsIdentifierPartCharacter(ch))
                     {
                         ReadChar();
                         _stringBuilder.Append(ch);
