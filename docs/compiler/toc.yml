@@ -26,6 +26,8 @@
       href: design/parser.md
     - name: Semantic analysis
       href: design/semantic-analysis.md
+    - name: Lowering
+      href: design/lowering.md
     - name: Symbols
       href: design/symbols.md
     - name: Spans
