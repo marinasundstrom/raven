@@ -1,6 +1,6 @@
 # Raven type system
 
-Raven is a statically typed language whose types correspond directly to CLR types. The compiler uses .NET type symbols so that every Raven type has a concrete runtime representation.
+Raven is a statically typed language whose types correspond directly to CLR types. The compiler uses .NET type symbols so that every Raven type has a concrete runtime representation. Conceptually, every CLR type (including structs and other value types) behaves as an object in Raven: value types keep their value semantics, but they participate uniformly in member lookup, generics, and unions through boxing when necessary.
 
 ## Primitive types
 
