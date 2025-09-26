@@ -78,3 +78,23 @@ expression branch appears, its value is ignored.
 This distinction between expression and imperative contexts allows the semantic
 analysis phase to reason precisely about side effects and control flow while
 preserving Raven's expression-first design.
+
+### Control flow analysis for jump statements
+
+`SemanticModel.AnalyzeControlFlow` builds a `ControlFlowRegion` and walks the
+selected statements with `ControlFlowWalker`. The walker currently records
+branch entry/exit information only for goto statements: `VisitGotoStatement`
+queries the bound label via `GetLabelTarget` and classifies whether the jump
+leaves or enters the region, while `VisitLabeledStatement` checks whether any
+external goto re-enters the region.【F:src/Raven.CodeAnalysis/SemanticModel.ControlFlowAnalysis.cs†L12-L239】
+
+Break and continue statements are still treated as structured flow. The binder
+enforces that they can only appear inside loops or statement contexts, but
+`ControlFlowWalker` does not add them to the analysis' `EntryPoints` or
+`ExitPoints`. As a result, control-flow analysis today reports jump edges only
+for explicit gotos; loop exits continue to be tracked implicitly by the
+structured statement model.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L802-L836】【F:src/Raven.CodeAnalysis/SemanticModel.ControlFlowAnalysis.cs†L101-L186】
+
+Unit tests in `GotoStatementTests` exercise this behavior by verifying that a
+goto entering a labeled region produces a corresponding entry point in the
+analysis result.【F:test/Raven.CodeAnalysis.Tests/Semantics/GotoStatementTests.cs†L92-L110】
