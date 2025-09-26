@@ -278,6 +278,29 @@ public class ParserNewlineTests
         Assert.False(declarator.Identifier.IsMissing);
     }
 
+    [Theory]
+    [InlineData("世界")]
+    [InlineData("данные")]
+    [InlineData("δοκιμή")]
+    [InlineData("مجموع")]
+    public void VariableDeclaration_AllowsUnicodeStringLiteral(string literal)
+    {
+        var source = $"let text = \"{literal}\"";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (LocalDeclarationStatementSyntax)parser.ParseStatement().CreateRed();
+        var declarator = statement.Declaration.Declarators.Single();
+
+        var initializer = Assert.NotNull(declarator.Initializer);
+        var literalExpression = Assert.IsType<LiteralExpressionSyntax>(initializer.Value);
+
+        Assert.Equal(SyntaxKind.StringLiteralExpression, literalExpression.Kind);
+        Assert.Equal(literal, literalExpression.Token.ValueText);
+        Assert.Equal(literal, Assert.IsType<string>(literalExpression.Token.Value));
+    }
+
     [Fact]
     public void ParameterList_MissingIdentifier_ProducesMissingToken()
     {
