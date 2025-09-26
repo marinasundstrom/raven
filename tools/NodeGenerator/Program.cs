@@ -226,6 +226,7 @@ List<SyntaxNodeModel> LoadSyntaxNodesFromXml(string path)
                 Name = slotEl.Attribute("Name")?.Value ?? throw new Exception("Slot missing Name"),
                 Type = slotEl.Attribute("Type")?.Value ?? throw new Exception("Slot missing Type"),
                 ElementType = slotEl.Attribute("ElementType")?.Value,
+                DefaultToken = slotEl.Attribute("DefaultToken")?.Value,
                 IsNullable = ParseBool(slotEl.Attribute("IsNullable")),
                 IsInherited = ParseBool(slotEl.Attribute("IsInherited")),
                 IsAbstract = ParseBool(slotEl.Attribute("IsAbstract"))

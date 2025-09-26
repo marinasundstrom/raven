@@ -477,7 +477,7 @@ public static class RedNodeGenerator
         var minimalParameters = new List<ParameterSyntax>();
         var constructorArguments = new List<ArgumentSyntax>();
         var invocationArguments = new List<ArgumentSyntax>();
-        var hasNullableSlot = false;
+        var requiresConvenienceOverload = false;
 
         if (node.HasExplicitKind)
         {
@@ -501,9 +501,14 @@ public static class RedNodeGenerator
 
             constructorArguments.Add(Argument(IdentifierName(parameterName)));
 
-            if (prop.IsNullable)
+            if (prop.Type == "Token" && prop.DefaultToken is { } defaultToken)
             {
-                hasNullableSlot = true;
+                requiresConvenienceOverload = true;
+                invocationArguments.Add(Argument(IdentifierName(defaultToken)));
+            }
+            else if (prop.IsNullable)
+            {
+                requiresConvenienceOverload = true;
                 invocationArguments.Add(Argument(GetDefaultValueExpression(mappedType)));
             }
             else
@@ -525,7 +530,7 @@ public static class RedNodeGenerator
 
         var members = new List<MemberDeclarationSyntax> { method };
 
-        if (hasNullableSlot && minimalParameters.Count < parameters.Count)
+        if (requiresConvenienceOverload && minimalParameters.Count < parameters.Count)
         {
             var minimalMethod = MethodDeclaration(IdentifierName(typeName), methodName)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))

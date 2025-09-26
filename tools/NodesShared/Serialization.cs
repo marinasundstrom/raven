@@ -20,6 +20,7 @@ public static class Serialization
                         new XAttribute("Name", s.Name),
                         new XAttribute("Type", GetType(s.Type)),
                         OptionalAttributeStr("ElementType", GetElementType(s.Type)),
+                        OptionalAttributeStr("DefaultToken", s.DefaultToken),
                         OptionalAttribute<bool>("IsNullable", s.IsNullable, false),
                         OptionalAttribute<bool>("IsInherited", s.IsInherited, false),
                         OptionalAttribute<bool>("IsAbstract", s.IsAbstract, false));
