@@ -253,6 +253,7 @@
     <Slot Name="Block" Type="BlockStatement" />
   </Node>
   <Node Name="CompilationUnit" Inherits="Node">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="Imports" Type="List" ElementType="ImportDirective" />
     <Slot Name="Aliases" Type="List" ElementType="AliasDirective" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" />
@@ -541,12 +542,17 @@
   </Node>
   <Node Name="AttributeList" Inherits="Node">
     <Slot Name="OpenBracketToken" Type="Token" />
+    <Slot Name="Target" Type="AttributeTargetSpecifier" IsNullable="true" />
     <Slot Name="Attributes" Type="SeparatedList" ElementType="Attribute" />
     <Slot Name="CloseBracketToken" Type="Token" />
   </Node>
   <Node Name="Attribute" Inherits="Node">
     <Slot Name="Name" Type="Name" />
     <Slot Name="ArgumentList" Type="ArgumentList" IsNullable="true" />
+  </Node>
+  <Node Name="AttributeTargetSpecifier" Inherits="Node">
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="ColonToken" Type="Token" />
   </Node>
   <Node Name="TypeArgument" Inherits="Node">
     <Slot Name="Type" Type="Type" />

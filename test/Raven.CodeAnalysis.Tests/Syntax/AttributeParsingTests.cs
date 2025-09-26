@@ -188,4 +188,25 @@ public class AttributeParsingTests : DiagnosticTestBase
         Assert.Equal("MyNamespace", name.Identifier.Text);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void CompilationUnit_WithAssemblyAttribute_ParsesTarget()
+    {
+        const string code = """
+            [assembly: MyAttr]
+            import System
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+
+        var attributeList = Assert.Single(root.AttributeLists);
+        Assert.NotNull(attributeList.Target);
+        Assert.Equal("assembly", attributeList.Target!.Identifier.Text);
+
+        var attribute = Assert.Single(attributeList.Attributes);
+        var name = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("MyAttr", name.Identifier.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

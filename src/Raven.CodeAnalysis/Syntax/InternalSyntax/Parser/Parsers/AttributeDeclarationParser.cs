@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 using static SyntaxFactory;
+using SyntaxFacts = Raven.CodeAnalysis.Syntax.SyntaxFacts;
 
 internal static class AttributeDeclarationParser
 {
@@ -23,9 +24,17 @@ internal static class AttributeDeclarationParser
         return List(attributeLists);
     }
 
-    private static AttributeListSyntax ParseAttributeList(SyntaxParser parser)
+    public static AttributeListSyntax ParseAttributeList(SyntaxParser parser)
     {
         var openBracket = parser.ReadToken();
+
+        AttributeTargetSpecifierSyntax? target = null;
+        if (SyntaxFacts.CanBeIdentifier(parser.PeekToken().Kind) && parser.PeekToken(1).IsKind(SyntaxKind.ColonToken))
+        {
+            var identifier = parser.ReadToken();
+            parser.ConsumeTokenOrMissing(SyntaxKind.ColonToken, out var colonToken);
+            target = AttributeTargetSpecifier(identifier, colonToken);
+        }
 
         var attributes = new List<GreenNode>();
         while (true)
@@ -42,7 +51,7 @@ internal static class AttributeDeclarationParser
 
         parser.ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracket);
 
-        return AttributeList(openBracket, List(attributes), closeBracket);
+        return AttributeList(openBracket, target, List(attributes), closeBracket);
     }
 
     private static AttributeSyntax ParseAttribute(SyntaxParser parser)

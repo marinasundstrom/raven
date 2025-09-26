@@ -1,8 +1,10 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
+using GreenNode = Raven.CodeAnalysis.Syntax.GreenNode;
 
 internal class CompilationUnitSyntaxParser : SyntaxParser
 {
@@ -20,13 +22,19 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
     public CompilationUnitSyntax Parse()
     {
+        SetTreatNewlinesAsTokens(false);
+
+        List<GreenNode> compilationAttributeLists = [];
+        while (TryParseCompilationAttributeList(out var attributeList))
+        {
+            compilationAttributeLists.Add(attributeList);
+        }
+
         List<ImportDirectiveSyntax> importDirectives = [];
         List<AliasDirectiveSyntax> aliasDirectives = [];
         List<MemberDeclarationSyntax> memberDeclarations = [];
 
         SyntaxToken nextToken;
-
-        SetTreatNewlinesAsTokens(false);
 
         var order = MemberOrder.Imports;
 
@@ -37,7 +45,37 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             SetTreatNewlinesAsTokens(false);
         }
 
-        return CompilationUnit(List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken, Diagnostics);
+        var attributeLists = List(compilationAttributeLists);
+
+        return CompilationUnit(attributeLists, List(importDirectives), List(aliasDirectives), List(memberDeclarations), nextToken, Diagnostics);
+    }
+
+    private bool TryParseCompilationAttributeList(out AttributeListSyntax attributeList)
+    {
+        attributeList = default!;
+
+        if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+            return false;
+
+        var checkpoint = CreateCheckpoint();
+        var parsedAttributeList = AttributeDeclarationParser.ParseAttributeList(this);
+
+        if (IsAssemblyAttributeList(parsedAttributeList))
+        {
+            attributeList = parsedAttributeList;
+            return true;
+        }
+
+        checkpoint.Dispose();
+        return false;
+    }
+
+    private static bool IsAssemblyAttributeList(AttributeListSyntax attributeList)
+    {
+        if (attributeList.Target is not AttributeTargetSpecifierSyntax target)
+            return false;
+
+        return string.Equals(target.Identifier.Text, "assembly", StringComparison.Ordinal);
     }
 
     private void ParseNamespaceMemberDeclarations(
