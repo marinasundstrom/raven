@@ -284,6 +284,8 @@ Labels introduce symbolic targets that `goto` statements can reference. A label 
 
 Label names are scoped to the containing function body. Declaring the same label more than once in the same body is an error (`RAV2500`). Labels participate in semantic lookup just like other declarations, so tools can navigate to them.
 
+Like all statements, a label may only appear where the grammar permits statements. Attempting to nest a labeled statement inside an expression body (for example, inside the branches of an `if` expression) reports diagnostic `RAV1905`.
+
 ### `goto` statements
 
 The `goto` statement jumps to a labeled statement within the same function-like body:
@@ -297,6 +299,8 @@ goto start
 Evaluation of a `goto` statement ends the current statement immediately and transfers control to the target label. Targets may appear before or after the `goto`; backward jumps form loops while forward jumps skip ahead in the block. Jumping to a nonexistent label produces diagnostic `RAV2501`.
 
 Gotos cannot escape the body they are declared in. A `goto` inside a function, lambda, or accessor may only refer to labels declared in that same body. The compiler ensures any scopes exited by the jump are correctly unwound before branching.
+
+`goto` statements follow the same placement rules as other control-flow statements: they are only legal in statement contexts. Embedding a `goto` inside an expression context (such as the body of an `if` expression) produces diagnostic `RAV1904`.
 
 ### Try statements
 
