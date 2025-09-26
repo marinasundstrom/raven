@@ -310,6 +310,13 @@ Console.WriteLine(symbol.Name);
 
 ---
 
+## Operations
+
+The operations API provides a stable, syntax-agnostic view of semantics that mirrors Roslyn's `IOperation` abstraction. See
+[Operations API](operations.md) for an overview of the surface and how to retrieve operations from a `SemanticModel`.
+
+---
+
 ## Code Generation
 
 Once you have a valid compilation, you can emit code using the `Emit` method:
