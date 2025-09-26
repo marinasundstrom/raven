@@ -119,16 +119,7 @@ public static class SemanticFacts
         return false;
     }
 
-    private static IEnumerable<INamedTypeSymbol> GetAllInterfaces(ITypeSymbol type)
-    {
-        if (type is INamedTypeSymbol named)
-            return named.AllInterfaces;
-
-        if (type is ArrayTypeSymbol array)
-            return array.AllInterfaces;
-
-        return Array.Empty<INamedTypeSymbol>();
-    }
+    private static IEnumerable<INamedTypeSymbol> GetAllInterfaces(ITypeSymbol type) => type.AllInterfaces;
 
     private static HashSet<ISymbol> CreateVisitedSet(SymbolEqualityComparer comparer)
         => new(SymbolEqualityComparerAdapter.Get(comparer));

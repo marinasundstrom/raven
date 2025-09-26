@@ -42,6 +42,10 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, ITypeSymbol
 
     public bool IsReferenceType => UnderlyingType.IsReferenceType;
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => UnderlyingType.Interfaces;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => UnderlyingType.AllInterfaces;
+
     public ImmutableArray<ISymbol> GetMembers() => UnderlyingType.GetMembers();
 
     public ImmutableArray<ISymbol> GetMembers(string name) => UnderlyingType.GetMembers(name);

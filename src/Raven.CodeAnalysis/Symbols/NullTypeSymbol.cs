@@ -27,6 +27,10 @@ internal sealed class NullTypeSymbol : SourceSymbol, ITypeSymbol
 
     public ITypeSymbol? OriginalDefinition => null;
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => BaseType?.Interfaces ?? ImmutableArray<INamedTypeSymbol>.Empty;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => BaseType?.AllInterfaces ?? ImmutableArray<INamedTypeSymbol>.Empty;
+
     public ImmutableArray<ISymbol> GetMembers() => [];
 
     public ImmutableArray<ISymbol> GetMembers(string name) => [];

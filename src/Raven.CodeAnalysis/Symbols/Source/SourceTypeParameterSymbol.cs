@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis.Syntax;
@@ -63,6 +64,10 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
         return false;
     }
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => GetConstraintInterfaces(includeInherited: false);
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => GetConstraintInterfaces(includeInherited: true);
+
     public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         _constraintTypes.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _constraintTypes;
 
@@ -81,5 +86,40 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
     {
         return visitor.DefaultVisit(this);
+    }
+
+    private ImmutableArray<INamedTypeSymbol> GetConstraintInterfaces(bool includeInherited)
+    {
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var constraint in ConstraintTypes)
+        {
+            if (constraint is not INamedTypeSymbol named || named.TypeKind != TypeKind.Interface)
+                continue;
+
+            AddInterface(named, includeInherited, builder, seen);
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static void AddInterface(
+        INamedTypeSymbol interfaceSymbol,
+        bool includeInherited,
+        ImmutableArray<INamedTypeSymbol>.Builder builder,
+        HashSet<INamedTypeSymbol> seen)
+    {
+        if (!seen.Add(interfaceSymbol))
+            return;
+
+        builder.Add(interfaceSymbol);
+
+        if (!includeInherited)
+            return;
+
+        foreach (var inherited in interfaceSymbol.AllInterfaces)
+            if (seen.Add(inherited))
+                builder.Add(inherited);
     }
 }

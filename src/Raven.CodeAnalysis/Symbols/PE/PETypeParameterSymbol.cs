@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -122,6 +123,10 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
     public bool IsNamespace => false;
     public bool IsType => true;
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => GetConstraintInterfaces(includeInherited: false);
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => GetConstraintInterfaces(includeInherited: true);
+
     public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
     public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
     public ITypeSymbol? LookupType(string name) => null;
@@ -132,4 +137,39 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
     }
 
     internal Type GetTypeInfo() => _type;
+
+    private ImmutableArray<INamedTypeSymbol> GetConstraintInterfaces(bool includeInherited)
+    {
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var constraint in ConstraintTypes)
+        {
+            if (constraint is not INamedTypeSymbol named || named.TypeKind != TypeKind.Interface)
+                continue;
+
+            AddInterface(named, includeInherited, builder, seen);
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static void AddInterface(
+        INamedTypeSymbol interfaceSymbol,
+        bool includeInherited,
+        ImmutableArray<INamedTypeSymbol>.Builder builder,
+        HashSet<INamedTypeSymbol> seen)
+    {
+        if (!seen.Add(interfaceSymbol))
+            return;
+
+        builder.Add(interfaceSymbol);
+
+        if (!includeInherited)
+            return;
+
+        foreach (var inherited in interfaceSymbol.AllInterfaces)
+            if (seen.Add(inherited))
+                builder.Add(inherited);
+    }
 }
