@@ -112,4 +112,21 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
 
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void ClassDeclaration_WithAttributeList_ParsesAttributes()
+    {
+        var source = "[Obsolete] class Widget {}";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
+
+        var attributeList = Assert.Single(declaration.AttributeLists);
+        var attribute = Assert.Single(attributeList.Attributes);
+
+        var name = Assert.IsType<IdentifierNameSyntax>(attribute.Name);
+        Assert.Equal("Obsolete", name.Identifier.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }
