@@ -14,5 +14,15 @@ The compiler is based on the Roslyn compiler architecture, which provides compil
 
 ## String interpolation example
 
-The `string-interpolation.rav` sample demonstrates Raven's `${...}` interpolation syntax. Unlike C#, Raven string literals do not require a `$` prefix to enable interpolation—the `${...}` form can appear in any ordinary quoted string. Running that sample with the compiler produces the greeting `שלום דניאל! ברוך הבא לתל אביב`, showing that the embedded expressions are substituted correctly and preserve the right-to-left text flow in the output.
+In Raven, `${...}` interpolation works inside ordinary quoted strings—there is no `$` prefix like C#'s interpolated strings. For example:
+
+```raven
+let name = "Avery"
+let product = "Raven"
+let message = "Hello ${name}, welcome to ${product}!"
+```
+
+The compiler substitutes the embedded expressions, so `message` evaluates to `Hello Avery, welcome to Raven!`.
+
+The `string-interpolation.rav` sample provides a second example with right-to-left text. Running it produces the greeting `שלום דניאל! ברוך הבא לתל אביב`, showing that interpolation works correctly even when the output mixes RTL and Latin characters.
 
