@@ -6,7 +6,10 @@ internal partial class BoundTypeOfExpression : BoundExpression
         : base(systemType)
     {
         OperandType = operandType;
+        SystemType = systemType;
     }
 
     public ITypeSymbol OperandType { get; }
+
+    public ITypeSymbol SystemType { get; }
 }
