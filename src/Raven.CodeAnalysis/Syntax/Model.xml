@@ -341,6 +341,12 @@
     <Slot Name="CloseParenToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="TypeOfExpression" Inherits="Expression">
+    <Slot Name="TypeOfKeyword" Type="Token" />
+    <Slot Name="OpenParenToken" Type="Token" />
+    <Slot Name="Type" Type="Type" />
+    <Slot Name="CloseParenToken" Type="Token" />
+  </Node>
   <Node Name="TypeDeclaration" Inherits="BaseTypeDeclaration" IsAbstract="true">
     <Slot Name="Keyword" Type="Token" IsAbstract="true" />
     <Slot Name="Members" Type="List" ElementType="MemberDeclaration" IsAbstract="true" />

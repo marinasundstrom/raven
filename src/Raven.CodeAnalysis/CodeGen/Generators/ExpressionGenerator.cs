@@ -144,6 +144,10 @@ internal class ExpressionGenerator : Generator
                 EmitSelfExpression(selfExpression);
                 break;
 
+            case BoundTypeOfExpression typeOfExpression:
+                EmitTypeOfExpression(typeOfExpression);
+                break;
+
             case BoundTypeExpression:
                 break;
 
@@ -170,6 +174,14 @@ internal class ExpressionGenerator : Generator
             return;
 
         ILGenerator.Emit(OpCodes.Ldarg_0);
+    }
+
+    private void EmitTypeOfExpression(BoundTypeOfExpression typeOfExpression)
+    {
+        var operandClrType = ResolveClrType(typeOfExpression.OperandType);
+
+        ILGenerator.Emit(OpCodes.Ldtoken, operandClrType);
+        ILGenerator.Emit(OpCodes.Call, GetTypeFromHandleMethod);
     }
 
     private void EmitDelegateCreationExpression(BoundDelegateCreationExpression delegateCreation)

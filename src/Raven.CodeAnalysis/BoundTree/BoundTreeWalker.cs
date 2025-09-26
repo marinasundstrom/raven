@@ -93,6 +93,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
                 foreach (var e in tuple.Elements)
                     VisitExpression(e);
                 break;
+            case BoundTypeOfExpression typeOfExpression:
+                VisitTypeOfExpression(typeOfExpression);
+                break;
             // Add others as needed
             default:
                 break;
@@ -197,6 +200,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         VisitExpression(node.Expression);
     }
+
+    public virtual void VisitTypeOfExpression(BoundTypeOfExpression node) { }
 
     public virtual void VisitDelegateCreationExpression(BoundDelegateCreationExpression node)
     {

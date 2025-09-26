@@ -657,6 +657,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseNewExpression();
                 break;
 
+            case SyntaxKind.TypeOfKeyword:
+                expr = ParseTypeOfExpression();
+                break;
+
             case SyntaxKind.OpenBracketToken:
                 expr = ParseCollectionExpression();
                 break;
@@ -792,6 +796,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var typeName = new NameSyntaxParser(this).ParseTypeName();
 
         return ObjectCreationExpression(newKeyword, typeName, ParseArgumentListSyntax());
+    }
+
+    private ExpressionSyntax ParseTypeOfExpression()
+    {
+        var typeOfKeyword = ReadToken();
+
+        ConsumeTokenOrMissing(SyntaxKind.OpenParenToken, out var openParenToken);
+
+        var type = new NameSyntaxParser(this).ParseTypeName();
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return TypeOfExpression(typeOfKeyword, openParenToken, type, closeParenToken);
     }
 
     private ExpressionSyntax ParsePredefinedTypeSyntax()

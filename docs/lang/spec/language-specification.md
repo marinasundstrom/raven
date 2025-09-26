@@ -359,6 +359,22 @@ let s = obj as string
 `(T)expr` performs a runtime check and throws an `InvalidCastException` when the value cannot convert to `T`. Use this form for downcasts, numeric narrowing, or unboxing scenarios.
 `expr as T` attempts the conversion and returns `null` (or a nullable value type) instead of throwing on failure.
 
+### `typeof` expressions
+
+The `typeof` operator produces the runtime [`System.Type`](https://learn.microsoft.com/dotnet/api/system.type)
+for a compile-time type. The operand must be a type syntax—predefined, user-defined,
+tuple, nullable, or union—and is not evaluated. The expression always has type
+`System.Type`. Using a namespace or otherwise invalid type yields a binding
+diagnostic.
+
+```raven
+let textType = typeof(string)
+let listType = typeof(System.Collections.Generic.List<int>)
+```
+
+`typeof` is useful when reflecting over metadata or when passing type objects to
+APIs such as `Activator.CreateInstance`.
+
 ### String literals
 
 ```raven
@@ -1646,7 +1662,7 @@ Lowest → highest (all left-associative unless noted):
 8. Additive: `+  -`
 9. Multiplicative: `*  /  %`
 10. Cast: `(T)expr`
-11. Unary (prefix): `+  -  !`
+11. Unary (prefix): `+  -  !  typeof`
 12. Postfix trailers: call `()`, member `.`, index `[]`
 
 > **Disambiguation notes**
