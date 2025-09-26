@@ -18,6 +18,12 @@ public static partial class SyntaxFacts
             return true;
         }
 
+        if (ch <= 0x7F)
+        {
+            return (ch >= 'A' && ch <= 'Z') ||
+                   (ch >= 'a' && ch <= 'z');
+        }
+
         var category = CharUnicodeInfo.GetUnicodeCategory(ch);
 
         return category == UnicodeCategory.UppercaseLetter ||
@@ -33,6 +39,11 @@ public static partial class SyntaxFacts
         if (IsIdentifierStartCharacter(ch))
         {
             return true;
+        }
+
+        if (ch <= 0x7F)
+        {
+            return ch >= '0' && ch <= '9';
         }
 
         var category = CharUnicodeInfo.GetUnicodeCategory(ch);
