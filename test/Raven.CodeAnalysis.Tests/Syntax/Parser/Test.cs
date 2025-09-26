@@ -293,8 +293,9 @@ public class ParserNewlineTests
         var statement = (LocalDeclarationStatementSyntax)parser.ParseStatement().CreateRed();
         var declarator = statement.Declaration.Declarators.Single();
 
-        var initializer = Assert.NotNull(declarator.Initializer);
-        var literalExpression = Assert.IsType<LiteralExpressionSyntax>(initializer.Value);
+        var initializer = declarator.Initializer;
+        Assert.NotNull(initializer);
+        var literalExpression = Assert.IsType<LiteralExpressionSyntax>(initializer!.Value);
 
         Assert.Equal(SyntaxKind.StringLiteralExpression, literalExpression.Kind);
         Assert.Equal(literal, literalExpression.Token.ValueText);

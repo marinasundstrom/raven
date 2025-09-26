@@ -101,6 +101,23 @@ public class SourceText
             return new StringReader(string.Empty);
         }
 
+        var current = _text[position];
+
+        // Fast path for the common case where the current character is ASCII. In that
+        // case we can slice directly without any additional checks.
+        if (current <= 0x7F)
+        {
+            return new StringReader(_text[position..]);
+        }
+
+        // For non-ASCII content make sure we don't start reading in the middle of a
+        // surrogate pair. This still keeps slicing fast for Latin text while keeping
+        // Unicode content intact.
+        if (char.IsLowSurrogate(current) && position > 0 && char.IsHighSurrogate(_text[position - 1]))
+        {
+            position--;
+        }
+
         return new StringReader(_text[position..]);
     }
 
