@@ -76,4 +76,21 @@ public class SemanticFactsTests
 
         Assert.True(SemanticFacts.ImplementsInterface(typeParameter, marker));
     }
+
+    [Fact]
+    public void ImplementsInterface_ReturnsTrueForArrayInterfaces()
+    {
+        var tree = SyntaxTree.ParseText("class C {}");
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var arrayType = compilation.CreateArrayTypeSymbol(intType);
+        var enumerable = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+
+        Assert.True(SemanticFacts.ImplementsInterface(arrayType, enumerable));
+    }
 }

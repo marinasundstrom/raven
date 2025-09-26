@@ -17,7 +17,7 @@ public static class SemanticFacts
         comparer ??= SymbolEqualityComparer.Default;
 
         if (type is ITypeParameterSymbol typeParameter)
-            return IsDerivedFromTypeParameter(typeParameter, potentialBase, comparer, new HashSet<ITypeSymbol>());
+            return IsDerivedFromTypeParameter(typeParameter, potentialBase, comparer, CreateVisitedSet(comparer));
 
         for (var current = type.BaseType; current is not null; current = current.BaseType)
         {
@@ -41,20 +41,23 @@ public static class SemanticFacts
 
         comparer ??= SymbolEqualityComparer.Default;
 
-        return type switch
+        if (type is ITypeParameterSymbol typeParameter)
+            return ImplementsInterfaceTypeParameter(typeParameter, interfaceType, comparer, CreateVisitedSet(comparer));
+
+        foreach (var implementedInterface in type.AllInterfaces)
         {
-            INamedTypeSymbol namedType => namedType.AllInterfaces.Contains(interfaceType, comparer),
-            IArrayTypeSymbol arrayType => ImplementsInterface(arrayType.ElementType, interfaceType, comparer),
-            ITypeParameterSymbol typeParameter => ImplementsInterfaceTypeParameter(typeParameter, interfaceType, comparer, new HashSet<ITypeSymbol>()),
-            _ => false,
-        };
+            if (comparer.Equals(implementedInterface, interfaceType))
+                return true;
+        }
+
+        return false;
     }
 
     private static bool IsDerivedFromTypeParameter(
         ITypeParameterSymbol typeParameter,
         ITypeSymbol potentialBase,
         SymbolEqualityComparer comparer,
-        HashSet<ITypeSymbol> visited)
+        HashSet<ISymbol> visited)
     {
         if (!visited.Add(typeParameter))
             return false;
@@ -81,7 +84,7 @@ public static class SemanticFacts
         ITypeParameterSymbol typeParameter,
         INamedTypeSymbol interfaceType,
         SymbolEqualityComparer comparer,
-        HashSet<ITypeSymbol> visited)
+        HashSet<ISymbol> visited)
     {
         if (!visited.Add(typeParameter))
             return false;
@@ -108,5 +111,25 @@ public static class SemanticFacts
         }
 
         return false;
+    }
+
+    private static HashSet<ISymbol> CreateVisitedSet(SymbolEqualityComparer comparer)
+        => new(SymbolEqualityComparerAdapter.Get(comparer));
+
+    private sealed class SymbolEqualityComparerAdapter : IEqualityComparer<ISymbol>
+    {
+        private readonly SymbolEqualityComparer _comparer;
+
+        private SymbolEqualityComparerAdapter(SymbolEqualityComparer comparer)
+            => _comparer = comparer;
+
+        public static IEqualityComparer<ISymbol> Get(SymbolEqualityComparer comparer)
+            => comparer as IEqualityComparer<ISymbol> ?? new SymbolEqualityComparerAdapter(comparer);
+
+        public bool Equals(ISymbol? x, ISymbol? y)
+            => _comparer.Equals(x, y);
+
+        public int GetHashCode(ISymbol obj)
+            => _comparer.GetHashCode(obj);
     }
 }
