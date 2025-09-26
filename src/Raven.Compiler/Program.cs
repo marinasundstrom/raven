@@ -255,7 +255,7 @@ if (allowConsoleOutput)
             IncludeSpans = true,
             IncludeLocations = includeLocations,
             Colorize = true,
-            ExpandListsAsProperties = syntaxTreeFormat == SyntaxTreeFormat.Group
+            ExpandListsAsProperties = syntaxTreeFormat == SyntaxTreeFormat.Flat
         });
     }
 
