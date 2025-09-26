@@ -136,6 +136,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         }
     }
 
+    public ImmutableArray<AttributeData> GetReturnTypeAttributes() => ImmutableArray<AttributeData>.Empty;
+
     public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_methodInfo);
 
     public override bool IsStatic => _methodInfo.IsStatic;

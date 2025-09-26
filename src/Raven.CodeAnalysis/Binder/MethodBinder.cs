@@ -42,6 +42,15 @@ class MethodBinder : TypeMemberBinder
             or AccessorDeclarationSyntax)
             return _methodSymbol;
 
+        if (node is ParameterSyntax parameter)
+        {
+            return _methodSymbol.Parameters.FirstOrDefault(p =>
+                p.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == parameter));
+        }
+
+        if (node is ArrowTypeClauseSyntax)
+            return _methodSymbol;
+
         return base.BindDeclaredSymbol(node);
     }
 

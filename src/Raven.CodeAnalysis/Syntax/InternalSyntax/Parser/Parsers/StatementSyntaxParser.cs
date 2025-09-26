@@ -320,6 +320,8 @@ internal class StatementSyntaxParser : SyntaxParser
             if (t.IsKind(SyntaxKind.CloseParenToken))
                 break;
 
+            var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
             SyntaxList modifiers = SyntaxList.Empty;
 
             SyntaxToken modifier;
@@ -346,7 +348,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
             }
 
-            parameterList.Add(Parameter(modifiers, name, typeAnnotation, defaultValue));
+            parameterList.Add(Parameter(attributeLists, modifiers, name, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

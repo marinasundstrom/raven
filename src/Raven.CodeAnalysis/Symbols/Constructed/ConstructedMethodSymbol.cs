@@ -55,6 +55,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
     public bool IsConstructor => _definition.IsConstructor;
     public bool IsNamedConstructor => _definition.IsNamedConstructor;
+
+    public ImmutableArray<AttributeData> GetReturnTypeAttributes() => _definition.GetReturnTypeAttributes();
     public override bool Equals(object? obj) => _definition.Equals(obj);
     public override int GetHashCode() => _definition.GetHashCode();
 

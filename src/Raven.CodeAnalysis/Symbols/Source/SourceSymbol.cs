@@ -67,7 +67,7 @@ internal abstract class SourceSymbol : Symbol
         return builder.ToImmutable();
     }
 
-    private Compilation? GetDeclaringCompilation()
+    protected Compilation? GetDeclaringCompilation()
     {
         if (this is SourceAssemblySymbol assemblySymbol)
             return assemblySymbol.Compilation;
@@ -91,6 +91,8 @@ internal abstract class SourceSymbol : Symbol
             AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.AttributeLists,
             FieldDeclarationSyntax fieldDeclaration => fieldDeclaration.AttributeLists,
             VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is FieldDeclarationSyntax field => field.AttributeLists,
+            ParameterSyntax parameter => parameter.AttributeLists,
+            ArrowTypeClauseSyntax arrowTypeClause => arrowTypeClause.AttributeLists,
             _ => default
         };
 }

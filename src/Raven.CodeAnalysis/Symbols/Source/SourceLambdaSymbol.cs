@@ -60,6 +60,8 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
 
+    public ImmutableArray<AttributeData> GetReturnTypeAttributes() => ImmutableArray<AttributeData>.Empty;
+
     public void SetReturnType(ITypeSymbol returnType)
     {
         ReturnType = returnType;

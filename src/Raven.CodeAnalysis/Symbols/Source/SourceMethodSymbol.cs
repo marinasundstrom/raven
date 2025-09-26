@@ -16,6 +16,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _isOverride;
     private bool _isVirtual;
     private bool _isSealed;
+    private ImmutableArray<AttributeData> _lazyReturnTypeAttributes;
 
     public SourceMethodSymbol(
         string name,
@@ -49,6 +50,14 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public ITypeSymbol ReturnType => _returnType;
 
     public ImmutableArray<IParameterSymbol> Parameters => _parameters.OfType<IParameterSymbol>().ToImmutableArray();
+
+    public ImmutableArray<AttributeData> GetReturnTypeAttributes()
+    {
+        if (_lazyReturnTypeAttributes.IsDefault)
+            _lazyReturnTypeAttributes = ComputeReturnTypeAttributes();
+
+        return _lazyReturnTypeAttributes;
+    }
 
     public bool IsConstructor => MethodKind is MethodKind.Constructor or MethodKind.NamedConstructor;
 
@@ -129,5 +138,43 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             throw new ArgumentNullException(nameof(typeArguments));
 
         return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
+    }
+
+    private ImmutableArray<AttributeData> ComputeReturnTypeAttributes()
+    {
+        if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return ImmutableArray<AttributeData>.Empty;
+
+        var compilation = GetDeclaringCompilation();
+        if (compilation is null)
+            return ImmutableArray<AttributeData>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<AttributeData>();
+
+        foreach (var syntaxReference in DeclaringSyntaxReferences)
+        {
+            var syntax = syntaxReference.GetSyntax();
+            var returnClause = syntax switch
+            {
+                MethodDeclarationSyntax method => method.ReturnType,
+                FunctionStatementSyntax function => function.ReturnType,
+                ParenthesizedLambdaExpressionSyntax lambda => lambda.ReturnType,
+                _ => null
+            };
+
+            if (returnClause is null || returnClause.AttributeLists.Count == 0)
+                continue;
+
+            var semanticModel = compilation.GetSemanticModel(returnClause.SyntaxTree);
+
+            foreach (var attribute in returnClause.AttributeLists.SelectMany(static list => list.Attributes))
+            {
+                var data = semanticModel.BindAttribute(attribute);
+                if (data is not null)
+                    builder.Add(data);
+            }
+        }
+
+        return builder.ToImmutable();
     }
 }

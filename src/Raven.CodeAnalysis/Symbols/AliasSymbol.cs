@@ -281,6 +281,8 @@ internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
 
     public IMethodSymbol? ConstructedFrom => _method.ConstructedFrom;
 
+    public ImmutableArray<AttributeData> GetReturnTypeAttributes() => _method.GetReturnTypeAttributes();
+
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments) => _method.Construct(typeArguments);
 }
 

@@ -322,6 +322,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation()
             ?? ArrowTypeClause(
+                SyntaxList.Empty,
                 MissingToken(SyntaxKind.ArrowToken),
                 IdentifierName(MissingToken(SyntaxKind.IdentifierToken)));
 

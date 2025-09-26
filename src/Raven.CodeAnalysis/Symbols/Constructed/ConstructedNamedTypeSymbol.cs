@@ -164,6 +164,8 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
 
     public ISymbol ContainingSymbol => _constructed;
 
+    public ImmutableArray<AttributeData> GetReturnTypeAttributes() => _original.GetReturnTypeAttributes();
+
     public MethodKind MethodKind => _original.MethodKind;
     public bool IsConstructor => _original.IsConstructor;
     public IMethodSymbol? OriginalDefinition => _original;
