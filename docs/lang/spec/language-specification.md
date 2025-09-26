@@ -91,12 +91,15 @@ Two forms of comments are supported:
 
 Comment contents are treated as uninterpreted Unicode text. Any Unicode scalar
 value may appear inside a comment without escaping, including characters that
-would otherwise form tokens. The lexer preserves the original spelling (other
-than omitting the terminator), so encodings such as UTF-8 or UTF-16 must supply
-valid code units for the desired characters.
+would otherwise form tokens. This includes emoji and other symbols outside the
+Basic Multilingual Plane as long as the source file's encoding can represent
+them. The lexer preserves the original spelling (other than omitting the
+terminator), so encodings such as UTF-8 or UTF-16 must supply valid code units
+for the desired characters.
 
 ```raven
 let answer = 42  // the ultimate answer
+let greeting = "hello"  // 😀 emoji and other symbols are fine
 
 /*
  Multi-line comments can document larger blocks of code.
