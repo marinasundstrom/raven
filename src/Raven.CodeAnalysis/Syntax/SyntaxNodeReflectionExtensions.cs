@@ -26,13 +26,18 @@ public static class SyntaxNodeReflectionExtensions
             // Handle lists: check if childNode is contained within a SyntaxList<T> or SeparatedSyntaxList<T>
             if (propertyValue is IEnumerable<object> collection)
             {
-                if (collection.Cast<SyntaxNode>().Contains(childNode))
+                foreach (var item in collection)
                 {
-                    // Extract the generic type parameter from the list type
-                    var propertyType = property.PropertyType;
-                    if (propertyType.IsGenericType)
+                    if (item is SyntaxNode nodeItem && nodeItem == childNode)
                     {
-                        return propertyType.GetGenericArguments().FirstOrDefault();
+                        // Extract the generic type parameter from the list type
+                        var propertyType = property.PropertyType;
+                        if (propertyType.IsGenericType)
+                        {
+                            return propertyType.GetGenericArguments().FirstOrDefault();
+                        }
+
+                        break;
                     }
                 }
             }

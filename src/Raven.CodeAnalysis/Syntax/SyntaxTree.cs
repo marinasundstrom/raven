@@ -90,9 +90,9 @@ public class SyntaxTree
     }
 
 
-    internal static SyntaxTree Create(SourceText sourceText, CompilationUnitSyntax compilationUnit, ParseOptions options)
+    internal static SyntaxTree Create(SourceText sourceText, CompilationUnitSyntax compilationUnit, ParseOptions options, string? filePath = null)
     {
-        var syntaxTree = new SyntaxTree(sourceText, string.Empty, options);
+        var syntaxTree = new SyntaxTree(sourceText, filePath ?? string.Empty, options);
 
         compilationUnit = compilationUnit
             .WithSyntaxTree(syntaxTree);
@@ -231,7 +231,7 @@ public class SyntaxTree
             return ParseText(newText, _options, FilePath);
         }
 
-        return Create(newCompilationUnit, _options, Encoding, FilePath);
+        return Create(newText, newCompilationUnit, _options, FilePath);
     }
 
     private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace)
@@ -246,7 +246,12 @@ public class SyntaxTree
         {
             var parent = nodeToReplace.Parent;
 
-            if (parent is BlockStatementSyntax block)
+            if (parent is null)
+            {
+                return null;
+            }
+
+            if (parent is BlockStatementSyntax)
             {
                 //block.ReplaceNode(nodeToReplace, );
 
@@ -262,7 +267,9 @@ public class SyntaxTree
 
         var parser = new InternalSyntax.Parser.LanguageParser(string.Empty, _options);
 
-        return parser.ParseSyntax(requestedSyntaxType, newText, position)!.CreateRed();
+        var greenNode = parser.ParseSyntax(requestedSyntaxType, newText, position);
+
+        return greenNode?.CreateRed();
     }
 }
 

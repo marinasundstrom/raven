@@ -40,7 +40,14 @@ internal class LanguageParser
         _lexer = new Lexer(textReader, position);
         var parseContext = new BaseParseContext(_lexer, position);
 
-        return ParseRequestedType(parseContext, requestedSyntaxType);
+        try
+        {
+            return ParseRequestedType(parseContext, requestedSyntaxType);
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
     }
 
     private SyntaxNode? ParseRequestedType(BaseParseContext context, Type requestedSyntaxType)
@@ -70,7 +77,7 @@ internal class LanguageParser
             return new NameSyntaxParser(context).ParseSimpleName();
         }
 
-        throw new NotSupportedException("Syntax not supported");
+        return null;
     }
 
     public StatementSyntax ParseStatement(SourceText sourceText, int offset = 0, bool consumeFullText = true)
