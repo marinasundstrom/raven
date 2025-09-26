@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Text;
 
@@ -90,10 +91,17 @@ public class SourceText
 
     public TextReader GetTextReader(int position)
     {
-        MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(_text));
-        StreamReader reader = new StreamReader(stream);
-        stream.Seek(position, SeekOrigin.Begin);
-        return reader;
+        if (position <= 0)
+        {
+            return new StringReader(_text);
+        }
+
+        if (position >= _text.Length)
+        {
+            return new StringReader(string.Empty);
+        }
+
+        return new StringReader(_text[position..]);
     }
 
     public IReadOnlyList<TextChange> GetTextChanges(SourceText oldText)
