@@ -52,8 +52,18 @@ public class Compilation
 
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
 
-    public INamespaceSymbol GlobalNamespace =>
-        _globalNamespace ??= new MergedNamespaceSymbol(new INamespaceSymbol[] { SourceGlobalNamespace }.Concat(_metadataReferenceSymbols.Select(x => x.Value.GlobalNamespace)), null);
+    public INamespaceSymbol GlobalNamespace
+    {
+        get
+        {
+            EnsureSetup();
+
+            return _globalNamespace ??=
+                new MergedNamespaceSymbol(
+                    new INamespaceSymbol[] { SourceGlobalNamespace }.Concat(_metadataReferenceSymbols.Select(x => x.Value.GlobalNamespace)),
+                    null);
+        }
+    }
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
@@ -349,7 +359,7 @@ public class Compilation
         BinderFactory = new BinderFactory(this);
         DeclarationTable = new DeclarationTable(SyntaxTrees);
 
-        Assembly = new SourceAssemblySymbol(AssemblyName, []);
+        Assembly = new SourceAssemblySymbol(this, AssemblyName, []);
 
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
 

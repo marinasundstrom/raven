@@ -103,6 +103,11 @@ public interface ISymbol : IEquatable<ISymbol?>
     /// </summary>
     bool IsAlias { get; }
 
+    /// <summary>
+    /// Gets the attributes applied to this symbol.
+    /// </summary>
+    ImmutableArray<AttributeData> GetAttributes();
+
     bool CanBeReferencedByName => this switch
     {
         INamespaceOrTypeSymbol => true,

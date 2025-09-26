@@ -328,6 +328,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public bool IsAlias => false;
 
+        public ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
+
         public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
             => ReferenceEquals(this, other);
 

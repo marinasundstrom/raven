@@ -42,6 +42,8 @@ internal abstract class AliasSymbol : IAliasSymbol
 
     public bool IsAlias => true;
 
+    public ImmutableArray<AttributeData> GetAttributes() => UnderlyingSymbol.GetAttributes();
+
     public bool Equals(ISymbol? other) =>
         UnderlyingSymbol.Equals(other is IAliasSymbol alias ? alias.UnderlyingSymbol : other);
 
