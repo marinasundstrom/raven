@@ -32,6 +32,8 @@
   <TokenKind Name="ForKeyword" Text="for" IsReservedWord="true" />
   <TokenKind Name="EachKeyword" Text="each" IsReservedWord="true" />
   <TokenKind Name="GotoKeyword" Text="goto" IsReservedWord="true" />
+  <TokenKind Name="BreakKeyword" Text="break" IsReservedWord="true" />
+  <TokenKind Name="ContinueKeyword" Text="continue" IsReservedWord="true" />
   <TokenKind Name="MatchKeyword" Text="match" IsReservedWord="true" />
   <TokenKind Name="ReturnKeyword" Text="return" IsReservedWord="true" />
   <TokenKind Name="NewKeyword" Text="new" IsReservedWord="true" />

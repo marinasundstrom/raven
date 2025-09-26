@@ -162,6 +162,14 @@
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
+  <Node Name="BreakStatement" Inherits="Statement">
+    <Slot Name="BreakKeyword" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
+  <Node Name="ContinueStatement" Inherits="Statement">
+    <Slot Name="ContinueKeyword" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
   <Node Name="LocalDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="VariableDeclaration" />
     <Slot Name="TerminatorToken" Type="Token" />
