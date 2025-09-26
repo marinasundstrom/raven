@@ -14,6 +14,8 @@ public class SlotModel
     public string Name { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public string? ElementType { get; set; }
+    public string? DefaultToken { get; set; }
+    public bool IsOptionalToken { get; set; }
 
     public string FullTypeName
     {

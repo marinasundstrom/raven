@@ -477,7 +477,7 @@ public static class RedNodeGenerator
         var minimalParameters = new List<ParameterSyntax>();
         var constructorArguments = new List<ArgumentSyntax>();
         var invocationArguments = new List<ArgumentSyntax>();
-        var hasNullableSlot = false;
+        var requiresConvenienceOverload = false;
 
         if (node.HasExplicitKind)
         {
@@ -501,9 +501,19 @@ public static class RedNodeGenerator
 
             constructorArguments.Add(Argument(IdentifierName(parameterName)));
 
-            if (prop.IsNullable)
+            if (prop.Type == "Token" && prop.IsOptionalToken)
             {
-                hasNullableSlot = true;
+                requiresConvenienceOverload = true;
+                invocationArguments.Add(Argument(CreateMissingTokenExpression()));
+            }
+            else if (prop.Type == "Token" && prop.DefaultToken is { } defaultToken)
+            {
+                requiresConvenienceOverload = true;
+                invocationArguments.Add(Argument(CreateDefaultTokenExpression(defaultToken)));
+            }
+            else if (prop.IsNullable)
+            {
+                requiresConvenienceOverload = true;
                 invocationArguments.Add(Argument(GetDefaultValueExpression(mappedType)));
             }
             else
@@ -525,7 +535,7 @@ public static class RedNodeGenerator
 
         var members = new List<MemberDeclarationSyntax> { method };
 
-        if (hasNullableSlot && minimalParameters.Count < parameters.Count)
+        if (requiresConvenienceOverload && minimalParameters.Count < parameters.Count)
         {
             var minimalMethod = MethodDeclaration(IdentifierName(typeName), methodName)
                 .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
@@ -556,6 +566,22 @@ public static class RedNodeGenerator
             ? LiteralExpression(SyntaxKind.NullLiteralExpression)
             : DefaultExpression(ParseTypeName(mappedType));
     }
+
+    private static ExpressionSyntax CreateMissingTokenExpression() =>
+        InvocationExpression(IdentifierName("Token"))
+            .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                Argument(MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("SyntaxKind"),
+                    IdentifierName("None"))))));
+
+    private static ExpressionSyntax CreateDefaultTokenExpression(string defaultTokenName) =>
+        InvocationExpression(IdentifierName("Token"))
+            .WithArgumentList(ArgumentList(SingletonSeparatedList(
+                Argument(MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("SyntaxKind"),
+                    IdentifierName(defaultTokenName))))));
 
     private static string MapRedType(string rawType, bool nullable) => rawType switch
     {
