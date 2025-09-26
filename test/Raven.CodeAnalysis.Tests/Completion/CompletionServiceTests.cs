@@ -214,6 +214,64 @@ Container.
     }
 
     [Fact]
+    public void GetCompletions_InInstanceMethod_IncludesSelf()
+    {
+        var code = """
+class Counter {
+    private value: int;
+
+    public Increment(delta: int) -> int {
+        sel
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("sel", StringComparison.Ordinal) + "sel".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "self");
+    }
+
+    [Fact]
+    public void GetCompletions_OnSelfMemberAccess_ReturnsInstanceMembers()
+    {
+        var code = """
+class Counter {
+    private value: int;
+
+    public Increment(delta: int) -> int {
+        self.
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "value");
+    }
+
+    [Fact]
     public void GetCompletions_InImportDirective_ReturnsNamespacesAndTypesOnly()
     {
         var code = """
