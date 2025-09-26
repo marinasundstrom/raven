@@ -120,6 +120,10 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
 
     public bool IsUnion => _type.IsUnion;
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => _type.AllInterfaces;
+
     public int Arity => _type.Arity;
 
     public ImmutableArray<IMethodSymbol> Constructors => _type.Constructors;
@@ -143,10 +147,6 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
     public bool IsGenericType => _type.IsGenericType;
 
     public bool IsUnboundGenericType => _type.IsUnboundGenericType;
-
-    public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
-
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => _type.AllInterfaces;
 
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => _type.Construct(typeArguments);
 }
@@ -186,6 +186,10 @@ internal sealed class AliasUnionTypeSymbol : AliasSymbol, IUnionTypeSymbol
     public bool IsValueType => _type.IsValueType;
 
     public IEnumerable<ITypeSymbol> Types => _type.Types;
+
+    public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => _type.AllInterfaces;
 }
 
 internal sealed class AliasLiteralTypeSymbol : AliasSymbol, ITypeSymbol
@@ -221,6 +225,10 @@ internal sealed class AliasLiteralTypeSymbol : AliasSymbol, ITypeSymbol
     public bool IsReferenceType => _type.IsReferenceType;
 
     public bool IsValueType => _type.IsValueType;
+
+    public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => _type.AllInterfaces;
 }
 
 internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol

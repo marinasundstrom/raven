@@ -810,26 +810,30 @@ internal abstract class Binder
 
     private bool SatisfiesNamedTypeConstraint(ITypeSymbol typeArgument, INamedTypeSymbol constraintType)
     {
-        if (typeArgument is INamedTypeSymbol namedArgument)
+        if (SymbolEqualityComparer.Default.Equals(typeArgument, constraintType))
+            return true;
+
+        if (constraintType.TypeKind == TypeKind.Interface)
         {
-            if (SymbolEqualityComparer.Default.Equals(namedArgument, constraintType))
-                return true;
-
-            if (constraintType.TypeKind == TypeKind.Interface)
+            if (typeArgument is INamedTypeSymbol namedArgument &&
+                namedArgument.TypeKind == TypeKind.Interface &&
+                SymbolEqualityComparer.Default.Equals(namedArgument, constraintType))
             {
-                if (namedArgument.TypeKind == TypeKind.Interface && SymbolEqualityComparer.Default.Equals(namedArgument, constraintType))
-                    return true;
-
-                foreach (var implemented in namedArgument.AllInterfaces)
-                {
-                    if (SymbolEqualityComparer.Default.Equals(implemented, constraintType))
-                        return true;
-                }
-
-                return false;
+                return true;
             }
 
-            for (var current = namedArgument; current is not null; current = current.BaseType)
+            foreach (var implemented in typeArgument.AllInterfaces)
+            {
+                if (SymbolEqualityComparer.Default.Equals(implemented, constraintType))
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (typeArgument is INamedTypeSymbol namedType)
+        {
+            for (var current = namedType; current is not null; current = current.BaseType)
             {
                 if (SymbolEqualityComparer.Default.Equals(current, constraintType))
                     return true;

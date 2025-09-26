@@ -44,6 +44,10 @@ internal sealed class ByRefTypeSymbol : SourceSymbol, ITypeSymbol
     public override bool IsImplicitlyDeclared => true;
     public override bool IsStatic => false;
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces => ElementType.Interfaces;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => ElementType.AllInterfaces;
+
     public ImmutableArray<ISymbol> GetMembers() => ElementType.GetMembers();
     public ImmutableArray<ISymbol> GetMembers(string name) => ElementType.GetMembers(name);
     public IEnumerable<ISymbol> ResolveMembers(string name) => ElementType.ResolveMembers(name);

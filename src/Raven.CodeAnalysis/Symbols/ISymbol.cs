@@ -340,6 +340,10 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     TypeKind TypeKind { get; }
 
+    ImmutableArray<INamedTypeSymbol> Interfaces { get; }
+
+    ImmutableArray<INamedTypeSymbol> AllInterfaces { get; }
+
     public string ToFullyQualifiedMetadataName()
     {
         string typeName;
@@ -426,9 +430,6 @@ public interface INamedTypeSymbol : ITypeSymbol
     bool IsSealed { get; }
     bool IsGenericType { get; }
     bool IsUnboundGenericType { get; }
-
-    ImmutableArray<INamedTypeSymbol> Interfaces { get; }
-    ImmutableArray<INamedTypeSymbol> AllInterfaces { get; }
 
     ITypeSymbol Construct(params ITypeSymbol[] typeArguments);
 }

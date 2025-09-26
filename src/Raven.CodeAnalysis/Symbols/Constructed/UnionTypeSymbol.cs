@@ -34,6 +34,12 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
 
     public ITypeSymbol? OriginalDefinition { get; }
 
+    public ImmutableArray<INamedTypeSymbol> Interfaces =>
+        BaseType?.Interfaces ?? ImmutableArray<INamedTypeSymbol>.Empty;
+
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
+        BaseType?.AllInterfaces ?? ImmutableArray<INamedTypeSymbol>.Empty;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         return BaseType?.GetMembers() ?? ImmutableArray<ISymbol>.Empty;
