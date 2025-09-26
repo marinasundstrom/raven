@@ -140,6 +140,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 return SpecialType.System_IntPtr;
             if (type.FullName == "System.UIntPtr")
                 return SpecialType.System_UIntPtr;
+            if (type.FullName == "System.Type")
+                return SpecialType.System_Type;
 
             if (type.Namespace == "System" && type.Name.StartsWith("ValueTuple`"))
             {
