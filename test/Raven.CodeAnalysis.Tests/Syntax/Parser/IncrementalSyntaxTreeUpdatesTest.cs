@@ -149,5 +149,73 @@ public class IncrementalSyntaxTreeUpdatesTest
 
         AssertIncrementalParse(sourceText, changedSourceText);
     }
+
+    [Fact]
+    public void ApplyChangedTextToSyntaxTree6()
+    {
+        var sourceText = SourceText.From(
+            """
+            if (foo)  {
+                return 0;
+            } else if (bar ) {
+                return 1;
+            }
+            """);
+
+        var changedSourceText = SourceText.From(
+            """
+            if (foo)  {
+                return 0;
+            } else {
+                return 1;
+            }
+            """);
+
+        AssertIncrementalParse(sourceText, changedSourceText);
+    }
+
+    [Fact]
+    public void ApplyChangedTextToSyntaxTree7()
+    {
+        var sourceText = SourceText.From(
+            """
+            try {
+                return 0;
+            } catch (Foo ex) {
+                return 1;
+            }
+            """);
+
+        var changedSourceText = SourceText.From(
+            """
+            try {
+                return 0;
+            } catch (Bar ex) {
+                return 1;
+            }
+            """);
+
+        AssertIncrementalParse(sourceText, changedSourceText);
+    }
+
+    [Fact]
+    public void ApplyChangedTextToSyntaxTree_AddParameter()
+    {
+        var sourceText = SourceText.From(
+            """
+            fn add(a:int) {
+                return a;
+            }
+            """);
+
+        var changedSourceText = SourceText.From(
+            """
+            fn add(a:int, b:int) {
+                return a + b;
+            }
+            """);
+
+        AssertIncrementalParse(sourceText, changedSourceText);
+    }
 }
 
