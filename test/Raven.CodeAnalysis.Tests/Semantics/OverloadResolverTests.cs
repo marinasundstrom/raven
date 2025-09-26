@@ -189,6 +189,35 @@ public sealed class OverloadResolverTests : CompilationTestBase
         Assert.Same(optionalMethod, result.Method);
     }
 
+    [Fact]
+    public void ResolveOverload_SystemInt32TryParse_WithOutArgument_Succeeds()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+
+        var tryParseMethods = intType
+            .GetMembers("TryParse")
+            .OfType<IMethodSymbol>()
+            .ToImmutableArray();
+
+        Assert.NotEmpty(tryParseMethods);
+
+        var stringArgument = new TestBoundExpression(stringType);
+        var outArgument = new BoundAddressOfExpression(
+            new FakeParameterSymbol("value", intType, RefKind.None, isParams: false),
+            intType);
+
+        var result = OverloadResolver.ResolveOverload(
+            tryParseMethods,
+            [stringArgument, outArgument],
+            compilation);
+
+        Assert.True(result.Success);
+        Assert.Equal("TryParse", result.Method!.Name);
+        Assert.Equal(2, result.Method.Parameters.Length);
+    }
+
     protected override MetadataReference[] GetMetadataReferences()
     {
         var runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();

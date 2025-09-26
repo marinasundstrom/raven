@@ -239,8 +239,19 @@ internal sealed class OverloadResolver
         {
             if (argument is not BoundAddressOfExpression addr ||
                 addr.Type is not ByRefTypeSymbol argByRef ||
-                !SymbolEqualityComparer.Default.Equals(argByRef.ElementType, parameter.Type) ||
                 argType.SpecialType == SpecialType.System_Void)
+            {
+                return false;
+            }
+
+            var parameterType = parameter.Type;
+
+            if (parameterType is ByRefTypeSymbol paramByRef)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(argByRef.ElementType, paramByRef.ElementType))
+                    return false;
+            }
+            else if (!SymbolEqualityComparer.Default.Equals(argByRef.ElementType, parameterType))
             {
                 return false;
             }
