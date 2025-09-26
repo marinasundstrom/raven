@@ -717,6 +717,7 @@ partial class BlockBinder : Binder
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
             CastExpressionSyntax castExpression => BindCastExpression(castExpression),
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
+            TypeOfExpressionSyntax typeOfExpression => BindTypeOfExpression(typeOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
@@ -1048,6 +1049,21 @@ partial class BlockBinder : Binder
         }
 
         return new BoundCastExpression(expression, targetType, conversion);
+    }
+
+    private BoundExpression BindTypeOfExpression(TypeOfExpressionSyntax typeOfExpression)
+    {
+        var boundType = BindTypeSyntax(typeOfExpression.Type);
+
+        if (boundType is BoundErrorExpression)
+            return boundType;
+
+        if (boundType is not BoundTypeExpression typeExpression)
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+        var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
+
+        return new BoundTypeOfExpression(typeExpression.TypeSymbol, systemType);
     }
 
     private BoundExpression ConvertMethodGroupToDelegate(BoundMethodGroupExpression methodGroup, ITypeSymbol targetType, SyntaxNode? syntax)
