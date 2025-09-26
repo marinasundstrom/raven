@@ -29,7 +29,7 @@ public class MultiLineCommentTriviaTest
     public void MultiLineCommentTrivia_IsLeadingTriviaOfEndOFileToken()
     {
         var code = """
-                    /* Foo bar 
+                    /* Foo bar
                     ff */
                     """;
 
@@ -40,5 +40,21 @@ public class MultiLineCommentTriviaTest
         var trivia = root.EndOfFileToken.LeadingTrivia.FirstOrDefault(x => x.Kind == SyntaxKind.MultiLineCommentTrivia);
 
         trivia.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("/* Привет мир */", "/* Привет мир */")]
+    [InlineData("/* 😀 emoji */", "/* 😀 emoji */")]
+    [InlineData("/* Café au lait */", "/* Café au lait */")]
+    public void MultiLineCommentTrivia_PreservesUnicodeContent(string code, string expectedComment)
+    {
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var root = syntaxTree.GetRoot();
+
+        var trivia = root.EndOfFileToken.LeadingTrivia.FirstOrDefault(x => x.Kind == SyntaxKind.MultiLineCommentTrivia);
+
+        trivia.ShouldNotBeNull();
+        trivia!.Text.ShouldBe(expectedComment);
     }
 }

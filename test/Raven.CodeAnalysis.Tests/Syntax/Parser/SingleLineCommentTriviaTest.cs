@@ -50,9 +50,47 @@ public class SingleLineCommentTriviaTest
 
         var root = syntaxTree.GetRoot();
 
-        var trivia = root.EndOfFileToken.LeadingTrivia
+        var trivia = root.DescendantTrivia(descendIntoStructuredTrivia: true)
             .FirstOrDefault(x => x.Kind == SyntaxKind.SingleLineCommentTrivia);
 
         trivia.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("let x = 1; // Привет мир", "// Привет мир")]
+    [InlineData("let x = 1; // Café au lait", "// Café au lait")]
+    [InlineData("let x = 1; // 😀 emoji", "// 😀 emoji")]
+    public void SingleLineCommentTrivia_PreservesUnicodeContent(string code, string expectedComment)
+    {
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var root = syntaxTree.GetRoot();
+
+        var trivia = root.DescendantTokens()
+            .SelectMany(t => t.LeadingTrivia.Concat(t.TrailingTrivia))
+            .FirstOrDefault(x => x.Kind == SyntaxKind.SingleLineCommentTrivia);
+
+        trivia.ShouldNotBeNull();
+        trivia!.Text.ShouldBe(expectedComment);
+    }
+
+    [Theory]
+    [InlineData("\u2028")]
+    [InlineData("\u2029")]
+    [InlineData("\u0085")]
+    public void SingleLineCommentTrivia_TerminatesAtUnicodeNewline(string newline)
+    {
+        var code = $"// raven{newline}let x = 1";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var root = syntaxTree.GetRoot();
+
+        var trivia = root.DescendantTokens()
+            .SelectMany(t => t.LeadingTrivia.Concat(t.TrailingTrivia))
+            .FirstOrDefault(x => x.Kind == SyntaxKind.SingleLineCommentTrivia);
+
+        trivia.ShouldNotBeNull();
+        trivia!.Text.ShouldBe("// raven");
     }
 }
