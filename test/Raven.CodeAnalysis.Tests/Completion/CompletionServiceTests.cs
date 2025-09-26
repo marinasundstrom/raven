@@ -360,4 +360,46 @@ ST.
 
         Assert.Contains(items, i => i.DisplayText == "StringBuilder");
     }
+
+    [Fact]
+    public void GetCompletions_OnLiteralUnionLocal_SuggestsAllMembers()
+    {
+        var code = "let response: \"כן\" | \"לא\" = ";
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var service = new CompletionService();
+        var position = code.Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "\"כן\"");
+        Assert.Contains(items, i => i.DisplayText == "\"לא\"");
+    }
+
+    [Fact]
+    public void GetCompletions_OnLiteralUnionAssignment_SuggestsAllMembers()
+    {
+        var code = "let response: \"כן\" | \"לא\" = \"כן\";\nresponse = ";
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var service = new CompletionService();
+        var position = code.Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "\"כן\"");
+        Assert.Contains(items, i => i.DisplayText == "\"לא\"");
+    }
 }
