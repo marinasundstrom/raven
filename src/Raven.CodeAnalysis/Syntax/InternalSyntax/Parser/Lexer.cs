@@ -563,6 +563,15 @@ internal class Lexer : ILexer
                     case '\n':
                         return new Token(LineFeedTokenKind, string.Intern("\n"));
 
+                    case '\u0085':
+                        return new Token(LineFeedTokenKind, string.Intern("\u0085"));
+
+                    case '\u2028':
+                        return new Token(LineFeedTokenKind, string.Intern("\u2028"));
+
+                    case '\u2029':
+                        return new Token(LineFeedTokenKind, string.Intern("\u2029"));
+
                     case '\r':
                         if (MergeCarriageReturnAndLineFeed && PeekChar(out ch2) && ch2 == '\n')
                         {
@@ -590,7 +599,11 @@ internal class Lexer : ILexer
 
     private bool IsEndOfLine(char ch)
     {
-        return ch == '\n';
+        return ch == '\n'
+            || ch == '\r'
+            || ch == '\u0085'
+            || ch == '\u2028'
+            || ch == '\u2029';
     }
 
     private string GetStringBuilderValue() => string.Intern(_stringBuilder.ToString());
