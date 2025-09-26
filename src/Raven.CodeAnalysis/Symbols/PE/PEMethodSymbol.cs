@@ -157,8 +157,29 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public bool IsDefinition => true; // Metadata methods are always definitions
 
-    public bool IsExtensionMethod =>
-        _methodInfo?.GetCustomAttribute(typeof(ExtensionAttribute), false) is not null;
+    public bool IsExtensionMethod
+    {
+        get
+        {
+            if (_methodInfo is null)
+                return false;
+
+            try
+            {
+                foreach (var attribute in _methodInfo.GetCustomAttributesData())
+                {
+                    if (attribute.AttributeType.FullName == typeof(ExtensionAttribute).FullName)
+                        return true;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            return false;
+        }
+    }
 
     public bool IsExtern => _methodInfo.IsAbstract || (_methodInfo.Attributes & MethodAttributes.PinvokeImpl) != 0;
 

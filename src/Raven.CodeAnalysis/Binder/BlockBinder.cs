@@ -717,6 +717,7 @@ partial class BlockBinder : Binder
             ParenthesizedExpressionSyntax parenthesizedExpression => BindParenthesizedExpression(parenthesizedExpression),
             CastExpressionSyntax castExpression => BindCastExpression(castExpression),
             AsExpressionSyntax asExpression => BindAsExpression(asExpression),
+            TypeOfExpressionSyntax typeOfExpression => BindTypeOfExpression(typeOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
@@ -1048,6 +1049,21 @@ partial class BlockBinder : Binder
         }
 
         return new BoundCastExpression(expression, targetType, conversion);
+    }
+
+    private BoundExpression BindTypeOfExpression(TypeOfExpressionSyntax typeOfExpression)
+    {
+        var boundType = BindTypeSyntax(typeOfExpression.Type);
+
+        if (boundType is BoundErrorExpression)
+            return boundType;
+
+        if (boundType is not BoundTypeExpression typeExpression)
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+        var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
+
+        return new BoundTypeOfExpression(typeExpression.TypeSymbol, systemType);
     }
 
     private BoundExpression ConvertMethodGroupToDelegate(BoundMethodGroupExpression methodGroup, ITypeSymbol targetType, SyntaxNode? syntax)
@@ -1701,21 +1717,39 @@ partial class BlockBinder : Binder
 
         if (receiver.Type is not null)
         {
+            var methodCandidates = ImmutableArray<IMethodSymbol>.Empty;
+
             var instanceMethods = new SymbolQuery(name, receiver.Type, IsStatic: false)
                 .LookupMethods(this)
                 .ToImmutableArray();
 
             if (!instanceMethods.IsDefaultOrEmpty)
+                methodCandidates = instanceMethods;
+
+            if (IsExtensionReceiver(receiver))
+            {
+                var extensionMethods = LookupExtensionMethods(name, receiver.Type)
+                    .ToImmutableArray();
+
+                if (!extensionMethods.IsDefaultOrEmpty)
+                {
+                    methodCandidates = methodCandidates.IsDefaultOrEmpty
+                        ? extensionMethods
+                        : methodCandidates.AddRange(extensionMethods);
+                }
+            }
+
+            if (!methodCandidates.IsDefaultOrEmpty)
             {
                 if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
                 {
-                    var instantiated = InstantiateMethodCandidates(instanceMethods, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
+                    var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, memberAccess.Name.GetLocation());
                     if (!instantiated.IsDefaultOrEmpty)
                         return BindMethodGroup(receiver, instantiated, nameLocation);
                 }
                 else
                 {
-                    return BindMethodGroup(receiver, instanceMethods, nameLocation);
+                    return BindMethodGroup(receiver, methodCandidates, nameLocation);
                 }
             }
 
@@ -2763,19 +2797,31 @@ partial class BlockBinder : Binder
 
         var methodName = methodGroup.Methods[0].Name;
         var selected = methodGroup.SelectedMethod;
+        var extensionReceiver = IsExtensionReceiver(methodGroup.Receiver) ? methodGroup.Receiver : null;
+        var receiverSyntax = GetInvocationReceiverSyntax(syntax) ?? syntax.Expression;
 
-        if (selected is not null && selected.Parameters.Length == boundArguments.Length)
+        if (selected is not null && AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, extensionReceiver))
         {
-            var converted = ConvertArguments(selected.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            var converted = ConvertInvocationArguments(
+                selected,
+                boundArguments,
+                syntax.ArgumentList.Arguments,
+                extensionReceiver,
+                receiverSyntax);
             return new BoundInvocationExpression(selected, converted, methodGroup.Receiver);
         }
 
-        var resolution = OverloadResolver.ResolveOverload(methodGroup.Methods, boundArguments, Compilation);
+        var resolution = OverloadResolver.ResolveOverload(methodGroup.Methods, boundArguments, Compilation, extensionReceiver);
 
         if (resolution.Success)
         {
             var method = resolution.Method!;
-            var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            var convertedArgs = ConvertInvocationArguments(
+                method,
+                boundArguments,
+                syntax.ArgumentList.Arguments,
+                extensionReceiver,
+                receiverSyntax);
             return new BoundInvocationExpression(method, convertedArgs, methodGroup.Receiver);
         }
 
@@ -3426,6 +3472,84 @@ partial class BlockBinder : Binder
         }
 
         return converted;
+    }
+
+    private BoundExpression[] ConvertInvocationArguments(
+        IMethodSymbol method,
+        BoundExpression[] invocationArguments,
+        SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes,
+        BoundExpression? extensionReceiver,
+        SyntaxNode receiverSyntax)
+    {
+        if (method.IsExtensionMethod && IsExtensionReceiver(extensionReceiver))
+        {
+            var parameters = method.Parameters;
+            var converted = new BoundExpression[parameters.Length];
+
+            converted[0] = ConvertSingleArgument(
+                extensionReceiver!,
+                parameters[0],
+                receiverSyntax);
+
+            if (parameters.Length > 1)
+            {
+                var convertedRest = ConvertArguments(parameters.RemoveAt(0), invocationArguments, argumentSyntaxes);
+                Array.Copy(convertedRest, 0, converted, 1, convertedRest.Length);
+            }
+
+            return converted;
+        }
+
+        return ConvertArguments(method.Parameters, invocationArguments, argumentSyntaxes);
+    }
+
+    private BoundExpression ConvertSingleArgument(BoundExpression argument, IParameterSymbol parameter, SyntaxNode syntax)
+    {
+        if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+            return argument;
+
+        if (!ShouldAttemptConversion(argument) ||
+            parameter.Type.TypeKind == TypeKind.Error ||
+            argument.Type is null)
+        {
+            return argument;
+        }
+
+        if (!IsAssignable(parameter.Type, argument.Type, out var conversion))
+        {
+            _diagnostics.ReportCannotConvertFromTypeToType(
+                argument.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.GetLocation());
+
+            return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        return ApplyConversion(argument, parameter.Type, conversion, syntax);
+    }
+
+    private static bool AreArgumentsCompatibleWithMethod(IMethodSymbol method, int argumentCount, BoundExpression? receiver)
+    {
+        if (method.IsExtensionMethod && IsExtensionReceiver(receiver))
+            return method.Parameters.Length == argumentCount + 1;
+
+        return method.Parameters.Length == argumentCount;
+    }
+
+    private static bool IsExtensionReceiver(BoundExpression? receiver)
+    {
+        return receiver is not null and not BoundTypeExpression and not BoundNamespaceExpression;
+    }
+
+    private static SyntaxNode? GetInvocationReceiverSyntax(InvocationExpressionSyntax invocation)
+    {
+        return invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Expression,
+            MemberBindingExpressionSyntax binding when invocation.Parent is ConditionalAccessExpressionSyntax conditional && conditional.WhenNotNull == invocation
+                => conditional.Expression,
+            _ => null
+        };
     }
 
     private BoundExpression BindCollectionExpression(CollectionExpressionSyntax syntax)

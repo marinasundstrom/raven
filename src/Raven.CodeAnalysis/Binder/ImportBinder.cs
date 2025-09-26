@@ -120,4 +120,27 @@ class ImportBinder : Binder
 
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
     }
+
+    public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var scope in _namespaceOrTypeScopeImports)
+        {
+            foreach (var method in GetExtensionMethodsFromScope(scope, name, includePartialMatches))
+                if (seen.Add(method))
+                    yield return method;
+        }
+
+        foreach (var type in _typeImports)
+        {
+            foreach (var method in GetExtensionMethodsFromScope(type, name, includePartialMatches))
+                if (seen.Add(method))
+                    yield return method;
+        }
+
+        foreach (var method in base.LookupExtensionMethods(name, receiverType, includePartialMatches))
+            if (seen.Add(method))
+                yield return method;
+    }
 }

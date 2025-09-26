@@ -74,6 +74,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundAsExpression asExpr => (BoundExpression)VisitAsExpression(asExpr)!,
             BoundDelegateCreationExpression delegateCreation => (BoundExpression)VisitDelegateCreationExpression(delegateCreation)!,
             BoundMethodGroupExpression methodGroup => (BoundExpression)VisitMethodGroupExpression(methodGroup)!,
+            BoundTypeOfExpression typeOfExpression => (BoundExpression)VisitTypeOfExpression(typeOfExpression)!,
             _ => throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}"),
         };
     }
@@ -139,6 +140,11 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     public virtual BoundNode VisitDesignator(BoundDesignator designator)
     {
         return designator.Accept(this);
+    }
+
+    public virtual BoundNode? VisitTypeOfExpression(BoundTypeOfExpression node)
+    {
+        return node;
     }
 
 }

@@ -184,6 +184,51 @@ internal abstract class Binder
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
     }
 
+    public virtual IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        return ParentBinder?.LookupExtensionMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
+    }
+
+    protected static IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(INamespaceOrTypeSymbol scope, string? name, bool includePartialMatches)
+    {
+        if (scope is INamespaceSymbol ns)
+        {
+            foreach (var member in ns.GetMembers())
+            {
+                if (member is INamedTypeSymbol typeMember)
+                {
+                    foreach (var method in GetExtensionMethodsFromScope(typeMember, name, includePartialMatches))
+                        yield return method;
+                }
+            }
+            yield break;
+        }
+
+        if (scope is not INamedTypeSymbol type)
+            yield break;
+
+        var members = includePartialMatches || string.IsNullOrEmpty(name)
+            ? type.GetMembers().OfType<IMethodSymbol>()
+            : type.GetMembers(name!).OfType<IMethodSymbol>();
+
+        foreach (var member in members)
+        {
+            if (!member.IsExtensionMethod)
+                continue;
+
+            if (!includePartialMatches && name is not null && member.Name != name)
+                continue;
+
+            yield return member;
+        }
+
+        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        {
+            foreach (var method in GetExtensionMethodsFromScope(nested, name, includePartialMatches))
+                yield return method;
+        }
+    }
+
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)
     {
         if (TryGetCachedBoundNode(expression) is BoundExpression cached)
