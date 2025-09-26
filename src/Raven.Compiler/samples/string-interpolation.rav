@@ -1,5 +1,5 @@
 let name = "דניאל";
 let city = "תל אביב";
-let welcome = $"שלום {name}! ברוך הבא ל{city}";
+let welcome = "שלום ${name}! ברוך הבא ל${city}";
 
 System.Console.WriteLine(welcome);
