@@ -24,6 +24,7 @@ public class ColorScheme
     public AnsiColor Parameter { get; internal set; }
     public AnsiColor Property { get; internal set; }
     public AnsiColor Local { get; internal set; }
+    public AnsiColor Label { get; internal set; }
     public AnsiColor Error { get; internal set; }
     public AnsiColor Warning { get; internal set; }
     public AnsiColor Info { get; internal set; }
@@ -42,6 +43,7 @@ public class ColorScheme
         Parameter = AnsiColor.Blue,
         Property = AnsiColor.BrightGreen,
         Local = AnsiColor.BrightMagenta,
+        Label = AnsiColor.White,
         Error = AnsiColor.BrightRed,
         Warning = AnsiColor.BrightGreen,
         Info = AnsiColor.BrightBlue
@@ -61,6 +63,7 @@ public class ColorScheme
         Parameter = AnsiColor.Blue,
         Property = AnsiColor.Green,
         Local = AnsiColor.Magenta,
+        Label = AnsiColor.BrightWhite,
         Error = AnsiColor.BrightRed,
         Warning = AnsiColor.BrightGreen,
         Info = AnsiColor.BrightBlue
@@ -260,6 +263,7 @@ public static class ConsoleSyntaxHighlighter
         SemanticClassification.Parameter => ColorScheme.Parameter,
         SemanticClassification.Property => ColorScheme.Property,
         SemanticClassification.Local => ColorScheme.Local,
+        SemanticClassification.Label => ColorScheme.Label,
         _ => ColorScheme.Default
     };
 

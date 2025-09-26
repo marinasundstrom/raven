@@ -57,6 +57,14 @@ internal class StatementGenerator : Generator
             case BoundBlockStatement blockStatement:
                 EmitBlockStatement(blockStatement);
                 break;
+
+            case BoundLabeledStatement labeledStatement:
+                EmitLabeledStatement(labeledStatement);
+                break;
+
+            case BoundGotoStatement gotoStatement:
+                EmitGotoStatement(gotoStatement);
+                break;
         }
     }
 
@@ -306,6 +314,42 @@ internal class StatementGenerator : Generator
             new StatementGenerator(scope, s).Emit();
 
         EmitDispose(blockStatement.LocalsToDispose);
+    }
+
+    private void EmitLabeledStatement(BoundLabeledStatement labeledStatement)
+    {
+        if (Parent is not Scope scope)
+            throw new InvalidOperationException("Labeled statements require an enclosing scope.");
+
+        MethodBodyGenerator.RegisterLabelScope(labeledStatement.Label, scope);
+
+        var ilLabel = MethodBodyGenerator.GetOrCreateLabel(labeledStatement.Label);
+        ILGenerator.MarkLabel(ilLabel);
+
+        new StatementGenerator(scope, labeledStatement.Statement).Emit();
+    }
+
+    private void EmitGotoStatement(BoundGotoStatement gotoStatement)
+    {
+        if (Parent is not Scope scope)
+            throw new InvalidOperationException("Goto statements require an enclosing scope.");
+
+        var targetScope = MethodBodyGenerator.GetLabelScope(gotoStatement.Target);
+        EmitScopeDisposals(scope, targetScope);
+
+        var ilLabel = MethodBodyGenerator.GetOrCreateLabel(gotoStatement.Target);
+        ILGenerator.Emit(OpCodes.Br, ilLabel);
+    }
+
+    private void EmitScopeDisposals(Scope startScope, Scope? targetScope)
+    {
+        var current = startScope;
+
+        while (current is not null && !ReferenceEquals(current, targetScope))
+        {
+            EmitDispose(current.LocalsToDispose);
+            current = current.Parent as Scope;
+        }
     }
 
     private void EmitBranchOpForCondition(BoundExpression expression, Label end, Scope scope)

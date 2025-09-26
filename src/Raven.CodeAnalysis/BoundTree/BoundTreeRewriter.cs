@@ -46,6 +46,8 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundFunctionStatement func => (BoundStatement)VisitFunctionStatement(func)!,
             BoundIfStatement ifStmt => (BoundStatement)VisitIfStatement(ifStmt)!,
             BoundTryStatement tryStmt => (BoundStatement)VisitTryStatement(tryStmt)!,
+            BoundLabeledStatement labeledStmt => (BoundStatement)VisitLabeledStatement(labeledStmt)!,
+            BoundGotoStatement gotoStmt => (BoundStatement)VisitGotoStatement(gotoStmt)!,
             BoundWhileStatement whileStmt => (BoundStatement)VisitWhileStatement(whileStmt)!,
             BoundForStatement forStmt => (BoundStatement)VisitForStatement(forStmt)!,
             BoundBlockStatement blockStmt => (BoundStatement)VisitBlockStatement(blockStmt)!,
@@ -98,6 +100,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             IPropertySymbol prop => VisitProperty(prop),
             IFieldSymbol field => VisitField(field),
             ILocalSymbol local => VisitLocal(local),
+            ILabelSymbol label => VisitLabel(label),
             _ => throw new Exception($"Unhandled symbol type: {symbol.GetType()}")
         };
     }
@@ -131,6 +134,12 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     {
         return local;
     }
+
+    public virtual ILabelSymbol VisitLabel(ILabelSymbol label)
+    {
+        return label;
+    }
+
 
     public virtual BoundNode VisitPattern(BoundPattern pattern)
     {

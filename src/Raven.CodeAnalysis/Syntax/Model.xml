@@ -150,6 +150,16 @@
     <Slot Name="FinallyClause" Type="FinallyClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" />
   </Node>
+  <Node Name="LabeledStatement" Inherits="Statement">
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="ColonToken" Type="Token" />
+    <Slot Name="Statement" Type="Statement" />
+  </Node>
+  <Node Name="GotoStatement" Inherits="Statement">
+    <Slot Name="GotoKeyword" Type="Token" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TerminatorToken" Type="Token" />
+  </Node>
   <Node Name="LocalDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="VariableDeclaration" />
     <Slot Name="TerminatorToken" Type="Token" />

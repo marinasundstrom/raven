@@ -13,6 +13,10 @@ public partial class SemanticModel
     private readonly Dictionary<SyntaxNode, Binder> _binderCache = new();
     private readonly Dictionary<SyntaxNode, SymbolInfo> _symbolMappings = new();
     private readonly Dictionary<SyntaxNode, BoundNode> _boundNodeCache = new();
+    private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelDeclarations = new();
+    private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _labelSyntax = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<string, List<ILabelSymbol>> _labelsByName = new(StringComparer.Ordinal);
+    private readonly Dictionary<GotoStatementSyntax, ILabelSymbol> _gotoTargets = new();
     private IImmutableList<Diagnostic>? _diagnostics;
 
     public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
@@ -179,6 +183,26 @@ public partial class SemanticModel
     {
         var binder = GetBinder(node);
         return binder.GetOrBind(node);
+    }
+
+    internal void RegisterLabel(LabeledStatementSyntax syntax, ILabelSymbol symbol)
+    {
+        _labelDeclarations[syntax] = symbol;
+        _labelSyntax[symbol] = syntax;
+
+        if (!_labelsByName.TryGetValue(symbol.Name, out var list))
+        {
+            list = new List<ILabelSymbol>();
+            _labelsByName[symbol.Name] = list;
+        }
+
+        if (!list.Any(existing => SymbolEqualityComparer.Default.Equals(existing, symbol)))
+            list.Add(symbol);
+    }
+
+    internal void RegisterGoto(GotoStatementSyntax syntax, ILabelSymbol target)
+    {
+        _gotoTargets[syntax] = target;
     }
 
     /// <summary>

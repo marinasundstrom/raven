@@ -200,6 +200,7 @@ public class CodeTextView : TextView
             SemanticClassification.Parameter => new(Color.Blue, background),
             SemanticClassification.Property => new(Color.BrightGreen, background),
             SemanticClassification.Local => new(Color.BrightMagenta, background),
+            SemanticClassification.Label => new(Color.White, background),
             _ => new(Color.BrightBlue, background)
         };
     }

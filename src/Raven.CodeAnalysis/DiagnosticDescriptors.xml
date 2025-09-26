@@ -284,4 +284,10 @@
   <Descriptor Id="RAV2203" Identifier="NoOverloadMatchesDelegate" Title="No overload matches delegate"
     Message="No overload for method '{methodName}' matches delegate type '{delegateType}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2500" Identifier="LabelAlreadyDefined" Title="Label already defined"
+    Message="A label named '{name}' is already defined in this scope" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2501" Identifier="LabelNotFound" Title="Label not found"
+    Message="The label '{name}' does not exist in the current context" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

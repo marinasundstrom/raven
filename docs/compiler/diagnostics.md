@@ -490,3 +490,22 @@ match number {
     _ => ""
 }
 ```
+
+## RAV2500: Label already defined
+Declared the same label name more than once in a function body.
+
+```raven
+start:
+start: // RAV2500
+    print("duplicate")
+```
+
+## RAV2501: Label not found
+Jumped to a label that is not declared in the current body.
+
+```raven
+start:
+    print("once")
+
+goto finish // RAV2501
+```

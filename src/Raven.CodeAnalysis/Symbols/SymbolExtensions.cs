@@ -98,6 +98,12 @@ public static partial class SymbolExtensions
             return result.ToString();
         }
 
+        if (symbol is ILabelSymbol labelSymbol)
+        {
+            result.Append(labelSymbol.Name);
+            return result.ToString();
+        }
+
         if (symbol is IParameterSymbol parameterSymbol)
         {
             if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType))

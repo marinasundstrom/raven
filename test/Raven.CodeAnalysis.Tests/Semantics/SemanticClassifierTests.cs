@@ -57,4 +57,27 @@ class C {
         result.Tokens[text].ShouldBe(SemanticClassification.Namespace);
         result.Tokens[sb].ShouldBe(SemanticClassification.Type);
     }
+
+    [Fact]
+    public void LabeledStatementTokens_ClassifiedAsLabel()
+    {
+        var source = """
+func main() {
+label:
+    goto label
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
+
+        var labels = tree.GetRoot().DescendantTokens()
+            .Where(t => t.Kind == SyntaxKind.IdentifierToken && t.Text == "label")
+            .ToList();
+
+        Assert.Equal(2, labels.Count);
+        result.Tokens[labels[0]].ShouldBe(SemanticClassification.Label);
+        result.Tokens[labels[1]].ShouldBe(SemanticClassification.Label);
+    }
 }

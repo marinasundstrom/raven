@@ -60,7 +60,7 @@ internal abstract class Symbol : ISymbol
             }
         }
 
-        if (this is ILocalSymbol)
+        if (this is ILocalSymbol or ILabelSymbol)
             return;
 
         if (containingType is SourceNamedTypeSymbol t)

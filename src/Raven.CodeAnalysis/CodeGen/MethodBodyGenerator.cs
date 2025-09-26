@@ -19,6 +19,8 @@ internal class MethodBodyGenerator
     private IMethodSymbol _methodSymbol;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
     private readonly HashSet<ILocalSymbol> _capturedLocals = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<ILabelSymbol, Label> _labels = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(SymbolEqualityComparer.Default);
 
     public MethodBodyGenerator(MethodGenerator methodGenerator)
     {
@@ -45,6 +47,29 @@ internal class MethodBodyGenerator
         }
 
         return _lambdaClosure.TryGetField(symbol, out fieldBuilder);
+    }
+
+    internal Label GetOrCreateLabel(ILabelSymbol labelSymbol)
+    {
+        if (!_labels.TryGetValue(labelSymbol, out var label))
+        {
+            label = ILGenerator.DefineLabel();
+            _labels[labelSymbol] = label;
+        }
+
+        return label;
+    }
+
+    internal void RegisterLabelScope(ILabelSymbol labelSymbol, Scope scope)
+    {
+        _labelScopes[labelSymbol] = scope;
+    }
+
+    internal Scope? GetLabelScope(ILabelSymbol labelSymbol)
+    {
+        return _labelScopes.TryGetValue(labelSymbol, out var scope)
+            ? scope
+            : null;
     }
 
     internal void EmitLoadClosure()

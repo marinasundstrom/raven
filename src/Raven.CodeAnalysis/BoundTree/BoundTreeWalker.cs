@@ -133,6 +133,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundIfStatement ifStmt:
                 VisitIfStatement(ifStmt);
                 break;
+            case BoundLabeledStatement labeledStatement:
+                VisitLabeledStatement(labeledStatement);
+                break;
+            case BoundGotoStatement gotoStatement:
+                VisitGotoStatement(gotoStatement);
+                break;
             case BoundWhileStatement whileStmt:
                 VisitWhileStatement(whileStmt);
                 break;
@@ -199,6 +205,15 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitAsExpression(BoundAsExpression node)
     {
         VisitExpression(node.Expression);
+    }
+
+    public override void VisitLabeledStatement(BoundLabeledStatement node)
+    {
+        VisitStatement(node.Statement);
+    }
+
+    public override void VisitGotoStatement(BoundGotoStatement node)
+    {
     }
 
     public virtual void VisitTypeOfExpression(BoundTypeOfExpression node) { }

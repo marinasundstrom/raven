@@ -5,6 +5,7 @@ public class SyntaxFactsTests
     [Theory]
     [InlineData("unit", SyntaxKind.UnitKeyword)]
     [InlineData("and", SyntaxKind.AndToken)]
+    [InlineData("goto", SyntaxKind.GotoKeyword)]
     public void TryParseKeyword_ReturnsExpectedKind(string text, SyntaxKind expected)
     {
         SyntaxFacts.TryParseKeyword(text, out var kind).ShouldBeTrue();
@@ -30,6 +31,7 @@ public class SyntaxFactsTests
     {
         SyntaxFacts.IsReservedWordKind(SyntaxKind.UnitKeyword).ShouldBeFalse();
         SyntaxFacts.IsReservedWordKind(SyntaxKind.AndToken).ShouldBeTrue();
+        SyntaxFacts.IsReservedWordKind(SyntaxKind.GotoKeyword).ShouldBeTrue();
     }
 
     [Fact]
