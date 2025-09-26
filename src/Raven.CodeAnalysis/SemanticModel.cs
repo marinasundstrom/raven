@@ -17,6 +17,7 @@ public partial class SemanticModel
     private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _labelSyntax = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<string, List<ILabelSymbol>> _labelsByName = new(StringComparer.Ordinal);
     private readonly Dictionary<GotoStatementSyntax, ILabelSymbol> _gotoTargets = new();
+    private readonly Dictionary<AttributeSyntax, AttributeData?> _attributeCache = new();
     private IImmutableList<Diagnostic>? _diagnostics;
 
     public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
@@ -185,6 +186,47 @@ public partial class SemanticModel
         return binder.GetOrBind(node);
     }
 
+    public AttributeData? GetAttribute(AttributeSyntax attribute, CancellationToken cancellationToken = default)
+    {
+        if (attribute is null)
+            throw new ArgumentNullException(nameof(attribute));
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_attributeCache.TryGetValue(attribute, out var cached))
+            return cached;
+
+        EnsureDiagnosticsCollected();
+
+        BoundExpression? boundExpression = TryGetCachedBoundNode(attribute) as BoundExpression;
+        var binder = GetBinder(attribute);
+
+        if (boundExpression is null && binder is AttributeBinder attributeBinder)
+            boundExpression = attributeBinder.BindAttribute(attribute);
+
+        AttributeData? data = null;
+
+        if (boundExpression is BoundObjectCreationExpression creation &&
+            creation.Constructor is IMethodSymbol ctor &&
+            ctor.ContainingType is INamedTypeSymbol attributeType)
+        {
+            var argumentConstants = ImmutableArray.CreateBuilder<TypedConstant>();
+
+            foreach (var argument in creation.Arguments)
+                argumentConstants.Add(CreateTypedConstant(argument));
+
+            data = new AttributeData(
+                attributeType,
+                ctor,
+                argumentConstants.MoveToImmutable(),
+                ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
+                attribute.GetReference());
+        }
+
+        _attributeCache[attribute] = data;
+        return data;
+    }
+
     internal void RegisterLabel(LabeledStatementSyntax syntax, ILabelSymbol symbol)
     {
         _labelDeclarations[syntax] = symbol;
@@ -214,6 +256,45 @@ public partial class SemanticModel
     internal BoundExpression GetBoundNode(ExpressionSyntax expression)
     {
         return (BoundExpression)GetBoundNode((SyntaxNode)expression);
+    }
+
+    private TypedConstant CreateTypedConstant(BoundExpression expression)
+    {
+        switch (expression)
+        {
+            case BoundLiteralExpression literal:
+            {
+                var type = literal.GetConvertedType() ?? literal.Type;
+
+                if (literal.Kind == BoundLiteralExpressionKind.NullLiteral)
+                    return TypedConstant.CreateNull(type);
+
+                return TypedConstant.CreatePrimitive(type, literal.Value);
+            }
+
+            case BoundCastExpression cast:
+                return CreateTypedConstant(cast.Expression).WithType(cast.Type);
+
+            case BoundTypeOfExpression typeOfExpression:
+                return TypedConstant.CreateType(typeOfExpression.SystemType, typeOfExpression.OperandType);
+
+            case BoundCollectionExpression collection when collection.Type is IArrayTypeSymbol arrayType:
+            {
+                var elements = ImmutableArray.CreateBuilder<TypedConstant>();
+                foreach (var element in collection.Elements)
+                    elements.Add(CreateTypedConstant(element));
+
+                return TypedConstant.CreateArray(arrayType, elements.MoveToImmutable());
+            }
+
+            case BoundEmptyCollectionExpression emptyCollection:
+                return TypedConstant.CreateArray(emptyCollection.Type, ImmutableArray<TypedConstant>.Empty);
+
+            case BoundErrorExpression error:
+                return TypedConstant.CreateError(error.Type);
+        }
+
+        return TypedConstant.CreateError(expression.Type);
     }
 
     /// <summary>

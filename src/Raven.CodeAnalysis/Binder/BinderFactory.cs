@@ -22,6 +22,7 @@ class BinderFactory
         // Now safely construct this node's binder with a guaranteed parent
         Binder? newBinder = node switch
         {
+            AttributeListSyntax attributeList => CreateAttributeBinder(attributeList, parentBinder!),
             BaseNamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
             MethodDeclarationSyntax => parentBinder,
             BlockSyntax => CreateBlockBinder(parentBinder),
@@ -41,6 +42,27 @@ class BinderFactory
         };
 
         return newBinder;
+    }
+
+    private Binder CreateAttributeBinder(AttributeListSyntax attributeList, Binder parentBinder)
+    {
+        var owner = ResolveAttributeOwner(attributeList, parentBinder)
+            ?? parentBinder.ContainingSymbol
+            ?? _compilation.Assembly;
+
+        return new AttributeBinder(owner, parentBinder);
+    }
+
+    private ISymbol? ResolveAttributeOwner(AttributeListSyntax attributeList, Binder parentBinder)
+    {
+        var parentNode = attributeList.Parent;
+        if (parentNode is null)
+            return null;
+
+        if (parentNode is CompilationUnitSyntax)
+            return _compilation.Assembly;
+
+        return parentBinder.BindDeclaredSymbol(parentNode);
     }
 
     private Binder? CreateBlockBinder(Binder? parentBinder)

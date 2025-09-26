@@ -229,7 +229,7 @@ partial class BlockBinder : Binder
         return new BoundLocalDeclarationStatement([declarator], isUsingDeclaration);
     }
 
-    private ITypeSymbol EnsureTypeAccessible(ITypeSymbol type, Location location)
+    protected ITypeSymbol EnsureTypeAccessible(ITypeSymbol type, Location location)
     {
         if (type.TypeKind == TypeKind.Error)
             return type;
@@ -240,7 +240,7 @@ partial class BlockBinder : Binder
         return Compilation.ErrorTypeSymbol;
     }
 
-    private bool EnsureMemberAccessible(ISymbol symbol, Location location, string symbolKind)
+    protected bool EnsureMemberAccessible(ISymbol symbol, Location location, string symbolKind)
     {
         if (symbol is null)
             return true;
@@ -2059,7 +2059,7 @@ partial class BlockBinder : Binder
         return null;
     }
 
-    private BoundExpression BindTypeSyntax(TypeSyntax syntax)
+    protected BoundExpression BindTypeSyntax(TypeSyntax syntax)
     {
         if (syntax is LiteralTypeSyntax literalType)
         {
