@@ -197,6 +197,18 @@ public static partial class DiagnosticBagExtensions
     public static void ReportIfExpressionRequiresElse(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.IfExpressionRequiresElse, location));
 
+    public static void ReportBreakStatementInExpression(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.BreakStatementInExpression, location));
+
+    public static void ReportContinueStatementInExpression(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ContinueStatementInExpression, location));
+
+    public static void ReportGotoStatementInExpression(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.GotoStatementInExpression, location));
+
+    public static void ReportLabelInExpression(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LabelInExpression, location));
+
     public static void ReportNonInvocableMember(this DiagnosticBag diagnostics, object? memberName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NonInvocableMember, location, memberName));
 
@@ -247,5 +259,11 @@ public static partial class DiagnosticBagExtensions
 
     public static void ReportLabelNotFound(this DiagnosticBag diagnostics, object? name, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LabelNotFound, location, name));
+
+    public static void ReportBreakStatementNotWithinLoop(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.BreakStatementNotWithinLoop, location));
+
+    public static void ReportContinueStatementNotWithinLoop(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ContinueStatementNotWithinLoop, location));
 
 }

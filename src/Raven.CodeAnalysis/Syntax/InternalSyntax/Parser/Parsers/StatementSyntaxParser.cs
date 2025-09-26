@@ -55,6 +55,14 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseGotoStatementSyntax();
                     break;
 
+                case SyntaxKind.BreakKeyword:
+                    statement = ParseBreakStatementSyntax();
+                    break;
+
+                case SyntaxKind.ContinueKeyword:
+                    statement = ParseContinueStatementSyntax();
+                    break;
+
                 case SyntaxKind.SemicolonToken:
                     ReadToken();
                     statement = EmptyStatement(token);
@@ -136,6 +144,24 @@ internal class StatementSyntaxParser : SyntaxParser
         var terminatorToken = ConsumeTerminator();
 
         return GotoStatement(gotoKeyword, identifier, terminatorToken, Diagnostics);
+    }
+
+    private BreakStatementSyntax ParseBreakStatementSyntax()
+    {
+        var breakKeyword = ReadToken();
+
+        var terminatorToken = ConsumeTerminator();
+
+        return BreakStatement(breakKeyword, terminatorToken, Diagnostics);
+    }
+
+    private ContinueStatementSyntax ParseContinueStatementSyntax()
+    {
+        var continueKeyword = ReadToken();
+
+        var terminatorToken = ConsumeTerminator();
+
+        return ContinueStatement(continueKeyword, terminatorToken, Diagnostics);
     }
 
     private IfStatementSyntax ParseIfStatementSyntax()

@@ -19,6 +19,8 @@ partial class BlockBinder : Binder
     private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
+    private int _loopDepth;
+    private int _expressionContextDepth;
 
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
@@ -405,6 +407,8 @@ partial class BlockBinder : Binder
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
             LabeledStatementSyntax labeledStatement => BindLabeledStatement(labeledStatement),
             GotoStatementSyntax gotoStatement => BindGotoStatement(gotoStatement),
+            BreakStatementSyntax breakStatement => BindBreakStatement(breakStatement),
+            ContinueStatementSyntax continueStatement => BindContinueStatement(continueStatement),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };
@@ -627,6 +631,9 @@ partial class BlockBinder : Binder
         _scopeDepth++;
         var depth = _scopeDepth;
 
+        if (!allowReturn)
+            _expressionContextDepth++;
+
         EnsureLabelsDeclared(block);
 
         // Step 1: Pre-declare all functions
@@ -689,6 +696,8 @@ partial class BlockBinder : Binder
             _locals.Remove(name);
 
         _scopeDepth--;
+        if (!allowReturn)
+            _expressionContextDepth--;
         return blockExpr;
     }
 
@@ -748,6 +757,9 @@ partial class BlockBinder : Binder
 
     private BoundStatement BindLabeledStatement(LabeledStatementSyntax labeledStatement)
     {
+        if (_expressionContextDepth > 0)
+            _diagnostics.ReportLabelInExpression(labeledStatement.Identifier.GetLocation());
+
         var labelSymbol = DeclareLabelSymbol(labeledStatement);
         var boundStatement = BindStatement(labeledStatement.Statement);
         var bound = new BoundLabeledStatement(labelSymbol, boundStatement);
@@ -757,6 +769,9 @@ partial class BlockBinder : Binder
 
     private BoundStatement BindGotoStatement(GotoStatementSyntax gotoStatement)
     {
+        if (_expressionContextDepth > 0)
+            _diagnostics.ReportGotoStatementInExpression(gotoStatement.GotoKeyword.GetLocation());
+
         var identifier = gotoStatement.Identifier;
         if (identifier.IsMissing)
         {
@@ -782,6 +797,67 @@ partial class BlockBinder : Binder
         var bound = new BoundGotoStatement(label, isBackward);
         CacheBoundNode(gotoStatement, bound);
         return bound;
+    }
+
+    private BoundStatement BindBreakStatement(BreakStatementSyntax breakStatement)
+    {
+        var location = breakStatement.BreakKeyword.GetLocation();
+
+        if (_expressionContextDepth > 0)
+        {
+            _diagnostics.ReportBreakStatementInExpression(location);
+        }
+        else if (_loopDepth == 0)
+        {
+            _diagnostics.ReportBreakStatementNotWithinLoop(location);
+        }
+
+        var bound = new BoundBreakStatement();
+        CacheBoundNode(breakStatement, bound);
+        return bound;
+    }
+
+    private BoundStatement BindContinueStatement(ContinueStatementSyntax continueStatement)
+    {
+        var location = continueStatement.ContinueKeyword.GetLocation();
+
+        if (_expressionContextDepth > 0)
+        {
+            _diagnostics.ReportContinueStatementInExpression(location);
+        }
+        else if (_loopDepth == 0)
+        {
+            _diagnostics.ReportContinueStatementNotWithinLoop(location);
+        }
+
+        var bound = new BoundContinueStatement();
+        CacheBoundNode(continueStatement, bound);
+        return bound;
+    }
+
+    public BoundExpression BindExpressionInLoop(ExpressionSyntax syntax, bool allowReturn)
+    {
+        var previous = EnterLoop();
+        try
+        {
+            return BindExpression(syntax, allowReturn);
+        }
+        finally
+        {
+            ExitLoop(previous);
+        }
+    }
+
+    private int EnterLoop()
+    {
+        var previous = _loopDepth;
+        _loopDepth++;
+        return previous;
+    }
+
+    private void ExitLoop(int previous)
+    {
+        _loopDepth = previous;
     }
 
     private ILabelSymbol CreateLabelSymbol(string name, Location location, SyntaxReference reference)
@@ -1722,9 +1798,23 @@ partial class BlockBinder : Binder
         var condition = BindExpression(whileExpression.Condition);
 
         var expressionBinder = SemanticModel.GetBinder(whileExpression, this);
-        var expression = expressionBinder is BlockBinder wb
-            ? wb.BindExpression(whileExpression.Expression, _allowReturnsInExpression) as BoundExpression
-            : expressionBinder.BindExpression(whileExpression.Expression) as BoundExpression;
+        BoundExpression? expression;
+        if (expressionBinder is BlockBinder wb)
+        {
+            expression = wb.BindExpressionInLoop(whileExpression.Expression, _allowReturnsInExpression);
+        }
+        else
+        {
+            var previousLoopDepth = EnterLoop();
+            try
+            {
+                expression = expressionBinder.BindExpression(whileExpression.Expression) as BoundExpression;
+            }
+            finally
+            {
+                ExitLoop(previousLoopDepth);
+            }
+        }
 
         return new BoundWhileExpression(condition, expression!);
     }
@@ -1741,7 +1831,7 @@ partial class BlockBinder : Binder
 
         var local = loopBinder.CreateLocalSymbol(forExpression, forExpression.Identifier.Text, isMutable: false, elementType);
 
-        var body = loopBinder.BindExpression(forExpression.Body, _allowReturnsInExpression) as BoundExpression;
+        var body = loopBinder.BindExpressionInLoop(forExpression.Body, _allowReturnsInExpression) as BoundExpression;
 
         return new BoundForExpression(local, collection, body!);
     }

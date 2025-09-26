@@ -235,6 +235,22 @@
     Title="If expression requires an else clause"
     Message="If expressions used as values must include an else clause"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1902" Identifier="BreakStatementInExpression"
+    Title="Break statement not allowed here"
+    Message="Break statements are not valid in expressions; use a statement block instead"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1903" Identifier="ContinueStatementInExpression"
+    Title="Continue statement not allowed here"
+    Message="Continue statements are not valid in expressions; use a statement block instead"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1904" Identifier="GotoStatementInExpression"
+    Title="Goto statement not allowed here"
+    Message="Goto statements are not valid in expressions; use a statement block instead"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1905" Identifier="LabelInExpression"
+    Title="Label not allowed here"
+    Message="Labels are not valid in expressions; use a statement block instead"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1955" Identifier="NonInvocableMember" Title="Non-invocable member"
     Message="Non-invocable member '{memberName}' cannot be used like a method"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
@@ -290,4 +306,10 @@
   <Descriptor Id="RAV2501" Identifier="LabelNotFound" Title="Label not found"
     Message="The label '{name}' does not exist in the current context" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2600" Identifier="BreakStatementNotWithinLoop" Title="Break statement not within loop"
+    Message="Break statements are only valid inside loops" Category="compiler" Severity="Error" EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2601" Identifier="ContinueStatementNotWithinLoop" Title="Continue statement not within loop"
+    Message="Continue statements are only valid inside loops" Category="compiler" Severity="Error" EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
 </Diagnostics>
