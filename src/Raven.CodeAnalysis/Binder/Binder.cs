@@ -184,12 +184,12 @@ internal abstract class Binder
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
     }
 
-    public virtual IEnumerable<IMethodSymbol> LookupExtensionMethods(string name, ITypeSymbol receiverType)
+    public virtual IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
     {
-        return ParentBinder?.LookupExtensionMethods(name, receiverType) ?? Enumerable.Empty<IMethodSymbol>();
+        return ParentBinder?.LookupExtensionMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
     }
 
-    protected static IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(INamespaceOrTypeSymbol scope, string name)
+    protected static IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(INamespaceOrTypeSymbol scope, string? name, bool includePartialMatches)
     {
         if (scope is INamespaceSymbol ns)
         {
@@ -197,7 +197,7 @@ internal abstract class Binder
             {
                 if (member is INamedTypeSymbol typeMember)
                 {
-                    foreach (var method in GetExtensionMethodsFromScope(typeMember, name))
+                    foreach (var method in GetExtensionMethodsFromScope(typeMember, name, includePartialMatches))
                         yield return method;
                 }
             }
@@ -207,15 +207,24 @@ internal abstract class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        foreach (var member in type.GetMembers(name).OfType<IMethodSymbol>())
+        var members = includePartialMatches || string.IsNullOrEmpty(name)
+            ? type.GetMembers().OfType<IMethodSymbol>()
+            : type.GetMembers(name!).OfType<IMethodSymbol>();
+
+        foreach (var member in members)
         {
-            if (member.IsExtensionMethod)
-                yield return member;
+            if (!member.IsExtensionMethod)
+                continue;
+
+            if (!includePartialMatches && name is not null && member.Name != name)
+                continue;
+
+            yield return member;
         }
 
         foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
         {
-            foreach (var method in GetExtensionMethodsFromScope(nested, name))
+            foreach (var method in GetExtensionMethodsFromScope(nested, name, includePartialMatches))
                 yield return method;
         }
     }

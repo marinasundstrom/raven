@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
@@ -107,6 +109,39 @@ Console.Out.
 
         Assert.Contains(items, i => i.DisplayText == "WriteLine");
         Assert.DoesNotContain(items, i => i.DisplayText == "Synchronized");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_IncludesExtensionMethods()
+    {
+        var code = """
+import System.Collections.Generic.*;
+import System.Linq.*;
+
+let numbers = new List<int>();
+numbers.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var references = TestMetadataReferences.Default
+            .Concat([
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            ])
+            .ToArray();
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Where");
     }
 
     [Fact]
