@@ -21,9 +21,9 @@ internal sealed class OverloadResolver
         {
             var parameters = method.Parameters;
             var treatAsExtension = method.IsExtensionMethod && receiver is not null;
-            var expectedParameters = treatAsExtension ? arguments.Length + 1 : arguments.Length;
+            var providedCount = arguments.Length + (treatAsExtension ? 1 : 0);
 
-            if (parameters.Length != expectedParameters)
+            if (!HasSufficientArguments(parameters, providedCount))
                 continue;
 
             if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, out var score))
@@ -217,6 +217,12 @@ internal sealed class OverloadResolver
                 return false;
         }
 
+        for (; parameterIndex < parameters.Length; parameterIndex++)
+        {
+            if (!parameters[parameterIndex].HasExplicitDefaultValue)
+                return false;
+        }
+
         return true;
     }
 
@@ -233,8 +239,19 @@ internal sealed class OverloadResolver
         {
             if (argument is not BoundAddressOfExpression addr ||
                 addr.Type is not ByRefTypeSymbol argByRef ||
-                !SymbolEqualityComparer.Default.Equals(argByRef.ElementType, parameter.Type) ||
                 argType.SpecialType == SpecialType.System_Void)
+            {
+                return false;
+            }
+
+            var parameterType = parameter.Type;
+
+            if (parameterType is ByRefTypeSymbol paramByRef)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(argByRef.ElementType, paramByRef.ElementType))
+                    return false;
+            }
+            else if (!SymbolEqualityComparer.Default.Equals(argByRef.ElementType, parameterType))
             {
                 return false;
             }
@@ -310,6 +327,24 @@ internal sealed class OverloadResolver
             return 5;
 
         return 10; // fallback or unspecified conversion
+    }
+
+    private static bool HasSufficientArguments(ImmutableArray<IParameterSymbol> parameters, int providedCount)
+    {
+        if (providedCount > parameters.Length)
+            return false;
+
+        var required = GetRequiredParameterCount(parameters);
+        return providedCount >= required;
+    }
+
+    private static int GetRequiredParameterCount(ImmutableArray<IParameterSymbol> parameters)
+    {
+        var required = parameters.Length;
+        while (required > 0 && parameters[required - 1].HasExplicitDefaultValue)
+            required--;
+
+        return required;
     }
 }
 

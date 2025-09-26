@@ -448,6 +448,8 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public bool IsAlias => false;
     public bool IsParams => _original.IsParams;
     public RefKind RefKind => _original.RefKind;
+    public bool HasExplicitDefaultValue => _original.HasExplicitDefaultValue;
+    public object? ExplicitDefaultValue => _original.ExplicitDefaultValue;
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitParameter(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitParameter(this);

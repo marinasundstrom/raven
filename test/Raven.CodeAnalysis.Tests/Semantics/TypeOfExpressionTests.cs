@@ -22,4 +22,17 @@ public class TypeOfExpressionTests : CompilationTestBase
         var operandType = model.GetTypeInfo(typeOfExpression.Type).Type;
         Assert.Equal(SpecialType.System_Int32, operandType!.SpecialType);
     }
+
+    [Fact]
+    public void TypeOfExpression_BindsBoundNodeWithOperandType()
+    {
+        var (compilation, tree) = CreateCompilation("let t = typeof(int)");
+        var model = compilation.GetSemanticModel(tree);
+        var typeOfExpression = tree.GetRoot().DescendantNodes().OfType<TypeOfExpressionSyntax>().Single();
+
+        var bound = Assert.IsType<BoundTypeOfExpression>(model.GetBoundNode(typeOfExpression));
+
+        Assert.Equal(SpecialType.System_Type, bound.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, bound.OperandType.SpecialType);
+    }
 }

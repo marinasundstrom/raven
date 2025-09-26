@@ -1212,6 +1212,7 @@ public partial class SemanticModel
                 ? Compilation.ErrorTypeSymbol
                 : classBinder.ResolveType(typeSyntax);
 
+            var hasDefaultValue = TypeMemberBinder.TryEvaluateParameterDefaultValue(parameterSyntax, parameterType, out var defaultValue);
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.Text,
                 parameterType,
@@ -1220,7 +1221,9 @@ public partial class SemanticModel
                 namespaceSymbol,
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
-                refKind);
+                refKind,
+                hasDefaultValue,
+                defaultValue);
 
             parameters.Add(parameterSymbol);
 

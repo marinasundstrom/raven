@@ -164,6 +164,60 @@ public sealed class OverloadResolverTests : CompilationTestBase
         Assert.Same(instance, result.Method);
     }
 
+    [Fact]
+    public void ResolveOverload_AllowsOmittedOptionalParameters()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var optionalParameter = new FakeParameterSymbol(
+            "value",
+            intType,
+            RefKind.None,
+            isParams: false,
+            hasExplicitDefaultValue: true,
+            explicitDefaultValue: 42);
+
+        var optionalMethod = new FakeMethodSymbol(
+            "Optional",
+            compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray.Create<IParameterSymbol>(optionalParameter));
+
+        var result = OverloadResolver.ResolveOverload([optionalMethod], Array.Empty<BoundExpression>(), compilation);
+
+        Assert.True(result.Success);
+        Assert.Same(optionalMethod, result.Method);
+    }
+
+    [Fact]
+    public void ResolveOverload_SystemInt32TryParse_WithOutArgument_Succeeds()
+    {
+        var compilation = CreateInitializedCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+
+        var tryParseMethods = intType
+            .GetMembers("TryParse")
+            .OfType<IMethodSymbol>()
+            .ToImmutableArray();
+
+        Assert.NotEmpty(tryParseMethods);
+
+        var stringArgument = new TestBoundExpression(stringType);
+        var outArgument = new BoundAddressOfExpression(
+            new FakeParameterSymbol("value", intType, RefKind.None, isParams: false),
+            intType);
+
+        var result = OverloadResolver.ResolveOverload(
+            tryParseMethods,
+            [stringArgument, outArgument],
+            compilation);
+
+        Assert.True(result.Success);
+        Assert.Equal("TryParse", result.Method!.Name);
+        Assert.Equal(2, result.Method.Parameters.Length);
+    }
+
     protected override MetadataReference[] GetMetadataReferences()
     {
         var runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
@@ -376,12 +430,20 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
     private sealed class FakeParameterSymbol : FakeSymbol, IParameterSymbol
     {
-        public FakeParameterSymbol(string name, ITypeSymbol type, RefKind refKind, bool isParams)
+        public FakeParameterSymbol(
+            string name,
+            ITypeSymbol type,
+            RefKind refKind,
+            bool isParams,
+            bool hasExplicitDefaultValue = false,
+            object? explicitDefaultValue = null)
             : base(SymbolKind.Parameter, name)
         {
             Type = type;
             RefKind = refKind;
             IsParams = isParams;
+            HasExplicitDefaultValue = hasExplicitDefaultValue;
+            ExplicitDefaultValue = explicitDefaultValue;
         }
 
         public ITypeSymbol Type { get; }
@@ -389,6 +451,10 @@ public sealed class OverloadResolverTests : CompilationTestBase
         public bool IsParams { get; }
 
         public RefKind RefKind { get; }
+
+        public bool HasExplicitDefaultValue { get; }
+
+        public object? ExplicitDefaultValue { get; }
 
         public void SetContainer(ISymbol? container)
             => base.SetContainer(container);

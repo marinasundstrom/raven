@@ -274,6 +274,21 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Parameter_WithDefaultValue_ParsesEqualsValueClause()
+    {
+        var source = "func foo(bar: int = 42) {}";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (FunctionStatementSyntax)parser.ParseStatement().CreateRed();
+        var parameter = statement.ParameterList.Parameters.Single();
+
+        Assert.NotNull(parameter.DefaultValue);
+        Assert.Equal(SyntaxKind.NumericLiteralExpression, parameter.DefaultValue!.Value.Kind);
+    }
+
+    [Fact]
     public void SkipUntil_AtEndOfFile_ReturnsNoneToken()
     {
         var source = string.Empty;

@@ -161,6 +161,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public ITypeSymbol Type => _owner.Substitute(_original.Type);
         public bool IsParams => _original.IsParams;
         public RefKind RefKind => _original.RefKind;
+        public bool HasExplicitDefaultValue => _original.HasExplicitDefaultValue;
+        public object? ExplicitDefaultValue => _original.ExplicitDefaultValue;
 
         public void Accept(SymbolVisitor visitor) => visitor.VisitParameter(this);
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitParameter(this);

@@ -10,5 +10,6 @@ internal partial class BoundTypeOfExpression : BoundExpression
     }
 
     public ITypeSymbol OperandType { get; }
+
     public ITypeSymbol SystemType { get; }
 }

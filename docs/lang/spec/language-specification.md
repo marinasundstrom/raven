@@ -394,7 +394,44 @@ let msg = "Name: ${name}, Age: ${age}"
 Console.WriteLine(msg)
 ```
 
-### Array literals and element access
+### Collection expressions
+
+Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional
+trailing comma) to build arrays and other collection types. Elements are evaluated
+from left to right. In addition to ordinary expressions, an element may be written as
+`..expression`—called a *spread*. Spreads enumerate the runtime value and insert each
+item into the resulting collection in order. The spread source must be convertible to
+`System.Collections.IEnumerable` (including arrays and `IEnumerable<T>` implementations);
+otherwise diagnostic `RAV2022` is reported. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3670】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L260-L266】
+
+Collection expressions are target-typed:
+
+* **Array targets** — When the expected type is an array `T[]`, the expression allocates a
+  new array of that element type. Each item is implicitly converted to `T` before storage,
+  and spreads must enumerate values assignable to `T`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3672-L3738】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L950-L1016】
+* **Collection targets** — When the expected type is a non-array type with an accessible
+  parameterless constructor and an instance `Add` method, the compiler constructs the
+  target and calls `Add` for every element. The `Add` parameter determines the element
+  conversions, and spread entries must supply compatible values. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3738-L3776】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1016-L1096】
+* **No target type** — Without an expected type, Raven infers a best common element type
+  by merging the contributions of each element (spreads use their enumerated element type).
+  The expression then produces an array of that inferred element type, defaulting to
+  `object` when no more precise choice is available. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3776-L3861】
+
+An empty collection expression `[]` must be used in a context that supplies a target type;
+otherwise its type cannot be inferred. When a target type is available, the compiler
+produces an empty instance of that type (an empty array or an initialized collection).
+【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3651】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1170-L1192】
+
+```raven
+let numbers: int[] = [1, 2, 3]
+let combined = [0, ..numbers, 4]
+
+let names: List<string> = ["a", "b"]
+let inferred = [1, 2.0]  // inferred as object[]
+```
+
+#### Element access
 
 ```raven
 let list = [1, 42, 3]
@@ -411,6 +448,10 @@ Console.WriteLine("Test")
 The `()` call operator invokes a function-valued expression. If the target
 expression's type defines an invocation operator via a `self` method, that
 member is invoked instead; see [Invocation operator](#invocation-operator).
+
+When the target has optional parameters, omitted trailing arguments are filled
+in using the defaults declared on the parameter list. The supplied arguments are
+matched positionally before defaults are considered.
 
 #### Extension method invocation
 
@@ -837,6 +878,34 @@ Arrow bodies are allowed:
 func add(a: int, b: int) -> int => a + b
 ```
 
+### Parameters
+
+Function, method, and accessor parameters use the `name: Type` syntax. Parameter
+names are required and participate in overload resolution alongside their types
+and any `ref`/`out` modifiers.
+
+Parameters may provide a default value using `= expression` after the type. A
+parameter with a default value is optional when invoking the function: callers
+can omit that argument and the compiler supplies the stored constant instead.
+Only trailing parameters may be optional; omitting an argument fixes the default
+for that position and all following parameters must also declare defaults.
+
+```raven
+func greet(name: string, punctuation: string = "!")
+{
+    Console.WriteLine($"Hello, ${name}${punctuation}")
+}
+
+greet("Raven")          // prints "Hello, Raven!"
+greet("Raven", "!!!")    // caller-provided punctuation wins
+```
+
+Default expressions must be compile-time constants: literals (including `null`),
+parenthesized literals, and unary `+`/`-` applied to numeric literals. The value
+must convert to the parameter type using an implicit conversion. Nullable value
+types accept `null` defaults; other value types require a literal of the
+underlying type. Reference-type parameters accept `null` defaults.
+
 ### Generic functions and methods
 
 Functions—including methods declared inside types—may introduce type parameters
@@ -1040,6 +1109,28 @@ x = "Bar"
 
 var y: int = 2
 y = 3
+```
+
+### Resource declarations (`using`)
+
+Prefixing a local declaration with `using` introduces a scoped disposable resource. The
+declaration follows the normal `let`/`var` syntax and must include an initializer. Both the
+initializer's type and the declared type must be convertible to `System.IDisposable`; if
+either conversion fails, Raven reports the same assignment diagnostic used for other
+implicit conversions. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L188-L224】
+
+Resources created with `using` remain in scope like ordinary locals but are automatically
+disposed when control leaves the enclosing block. Disposal runs in reverse declaration
+order so that later resources observe earlier ones still alive. File-scope `using`
+declarations participate as well: they are disposed after the file's top-level statements
+finish executing. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L222-L282】【F:src/Raven.CodeAnalysis/CodeGen/Generators/Generator.cs†L54-L87】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L114-L148】
+
+```raven
+using let stream = System.IO.File.OpenRead(path)
+using var reader = System.IO.StreamReader(stream)
+
+let text = reader.ReadToEnd()
+// reader.Dispose() and stream.Dispose() run automatically when the scope ends
 ```
 
 ## Types

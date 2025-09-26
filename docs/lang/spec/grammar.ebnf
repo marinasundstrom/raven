@@ -44,7 +44,7 @@ FunctionDeclaration      ::= FunctionModifiers?
 ReturnTypeClause         ::= '->' Type ;
 
 ParameterList            ::= Parameter {',' Parameter} ;
-Parameter                ::= ['out'] Identifier ':' Type ;
+Parameter                ::= ['out'] Identifier ':' Type ['=' Expression] ;
 
 EnumDeclaration          ::= TypeModifiers?
                              'enum' Identifier '{' EnumMembers? '}' ;

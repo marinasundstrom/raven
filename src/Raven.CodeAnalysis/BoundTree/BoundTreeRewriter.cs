@@ -141,4 +141,5 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     {
         return designator.Accept(this);
     }
+
 }

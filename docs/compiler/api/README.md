@@ -6,7 +6,7 @@ This document outlines the API of the Raven compiler, providing guidance on synt
 
 ## Syntax Analysis
 
-This section covers the basics of syntax analysis, including parsing source code, transforming syntax trees, and visualizing syntax hierarchies.
+This section covers the basics of syntax analysis, including parsing source code, transforming syntax trees, and visualizing syntax hierarchies. For a structured tour of the public surface, see the [Syntax Tree API](syntax-tree.md).
 
 ### Parsing Source Code into a Syntax Tree
 
@@ -265,7 +265,7 @@ A `Compilation` encapsulates all components required for compiling, including sy
 
 ### Semantic Analysis
 
-Retrieve symbol information using the `Compilation` and `SemanticModel` classes.
+Retrieve symbol information using the `Compilation` and `SemanticModel` classes. The [Semantic Analysis API](semantic-analysis.md) dives deeper into compilation construction, diagnostics, symbol binding, and the operations surface.
 
 #### Example
 
@@ -307,6 +307,13 @@ var variableDeclarator = syntaxTree.GetRoot()
 var symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol;
 Console.WriteLine(symbol.Name);
 ```
+
+---
+
+## Operations
+
+The operations API provides a stable, syntax-agnostic view of semantics that mirrors Roslyn's `IOperation` abstraction. See
+[Operations API](operations.md) for an overview of the surface and how to retrieve operations from a `SemanticModel`.
 
 ---
 

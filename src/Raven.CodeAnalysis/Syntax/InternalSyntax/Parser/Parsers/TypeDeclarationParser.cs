@@ -634,7 +634,13 @@ internal class TypeDeclarationParser : SyntaxParser
 
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
-            parameterList.Add(Parameter(modifiers, name, typeAnnotation));
+            EqualsValueClauseSyntax? defaultValue = null;
+            if (IsNextToken(SyntaxKind.EqualsToken, out _))
+            {
+                defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+            }
+
+            parameterList.Add(Parameter(modifiers, name, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
@@ -764,7 +770,13 @@ internal class TypeDeclarationParser : SyntaxParser
 
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
-            parameterList.Add(Parameter(modifiers, name, typeAnnotation));
+            EqualsValueClauseSyntax? defaultValue = null;
+            if (IsNextToken(SyntaxKind.EqualsToken, out _))
+            {
+                defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+            }
+
+            parameterList.Add(Parameter(modifiers, name, typeAnnotation, defaultValue));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))
