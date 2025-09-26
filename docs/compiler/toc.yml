@@ -44,6 +44,8 @@
   items:
     - name: Adding new syntax
       href: development/adding-new-syntax.md
+    - name: Language feature checklist
+      href: development/language-feature-checklist.md
     - name: Parsing
       href: development/parsing.md
     - name: Common problems
