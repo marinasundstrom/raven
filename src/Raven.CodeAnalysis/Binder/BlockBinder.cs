@@ -737,6 +737,13 @@ partial class BlockBinder : Binder
         if (identifier.IsMissing)
             return CreateLabelSymbol(string.Empty, identifier.GetLocation(), labeledStatement.GetReference());
 
+        if (SyntaxFacts.IsReservedWordKind(identifier.Kind))
+        {
+            var identifierName = identifier.ValueText;
+            _diagnostics.ReportReservedWordCannotBeLabel(identifierName, identifier.GetLocation());
+            return CreateLabelSymbol(string.Empty, identifier.GetLocation(), labeledStatement.GetReference());
+        }
+
         var name = identifier.ValueText;
 
         if (_labelsByName.TryGetValue(name, out var conflict))
@@ -775,6 +782,16 @@ partial class BlockBinder : Binder
         var identifier = gotoStatement.Identifier;
         if (identifier.IsMissing)
         {
+            var errorSymbol = CreateLabelSymbol(string.Empty, identifier.GetLocation(), gotoStatement.GetReference());
+            var boundError = new BoundGotoStatement(errorSymbol);
+            CacheBoundNode(gotoStatement, boundError);
+            return boundError;
+        }
+
+        if (SyntaxFacts.IsReservedWordKind(identifier.Kind))
+        {
+            var identifierName = identifier.ValueText;
+            _diagnostics.ReportReservedWordCannotBeLabel(identifierName, identifier.GetLocation());
             var errorSymbol = CreateLabelSymbol(string.Empty, identifier.GetLocation(), gotoStatement.GetReference());
             var boundError = new BoundGotoStatement(errorSymbol);
             CacheBoundNode(gotoStatement, boundError);

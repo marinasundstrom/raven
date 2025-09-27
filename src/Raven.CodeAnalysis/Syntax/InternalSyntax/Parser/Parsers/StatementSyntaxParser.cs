@@ -81,7 +81,10 @@ internal class StatementSyntaxParser : SyntaxParser
     {
         if (!CanTokenBeIdentifier(token))
         {
-            return false;
+            if (!global::Raven.CodeAnalysis.Syntax.SyntaxFacts.IsReservedWordKind(token.Kind))
+            {
+                return false;
+            }
         }
 
         var colonCandidate = PeekToken(1);
@@ -90,7 +93,15 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private LabeledStatementSyntax ParseLabeledStatementSyntax()
     {
-        var identifier = ReadIdentifierToken();
+        SyntaxToken identifier;
+        if (global::Raven.CodeAnalysis.Syntax.SyntaxFacts.IsReservedWordKind(PeekToken().Kind))
+        {
+            identifier = ReadToken();
+        }
+        else
+        {
+            identifier = ReadIdentifierToken();
+        }
         var colonToken = ExpectToken(SyntaxKind.ColonToken);
 
         StatementSyntax statement;
@@ -132,9 +143,14 @@ internal class StatementSyntaxParser : SyntaxParser
         var gotoKeyword = ReadToken();
 
         SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
+        var next = PeekToken();
+        if (CanTokenBeIdentifier(next))
         {
             identifier = ReadIdentifierToken();
+        }
+        else if (global::Raven.CodeAnalysis.Syntax.SyntaxFacts.IsReservedWordKind(next.Kind))
+        {
+            identifier = ReadToken();
         }
         else
         {

@@ -260,6 +260,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportLabelNotFound(this DiagnosticBag diagnostics, object? name, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LabelNotFound, location, name));
 
+    public static void ReportReservedWordCannotBeLabel(this DiagnosticBag diagnostics, object? name, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ReservedWordCannotBeLabel, location, name));
+
     public static void ReportBreakStatementNotWithinLoop(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.BreakStatementNotWithinLoop, location));
 
