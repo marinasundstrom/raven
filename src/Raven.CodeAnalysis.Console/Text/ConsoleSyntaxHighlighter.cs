@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -82,16 +83,18 @@ public static class ConsoleSyntaxHighlighter
     public static string WriteNodeToText(this SyntaxNode node, Compilation compilation, bool includeDiagnostics = false,
         bool diagnosticsOnly = false)
     {
+        var syntaxTree = node.SyntaxTree ?? throw new InvalidOperationException("Node is not associated with a syntax tree.");
+
         if (!s_supportsAnsi)
-            return node.SyntaxTree.GetText()!.ToString();
+            return syntaxTree.GetText()!.ToString();
 
         if (diagnosticsOnly)
             includeDiagnostics = true;
 
-        var model = compilation.GetSemanticModel(node.SyntaxTree);
+        var model = compilation.GetSemanticModel(syntaxTree);
         var classification = SemanticClassifier.Classify(node, model);
 
-        var sourceText = node.SyntaxTree.GetText()!;
+        var sourceText = syntaxTree.GetText()!;
         var text = sourceText.ToString();
         var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
 
@@ -112,10 +115,16 @@ public static class ConsoleSyntaxHighlighter
             AddTriviaSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
         }
 
+        var diagnosticsForTree = Array.Empty<Diagnostic>();
         if (includeDiagnostics)
         {
-            foreach (var diagnostic in compilation.GetDiagnostics()
-                         .Where(d => d.Location.SourceTree == node.SyntaxTree))
+            diagnosticsForTree = compilation.GetDiagnostics()
+                .Where(d => d.Location.SourceTree == syntaxTree)
+                .OrderBy(d => d.Location.SourceSpan.Start)
+                .ThenBy(d => d.Location.SourceSpan.Length)
+                .ToArray();
+
+            foreach (var diagnostic in diagnosticsForTree)
             {
                 AddDiagnosticSpan(lineDiagnostics, lines, sourceText, diagnostic.Location.SourceSpan.Start,
                     diagnostic.Location.SourceSpan.End, diagnostic.Severity);
@@ -123,20 +132,69 @@ public static class ConsoleSyntaxHighlighter
         }
 
         var sb = new StringBuilder();
-        var lineOrder = diagnosticsOnly
-            ? Enumerable.Range(0, lines.Length)
-                .Where(i => lineDiagnostics[i] is { Count: > 0 })
-                .ToArray()
-            : Enumerable.Range(0, lines.Length).ToArray();
+        if (diagnosticsOnly)
+            return WriteDiagnosticsOnly(sb, diagnosticsForTree, lines, lineTokens, lineDiagnostics, syntaxTree.FilePath);
 
-        if (lineOrder.Length == 0)
-            return string.Empty;
+        var lineOrder = Enumerable.Range(0, lines.Length).ToArray();
 
         for (var index = 0; index < lineOrder.Length; index++)
         {
             var lineIndex = lineOrder[index];
             AppendLine(sb, lines[lineIndex], lineTokens[lineIndex], lineDiagnostics[lineIndex]);
             if (index < lineOrder.Length - 1)
+                sb.AppendLine();
+        }
+
+        return sb.ToString();
+    }
+
+    private static string WriteDiagnosticsOnly(StringBuilder sb, IReadOnlyList<Diagnostic> diagnostics, string[] lines,
+        IReadOnlyList<List<TokenSpan>?> lineTokens, IReadOnlyList<List<DiagnosticSpan>?> lineDiagnostics, string? fallbackPath)
+    {
+        if (diagnostics.Count == 0)
+            return string.Empty;
+
+        for (var i = 0; i < diagnostics.Count; i++)
+        {
+            var diagnostic = diagnostics[i];
+            var span = diagnostic.Location.GetLineSpan();
+            var filePath = span.Path;
+
+            if (string.IsNullOrEmpty(filePath))
+                filePath = fallbackPath;
+
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                try
+                {
+                    var relative = Path.GetRelativePath(Environment.CurrentDirectory, filePath);
+                    if (!string.IsNullOrEmpty(relative) && relative != ".")
+                        filePath = relative;
+                }
+                catch (Exception)
+                {
+                    // Ignore failures computing relative paths and fall back to the original path.
+                }
+
+                filePath = filePath.Replace('\\', '/');
+            }
+
+            var start = span.StartLinePosition;
+            sb.AppendLine(
+                $"{filePath}({start.Line + 1},{start.Character + 1}): {diagnostic.Severity.ToString().ToLowerInvariant()} {diagnostic.Descriptor.Id}: {diagnostic.GetMessage()}");
+            sb.AppendLine();
+
+            var end = span.EndLinePosition;
+            var startLine = Math.Max(start.Line, 0);
+            var endLine = Math.Max(end.Line, startLine);
+
+            for (var lineIndex = startLine; lineIndex <= endLine && lineIndex < lines.Length; lineIndex++)
+            {
+                AppendLine(sb, lines[lineIndex], lineTokens[lineIndex], lineDiagnostics[lineIndex]);
+                sb.AppendLine();
+            }
+
+            if (i < diagnostics.Count - 1)
                 sb.AppendLine();
         }
 
