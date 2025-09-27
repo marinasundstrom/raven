@@ -1488,8 +1488,9 @@ internal class ExpressionGenerator : Generator
         EmitExpression(binaryExpression.Right);
 
         var op = binaryExpression.Operator;
+        var operatorKind = op.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
 
-        switch (op.OperatorKind)
+        switch (operatorKind)
         {
             case BinaryOperatorKind.Addition:
                 ILGenerator.Emit(OpCodes.Add);
@@ -1511,8 +1512,38 @@ internal class ExpressionGenerator : Generator
             //    ILGenerator.Emit(OpCodes.Rem);
             //    break;
 
+            case BinaryOperatorKind.Equality:
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
+            case BinaryOperatorKind.Inequality:
+                ILGenerator.Emit(OpCodes.Ceq);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
+            case BinaryOperatorKind.GreaterThan:
+                ILGenerator.Emit(OpCodes.Cgt);
+                break;
+
+            case BinaryOperatorKind.LessThan:
+                ILGenerator.Emit(OpCodes.Clt);
+                break;
+
+            case BinaryOperatorKind.GreaterThanOrEqual:
+                ILGenerator.Emit(OpCodes.Clt);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
+            case BinaryOperatorKind.LessThanOrEqual:
+                ILGenerator.Emit(OpCodes.Cgt);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Ceq);
+                break;
+
             default:
-                throw new InvalidOperationException("Invalid operator kind");
+                throw new InvalidOperationException($"Invalid operator kind '{op.OperatorKind}'");
         }
     }
 

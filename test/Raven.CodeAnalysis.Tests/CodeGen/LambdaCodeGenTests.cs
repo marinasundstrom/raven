@@ -41,6 +41,42 @@ class Calculator {
     }
 
     [Fact]
+    public void Lambda_ComparisonExpression_ReturnsExpectedResults()
+    {
+        var code = """
+class Checker {
+    AreEqual(left: int, right: int) -> bool {
+        let equals = func (x: int, y: int) -> bool => x == y
+        return equals(left, right)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Checker", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("AreEqual")!;
+
+        var trueResult = (bool)method.Invoke(instance, new object[] { 4, 4 })!;
+        Assert.True(trueResult);
+
+        var falseResult = (bool)method.Invoke(instance, new object[] { 3, 4 })!;
+        Assert.False(falseResult);
+    }
+
+    [Fact]
     public void Lambda_BlockBody_ReturnsComputedValue()
     {
         var code = """
