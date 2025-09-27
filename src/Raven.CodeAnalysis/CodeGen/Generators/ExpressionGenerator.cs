@@ -2340,6 +2340,37 @@ internal class ExpressionGenerator : Generator
         if (methodSymbol is SubstitutedMethodSymbol substitutedMethod)
             return substitutedMethod.GetMethodInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
+        if (methodSymbol is ConstructedMethodSymbol constructedMethod)
+        {
+            var definitionInfo = GetMethodInfo(constructedMethod.Definition);
+
+            if (constructedMethod.TypeArguments.IsDefaultOrEmpty || constructedMethod.TypeArguments.Length == 0)
+                return definitionInfo;
+
+            MethodInfo genericDefinition;
+            if (definitionInfo.IsGenericMethodDefinition)
+            {
+                genericDefinition = definitionInfo;
+            }
+            else if (definitionInfo.ContainsGenericParameters)
+            {
+                genericDefinition = definitionInfo.GetGenericMethodDefinition();
+            }
+            else
+            {
+                return definitionInfo;
+            }
+
+            if (constructedMethod.TypeArguments.Any(static arg => arg is null))
+                throw new InvalidOperationException("Constructed method symbol is missing type arguments.");
+
+            var typeArguments = constructedMethod.TypeArguments
+                .Select(arg => ResolveClrType(arg!))
+                .ToArray();
+
+            return genericDefinition.MakeGenericMethod(typeArguments);
+        }
+
         if (methodSymbol is SourceMethodSymbol sourceMethodSymbol)
         {
             var m = MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceMethodSymbol);
