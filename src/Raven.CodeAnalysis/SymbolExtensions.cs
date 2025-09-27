@@ -29,7 +29,7 @@ public static partial class SymbolExtensions
     {
         INamedTypeSymbol? baseType = symbol.BaseType;
 
-        if (baseType is null) return (INamedTypeSymbol?)symbol;
+        if (baseType is null) return symbol as INamedTypeSymbol;
 
         while (baseType?.BaseType is not null)
         {

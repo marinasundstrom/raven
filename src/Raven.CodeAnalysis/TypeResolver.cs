@@ -232,7 +232,10 @@ internal class TypeResolver(Compilation compilation)
                 typeSymbol = named.Construct(typeArgs);
         }
 
-        if (nullInfo.ReadState == NullabilityState.Nullable && typeSymbol is not NullableTypeSymbol && !typeSymbol.IsValueType)
+        if (nullInfo.ReadState == NullabilityState.Nullable
+            && typeSymbol is not NullableTypeSymbol
+            && !typeSymbol.IsValueType
+            && typeSymbol is not ITypeParameterSymbol)
         {
             typeSymbol = new NullableTypeSymbol(typeSymbol, null, null, null, []);
         }

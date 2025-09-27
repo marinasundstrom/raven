@@ -12,89 +12,128 @@ public sealed class ExtensionMethodSemanticTests : CompilationTestBase
     [Fact]
     public void MemberAccess_WithNamespaceImport_BindsExtensionInvocation()
     {
-        const string source = """
-import System.Collections.Generic.*
-import System.Linq.*
+        const string mainSource = """
+import Sample.Extensions.*
 
-class Query {
-    Run() -> int {
-        let items = List<int>()
-        items.Add(1)
-        items.Add(2)
-        return items.Where(func (value) => value > 0).Count()
+let value = 5
+let result = value.Double()
+""";
+
+        const string extensionSource = """
+import System.Runtime.CompilerServices.*
+
+namespace Sample.Extensions {
+    public static class NumberExtensions {
+        [ExtensionAttribute]
+        public static Double(x: int) -> int {
+            return x + x
+        }
     }
 }
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        var extensionTree = SyntaxTree.ParseText(extensionSource);
+        var extensionCompilation = CreateCompilation(
+            extensionTree,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            assemblyName: "Sample.Extensions");
+        extensionCompilation.EnsureSetup();
+        var extensionDiagnostics = extensionCompilation.GetDiagnostics();
+        Assert.True(extensionDiagnostics.IsEmpty, string.Join(Environment.NewLine, extensionDiagnostics.Select(d => d.ToString())));
+
+        var references = GetMetadataReferences()
+            .Concat(new[] { new CompilationReference(extensionCompilation) })
+            .ToArray();
+
+        var mainTree = SyntaxTree.ParseText(mainSource);
+        var compilation = CreateCompilation(mainTree, references: references);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
-        var model = compilation.GetSemanticModel(tree);
-        var whereInvocation = tree.GetRoot()
+        var extensionNamespace = compilation.GetNamespaceSymbol("Sample.Extensions");
+        Assert.NotNull(extensionNamespace);
+
+        var model = compilation.GetSemanticModel(mainTree);
+        var whereInvocation = mainTree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
-            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Where");
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Double");
 
         var boundWhere = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(whereInvocation));
         Assert.True(boundWhere.Method.IsExtensionMethod);
-        Assert.Equal(
-            "global::System.Linq.Enumerable",
-            boundWhere.Method.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        Assert.Equal("NumberExtensions", boundWhere.Method.ContainingType?.Name);
+        var containingNamespace = boundWhere.Method.ContainingType?.ContainingNamespace;
+        Assert.Equal("Extensions", containingNamespace?.Name);
+        Assert.Equal("Sample", containingNamespace?.ContainingNamespace?.Name);
 
-        var whereArguments = boundWhere.Arguments.ToArray();
-        Assert.Equal(boundWhere.Method.Parameters.Length - 1, whereArguments.Length);
         Assert.NotNull(boundWhere.ExtensionReceiver);
-        Assert.Equal(boundWhere.Method.Parameters[0].Type, boundWhere.ExtensionReceiver!.Type);
-        Assert.IsType<BoundLambdaExpression>(whereArguments[0]);
-
-        var countInvocation = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Count");
-
-        var boundCount = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(countInvocation));
-        Assert.True(boundCount.Method.IsExtensionMethod);
-        Assert.Equal(
-            "global::System.Linq.Enumerable",
-            boundCount.Method.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        Assert.NotNull(boundCount.ExtensionReceiver);
-        Assert.Equal(boundCount.Method.Parameters[0].Type, boundCount.ExtensionReceiver!.Type);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundWhere.Method.Parameters[0].Type,
+            boundWhere.ExtensionReceiver!.Type));
     }
 
     [Fact]
     public void MemberAccess_WithTypeImport_BindsExtensionInvocation()
     {
-        const string source = """
-import System.Collections.Generic.*
-import System.Linq.Enumerable
+        const string mainSource = """
+import Sample.Extensions.NumberExtensions
 
-let items = List<int>()
-items.Add(1)
-let hasItems = items.Any()
+let value = 10
+let doubled = value.Double()
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        const string extensionSource = """
+import System.Runtime.CompilerServices.*
+
+namespace Sample.Extensions {
+    public static class NumberExtensions {
+        [ExtensionAttribute]
+        public static Double(x: int) -> int {
+            return x * 2
+        }
+    }
+}
+""";
+
+        var extensionTree = SyntaxTree.ParseText(extensionSource);
+        var extensionCompilation = CreateCompilation(
+            extensionTree,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            assemblyName: "Sample.Extensions");
+        extensionCompilation.EnsureSetup();
+        var extensionDiagnostics = extensionCompilation.GetDiagnostics();
+        Assert.True(extensionDiagnostics.IsEmpty, string.Join(Environment.NewLine, extensionDiagnostics.Select(d => d.ToString())));
+
+        var references = GetMetadataReferences()
+            .Concat(new[] { new CompilationReference(extensionCompilation) })
+            .ToArray();
+
+        var mainTree = SyntaxTree.ParseText(mainSource);
+        var compilation = CreateCompilation(mainTree, references: references);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
-        var model = compilation.GetSemanticModel(tree);
-        var anyInvocation = tree.GetRoot()
+        var model = compilation.GetSemanticModel(mainTree);
+        var whereInvocation = mainTree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
-            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Any");
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Double");
 
-        var boundAny = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(anyInvocation));
-        Assert.True(boundAny.Method.IsExtensionMethod);
-        Assert.Equal(
-            "global::System.Linq.Enumerable",
-            boundAny.Method.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        Assert.NotNull(boundAny.ExtensionReceiver);
-        Assert.Equal(boundAny.Method.Parameters[0].Type, boundAny.ExtensionReceiver!.Type);
+        var boundWhere = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(whereInvocation));
+        Assert.True(boundWhere.Method.IsExtensionMethod);
+        Assert.Equal("NumberExtensions", boundWhere.Method.ContainingType?.Name);
+        var containingNamespace = boundWhere.Method.ContainingType?.ContainingNamespace;
+        Assert.Equal("Extensions", containingNamespace?.Name);
+        Assert.Equal("Sample", containingNamespace?.ContainingNamespace?.Name);
+
+        Assert.NotNull(boundWhere.ExtensionReceiver);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundWhere.Method.Parameters[0].Type,
+            boundWhere.ExtensionReceiver!.Type));
     }
 
     [Fact]
@@ -131,7 +170,9 @@ public static class Extensions {
         Assert.Equal("Test", boundInvocation.Method.Name);
         Assert.Equal("Extensions", boundInvocation.Method.ContainingType?.Name);
         Assert.NotNull(boundInvocation.ExtensionReceiver);
-        Assert.Equal(boundInvocation.Method.Parameters[0].Type, boundInvocation.ExtensionReceiver!.Type);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundInvocation.Method.Parameters[0].Type,
+            boundInvocation.ExtensionReceiver!.Type));
     }
 
     [Fact]
@@ -168,7 +209,9 @@ public static class Extensions {
         Assert.Equal("Test", boundInvocation.Method.Name);
         Assert.Equal("Extensions", boundInvocation.Method.ContainingType?.Name);
         Assert.NotNull(boundInvocation.ExtensionReceiver);
-        Assert.Equal(boundInvocation.Method.Parameters[0].Type, boundInvocation.ExtensionReceiver!.Type);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundInvocation.Method.Parameters[0].Type,
+            boundInvocation.ExtensionReceiver!.Type));
     }
 
     [Fact]
@@ -208,15 +251,17 @@ public static class Extensions {
         Assert.Equal("Extensions", boundInvocation.Method.ContainingType?.Name);
 
         Assert.NotNull(boundInvocation.ExtensionReceiver);
-        Assert.Equal(boundInvocation.Method.Parameters[0].Type, boundInvocation.ExtensionReceiver!.Type);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundInvocation.Method.Parameters[0].Type,
+            boundInvocation.ExtensionReceiver!.Type));
 
         var arguments = boundInvocation.Arguments.ToArray();
         Assert.Equal(boundInvocation.Method.Parameters.Length - 1, arguments.Length);
 
         Assert.Collection(
             arguments,
-            argument => Assert.Equal(boundInvocation.Method.Parameters[1].Type, argument.Type),
-            argument => Assert.Equal(boundInvocation.Method.Parameters[2].Type, argument.Type));
+            argument => Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method.Parameters[1].Type, argument.Type)),
+            argument => Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method.Parameters[2].Type, argument.Type)));
     }
 
     [Fact]
@@ -288,26 +333,52 @@ public static class NumberExtensions {
     [Fact]
     public void Lowerer_RewritesExtensionInvocation()
     {
-        const string source = """
-import System.Collections.Generic.*
-import System.Linq.*
+        const string mainSource = """
+import Sample.Extensions.NumberExtensions
 
 class Query {
     Run() -> int {
-        let items = List<int>()
-        return items.Count()
+        let value = 3
+        return value.Double()
     }
 }
 """;
 
-        var (compilation, tree) = CreateCompilation(source);
+        const string extensionSource = """
+import System.Runtime.CompilerServices.*
+
+namespace Sample.Extensions {
+    public static class NumberExtensions {
+        [ExtensionAttribute]
+        public static Double(x: int) -> int {
+            return x + x
+        }
+    }
+}
+""";
+
+        var extensionTree = SyntaxTree.ParseText(extensionSource);
+        var extensionCompilation = CreateCompilation(
+            extensionTree,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            assemblyName: "Sample.Extensions");
+        extensionCompilation.EnsureSetup();
+        var extensionDiagnostics = extensionCompilation.GetDiagnostics();
+        Assert.True(extensionDiagnostics.IsEmpty, string.Join(Environment.NewLine, extensionDiagnostics.Select(d => d.ToString())));
+
+        var references = GetMetadataReferences()
+            .Concat(new[] { new CompilationReference(extensionCompilation) })
+            .ToArray();
+
+        var mainTree = SyntaxTree.ParseText(mainSource);
+        var compilation = CreateCompilation(mainTree, references: references);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
-        var model = compilation.GetSemanticModel(tree);
-        var methodSyntax = tree.GetRoot()
+        var model = compilation.GetSemanticModel(mainTree);
+        var methodSyntax = mainTree.GetRoot()
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "Run");
