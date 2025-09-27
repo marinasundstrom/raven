@@ -239,7 +239,9 @@ if (debugDir is not null)
         File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax-tree.txt"), treeText);
 
         ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
-        var syntax = root.WriteNodeToText(compilation, includeDiagnostics: true).StripAnsiCodes();
+        var syntaxDiagnostics = diagnostics.Where(d => d.Location.SourceTree == syntaxTree);
+        var syntax = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnostics: syntaxDiagnostics)
+            .StripAnsiCodes();
         File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax.txt"), syntax);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -295,7 +297,11 @@ if (allowConsoleOutput)
     if (printSyntax)
     {
         ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
-        var highlighted = root.WriteNodeToText(compilation, includeDiagnostics: prettyIncludeDiagnostics);
+        var prettyDiagnostics = prettyIncludeDiagnostics
+            ? diagnostics.Where(d => d.Location.SourceTree == syntaxTree)
+            : null;
+        var highlighted = root.WriteNodeToText(compilation, includeDiagnostics: prettyIncludeDiagnostics,
+            diagnostics: prettyDiagnostics);
         if (highlighted.Length > 0)
         {
             Console.WriteLine(highlighted);

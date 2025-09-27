@@ -81,7 +81,7 @@ public static class ConsoleSyntaxHighlighter
     public static ColorScheme ColorScheme { get; set; } = ColorScheme.Dark;
 
     public static string WriteNodeToText(this SyntaxNode node, Compilation compilation, bool includeDiagnostics = false,
-        bool diagnosticsOnly = false)
+        bool diagnosticsOnly = false, IEnumerable<Diagnostic>? diagnostics = null)
     {
         var syntaxTree = node.SyntaxTree ?? throw new InvalidOperationException("Node is not associated with a syntax tree.");
 
@@ -115,10 +115,12 @@ public static class ConsoleSyntaxHighlighter
             AddTriviaSpan(lineTokens, lines, sourceText, kvp.Key.Span, kvp.Value);
         }
 
-        var diagnosticsForTree = Array.Empty<Diagnostic>();
+        IReadOnlyList<Diagnostic> diagnosticsForTree = Array.Empty<Diagnostic>();
         if (includeDiagnostics)
         {
-            diagnosticsForTree = compilation.GetDiagnostics()
+            var sourceDiagnostics = diagnostics ?? compilation.GetDiagnostics();
+
+            diagnosticsForTree = sourceDiagnostics
                 .Where(d => d.Location.SourceTree == syntaxTree)
                 .OrderBy(d => d.Location.SourceSpan.Start)
                 .ThenBy(d => d.Location.SourceSpan.Length)

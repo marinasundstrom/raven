@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -59,7 +60,6 @@ static class ConsoleEx
         }
 
         var highlightedSections = new List<string>();
-        var failedTrees = new HashSet<SyntaxTree>();
 
         if (highlightable.Count > 0)
         {
@@ -68,14 +68,19 @@ static class ConsoleEx
             {
                 ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
-                foreach (var tree in highlightable.Select(d => d.Location.SourceTree!).Distinct())
+                foreach (var group in highlightable
+                             .GroupBy(d => d.Location.SourceTree!)
+                             .OrderBy(g => g.Key.FilePath, StringComparer.Ordinal)
+                             .ThenBy(g => g.Min(d => d.Location.SourceSpan.Start)))
                 {
+                    var tree = group.Key;
                     var root = tree.GetRoot();
-                    var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true);
+                    var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true,
+                        diagnostics: group);
 
                     if (string.IsNullOrWhiteSpace(text))
                     {
-                        failedTrees.Add(tree);
+                        fallback.AddRange(group);
                         continue;
                     }
 
@@ -89,18 +94,9 @@ static class ConsoleEx
         }
 
         if (highlightedSections.Count > 0)
-        {
             Console.WriteLine(string.Join(Environment.NewLine + Environment.NewLine, highlightedSections));
-        }
-
-        if (highlightedSections.Count == 0)
-        {
+        else
             fallback.AddRange(highlightable);
-        }
-        else if (failedTrees.Count > 0)
-        {
-            fallback.AddRange(highlightable.Where(d => failedTrees.Contains(d.Location.SourceTree!)));
-        }
 
         if (fallback.Count > 0)
         {

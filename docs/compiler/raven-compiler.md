@@ -17,7 +17,8 @@ dotnet run --project src/Raven.Compiler -- [options] <source-files>
 - `-o <path>` &ndash; output assembly path
 - `-s` &ndash; display the syntax tree (single file only)
 - `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` writes the source text, `pretty` emits highlighted syntax; append `:no-diagnostics` to skip diagnostic underlines, single file only)
-- `--highlight` &ndash; display diagnostics with highlighted source snippets
+- `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
+  compiler, analyzer, and emit diagnostics)
 - `-r` &ndash; print the raw source (single file only)
 - `-b` &ndash; print the binder tree (single file only)
 - `-bt` &ndash; print the binder and bound tree (single file only)
