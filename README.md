@@ -143,7 +143,7 @@ Options:
 - `-d` &ndash; dump syntax with highlighting (single file only)
 - `-r` &ndash; print the raw source (single file only)
 - `-b` &ndash; print the binder tree (single file only)
-- `-bt` &ndash; print the bound tree (single file only)
+- `-bt` &ndash; print the binder and bound tree (single file only)
 - `--symbols [list|hierarchy]` &ndash; inspect source symbols (`list` dumps properties, `hierarchy` prints the tree)
 - `-h`, `--help` &ndash; show help
 
