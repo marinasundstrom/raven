@@ -17,6 +17,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _isVirtual;
     private bool _isSealed;
     private ImmutableArray<AttributeData> _lazyReturnTypeAttributes;
+    private bool? _lazyIsExtensionMethod;
 
     public SourceMethodSymbol(
         string name,
@@ -77,7 +78,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsDefinition { get; }
 
-    public bool IsExtensionMethod { get; }
+    public bool IsExtensionMethod => _lazyIsExtensionMethod ??= ComputeIsExtensionMethod();
 
     public bool IsExtern { get; }
 
@@ -176,5 +177,43 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         }
 
         return builder.ToImmutable();
+    }
+
+    private bool ComputeIsExtensionMethod()
+    {
+        if (!IsStatic)
+            return false;
+
+        if (Parameters.IsDefaultOrEmpty || Parameters.Length == 0)
+            return false;
+
+        foreach (var syntaxReference in DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not MethodDeclarationSyntax method)
+                continue;
+
+            foreach (var attribute in method.AttributeLists.SelectMany(static list => list.Attributes))
+            {
+                if (IsExtensionAttributeName(attribute.Name))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsExtensionAttributeName(TypeSyntax name)
+    {
+        return name switch
+        {
+            IdentifierNameSyntax identifier => IsExtensionIdentifier(identifier.Identifier.Text),
+            QualifiedNameSyntax qualified => IsExtensionAttributeName(qualified.Right),
+            AliasQualifiedNameSyntax alias => IsExtensionIdentifier(alias.Name.Identifier.Text),
+            GenericNameSyntax generic => IsExtensionIdentifier(generic.Identifier.Text),
+            _ => false,
+        };
+
+        static bool IsExtensionIdentifier(string identifier)
+            => identifier is "Extension" or "ExtensionAttribute";
     }
 }
