@@ -13,10 +13,6 @@ internal class ExpressionGenerator : Generator
 {
     private readonly BoundExpression _expression;
 
-    private static readonly MethodInfo CreateDelegateMethod = typeof(Delegate)
-        .GetMethod(nameof(Delegate.CreateDelegate), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(Type), typeof(object), typeof(IntPtr) }, modifiers: null)
-        ?? throw new InvalidOperationException("Failed to resolve Delegate.CreateDelegate(Type, object, IntPtr).");
-
     private static readonly MethodInfo GetTypeFromHandleMethod = typeof(Type)
         .GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(RuntimeTypeHandle) }, modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Type.GetTypeFromHandle(RuntimeTypeHandle).");
@@ -246,12 +242,12 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Stfld, closure.GetField(captured));
         }
 
-        ILGenerator.Emit(OpCodes.Ldtoken, delegateType);
-        ILGenerator.Emit(OpCodes.Call, GetTypeFromHandleMethod);
+        var delegateCtor = delegateType.GetConstructor(new[] { typeof(object), typeof(IntPtr) })
+            ?? throw new InvalidOperationException($"Delegate '{delegateType}' lacks the expected constructor.");
+
         ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
         ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
-        ILGenerator.Emit(OpCodes.Call, CreateDelegateMethod);
-        ILGenerator.Emit(OpCodes.Castclass, delegateType);
+        ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
     }
 
     private void EmitCapturedValue(ISymbol symbol)

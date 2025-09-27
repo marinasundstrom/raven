@@ -15,6 +15,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _typeAlreadyDefinesMember;
     private static DiagnosticDescriptor? _functionAlreadyDefined;
     private static DiagnosticDescriptor? _memberDoesNotContainDefinition;
+    private static DiagnosticDescriptor? _namespaceUsedLikeAType;
     private static DiagnosticDescriptor? _variableUsedLikeAType;
     private static DiagnosticDescriptor? _callIsAmbiguous;
     private static DiagnosticDescriptor? _leftOfAssignmentMustBeAVariablePropertyOrIndexer;
@@ -208,6 +209,19 @@ internal static partial class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "'{0}' does not contain a definition for '{1}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0119: '{0}' is a namespace but is used like a type
+    /// </summary>
+    public static DiagnosticDescriptor NamespaceUsedLikeAType => _namespaceUsedLikeAType ??= DiagnosticDescriptor.Create(
+        id: "RAV0119",
+        title: "Namespace used like a type",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "'{0}' is a namespace but is used like a type",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -1250,6 +1264,7 @@ internal static partial class CompilerDiagnostics
         TypeAlreadyDefinesMember,
         FunctionAlreadyDefined,
         MemberDoesNotContainDefinition,
+        NamespaceUsedLikeAType,
         VariableUsedLikeAType,
         CallIsAmbiguous,
         LeftOfAssignmentMustBeAVariablePropertyOrIndexer,
@@ -1342,6 +1357,7 @@ internal static partial class CompilerDiagnostics
         "RAV0111" => TypeAlreadyDefinesMember,
         "RAV0112" => FunctionAlreadyDefined,
         "RAV0117" => MemberDoesNotContainDefinition,
+        "RAV0119" => NamespaceUsedLikeAType,
         "RAV0118" => VariableUsedLikeAType,
         "RAV0121" => CallIsAmbiguous,
         "RAV0131" => LeftOfAssignmentMustBeAVariablePropertyOrIndexer,
