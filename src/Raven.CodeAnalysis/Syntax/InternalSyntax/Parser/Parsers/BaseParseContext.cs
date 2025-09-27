@@ -72,9 +72,17 @@ internal class BaseParseContext : ParseContext
         _treatNewlinesAsTokens = value;
 
         var rewindPosition = Position;
-        if (value && _lastToken is { })
+        if (value && _lastToken is { } lastToken)
         {
-            rewindPosition -= _lastToken.TrailingTrivia.Width;
+            int rewindBy = 0;
+            foreach (var trivia in lastToken.TrailingTrivia)
+            {
+                if (IsEndOfLineTrivia(trivia))
+                    rewindBy += trivia.FullWidth;
+            }
+
+            if (rewindBy > 0)
+                rewindPosition -= rewindBy;
         }
 
         RewindToPosition(rewindPosition);
@@ -114,6 +122,14 @@ internal class BaseParseContext : ParseContext
     public SyntaxKind LineFeedTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.LineFeedTrivia;
     public SyntaxKind CarriageReturnTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.CarriageReturnTrivia;
     public SyntaxKind CarriageReturnLineFeedTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.CarriageReturnLineFeedTrivia;
+
+    private static bool IsEndOfLineTrivia(InternalSyntax.SyntaxTrivia trivia)
+    {
+        return trivia.Kind is SyntaxKind.EndOfLineTrivia
+            or SyntaxKind.LineFeedTrivia
+            or SyntaxKind.CarriageReturnTrivia
+            or SyntaxKind.CarriageReturnLineFeedTrivia;
+    }
 
     public override SyntaxToken ReadToken()
     {
