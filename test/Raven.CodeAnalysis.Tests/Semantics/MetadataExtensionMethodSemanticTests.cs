@@ -351,6 +351,45 @@ let positives = numbers.Where(func (value) => value > 0)
     }
 
     [Fact]
+    public void Invocation_WithImplicitLambda_CapturesExtensionDelegateCandidates()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+let numbers = List<int>()
+let positives = numbers.Where(value => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+
+        Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
+        Assert.Contains(
+            boundLambda.CandidateDelegates,
+            candidate => candidate.Name == "Func" &&
+                candidate.Arity == 2 &&
+                candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+                candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean });
+
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
     public void Invocation_WithIndexedWhereLambda_ResolvesIndexedOverload()
     {
         const string source = """
