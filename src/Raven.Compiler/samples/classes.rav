@@ -15,8 +15,8 @@ let user2 = Person.WithName("John")
 
 PrintLine(user2.Name)
 
-user2(2003);
-user2("test");
+PrintLine(user2(2003));
+PrintLine(user2("test"));
 
 open class Base {}
 
