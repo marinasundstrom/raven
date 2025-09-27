@@ -1170,6 +1170,7 @@ public partial class SemanticModel
         foreach (var parameter in typeParameterList.Parameters)
         {
             var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(parameter);
+            var variance = GetDeclaredVariance(parameter);
 
             var typeParameter = new SourceTypeParameterSymbol(
                 parameter.Identifier.Text,
@@ -1180,7 +1181,8 @@ public partial class SemanticModel
                 [parameter.GetReference()],
                 ordinal++,
                 constraintKind,
-                constraintTypeReferences);
+                constraintTypeReferences,
+                variance);
 
             builder.Add(typeParameter);
         }
@@ -1218,6 +1220,16 @@ public partial class SemanticModel
         }
 
         return (constraintKind, typeConstraintReferences.ToImmutable());
+    }
+
+    private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
+    {
+        return parameter.VarianceKeyword?.Kind switch
+        {
+            SyntaxKind.OutKeyword => VarianceKind.Out,
+            SyntaxKind.InKeyword => VarianceKind.In,
+            _ => VarianceKind.None,
+        };
     }
 
     private void RegisterPrimaryConstructor(ClassDeclarationSyntax classDecl, ClassDeclarationBinder classBinder)

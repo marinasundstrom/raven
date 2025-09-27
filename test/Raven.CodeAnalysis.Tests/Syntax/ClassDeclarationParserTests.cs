@@ -35,6 +35,23 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void InterfaceDeclaration_WithVariantTypeParameters_ParsesVarianceModifiers()
+    {
+        var source = "interface Producer<out T, in U> {}";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<InterfaceDeclarationSyntax>(Assert.Single(root.Members));
+        var parameters = declaration.TypeParameterList!.Parameters;
+
+        Assert.True(parameters[0].VarianceKeyword.HasValue);
+        Assert.Equal(SyntaxKind.OutKeyword, parameters[0].VarianceKeyword!.Value.Kind);
+        Assert.True(parameters[1].VarianceKeyword.HasValue);
+        Assert.Equal(SyntaxKind.InKeyword, parameters[1].VarianceKeyword!.Value.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void Constructor_WithExpressionBody_ParsesExpressionBody()
     {
         var source = """

@@ -937,10 +937,9 @@ public class Compilation
         }
 
         if (destination is INamedTypeSymbol destinationNamed &&
-            destinationNamed.TypeKind == TypeKind.Interface &&
-            source is INamedTypeSymbol sourceNamed)
+            destinationNamed.TypeKind == TypeKind.Interface)
         {
-            if (sourceNamed.AllInterfaces.Contains(destinationNamed, SymbolEqualityComparer.Default))
+            if (SemanticFacts.ImplementsInterface(source, destinationNamed, SymbolEqualityComparer.Default))
                 return true;
         }
 
@@ -1337,6 +1336,7 @@ public class Compilation
             var reference = parameter.GetReference();
 
             var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(parameter);
+            var variance = GetDeclaredVariance(parameter);
 
             var typeParameter = new SourceTypeParameterSymbol(
                 identifier.Text,
@@ -1347,7 +1347,8 @@ public class Compilation
                 [reference],
                 ordinal++,
                 constraintKind,
-                constraintTypeReferences);
+                constraintTypeReferences,
+                variance);
 
             builder.Add(typeParameter);
         }
@@ -1385,5 +1386,15 @@ public class Compilation
         }
 
         return (constraintKind, typeConstraintReferences.ToImmutable());
+    }
+
+    private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
+    {
+        return parameter.VarianceKeyword?.Kind switch
+        {
+            SyntaxKind.OutKeyword => VarianceKind.Out,
+            SyntaxKind.InKeyword => VarianceKind.In,
+            _ => VarianceKind.None,
+        };
     }
 }

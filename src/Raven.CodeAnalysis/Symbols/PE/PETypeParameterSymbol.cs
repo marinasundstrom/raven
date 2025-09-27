@@ -71,14 +71,13 @@ internal sealed partial class PETypeParameterSymbol : Symbol, ITypeParameterSymb
     //public bool HasReferenceTypeConstraint => (_type.GenericParameterAttributes & GenericParameterAttributes.ReferenceTypeConstraint) != 0;
     //public bool HasValueTypeConstraint => (_type.GenericParameterAttributes & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0;
 
-    /*
     public VarianceKind Variance =>
         (_type.GenericParameterAttributes & GenericParameterAttributes.VarianceMask) switch
         {
             GenericParameterAttributes.Covariant => VarianceKind.Out,
             GenericParameterAttributes.Contravariant => VarianceKind.In,
             _ => VarianceKind.None
-        };*/
+        };
 
     /*
 public ImmutableArray<ITypeSymbol> ConstraintTypes =>

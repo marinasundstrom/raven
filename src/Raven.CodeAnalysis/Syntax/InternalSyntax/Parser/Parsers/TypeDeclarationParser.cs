@@ -108,6 +108,13 @@ internal class TypeDeclarationParser : SyntaxParser
             if (token.IsKind(SyntaxKind.GreaterThanToken))
                 break;
 
+            SyntaxToken? varianceKeyword = null;
+            if (token.IsKind(SyntaxKind.InKeyword) || token.IsKind(SyntaxKind.OutKeyword))
+            {
+                varianceKeyword = ReadToken();
+                token = PeekToken();
+            }
+
             SyntaxToken identifier;
             if (CanTokenBeIdentifier(token))
             {
@@ -142,7 +149,7 @@ internal class TypeDeclarationParser : SyntaxParser
                 constraints = List(constraintNodes);
             }
 
-            parameters.Add(TypeParameter(identifier, colonToken, constraints));
+            parameters.Add(TypeParameter(varianceKeyword, identifier, colonToken, constraints));
 
             var commaToken = PeekToken();
             if (commaToken.IsKind(SyntaxKind.CommaToken))

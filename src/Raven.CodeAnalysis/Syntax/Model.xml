@@ -38,6 +38,7 @@
     <Slot Name="GreaterThanToken" Type="Token" DefaultToken="GreaterThanToken"/>
   </Node>
   <Node Name="TypeParameter" Inherits="Node">
+    <Slot Name="VarianceKeyword" Type="Token" IsNullable="true" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ColonToken" Type="Token" IsNullable="true" />
     <Slot Name="Constraints" Type="SeparatedList" ElementType="TypeParameterConstraint" IsNullable="true" />

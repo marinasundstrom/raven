@@ -1387,6 +1387,7 @@ Let `U = T1 | … | Tn` be a source union.
 * **Value → union**: An expression of type `S` may be assigned to `U` if `S` is assignable to **at least one** member `Ti`.
 * **Union → value**: `U` may be assigned to `S` only if **every** member `Ti` is assignable to `S`.
 * **Literal checking**: Assigning to a **finite literal union** requires the value to be a compile-time constant equal to one of the listed literals.
+* **Variant interfaces**: When `Ti` or `S` is a generic interface or delegate, assignability follows the CLR's variance annotations. Covariant parameters permit `T<Derived>` to flow to `T<Base>`, and contravariant parameters accept `T<Base>` where `T<Derived>` is expected. Raven interface declarations expose the same behaviour with `out` and `in` modifiers on their type parameters, so source and metadata symbols participate in the same set of conversions.
 
 ```raven
 let a: "true" | 1 = 1      // ok
