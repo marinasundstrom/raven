@@ -102,6 +102,12 @@ BracketedParameterList   ::= '[' ParameterList? ']' ;
 
 (* ---------- Statements ---------- *)
 
+(* Newline tokens act as implicit statement terminators unless the parser is
+   in a continuation context that still requires more of the current
+   expression—such as immediately after '=' or a binary operator. In those
+   cases the newline is consumed as trivia on the next token instead of ending
+   the statement. *)
+
 Statement                ::= LocalDeclaration
                            | ReturnStatement
                            | BreakStatement

@@ -141,6 +141,34 @@ parentheses, brackets, or braces do not terminate statements. Multiple
 consecutive newlines act as a single separator so you may visually group
 related statements without affecting execution.
 
+### Line continuations
+
+When the parser expects more tokens to complete the current expression, a
+newline is treated as trivia on the following token instead of a statement
+terminator. This permits expression-oriented code to flow naturally across
+lines without requiring a trailing operator or explicit continuation marker.
+
+The most common continuations occur after an assignment operator or when a
+binary operator still requires its right-hand operand. Indentation on the
+continued line becomes leading whitespace trivia for the next token, while the
+terminating newline token itself remains trivia-free.
+
+```raven
+let sum =
+    1
+    + offset
+
+let labelled = 42 // comment stays with the literal
+let next =
+    labelled
+```
+
+In the example above, the newline following `=` and the newline immediately
+before `+` attach to the numeric literal and the operator, respectively. The
+comment preceding a terminating newline remains trailing trivia on the
+preceding token, and the indentation before `let next` is preserved as leading
+whitespace on the next statement's first token.
+
 ```raven
 let a = 42
 let b = 1; b = 3
