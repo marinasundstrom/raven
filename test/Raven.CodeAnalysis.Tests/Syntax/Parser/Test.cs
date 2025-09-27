@@ -84,8 +84,44 @@ public class ParserNewlineTests
         var literalToken = statement.DescendantTokens().FirstOrDefault(t => t.Kind == SyntaxKind.NumericLiteralToken);
         Assert.Equal(SyntaxKind.NumericLiteralToken, literalToken.Kind);
 
-        var newlineTrivia = literalToken.LeadingTrivia.FirstOrDefault(t => t.Kind == SyntaxKind.EndOfLineTrivia);
-        Assert.Equal(SyntaxKind.EndOfLineTrivia, newlineTrivia.Kind);
+        literalToken.LeadingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.EndOfLineTrivia,
+            SyntaxKind.WhitespaceTrivia,
+        });
+
+        literalToken.LeadingTrivia[1].ToString().ShouldBe("    ");
+    }
+
+    [Fact]
+    public void Statement_NewlineTerminator_PreservesTrailingComment()
+    {
+        // Arrange
+        var source = "let x = 42 // comment\nlet y = 21\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        // Act
+        var firstStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+        var secondStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+
+        // Assert
+        var literal = firstStatement.DescendantTokens().Single(t => t.Kind == SyntaxKind.NumericLiteralToken);
+        literal.TrailingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.WhitespaceTrivia,
+            SyntaxKind.SingleLineCommentTrivia,
+        });
+
+        var newline = firstStatement.GetLastToken();
+        Assert.Equal(SyntaxKind.NewLineToken, newline.Kind);
+        newline.LeadingTrivia.ShouldBeEmpty();
+        newline.TrailingTrivia.ShouldBeEmpty();
+
+        var secondStart = secondStatement.GetFirstToken();
+        Assert.Equal(SyntaxKind.LetKeyword, secondStart.Kind);
+        secondStart.LeadingTrivia.ShouldBeEmpty();
     }
 
     [Fact]
@@ -103,6 +139,13 @@ public class ParserNewlineTests
 
         // Assert
         Assert.Equal(SyntaxKind.NewLineToken, firstStatement.GetLastToken().Kind);
+
+        var literal = firstStatement.DescendantTokens().Single(t => t.Kind == SyntaxKind.NumericLiteralToken);
+        literal.TrailingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.EndOfLineTrivia);
+
+        var newline = firstStatement.GetLastToken();
+        newline.LeadingTrivia.ShouldBeEmpty();
+        newline.TrailingTrivia.ShouldBeEmpty();
 
         var firstTokenOfSecondStatement = secondStatement.GetFirstToken();
         Assert.Equal(SyntaxKind.LetKeyword, firstTokenOfSecondStatement.Kind);
