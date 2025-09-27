@@ -13,19 +13,24 @@ observed when compiling LINQ-heavy samples.
   the `ExpressionGenerator.EmitLambdaExpression` failure, along with the bound
   tree snapshot that will guide upcoming tests.【F:docs/compiler/design/extension-methods-baseline.md†L46-L64】
 
-## 2. Metadata consumer support
+## 2. Metadata consumer support (active)
 
-1. Expand coverage for consuming extension methods compiled from C# or other
-   .NET languages. Assemble a reference library that exposes common LINQ-style
-   extensions and add semantic tests that import it via `using` directives to
-   ensure `BlockBinder.LookupExtensionMethods` finds the metadata entries.
-2. Audit the invocation pipeline so that metadata-backed extensions flow through
-   overload resolution, type inference, and accessibility checks without
-   assuming Raven-authored symbols. Capture gaps in diagnostics or error
-   reporting when multiple metadata extensions compete for a receiver.
-3. Document any remaining interop limitations (e.g., open generic receivers or
-   unconstrained `this` parameters) and file follow-up issues when the fix will
-   require deeper binder work.
+1. Build a canonical metadata fixture that mirrors LINQ's core surface area
+   (`Select`, `Where`, `OrderBy`, aggregation helpers) and expose it through a
+   Raven test reference so the same binaries drive CLI experiments and unit
+   coverage.
+2. Author semantic tests that import the fixture via `using` directives and
+   prove that `BlockBinder.LookupExtensionMethods` produces the expected method
+   groups for common receivers (arrays, `IEnumerable<T>`, nullable structs).
+3. Trace the invocation pipeline—binding, overload resolution, and type
+   inference—for representative calls and capture any metadata-only gaps before
+   we attempt Raven-authored declarations.
+4. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
+   the fixture library and recording whether the `ExpressionGenerator` failure
+   is still reachable when we stay within metadata-produced extensions.
+5. Exit criteria: metadata extensions behave like their C# counterparts in both
+   semantic analysis and emitted IL, and remaining interop gaps are documented
+   with linked follow-up issues.
 
 ## 3. Symbol and syntax work (deferred)
 
