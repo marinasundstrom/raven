@@ -384,6 +384,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public ITypeSymbol ReturnType { get; }
 
+        public ImmutableArray<AttributeData> GetReturnTypeAttributes() => ImmutableArray<AttributeData>.Empty;
+
         public ImmutableArray<IParameterSymbol> Parameters { get; }
 
         public IMethodSymbol? OriginalDefinition => this;

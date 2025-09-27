@@ -5,9 +5,9 @@
 
 ### Build Generator
 
-If DocFX cannot resolve `Generator`, build it manually:
+If DocFX cannot resolve `BoundNodeGenerator`, build it manually:
 
-Run this from directory `tools/Generator`:
+Run this from directory `tools/BoundNodeGenerator`:
 
 ```
 dotnet build -c Release

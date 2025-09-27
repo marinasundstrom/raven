@@ -11,7 +11,7 @@ Major components:
 - `src/Raven.CodeAnalysis` — core compiler (syntax tree, binder, semantic model, code generation).
 - `src/Raven.Compiler` — CLI entry point and sample programs.
 - `test/Raven.CodeAnalysis.Tests` — unit tests.
-- `tools/NodeGenerator` / `tools/Generator` — code‑generation utilities for syntax nodes and Roslyn-based generators. `tools/Generator` is responsible for the visitors for Symbols and Bound Nodes.
+- `tools/NodeGenerator` / `tools/BoundNodeGenerator` — code‑generation utilities for syntax nodes, bound nodes, and symbol visitors.
 - `docs/` — language design notes and specification.
 - Ignore the `test/Raven.CodeAnalysis.Samples.Tests` project.
 
