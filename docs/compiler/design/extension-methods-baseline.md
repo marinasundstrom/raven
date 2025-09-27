@@ -57,6 +57,17 @@ dotnet run --project src/Raven.Compiler -- src/Raven.Compiler/samples/linq.rav \
 The compiler crashes while resolving the delegate constructor used for the
 lambda passed to `Where` inside `ExpressionGenerator.EmitLambdaExpression`.【1907c1†L1-L24】
 
+Removing the explicit parameter annotation exposes a second issue that blocks
+parity with C#. `System.Linq.Enumerable.Where` ships two overloads: the
+two-parameter predicate used above and an index-aware overload that expects a
+`Func<TSource, int, bool>`. Raven's overload resolution only supplies a target
+delegate type once a single candidate remains, so the lambda appears in an
+untyped context while both overloads are viable. The binder therefore reports
+`RAV2200` (“Cannot infer the type of parameter 'value'”) and the sample only
+compiles if the lambda's parameters are annotated manually. Fixing this gap will
+require pushing tentative delegate shapes into lambda binding so inference can
+disqualify overloads the same way Roslyn does.
+
 Run the same command with `--bound-tree --no-emit` to capture the baseline bound
 structure for future regression tests. The invocation currently binds to a
 metadata `Where` extension with a lambda parameter and records an explicit
