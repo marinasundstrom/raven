@@ -84,10 +84,10 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundDelegateCreationExpression delegateCreation => (BoundExpression)VisitDelegateCreationExpression(delegateCreation)!,
             BoundMethodGroupExpression methodGroup => (BoundExpression)VisitMethodGroupExpression(methodGroup)!,
             BoundTypeOfExpression typeOfExpression => (BoundExpression)VisitTypeOfExpression(typeOfExpression)!,
+            BoundTypeExpression typeExpression => (BoundExpression)VisitTypeExpression(typeExpression)!,
             _ => throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}"),
         };
     }
-
     public virtual BoundNode? VisitAssignmentExpression(BoundAssignmentExpression node) => node;
 
     public virtual BoundNode? VisitBreakStatement(BoundBreakStatement node) => node;
