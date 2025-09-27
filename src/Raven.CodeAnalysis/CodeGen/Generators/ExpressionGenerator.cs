@@ -192,8 +192,7 @@ internal class ExpressionGenerator : Generator
             MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(synthesized);
 
         var delegateClrType = ResolveClrType(delegateTypeSymbol);
-        var ctor = delegateClrType.GetConstructor(new[] { typeof(object), typeof(IntPtr) })
-            ?? throw new InvalidOperationException($"Delegate '{delegateClrType}' lacks the expected constructor.");
+        var ctor = GetDelegateConstructor(delegateClrType);
 
         var methodInfo = GetMethodInfo(method);
 
@@ -242,8 +241,7 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Stfld, closure.GetField(captured));
         }
 
-        var delegateCtor = delegateType.GetConstructor(new[] { typeof(object), typeof(IntPtr) })
-            ?? throw new InvalidOperationException($"Delegate '{delegateType}' lacks the expected constructor.");
+        var delegateCtor = GetDelegateConstructor(delegateType);
 
         ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
         ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
@@ -393,12 +391,33 @@ internal class ExpressionGenerator : Generator
             return;
         }
 
-        var ctor = delegateType.GetConstructor(new[] { typeof(object), typeof(IntPtr) })
-            ?? throw new InvalidOperationException($"Delegate '{delegateType}' lacks the expected constructor.");
+        var ctor = GetDelegateConstructor(delegateType);
 
         ILGenerator.Emit(OpCodes.Ldnull);
         ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
         ILGenerator.Emit(OpCodes.Newobj, ctor);
+    }
+
+    private static ConstructorInfo GetDelegateConstructor(Type delegateType)
+    {
+        foreach (var ctor in delegateType.GetConstructors())
+        {
+            var parameters = ctor.GetParameters();
+
+            if (parameters.Length != 2)
+                continue;
+
+            var first = parameters[0].ParameterType;
+            var second = parameters[1].ParameterType;
+
+            if (string.Equals(first.FullName, "System.Object", StringComparison.Ordinal) &&
+                string.Equals(second.FullName, "System.IntPtr", StringComparison.Ordinal))
+            {
+                return ctor;
+            }
+        }
+
+        throw new InvalidOperationException($"Delegate '{delegateType}' lacks the expected constructor.");
     }
 
     private void EmitUnitExpression(BoundUnitExpression unitExpression)
