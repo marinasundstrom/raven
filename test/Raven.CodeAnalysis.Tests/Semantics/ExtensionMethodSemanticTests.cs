@@ -163,7 +163,7 @@ public static class Extensions {
         var invocationSyntax = tree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
-            .Single();
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Test");
 
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
         Assert.True(boundInvocation.Method.IsExtensionMethod);
@@ -202,7 +202,7 @@ public static class Extensions {
         var invocationSyntax = tree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
-            .Single();
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Test");
 
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
         Assert.True(boundInvocation.Method.IsExtensionMethod);
@@ -262,6 +262,66 @@ public static class Extensions {
             arguments,
             argument => Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method.Parameters[1].Type, argument.Type)),
             argument => Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method.Parameters[2].Type, argument.Type)));
+    }
+
+    [Fact]
+    public void MemberAccess_WithGenericExtension_InferReceiverTypeArgument()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let box = Box<int>()
+let result = box.Test(2)
+
+class Box<T>
+{
+}
+
+public static class Extensions
+{
+    [ExtensionAttribute]
+    public static Test<T>(items: Box<T>, value: T) -> T
+    {
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Test");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Test", boundInvocation.Method.Name);
+        Assert.Equal("Extensions", boundInvocation.Method.ContainingType?.Name);
+
+        Assert.True(boundInvocation.Method.IsGenericMethod);
+        Assert.Single(boundInvocation.Method.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, boundInvocation.Method.TypeArguments[0].SpecialType);
+
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundInvocation.Method.Parameters[0].Type,
+            boundInvocation.ExtensionReceiver!.Type));
+
+        var arguments = boundInvocation.Arguments.ToArray();
+        Assert.Single(arguments);
+        var argumentType = arguments[0].Type is LiteralTypeSymbol literal
+            ? literal.UnderlyingType
+            : arguments[0].Type;
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundInvocation.Method.Parameters[1].Type,
+            argumentType));
     }
 
     [Fact]

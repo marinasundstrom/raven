@@ -113,7 +113,10 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);
     public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
     public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => throw new NotSupportedException();
+    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    {
+        return _originalDefinition.Construct(typeArguments);
+    }
 
     public ITypeSymbol? LookupType(string name)
     {
