@@ -66,11 +66,12 @@ public class ParserNewlineTests
         Assert.Equal(SyntaxKind.NewLineToken, context.LastToken?.Kind); // semicolon was consumed as terminator
     }
 
-    [Fact]
-    public void Statement_NewlineIsTrivia_WhenInLineContinuation()
+    [Theory]
+    [InlineData("let x =\n    42\n")]
+    [InlineData("let x =\n    1 + 3\n")]
+    public void Statement_NewlineIsTrivia_WhenInLineContinuation(string source)
     {
         // Arrange
-        var source = "let x =\n    42\n";
         var lexer = new Lexer(new StringReader(source));
         var context = new BaseParseContext(lexer);
         var parser = new StatementSyntaxParser(context);
@@ -91,6 +92,42 @@ public class ParserNewlineTests
         });
 
         literalToken.LeadingTrivia[1].ToString().ShouldBe("    ");
+    }
+
+    [Fact]
+    public void Statement_NewlineContinuation_PreservesOperatorIndentation()
+    {
+        // Arrange
+        var source = "let x =\n    1\n    + 3\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        // Act
+        var statement = (StatementSyntax)parser.ParseStatement().CreateRed();
+
+        // Assert
+        var plusToken = statement.DescendantTokens().Single(t => t.Kind == SyntaxKind.PlusToken);
+
+        plusToken.LeadingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.EndOfLineTrivia,
+            SyntaxKind.WhitespaceTrivia,
+        });
+
+        plusToken.LeadingTrivia[1].ToString().ShouldBe("    ");
+
+        plusToken.TrailingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.WhitespaceTrivia,
+        });
+
+        plusToken.TrailingTrivia[0].ToString().ShouldBe(" ");
+
+        var newline = statement.GetLastToken();
+        Assert.Equal(SyntaxKind.NewLineToken, newline.Kind);
+        newline.LeadingTrivia.ShouldBeEmpty();
+        newline.TrailingTrivia.ShouldBeEmpty();
     }
 
     [Fact]
