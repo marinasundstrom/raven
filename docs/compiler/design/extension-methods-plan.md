@@ -29,9 +29,10 @@ observed when compiling LINQ-heavy samples.
    Raven-authored declarations.【F:docs/compiler/design/extension-methods-metadata-pipeline.md†L1-L33】
 4. 🛑 Blocker: teach lambda binding to surface delegate shapes even when overload
    resolution has multiple candidates.
-   1. Extend `GetTargetType` so that lambda arguments collect the delegate
-      signatures for every viable method instead of bailing when more than one
-      remains.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2094-L2167】
+   1. ✅ Extended `GetTargetType` so that lambda arguments keep every viable
+      delegate candidate even when overload resolution hasn't picked a winner,
+      allowing ambiguous extension groups to feed `BindLambdaExpression` the
+      full delegate set.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2091-L2223】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L625-L679】
    2. Update `BindLambdaExpression` to accept that richer target description and
       produce a `BoundLambdaExpression` without issuing `RAV2200` until overload
       resolution picks a delegate.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1056-L1109】

@@ -2219,7 +2219,8 @@ partial class BlockBinder : Binder
                             }
                         }
 
-                        return null;
+                        current = current.Parent;
+                        continue;
                     }
 
                 case ExpressionStatementSyntax:
