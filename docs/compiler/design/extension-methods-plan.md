@@ -27,10 +27,24 @@ observed when compiling LINQ-heavy samples.
    inference—for representative calls and captured the results in the metadata
    pipeline trace, confirming no metadata-only gaps before we attempt
    Raven-authored declarations.【F:docs/compiler/design/extension-methods-metadata-pipeline.md†L1-L33】
-4. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
+4. 🛑 Blocker: teach lambda binding to surface delegate shapes even when overload
+   resolution has multiple candidates.
+   1. Extend `GetTargetType` so that lambda arguments collect the delegate
+      signatures for every viable method instead of bailing when more than one
+      remains.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2094-L2167】
+   2. Update `BindLambdaExpression` to accept that richer target description and
+      produce a `BoundLambdaExpression` without issuing `RAV2200` until overload
+      resolution picks a delegate.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1056-L1109】
+   3. Adjust overload resolution (and the eventual conversion step) to replay the
+      lambda body under each candidate delegate, mirroring Roslyn's
+      `UnboundLambda` behavior.
+   4. Capture unit tests that prove `Enumerable.Where` now compiles without
+      explicit parameter annotations using both the LINQ reference and the test
+      fixture.【F:docs/compiler/design/extension-methods-baseline.md†L52-L104】
+5. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
    the fixture library and recording whether the `ExpressionGenerator` failure
    is still reachable when we stay within metadata-produced extensions.
-5. Exit criteria: metadata extensions behave like their C# counterparts in both
+6. Exit criteria: metadata extensions behave like their C# counterparts in both
    semantic analysis and emitted IL, and remaining interop gaps are documented
    with linked follow-up issues.
 
@@ -45,17 +59,27 @@ observed when compiling LINQ-heavy samples.
    the receiver. Verify that Raven-authored extension methods live in metadata
    tables compatible with existing lookup logic.
 
-## 4. Binding and overload resolution
+## 4. Binding and overload resolution (active)
 
-1. Teach the binder to include Raven-authored extension methods in method groups
-   once the new syntax is available. This requires scoping rules similar to C#:
-   only methods in imported namespaces and static containers should be
-   considered.
-2. Update overload resolution so that the implicit receiver argument
-   participates in type argument inference and accessibility checks in the same
-   way as native instance methods.
-3. Strengthen diagnostics around ambiguous extension lookups and missing `using`
-   imports to match the behavior testers expect from C#.
+1. ✅ Populated method groups with Raven-authored extensions. `Binder.GetExtensionMethodsFromScope`
+   now filters candidates by accessibility and receiver compatibility before
+   yielding them, and `NamespaceBinder.LookupExtensionMethods` threads declared
+   source types through the lookup so namespaces in scope surface both metadata
+   and Raven-authored helpers.【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L187-L274】【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
+2. ✅ Merged instance and extension candidates predictably. The existing
+   `BindMemberAccessExpression` pipeline already stitches instance and metadata
+   extensions together; with the lookup changes above we now reuse that logic
+   for source declarations and rely on `IsExtensionReceiver` to gate extension
+   lookups to non-static receivers.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3044-L3079】
+3. ✅ Carried the receiver through overload resolution and conversions. No code
+   changes were required, but new coverage verifies that
+   `OverloadResolver.ResolveOverload` continues to prefer instance methods over
+   competing extensions and that `ConvertInvocationArguments` synthesizes the
+   receiver argument for Raven-authored extensions.【F:src/Raven.CodeAnalysis/OverloadResolver.cs†L12-L200】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3924-L3987】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L547-L608】
+4. ✅ Strengthened diagnostics and coverage. Added semantic tests that exercise
+   Raven extensions declared in separate namespaces, verify missing imports keep
+   them out of scope, and confirm instance methods still win when extensions
+   compete for the same receiver shape.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L515-L608】
 
 ## 5. Lowering adjustments
 

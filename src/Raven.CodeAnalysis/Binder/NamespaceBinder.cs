@@ -46,6 +46,13 @@ class NamespaceBinder : Binder
             if (seen.Add(method))
                 yield return method;
 
+        foreach (var declaredType in _declaredTypes)
+        {
+            foreach (var method in GetExtensionMethodsFromScope(declaredType, name, receiverType, includePartialMatches))
+                if (seen.Add(method))
+                    yield return method;
+        }
+
         foreach (var method in base.LookupExtensionMethods(name, receiverType, includePartialMatches))
             if (seen.Add(method))
                 yield return method;

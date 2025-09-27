@@ -537,4 +537,87 @@ let result = receiver.RequiresComparison()
             diagnostics,
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
     }
+
+    [Fact]
+    public void SourceExtension_InSeparateNamespace_RequiresImport()
+    {
+        const string mainSource = """
+let number = 4
+let doubled = number.Double()
+""";
+
+        const string extensionSource = """
+import System.Runtime.CompilerServices.*
+
+namespace Sample.Extensions {
+    public static class NumberExtensions {
+        [ExtensionAttribute]
+        public static Double(x: int) -> int {
+            return x + x
+        }
+    }
+}
+""";
+
+        var mainTree = SyntaxTree.ParseText(mainSource);
+        var extensionTree = SyntaxTree.ParseText(extensionSource);
+
+        var compilation = CreateCompilation([mainTree, extensionTree]);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+    }
+
+    [Fact]
+    public void SourceExtension_InstanceMethodsTakePrecedenceOverExtensions()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let holder = Container()
+let description = holder.Describe()
+
+class Container {
+    Describe() -> string {
+        return "instance"
+    }
+}
+
+namespace Sample.Extensions {
+    public static class ContainerExtensions {
+        [ExtensionAttribute]
+        public static Describe(x: Container) -> string {
+            return "extension"
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+
+        var memberAccess = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(node => node.Name.Identifier.Text == "Describe");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        Assert.Contains(methodGroup.Methods, method => !method.IsExtensionMethod);
+        Assert.Contains(methodGroup.Methods, method => method.IsExtensionMethod);
+
+        var invocationSyntax = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+
+        Assert.False(boundInvocation.Method.IsExtensionMethod);
+        Assert.Null(boundInvocation.ExtensionReceiver);
+        Assert.Equal("Container", boundInvocation.Method.ContainingType?.Name);
+    }
 }

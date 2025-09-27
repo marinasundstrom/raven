@@ -30,11 +30,25 @@ appear as delegate parameters.
   extension receiver alongside the converted delegate argument for lowering.
   No metadata-only gaps surfaced during this trace.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L234-L279】
 
+## Where(source, predicate)
+
+* Replaying the LINQ sample from the baseline doc inside semantic tests keeps
+  both `Enumerable.Where` overloads viable, so `GetTargetType` returns `null`
+  for the lambda argument once overload resolution sees multiple matches. The
+  binder immediately reports `RAV2200`, mirroring the CLI failure and preventing
+  metadata-backed scenarios from compiling without explicit parameter
+  annotations.【F:docs/compiler/design/extension-methods-baseline.md†L52-L81】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2094-L2167】
+* To unblock Stage 2 we need to carry delegate candidate information through
+  lambda binding instead of erroring early. Once the binder can surface the
+  overload-specific delegate shapes to inference, we can record a passing trace
+  that demonstrates parity with Roslyn for `Where`.
+
 ## Gaps
 
 The traced scenarios exercised method group formation, overload resolution, and
-type inference for `Any` and `Select`. The binder produced the expected
-`BoundInvocationExpression` graph in each case, so no metadata-consumer gaps are
-currently blocked on Stage 2. Further coverage will follow once we expand into
-end-to-end lowering tests for Stage 2 step 4.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L133-L279】
+type inference for `Any` and `Select`. Those paths still look healthy, but the
+`Where` overload pair blocks Stage 2 until lambda inference can flow delegate
+shapes through overload resolution. We'll return to lowering coverage once the
+new binder plumbing lands so we can record a successful trace for `Where` as
+well.【F:docs/compiler/design/extension-methods-baseline.md†L52-L104】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1056-L1109】
 

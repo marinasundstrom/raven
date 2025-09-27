@@ -35,6 +35,14 @@ repro that motivated the work.
   `System.Linq` reference commented out. As a result, metadata-defined LINQ
   extensions are unavailable unless the user passes `--refs` manually, which
   masks the later emission bug.【F:src/Raven.Compiler/Program.cs†L153-L209】
+* Even once Stage 3 starts flagging Raven-authored extensions, the binder needs
+  to thread those methods through the same lookup path that feeds metadata
+  helpers. `GetExtensionMethodsFromScope` today walks namespaces and static
+  containers without validating the receiver, while `BlockBinder` merges the
+  discovered candidates with instance members before handing the group to
+  overload resolution. We'll need to tighten that pipeline so source-defined
+  receivers respect accessibility, import scopes, and the synthetic extension
+  receiver emitted in `BoundInvocationExpression`.【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L187-L245】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3044-L3079】
 
 ## Minimal LINQ reproduction
 
@@ -67,6 +75,27 @@ untyped context while both overloads are viable. The binder therefore reports
 compiles if the lambda's parameters are annotated manually. Fixing this gap will
 require pushing tentative delegate shapes into lambda binding so inference can
 disqualify overloads the same way Roslyn does.
+
+### Lambda inference fallout
+
+Tracing the repro through the binder shows why we fail today. When the lambda
+argument sits in an overloaded call, `BlockBinder.GetTargetType` tries to infer
+the delegate type by examining every viable candidate method. Because
+`FilterMethodsForLambda` only prunes candidates by parameter *count*, both LINQ
+overloads survive this pass, and the helper gives up as soon as more than one
+candidate remains.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2094-L2167】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3120-L3159】
+Without a target delegate, `BindLambdaExpression` falls back to
+`Compilation.ErrorTypeSymbol` for each unannotated parameter and reports
+`RAV2200`, leaving overload resolution no information to disambiguate the call
+later on.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1056-L1109】
+
+To reach parity with Roslyn we need to cache the delegate shapes offered by
+every overload while the lambda is still “unconverted.” One option is to teach
+`GetTargetType` to return a small object that wraps the candidate delegate types
+instead of a single `ITypeSymbol`, then have `BindLambdaExpression` produce a
+`BoundLambdaExpression` that records the available signatures without reporting
+diagnostics. Overload resolution can then apply the usual conversions, pushing
+the lambda body through whichever delegate survives inference.
 
 Run the same command with `--bound-tree --no-emit` to capture the baseline bound
 structure for future regression tests. The invocation currently binds to a

@@ -195,10 +195,27 @@ internal abstract class Binder
         return ParentBinder?.LookupExtensionMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
     }
 
-    protected static IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(
+    protected IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(
         INamespaceOrTypeSymbol scope,
         string? name,
         ITypeSymbol receiverType,
+        bool includePartialMatches)
+    {
+        foreach (var method in EnumerateExtensionMethods(scope, name, includePartialMatches))
+        {
+            if (!IsExtensionCandidateForReceiver(method, receiverType, includePartialMatches))
+                continue;
+
+            if (!IsSymbolAccessible(method))
+                continue;
+
+            yield return method;
+        }
+    }
+
+    private static IEnumerable<IMethodSymbol> EnumerateExtensionMethods(
+        INamespaceOrTypeSymbol scope,
+        string? name,
         bool includePartialMatches)
     {
         if (scope is INamespaceSymbol ns)
@@ -207,15 +224,16 @@ internal abstract class Binder
             {
                 if (member is INamedTypeSymbol typeMember)
                 {
-                    foreach (var method in GetExtensionMethodsFromScope(typeMember, name, receiverType, includePartialMatches))
+                    foreach (var method in EnumerateExtensionMethods(typeMember, name, includePartialMatches))
                         yield return method;
                 }
                 else if (member is INamespaceSymbol nestedNs)
                 {
-                    foreach (var method in GetExtensionMethodsFromScope(nestedNs, name, receiverType, includePartialMatches))
+                    foreach (var method in EnumerateExtensionMethods(nestedNs, name, includePartialMatches))
                         yield return method;
                 }
             }
+
             yield break;
         }
 
@@ -239,9 +257,37 @@ internal abstract class Binder
 
         foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
         {
-            foreach (var method in GetExtensionMethodsFromScope(nested, name, receiverType, includePartialMatches))
+            foreach (var method in EnumerateExtensionMethods(nested, name, includePartialMatches))
                 yield return method;
         }
+    }
+
+    private bool IsExtensionCandidateForReceiver(
+        IMethodSymbol method,
+        ITypeSymbol receiverType,
+        bool includePartialMatches)
+    {
+        if (!method.IsExtensionMethod)
+            return false;
+
+        if (includePartialMatches)
+            return true;
+
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+            return false;
+
+        var parameterType = method.Parameters[0].Type;
+        if (parameterType is null || parameterType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
+            return true;
+
+        var conversion = Compilation.ClassifyConversion(receiverType, parameterType);
+        return conversion.Exists && conversion.IsImplicit;
     }
 
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)

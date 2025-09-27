@@ -17,6 +17,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelsBySyntax = new();
     private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _syntaxByLabel = new(SymbolEqualityComparer.Default);
     private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
+    private readonly Dictionary<LambdaExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(ReferenceEqualityComparer.Instance);
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private int _loopDepth;
@@ -1054,10 +1055,26 @@ partial class BlockBinder : Binder
         };
 
         var targetType = GetTargetType(syntax);
+        var candidateDelegates = GetLambdaDelegateTargets(syntax);
+
         INamedTypeSymbol? targetDelegate = targetType as INamedTypeSymbol;
         if (targetDelegate?.TypeKind != TypeKind.Delegate)
             targetDelegate = null;
-        var targetSignature = targetDelegate?.GetDelegateInvokeMethod();
+
+        if (targetDelegate is not null && candidateDelegates.IsDefault)
+        {
+            candidateDelegates = ImmutableArray.Create(targetDelegate);
+        }
+        else if (targetDelegate is not null && !candidateDelegates.Contains(targetDelegate, SymbolEqualityComparer.Default))
+        {
+            candidateDelegates = candidateDelegates.Add(targetDelegate);
+        }
+
+        if (candidateDelegates.IsDefault)
+            candidateDelegates = ImmutableArray<INamedTypeSymbol>.Empty;
+
+        INamedTypeSymbol? primaryDelegate = targetDelegate ?? candidateDelegates.FirstOrDefault();
+        var targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
 
         // 2. Create parameter symbols
         var parameterSymbols = new List<IParameterSymbol>();
@@ -1091,10 +1108,18 @@ partial class BlockBinder : Binder
             }
             else
             {
-                parameterType = Compilation.ErrorTypeSymbol;
-                _diagnostics.ReportLambdaParameterTypeCannotBeInferred(
-                    parameterSyntax.Identifier.ValueText,
-                    parameterSyntax.Identifier.GetLocation());
+                parameterType = TryInferLambdaParameterType(candidateDelegates, index, out var inferredRefKind)
+                    ?? Compilation.ErrorTypeSymbol;
+
+                if (refKind == RefKind.None && inferredRefKind is not null)
+                    refKind = inferredRefKind.Value;
+
+                if (parameterType.TypeKind == TypeKind.Error && candidateDelegates.IsDefaultOrEmpty)
+                {
+                    _diagnostics.ReportLambdaParameterTypeCannotBeInferred(
+                        parameterSyntax.Identifier.ValueText,
+                        parameterSyntax.Identifier.GetLocation());
+                }
             }
 
             var symbol = new SourceParameterSymbol(
@@ -1197,7 +1222,7 @@ partial class BlockBinder : Binder
             sourceLambdaSymbol.SetCapturedVariables(capturedVariables);
 
         // 7. Construct delegate type (e.g., Func<...> or custom delegate)
-        var delegateType = targetDelegate is not null &&
+        var delegateType = primaryDelegate is not null &&
             targetSignature is not null &&
             targetSignature.Parameters.Length == parameterSymbols.Count &&
             SymbolEqualityComparer.Default.Equals(returnType, targetSignature.ReturnType) &&
@@ -1205,7 +1230,7 @@ partial class BlockBinder : Binder
                 .Zip(targetSignature.Parameters, (parameter, target) =>
                     SymbolEqualityComparer.Default.Equals(parameter.Type, target.Type) && parameter.RefKind == target.RefKind)
                 .All(match => match)
-            ? targetDelegate
+            ? primaryDelegate
             : Compilation.CreateFunctionTypeSymbol(
                 parameterSymbols.Select(p => p.Type).ToArray(),
                 returnType
@@ -1219,7 +1244,7 @@ partial class BlockBinder : Binder
         }
 
         // 8. Return a fully bound lambda expression
-        return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables);
+        return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);
     }
 
     private BoundExpression BindMissingExpression(ExpressionSyntax.Missing missing)
@@ -2113,7 +2138,7 @@ partial class BlockBinder : Binder
                                 if (boundMember is BoundMethodGroupExpression methodGroup)
                                 {
                                     var methods = FilterMethodsForLambda(methodGroup.Methods, index, argumentExpression);
-
+                                    RecordLambdaTargets(argumentExpression, methods, index);
                                     if (methods.Length == 1)
                                         targetMethod = methods[0];
                                     else if (!methods.IsDefaultOrEmpty && TryGetCommonParameterType(methods, index) is ITypeSymbol common)
@@ -2130,7 +2155,7 @@ partial class BlockBinder : Binder
                                 if (boundMember is BoundMethodGroupExpression methodGroup)
                                 {
                                     var methods = FilterMethodsForLambda(methodGroup.Methods, index, argumentExpression);
-
+                                    RecordLambdaTargets(argumentExpression, methods, index);
                                     if (methods.Length == 1)
                                         targetMethod = methods[0];
                                     else if (!methods.IsDefaultOrEmpty && TryGetCommonParameterType(methods, index) is ITypeSymbol common)
@@ -2151,6 +2176,8 @@ partial class BlockBinder : Binder
                                 if (!accessible.IsDefaultOrEmpty)
                                     accessible = FilterMethodsForLambda(accessible, index, argumentExpression);
 
+                                RecordLambdaTargets(argumentExpression, accessible, index);
+
                                 if (accessible.Length == 1)
                                 {
                                     targetMethod = accessible[0];
@@ -2163,7 +2190,10 @@ partial class BlockBinder : Binder
                             }
 
                             if (targetMethod is not null && targetMethod.Parameters.Length > index)
+                            {
+                                RecordLambdaTargets(argumentExpression, ImmutableArray.Create(targetMethod), index);
                                 return targetMethod.Parameters[index].Type;
+                            }
                         }
 
                         return null;
@@ -2181,6 +2211,77 @@ partial class BlockBinder : Binder
         }
 
         return null;
+    }
+
+    private ImmutableArray<INamedTypeSymbol> GetLambdaDelegateTargets(LambdaExpressionSyntax syntax)
+    {
+        if (_lambdaDelegateTargets.TryGetValue(syntax, out var targets))
+            return targets;
+
+        return ImmutableArray<INamedTypeSymbol>.Empty;
+    }
+
+    private void RecordLambdaTargets(ExpressionSyntax argumentExpression, ImmutableArray<IMethodSymbol> methods, int parameterIndex)
+    {
+        if (argumentExpression is not LambdaExpressionSyntax lambda || methods.IsDefaultOrEmpty)
+        {
+            if (argumentExpression is LambdaExpressionSyntax lambdaExpression)
+                _lambdaDelegateTargets.Remove(lambdaExpression);
+            return;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+
+        foreach (var method in methods)
+        {
+            if (method.Parameters.Length <= parameterIndex)
+                continue;
+
+            if (method.Parameters[parameterIndex].Type is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            {
+                if (!builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateType)))
+                    builder.Add(delegateType);
+            }
+        }
+
+        if (builder.Count > 0)
+            _lambdaDelegateTargets[lambda] = builder.ToImmutable();
+        else
+            _lambdaDelegateTargets.Remove(lambda);
+    }
+
+    private ITypeSymbol? TryInferLambdaParameterType(ImmutableArray<INamedTypeSymbol> candidateDelegates, int parameterIndex, out RefKind? inferredRefKind)
+    {
+        inferredRefKind = null;
+
+        if (candidateDelegates.IsDefaultOrEmpty)
+            return null;
+
+        ITypeSymbol? inferredType = null;
+
+        foreach (var delegateType in candidateDelegates)
+        {
+            var invoke = delegateType.GetDelegateInvokeMethod();
+            if (invoke is null || invoke.Parameters.Length <= parameterIndex)
+                return null;
+
+            var parameter = invoke.Parameters[parameterIndex];
+
+            if (inferredType is null)
+            {
+                inferredType = parameter.Type;
+                inferredRefKind = parameter.RefKind;
+                continue;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(inferredType, parameter.Type))
+                return null;
+
+            if (inferredRefKind != parameter.RefKind)
+                return null;
+        }
+
+        return inferredType;
     }
 
     protected BoundExpression BindTypeSyntax(TypeSyntax syntax)

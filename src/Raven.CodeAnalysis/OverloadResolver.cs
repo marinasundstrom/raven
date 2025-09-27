@@ -519,8 +519,7 @@ internal sealed class OverloadResolver
 
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
-            var invoke = delegateType.GetDelegateInvokeMethod();
-            if (invoke is not null && invoke.Parameters.Length != lambda.Parameters.Count())
+            if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
                 return false;
         }
 
