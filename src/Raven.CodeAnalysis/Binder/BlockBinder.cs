@@ -737,7 +737,7 @@ partial class BlockBinder : Binder
         if (identifier.IsMissing)
             return CreateLabelSymbol(string.Empty, identifier.GetLocation(), labeledStatement.GetReference());
 
-        var name = identifier.Text;
+        var name = identifier.ValueText;
 
         if (_labelsByName.TryGetValue(name, out var conflict))
         {
@@ -781,7 +781,7 @@ partial class BlockBinder : Binder
             return boundError;
         }
 
-        var name = identifier.Text;
+        var name = identifier.ValueText;
         if (!_labelsByName.TryGetValue(name, out var label))
         {
             _diagnostics.ReportLabelNotFound(name, identifier.GetLocation());

@@ -345,6 +345,43 @@ public static class CompletionProvider
             }
         }
 
+        if (token.Parent is GotoStatementSyntax gotoStatement)
+        {
+            var identifier = gotoStatement.Identifier;
+            var prefix = identifier.IsMissing ? string.Empty : identifier.ValueText;
+            var replacement = identifier.IsMissing
+                ? new TextSpan(position, 0)
+                : identifier.Span;
+
+            foreach (var symbol in binder.LookupAvailableSymbols())
+            {
+                if (symbol is not ILabelSymbol label)
+                    continue;
+
+                if (string.IsNullOrEmpty(label.Name))
+                    continue;
+
+                if (!string.IsNullOrEmpty(prefix) &&
+                    !label.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (seen.Add(label.Name))
+                {
+                    completions.Add(new CompletionItem(
+                        DisplayText: label.Name,
+                        InsertionText: label.Name,
+                        ReplacementSpan: replacement,
+                        CursorOffset: label.Name.Length,
+                        Description: SafeToDisplayString(label),
+                        Symbol: label));
+                }
+            }
+
+            return completions;
+        }
+
         /*
         var objectInitializer = token.GetAncestor<InitializerExpressionSyntax>();
         if (objectInitializer is not null && objectInitializer.Parent is ObjectCreationExpressionSyntax objectCreation)
