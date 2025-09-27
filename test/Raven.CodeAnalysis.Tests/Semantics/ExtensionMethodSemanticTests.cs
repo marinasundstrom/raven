@@ -98,6 +98,43 @@ let hasItems = items.Any()
     }
 
     [Fact]
+    public void MemberAccess_WithSourceExtension_BindsExtensionInvocation()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let x = "test"
+let result = x.Test()
+
+public static class Extensions {
+    [ExtensionAttribute]
+    public static Test(x: string) -> int {
+        return 42
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Test", boundInvocation.Method.Name);
+        Assert.Equal("Extensions", boundInvocation.Method.ContainingType?.Name);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Equal(boundInvocation.Method.Parameters[0].Type, boundInvocation.ExtensionReceiver!.Type);
+    }
+
+    [Fact]
     public void Lowerer_RewritesExtensionInvocation()
     {
         const string source = """
