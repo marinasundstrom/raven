@@ -140,5 +140,75 @@ public class NamespaceDirectiveTests
 
         Assert.Contains(person.Modifiers, modifier => modifier.Kind == SyntaxKind.OpenKeyword);
     }
+
+    [Fact]
+    public void CompilationOptionsRootNamespace_AppliesToSynthesizedProgram()
+    {
+        const string source = "System.Console.WriteLine(\"hi\");";
+
+        var tree = SyntaxTree.ParseText(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication, rootNamespace: "Samples.App");
+        var compilation = Compilation.Create(
+            "app",
+            [tree],
+            TestMetadataReferences.Default,
+            options);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+
+        Assert.NotNull(compilation.GetTypeByMetadataName("Samples.App.Program"));
+        Assert.Null(compilation.GetTypeByMetadataName("Program"));
+    }
+
+    [Fact]
+    public void NamespaceDeclaration_WithoutQualifier_RespectsRootNamespace()
+    {
+        const string source = """
+        namespace Services
+        {
+            class C {}
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication, rootNamespace: "Samples.App");
+        var compilation = Compilation.Create(
+            "app",
+            [tree],
+            TestMetadataReferences.Default,
+            options);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+
+        var type = compilation.GetTypeByMetadataName("Samples.App.Services.C");
+        Assert.NotNull(type);
+    }
+
+    [Fact]
+    public void NamespaceDeclaration_WithRootPrefix_IsNotDuplicated()
+    {
+        const string source = """
+        namespace Samples.App.Services
+        {
+            class C {}
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication, rootNamespace: "Samples.App");
+        var compilation = Compilation.Create(
+            "app",
+            [tree],
+            TestMetadataReferences.Default,
+            options);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+
+        var type = compilation.GetTypeByMetadataName("Samples.App.Services.C");
+        Assert.NotNull(type);
+    }
 }
 

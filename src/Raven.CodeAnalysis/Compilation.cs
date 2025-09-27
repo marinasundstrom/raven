@@ -27,6 +27,7 @@ public class Compilation
     private bool _entryPointComputed;
     private IMethodSymbol? _entryPoint;
     private ImmutableArray<Diagnostic> _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
+    private string[] _rootNamespaceParts = Array.Empty<string>();
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -66,6 +67,8 @@ public class Compilation
     }
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
+
+    internal SourceNamespaceSymbol SourceRootNamespace { get; private set; } = null!;
 
     public Assembly CoreAssembly { get; private set; }
 
@@ -364,6 +367,13 @@ public class Compilation
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
+        _rootNamespaceParts = Options.RootNamespace is string root
+            ? root.Split('.', StringSplitOptions.RemoveEmptyEntries)
+                  .Select(part => part.Trim())
+                  .Where(part => part.Length > 0)
+                  .ToArray()
+            : Array.Empty<string>();
+        SourceRootNamespace = EnsureRootNamespace(SourceGlobalNamespace, _rootNamespaceParts);
 
         /*
         foreach (var syntaxTree in SyntaxTrees)
@@ -380,6 +390,40 @@ public class Compilation
             }
         }
         */
+    }
+
+    private SourceNamespaceSymbol EnsureRootNamespace(SourceNamespaceSymbol global, string[] rootParts)
+    {
+        var current = global;
+
+        if (rootParts.Length == 0)
+            return current;
+
+        foreach (var part in rootParts)
+        {
+            var next = current
+                .GetMembers(part)
+                .OfType<SourceNamespaceSymbol>()
+                .FirstOrDefault();
+
+            if (next is null)
+            {
+                next = new SourceNamespaceSymbol(
+                    (SourceModuleSymbol)Module,
+                    part,
+                    current,
+                    null,
+                    current,
+                    [],
+                    []);
+
+                current.AddMember(next);
+            }
+
+            current = next;
+        }
+
+        return current;
     }
 
     private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
@@ -411,20 +455,37 @@ public class Compilation
 
     internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
     {
-        if (ns is null)
-            return GlobalNamespace;
+        EnsureSetup();
 
-        var existing = this.GetNamespaceSymbol(ns);
+        if (string.IsNullOrWhiteSpace(ns))
+            return SourceRootNamespace;
+
+        var namespaceParts = ns
+            .Split('.', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Trim())
+            .Where(part => part.Length > 0)
+            .ToArray();
+
+        if (namespaceParts.Length == 0)
+            return SourceRootNamespace;
+
+        var normalized = string.Join('.', namespaceParts);
+        var existing = this.GetNamespaceSymbol(normalized);
         if (existing is not null)
             return existing;
 
-        var namespaceParts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (namespaceParts.Length == 0)
-            return SourceGlobalNamespace;
+        var effectiveParts = namespaceParts;
+
+        if (_rootNamespaceParts.Length > 0 && !NamespaceStartsWith(namespaceParts, _rootNamespaceParts))
+        {
+            effectiveParts = new string[_rootNamespaceParts.Length + namespaceParts.Length];
+            Array.Copy(_rootNamespaceParts, effectiveParts, _rootNamespaceParts.Length);
+            Array.Copy(namespaceParts, 0, effectiveParts, _rootNamespaceParts.Length, namespaceParts.Length);
+        }
 
         var currentSourceNamespace = SourceGlobalNamespace;
 
-        foreach (var part in namespaceParts)
+        foreach (var part in effectiveParts)
         {
             var next = currentSourceNamespace
                 .GetMembers(part)
@@ -434,8 +495,10 @@ public class Compilation
             if (next is null)
             {
                 next = new SourceNamespaceSymbol(
+                    (SourceModuleSymbol)Module,
                     part,
                     currentSourceNamespace,
+                    null,
                     currentSourceNamespace,
                     [],
                     []);
@@ -446,7 +509,22 @@ public class Compilation
             currentSourceNamespace = next;
         }
 
-        return this.GetNamespaceSymbol(ns);
+        var effectiveName = string.Join('.', effectiveParts);
+        return this.GetNamespaceSymbol(effectiveName);
+    }
+
+    private static bool NamespaceStartsWith(string[] values, string[] prefix)
+    {
+        if (prefix.Length == 0 || prefix.Length > values.Length)
+            return false;
+
+        for (var i = 0; i < prefix.Length; i++)
+        {
+            if (!string.Equals(values[i], prefix[i], StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
     }
 
     private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
