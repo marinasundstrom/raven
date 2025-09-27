@@ -239,6 +239,12 @@ internal sealed class OverloadResolver
             var paramArguments = parameterNamed.TypeArguments;
             var argArguments = argumentNamed.TypeArguments;
 
+            if (paramArguments.IsDefault)
+                paramArguments = ImmutableArray<ITypeSymbol>.Empty;
+
+            if (argArguments.IsDefault)
+                argArguments = ImmutableArray<ITypeSymbol>.Empty;
+
             if (paramArguments.Length != argArguments.Length)
                 return false;
 
