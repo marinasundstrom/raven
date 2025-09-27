@@ -121,7 +121,7 @@ internal abstract class Binder
                 return new SymbolInfo(resolved);
         }
 
-        var name = node.Identifier.Text;
+        var name = node.Identifier.ValueText;
         var symbol = LookupSymbol(name);
         if (symbol != null)
             return new SymbolInfo(symbol);
@@ -346,7 +346,7 @@ internal abstract class Binder
             if (ident.Identifier.IsMissing)
                 return Compilation.ErrorTypeSymbol;
 
-            var type = LookupType(ident.Identifier.Text);
+            var type = LookupType(ident.Identifier.ValueText);
             if (type is INamedTypeSymbol named)
             {
                 if (named.IsAlias)
@@ -354,7 +354,7 @@ internal abstract class Binder
 
                 if (named.Arity > 0 && named.IsUnboundGenericType)
                 {
-                    var zeroArity = FindAccessibleNamedType(ident.Identifier.Text, 0);
+                    var zeroArity = FindAccessibleNamedType(ident.Identifier.ValueText, 0);
                     if (zeroArity is null)
                     {
                         _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, ident.Identifier.GetLocation());
@@ -380,7 +380,7 @@ internal abstract class Binder
 
             if (symbol is null)
             {
-                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(generic.Identifier.Text, generic.GetLocation());
+                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(generic.Identifier.ValueText, generic.GetLocation());
                 return Compilation.ErrorTypeSymbol;
             }
 
@@ -403,7 +403,7 @@ internal abstract class Binder
 
         var name = typeSyntax switch
         {
-            IdentifierNameSyntax id => id.Identifier.Text,
+            IdentifierNameSyntax id => id.Identifier.ValueText,
             _ => typeSyntax.ToString()
         };
 
@@ -419,9 +419,9 @@ internal abstract class Binder
         {
             if (qualified.Right is IdentifierNameSyntax id)
             {
-                var type = SelectByArity(ns.GetMembers(id.Identifier.Text)
+                var type = SelectByArity(ns.GetMembers(id.Identifier.ValueText)
                         .OfType<INamedTypeSymbol>(), 0)
-                    ?? ns.LookupType(id.Identifier.Text);
+                    ?? ns.LookupType(id.Identifier.ValueText);
 
                 if (type is INamedTypeSymbol named && NormalizeDefinition(named).Arity > 0)
                 {
@@ -444,7 +444,7 @@ internal abstract class Binder
         {
             if (qualified.Right is IdentifierNameSyntax id)
             {
-                return SelectByArity(leftType.GetMembers(id.Identifier.Text)
+                return SelectByArity(leftType.GetMembers(id.Identifier.ValueText)
                     .OfType<INamedTypeSymbol>(), 0);
             }
 
@@ -463,17 +463,17 @@ internal abstract class Binder
     {
         if (left is IdentifierNameSyntax id)
         {
-            var ns = LookupNamespace(id.Identifier.Text);
+            var ns = LookupNamespace(id.Identifier.ValueText);
             if (ns is not null)
                 return ns;
 
-            var type = LookupType(id.Identifier.Text);
+            var type = LookupType(id.Identifier.ValueText);
             if (type is INamedTypeSymbol named)
             {
                 var definition = NormalizeDefinition(named);
                 if (definition.Arity > 0)
                 {
-                    var zeroArity = FindAccessibleNamedType(id.Identifier.Text, 0);
+                    var zeroArity = FindAccessibleNamedType(id.Identifier.ValueText, 0);
                     if (zeroArity is null)
                     {
                         _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, id.Identifier.GetLocation());
@@ -520,9 +520,9 @@ internal abstract class Binder
     {
         return name switch
         {
-            IdentifierNameSyntax id => LookupSymbol(id.Identifier.Text)
-                ?? (ISymbol?)LookupNamespace(id.Identifier.Text)
-                ?? LookupType(id.Identifier.Text),
+            IdentifierNameSyntax id => LookupSymbol(id.Identifier.ValueText)
+                ?? (ISymbol?)LookupNamespace(id.Identifier.ValueText)
+                ?? LookupType(id.Identifier.ValueText),
             GenericNameSyntax gen => ResolveGenericName(gen),
             QualifiedNameSyntax qn => ResolveQualifiedName(qn),
             _ => null
@@ -552,10 +552,10 @@ internal abstract class Binder
         if (left is INamespaceSymbol ns)
         {
             if (qn.Right is IdentifierNameSyntax id)
-                return (ISymbol?)ns.LookupNamespace(id.Identifier.Text)
-                    ?? SelectByArity(ns.GetMembers(id.Identifier.Text)
+                return (ISymbol?)ns.LookupNamespace(id.Identifier.ValueText)
+                    ?? SelectByArity(ns.GetMembers(id.Identifier.ValueText)
                         .OfType<INamedTypeSymbol>(), 0)
-                    ?? ns.LookupType(id.Identifier.Text);
+                    ?? ns.LookupType(id.Identifier.ValueText);
 
             if (qn.Right is GenericNameSyntax gen)
             {
@@ -568,7 +568,7 @@ internal abstract class Binder
         if (left is ITypeSymbol type)
         {
             if (qn.Right is IdentifierNameSyntax id)
-                return SelectByArity(type.GetMembers(id.Identifier.Text)
+                return SelectByArity(type.GetMembers(id.Identifier.ValueText)
                     .OfType<INamedTypeSymbol>(), 0);
 
             if (qn.Right is GenericNameSyntax gen)
@@ -934,7 +934,7 @@ internal abstract class Binder
     private ITypeSymbol? ResolveGenericMember(INamespaceOrTypeSymbol container, GenericNameSyntax generic)
     {
         var arity = ComputeGenericArity(generic);
-        var definition = SelectByArity(container.GetMembers(generic.Identifier.Text)
+        var definition = SelectByArity(container.GetMembers(generic.Identifier.ValueText)
             .OfType<INamedTypeSymbol>(), arity);
 
         if (definition is null)
@@ -963,16 +963,16 @@ internal abstract class Binder
 
     private INamedTypeSymbol? FindNamedTypeForGeneric(GenericNameSyntax generic, int arity)
     {
-        var symbol = LookupType(generic.Identifier.Text) as INamedTypeSymbol;
+        var symbol = LookupType(generic.Identifier.ValueText) as INamedTypeSymbol;
         if (symbol is not null)
         {
             symbol = NormalizeDefinition(symbol);
             if (symbol.Arity != arity)
-                symbol = FindAccessibleNamedType(generic.Identifier.Text, arity);
+                symbol = FindAccessibleNamedType(generic.Identifier.ValueText, arity);
         }
         else
         {
-            symbol = FindAccessibleNamedType(generic.Identifier.Text, arity);
+            symbol = FindAccessibleNamedType(generic.Identifier.ValueText, arity);
         }
 
         return symbol;

@@ -62,6 +62,18 @@ public class LexerTests
     }
 
     [Fact]
+    public void EscapedReservedWord_IsParsedAsIdentifierToken()
+    {
+        var lexer = new Lexer(new StringReader("@int"));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.IdentifierToken, token.Kind);
+        Assert.Equal("@int", token.Text);
+        var value = Assert.IsType<string>(token.Value);
+        Assert.Equal("int", value);
+    }
+
+    [Fact]
     public void NumericLiteral_WithUnderscores_IsParsedAsInteger()
     {
         var lexer = new Lexer(new StringReader("1_000"));

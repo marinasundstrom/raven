@@ -53,7 +53,7 @@ internal class SyntaxToken : GreenNode
 
     public override object? GetValue() => _value;
 
-    public override string? GetValueText() => _value?.ToString();
+    public override string? GetValueText() => _value?.ToString() ?? _text;
 
     public SyntaxToken WithLeadingTrivia(params IEnumerable<SyntaxTrivia> trivias)
     {

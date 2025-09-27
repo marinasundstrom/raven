@@ -508,7 +508,7 @@ public class Compilation
                 AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
 
             var symbol = new SourceNamedTypeSymbol(
-                classDeclaration.Identifier.Text,
+                classDeclaration.Identifier.ValueText,
                 baseTypeSymbol,
                 TypeKind.Class,
                 declaringSymbol,
@@ -536,8 +536,8 @@ public class Compilation
                 {
                     return (container switch
                     {
-                        INamespaceSymbol ns => ns.LookupType(id.Identifier.Text),
-                        INamedTypeSymbol nt => nt.ContainingNamespace.LookupType(id.Identifier.Text),
+                        INamespaceSymbol ns => ns.LookupType(id.Identifier.ValueText),
+                        INamedTypeSymbol nt => nt.ContainingNamespace.LookupType(id.Identifier.ValueText),
                         _ => null
                     }) as INamedTypeSymbol;
                 }
@@ -560,7 +560,7 @@ public class Compilation
             };
 
             var symbol = new SourceNamedTypeSymbol(
-                interfaceDeclaration.Identifier.Text,
+                interfaceDeclaration.Identifier.ValueText,
                 GetSpecialType(SpecialType.System_Object),
                 TypeKind.Interface,
                 declaringSymbol,
@@ -605,7 +605,7 @@ public class Compilation
                 defaultAccessibility);
 
             var symbol = new SourceMethodSymbol(
-                methodDeclaration.Identifier.Text.ToString(), returnType,
+                methodDeclaration.Identifier.ValueText, returnType,
                 ImmutableArray<SourceParameterSymbol>.Empty,
                 declaringSymbol,
                 containingType,

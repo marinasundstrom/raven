@@ -147,10 +147,11 @@ class BinderFactory
 
             if (symbols.Count > 0)
             {
+                var aliasName = aliasDirective.Identifier.ValueText;
                 var aliasSymbols = symbols
-                    .Select(s => AliasSymbolFactory.Create(aliasDirective.Identifier.Text, s))
+                    .Select(s => AliasSymbolFactory.Create(aliasName, s))
                     .ToArray();
-                aliases[aliasDirective.Identifier.Text] = aliasSymbols;
+                aliases[aliasName] = aliasSymbols;
             }
             else
             {
@@ -218,7 +219,7 @@ class BinderFactory
         {
             if (name is GenericNameSyntax g)
             {
-                var baseName = g.Identifier.Text + "`" + g.TypeArgumentList.Arguments.Count;
+                var baseName = g.Identifier.ValueText + "`" + g.TypeArgumentList.Arguments.Count;
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(baseName);
@@ -234,7 +235,7 @@ class BinderFactory
             if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
-                var baseName = leftName + "." + gen.Identifier.Text + "`" + gen.TypeArgumentList.Arguments.Count;
+                var baseName = leftName + "." + gen.Identifier.ValueText + "`" + gen.TypeArgumentList.Arguments.Count;
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(baseName);
@@ -254,7 +255,7 @@ class BinderFactory
         {
             if (name is GenericNameSyntax g)
             {
-                var baseName = g.Identifier.Text + "`" + g.TypeArgumentList.Arguments.SeparatorCount + 1;
+                var baseName = g.Identifier.ValueText + "`" + g.TypeArgumentList.Arguments.SeparatorCount + 1;
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(baseName);
@@ -270,7 +271,7 @@ class BinderFactory
             if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
-                var baseName = leftName + "." + gen.Identifier.Text + "`" + gen.TypeArgumentList.Arguments.SeparatorCount + 1;
+                var baseName = leftName + "." + gen.Identifier.ValueText + "`" + gen.TypeArgumentList.Arguments.SeparatorCount + 1;
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)_compilation.GetTypeByMetadataName(baseName);
@@ -291,7 +292,7 @@ class BinderFactory
         {
             return nameSyntax switch
             {
-                IdentifierNameSyntax id => id.Identifier.Text,
+                IdentifierNameSyntax id => id.Identifier.ValueText,
                 QualifiedNameSyntax qn => GetRightmostIdentifier(qn.Right),
                 _ => nameSyntax.ToString()
             };

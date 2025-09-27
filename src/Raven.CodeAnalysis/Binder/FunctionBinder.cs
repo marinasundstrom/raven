@@ -36,7 +36,7 @@ class FunctionBinder : Binder
             throw new InvalidOperationException("Synthesized Program type not found.");
 
         var existingMethod = container
-            .GetMembers(_syntax.Identifier.Text)
+            .GetMembers(_syntax.Identifier.ValueText)
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == _syntax));
 
@@ -51,7 +51,7 @@ class FunctionBinder : Binder
             : ResolveType(_syntax.ReturnType.Type);
 
         _methodSymbol = new SourceMethodSymbol(
-            _syntax.Identifier.Text,
+            _syntax.Identifier.ValueText,
             returnType,
             [],
             container,
@@ -76,7 +76,7 @@ class FunctionBinder : Binder
                 var type = ResolveType(typeSyntax);
                 var hasDefaultValue = TypeMemberBinder.TryEvaluateParameterDefaultValue(p, type, out var defaultValue);
                 return new SourceParameterSymbol(
-                    p.Identifier.Text,
+                    p.Identifier.ValueText,
                     type,
                     _methodSymbol,
                     container.ContainingType,

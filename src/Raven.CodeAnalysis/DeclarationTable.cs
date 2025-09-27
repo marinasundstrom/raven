@@ -35,13 +35,13 @@ internal sealed class DeclarationTable
         switch (node)
         {
             case ClassDeclarationSyntax cls:
-                key = CreateKey(SymbolKind.Type, cls.Identifier.Text, 0, cls);
+                key = CreateKey(SymbolKind.Type, cls.Identifier.ValueText, 0, cls);
                 return true;
             case MethodDeclarationSyntax method:
-                key = CreateKey(SymbolKind.Method, method.Identifier.Text, 0, method);
+                key = CreateKey(SymbolKind.Method, method.Identifier.ValueText, 0, method);
                 return true;
             case VariableDeclaratorSyntax { Parent.Parent: LocalDeclarationStatementSyntax } variable:
-                key = CreateKey(SymbolKind.Local, variable.Identifier.Text, 0, variable);
+                key = CreateKey(SymbolKind.Local, variable.Identifier.ValueText, 0, variable);
                 return true;
             default:
                 key = default;
