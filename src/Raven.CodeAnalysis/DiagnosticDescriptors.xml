@@ -306,6 +306,9 @@
   <Descriptor Id="RAV2501" Identifier="LabelNotFound" Title="Label not found"
     Message="The label '{name}' does not exist in the current context" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2502" Identifier="ReservedWordCannotBeLabel" Title="Reserved word cannot be used as a label"
+    Message="The identifier '{name}' is a reserved word and cannot be used as a label" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2600" Identifier="BreakStatementNotWithinLoop" Title="Break statement not within loop"
     Message="Break statements are only valid inside loops" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />

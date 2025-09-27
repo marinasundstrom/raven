@@ -46,6 +46,41 @@ func main() {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void LabelUsingReservedWord_ReportsDiagnostic()
+    {
+        var code = """
+func main() {
+    int:
+        return
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult("RAV2502").WithSpan(2, 5, 2, 8).WithArguments("int")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void GotoUsingReservedWord_ReportsDiagnostic()
+    {
+        var code = """
+func main() {
+    goto int
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult("RAV2502").WithSpan(2, 10, 2, 13).WithArguments("int")
+            ]);
+
+        verifier.Verify();
+    }
 }
 
 public class GotoStatementSemanticTests : CompilationTestBase

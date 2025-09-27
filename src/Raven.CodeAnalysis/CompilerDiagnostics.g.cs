@@ -91,6 +91,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _noOverloadMatchesDelegate;
     private static DiagnosticDescriptor? _labelAlreadyDefined;
     private static DiagnosticDescriptor? _labelNotFound;
+    private static DiagnosticDescriptor? _reservedWordCannotBeLabel;
     private static DiagnosticDescriptor? _breakStatementNotWithinLoop;
     private static DiagnosticDescriptor? _continueStatementNotWithinLoop;
 
@@ -1200,6 +1201,19 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV2502: The identifier '{0}' is a reserved word and cannot be used as a label
+    /// </summary>
+    public static DiagnosticDescriptor ReservedWordCannotBeLabel => _reservedWordCannotBeLabel ??= DiagnosticDescriptor.Create(
+        id: "RAV2502",
+        title: "Reserved word cannot be used as a label",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "The identifier '{0}' is a reserved word and cannot be used as a label",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV2600: Break statements are only valid inside loops
     /// </summary>
     public static DiagnosticDescriptor BreakStatementNotWithinLoop => _breakStatementNotWithinLoop ??= DiagnosticDescriptor.Create(
@@ -1312,6 +1326,7 @@ internal static partial class CompilerDiagnostics
         NoOverloadMatchesDelegate,
         LabelAlreadyDefined,
         LabelNotFound,
+        ReservedWordCannotBeLabel,
         BreakStatementNotWithinLoop,
         ContinueStatementNotWithinLoop,
     ];
@@ -1403,6 +1418,7 @@ internal static partial class CompilerDiagnostics
         "RAV2203" => NoOverloadMatchesDelegate,
         "RAV2500" => LabelAlreadyDefined,
         "RAV2501" => LabelNotFound,
+        "RAV2502" => ReservedWordCannotBeLabel,
         "RAV2600" => BreakStatementNotWithinLoop,
         "RAV2601" => ContinueStatementNotWithinLoop,
         _ => null
