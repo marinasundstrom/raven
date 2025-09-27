@@ -23,7 +23,7 @@ var stopwatch = Stopwatch.StartNew();
 // -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
-// --symbols         - dump symbols produced from source
+// --symbols [list|hierarchy] - inspect symbols produced from source
 // --no-emit         - skip emitting the output assembly
 // -h, --help        - display help
 
@@ -38,7 +38,7 @@ var printSyntax = false;
 var printRawSyntax = false;
 var prettyIncludeDiagnostics = true;
 var printBinders = false;
-var printSymbols = false;
+var symbolDumpMode = SymbolDumpMode.None;
 var showHelp = false;
 var noEmit = false;
 var hasInvalidOption = false;
@@ -91,7 +91,10 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--symbols":
         case "--dump-symbols":
-            printSymbols = true;
+            if (!TryParseSymbolDumpMode(args, ref i, out var mode))
+                hasInvalidOption = true;
+            else
+                symbolDumpMode = mode;
             break;
         case "--no-emit":
             noEmit = true;
@@ -286,14 +289,30 @@ else if (printRawSyntax || printSyntaxTree || printSyntax || printBinders)
         AnsiConsole.MarkupLine("[yellow]Create a '.debug' directory to capture debug output.[/]");
 }
 
-if (printSymbols)
+if (symbolDumpMode != SymbolDumpMode.None)
 {
-    var symbolDump = compilation.Assembly.ToSymbolHierarchyString(symbol =>
+    var filter = static (ISymbol symbol) =>
         symbol.Kind is SymbolKind.Assembly or SymbolKind.Module or SymbolKind.Namespace ||
-        !symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty);
+        !symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty;
 
-    Console.WriteLine(symbolDump);
-    Console.WriteLine();
+    switch (symbolDumpMode)
+    {
+        case SymbolDumpMode.Hierarchy:
+        {
+            var symbolDump = compilation.Assembly.ToSymbolHierarchyString(filter);
+            Console.WriteLine(symbolDump);
+            Console.WriteLine();
+            break;
+        }
+
+        case SymbolDumpMode.List:
+        {
+            var symbolDump = compilation.Assembly.ToSymbolListString(filter);
+            Console.WriteLine(symbolDump);
+            Console.WriteLine();
+            break;
+        }
+    }
 }
 
 if (diagnostics.Length > 0)
@@ -352,7 +371,9 @@ static void PrintHelp()
     Console.WriteLine("                     Append ':no-diagnostics' to skip diagnostic underlines when using 'pretty'.");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
-    Console.WriteLine("  --symbols          Dump symbols produced from source");
+    Console.WriteLine("  --symbols [list|hierarchy]");
+    Console.WriteLine("                     Inspect symbols produced from source.");
+    Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  -h, --help         Display help");
 }
@@ -458,8 +479,40 @@ static string? ConsumeOptionValue(string[] args, ref int index)
     return null;
 }
 
+static bool TryParseSymbolDumpMode(string[] args, ref int index, out SymbolDumpMode mode)
+{
+    var value = ConsumeOptionValue(args, ref index);
+
+    if (value is null)
+    {
+        mode = SymbolDumpMode.List;
+        return true;
+    }
+
+    switch (value.ToLowerInvariant())
+    {
+        case "list":
+            mode = SymbolDumpMode.List;
+            return true;
+        case "hierarchy":
+            mode = SymbolDumpMode.Hierarchy;
+            return true;
+    }
+
+    AnsiConsole.MarkupLine($"[red]Unknown symbol dump format '{value}'.[/]");
+    mode = SymbolDumpMode.None;
+    return false;
+}
+
 enum SyntaxTreeFormat
 {
     Flat,
     Group
+}
+
+enum SymbolDumpMode
+{
+    None,
+    List,
+    Hierarchy
 }
