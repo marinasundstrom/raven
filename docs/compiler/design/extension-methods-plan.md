@@ -23,9 +23,10 @@ observed when compiling LINQ-heavy samples.
    prove that `BlockBinder.LookupExtensionMethods` produces the expected method
    groups for array, `IEnumerable<T>`, and nullable receivers using the shared
    metadata reference.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L1-L125】
-3. Trace the invocation pipeline—binding, overload resolution, and type
-   inference—for representative calls and capture any metadata-only gaps before
-   we attempt Raven-authored declarations.
+3. ✅ Traced the invocation pipeline—binding, overload resolution, and type
+   inference—for representative calls and captured the results in the metadata
+   pipeline trace, confirming no metadata-only gaps before we attempt
+   Raven-authored declarations.【F:docs/compiler/design/extension-methods-metadata-pipeline.md†L1-L33】
 4. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
    the fixture library and recording whether the `ExpressionGenerator` failure
    is still reachable when we stay within metadata-produced extensions.
