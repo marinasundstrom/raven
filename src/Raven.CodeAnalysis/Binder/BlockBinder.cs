@@ -96,7 +96,7 @@ partial class BlockBinder : Binder
 
     private BoundLocalDeclarationStatement BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
-        var name = variableDeclarator.Identifier.Text;
+        var name = variableDeclarator.Identifier.ValueText;
 
         if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
         {
@@ -1076,12 +1076,12 @@ partial class BlockBinder : Binder
             {
                 parameterType = Compilation.ErrorTypeSymbol;
                 _diagnostics.ReportLambdaParameterTypeCannotBeInferred(
-                    parameterSyntax.Identifier.Text,
+                    parameterSyntax.Identifier.ValueText,
                     parameterSyntax.Identifier.GetLocation());
             }
 
             var symbol = new SourceParameterSymbol(
-                parameterSyntax.Identifier.Text,
+                parameterSyntax.Identifier.ValueText,
                 parameterType,
                 _containingSymbol,
                 _containingSymbol.ContainingType as INamedTypeSymbol,
@@ -1829,7 +1829,7 @@ partial class BlockBinder : Binder
             ? array.ElementType
             : Compilation.GetSpecialType(SpecialType.System_Object);
 
-        var local = loopBinder.CreateLocalSymbol(forExpression, forExpression.Identifier.Text, isMutable: false, elementType);
+        var local = loopBinder.CreateLocalSymbol(forExpression, forExpression.Identifier.ValueText, isMutable: false, elementType);
 
         var body = loopBinder.BindExpressionInLoop(forExpression.Body, _allowReturnsInExpression) as BoundExpression;
 
@@ -1852,7 +1852,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
         }
 
-        var name = simpleName.Identifier.Text;
+        var name = simpleName.Identifier.ValueText;
         ImmutableArray<ITypeSymbol>? explicitTypeArguments = null;
         GenericNameSyntax? genericTypeSyntax = null;
 
@@ -1979,7 +1979,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindMemberBindingExpression(MemberBindingExpressionSyntax memberBinding)
     {
         var simpleName = memberBinding.Name;
-        var memberName = simpleName.Identifier.Text;
+        var memberName = simpleName.Identifier.ValueText;
         ImmutableArray<ITypeSymbol>? explicitTypeArguments = null;
         GenericNameSyntax? genericTypeSyntax = null;
 
@@ -2113,7 +2113,7 @@ partial class BlockBinder : Binder
                             }
                             else if (invocation.Expression is IdentifierNameSyntax id)
                             {
-                                var candidates = new SymbolQuery(id.Identifier.Text)
+                                var candidates = new SymbolQuery(id.Identifier.ValueText)
                                     .LookupMethods(this)
                                     .ToImmutableArray();
                                 var accessible = GetAccessibleMethods(candidates, id.Identifier.GetLocation(), reportIfInaccessible: false);
@@ -2154,7 +2154,7 @@ partial class BlockBinder : Binder
         if (syntax is LiteralTypeSyntax literalType)
         {
             var token = literalType.Token;
-            var value = token.Value ?? token.Text!;
+            var value = token.Value ?? token.ValueText!;
             ITypeSymbol underlying = value switch
             {
                 int => Compilation.GetSpecialType(SpecialType.System_Int32),
@@ -2202,7 +2202,7 @@ partial class BlockBinder : Binder
 
         if (syntax is IdentifierNameSyntax id)
         {
-            return BindTypeName(id.Identifier.Text, id.GetLocation(), []);
+            return BindTypeName(id.Identifier.ValueText, id.GetLocation(), []);
         }
 
         if (syntax is GenericNameSyntax generic)
@@ -2216,7 +2216,7 @@ partial class BlockBinder : Binder
             if (typeArgs.Length != generic.TypeArgumentList.Arguments.Count)
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
-            return BindTypeName(generic.Identifier.Text, generic.GetLocation(), typeArgs, generic.TypeArgumentList.Arguments);
+            return BindTypeName(generic.Identifier.ValueText, generic.GetLocation(), typeArgs, generic.TypeArgumentList.Arguments);
         }
 
         if (syntax is QualifiedNameSyntax qualified)
@@ -2233,11 +2233,11 @@ partial class BlockBinder : Binder
 
             if (qualified.Right is IdentifierNameSyntax id2)
             {
-                name = id2.Identifier.Text;
+                name = id2.Identifier.ValueText;
             }
             else if (qualified.Right is GenericNameSyntax generic2)
             {
-                name = generic2.Identifier.Text;
+                name = generic2.Identifier.ValueText;
                 rightGeneric = generic2;
                 typeArgs = generic2.TypeArgumentList.Arguments
                     .Select(arg => BindTypeSyntax(arg.Type))
@@ -2438,7 +2438,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax)
     {
-        var name = syntax.Identifier.Text;
+        var name = syntax.Identifier.ValueText;
         var symbol = LookupSymbol(name);
 
         if (symbol is null)
@@ -2754,7 +2754,7 @@ partial class BlockBinder : Binder
             else
             {
                 receiver = null;
-                methodName = id.Identifier.Text;
+                methodName = id.Identifier.ValueText;
             }
         }
         else if (syntax.Expression is GenericNameSyntax generic)
@@ -2763,7 +2763,7 @@ partial class BlockBinder : Binder
             if (boundTypeArguments is null)
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
-            var symbolCandidates = LookupSymbols(generic.Identifier.Text)
+            var symbolCandidates = LookupSymbols(generic.Identifier.ValueText)
                 .OfType<IMethodSymbol>()
                 .ToImmutableArray();
 
@@ -3179,7 +3179,7 @@ partial class BlockBinder : Binder
         {
             case MemberBindingExpressionSyntax memberBinding:
                 {
-                    var name = memberBinding.Name.Identifier.Text;
+                    var name = memberBinding.Name.Identifier.ValueText;
                     var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
 
                     var member = receiverType is null
@@ -3207,7 +3207,7 @@ partial class BlockBinder : Binder
 
             case InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax memberBinding } invocation:
                 {
-                    var name = memberBinding.Name.Identifier.Text;
+                    var name = memberBinding.Name.Identifier.ValueText;
                     var boundArguments = invocation.ArgumentList.Arguments.Select(a => BindExpression(a.Expression)).ToArray();
 
                     var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;

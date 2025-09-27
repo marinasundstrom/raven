@@ -30,7 +30,7 @@ class LocalScopeBinder : Binder
         if (node is IdentifierNameSyntax identifier)
         {
             // First, check local variables
-            if (_locals.TryGetValue(identifier.Identifier.Text, out var symbol))
+            if (_locals.TryGetValue(identifier.Identifier.ValueText, out var symbol))
                 return new SymbolInfo(symbol);
 
             // If not found, check method parameters

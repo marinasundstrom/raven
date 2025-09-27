@@ -226,7 +226,7 @@ internal partial class BlockBinder
         BoundDesignator designator = syntax.Designation switch
         {
             SingleVariableDesignationSyntax single when !single.Identifier.IsMissing &&
-                                                      single.Identifier.Text != "_"
+                                                      single.Identifier.ValueText != "_"
                 => BindSingleVariableDesignation(single)!,
             _ => new BoundDiscardDesignator(type.Type)
         };
@@ -245,7 +245,7 @@ internal partial class BlockBinder
         if (syntax.Type is not IdentifierNameSyntax identifier)
             return false;
 
-        if (identifier.Identifier.Text != "_")
+        if (identifier.Identifier.ValueText != "_")
             return false;
 
         if (syntax.Designation is not SingleVariableDesignationSyntax designation)
@@ -254,7 +254,7 @@ internal partial class BlockBinder
         if (designation.Identifier.IsMissing)
             return true;
 
-        return designation.Identifier.Text == "_";
+        return designation.Identifier.ValueText == "_";
     }
 
     private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax)
@@ -296,7 +296,7 @@ internal partial class BlockBinder
     private BoundSingleVariableDesignator? BindSingleVariableDesignation(SingleVariableDesignationSyntax singleVariableDesignation)
     {
         var declaration = singleVariableDesignation.Parent as DeclarationPatternSyntax;
-        var name = singleVariableDesignation.Identifier.Text;
+        var name = singleVariableDesignation.Identifier.ValueText;
         var type = ResolveType(declaration.Type);
 
         var local = CreateLocalSymbol(singleVariableDesignation, name, true, type);

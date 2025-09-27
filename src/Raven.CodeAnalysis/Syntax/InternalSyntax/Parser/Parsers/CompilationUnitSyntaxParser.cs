@@ -75,7 +75,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         if (attributeList.Target is not AttributeTargetSpecifierSyntax target)
             return false;
 
-        return string.Equals(target.Identifier.Text, "assembly", StringComparison.Ordinal);
+        return string.Equals(target.Identifier.GetValueText(), "assembly", StringComparison.Ordinal);
     }
 
     private void ParseNamespaceMemberDeclarations(

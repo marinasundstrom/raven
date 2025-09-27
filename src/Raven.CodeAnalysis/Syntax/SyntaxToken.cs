@@ -47,9 +47,9 @@ public struct SyntaxToken : IEquatable<SyntaxToken>
 
     public SyntaxKind Kind => Green.Kind;
 
-    public object? Value => Green.GetValue();
+    public object? Value => Green?.GetValue();
 
-    public string? ValueText => Green.GetValueText();
+    public string ValueText => Green?.GetValueText() ?? Text;
 
     public SyntaxNode Parent => _parent;
 

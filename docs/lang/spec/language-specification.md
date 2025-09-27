@@ -60,6 +60,20 @@ identifiers except in the syntactic positions that demand their special meaningâ
 (`public`, `internal`, `protected`, `private`) or accessor modifiers (`get`, `set`). The `partial` keyword is only recognised
 when declaring types and controls whether multiple declarations of the same class merge; see [Partial classes](#partial-classes).
 
+To use a reserved keyword as an identifier, prefix it with `@`. The lexer produces an identifier token whose `Text` still
+includes the `@` escape, while the token's `ValueText` omits it. All bound symbols expose the unescaped name, mirroring C#'s
+behaviour and ensuring metadata and semantic lookups use the identifier's logical name instead of its escaped form.
+
+```raven
+class @int {}
+
+static @match(@return: int) -> int
+{
+    let @and = @return;
+    return @and;
+}
+```
+
 The single-character `_` token is reserved for discards. When a pattern,
 deconstruction, or other declaration spells its designation as `_` (optionally
 with a type annotation), the compiler suppresses the binding and treats the

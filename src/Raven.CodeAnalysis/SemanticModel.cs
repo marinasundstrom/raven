@@ -360,10 +360,11 @@ public partial class SemanticModel
 
             if (symbols.Count > 0)
             {
+                var aliasName = alias.Identifier.ValueText;
                 var aliasSymbols = symbols
-                    .Select(s => AliasSymbolFactory.Create(alias.Identifier.Text, s))
+                    .Select(s => AliasSymbolFactory.Create(aliasName, s))
                     .ToArray();
-                aliases[alias.Identifier.Text] = aliasSymbols;
+                aliases[aliasName] = aliasSymbols;
             }
             else
             {
@@ -400,10 +401,11 @@ public partial class SemanticModel
 
                 if (symbols.Count > 0)
                 {
+                    var aliasName = alias.Identifier.ValueText;
                     var aliasSymbols = symbols
-                        .Select(s => AliasSymbolFactory.Create(alias.Identifier.Text, s))
+                        .Select(s => AliasSymbolFactory.Create(aliasName, s))
                         .ToArray();
-                    aliases[alias.Identifier.Text] = aliasSymbols;
+                    aliases[aliasName] = aliasSymbols;
                 }
                 else
                 {
@@ -473,7 +475,7 @@ public partial class SemanticModel
         {
             if (name is GenericNameSyntax g)
             {
-                var baseName = $"{g.Identifier.Text}`{g.TypeArgumentList.Arguments.Count}";
+                var baseName = $"{g.Identifier.ValueText}`{g.TypeArgumentList.Arguments.Count}";
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
@@ -489,7 +491,7 @@ public partial class SemanticModel
             if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
-                var baseName = $"{leftName}.{gen.Identifier.Text}`{gen.TypeArgumentList.Arguments.Count}";
+                var baseName = $"{leftName}.{gen.Identifier.ValueText}`{gen.TypeArgumentList.Arguments.Count}";
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
@@ -509,7 +511,7 @@ public partial class SemanticModel
         {
             if (name is GenericNameSyntax g)
             {
-                var baseName = $"{g.Identifier.Text}`{g.TypeArgumentList.Arguments.SeparatorCount + 1}";
+                var baseName = $"{g.Identifier.ValueText}`{g.TypeArgumentList.Arguments.SeparatorCount + 1}";
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
@@ -525,7 +527,7 @@ public partial class SemanticModel
             if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
-                var baseName = $"{leftName}.{gen.Identifier.Text}`{gen.TypeArgumentList.Arguments.SeparatorCount + 1}";
+                var baseName = $"{leftName}.{gen.Identifier.ValueText}`{gen.TypeArgumentList.Arguments.SeparatorCount + 1}";
                 var full = Combine(current, baseName);
                 var unconstructed = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(full)
                     ?? (INamedTypeSymbol?)Compilation.GetTypeByMetadataName(baseName);
@@ -546,7 +548,7 @@ public partial class SemanticModel
         {
             return nameSyntax switch
             {
-                IdentifierNameSyntax id => id.Identifier.Text,
+                IdentifierNameSyntax id => id.Identifier.ValueText,
                 QualifiedNameSyntax qn => GetRightmostIdentifier(qn.Right),
                 _ => nameSyntax.ToString()
             };
@@ -691,7 +693,7 @@ public partial class SemanticModel
                         var isNewSymbol = true;
 
                         if (parentSourceNamespace is not null &&
-                            parentSourceNamespace.IsMemberDefined(classDecl.Identifier.Text, out var existingMember) &&
+                            parentSourceNamespace.IsMemberDefined(classDecl.Identifier.ValueText, out var existingMember) &&
                             existingMember is SourceNamedTypeSymbol existingType &&
                             existingType.TypeKind == TypeKind.Class)
                         {
@@ -703,13 +705,13 @@ public partial class SemanticModel
                             if (willBeMixed && !previouslyMixed)
                             {
                                 parentBinder.Diagnostics.ReportPartialTypeDeclarationMissingPartial(
-                                    classDecl.Identifier.Text,
+                                    classDecl.Identifier.ValueText,
                                     classDecl.Identifier.GetLocation());
                             }
                             else if (hadNonPartial && !isPartial)
                             {
                                 parentBinder.Diagnostics.ReportTypeAlreadyDefined(
-                                    classDecl.Identifier.Text,
+                                    classDecl.Identifier.ValueText,
                                     classDecl.Identifier.GetLocation());
                             }
 
@@ -723,7 +725,7 @@ public partial class SemanticModel
                         else
                         {
                             classSymbol = new SourceNamedTypeSymbol(
-                                classDecl.Identifier.Text,
+                                classDecl.Identifier.ValueText,
                                 baseTypeSymbol!,
                                 TypeKind.Class,
                                 parentNamespace.AsSourceNamespace(),
@@ -774,7 +776,7 @@ public partial class SemanticModel
                         }
 
                         var interfaceSymbol = new SourceNamedTypeSymbol(
-                            interfaceDecl.Identifier.Text,
+                            interfaceDecl.Identifier.ValueText,
                             Compilation.GetTypeByMetadataName("System.Object")!,
                             TypeKind.Interface,
                             parentNamespace.AsSourceNamespace(),
@@ -806,7 +808,7 @@ public partial class SemanticModel
                             enumDecl.Modifiers,
                             AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
                         var enumSymbol = new SourceNamedTypeSymbol(
-                            enumDecl.Identifier.Text,
+                            enumDecl.Identifier.ValueText,
                             Compilation.GetTypeByMetadataName("System.Enum"),
                             TypeKind.Enum,
                             parentNamespace.AsSourceNamespace(),
@@ -825,7 +827,7 @@ public partial class SemanticModel
                         foreach (var enumMember in enumDecl.Members)
                         {
                             _ = new SourceFieldSymbol(
-                                enumMember.Identifier.Text,
+                                enumMember.Identifier.ValueText,
                                 enumSymbol,
                                 isStatic: true,
                                 isLiteral: true,
@@ -932,7 +934,7 @@ public partial class SemanticModel
                     var isNewNestedSymbol = true;
 
                     if (parentType is SourceNamedTypeSymbol parentSourceType &&
-                        parentSourceType.IsMemberDefined(nestedClass.Identifier.Text, out var existingNestedMember) &&
+                        parentSourceType.IsMemberDefined(nestedClass.Identifier.ValueText, out var existingNestedMember) &&
                         existingNestedMember is SourceNamedTypeSymbol existingNested &&
                         existingNested.TypeKind == TypeKind.Class)
                     {
@@ -944,13 +946,13 @@ public partial class SemanticModel
                         if (willBeMixed && !previouslyMixed)
                         {
                             classBinder.Diagnostics.ReportPartialTypeDeclarationMissingPartial(
-                                nestedClass.Identifier.Text,
+                                nestedClass.Identifier.ValueText,
                                 nestedClass.Identifier.GetLocation());
                         }
                         else if (hadNonPartial && !nestedPartial)
                         {
                             classBinder.Diagnostics.ReportTypeAlreadyDefined(
-                                nestedClass.Identifier.Text,
+                                nestedClass.Identifier.ValueText,
                                 nestedClass.Identifier.GetLocation());
                         }
 
@@ -964,7 +966,7 @@ public partial class SemanticModel
                     else
                     {
                         nestedSymbol = new SourceNamedTypeSymbol(
-                            nestedClass.Identifier.Text,
+                            nestedClass.Identifier.ValueText,
                             nestedBaseType!,
                             TypeKind.Class,
                             parentType,
@@ -1013,7 +1015,7 @@ public partial class SemanticModel
                             parentInterfaces = builder.ToImmutable();
                     }
                     var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
-                        nestedInterface.Identifier.Text,
+                        nestedInterface.Identifier.ValueText,
                         Compilation.GetTypeByMetadataName("System.Object")!,
                         TypeKind.Interface,
                         parentForInterface,
@@ -1041,7 +1043,7 @@ public partial class SemanticModel
                 case EnumDeclarationSyntax enumDecl:
                     var parentTypeForEnum = (INamedTypeSymbol)classBinder.ContainingSymbol;
                     var enumSymbol = new SourceNamedTypeSymbol(
-                        enumDecl.Identifier.Text,
+                        enumDecl.Identifier.ValueText,
                         Compilation.GetTypeByMetadataName("System.Enum"),
                         TypeKind.Enum,
                         parentTypeForEnum,
@@ -1062,7 +1064,7 @@ public partial class SemanticModel
                     foreach (var enumMember in enumDecl.Members)
                     {
                         _ = new SourceFieldSymbol(
-                            enumMember.Identifier.Text,
+                            enumMember.Identifier.ValueText,
                             enumSymbol,
                             isStatic: true,
                             isLiteral: true,
@@ -1132,7 +1134,7 @@ public partial class SemanticModel
                         }
 
                         var nestedInterfaceSymbol = new SourceNamedTypeSymbol(
-                            nestedInterface.Identifier.Text,
+                            nestedInterface.Identifier.ValueText,
                             Compilation.GetTypeByMetadataName("System.Object")!,
                             TypeKind.Interface,
                             parentInterface,
@@ -1173,7 +1175,7 @@ public partial class SemanticModel
             var variance = GetDeclaredVariance(parameter);
 
             var typeParameter = new SourceTypeParameterSymbol(
-                parameter.Identifier.Text,
+                parameter.Identifier.ValueText,
                 typeSymbol,
                 typeSymbol,
                 typeSymbol.ContainingNamespace,
@@ -1273,7 +1275,7 @@ public partial class SemanticModel
 
             var hasDefaultValue = TypeMemberBinder.TryEvaluateParameterDefaultValue(parameterSyntax, parameterType, out var defaultValue);
             var parameterSymbol = new SourceParameterSymbol(
-                parameterSyntax.Identifier.Text,
+                parameterSyntax.Identifier.ValueText,
                 parameterType,
                 constructorSymbol,
                 classSymbol,
@@ -1289,7 +1291,7 @@ public partial class SemanticModel
             if (refKind == RefKind.None)
             {
                 _ = new SourceFieldSymbol(
-                    parameterSyntax.Identifier.Text,
+                    parameterSyntax.Identifier.ValueText,
                     parameterType,
                     isStatic: false,
                     isLiteral: false,

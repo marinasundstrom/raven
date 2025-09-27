@@ -121,6 +121,29 @@ internal class Lexer : ILexer
         {
             if (_stringBuilder.Length > 0) _stringBuilder.Clear();
 
+            if (ch == '@')
+            {
+                _stringBuilder.Append(ch);
+
+                if (!PeekChar(out ch2) || !SyntaxFacts.IsIdentifierStartCharacter(ch2))
+                {
+                    return new Token(SyntaxKind.IdentifierToken, GetStringBuilderValue(), diagnostics: diagnostics);
+                }
+
+                ReadChar(out ch2);
+                _stringBuilder.Append(ch2);
+
+                while (PeekChar(out ch2) && SyntaxFacts.IsIdentifierPartCharacter(ch2))
+                {
+                    ReadChar();
+                    _stringBuilder.Append(ch2);
+                }
+
+                var text = GetStringBuilderValue();
+                var valueText = string.Intern(text.Substring(1));
+                return new Token(SyntaxKind.IdentifierToken, text, valueText, diagnostics: diagnostics);
+            }
+
             if (SyntaxFacts.IsIdentifierStartCharacter(ch) ||
                 char.IsDigit(ch) || (ch == '.' && PeekChar(out ch2) && char.IsDigit(ch2)))
             {
