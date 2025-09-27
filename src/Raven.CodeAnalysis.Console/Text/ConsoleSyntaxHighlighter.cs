@@ -180,8 +180,26 @@ public static class ConsoleSyntaxHighlighter
             }
 
             var start = span.StartLinePosition;
-            sb.AppendLine(
-                $"{filePath}({start.Line + 1},{start.Character + 1}): {diagnostic.Severity.ToString().ToLowerInvariant()} {diagnostic.Descriptor.Id}: {diagnostic.GetMessage()}");
+            var severityColor = GetColorForSeverity(diagnostic.Severity);
+            var severityAnsi = GetAnsiColor(severityColor);
+            var resetAnsi = GetAnsiColor(AnsiColor.Reset);
+            var severityText = diagnostic.Severity.ToString().ToLowerInvariant();
+
+            sb.Append(filePath);
+            sb.Append('(');
+            sb.Append(start.Line + 1);
+            sb.Append(',');
+            sb.Append(start.Character + 1);
+            sb.Append("):");
+            sb.Append(' ');
+            sb.Append(severityAnsi);
+            sb.Append(severityText);
+            sb.Append(' ');
+            sb.Append(diagnostic.Descriptor.Id);
+            sb.Append(resetAnsi);
+            sb.Append(':');
+            sb.Append(' ');
+            sb.AppendLine(diagnostic.GetMessage());
             sb.AppendLine();
 
             var end = span.EndLinePosition;

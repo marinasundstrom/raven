@@ -140,7 +140,8 @@ Options:
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
 - `-o <path>` &ndash; output assembly path
 - `-s` &ndash; display the syntax tree (single file only)
-- `-d` &ndash; dump syntax with highlighting (single file only)
+- `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` for raw text, `pretty` for highlighted syntax; append `:no-diagnostics` to skip underlines, single file only)
+- `--highlight` &ndash; display diagnostics with highlighted source snippets
 - `-r` &ndash; print the raw source (single file only)
 - `-b` &ndash; print the binder tree (single file only)
 - `-bt` &ndash; print the binder and bound tree (single file only)
