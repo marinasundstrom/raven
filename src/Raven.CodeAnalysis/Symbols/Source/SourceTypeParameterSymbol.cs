@@ -18,12 +18,14 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
         SyntaxReference[] declaringSyntaxReferences,
         int ordinal,
         TypeParameterConstraintKind constraintKind,
-        ImmutableArray<SyntaxReference> constraintTypeReferences)
+        ImmutableArray<SyntaxReference> constraintTypeReferences,
+        VarianceKind variance)
         : base(SymbolKind.TypeParameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Ordinal = ordinal;
         ConstraintKind = constraintKind;
         ConstraintTypeReferences = constraintTypeReferences;
+        Variance = variance;
     }
 
     public int Ordinal { get; }
@@ -70,6 +72,8 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
 
     public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         _constraintTypes.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _constraintTypes;
+
+    public VarianceKind Variance { get; }
 
     internal void SetConstraintTypes(ImmutableArray<ITypeSymbol> constraintTypes)
     {

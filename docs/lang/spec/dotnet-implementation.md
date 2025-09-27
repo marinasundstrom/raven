@@ -73,3 +73,19 @@ Raven emits shim types so that every union member has a concrete `Type`:
 * `Unit` represents the Raven `unit` value and is emitted into every assembly.
 * `Null` represents the `null` literal and is emitted only when a union includes `null`.
 
+## Generic variance
+
+The Raven compiler surfaces the CLR's variance metadata directly. When importing
+types from reference assemblies, the `GenericParameterAttributes` flag on a type
+parameter controls the reported `VarianceKind`: `Covariant` maps to `out` and
+`Contravariant` maps to `in`. These annotations influence interface
+implementation checks and reference conversions so that, for example,
+`IEnumerable<string>` is recognised as an implementation of
+`IEnumerable<object>`, and `IComparer<object>` satisfies a requirement for
+`IComparer<string>`.
+
+Source interface declarations may annotate their type parameters with `out` or
+`in`. Raven maps those modifiers onto the same metadata flags when emitting
+symbols, so variant source interfaces interoperate with metadata-defined
+counterparts without requiring any special handling.
+

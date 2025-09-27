@@ -44,12 +44,22 @@ public static class SemanticFacts
         if (comparer.Equals(type, interfaceType))
             return true;
 
+        if (type is INamedTypeSymbol typeInterface &&
+            typeInterface.TypeKind == TypeKind.Interface &&
+            IsVariantCompatible(typeInterface, interfaceType, comparer))
+        {
+            return true;
+        }
+
         if (type is ITypeParameterSymbol typeParameter)
             return ImplementsInterfaceTypeParameter(typeParameter, interfaceType, comparer, CreateVisitedSet(comparer));
 
         foreach (var implementedInterface in GetAllInterfaces(type))
         {
             if (comparer.Equals(implementedInterface, interfaceType))
+                return true;
+
+            if (IsVariantCompatible(implementedInterface, interfaceType, comparer))
                 return true;
         }
 
@@ -99,9 +109,18 @@ public static class SemanticFacts
                 if (comparer.Equals(namedConstraint, interfaceType))
                     return true;
 
+                if (namedConstraint.TypeKind == TypeKind.Interface &&
+                    IsVariantCompatible(namedConstraint, interfaceType, comparer))
+                {
+                    return true;
+                }
+
                 foreach (var implementedInterface in namedConstraint.AllInterfaces)
                 {
                     if (comparer.Equals(implementedInterface, interfaceType))
+                        return true;
+
+                    if (IsVariantCompatible(implementedInterface, interfaceType, comparer))
                         return true;
                 }
             }
@@ -123,6 +142,86 @@ public static class SemanticFacts
 
     private static HashSet<ISymbol> CreateVisitedSet(SymbolEqualityComparer comparer)
         => new(SymbolEqualityComparerAdapter.Get(comparer));
+
+    private static bool IsVariantCompatible(
+        INamedTypeSymbol implementedInterface,
+        INamedTypeSymbol targetInterface,
+        SymbolEqualityComparer comparer)
+    {
+        if (!implementedInterface.IsGenericType || !targetInterface.IsGenericType)
+            return false;
+
+        if (implementedInterface.ConstructedFrom is not INamedTypeSymbol implementedDefinition ||
+            targetInterface.ConstructedFrom is not INamedTypeSymbol targetDefinition)
+        {
+            return false;
+        }
+
+        if (!comparer.Equals(implementedDefinition, targetDefinition))
+            return false;
+
+        var typeParameters = implementedDefinition.TypeParameters;
+        var implementedArguments = implementedInterface.TypeArguments;
+        var targetArguments = targetInterface.TypeArguments;
+
+        if (typeParameters.Length != implementedArguments.Length ||
+            typeParameters.Length != targetArguments.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < typeParameters.Length; i++)
+        {
+            var parameter = typeParameters[i];
+            var implementedArgument = implementedArguments[i];
+            var targetArgument = targetArguments[i];
+
+            switch (parameter.Variance)
+            {
+                case VarianceKind.Out:
+                    if (!AreAssignable(implementedArgument, targetArgument, comparer))
+                        return false;
+                    break;
+                case VarianceKind.In:
+                    if (!AreAssignable(targetArgument, implementedArgument, comparer))
+                        return false;
+                    break;
+                default:
+                    if (!comparer.Equals(implementedArgument, targetArgument))
+                        return false;
+                    break;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool AreAssignable(
+        ITypeSymbol source,
+        ITypeSymbol destination,
+        SymbolEqualityComparer comparer)
+    {
+        if (comparer.Equals(source, destination))
+            return true;
+
+        if (destination.SpecialType == SpecialType.System_Object)
+        {
+            // Reference and boxing conversions are both valid for variance purposes.
+            return true;
+        }
+
+        if (IsDerivedFrom(source, destination, comparer))
+            return true;
+
+        if (destination is INamedTypeSymbol destinationInterface &&
+            destinationInterface.TypeKind == TypeKind.Interface &&
+            ImplementsInterface(source, destinationInterface, comparer))
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     private sealed class SymbolEqualityComparerAdapter : IEqualityComparer<ISymbol>
     {

@@ -267,6 +267,7 @@ internal class TypeMemberBinder : Binder
             foreach (var typeParameterSyntax in methodDecl.TypeParameterList.Parameters)
             {
                 var (constraintKind, constraintTypeReferences) = AnalyzeTypeParameterConstraints(typeParameterSyntax);
+                var variance = GetDeclaredVariance(typeParameterSyntax);
 
                 var typeParameterSymbol = new SourceTypeParameterSymbol(
                     typeParameterSyntax.Identifier.Text,
@@ -277,7 +278,8 @@ internal class TypeMemberBinder : Binder
                     [typeParameterSyntax.GetReference()],
                     ordinal++,
                     constraintKind,
-                    constraintTypeReferences);
+                    constraintTypeReferences,
+                    variance);
                 typeParametersBuilder.Add(typeParameterSymbol);
             }
 
@@ -1520,6 +1522,16 @@ internal class TypeMemberBinder : Binder
         }
 
         return (constraintKind, typeConstraintReferences.ToImmutable());
+    }
+
+    private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)
+    {
+        return parameter.VarianceKeyword?.Kind switch
+        {
+            SyntaxKind.OutKeyword => VarianceKind.Out,
+            SyntaxKind.InKeyword => VarianceKind.In,
+            _ => VarianceKind.None,
+        };
     }
 }
 

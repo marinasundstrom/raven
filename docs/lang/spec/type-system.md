@@ -194,6 +194,33 @@ class Repository<TContext: class, IDisposable>
 }
 ```
 
+#### Variance
+
+Interface declarations may annotate their type parameters with variance
+modifiers. The keyword `out` marks a parameter as **covariant**, allowing
+`Producer<Derived>` to be assigned where `Producer<Base>` is expected. The
+keyword `in` marks a parameter as **contravariant**, accepting
+`Consumer<Base>` wherever `Consumer<Derived>` is required. Omitting a modifier
+keeps the parameter **invariant**, so constructed types such as `Box<string>`
+and `Box<object>` remain distinct even when their arguments are related by
+inheritance.
+
+```raven
+interface Mapper<in TSource, out TResult>
+{
+    Map(source: TSource) -> TResult
+}
+```
+
+Variance annotations apply uniformly to source and metadata symbols. Imported
+.NET interfaces and delegates continue to surface the CLR's
+`GenericParameterAttributes` flags, and Raven-generated symbols report their
+`VarianceKind` according to the declared modifiers. These annotations influence
+interface implementation checks and conversions so that, for example,
+`IEnumerable<string>` is recognised as an implementation of
+`IEnumerable<object>`, while `IComparer<object>` satisfies a requirement for
+`IComparer<string>`.
+
 Constraint satisfaction is transitive: substituting a constrained type
 parameter for another parameter carries its constraint set. Nullable value
 types (`T?`) do not satisfy the `struct` constraint. Violations produce
@@ -270,6 +297,13 @@ conversions to a matching branch of a union. Narrowing or otherwise unsafe
 conversions require an explicit cast. See
 [type compatibility](../proposals/type-compatibility.md) for a detailed list of
 conversion forms.
+
+Reference conversions include the variance rules encoded on generic interfaces
+and delegates. If a referenced interface marks a type parameter as covariant,
+`T<Derived>` converts implicitly to `T<Base>`; contravariant parameters invert
+the check so `T<Base>` converts to `T<Derived>`. Raven applies these rules when
+importing .NET metadata, matching the behaviour of the CLR and C#. Source
+declarations remain invariant until the language grows syntax for `in`/`out`.
 
 When converting **from** a union, each branch must be convertible to the target
 type. When converting **to** a union, the source must convert to at least one

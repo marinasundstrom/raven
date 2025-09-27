@@ -88,5 +88,25 @@ public class GenericTypeTests : CompilationTestBase
             typeParameter.ConstraintKind);
         Assert.Empty(compilation.GetDiagnostics());
     }
+
+    [Fact]
+    public void InterfaceTypeParameters_ReportDeclaredVariance()
+    {
+        var source = """
+            interface Mapper<in TSource, out TResult> {}
+            """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+
+        compilation.GetSemanticModel(tree);
+
+        var mapper = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SourceGlobalNamespace.LookupType("Mapper"));
+
+        Assert.Equal(VarianceKind.In, mapper.TypeParameters[0].Variance);
+        Assert.Equal(VarianceKind.Out, mapper.TypeParameters[1].Variance);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }
 

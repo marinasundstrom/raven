@@ -190,6 +190,81 @@ class Foo : IDisposable {
     }
 
     [Fact]
+    public void ReferenceConversion_HandlesInterfaceCovariance()
+    {
+        var compilation = CreateCompilation();
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var listDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listOfString = (INamedTypeSymbol)listDefinition.Construct(stringType);
+        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfObject = (INamedTypeSymbol)enumerableDefinition.Construct(objectType);
+
+        var conversion = compilation.ClassifyConversion(listOfString, enumerableOfObject);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsReference);
+    }
+
+    [Fact]
+    public void ReferenceConversion_SourceInterfaceVariance_IsImplicit()
+    {
+        var source = """
+interface Producer<out T> {}
+
+class Widget : Producer<string> {}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var interfaceSyntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
+        var classSyntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var producerDefinition = (INamedTypeSymbol)model.GetDeclaredSymbol(interfaceSyntax)!;
+        var widget = (INamedTypeSymbol)model.GetDeclaredSymbol(classSyntax)!;
+        var producerOfObject = (INamedTypeSymbol)producerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
+
+        var conversion = compilation.ClassifyConversion(widget, producerOfObject);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsReference);
+    }
+
+    [Fact]
+    public void ReferenceConversion_HandlesInterfaceContravariance()
+    {
+        var source = """
+import System.Collections.Generic
+
+class Comparer : IComparer<object>
+{
+    init() {}
+
+    Compare(x: object?, y: object?) -> int => 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
+        var comparerDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var comparer = (INamedTypeSymbol)model.GetDeclaredSymbol(comparerDeclaration)!;
+        var comparerDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1")!;
+        var comparerOfString = (INamedTypeSymbol)comparerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+
+        var conversion = compilation.ClassifyConversion(comparer, comparerOfString);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsReference);
+    }
+
+    [Fact]
     public void BoxingConversion_ValueTypeToObject_IsImplicit()
     {
         var compilation = CreateCompilation();
