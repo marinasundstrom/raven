@@ -75,10 +75,29 @@ internal class BaseParseContext : ParseContext
         if (value && _lastToken is { } lastToken)
         {
             int rewindBy = 0;
-            foreach (var trivia in lastToken.TrailingTrivia)
+            int pendingWhitespace = 0;
+
+            for (int i = lastToken.TrailingTrivia.Count - 1; i >= 0; i--)
             {
+                var trivia = lastToken.TrailingTrivia[i];
+
+                if (trivia.Kind == SyntaxKind.WhitespaceTrivia)
+                {
+                    pendingWhitespace += trivia.FullWidth;
+                    continue;
+                }
+
                 if (IsEndOfLineTrivia(trivia))
-                    rewindBy += trivia.FullWidth;
+                {
+                    rewindBy += trivia.FullWidth + pendingWhitespace;
+                    pendingWhitespace = 0;
+                    continue;
+                }
+
+                if (rewindBy > 0)
+                    break;
+
+                pendingWhitespace = 0;
             }
 
             if (rewindBy > 0)

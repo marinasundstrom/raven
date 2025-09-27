@@ -5,6 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using Shouldly;
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -85,6 +86,30 @@ public class ParserNewlineTests
 
         var newlineTrivia = literalToken.LeadingTrivia.FirstOrDefault(t => t.Kind == SyntaxKind.EndOfLineTrivia);
         Assert.Equal(SyntaxKind.EndOfLineTrivia, newlineTrivia.Kind);
+    }
+
+    [Fact]
+    public void Statement_NewlineTerminator_PreservesIndentationForNextStatement()
+    {
+        // Arrange
+        var source = "let x = 42\n    let y = 21\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        // Act
+        var firstStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+        var secondStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+
+        // Assert
+        Assert.Equal(SyntaxKind.NewLineToken, firstStatement.GetLastToken().Kind);
+
+        var firstTokenOfSecondStatement = secondStatement.GetFirstToken();
+        Assert.Equal(SyntaxKind.LetKeyword, firstTokenOfSecondStatement.Kind);
+
+        var indentation = firstTokenOfSecondStatement.LeadingTrivia.Single();
+        Assert.Equal(SyntaxKind.WhitespaceTrivia, indentation.Kind);
+        indentation.ToString().ShouldBe("    ");
     }
 
     [Fact]
