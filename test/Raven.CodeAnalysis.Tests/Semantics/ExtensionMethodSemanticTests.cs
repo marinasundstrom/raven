@@ -135,6 +135,54 @@ public static class Extensions {
     }
 
     [Fact]
+    public void MemberAccess_WithSourceExtensionAndAdditionalParameters_BindsInvocationArguments()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let text = "value"
+let suffix = "!"
+let count = 3
+let result = text.AddSuffix(suffix, count)
+
+public static class Extensions {
+    [ExtensionAttribute]
+    public static AddSuffix(x: string, suffix: string, count: int) -> string {
+        return x
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "AddSuffix");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("AddSuffix", boundInvocation.Method.Name);
+        Assert.Equal("Extensions", boundInvocation.Method.ContainingType?.Name);
+
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Equal(boundInvocation.Method.Parameters[0].Type, boundInvocation.ExtensionReceiver!.Type);
+
+        var arguments = boundInvocation.Arguments.ToArray();
+        Assert.Equal(boundInvocation.Method.Parameters.Length - 1, arguments.Length);
+
+        Assert.Collection(
+            arguments,
+            argument => Assert.Equal(boundInvocation.Method.Parameters[1].Type, argument.Type),
+            argument => Assert.Equal(boundInvocation.Method.Parameters[2].Type, argument.Type));
+    }
+
+    [Fact]
     public void MemberAccess_WithMultipleSourceExtensions_ResolvesMatchingReceiver()
     {
         const string source = """
