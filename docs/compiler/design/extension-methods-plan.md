@@ -4,19 +4,14 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
-## 1. Baseline assessment
+## 1. Baseline assessment ✅
 
-1. Audit the existing extension method pipeline.
-   * Review `BlockBinder.LookupExtensionMethods` and overload resolution to
-     understand how apparent instance calls are mapped to `BoundInvocationExpression`
-     nodes with an `ExtensionReceiver`.
-   * Map each stage (binding, lowering, emission) that assumes extension methods
-     are imported from metadata only. Identify missing support for Raven-authored
-     extension declarations.
-2. Reproduce the failure thrown from `ExpressionGenerator.EmitLambdaExpression`
-   when `MetadataLoadContext` attempts to resolve delegate constructors. Capture
-   a minimal `.rav` repro and note the shape of the bound tree so future steps
-   can add targeted tests.
+* Documented the current binder, lowering, and emitter behavior for metadata
+  extensions, and captured the gaps for Raven-authored declarations in
+  `extension-methods-baseline.md` for future reference.【F:docs/compiler/design/extension-methods-baseline.md†L1-L36】【F:docs/compiler/design/extension-methods-baseline.md†L38-L44】
+* Recorded the minimal LINQ sample and the exact CLI invocation that surfaces
+  the `ExpressionGenerator.EmitLambdaExpression` failure, along with the bound
+  tree snapshot that will guide upcoming tests.【F:docs/compiler/design/extension-methods-baseline.md†L46-L64】
 
 ## 2. Metadata consumer support
 
