@@ -1882,7 +1882,9 @@ partial class BlockBinder : Binder
 
         var body = loopBinder.BindExpressionInLoop(forExpression.Body, _allowReturnsInExpression) as BoundExpression;
 
-        return new BoundForExpression(local, collection, body!);
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        return new BoundForExpression(local, collection, body!, unitType);
     }
 
     private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)
