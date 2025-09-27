@@ -18,12 +18,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\tools\Generator\Generator.csproj" PrivateAssets="all"
-      ReferenceOutputAssembly="true" OutputItemType="Analyzer"
-      SetTargetFramework="TargetFramework=netstandard2.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
   </ItemGroup>
 
   <Target Name="RunNodeGenerator"
@@ -32,6 +27,20 @@
     Outputs="Syntax/generated/.stamp">
     <Exec Command="dotnet run --project ../../../tools/NodeGenerator"
       WorkingDirectory="Syntax" />
+  </Target>
+
+  <ItemGroup>
+    <BoundNodeGeneratorInput Include="BoundTree\**\*.cs" Exclude="BoundTree\Generated\**\*.*" />
+    <BoundNodeGeneratorInput Include="Symbols\**\*.cs" Exclude="Symbols\Generated\**\*.*" />
+    <BoundNodeGeneratorInput Include="..\..\tools\BoundNodeGenerator\**\*.cs" />
+    <BoundNodeGeneratorInput Include="..\..\tools\BoundNodeGenerator\BoundNodeGenerator.csproj" />
+  </ItemGroup>
+
+  <Target Name="RunBoundNodeGenerator"
+    BeforeTargets="CoreCompile"
+    Inputs="@(BoundNodeGeneratorInput)"
+    Outputs="BoundTree/Generated/.stamp">
+    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator" />
   </Target>
 
   <Target Name="RunDiagnosticsGenerator"
