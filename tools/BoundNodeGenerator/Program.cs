@@ -12,8 +12,8 @@ var force = args.Any(static a => a.Equals("-f", StringComparison.OrdinalIgnoreCa
 
 var boundTreeDir = Path.Combine(repoRoot, "src", "Raven.CodeAnalysis", "BoundTree");
 var symbolsDir = Path.Combine(repoRoot, "src", "Raven.CodeAnalysis", "Symbols");
-var boundOutputDir = Path.Combine(boundTreeDir, "Generated");
-var symbolOutputDir = Path.Combine(symbolsDir, "Generated");
+var boundOutputDir = Path.Combine(boundTreeDir, "generated");
+var symbolOutputDir = Path.Combine(symbolsDir, "generated");
 var stampPath = Path.Combine(boundOutputDir, ".stamp");
 
 var inputs = EnumerateInputs(boundTreeDir, symbolsDir).ToList();
