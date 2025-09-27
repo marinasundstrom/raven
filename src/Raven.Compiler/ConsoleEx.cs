@@ -1,4 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Spectre.Console;
 
@@ -26,7 +32,82 @@ static class ConsoleEx
         AnsiConsole.MarkupLine($"Build [red]failed with {errorsCount} error(s)[/]");
     }
 
-    public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics)
+    public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics) =>
+        PrintDiagnostics(diagnostics, compilation: null, highlightDiagnostics: false);
+
+    public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics, Compilation? compilation, bool highlightDiagnostics)
+    {
+        var diagnosticArray = diagnostics.ToArray();
+
+        if (!highlightDiagnostics || compilation is null)
+        {
+            PrintDiagnosticList(diagnosticArray);
+            return;
+        }
+
+        var highlightable = new List<Diagnostic>();
+        var fallback = new List<Diagnostic>();
+
+        foreach (var diagnostic in diagnosticArray)
+        {
+            if (diagnostic.Location.SourceTree is null)
+            {
+                fallback.Add(diagnostic);
+                continue;
+            }
+
+            highlightable.Add(diagnostic);
+        }
+
+        var highlightedSections = new List<string>();
+
+        if (highlightable.Count > 0)
+        {
+            var previousScheme = ConsoleSyntaxHighlighter.ColorScheme;
+            try
+            {
+                ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+
+                foreach (var group in highlightable
+                             .GroupBy(d => d.Location.SourceTree!)
+                             .OrderBy(g => g.Key.FilePath, StringComparer.Ordinal)
+                             .ThenBy(g => g.Min(d => d.Location.SourceSpan.Start)))
+                {
+                    var tree = group.Key;
+                    var root = tree.GetRoot();
+                    var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true,
+                        diagnostics: group);
+
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        fallback.AddRange(group);
+                        continue;
+                    }
+
+                    highlightedSections.Add(text.TrimEnd());
+                }
+            }
+            finally
+            {
+                ConsoleSyntaxHighlighter.ColorScheme = previousScheme;
+            }
+        }
+
+        if (highlightedSections.Count > 0)
+            Console.WriteLine(string.Join(Environment.NewLine + Environment.NewLine, highlightedSections));
+        else
+            fallback.AddRange(highlightable);
+
+        if (fallback.Count > 0)
+        {
+            if (highlightedSections.Count > 0)
+                Console.WriteLine();
+
+            PrintDiagnosticList(fallback);
+        }
+    }
+
+    private static void PrintDiagnosticList(IEnumerable<Diagnostic> diagnostics)
     {
         foreach (var diagnostic in diagnostics)
         {

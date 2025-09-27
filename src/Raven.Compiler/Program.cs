@@ -20,12 +20,13 @@ var stopwatch = Stopwatch.StartNew();
 // --refs <path>     - additional metadata reference (repeatable)
 // -o <path>         - output assembly path
 // -s [flat|group]   - display the syntax tree (single file only)
-// -d [plain|pretty[:no-diagnostics|diagnostics-only]] - dump syntax (single file only)
+// -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
 // -bt               - print binder and bound tree (single file only)
 // --symbols [list|hierarchy] - inspect symbols produced from source
 // --no-emit         - skip emitting the output assembly
+// --highlight       - display diagnostics with highlighted source
 // -h, --help        - display help
 
 var sourceFiles = new List<string>();
@@ -38,13 +39,13 @@ var syntaxTreeFormat = SyntaxTreeFormat.Flat;
 var printSyntax = false;
 var printRawSyntax = false;
 var prettyIncludeDiagnostics = true;
-var prettyDiagnosticsOnly = false;
 var printBinders = false;
 var printBoundTree = false;
 var symbolDumpMode = SymbolDumpMode.None;
 var showHelp = false;
 var noEmit = false;
 var hasInvalidOption = false;
+var highlightDiagnostics = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -73,7 +74,7 @@ for (int i = 0; i < args.Length; i++)
         case "-d":
         case "--dump":
             if (!TryParseSyntaxDumpFormat(args, ref i, out printRawSyntax, out printSyntax,
-                    out prettyIncludeDiagnostics, out prettyDiagnosticsOnly))
+                    out prettyIncludeDiagnostics))
             {
                 hasInvalidOption = true;
             }
@@ -87,7 +88,6 @@ for (int i = 0; i < args.Length; i++)
             printRawSyntax = false;
             printSyntax = true;
             prettyIncludeDiagnostics = true;
-            prettyDiagnosticsOnly = false;
             break;
         case "-b":
         case "--display-binders":
@@ -107,6 +107,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--no-emit":
             noEmit = true;
+            break;
+        case "--highlight":
+            highlightDiagnostics = true;
             break;
         case "--ref":
         case "--refs":
@@ -236,7 +239,9 @@ if (debugDir is not null)
         File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax-tree.txt"), treeText);
 
         ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
-        var syntax = root.WriteNodeToText(compilation, includeDiagnostics: true).StripAnsiCodes();
+        var syntaxDiagnostics = diagnostics.Where(d => d.Location.SourceTree == syntaxTree);
+        var syntax = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnostics: syntaxDiagnostics)
+            .StripAnsiCodes();
         File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax.txt"), syntax);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -292,14 +297,17 @@ if (allowConsoleOutput)
     if (printSyntax)
     {
         ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+        var prettyDiagnostics = prettyIncludeDiagnostics
+            ? diagnostics.Where(d => d.Location.SourceTree == syntaxTree)
+            : null;
         var highlighted = root.WriteNodeToText(compilation, includeDiagnostics: prettyIncludeDiagnostics,
-            diagnosticsOnly: prettyDiagnosticsOnly);
+            diagnostics: prettyDiagnostics);
         if (highlighted.Length > 0)
         {
             Console.WriteLine(highlighted);
             Console.WriteLine();
         }
-        else if (!prettyDiagnosticsOnly)
+        else
         {
             Console.WriteLine();
         }
@@ -362,7 +370,7 @@ if (symbolDumpMode != SymbolDumpMode.None)
 
 if (diagnostics.Length > 0)
 {
-    PrintDiagnostics(diagnostics);
+    PrintDiagnostics(diagnostics, compilation, highlightDiagnostics);
     Console.WriteLine();
 }
 
@@ -411,16 +419,16 @@ static void PrintHelp()
     Console.WriteLine("  -o <path>          Output assembly path");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
-    Console.WriteLine("  -d [plain|pretty[:no-diagnostics|diagnostics-only]] Dump syntax (single file only)");
+    Console.WriteLine("  -d [plain|pretty[:no-diagnostics]] Dump syntax (single file only)");
     Console.WriteLine("                     'plain' writes the source text, 'pretty' writes highlighted syntax.");
     Console.WriteLine("                     Append ':no-diagnostics' to skip diagnostic underlines when using 'pretty'.");
-    Console.WriteLine("                     Append ':diagnostics-only' to show only lines containing diagnostics.");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
     Console.WriteLine("  -bt                Print binder and bound tree (single file only)");
     Console.WriteLine("  --symbols [list|hierarchy]");
     Console.WriteLine("                     Inspect symbols produced from source.");
     Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");
+    Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  -h, --help         Display help");
 }
@@ -451,12 +459,11 @@ static bool TryParseSyntaxTreeFormat(string[] args, ref int index, out SyntaxTre
 }
 
 static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool printRawSyntax, out bool printSyntax,
-    out bool includeDiagnostics, out bool diagnosticsOnly)
+    out bool includeDiagnostics)
 {
     printRawSyntax = false;
     printSyntax = false;
     includeDiagnostics = true;
-    diagnosticsOnly = false;
 
     var value = ConsumeOptionValue(args, ref index);
     if (value is null)
@@ -486,7 +493,6 @@ static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool prin
 
         case "pretty":
             includeDiagnostics = true;
-            diagnosticsOnly = false;
             foreach (var modifier in segments.Skip(1))
             {
                 switch (modifier.ToLowerInvariant())
@@ -494,16 +500,9 @@ static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool prin
                     case "no-diagnostics":
                     case "no-underline":
                         includeDiagnostics = false;
-                        diagnosticsOnly = false;
                         break;
                     case "diagnostics":
                     case "underline":
-                        includeDiagnostics = true;
-                        break;
-                    case "diagnostics-only":
-                    case "diagnostic-only":
-                    case "diagnostic-lines":
-                        diagnosticsOnly = true;
                         includeDiagnostics = true;
                         break;
                     default:
