@@ -23,6 +23,7 @@ var stopwatch = Stopwatch.StartNew();
 // -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
+// -bt               - print bound tree (single file only)
 // --symbols [list|hierarchy] - inspect symbols produced from source
 // --no-emit         - skip emitting the output assembly
 // -h, --help        - display help
@@ -38,6 +39,7 @@ var printSyntax = false;
 var printRawSyntax = false;
 var prettyIncludeDiagnostics = true;
 var printBinders = false;
+var printBoundTree = false;
 var symbolDumpMode = SymbolDumpMode.None;
 var showHelp = false;
 var noEmit = false;
@@ -88,6 +90,11 @@ for (int i = 0; i < args.Length; i++)
         case "-b":
         case "--display-binders":
             printBinders = true;
+            break;
+        case "-bt":
+        case "--bound-tree":
+        case "--display-bound-tree":
+            printBoundTree = true;
             break;
         case "--symbols":
         case "--dump-symbols":
@@ -231,12 +238,23 @@ if (debugDir is not null)
         File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax.txt"), syntax);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        using var sw = new StringWriter();
-        var original = Console.Out;
-        Console.SetOut(sw);
-        semanticModel.PrintBinderTree();
-        Console.SetOut(original);
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.binders.txt"), sw.ToString());
+        using (var sw = new StringWriter())
+        {
+            var original = Console.Out;
+            Console.SetOut(sw);
+            semanticModel.PrintBinderTree();
+            Console.SetOut(original);
+            File.WriteAllText(Path.Combine(debugDir, $"{name}.binders.txt"), sw.ToString());
+        }
+
+        using (var sw = new StringWriter())
+        {
+            var original = Console.Out;
+            Console.SetOut(sw);
+            semanticModel.PrintBoundTree();
+            Console.SetOut(original);
+            File.WriteAllText(Path.Combine(debugDir, $"{name}.bound-tree.txt"), sw.ToString());
+        }
     }
 
     AnsiConsole.MarkupLine($"[yellow]Debug output written to '{debugDir}'.[/]");
@@ -282,8 +300,15 @@ if (allowConsoleOutput)
         semanticModel.PrintBinderTree();
         Console.WriteLine();
     }
+
+    if (printBoundTree)
+    {
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        semanticModel.PrintBoundTree();
+        Console.WriteLine();
+    }
 }
-else if (printRawSyntax || printSyntaxTree || printSyntax || printBinders)
+else if (printRawSyntax || printSyntaxTree || printSyntax || printBinders || printBoundTree)
 {
     if (debugDir is null)
         AnsiConsole.MarkupLine("[yellow]Create a '.debug' directory to capture debug output.[/]");
@@ -298,20 +323,20 @@ if (symbolDumpMode != SymbolDumpMode.None)
     switch (symbolDumpMode)
     {
         case SymbolDumpMode.Hierarchy:
-        {
-            var symbolDump = compilation.Assembly.ToSymbolHierarchyString(filter);
-            Console.WriteLine(symbolDump);
-            Console.WriteLine();
-            break;
-        }
+            {
+                var symbolDump = compilation.Assembly.ToSymbolHierarchyString(filter);
+                Console.WriteLine(symbolDump);
+                Console.WriteLine();
+                break;
+            }
 
         case SymbolDumpMode.List:
-        {
-            var symbolDump = compilation.Assembly.ToSymbolListString(filter);
-            Console.WriteLine(symbolDump);
-            Console.WriteLine();
-            break;
-        }
+            {
+                var symbolDump = compilation.Assembly.ToSymbolListString(filter);
+                Console.WriteLine(symbolDump);
+                Console.WriteLine();
+                break;
+            }
     }
 }
 
@@ -371,6 +396,7 @@ static void PrintHelp()
     Console.WriteLine("                     Append ':no-diagnostics' to skip diagnostic underlines when using 'pretty'.");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
+    Console.WriteLine("  -bt                Print bound tree (single file only)");
     Console.WriteLine("  --symbols [list|hierarchy]");
     Console.WriteLine("                     Inspect symbols produced from source.");
     Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");
