@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using System.Linq.Expressions;
 
 namespace Raven.CodeAnalysis;
@@ -21,6 +22,9 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
         where T : ISymbol
     {
         var builder = ImmutableArray.CreateBuilder<T>();
+
+        if (symbols.TryGetNonEnumeratedCount(out var count))
+            builder.Capacity = count;
 
         foreach (var symbol in symbols)
         {
@@ -48,6 +52,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundTryStatement tryStmt => (BoundStatement)VisitTryStatement(tryStmt)!,
             BoundLabeledStatement labeledStmt => (BoundStatement)VisitLabeledStatement(labeledStmt)!,
             BoundGotoStatement gotoStmt => (BoundStatement)VisitGotoStatement(gotoStmt)!,
+            BoundConditionalGotoStatement conditionalGotoStmt => (BoundStatement)VisitConditionalGotoStatement(conditionalGotoStmt)!,
             BoundBreakStatement breakStmt => (BoundStatement)VisitBreakStatement(breakStmt)!,
             BoundContinueStatement continueStmt => (BoundStatement)VisitContinueStatement(continueStmt)!,
             BoundWhileStatement whileStmt => (BoundStatement)VisitWhileStatement(whileStmt)!,
@@ -88,6 +93,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     public virtual BoundNode? VisitBreakStatement(BoundBreakStatement node) => node;
 
     public virtual BoundNode? VisitContinueStatement(BoundContinueStatement node) => node;
+
 
     public virtual INamespaceSymbol VisitNamespace(INamespaceSymbol @namespace)
     {

@@ -442,6 +442,7 @@ internal class MethodBodyGenerator
 
     private void EmitBoundBlock(BoundBlockStatement block, bool withReturn = true)
     {
+        block = Lowerer.LowerBlock(MethodSymbol, block);
         var blockScope = new Scope(scope, block.LocalsToDispose);
 
         for (var i = 0; i < block.Statements.Count(); i++)
@@ -534,6 +535,7 @@ internal class MethodBodyGenerator
             if (boundNode is null)
                 continue;
 
+            boundNode = Lowerer.LowerStatement(MethodSymbol, boundNode);
             new StatementGenerator(executionScope, boundNode).Emit();
         }
 
