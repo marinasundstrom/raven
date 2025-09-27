@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -67,6 +68,9 @@ internal sealed class OverloadResolver
             }
 
             if (IsMoreSpecific(bestMatch, method, arguments, receiver, compilation))
+                continue;
+
+            if (SymbolEqualityComparer.Default.Equals(bestMatch, method))
                 continue;
 
             ambiguous ??= ImmutableArray.CreateBuilder<IMethodSymbol>();
@@ -511,6 +515,13 @@ internal sealed class OverloadResolver
             }
 
             return true;
+        }
+
+        if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
+        {
+            var invoke = delegateType.GetDelegateInvokeMethod();
+            if (invoke is not null && invoke.Parameters.Length != lambda.Parameters.Count())
+                return false;
         }
 
         if (argument is BoundAddressOfExpression)
