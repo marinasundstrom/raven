@@ -19,12 +19,19 @@ Major components:
 Run all commands from the repository root unless noted. If any test command runs for longer than two minutes without the process completing, consider it stuck:
 
 ```bash
-# Generate syntax nodes (run whenever working in Raven.CodeAnalysis or when Model.xml, Tokens.xaml, and NodeKinds.xml change)
+# Generate syntax nodes (run whenever working in Raven.CodeAnalysis or when Model.xml, Tokens.xaml, and NodeKinds.xml change).
+# These generator projects do not run automatically in Codex, so execute them before building the full solution.
 cd src/Raven.CodeAnalysis/Syntax
 dotnet run --project ../../../tools/NodeGenerator -- -f
 cd ../../..
 
-# Generate compiler diagnostics (run when DiagnosticDescriptors.xml changes)
+# Generate bound nodes and symbol visitors (run whenever BoundTree/ or Symbols/ inputs change).
+cd src/Raven.CodeAnalysis
+dotnet run --project ../../tools/BoundNodeGenerator -- -f
+cd ../..
+
+# Generate compiler diagnostics (run when DiagnosticDescriptors.xml changes).
+# As above, ensure this generator runs prior to `dotnet build` so the solution sees the latest outputs.
 cd src/Raven.CodeAnalysis
 dotnet run --project ../../tools/DiagnosticsGenerator -- -f
 cd ../..
