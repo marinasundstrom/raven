@@ -214,7 +214,8 @@ control which parameters are elided:
 
 * `IsOptionalToken="true"` marks token slots whose minimal overload should create a missing token via
   `SyntaxFactory.Token(SyntaxKind.None)`. This keeps the factory convenient without forcing callers to supply placeholder
-  tokens.
+  tokens. Optional token slots should generally use `IsOptionalToken` instead of `IsNullable`, ensuring callers interact with
+  `SyntaxToken` (rather than `SyntaxToken?`) while the generator fills in the missing token automatically.
 * `DefaultToken="TokenName"` marks token slots whose minimal overload should call
   `SyntaxFactory.Token(SyntaxKind.TokenName)`. This covers punctuation and fixed keywords so consumers receive a syntactically
   valid tree by default.
