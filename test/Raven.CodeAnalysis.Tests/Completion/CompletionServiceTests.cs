@@ -499,7 +499,7 @@ ST.
         var code = """
 func main() {
 label:
-    goto 
+    goto
 }
 """;
 
@@ -516,5 +516,29 @@ label:
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         Assert.Contains(items, i => i.DisplayText == "label");
+    }
+
+    [Fact]
+    public void GetCompletions_ForEscapedIdentifier_UsesEscapedInsertion()
+    {
+        var code = """
+let @if = 0;
+@i
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var service = new CompletionService();
+        var position = code.Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        var escaped = Assert.Single(items.Where(i => i.DisplayText == "@if"));
+        Assert.Equal("@if", escaped.InsertionText);
     }
 }
