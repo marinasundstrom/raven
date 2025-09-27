@@ -215,6 +215,37 @@ public static class Extensions {
     }
 
     [Fact]
+    public void MemberAccess_LinqWhereOnCollectionExpression_BindsSuccessfully()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+let numbers = [1, 2, 3]
+let result = numbers.Where(func (value) => value == 2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Where", boundInvocation.Method.Name);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Equal(boundInvocation.ExtensionReceiver!.Type, boundInvocation.Method.Parameters[0].Type);
+    }
+
+    [Fact]
     public void MemberAccess_WithSourceExtensionAndAdditionalParameters_BindsInvocationArguments()
     {
         const string source = """

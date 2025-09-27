@@ -111,7 +111,10 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
 
+        AddConstructedInterface(builder, "System.Collections.Generic.IEnumerable`1");
+        AddConstructedInterface(builder, "System.Collections.Generic.ICollection`1");
         AddConstructedInterface(builder, "System.Collections.Generic.IList`1");
+        AddConstructedInterface(builder, "System.Collections.Generic.IReadOnlyCollection`1");
         AddConstructedInterface(builder, "System.Collections.Generic.IReadOnlyList`1");
 
         _arraySpecificInterfaces = builder.ToImmutable();

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
@@ -184,20 +185,41 @@ internal sealed class OverloadResolver
             return true;
         }
 
-        if (parameterType is INamedTypeSymbol paramNamed && argumentType is INamedTypeSymbol argNamed)
+        if (parameterType is INamedTypeSymbol paramNamed)
         {
-            if (SymbolEqualityComparer.Default.Equals(paramNamed.OriginalDefinition, argNamed.OriginalDefinition))
+            if (argumentType is INamedTypeSymbol argNamed)
             {
-                var paramArguments = paramNamed.TypeArguments;
-                var argArguments = argNamed.TypeArguments;
+                if (TryUnifyNamedType(paramNamed, argNamed))
+                    return true;
 
-                for (int i = 0; i < paramArguments.Length; i++)
+                foreach (var iface in argNamed.AllInterfaces)
                 {
-                    if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions))
-                        return false;
+                    if (TryUnifyNamedType(paramNamed, iface))
+                        return true;
                 }
 
-                return true;
+                for (var baseType = argNamed.BaseType; baseType is not null; baseType = baseType.BaseType)
+                {
+                    if (TryUnifyNamedType(paramNamed, baseType))
+                        return true;
+                }
+            }
+            else if (argumentType is IArrayTypeSymbol arrayArgument)
+            {
+                if (paramNamed.ConstructedFrom.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T or
+                    SpecialType.System_Collections_Generic_ICollection_T or
+                    SpecialType.System_Collections_Generic_IList_T ||
+                    IsGenericCollectionInterface(paramNamed, "IReadOnlyCollection") ||
+                    IsGenericCollectionInterface(paramNamed, "IReadOnlyList"))
+                {
+                    return TryInferFromTypes(compilation, paramNamed.TypeArguments[0], arrayArgument.ElementType, substitutions);
+                }
+
+                foreach (var iface in arrayArgument.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface))
+                        return true;
+                }
             }
         }
 
@@ -208,6 +230,37 @@ internal sealed class OverloadResolver
             return TryInferFromTypes(compilation, paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions);
 
         return true;
+
+        bool TryUnifyNamedType(INamedTypeSymbol parameterNamed, INamedTypeSymbol argumentNamed)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(parameterNamed.OriginalDefinition, argumentNamed.OriginalDefinition))
+                return false;
+
+            var paramArguments = parameterNamed.TypeArguments;
+            var argArguments = argumentNamed.TypeArguments;
+
+            if (paramArguments.Length != argArguments.Length)
+                return false;
+
+            for (int i = 0; i < paramArguments.Length; i++)
+            {
+                if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions))
+                    return false;
+            }
+
+            return true;
+        }
+    }
+
+    private static bool IsGenericCollectionInterface(INamedTypeSymbol parameterNamed, string interfaceName)
+    {
+        var definition = parameterNamed.ConstructedFrom;
+
+        if (!string.Equals(definition.Name, interfaceName, StringComparison.Ordinal))
+            return false;
+
+        var ns = definition.ContainingNamespace?.ToDisplayString();
+        return string.Equals(ns, "System.Collections.Generic", StringComparison.Ordinal);
     }
 
     private static bool SatisfiesMethodConstraints(

@@ -2105,14 +2105,18 @@ partial class BlockBinder : Binder
                             }
 
                             IMethodSymbol? targetMethod = null;
+                            var argumentExpression = arg.Expression;
+
                             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
                             {
                                 var boundMember = BindMemberAccessExpression(memberAccess);
                                 if (boundMember is BoundMethodGroupExpression methodGroup)
                                 {
-                                    if (methodGroup.Methods.Length == 1)
-                                        targetMethod = methodGroup.Methods[0];
-                                    else if (TryGetCommonParameterType(methodGroup.Methods, index) is ITypeSymbol common)
+                                    var methods = FilterMethodsForLambda(methodGroup.Methods, index, argumentExpression);
+
+                                    if (methods.Length == 1)
+                                        targetMethod = methods[0];
+                                    else if (!methods.IsDefaultOrEmpty && TryGetCommonParameterType(methods, index) is ITypeSymbol common)
                                         return common;
                                 }
                                 else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
@@ -2125,9 +2129,11 @@ partial class BlockBinder : Binder
                                 var boundMember = BindMemberBindingExpression(memberBinding);
                                 if (boundMember is BoundMethodGroupExpression methodGroup)
                                 {
-                                    if (methodGroup.Methods.Length == 1)
-                                        targetMethod = methodGroup.Methods[0];
-                                    else if (TryGetCommonParameterType(methodGroup.Methods, index) is ITypeSymbol common)
+                                    var methods = FilterMethodsForLambda(methodGroup.Methods, index, argumentExpression);
+
+                                    if (methods.Length == 1)
+                                        targetMethod = methods[0];
+                                    else if (!methods.IsDefaultOrEmpty && TryGetCommonParameterType(methods, index) is ITypeSymbol common)
                                         return common;
                                 }
                                 else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol m })
@@ -2141,6 +2147,10 @@ partial class BlockBinder : Binder
                                     .LookupMethods(this)
                                     .ToImmutableArray();
                                 var accessible = GetAccessibleMethods(candidates, id.Identifier.GetLocation(), reportIfInaccessible: false);
+
+                                if (!accessible.IsDefaultOrEmpty)
+                                    accessible = FilterMethodsForLambda(accessible, index, argumentExpression);
+
                                 if (accessible.Length == 1)
                                 {
                                     targetMethod = accessible[0];
@@ -3105,6 +3115,48 @@ partial class BlockBinder : Binder
         }
 
         return parameterType;
+    }
+
+    private ImmutableArray<IMethodSymbol> FilterMethodsForLambda(
+        ImmutableArray<IMethodSymbol> methods,
+        int parameterIndex,
+        ExpressionSyntax argumentExpression)
+    {
+        if (methods.IsDefaultOrEmpty)
+            return methods;
+
+        if (argumentExpression is not LambdaExpressionSyntax lambda)
+            return methods;
+
+        int parameterCount = lambda switch
+        {
+            SimpleLambdaExpressionSyntax => 1,
+            ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters.Count,
+            _ => 0
+        };
+
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        foreach (var method in methods)
+        {
+            if (method.Parameters.Length <= parameterIndex)
+                continue;
+
+            var parameterType = method.Parameters[parameterIndex].Type;
+            if (parameterType is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            {
+                var invoke = delegateType.GetDelegateInvokeMethod();
+                if (invoke is null)
+                    continue;
+
+                if (invoke.Parameters.Length != parameterCount)
+                    continue;
+            }
+
+            builder.Add(method);
+        }
+
+        return builder.Count == methods.Length ? methods : builder.ToImmutable();
     }
 
     private BoundExpression BindConstructorInvocation(
