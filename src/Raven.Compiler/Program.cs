@@ -23,7 +23,7 @@ var stopwatch = Stopwatch.StartNew();
 // -d [plain|pretty[:no-diagnostics|diagnostics-only]] - dump syntax (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
-// -bt               - print bound tree (single file only)
+// -bt               - print binder and bound tree (single file only)
 // --symbols [list|hierarchy] - inspect symbols produced from source
 // --no-emit         - skip emitting the output assembly
 // -h, --help        - display help
@@ -305,18 +305,27 @@ if (allowConsoleOutput)
         }
     }
 
-    if (printBinders)
+    if (printBinders || printBoundTree)
     {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        semanticModel.PrintBinderTree();
-        Console.WriteLine();
-    }
 
-    if (printBoundTree)
-    {
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        semanticModel.PrintBoundTree();
-        Console.WriteLine();
+        if (printBinders)
+        {
+            semanticModel.PrintBinderTree();
+            Console.WriteLine();
+        }
+
+        if (printBoundTree)
+        {
+            if (!printBinders)
+            {
+                semanticModel.PrintBinderTree();
+                Console.WriteLine();
+            }
+
+            semanticModel.PrintBoundTree();
+            Console.WriteLine();
+        }
     }
 }
 else if (printRawSyntax || printSyntaxTree || printSyntax || printBinders || printBoundTree)
@@ -408,7 +417,7 @@ static void PrintHelp()
     Console.WriteLine("                     Append ':diagnostics-only' to show only lines containing diagnostics.");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
-    Console.WriteLine("  -bt                Print bound tree (single file only)");
+    Console.WriteLine("  -bt                Print binder and bound tree (single file only)");
     Console.WriteLine("  --symbols [list|hierarchy]");
     Console.WriteLine("                     Inspect symbols produced from source.");
     Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");
