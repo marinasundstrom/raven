@@ -21,6 +21,15 @@ class MethodBinder : TypeMemberBinder
         // Parameters are retrieved from _methodSymbol; no additional storage needed
     }
 
+    public override ITypeSymbol? LookupType(string name)
+    {
+        var methodTypeParameter = _methodSymbol.TypeParameters.FirstOrDefault(tp => tp.Name == name);
+        if (methodTypeParameter is not null)
+            return methodTypeParameter;
+
+        return base.LookupType(name);
+    }
+
     public override ISymbol? LookupSymbol(string name)
     {
         var paramSymbol = _methodSymbol.Parameters.FirstOrDefault(p => p.Name == name);

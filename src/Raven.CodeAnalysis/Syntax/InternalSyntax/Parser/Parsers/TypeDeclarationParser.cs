@@ -126,7 +126,7 @@ internal class TypeDeclarationParser : SyntaxParser
             }
 
             SyntaxToken? colonToken = null;
-            SyntaxList? constraints = null;
+            SyntaxList constraints = SyntaxList.Empty;
 
             if (PeekToken().IsKind(SyntaxKind.ColonToken))
             {
@@ -325,6 +325,21 @@ internal class TypeDeclarationParser : SyntaxParser
         var nameCheckpoint = CreateCheckpoint();
         _ = ParseMemberNameWithExplicitInterface();
         var tokenAfterName = PeekToken();
+
+        if (tokenAfterName.IsKind(SyntaxKind.LessThanToken))
+        {
+            var typeParameterCheckpoint = CreateCheckpoint();
+            _ = ParseTypeParameterList();
+            var tokenAfterTypeParameters = PeekToken();
+            typeParameterCheckpoint.Dispose();
+
+            if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
+            {
+                nameCheckpoint.Dispose();
+                return ParseMethodOrConstructorDeclarationBase(attributeLists, modifiers);
+            }
+        }
+
         nameCheckpoint.Dispose();
 
         if (tokenAfterName.IsKind(SyntaxKind.OpenParenToken))
@@ -416,6 +431,19 @@ internal class TypeDeclarationParser : SyntaxParser
         if (potentialOpenParenToken.IsKind(SyntaxKind.OpenParenToken))
         {
             return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier);
+        }
+
+        if (potentialOpenParenToken.IsKind(SyntaxKind.LessThanToken))
+        {
+            var typeParameterCheckpoint = CreateCheckpoint();
+            _ = ParseTypeParameterList();
+            var tokenAfterTypeParameters = PeekToken();
+            typeParameterCheckpoint.Dispose();
+
+            if (tokenAfterTypeParameters.IsKind(SyntaxKind.OpenParenToken))
+            {
+                return ParseMethodOrConstructorDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier);
+            }
         }
 
         // Remove below

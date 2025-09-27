@@ -3023,16 +3023,25 @@ partial class BlockBinder : Binder
         var extensionReceiver = IsExtensionReceiver(methodGroup.Receiver) ? methodGroup.Receiver : null;
         var receiverSyntax = GetInvocationReceiverSyntax(syntax) ?? syntax.Expression;
 
-        if (selected is not null && AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, extensionReceiver))
+        if (selected is not null)
         {
-            var converted = ConvertInvocationArguments(
-                selected,
-                boundArguments,
-                syntax.ArgumentList.Arguments,
-                extensionReceiver,
-                receiverSyntax,
-                out var convertedExtensionReceiver);
-            return new BoundInvocationExpression(selected, converted, methodGroup.Receiver, convertedExtensionReceiver);
+            var inferred = OverloadResolver.ApplyTypeArgumentInference(selected, extensionReceiver, boundArguments, Compilation);
+            if (inferred is not null)
+            {
+                selected = inferred;
+
+                if (AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, extensionReceiver))
+                {
+                    var converted = ConvertInvocationArguments(
+                        selected,
+                        boundArguments,
+                        syntax.ArgumentList.Arguments,
+                        extensionReceiver,
+                        receiverSyntax,
+                        out var convertedExtensionReceiver);
+                    return new BoundInvocationExpression(selected, converted, methodGroup.Receiver, convertedExtensionReceiver);
+                }
+            }
         }
 
         var resolution = OverloadResolver.ResolveOverload(methodGroup.Methods, boundArguments, Compilation, extensionReceiver);

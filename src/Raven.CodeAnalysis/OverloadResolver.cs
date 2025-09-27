@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis.Symbols;
@@ -17,8 +18,12 @@ internal sealed class OverloadResolver
         ImmutableArray<IMethodSymbol>.Builder? ambiguous = null;
         bool bestIsExtension = false;
 
-        foreach (var method in methods)
+        foreach (var candidate in methods)
         {
+            var method = ApplyTypeArgumentInference(candidate, receiver, arguments, compilation);
+            if (method is null)
+                continue;
+
             var parameters = method.Parameters;
             var treatAsExtension = method.IsExtensionMethod && receiver is not null;
             var providedCount = arguments.Length + (treatAsExtension ? 1 : 0);
@@ -72,6 +77,140 @@ internal sealed class OverloadResolver
             return OverloadResolutionResult.Ambiguous(ambiguous.ToImmutable());
 
         return new OverloadResolutionResult(bestMatch);
+    }
+
+    internal static IMethodSymbol? ApplyTypeArgumentInference(
+        IMethodSymbol method,
+        BoundExpression? receiver,
+        BoundExpression[] arguments,
+        Compilation compilation)
+    {
+        if (!method.IsGenericMethod || method.TypeParameters.IsDefaultOrEmpty || method.TypeParameters.Length == 0)
+            return method;
+
+        if (!ReferenceEquals(method, method.ConstructedFrom))
+            return method;
+
+        var treatAsExtension = method.IsExtensionMethod && receiver is not null;
+        return TryConstructMethodWithInference(method, receiver, arguments, treatAsExtension, compilation);
+    }
+
+    private static IMethodSymbol? TryConstructMethodWithInference(
+        IMethodSymbol method,
+        BoundExpression? receiver,
+        BoundExpression[] arguments,
+        bool treatAsExtension,
+        Compilation compilation)
+    {
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var parameters = method.Parameters;
+        var parameterIndex = 0;
+
+        if (treatAsExtension)
+        {
+            if (receiver?.Type is null)
+                return null;
+
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, receiver.Type, substitutions))
+                return null;
+
+            parameterIndex++;
+        }
+
+        for (int i = 0; i < arguments.Length && parameterIndex < parameters.Length; i++, parameterIndex++)
+        {
+            var argumentType = arguments[i].Type;
+            if (argumentType is null)
+                continue;
+
+            if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions))
+                return null;
+        }
+
+        var inferredArguments = new ITypeSymbol[method.TypeParameters.Length];
+        for (int i = 0; i < method.TypeParameters.Length; i++)
+        {
+            var typeParameter = method.TypeParameters[i];
+            if (!substitutions.TryGetValue(typeParameter, out var inferred))
+                return null;
+
+            inferredArguments[i] = NormalizeType(inferred);
+        }
+
+        return method.Construct(inferredArguments);
+    }
+
+    private static bool TryInferFromTypes(
+        Compilation compilation,
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        parameterType = NormalizeType(parameterType);
+        argumentType = NormalizeType(argumentType);
+
+        if (argumentType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (parameterType is ITypeParameterSymbol typeParameter)
+        {
+            argumentType = NormalizeType(argumentType);
+
+            if (substitutions.TryGetValue(typeParameter, out var existing))
+            {
+                existing = NormalizeType(existing);
+
+                if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
+                    return true;
+
+                if (compilation.ClassifyConversion(argumentType, existing).IsImplicit)
+                    return true;
+
+                if (compilation.ClassifyConversion(existing, argumentType).IsImplicit)
+                {
+                    substitutions[typeParameter] = argumentType;
+                    return true;
+                }
+
+                return false;
+            }
+
+            substitutions[typeParameter] = argumentType;
+            return true;
+        }
+
+        if (parameterType is INamedTypeSymbol paramNamed && argumentType is INamedTypeSymbol argNamed)
+        {
+            if (SymbolEqualityComparer.Default.Equals(paramNamed.OriginalDefinition, argNamed.OriginalDefinition))
+            {
+                var paramArguments = paramNamed.TypeArguments;
+                var argArguments = argNamed.TypeArguments;
+
+                for (int i = 0; i < paramArguments.Length; i++)
+                {
+                    if (!TryInferFromTypes(compilation, paramArguments[i], argArguments[i], substitutions))
+                        return false;
+                }
+
+                return true;
+            }
+        }
+
+        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+            return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions);
+
+        if (parameterType is NullableTypeSymbol paramNullable && argumentType is NullableTypeSymbol argNullable)
+            return TryInferFromTypes(compilation, paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions);
+
+        return true;
+    }
+
+    private static ITypeSymbol NormalizeType(ITypeSymbol type)
+    {
+        if (type is LiteralTypeSymbol literal)
+            return literal.UnderlyingType;
+
+        return type;
     }
 
     private static void AddCandidateIfMissing(ImmutableArray<IMethodSymbol>.Builder builder, IMethodSymbol candidate)
