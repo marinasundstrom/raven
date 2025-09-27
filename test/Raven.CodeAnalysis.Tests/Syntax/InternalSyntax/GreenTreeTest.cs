@@ -9,6 +9,7 @@ public class GreenTreeTest
         var text = "int x = 0; // hello\n";
         var tree = SyntaxTree.ParseText(text);
         var root = tree.GetRoot();
+        root.ToFullString().ShouldBe(text);
         root.Green.FullWidth.ShouldBe(text.Length);
     }
 

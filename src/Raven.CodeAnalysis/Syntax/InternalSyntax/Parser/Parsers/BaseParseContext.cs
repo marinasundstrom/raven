@@ -72,9 +72,36 @@ internal class BaseParseContext : ParseContext
         _treatNewlinesAsTokens = value;
 
         var rewindPosition = Position;
-        if (value && _lastToken is { })
+        if (value && _lastToken is { } lastToken)
         {
-            rewindPosition -= _lastToken.TrailingTrivia.Width;
+            int rewindBy = 0;
+            int pendingWhitespace = 0;
+
+            for (int i = lastToken.TrailingTrivia.Count - 1; i >= 0; i--)
+            {
+                var trivia = lastToken.TrailingTrivia[i];
+
+                if (trivia.Kind == SyntaxKind.WhitespaceTrivia)
+                {
+                    pendingWhitespace += trivia.FullWidth;
+                    continue;
+                }
+
+                if (IsEndOfLineTrivia(trivia))
+                {
+                    rewindBy += trivia.FullWidth + pendingWhitespace;
+                    pendingWhitespace = 0;
+                    continue;
+                }
+
+                if (rewindBy > 0)
+                    break;
+
+                pendingWhitespace = 0;
+            }
+
+            if (rewindBy > 0)
+                rewindPosition -= rewindBy;
         }
 
         RewindToPosition(rewindPosition);
@@ -114,6 +141,14 @@ internal class BaseParseContext : ParseContext
     public SyntaxKind LineFeedTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.LineFeedTrivia;
     public SyntaxKind CarriageReturnTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.CarriageReturnTrivia;
     public SyntaxKind CarriageReturnLineFeedTriviaKind => UseEndOfLineTrivia ? SyntaxKind.EndOfLineTrivia : SyntaxKind.CarriageReturnLineFeedTrivia;
+
+    private static bool IsEndOfLineTrivia(InternalSyntax.SyntaxTrivia trivia)
+    {
+        return trivia.Kind is SyntaxKind.EndOfLineTrivia
+            or SyntaxKind.LineFeedTrivia
+            or SyntaxKind.CarriageReturnTrivia
+            or SyntaxKind.CarriageReturnLineFeedTrivia;
+    }
 
     public override SyntaxToken ReadToken()
     {
