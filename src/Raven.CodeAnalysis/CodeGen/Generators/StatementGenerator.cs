@@ -38,14 +38,6 @@ internal class StatementGenerator : Generator
                 EmitDeclarationStatement(localDeclarationStatement);
                 break;
 
-            case BoundIfStatement ifStatement:
-                EmitIfStatement(ifStatement);
-                break;
-
-            case BoundWhileStatement whileStatement:
-                EmitWhileStatement(whileStatement);
-                break;
-
             case BoundForStatement forStatement:
                 EmitForStatement(forStatement);
                 break;
@@ -66,12 +58,8 @@ internal class StatementGenerator : Generator
                 EmitGotoStatement(gotoStatement);
                 break;
 
-            case BoundBreakStatement breakStatement:
-                EmitBreakStatement(breakStatement);
-                break;
-
-            case BoundContinueStatement continueStatement:
-                EmitContinueStatement(continueStatement);
+            case BoundConditionalGotoStatement conditionalGotoStatement:
+                EmitConditionalGotoStatement(conditionalGotoStatement);
                 break;
         }
     }
@@ -142,50 +130,6 @@ internal class StatementGenerator : Generator
     private void EmitAssignmentStatement(BoundAssignmentStatement assignmentStatement)
     {
         new ExpressionGenerator(this, assignmentStatement.Expression).Emit();
-    }
-
-    private void EmitIfStatement(BoundIfStatement ifStatement)
-    {
-        var elseLabel = ILGenerator.DefineLabel();
-        var endLabel = ILGenerator.DefineLabel();
-
-        var scope = new Scope(this);
-        EmitBranchOpForCondition(ifStatement.Condition, elseLabel, scope);
-
-        new StatementGenerator(scope, ifStatement.ThenNode).Emit();
-
-        ILGenerator.Emit(OpCodes.Br_S, endLabel);
-        ILGenerator.MarkLabel(elseLabel);
-
-        if (ifStatement.ElseNode is not null)
-        {
-            var scope2 = new Scope(this);
-            new StatementGenerator(scope2, ifStatement.ElseNode).Emit();
-        }
-
-        ILGenerator.MarkLabel(endLabel);
-    }
-
-    private void EmitWhileStatement(BoundWhileStatement whileStatement)
-    {
-        var beginLabel = ILGenerator.DefineLabel();
-        var conditionLabel = ILGenerator.DefineLabel();
-        var endLabel = ILGenerator.DefineLabel();
-
-        ILGenerator.Emit(OpCodes.Br_S, conditionLabel);
-
-        ILGenerator.MarkLabel(beginLabel);
-        ILGenerator.Emit(OpCodes.Nop);
-
-        var scope = new Scope(this);
-        scope.SetLoopTargets(endLabel, conditionLabel);
-        new StatementGenerator(scope, whileStatement.Body).Emit();
-
-        ILGenerator.MarkLabel(conditionLabel);
-        EmitBranchOpForCondition(whileStatement.Condition, endLabel, scope);
-        ILGenerator.Emit(OpCodes.Br_S, beginLabel);
-
-        ILGenerator.MarkLabel(endLabel);
     }
 
     private void EmitForStatement(BoundForStatement forStatement)
@@ -354,63 +298,26 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Br, ilLabel);
     }
 
-    private void EmitBreakStatement(BoundBreakStatement breakStatement)
+    private void EmitConditionalGotoStatement(BoundConditionalGotoStatement conditionalGotoStatement)
     {
         if (Parent is not Scope scope)
-            throw new InvalidOperationException("Break statements require an enclosing scope.");
+            throw new InvalidOperationException("Conditional goto statements require an enclosing scope.");
 
-        var loopScope = FindEnclosingLoopScope(scope)
-            ?? throw new InvalidOperationException("Break statements require an enclosing loop scope.");
+        var skipLabel = ILGenerator.DefineLabel();
+        new ExpressionGenerator(scope, conditionalGotoStatement.Condition).Emit();
 
-        if (!loopScope.TryGetBreakLabel(out var breakLabel))
-            throw new InvalidOperationException("Missing break label for enclosing loop.");
+        if (conditionalGotoStatement.JumpIfTrue)
+            ILGenerator.Emit(OpCodes.Brfalse_S, skipLabel);
+        else
+            ILGenerator.Emit(OpCodes.Brtrue_S, skipLabel);
 
-        var targetScope = FindEnclosingScope(loopScope.Parent);
+        var targetScope = MethodBodyGenerator.GetLabelScope(conditionalGotoStatement.Target);
         EmitScopeDisposals(scope, targetScope);
 
-        ILGenerator.Emit(OpCodes.Br, breakLabel);
-    }
+        var targetLabel = MethodBodyGenerator.GetOrCreateLabel(conditionalGotoStatement.Target);
+        ILGenerator.Emit(OpCodes.Br, targetLabel);
 
-    private void EmitContinueStatement(BoundContinueStatement continueStatement)
-    {
-        if (Parent is not Scope scope)
-            throw new InvalidOperationException("Continue statements require an enclosing scope.");
-
-        var loopScope = FindEnclosingLoopScope(scope)
-            ?? throw new InvalidOperationException("Continue statements require an enclosing loop scope.");
-
-        if (!loopScope.TryGetContinueLabel(out var continueLabel))
-            throw new InvalidOperationException("Missing continue label for enclosing loop.");
-
-        EmitScopeDisposals(scope, loopScope);
-
-        ILGenerator.Emit(OpCodes.Br, continueLabel);
-    }
-
-    private static Scope? FindEnclosingLoopScope(Generator? generator)
-    {
-        while (generator is not null)
-        {
-            if (generator is Scope scope && scope.IsLoopScope)
-                return scope;
-
-            generator = generator.Parent;
-        }
-
-        return null;
-    }
-
-    private static Scope? FindEnclosingScope(Generator? generator)
-    {
-        while (generator is not null)
-        {
-            if (generator is Scope scope)
-                return scope;
-
-            generator = generator.Parent;
-        }
-
-        return null;
+        ILGenerator.MarkLabel(skipLabel);
     }
 
     private void EmitScopeDisposals(Scope startScope, Scope? targetScope)
@@ -422,69 +329,6 @@ internal class StatementGenerator : Generator
             EmitDispose(current.LocalsToDispose);
             current = current.Parent as Scope;
         }
-    }
-
-    private void EmitBranchOpForCondition(BoundExpression expression, Label end, Scope scope)
-    {
-        if (expression is BoundParenthesizedExpression parenthesizedExpression)
-        {
-            EmitBranchOpForCondition(parenthesizedExpression.Expression, end, scope);
-            return;
-        }
-
-        if (expression is BoundBinaryExpression binaryExpression)
-        {
-            new ExpressionGenerator(scope, binaryExpression.Left).Emit();
-            new ExpressionGenerator(scope, binaryExpression.Right).Emit();
-
-            switch (binaryExpression.Operator.OperatorKind)
-            {
-                case BinaryOperatorKind.Equality:
-                    ILGenerator.Emit(OpCodes.Ceq);
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
-                    break;
-
-                case BinaryOperatorKind.Inequality:
-                    ILGenerator.Emit(OpCodes.Ceq);
-                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
-                    ILGenerator.Emit(OpCodes.Ceq);
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
-                    break;
-
-                case BinaryOperatorKind.GreaterThan:
-                    ILGenerator.Emit(OpCodes.Cgt);
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
-                    break;
-
-                case BinaryOperatorKind.GreaterThanOrEqual:
-                    ILGenerator.Emit(OpCodes.Clt);
-                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
-                    ILGenerator.Emit(OpCodes.Ceq);
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
-                    break;
-
-                case BinaryOperatorKind.LessThan:
-                    ILGenerator.Emit(OpCodes.Clt);
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
-                    break;
-
-                case BinaryOperatorKind.LessThanOrEqual:
-                    ILGenerator.Emit(OpCodes.Cgt);
-                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
-                    ILGenerator.Emit(OpCodes.Ceq);
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
-                    break;
-
-                default:
-                    new ExpressionGenerator(scope, expression).Emit();
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
-                    break;
-            }
-            return;
-        }
-
-        new ExpressionGenerator(scope, expression).Emit();
-        ILGenerator.Emit(OpCodes.Brfalse_S, end);
     }
 
     private void EmitLoadElement(ITypeSymbol elementType)
