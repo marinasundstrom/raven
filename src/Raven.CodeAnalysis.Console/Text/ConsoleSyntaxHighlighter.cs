@@ -165,6 +165,9 @@ public static class ConsoleSyntaxHighlighter
             if (string.IsNullOrEmpty(filePath))
                 filePath = fallbackPath;
 
+            string? fileDirectory = null;
+            string? fileName = null;
+
             if (!string.IsNullOrEmpty(filePath))
             {
                 try
@@ -179,7 +182,16 @@ public static class ConsoleSyntaxHighlighter
                 }
 
                 filePath = filePath.Replace('\\', '/');
+
+                fileDirectory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(fileDirectory))
+                    fileDirectory = fileDirectory.Replace('\\', '/') + "/";
+
+                fileName = Path.GetFileName(filePath);
             }
+
+            fileDirectory ??= string.Empty;
+            fileName ??= filePath ?? string.Empty;
 
             var start = span.StartLinePosition;
             var severityColor = GetColorForSeverity(diagnostic.Severity);
@@ -187,7 +199,12 @@ public static class ConsoleSyntaxHighlighter
             var resetAnsi = GetAnsiColor(AnsiColor.Reset);
             var severityText = diagnostic.Severity.ToString().ToLowerInvariant();
 
-            sb.Append(filePath);
+            if (fileDirectory.Length > 0)
+                sb.Append(fileDirectory);
+
+            sb.Append(BoldStart);
+            sb.Append(fileName);
+            sb.Append(BoldEnd);
             sb.Append('(');
             sb.Append(start.Line + 1);
             sb.Append(',');
@@ -195,9 +212,11 @@ public static class ConsoleSyntaxHighlighter
             sb.Append("):");
             sb.Append(' ');
             sb.Append(severityAnsi);
+            sb.Append(BoldStart);
             sb.Append(severityText);
             sb.Append(' ');
             sb.Append(diagnostic.Descriptor.Id);
+            sb.Append(BoldEnd);
             sb.Append(resetAnsi);
             sb.Append(':');
             sb.Append(' ');
@@ -358,6 +377,9 @@ public static class ConsoleSyntaxHighlighter
         SemanticClassification.Label => ColorScheme.Label,
         _ => ColorScheme.Default
     };
+
+    private const string BoldStart = "\u001b[1m";
+    private const string BoldEnd = "\u001b[22m";
 
     private static string GetUnderlineStart(DiagnosticSeverity severity)
     {
