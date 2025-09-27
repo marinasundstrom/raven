@@ -147,6 +147,14 @@
     Title="Symbol is inaccessible"
     Message="The {symbolKind} '{name}' is inaccessible due to its protection level"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0502" Identifier="AttributeNotValidForTarget"
+    Title="Attribute not valid for target"
+    Message="Attribute '{attributeName}' is not valid on target '{targetName}'. Valid targets are '{validTargets}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0503" Identifier="AttributeDoesNotAllowMultiple"
+    Title="Attribute does not allow multiple"
+    Message="Attribute '{attributeName}' cannot be applied multiple times to the same '{targetName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0815" Identifier="CannotAssignVoidToAnImplicitlyTypedVariable"
     Title="Cannot assign void to an implicitly-typed variable"
     Message="Cannot assign void to an implicitly-typed variable" Category="compiler"
