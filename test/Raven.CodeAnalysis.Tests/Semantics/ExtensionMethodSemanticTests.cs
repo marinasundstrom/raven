@@ -246,6 +246,26 @@ let result = numbers.Where(func (value) => value == 2)
     }
 
     [Fact]
+    public void MemberAccess_LinqWhereWithExplicitLambdaType_BindsSuccessfully()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+let numbers = [1, 2, 3]
+let result = numbers.Where(func (value: int) -> bool => value == 2)
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void MemberAccess_WithSourceExtensionAndAdditionalParameters_BindsInvocationArguments()
     {
         const string source = """
