@@ -8,8 +8,8 @@ internal partial class BoundForExpression : BoundExpression
     public BoundExpression Collection { get; }
     public BoundExpression Body { get; }
 
-    public BoundForExpression(ILocalSymbol local, BoundExpression collection, BoundExpression body)
-        : base((collection.Type.GetElementType() ?? collection.Type).ContainingAssembly.GetTypeByMetadataName("System.Unit"), null, BoundExpressionReason.None)
+    public BoundForExpression(ILocalSymbol local, BoundExpression collection, BoundExpression body, ITypeSymbol unitType)
+        : base(unitType, null, BoundExpressionReason.None)
     {
         Local = local;
         Collection = collection;
