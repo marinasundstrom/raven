@@ -32,6 +32,9 @@
     Title="Member does not contain definition"
     Message="'{container}' does not contain a definition for '{member}'" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0119" Identifier="NamespaceUsedLikeAType" Title="Namespace used like a type"
+    Message="'{name}' is a namespace but is used like a type" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0118" Identifier="VariableUsedLikeAType" Title="Variable used like a type"
     Message="'{name}' is a variable but is used like a type" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

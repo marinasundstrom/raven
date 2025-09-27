@@ -32,6 +32,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportMemberDoesNotContainDefinition(this DiagnosticBag diagnostics, object? container, object? member, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MemberDoesNotContainDefinition, location, container, member));
 
+    public static void ReportNamespaceUsedLikeAType(this DiagnosticBag diagnostics, object? name, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.NamespaceUsedLikeAType, location, name));
+
     public static void ReportVariableUsedLikeAType(this DiagnosticBag diagnostics, object? name, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.VariableUsedLikeAType, location, name));
 
