@@ -207,7 +207,15 @@ class MethodBodyBinder : BlockBinder
         {
             var receiver = RewriteReceiver(node.Receiver, node.Method);
             var args = node.Arguments.Select(a => (BoundExpression)Visit(a)!).ToArray();
-            return new BoundInvocationExpression(node.Method, args, receiver);
+            BoundExpression? extensionReceiver = null;
+            if (node.ExtensionReceiver is not null)
+            {
+                extensionReceiver = ReferenceEquals(node.ExtensionReceiver, node.Receiver)
+                    ? receiver
+                    : (BoundExpression?)Visit(node.ExtensionReceiver);
+            }
+
+            return new BoundInvocationExpression(node.Method, args, receiver, extensionReceiver);
         }
 
         public override BoundNode? VisitFieldAccess(BoundFieldAccess node)

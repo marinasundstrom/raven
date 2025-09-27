@@ -197,6 +197,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         if (node.Receiver is not null)
             VisitExpression(node.Receiver);
+        if (node.ExtensionReceiver is not null && !ReferenceEquals(node.ExtensionReceiver, node.Receiver))
+            VisitExpression(node.ExtensionReceiver);
         foreach (var arg in node.Arguments)
             VisitExpression(arg);
     }
