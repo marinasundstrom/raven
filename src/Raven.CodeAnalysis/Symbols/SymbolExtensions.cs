@@ -2,6 +2,7 @@ using System.Linq;
 using System.Text;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -94,13 +95,13 @@ public static partial class SymbolExtensions
                 result.Append($"{localType} ");
             }
 
-            result.Append(localSymbol.Name);
+            result.Append(EscapeIdentifierIfNeeded(localSymbol.Name, format));
             return result.ToString();
         }
 
         if (symbol is ILabelSymbol labelSymbol)
         {
-            result.Append(labelSymbol.Name);
+            result.Append(EscapeIdentifierIfNeeded(labelSymbol.Name, format));
             return result.ToString();
         }
 
@@ -113,7 +114,7 @@ public static partial class SymbolExtensions
                 result.Append($"{localType} ");
             }
 
-            result.Append(parameterSymbol.Name);
+            result.Append(EscapeIdentifierIfNeeded(parameterSymbol.Name, format));
             return result.ToString();
         }
 
@@ -123,19 +124,25 @@ public static partial class SymbolExtensions
             // Assume `Namespace` and `ContainingType` are properties of the symbol
             if (symbol.ContainingNamespace?.ContainingNamespace is not null)
             {
-                var ns = GetFullNamespace(symbol);
-                result.Append(ns).Append(".");
+                var ns = GetFullNamespace(symbol, format);
+                if (!string.IsNullOrEmpty(ns))
+                {
+                    result.Append(ns).Append(".");
+                }
             }
 
             if (symbol.ContainingType is not null)
             {
-                var type = GetFullType(symbol);
-                result.Append(type).Append(".");
+                var type = GetFullType(symbol, format);
+                if (!string.IsNullOrEmpty(type))
+                {
+                    result.Append(type).Append(".");
+                }
             }
         }
 
         // Append the symbol's name
-        result.Append(symbol.Name); // Assume `Name` is a property of the symbol   
+        result.Append(EscapeIdentifierIfNeeded(symbol.Name, format));
 
         if (symbol is INamedTypeSymbol typeSymbol)
         {
@@ -145,7 +152,7 @@ public static partial class SymbolExtensions
             {
                 result.Append("<");
                 result.Append(string.Join(", ",
-                    typeSymbol.TypeParameters)); // Assume `TypeParameters` is a list of generic type names
+                    typeSymbol.TypeParameters.Select(p => EscapeIdentifierIfNeeded(p.Name, format))));
                 result.Append(">");
             }
         }
@@ -195,6 +202,29 @@ public static partial class SymbolExtensions
         return format.WithMemberOptions(format.MemberOptions & ~SymbolDisplayMemberOptions.IncludeAccessibility);
     }
 
+    private static string EscapeIdentifierIfNeeded(string identifier, SymbolDisplayFormat format)
+    {
+        if (string.IsNullOrEmpty(identifier))
+        {
+            return identifier;
+        }
+
+        var result = identifier;
+
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers) &&
+            SyntaxFacts.TryParseKeyword(identifier, out _))
+        {
+            result = "@" + result;
+        }
+
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers))
+        {
+            result = EscapeIdentifier(result);
+        }
+
+        return result;
+    }
+
     // Helper method to format a parameter
     private static string FormatParameter(IParameterSymbol parameter, SymbolDisplayFormat format)
     {
@@ -214,7 +244,7 @@ public static partial class SymbolExtensions
 
         if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName))
         {
-            sb.Append(parameter.Name); // Assume `Name` is a property of the parameter
+            sb.Append(EscapeIdentifierIfNeeded(parameter.Name, format));
         }
 
         return sb.ToString();
@@ -227,7 +257,7 @@ public static partial class SymbolExtensions
         return identifier; //identifier.Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
-    private static string GetFullNamespace(ISymbol symbol)
+    private static string GetFullNamespace(ISymbol symbol, SymbolDisplayFormat format)
     {
         var namespaces = new List<string>();
         var currentNamespace = symbol.ContainingNamespace;
@@ -235,7 +265,7 @@ public static partial class SymbolExtensions
         // Traverse all containing namespaces
         while (currentNamespace is not null && !currentNamespace.IsGlobalNamespace)
         {
-            namespaces.Insert(0, currentNamespace.Name);
+            namespaces.Insert(0, EscapeIdentifierIfNeeded(currentNamespace.Name, format));
             currentNamespace = currentNamespace.ContainingNamespace;
         }
 
@@ -243,7 +273,7 @@ public static partial class SymbolExtensions
         return string.Join(".", namespaces);
     }
 
-    private static string GetFullType(ISymbol symbol)
+    private static string GetFullType(ISymbol symbol, SymbolDisplayFormat format)
     {
         var types = new List<string>();
         var currentType = symbol.ContainingType;
@@ -251,7 +281,7 @@ public static partial class SymbolExtensions
         // Traverse all containing types
         while (currentType is not null)
         {
-            types.Insert(0, currentType.Name);
+            types.Insert(0, EscapeIdentifierIfNeeded(currentType.Name, format));
             currentType = currentType.ContainingType;
         }
 

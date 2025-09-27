@@ -14,7 +14,8 @@ public class SymbolDisplayFormat
         ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName,
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
-                           SymbolDisplayMiscellaneousOptions.EscapeIdentifiers
+                           SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers
     };
 
     public static SymbolDisplayFormat CSharpDebuggerFormat { get; } = new SymbolDisplayFormat
@@ -37,6 +38,7 @@ public class SymbolDisplayFormat
                        SymbolDisplayParameterOptions.IncludeExtensionThis,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                            SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
                            SymbolDisplayMiscellaneousOptions.ExpandNullable,
         PropertyStyle = SymbolDisplayPropertyStyle.ShowReadWriteDescriptor,
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
@@ -72,7 +74,8 @@ public class SymbolDisplayFormat
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
         GenericsOptions = SymbolDisplayGenericsOptions.IncludeTypeParameters,
         MemberOptions = SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeParameters,
-        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.EscapeIdentifiers,
+        MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers,
     };
 
     public static SymbolDisplayFormat CSharpShortErrorMessageFormat { get; } = new SymbolDisplayFormat
@@ -286,15 +289,16 @@ public enum SymbolDisplayMiscellaneousOptions
     None = 0,
     UseSpecialTypes = 1,
     EscapeIdentifiers = 2,
-    UseAsterisksInMultidimensionalArrays = 4,
-    UseErrorTypeSymbolName = 8,
-    RemoveAttributeSuffix = 16,
-    ExpandNullable = 32,
-    IncludeNullableContextAttribute = 64,
-    AllowDefaultLiteral = 128,
-    IncludeNotNullableReferenceTypeModifier = 256,
-    CollapseTupleTypes = 512,
-    ExpandedValueTuple = 1024
+    EscapeKeywordIdentifiers = 4,
+    UseAsterisksInMultidimensionalArrays = 8,
+    UseErrorTypeSymbolName = 16,
+    RemoveAttributeSuffix = 32,
+    ExpandNullable = 64,
+    IncludeNullableContextAttribute = 128,
+    AllowDefaultLiteral = 256,
+    IncludeNotNullableReferenceTypeModifier = 512,
+    CollapseTupleTypes = 1024,
+    ExpandedValueTuple = 2048
 }
 
 [Flags]
