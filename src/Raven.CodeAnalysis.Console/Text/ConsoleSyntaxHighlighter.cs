@@ -79,10 +79,14 @@ public static class ConsoleSyntaxHighlighter
 
     public static ColorScheme ColorScheme { get; set; } = ColorScheme.Dark;
 
-    public static string WriteNodeToText(this SyntaxNode node, Compilation compilation, bool includeDiagnostics = false)
+    public static string WriteNodeToText(this SyntaxNode node, Compilation compilation, bool includeDiagnostics = false,
+        bool diagnosticsOnly = false)
     {
         if (!s_supportsAnsi)
             return node.SyntaxTree.GetText()!.ToString();
+
+        if (diagnosticsOnly)
+            includeDiagnostics = true;
 
         var model = compilation.GetSemanticModel(node.SyntaxTree);
         var classification = SemanticClassifier.Classify(node, model);
@@ -119,10 +123,20 @@ public static class ConsoleSyntaxHighlighter
         }
 
         var sb = new StringBuilder();
-        for (int i = 0; i < lines.Length; i++)
+        var lineOrder = diagnosticsOnly
+            ? Enumerable.Range(0, lines.Length)
+                .Where(i => lineDiagnostics[i] is { Count: > 0 })
+                .ToArray()
+            : Enumerable.Range(0, lines.Length).ToArray();
+
+        if (lineOrder.Length == 0)
+            return string.Empty;
+
+        for (var index = 0; index < lineOrder.Length; index++)
         {
-            AppendLine(sb, lines[i], lineTokens[i], lineDiagnostics[i]);
-            if (i < lines.Length - 1)
+            var lineIndex = lineOrder[index];
+            AppendLine(sb, lines[lineIndex], lineTokens[lineIndex], lineDiagnostics[lineIndex]);
+            if (index < lineOrder.Length - 1)
                 sb.AppendLine();
         }
 

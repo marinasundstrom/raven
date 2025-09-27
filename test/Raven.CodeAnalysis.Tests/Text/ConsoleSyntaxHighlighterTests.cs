@@ -174,4 +174,44 @@ System.Console.WriteLine(welcome)
             ConsoleSyntaxHighlighter.ColorScheme = originalScheme;
         }
     }
+
+    [Fact]
+    public void DiagnosticsOnly_ReturnsOnlyDiagnosticLines()
+    {
+        var source = """
+import System.*
+import System.Linq.*
+
+Console.WriteLine2("Foo")
+Console.WriteLine("Bar")
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true);
+        var plain = text.StripAnsiCodes();
+
+        Assert.Contains("Console.WriteLine2(\"Foo\")", plain);
+        Assert.DoesNotContain("import System.*", plain);
+        Assert.DoesNotContain("Console.WriteLine(\"Bar\")", plain);
+        Assert.DoesNotContain("Console.WriteLine(\"Foo\")", plain);
+    }
+
+    [Fact]
+    public void DiagnosticsOnly_NoDiagnostics_ReturnsEmptyString()
+    {
+        var source = """
+import System.*
+
+Console.WriteLine("Foo")
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true);
+
+        Assert.Equal(string.Empty, text);
+    }
 }
