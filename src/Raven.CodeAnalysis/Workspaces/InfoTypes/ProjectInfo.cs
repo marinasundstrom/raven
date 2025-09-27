@@ -25,6 +25,7 @@ public sealed class ProjectInfo
         TargetFramework = targetFramework;
         CompilationOptions = compilationOptions;
         AssemblyName = assemblyName;
+        DefaultNamespace = compilationOptions?.RootNamespace;
     }
 
     public ProjectAttributes Attributes { get; }

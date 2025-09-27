@@ -31,7 +31,7 @@ class FunctionBinder : Binder
             return _methodSymbol;
 
         //ISymbol container = null; //this.ContainingSymbol;
-        var container = Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
+        var container = Compilation.SourceRootNamespace.LookupType("Program") as INamedTypeSymbol;
         if (container is null)
             throw new InvalidOperationException("Synthesized Program type not found.");
 

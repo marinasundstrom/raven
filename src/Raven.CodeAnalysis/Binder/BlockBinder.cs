@@ -91,7 +91,7 @@ partial class BlockBinder : Binder
                 return new SymbolInfo(entryPoint);
             }
         }
-        return new SymbolInfo(Compilation.SourceGlobalNamespace);
+        return new SymbolInfo(Compilation.SourceRootNamespace);
     }
 
     private BoundLocalDeclarationStatement BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)

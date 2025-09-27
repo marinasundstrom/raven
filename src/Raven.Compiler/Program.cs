@@ -23,6 +23,7 @@ var stopwatch = Stopwatch.StartNew();
 // -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
+// --root-namespace <name> - name of the default root namespace
 // --no-emit         - skip emitting the output assembly
 // -h, --help        - display help
 
@@ -30,6 +31,7 @@ var sourceFiles = new List<string>();
 var additionalRefs = new List<string>();
 string? targetFrameworkTfm = null;
 string? outputPath = null;
+string? rootNamespace = null;
 
 var printSyntaxTree = false;
 var syntaxTreeFormat = SyntaxTreeFormat.Flat;
@@ -99,6 +101,20 @@ for (int i = 0; i < args.Length; i++)
             if (i + 1 < args.Length)
                 targetFrameworkTfm = args[++i];
             break;
+        case "--root-namespace":
+            {
+                var value = ConsumeOptionValue(args, ref i);
+                if (value is null)
+                {
+                    AnsiConsole.MarkupLine("[red]Option '--root-namespace' requires a value.[/]");
+                    hasInvalidOption = true;
+                }
+                else
+                {
+                    rootNamespace = value;
+                }
+                break;
+            }
         case "-h":
         case "--help":
             showHelp = true;
@@ -135,7 +151,7 @@ var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramewo
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
-var options = new CompilationOptions(OutputKind.ConsoleApplication);
+var options = new CompilationOptions(OutputKind.ConsoleApplication).WithRootNamespace(rootNamespace);
 var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
 var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
 var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -326,6 +342,7 @@ static void PrintHelp()
     Console.WriteLine();
     Console.WriteLine("Options:");
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
+    Console.WriteLine("  --root-namespace <name> Default root namespace for top-level code");
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
     Console.WriteLine("  -o <path>          Output assembly path");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");

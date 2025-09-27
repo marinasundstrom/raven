@@ -41,6 +41,8 @@ internal static class ProjectFile
         if (project.CompilationOptions is { } opts)
         {
             projectElement.Add(new XAttribute("OutputKind", opts.OutputKind));
+            if (!string.IsNullOrEmpty(opts.RootNamespace))
+                projectElement.Add(new XAttribute("RootNamespace", opts.RootNamespace));
         }
 
         foreach (var projRef in project.ProjectReferences)
@@ -70,6 +72,10 @@ internal static class ProjectFile
             options = new CompilationOptions(kind);
         else
             options = new CompilationOptions(OutputKind.ConsoleApplication);
+
+        var rootNamespaceAttr = (string?)root.Attribute("RootNamespace");
+        if (!string.IsNullOrWhiteSpace(rootNamespaceAttr))
+            options = options.WithRootNamespace(rootNamespaceAttr);
         var tempSolutionId = SolutionId.CreateNew();
         var projectId = ProjectId.CreateNew(tempSolutionId);
         var projectDir = Path.GetDirectoryName(filePath)!;

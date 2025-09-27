@@ -294,7 +294,7 @@ public partial class SemanticModel
         }
         else
         {
-            targetNamespace = Compilation.SourceGlobalNamespace;
+            targetNamespace = Compilation.SourceRootNamespace;
             namespaceBinder = new NamespaceBinder(parentBinder, targetNamespace);
             parentBinder = namespaceBinder;
         }
