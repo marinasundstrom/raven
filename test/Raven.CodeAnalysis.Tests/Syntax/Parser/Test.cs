@@ -5,6 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using Shouldly;
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -65,11 +66,12 @@ public class ParserNewlineTests
         Assert.Equal(SyntaxKind.NewLineToken, context.LastToken?.Kind); // semicolon was consumed as terminator
     }
 
-    [Fact]
-    public void Statement_NewlineIsTrivia_WhenInLineContinuation()
+    [Theory]
+    [InlineData("let x =\n    42\n")]
+    [InlineData("let x =\n    1 + 3\n")]
+    public void Statement_NewlineIsTrivia_WhenInLineContinuation(string source)
     {
         // Arrange
-        var source = "let x =\n    42\n";
         var lexer = new Lexer(new StringReader(source));
         var context = new BaseParseContext(lexer);
         var parser = new StatementSyntaxParser(context);
@@ -83,8 +85,111 @@ public class ParserNewlineTests
         var literalToken = statement.DescendantTokens().FirstOrDefault(t => t.Kind == SyntaxKind.NumericLiteralToken);
         Assert.Equal(SyntaxKind.NumericLiteralToken, literalToken.Kind);
 
-        var newlineTrivia = literalToken.LeadingTrivia.FirstOrDefault(t => t.Kind == SyntaxKind.EndOfLineTrivia);
-        Assert.Equal(SyntaxKind.EndOfLineTrivia, newlineTrivia.Kind);
+        literalToken.LeadingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.EndOfLineTrivia,
+            SyntaxKind.WhitespaceTrivia,
+        });
+
+        literalToken.LeadingTrivia[1].ToString().ShouldBe("    ");
+    }
+
+    [Fact]
+    public void Statement_NewlineContinuation_PreservesOperatorIndentation()
+    {
+        // Arrange
+        var source = "let x =\n    1\n    + 3\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        // Act
+        var statement = (StatementSyntax)parser.ParseStatement().CreateRed();
+
+        // Assert
+        var plusToken = statement.DescendantTokens().Single(t => t.Kind == SyntaxKind.PlusToken);
+
+        plusToken.LeadingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.EndOfLineTrivia,
+            SyntaxKind.WhitespaceTrivia,
+        });
+
+        plusToken.LeadingTrivia[1].ToString().ShouldBe("    ");
+
+        plusToken.TrailingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.WhitespaceTrivia,
+        });
+
+        plusToken.TrailingTrivia[0].ToString().ShouldBe(" ");
+
+        var newline = statement.GetLastToken();
+        Assert.Equal(SyntaxKind.NewLineToken, newline.Kind);
+        newline.LeadingTrivia.ShouldBeEmpty();
+        newline.TrailingTrivia.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Statement_NewlineTerminator_PreservesTrailingComment()
+    {
+        // Arrange
+        var source = "let x = 42 // comment\nlet y = 21\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        // Act
+        var firstStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+        var secondStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+
+        // Assert
+        var literal = firstStatement.DescendantTokens().Single(t => t.Kind == SyntaxKind.NumericLiteralToken);
+        literal.TrailingTrivia.Select(t => t.Kind).ShouldBe(new[]
+        {
+            SyntaxKind.WhitespaceTrivia,
+            SyntaxKind.SingleLineCommentTrivia,
+        });
+
+        var newline = firstStatement.GetLastToken();
+        Assert.Equal(SyntaxKind.NewLineToken, newline.Kind);
+        newline.LeadingTrivia.ShouldBeEmpty();
+        newline.TrailingTrivia.ShouldBeEmpty();
+
+        var secondStart = secondStatement.GetFirstToken();
+        Assert.Equal(SyntaxKind.LetKeyword, secondStart.Kind);
+        secondStart.LeadingTrivia.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Statement_NewlineTerminator_PreservesIndentationForNextStatement()
+    {
+        // Arrange
+        var source = "let x = 42\n    let y = 21\n";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        // Act
+        var firstStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+        var secondStatement = (StatementSyntax)parser.ParseStatement().CreateRed();
+
+        // Assert
+        Assert.Equal(SyntaxKind.NewLineToken, firstStatement.GetLastToken().Kind);
+
+        var literal = firstStatement.DescendantTokens().Single(t => t.Kind == SyntaxKind.NumericLiteralToken);
+        literal.TrailingTrivia.ShouldAllBe(t => t.Kind != SyntaxKind.EndOfLineTrivia);
+
+        var newline = firstStatement.GetLastToken();
+        newline.LeadingTrivia.ShouldBeEmpty();
+        newline.TrailingTrivia.ShouldBeEmpty();
+
+        var firstTokenOfSecondStatement = secondStatement.GetFirstToken();
+        Assert.Equal(SyntaxKind.LetKeyword, firstTokenOfSecondStatement.Kind);
+
+        var indentation = firstTokenOfSecondStatement.LeadingTrivia.Single();
+        Assert.Equal(SyntaxKind.WhitespaceTrivia, indentation.Kind);
+        indentation.ToString().ShouldBe("    ");
     }
 
     [Fact]

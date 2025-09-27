@@ -139,7 +139,49 @@ Statements are terminated by a **newline**, or by an **optional semicolon** `;`
 that may separate multiple statements on one line. Newlines inside
 parentheses, brackets, or braces do not terminate statements. Multiple
 consecutive newlines act as a single separator so you may visually group
-related statements without affecting execution.
+related statements without affecting execution. Blocks also terminate with `}`,
+and certain keywords (such as `else`, `catch`, and `finally`) implicitly end
+the preceding construct. These tokens, along with end-of-file, fulfil the same
+terminating role as a newline when they appear.
+
+When a newline is not required to terminate a statement—or any other construct
+that relies on newline separation, such as `import` or `alias` directives—it is
+preserved as trivia on the following token. This occurs whenever the parser is
+still expecting more of the current expression and therefore treats the newline
+as part of a continuation rather than as a terminator.
+
+### Line continuations
+
+When the parser expects more tokens to complete the current expression, a
+newline is treated as trivia on the following token instead of a statement
+terminator. This permits expression-oriented code to flow naturally across
+lines without requiring a trailing operator or explicit continuation marker.
+
+Because the newline is preserved as trivia in these scenarios, any indentation
+on the continued line also remains as trivia on the subsequent token. The
+terminator token itself—whether a newline, semicolon, or closing brace—remains
+free of incidental trivia so its presence or absence is unambiguous.
+
+The most common continuations occur after an assignment operator or when a
+binary operator still requires its right-hand operand. Indentation on the
+continued line becomes leading whitespace trivia for the next token, while the
+terminating newline token itself remains trivia-free.
+
+```raven
+let sum =
+    1
+    + offset
+
+let labelled = 42 // comment stays with the literal
+let next =
+    labelled
+```
+
+In the example above, the newline following `=` and the newline immediately
+before `+` attach to the numeric literal and the operator, respectively. The
+comment preceding a terminating newline remains trailing trivia on the
+preceding token, and the indentation before `let next` is preserved as leading
+whitespace on the next statement's first token.
 
 ```raven
 let a = 42
