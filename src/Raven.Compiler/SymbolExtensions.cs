@@ -77,7 +77,7 @@ public static class SymbolExtensions
                 SymbolDisplayParameterOptions.IncludeOptionalBrackets |
                 SymbolDisplayParameterOptions.IncludeDefaultValue)
             .WithMiscellaneousOptions(
-                //SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
                 //SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier |
                 SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
