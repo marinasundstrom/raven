@@ -1,6 +1,11 @@
 import System.*
+import System.Console.*
 import System.Collections.Generic.*
 import System.Linq.*
 
 let numbers = [1, 2, 3]
 let result = numbers.Where(func (value: int) -> bool => value == 2)
+
+for each no in result {
+    WriteLine(no)
+}

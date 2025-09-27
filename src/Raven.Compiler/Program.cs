@@ -173,7 +173,7 @@ foreach (var reference in new[]
 {
     MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Runtime.dll")),
     MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Collections.dll")),
-    //MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Linq.dll")),
+    MetadataReference.CreateFromFile(Path.Combine(refAssembliesPath!, "System.Linq.dll")),
     MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
     MetadataReference.CreateFromFile(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../TestDep.dll")))
 })
