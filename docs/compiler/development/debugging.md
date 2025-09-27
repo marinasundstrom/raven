@@ -134,3 +134,13 @@ This occurs when the generator is running, that is, when the ``Raven.CodeAnalysi
 The output of the source generator for syntax is found in `Raven.CodeAnalysis/Syntax/generated` and in `Raven.CodeAnalysis/Syntax/InternalSyntax/generated`.
 
 The output of the source generator for bound nodes, is found in `Raven.CodeAnalysis/obj/Debug/net9.0/generated`
+
+### Suppress warnings in .NET CLI
+
+Sometimes errors don't show up in CLI, so try this:
+
+`dotnet build --property WarningLevel=0`
+
+When run triggers a build:
+
+`dotnet run --property WarningLevel=0`
