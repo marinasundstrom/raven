@@ -4,6 +4,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Testing;
+using Raven.MetadataFixtures.Linq;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -19,6 +20,12 @@ internal static class TestMetadataReferences
         return (TestTargetFramework.Default, refs);
     });
 
+    private static readonly Lazy<MetadataReference> s_extensionMethodsFixture = new(() =>
+        MetadataReference.CreateFromFile(typeof(RavenEnumerableExtensions).Assembly.Location));
+
     public static string TargetFramework => s_default.Value.tfm;
     public static MetadataReference[] Default => s_default.Value.refs;
+    public static MetadataReference ExtensionMethodsFixture => s_extensionMethodsFixture.Value;
+    public static MetadataReference[] DefaultWithExtensionMethods
+        => [.. Default, ExtensionMethodsFixture];
 }

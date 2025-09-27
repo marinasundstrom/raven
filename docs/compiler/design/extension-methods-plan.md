@@ -15,10 +15,10 @@ observed when compiling LINQ-heavy samples.
 
 ## 2. Metadata consumer support (active)
 
-1. Build a canonical metadata fixture that mirrors LINQ's core surface area
-   (`Select`, `Where`, `OrderBy`, aggregation helpers) and expose it through a
+1. ✅ Built a canonical metadata fixture that mirrors LINQ's core surface area
+   (`Select`, `Where`, `OrderBy`, aggregation helpers) and exposed it through a
    Raven test reference so the same binaries drive CLI experiments and unit
-   coverage.
+   coverage.【F:test/MetadataFixtures/ExtensionMethodsFixture/RavenEnumerableExtensions.cs†L1-L219】【F:test/Raven.CodeAnalysis.Tests/TestMetadataReferences.cs†L1-L30】
 2. Author semantic tests that import the fixture via `using` directives and
    prove that `BlockBinder.LookupExtensionMethods` produces the expected method
    groups for common receivers (arrays, `IEnumerable<T>`, nullable structs).
