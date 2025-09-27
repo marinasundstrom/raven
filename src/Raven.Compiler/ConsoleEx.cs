@@ -1,4 +1,9 @@
+using System.Collections.Generic;
+using System.Linq;
+
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Spectre.Console;
 
@@ -26,7 +31,87 @@ static class ConsoleEx
         AnsiConsole.MarkupLine($"Build [red]failed with {errorsCount} error(s)[/]");
     }
 
-    public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics)
+    public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics) =>
+        PrintDiagnostics(diagnostics, compilation: null, highlightDiagnostics: false);
+
+    public static void PrintDiagnostics(IEnumerable<Diagnostic> diagnostics, Compilation? compilation, bool highlightDiagnostics)
+    {
+        var diagnosticArray = diagnostics.ToArray();
+
+        if (!highlightDiagnostics || compilation is null)
+        {
+            PrintDiagnosticList(diagnosticArray);
+            return;
+        }
+
+        var highlightable = new List<Diagnostic>();
+        var fallback = new List<Diagnostic>();
+
+        foreach (var diagnostic in diagnosticArray)
+        {
+            if (diagnostic.Location.SourceTree is null)
+            {
+                fallback.Add(diagnostic);
+                continue;
+            }
+
+            highlightable.Add(diagnostic);
+        }
+
+        var highlightedSections = new List<string>();
+        var failedTrees = new HashSet<SyntaxTree>();
+
+        if (highlightable.Count > 0)
+        {
+            var previousScheme = ConsoleSyntaxHighlighter.ColorScheme;
+            try
+            {
+                ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+
+                foreach (var tree in highlightable.Select(d => d.Location.SourceTree!).Distinct())
+                {
+                    var root = tree.GetRoot();
+                    var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true);
+
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        failedTrees.Add(tree);
+                        continue;
+                    }
+
+                    highlightedSections.Add(text.TrimEnd());
+                }
+            }
+            finally
+            {
+                ConsoleSyntaxHighlighter.ColorScheme = previousScheme;
+            }
+        }
+
+        if (highlightedSections.Count > 0)
+        {
+            Console.WriteLine(string.Join(Environment.NewLine + Environment.NewLine, highlightedSections));
+        }
+
+        if (highlightedSections.Count == 0)
+        {
+            fallback.AddRange(highlightable);
+        }
+        else if (failedTrees.Count > 0)
+        {
+            fallback.AddRange(highlightable.Where(d => failedTrees.Contains(d.Location.SourceTree!)));
+        }
+
+        if (fallback.Count > 0)
+        {
+            if (highlightedSections.Count > 0)
+                Console.WriteLine();
+
+            PrintDiagnosticList(fallback);
+        }
+    }
+
+    private static void PrintDiagnosticList(IEnumerable<Diagnostic> diagnostics)
     {
         foreach (var diagnostic in diagnostics)
         {

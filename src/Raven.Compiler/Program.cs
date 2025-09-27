@@ -26,6 +26,7 @@ var stopwatch = Stopwatch.StartNew();
 // -bt               - print binder and bound tree (single file only)
 // --symbols [list|hierarchy] - inspect symbols produced from source
 // --no-emit         - skip emitting the output assembly
+// --highlight       - display diagnostics with highlighted source
 // -h, --help        - display help
 
 var sourceFiles = new List<string>();
@@ -45,6 +46,7 @@ var symbolDumpMode = SymbolDumpMode.None;
 var showHelp = false;
 var noEmit = false;
 var hasInvalidOption = false;
+var highlightDiagnostics = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -107,6 +109,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--no-emit":
             noEmit = true;
+            break;
+        case "--highlight":
+            highlightDiagnostics = true;
             break;
         case "--ref":
         case "--refs":
@@ -362,7 +367,7 @@ if (symbolDumpMode != SymbolDumpMode.None)
 
 if (diagnostics.Length > 0)
 {
-    PrintDiagnostics(diagnostics);
+    PrintDiagnostics(diagnostics, compilation, highlightDiagnostics);
     Console.WriteLine();
 }
 
@@ -421,6 +426,7 @@ static void PrintHelp()
     Console.WriteLine("  --symbols [list|hierarchy]");
     Console.WriteLine("                     Inspect symbols produced from source.");
     Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");
+    Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  -h, --help         Display help");
 }
