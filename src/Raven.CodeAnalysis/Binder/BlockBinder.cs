@@ -2312,6 +2312,13 @@ partial class BlockBinder : Binder
     {
         var symbol = LookupType(name);
 
+        if (symbol is null && typeArguments.IsEmpty)
+        {
+            var namespaceSymbol = LookupNamespace(name);
+            if (namespaceSymbol is not null)
+                return new BoundNamespaceExpression(namespaceSymbol);
+        }
+
         if (symbol is ITypeSymbol type && type is INamedTypeSymbol named)
         {
             // If the resolved symbol is already a constructed generic type (e.g., from an alias
@@ -2349,9 +2356,6 @@ partial class BlockBinder : Binder
             var constructed = TryConstructGeneric(definition, typeArguments, definition.Arity) ?? definition;
             return new BoundTypeExpression(constructed);
         }
-
-        if (symbol is INamespaceSymbol ns)
-            return new BoundNamespaceExpression(ns);
 
         var alternate = FindAccessibleNamedType(name, typeArguments.Length);
         if (alternate is not null)
