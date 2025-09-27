@@ -1,0 +1,6 @@
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+let numbers = [1, 2, 3]
+let result = numbers.Where(func (x) => x == 2)
