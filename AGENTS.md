@@ -7,10 +7,10 @@
 **Before building/tests** (run from repo root):
 
 ```bash
-# Refresh generated code when inputs change
-cd src/Raven.CodeAnalysis/Syntax && dotnet run --project ../../../tools/NodeGenerator -- -f && cd ../../..
-cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/BoundNodeGenerator -- -f && cd ../..
-cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/DiagnosticsGenerator -- -f && cd ../..
+# Refresh generated code once before `dotnet build`
+(cd src/Raven.CodeAnalysis/Syntax && dotnet run --project ../../../tools/NodeGenerator -- -f)
+(cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/BoundNodeGenerator -- -f)
+(cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/DiagnosticsGenerator -- -f)
 
 # Build and test
 dotnet build

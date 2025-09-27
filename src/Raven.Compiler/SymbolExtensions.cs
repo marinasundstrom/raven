@@ -62,9 +62,28 @@ public static class SymbolExtensions
         }
     }
 
+    private static readonly SymbolDisplayFormat s_defaultSymbolListFormat =
+        SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
+            .WithMemberOptions(
+                SymbolDisplayMemberOptions.IncludeContainingType |
+                SymbolDisplayMemberOptions.IncludeParameters |
+                SymbolDisplayMemberOptions.IncludeType |
+                SymbolDisplayMemberOptions.IncludeModifiers)
+            .WithParameterOptions(
+                SymbolDisplayParameterOptions.IncludeType |
+                SymbolDisplayParameterOptions.IncludeName |
+                SymbolDisplayParameterOptions.IncludeParamsRefOut |
+                SymbolDisplayParameterOptions.IncludeOptionalBrackets |
+                SymbolDisplayParameterOptions.IncludeDefaultValue)
+            .WithMiscellaneousOptions(
+                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier |
+                SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
+
     public static string ToSymbolListString(this ISymbol symbol, Func<ISymbol, bool> filter, SymbolDisplayFormat? displayFormat = null)
     {
-        displayFormat ??= SymbolDisplayFormat.FullyQualifiedFormat;
+        displayFormat ??= s_defaultSymbolListFormat;
 
         var builder = new StringBuilder();
         AppendSymbolWithProperties(symbol, builder, filter, displayFormat);
@@ -85,7 +104,7 @@ public static class SymbolExtensions
 
             var displayName = symbol.ToDisplayString(displayFormat);
             if (string.IsNullOrWhiteSpace(displayName))
-                displayName = symbol.Name ?? "<null>";
+                displayName = GetFallbackDisplay(symbol);
 
             builder.AppendLine($"Symbol: {displayName}");
 
@@ -276,7 +295,28 @@ public static class SymbolExtensions
     }
 
     private static string FormatDisplay(ISymbol? symbol, SymbolDisplayFormat format)
-        => symbol?.ToDisplayString(format) ?? "<null>";
+    {
+        if (symbol is null)
+            return "<null>";
+
+        var display = symbol.ToDisplayString(format);
+        if (!string.IsNullOrWhiteSpace(display))
+            return display;
+
+        return GetFallbackDisplay(symbol);
+    }
+
+    private static string GetFallbackDisplay(ISymbol symbol)
+    {
+        return symbol switch
+        {
+            INamespaceSymbol { IsGlobalNamespace: true } => "<global namespace>",
+            IAssemblySymbol assembly => assembly.Name,
+            IModuleSymbol module when !string.IsNullOrWhiteSpace(module.Name) => module.Name,
+            { Name.Length: > 0 } => symbol.Name,
+            _ => "<anonymous>"
+        };
+    }
 
     private static IEnumerable<string> FormatLocations(ImmutableArray<Location> locations)
     {
