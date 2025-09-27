@@ -133,4 +133,69 @@ public class SemanticFactsTests
         Assert.False(SemanticFacts.ImplementsInterface(arrayType, enumerableOfString));
         Assert.True(SemanticFacts.ImplementsInterface(arrayType, listOfInt));
     }
+
+    [Fact]
+    public void ImplementsInterface_HandlesCovariantInterfaceArguments()
+    {
+        var tree = SyntaxTree.ParseText("class C {}");
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var listDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listOfString = (INamedTypeSymbol)listDefinition.Construct(stringType);
+        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfObject = (INamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
+
+        Assert.True(SemanticFacts.ImplementsInterface(listOfString, enumerableOfObject));
+    }
+
+    [Fact]
+    public void ImplementsInterface_InterfaceHandlesCovariance()
+    {
+        var tree = SyntaxTree.ParseText("class C {}");
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfString = (INamedTypeSymbol)enumerableDefinition.Construct(stringType);
+        var enumerableOfObject = (INamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
+
+        Assert.True(SemanticFacts.ImplementsInterface(enumerableOfString, enumerableOfObject));
+    }
+
+    [Fact]
+    public void ImplementsInterface_HandlesContravariantInterfaceArguments()
+    {
+        var source = """
+import System.Collections.Generic
+
+class Comparer : IComparer<object>
+{
+    init() {}
+
+    Compare(x: object?, y: object?) -> int => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var comparer = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Comparer")!;
+        var comparerDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1")!;
+        var comparerOfString = (INamedTypeSymbol)comparerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+
+        Assert.True(SemanticFacts.ImplementsInterface(comparer, comparerOfString));
+    }
 }
