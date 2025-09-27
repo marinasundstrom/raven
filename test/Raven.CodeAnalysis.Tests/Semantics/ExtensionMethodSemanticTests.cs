@@ -458,4 +458,32 @@ namespace Sample.Extensions {
         Assert.Equal(invocation.Method.Parameters.Length, arguments.Length);
         Assert.IsType<BoundLocalAccess>(arguments[0]);
     }
+
+    [Fact]
+    public void ExtensionInvocation_WithUnsatisfiedGenericConstraint_ReportsDiagnostic()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+public class NonComparable { }
+
+public static class Extensions {
+    [ExtensionAttribute]
+    public static RequiresComparison<T: System.IComparable>(value: T) -> int {
+        return 0
+    }
+}
+
+let receiver = NonComparable()
+let result = receiver.RequiresComparison()
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+    }
 }

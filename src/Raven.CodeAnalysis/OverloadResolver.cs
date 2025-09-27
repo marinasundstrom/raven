@@ -137,6 +137,11 @@ internal sealed class OverloadResolver
             inferredArguments[i] = NormalizeType(inferred);
         }
 
+        var immutableArguments = ImmutableArray.CreateRange(inferredArguments);
+
+        if (!SatisfiesMethodConstraints(method, immutableArguments))
+            return null;
+
         return method.Construct(inferredArguments);
     }
 
@@ -201,6 +206,57 @@ internal sealed class OverloadResolver
 
         if (parameterType is NullableTypeSymbol paramNullable && argumentType is NullableTypeSymbol argNullable)
             return TryInferFromTypes(compilation, paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions);
+
+        return true;
+    }
+
+    private static bool SatisfiesMethodConstraints(
+        IMethodSymbol method,
+        ImmutableArray<ITypeSymbol> typeArguments)
+    {
+        var typeParameters = method.TypeParameters;
+
+        if (typeParameters.Length != typeArguments.Length)
+            return true;
+
+        for (int i = 0; i < typeParameters.Length; i++)
+        {
+            var typeParameter = typeParameters[i];
+            var typeArgument = typeArguments[i];
+            var constraintKind = typeParameter.ConstraintKind;
+
+            if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
+                !Binder.SatisfiesReferenceTypeConstraint(typeArgument))
+            {
+                return false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 &&
+                !Binder.SatisfiesValueTypeConstraint(typeArgument))
+            {
+                return false;
+            }
+
+            if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) == 0)
+                continue;
+
+            foreach (var constraintType in typeParameter.ConstraintTypes)
+            {
+                if (constraintType is IErrorTypeSymbol)
+                    continue;
+
+                if (constraintType is INamedTypeSymbol namedConstraint)
+                {
+                    if (!Binder.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                        return false;
+
+                    continue;
+                }
+
+                if (!Binder.SatisfiesTypeConstraint(typeArgument, constraintType))
+                    return false;
+            }
+        }
 
         return true;
     }

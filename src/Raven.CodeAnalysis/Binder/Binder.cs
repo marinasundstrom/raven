@@ -783,7 +783,7 @@ internal abstract class Binder
         return fallback;
     }
 
-    private static bool SatisfiesReferenceTypeConstraint(ITypeSymbol type)
+    internal static bool SatisfiesReferenceTypeConstraint(ITypeSymbol type)
     {
         if (type.IsReferenceType)
             return true;
@@ -794,7 +794,7 @@ internal abstract class Binder
         return false;
     }
 
-    private bool SatisfiesTypeConstraint(ITypeSymbol typeArgument, ITypeSymbol constraintType)
+    internal static bool SatisfiesTypeConstraint(ITypeSymbol typeArgument, ITypeSymbol constraintType)
     {
         if (typeArgument is IErrorTypeSymbol || constraintType is IErrorTypeSymbol)
             return true;
@@ -808,7 +808,7 @@ internal abstract class Binder
         return true;
     }
 
-    private bool SatisfiesNamedTypeConstraint(ITypeSymbol typeArgument, INamedTypeSymbol constraintType)
+    internal static bool SatisfiesNamedTypeConstraint(ITypeSymbol typeArgument, INamedTypeSymbol constraintType)
     {
         if (SymbolEqualityComparer.Default.Equals(typeArgument, constraintType))
             return true;
@@ -856,7 +856,7 @@ internal abstract class Binder
         return false;
     }
 
-    private static bool SatisfiesValueTypeConstraint(ITypeSymbol type)
+    internal static bool SatisfiesValueTypeConstraint(ITypeSymbol type)
     {
         if (type.TypeKind == TypeKind.Nullable)
             return false;
