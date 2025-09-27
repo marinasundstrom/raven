@@ -382,6 +382,9 @@ public partial class SemanticModel
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
         RegisterNamespaceMembers(cu, compilationUnitBinder, targetNamespace);
 
+        foreach (var diagnostic in compilationUnitBinder.Diagnostics.AsEnumerable())
+            importBinder.Diagnostics.Report(diagnostic);
+
         if (fileScopedNamespace is not null)
         {
             foreach (var alias in fileScopedNamespace.Aliases)

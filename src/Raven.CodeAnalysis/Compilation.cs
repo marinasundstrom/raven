@@ -414,10 +414,6 @@ public class Compilation
         if (ns is null)
             return GlobalNamespace;
 
-        var existing = this.GetNamespaceSymbol(ns);
-        if (existing is not null)
-            return existing;
-
         var namespaceParts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries);
         if (namespaceParts.Length == 0)
             return SourceGlobalNamespace;
@@ -446,7 +442,7 @@ public class Compilation
             currentSourceNamespace = next;
         }
 
-        return this.GetNamespaceSymbol(ns);
+        return this.GetNamespaceSymbol(ns) ?? currentSourceNamespace;
     }
 
     private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
