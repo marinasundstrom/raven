@@ -25,6 +25,11 @@ cd src/Raven.CodeAnalysis/Syntax
 dotnet run --project ../../../tools/NodeGenerator -- -f
 cd ../../..
 
+# Generate bound nodes and symbol visitors (run whenever BoundTree/ or Symbols/ inputs change).
+cd src/Raven.CodeAnalysis
+dotnet run --project ../../tools/BoundNodeGenerator -- -f
+cd ../..
+
 # Generate compiler diagnostics (run when DiagnosticDescriptors.xml changes).
 # As above, ensure this generator runs prior to `dotnet build` so the solution sees the latest outputs.
 cd src/Raven.CodeAnalysis
