@@ -23,6 +23,7 @@ var stopwatch = Stopwatch.StartNew();
 // -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
 // -r                - print the source (single file only)
 // -b                - print binder tree (single file only)
+// --symbols         - dump symbols produced from source
 // --no-emit         - skip emitting the output assembly
 // -h, --help        - display help
 
@@ -37,6 +38,7 @@ var printSyntax = false;
 var printRawSyntax = false;
 var prettyIncludeDiagnostics = true;
 var printBinders = false;
+var printSymbols = false;
 var showHelp = false;
 var noEmit = false;
 var hasInvalidOption = false;
@@ -86,6 +88,10 @@ for (int i = 0; i < args.Length; i++)
         case "-b":
         case "--display-binders":
             printBinders = true;
+            break;
+        case "--symbols":
+        case "--dump-symbols":
+            printSymbols = true;
             break;
         case "--no-emit":
             noEmit = true;
@@ -280,6 +286,16 @@ else if (printRawSyntax || printSyntaxTree || printSyntax || printBinders)
         AnsiConsole.MarkupLine("[yellow]Create a '.debug' directory to capture debug output.[/]");
 }
 
+if (printSymbols)
+{
+    var symbolDump = compilation.Assembly.ToSymbolHierarchyString(symbol =>
+        symbol.Kind is SymbolKind.Assembly or SymbolKind.Module or SymbolKind.Namespace ||
+        !symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty);
+
+    Console.WriteLine(symbolDump);
+    Console.WriteLine();
+}
+
 if (diagnostics.Length > 0)
 {
     PrintDiagnostics(diagnostics);
@@ -336,6 +352,7 @@ static void PrintHelp()
     Console.WriteLine("                     Append ':no-diagnostics' to skip diagnostic underlines when using 'pretty'.");
     Console.WriteLine("  -r                 Print the source (single file only)");
     Console.WriteLine("  -b                 Print binder tree (single file only)");
+    Console.WriteLine("  --symbols          Dump symbols produced from source");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  -h, --help         Display help");
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 
 using Raven.CodeAnalysis;
@@ -6,14 +7,22 @@ public static class SymbolExtensions
 {
     public static string ToSymbolHierarchyString(this ISymbol symbol, int maxDepth = int.MaxValue)
     {
+        return symbol.ToSymbolHierarchyString(static _ => true, maxDepth);
+    }
+
+    public static string ToSymbolHierarchyString(this ISymbol symbol, Func<ISymbol, bool> filter, int maxDepth = int.MaxValue)
+    {
         var builder = new StringBuilder();
-        AppendSymbol(symbol, builder, indent: 0, maxDepth);
+        AppendSymbol(symbol, builder, indent: 0, maxDepth, filter);
         return builder.ToString();
     }
 
-    private static void AppendSymbol(ISymbol symbol, StringBuilder builder, int indent, int maxDepth)
+    private static void AppendSymbol(ISymbol symbol, StringBuilder builder, int indent, int maxDepth, Func<ISymbol, bool> filter)
     {
         if (indent > maxDepth)
+            return;
+
+        if (!filter(symbol))
             return;
 
         try
@@ -24,21 +33,21 @@ public static class SymbolExtensions
             switch (symbol)
             {
                 case IAssemblySymbol asm:
-                    AppendSymbol(asm.GlobalNamespace, builder, indent + 1, maxDepth);
+                    AppendSymbol(asm.GlobalNamespace, builder, indent + 1, maxDepth, filter);
                     break;
 
                 case IModuleSymbol mod:
-                    AppendSymbol(mod.GlobalNamespace, builder, indent + 1, maxDepth);
+                    AppendSymbol(mod.GlobalNamespace, builder, indent + 1, maxDepth, filter);
                     break;
 
                 case INamespaceSymbol ns:
                     foreach (var member in ns.GetMembers().OrderBy(m => m.Name, StringComparer.Ordinal))
-                        AppendSymbol(member, builder, indent + 1, maxDepth);
+                        AppendSymbol(member, builder, indent + 1, maxDepth, filter);
                     break;
 
                 case INamedTypeSymbol type:
                     foreach (var member in type.GetMembers().OrderBy(m => m.Name, StringComparer.Ordinal))
-                        AppendSymbol(member, builder, indent + 1, maxDepth);
+                        AppendSymbol(member, builder, indent + 1, maxDepth, filter);
                     break;
             }
         }
