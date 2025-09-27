@@ -135,6 +135,72 @@ public static class Extensions {
     }
 
     [Fact]
+    public void MemberAccess_WithMultipleSourceExtensions_ResolvesMatchingReceiver()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let text = "value"
+let number = 5
+
+let textResult = text.Describe()
+let numberResult = number.Describe()
+
+public static class TextExtensions {
+    [ExtensionAttribute]
+    public static Describe(x: string) -> string {
+        return x
+    }
+}
+
+public static class NumberExtensions {
+    [ExtensionAttribute]
+    public static Describe(x: int) -> string {
+        return "number"
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .ToArray();
+
+        Assert.Equal(2, invocations.Length);
+
+        var textInvocationSyntax = invocations.Single(
+            node => node.Expression is MemberAccessExpressionSyntax member
+                    && member.Expression is IdentifierNameSyntax identifier
+                    && identifier.Identifier.Text == "text");
+
+        var textInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(textInvocationSyntax));
+        Assert.True(textInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Describe", textInvocation.Method.Name);
+        Assert.Equal(SpecialType.System_String, textInvocation.Method.Parameters[0].Type.SpecialType);
+        Assert.NotNull(textInvocation.ExtensionReceiver);
+        Assert.Equal(textInvocation.Method.Parameters[0].Type, textInvocation.ExtensionReceiver!.Type);
+
+        var numberInvocationSyntax = invocations.Single(
+            node => node.Expression is MemberAccessExpressionSyntax member
+                    && member.Expression is IdentifierNameSyntax identifier
+                    && identifier.Identifier.Text == "number");
+
+        var numberInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(numberInvocationSyntax));
+        Assert.True(numberInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Describe", numberInvocation.Method.Name);
+        Assert.Equal(SpecialType.System_Int32, numberInvocation.Method.Parameters[0].Type.SpecialType);
+        Assert.NotNull(numberInvocation.ExtensionReceiver);
+        Assert.Equal(numberInvocation.Method.Parameters[0].Type, numberInvocation.ExtensionReceiver!.Type);
+    }
+
+    [Fact]
     public void Lowerer_RewritesExtensionInvocation()
     {
         const string source = """
