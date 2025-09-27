@@ -48,6 +48,36 @@ When building hybrid pipelines:
 2. Clearly document the invariants each stage guarantees (e.g., all `foreach` nodes eliminated).
 3. Make the transitions explicit in the diagnostics so future contributors know where to hook in.
 
+## Where Raven already relies on lowering
+
+Even without an IR in place today, several implemented features assume that a lowering pass will normalize their syntax or semantic model before emission. When extending the compiler, audit these areas first so new constructs continue to compose cleanly with the existing pipeline.
+
+### Pattern-based control flow
+
+`match` expressions and `is` patterns both require the scrutinee to be evaluated once, then compared against each arm in order. The [language specification](../../lang/spec/language-specification.md#pattern-matching) also permits guards that observe pattern-bound variables before falling through to later arms. A lowering pass can model this by:
+
+* Capturing the scrutinee in a temporary so subsequent checks reuse the cached value.
+* Rewriting each arm into cascaded `if`/`else` statements (or a switch) that preserves the source ordering and fall-through semantics.
+* Ensuring that bindings introduced by the pattern remain scoped to the guard and arm expression, matching the specification's flow rules.
+
+This transformation lets the binder and emitter operate on the simpler `if`/`else` and assignment constructs they already understand while keeping exhaustiveness diagnostics intact.
+
+### Null-conditional access
+
+The `?.` operator evaluates its receiver exactly once and either produces `null` or forwards the call to the underlying member when the receiver is non-null. Lowering should synthesize a temporary for the receiver, check it for `null`, and only invoke the member when the value is present. For nullable value types, the lowered form unwraps the `System.Nullable<T>` storage, performs the call, and then re-wraps the result, as described in the specification.
+
+### Extension method invocation
+
+Raven consumes .NET extension methods by rewriting an apparent instance call into a static method invocation on the declaring type. Overload resolution runs on the surface form first; lowering then rewrites `receiver.Extension(args)` into `DeclaringType.Extension(receiver, args)` so IL emission reuses the existing call machinery.
+
+### Union member dispatch
+
+When a union type invokes a member shared by all branches, the specification requires the call to proceed as if the receiver were cast to the common ancestor that defines the member. Lowering performs that cast explicitly, letting the emitter reuse the normal virtual or interface dispatch paths while maintaining the nominal intersection rules for unions.
+
+### Bridging `unit` with `void`
+
+Raven's `unit` type maps to `void` in metadata, but user code can still observe a `unit` value. To bridge the gap, lowering inserts a synthetic `Unit.Value` load after any call to a `void` method when the surrounding context expects `unit`. Likewise, a bare `return` in a `unit`-returning function lowers to emit `Unit.Value` before `ret`. This keeps the surface language consistent with .NET interop requirements without complicating the emitter.
+
 ## Implementation tips
 
 * Place lowering visitors under `Raven.CodeAnalysis.Lowering` and favor small, composable classes over monolithic rewriters.
