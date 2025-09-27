@@ -937,10 +937,9 @@ public class Compilation
         }
 
         if (destination is INamedTypeSymbol destinationNamed &&
-            destinationNamed.TypeKind == TypeKind.Interface &&
-            source is INamedTypeSymbol sourceNamed)
+            destinationNamed.TypeKind == TypeKind.Interface)
         {
-            if (sourceNamed.AllInterfaces.Contains(destinationNamed, SymbolEqualityComparer.Default))
+            if (SemanticFacts.ImplementsInterface(source, destinationNamed, SymbolEqualityComparer.Default))
                 return true;
         }
 

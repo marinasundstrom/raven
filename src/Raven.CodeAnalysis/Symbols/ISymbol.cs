@@ -428,6 +428,13 @@ public enum TypeParameterConstraintKind
     TypeConstraint = 1 << 2,
 }
 
+public enum VarianceKind
+{
+    None,
+    Out,
+    In
+}
+
 public interface INamedTypeSymbol : ITypeSymbol
 {
     int Arity { get; }
@@ -468,6 +475,8 @@ public interface ITypeParameterSymbol : ITypeSymbol
     TypeParameterConstraintKind ConstraintKind { get; }
 
     ImmutableArray<ITypeSymbol> ConstraintTypes { get; }
+
+    VarianceKind Variance { get; }
 }
 
 public interface ILocalSymbol : ISymbol

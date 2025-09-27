@@ -71,6 +71,8 @@ internal sealed class SourceTypeParameterSymbol : Symbol, ITypeParameterSymbol
     public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         _constraintTypes.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _constraintTypes;
 
+    public VarianceKind Variance => VarianceKind.None;
+
     internal void SetConstraintTypes(ImmutableArray<ITypeSymbol> constraintTypes)
     {
         _constraintTypes = constraintTypes.IsDefault
