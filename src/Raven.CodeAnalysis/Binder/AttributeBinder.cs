@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis.Symbols;
@@ -40,10 +41,17 @@ internal sealed class AttributeBinder : BlockBinder
 
     private BoundExpression BindAttributeCore(AttributeSyntax attribute)
     {
-        var typeExpression = BindTypeSyntax(attribute.Name);
+        var attributeType = TryResolveAttributeType(attribute.Name);
 
-        if (typeExpression is not BoundTypeExpression boundType || boundType.Type is not INamedTypeSymbol attributeType)
-            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        if (attributeType is null)
+        {
+            var typeExpression = BindTypeSyntax(attribute.Name);
+
+            if (typeExpression is not BoundTypeExpression boundType || boundType.Type is not INamedTypeSymbol resolvedType)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+
+            attributeType = resolvedType;
+        }
 
         if (attributeType.TypeKind != TypeKind.Error)
         {
@@ -94,5 +102,101 @@ internal sealed class AttributeBinder : BlockBinder
 
         _diagnostics.ReportNoOverloadForMethod(attributeType.Name, arguments.Length, attribute.GetLocation());
         return new BoundErrorExpression(attributeType, null, BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    private INamedTypeSymbol? TryResolveAttributeType(TypeSyntax attributeName)
+    {
+        var hasAttributeSuffix = HasAttributeSuffix(attributeName);
+
+        if (!hasAttributeSuffix)
+        {
+            var withSuffix = TryLookupAttributeType(attributeName, appendAttributeSuffix: true);
+            if (withSuffix is not null)
+                return withSuffix;
+        }
+
+        return TryLookupAttributeType(attributeName, appendAttributeSuffix: false);
+    }
+
+    private INamedTypeSymbol? TryLookupAttributeType(TypeSyntax attributeName, bool appendAttributeSuffix)
+    {
+        switch (attributeName)
+        {
+            case IdentifierNameSyntax identifier:
+            {
+                var candidateName = AppendAttributeSuffixIfNeeded(identifier.Identifier.ValueText, appendAttributeSuffix);
+                return FindAccessibleNamedType(candidateName, 0);
+            }
+
+            case QualifiedNameSyntax qualified when qualified.Right is IdentifierNameSyntax rightIdentifier:
+            {
+                var container = TryLookupNamespaceOrType(qualified.Left);
+                if (container is null)
+                    return null;
+
+                var candidateName = AppendAttributeSuffixIfNeeded(rightIdentifier.Identifier.ValueText, appendAttributeSuffix);
+                return container.LookupType(candidateName) as INamedTypeSymbol;
+            }
+        }
+
+        return null;
+    }
+
+    private INamespaceOrTypeSymbol? TryLookupNamespaceOrType(TypeSyntax syntax)
+    {
+        switch (syntax)
+        {
+            case IdentifierNameSyntax identifier:
+            {
+                var ns = LookupNamespace(identifier.Identifier.ValueText);
+                if (ns is not null)
+                    return ns;
+
+                var type = FindAccessibleNamedType(identifier.Identifier.ValueText, 0);
+                if (type is not null)
+                    return type;
+
+                return LookupType(identifier.Identifier.ValueText) as INamespaceOrTypeSymbol;
+            }
+
+            case QualifiedNameSyntax qualified when qualified.Right is IdentifierNameSyntax rightIdentifier:
+            {
+                var left = TryLookupNamespaceOrType(qualified.Left);
+                if (left is null)
+                    return null;
+
+                if (left is INamespaceSymbol namespaceSymbol)
+                {
+                    var nestedNamespace = namespaceSymbol.LookupNamespace(rightIdentifier.Identifier.ValueText);
+                    if (nestedNamespace is not null)
+                        return nestedNamespace;
+                }
+
+                return left.LookupType(rightIdentifier.Identifier.ValueText);
+            }
+        }
+
+        return null;
+    }
+
+    private static string AppendAttributeSuffixIfNeeded(string name, bool append)
+    {
+        if (!append)
+            return name;
+
+        return name.EndsWith("Attribute", StringComparison.Ordinal)
+            ? name
+            : string.Concat(name, "Attribute");
+    }
+
+    private static bool HasAttributeSuffix(TypeSyntax syntax)
+    {
+        return syntax switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText.EndsWith("Attribute", StringComparison.Ordinal),
+            GenericNameSyntax generic => generic.Identifier.ValueText.EndsWith("Attribute", StringComparison.Ordinal),
+            QualifiedNameSyntax qualified => HasAttributeSuffix(qualified.Right),
+            _ => false
+        };
     }
 }

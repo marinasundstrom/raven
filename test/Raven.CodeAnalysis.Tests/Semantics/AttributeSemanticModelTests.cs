@@ -50,4 +50,38 @@ class Widget {}
         var typeSymbol = Assert.IsAssignableFrom<ITypeSymbol>(typeArgument.Value);
         Assert.Equal("System.Int32", typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
     }
+
+    [Fact]
+    public void GetAttribute_AllowsOmittingAttributeSuffixWithQualifiedName()
+    {
+        const string source = """
+namespace Lib
+{
+    class ExportAttribute : System.Attribute
+    {
+    }
+}
+
+[Lib.Export]
+class Widget {}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var attribute = root.DescendantNodes().OfType<AttributeSyntax>().Single();
+        var widgetDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "Widget");
+
+        var symbolInfo = model.GetSymbolInfo(attribute);
+        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(constructor.ContainingType);
+        Assert.Equal("ExportAttribute", containingType.Name);
+        Assert.Equal("Lib", containingType.ContainingNamespace?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var widgetSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
+        var data = Assert.Single(widgetSymbol.GetAttributes());
+        Assert.Same(constructor, data.AttributeConstructor);
+        Assert.Equal("ExportAttribute", data.AttributeClass.Name);
+        Assert.Equal("Lib", data.AttributeClass.ContainingNamespace?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
 }

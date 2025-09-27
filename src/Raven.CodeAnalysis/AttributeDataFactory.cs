@@ -24,7 +24,7 @@ internal static class AttributeDataFactory
         return new AttributeData(
             attributeType,
             ctor,
-            argumentConstants.MoveToImmutable(),
+            argumentConstants.ToImmutable(),
             ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
             attribute.GetReference());
     }
