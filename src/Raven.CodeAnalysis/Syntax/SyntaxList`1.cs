@@ -33,24 +33,26 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
         greenList.ComputeSpanAndFullSpan(position, out _span, out _fullSpan);
     }
 
+    private InternalSyntax.SyntaxList GreenList => Green ?? InternalSyntax.SyntaxList.Empty;
+
     public SyntaxList<TNode> Add(TNode node)
     {
-        return new SyntaxList<TNode>(Green.Add(node.Green), null);
+        return new SyntaxList<TNode>(GreenList.Add(node.Green), null);
     }
 
     public SyntaxList<TNode> Insert(int index, TNode node)
     {
-        return new SyntaxList<TNode>(Green.Insert(index, node.Green), null);
+        return new SyntaxList<TNode>(GreenList.Insert(index, node.Green), null);
     }
 
     public SyntaxList<TNode> Remove(TNode node)
     {
-        return new SyntaxList<TNode>(Green.Remove(node.Green), null);
+        return new SyntaxList<TNode>(GreenList.Remove(node.Green), null);
     }
 
     public SyntaxList<TNode> RemoveAt(int index)
     {
-        return new SyntaxList<TNode>(Green.RemoveAt(index), null);
+        return new SyntaxList<TNode>(GreenList.RemoveAt(index), null);
     }
 
     public int IndexOf(Func<TNode, bool> predicate)
@@ -74,7 +76,7 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
         return -1;
     }
 
-    public int Count => Green.SlotCount;
+    public int Count => GreenList.SlotCount;
 
     public TextSpan Span => _span;
 
@@ -84,9 +86,10 @@ public struct SyntaxList<TNode> : IEnumerable<TNode>, IReadOnlyCollection<TNode>
     {
         get
         {
-            var childGreenNode = Green[index];
+            var greenList = GreenList;
+            var childGreenNode = greenList[index];
             return (TNode)((InternalSyntax.SyntaxNode)childGreenNode).CreateRed(_parent,
-                _position + Green.GetChildStartPosition(index));
+                _position + greenList.GetChildStartPosition(index));
         }
     }
 
