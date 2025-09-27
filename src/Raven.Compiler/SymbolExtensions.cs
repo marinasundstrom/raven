@@ -77,8 +77,8 @@ public static class SymbolExtensions
                 SymbolDisplayParameterOptions.IncludeOptionalBrackets |
                 SymbolDisplayParameterOptions.IncludeDefaultValue)
             .WithMiscellaneousOptions(
-                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
-                SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier |
+                //SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                //SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier |
                 SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
     public static string ToSymbolListString(this ISymbol symbol, Func<ISymbol, bool> filter, SymbolDisplayFormat? displayFormat = null)
