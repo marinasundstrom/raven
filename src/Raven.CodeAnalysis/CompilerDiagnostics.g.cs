@@ -46,6 +46,8 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _nullableTypeInUnion;
     private static DiagnosticDescriptor? _typeNameDoesNotExistInType;
     private static DiagnosticDescriptor? _symbolIsInaccessible;
+    private static DiagnosticDescriptor? _attributeNotValidForTarget;
+    private static DiagnosticDescriptor? _attributeDoesNotAllowMultiple;
     private static DiagnosticDescriptor? _cannotAssignVoidToAnImplicitlyTypedVariable;
     private static DiagnosticDescriptor? _expressionExpected;
     private static DiagnosticDescriptor? _identifierExpected;
@@ -612,6 +614,32 @@ internal static partial class CompilerDiagnostics
         description: "",
         helpLinkUri: "",
         messageFormat: "The {0} '{1}' is inaccessible due to its protection level",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0502: Attribute '{0}' is not valid on target '{1}'. Valid targets are '{2}'
+    /// </summary>
+    public static DiagnosticDescriptor AttributeNotValidForTarget => _attributeNotValidForTarget ??= DiagnosticDescriptor.Create(
+        id: "RAV0502",
+        title: "Attribute not valid for target",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Attribute '{0}' is not valid on target '{1}'. Valid targets are '{2}'",
+        category: "compiler",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// RAV0503: Attribute '{0}' cannot be applied multiple times to the same '{1}'
+    /// </summary>
+    public static DiagnosticDescriptor AttributeDoesNotAllowMultiple => _attributeDoesNotAllowMultiple ??= DiagnosticDescriptor.Create(
+        id: "RAV0503",
+        title: "Attribute does not allow multiple",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Attribute '{0}' cannot be applied multiple times to the same '{1}'",
         category: "compiler",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -1295,6 +1323,8 @@ internal static partial class CompilerDiagnostics
         NullableTypeInUnion,
         TypeNameDoesNotExistInType,
         SymbolIsInaccessible,
+        AttributeNotValidForTarget,
+        AttributeDoesNotAllowMultiple,
         CannotAssignVoidToAnImplicitlyTypedVariable,
         ExpressionExpected,
         IdentifierExpected,
@@ -1388,6 +1418,8 @@ internal static partial class CompilerDiagnostics
         "RAV0400" => NullableTypeInUnion,
         "RAV0426" => TypeNameDoesNotExistInType,
         "RAV0500" => SymbolIsInaccessible,
+        "RAV0502" => AttributeNotValidForTarget,
+        "RAV0503" => AttributeDoesNotAllowMultiple,
         "RAV0815" => CannotAssignVoidToAnImplicitlyTypedVariable,
         "RAV1000" => ExpressionExpected,
         "RAV1001" => IdentifierExpected,

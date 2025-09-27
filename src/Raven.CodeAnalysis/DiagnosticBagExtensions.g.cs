@@ -125,6 +125,12 @@ public static partial class DiagnosticBagExtensions
     public static void ReportSymbolIsInaccessible(this DiagnosticBag diagnostics, object? symbolKind, object? name, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.SymbolIsInaccessible, location, symbolKind, name));
 
+    public static void ReportAttributeNotValidForTarget(this DiagnosticBag diagnostics, object? attributeName, object? targetName, object? validTargets, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.AttributeNotValidForTarget, location, attributeName, targetName, validTargets));
+
+    public static void ReportAttributeDoesNotAllowMultiple(this DiagnosticBag diagnostics, object? attributeName, object? targetName, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.AttributeDoesNotAllowMultiple, location, attributeName, targetName));
+
     public static void ReportCannotAssignVoidToAnImplicitlyTypedVariable(this DiagnosticBag diagnostics, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CannotAssignVoidToAnImplicitlyTypedVariable, location));
 

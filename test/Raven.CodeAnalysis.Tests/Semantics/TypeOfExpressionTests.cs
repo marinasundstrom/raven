@@ -1,6 +1,11 @@
+using System;
+using System.IO;
 using System.Linq;
 
+using Microsoft.CodeAnalysis;
+
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
@@ -34,6 +39,53 @@ public class TypeOfExpressionTests : CompilationTestBase
 
         Assert.Equal(SpecialType.System_Type, bound.Type.SpecialType);
         Assert.Equal(SpecialType.System_Int32, bound.OperandType.SpecialType);
+    }
+
+    [Fact]
+    public void TypeOfExpression_MethodReturnTypeAndOperandAgree()
+    {
+        const string source = """
+class TypeInspector {
+    static GetIntType() -> System.Type {
+        typeof(int)
+    }
+
+    static GetListType() -> System.Type {
+        typeof(System.Collections.Generic.List<int>)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var typeOfExpressions = tree.GetRoot().DescendantNodes().OfType<TypeOfExpressionSyntax>().ToArray();
+
+        var type = (INamedTypeSymbol)compilation.GlobalNamespace.LookupType("TypeInspector")!;
+
+        Assert.Collection(typeOfExpressions,
+            expr => AssertTypeOf(model, compilation, type, expr, "GetIntType"),
+            expr => AssertTypeOf(model, compilation, type, expr, "GetListType"));
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+    }
+
+    private static void AssertTypeOf(
+        SemanticModel model,
+        Compilation compilation,
+        INamedTypeSymbol type,
+        TypeOfExpressionSyntax expression,
+        string methodName)
+    {
+        var typeInfo = model.GetTypeInfo(expression);
+        var method = type.GetMembers(methodName).OfType<IMethodSymbol>().Single();
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(method.ReturnType, typeInfo.Type));
+        var conversion = compilation.ClassifyConversion(typeInfo.Type!, method.ReturnType);
+        Assert.True(conversion.Exists && conversion.IsImplicit);
     }
 
     [Fact]

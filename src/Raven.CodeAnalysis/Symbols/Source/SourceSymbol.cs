@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -45,6 +47,8 @@ internal abstract class SourceSymbol : Symbol
             return ImmutableArray<AttributeData>.Empty;
 
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
+        var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
+        var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(this);
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)
         {
@@ -59,8 +63,20 @@ internal abstract class SourceSymbol : Symbol
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
                 var data = semanticModel.BindAttribute(attribute);
-                if (data is not null)
+                if (data is null)
+                    continue;
+
+                if (AttributeUsageHelper.TryValidateAttribute(
+                        compilation,
+                        semanticModel,
+                        this,
+                        attribute,
+                        data,
+                        defaultTarget,
+                        seenAttributes))
+                {
                     builder.Add(data);
+                }
             }
         }
 

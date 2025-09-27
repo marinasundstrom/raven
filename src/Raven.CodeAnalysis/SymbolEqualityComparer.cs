@@ -86,6 +86,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             or SpecialType.System_Double
             or SpecialType.System_Int32
             or SpecialType.System_Int64
+            or SpecialType.System_Type
             or SpecialType.System_Object
             or SpecialType.System_Single
             or SpecialType.System_String

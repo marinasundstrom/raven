@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -151,6 +152,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             return ImmutableArray<AttributeData>.Empty;
 
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
+        var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
+        const AttributeTargets defaultTarget = AttributeTargets.ReturnValue;
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)
         {
@@ -171,8 +174,20 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             foreach (var attribute in returnClause.AttributeLists.SelectMany(static list => list.Attributes))
             {
                 var data = semanticModel.BindAttribute(attribute);
-                if (data is not null)
+                if (data is null)
+                    continue;
+
+                if (AttributeUsageHelper.TryValidateAttribute(
+                        compilation,
+                        semanticModel,
+                        this,
+                        attribute,
+                        data,
+                        defaultTarget,
+                        seenAttributes))
+                {
                     builder.Add(data);
+                }
             }
         }
 
