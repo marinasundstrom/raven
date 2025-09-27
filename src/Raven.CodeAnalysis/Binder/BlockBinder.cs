@@ -3013,8 +3013,9 @@ partial class BlockBinder : Binder
                 boundArguments,
                 syntax.ArgumentList.Arguments,
                 extensionReceiver,
-                receiverSyntax);
-            return new BoundInvocationExpression(selected, converted, methodGroup.Receiver);
+                receiverSyntax,
+                out var convertedExtensionReceiver);
+            return new BoundInvocationExpression(selected, converted, methodGroup.Receiver, convertedExtensionReceiver);
         }
 
         var resolution = OverloadResolver.ResolveOverload(methodGroup.Methods, boundArguments, Compilation, extensionReceiver);
@@ -3027,8 +3028,9 @@ partial class BlockBinder : Binder
                 boundArguments,
                 syntax.ArgumentList.Arguments,
                 extensionReceiver,
-                receiverSyntax);
-            return new BoundInvocationExpression(method, convertedArgs, methodGroup.Receiver);
+                receiverSyntax,
+                out var convertedExtensionReceiver);
+            return new BoundInvocationExpression(method, convertedArgs, methodGroup.Receiver, convertedExtensionReceiver);
         }
 
         if (resolution.IsAmbiguous)
@@ -3734,25 +3736,23 @@ partial class BlockBinder : Binder
         BoundExpression[] invocationArguments,
         SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes,
         BoundExpression? extensionReceiver,
-        SyntaxNode receiverSyntax)
+        SyntaxNode receiverSyntax,
+        out BoundExpression? convertedExtensionReceiver)
     {
+        convertedExtensionReceiver = null;
+
         if (method.IsExtensionMethod && IsExtensionReceiver(extensionReceiver))
         {
             var parameters = method.Parameters;
-            var converted = new BoundExpression[parameters.Length];
-
-            converted[0] = ConvertSingleArgument(
+            convertedExtensionReceiver = ConvertSingleArgument(
                 extensionReceiver!,
                 parameters[0],
                 receiverSyntax);
 
-            if (parameters.Length > 1)
-            {
-                var convertedRest = ConvertArguments(parameters.RemoveAt(0), invocationArguments, argumentSyntaxes);
-                Array.Copy(convertedRest, 0, converted, 1, convertedRest.Length);
-            }
+            if (parameters.Length == 1)
+                return Array.Empty<BoundExpression>();
 
-            return converted;
+            return ConvertArguments(parameters.RemoveAt(0), invocationArguments, argumentSyntaxes);
         }
 
         return ConvertArguments(method.Parameters, invocationArguments, argumentSyntaxes);

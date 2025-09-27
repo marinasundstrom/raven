@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
@@ -7,13 +7,19 @@ internal partial class BoundInvocationExpression : BoundExpression
     public IMethodSymbol Method { get; }
     public IEnumerable<BoundExpression> Arguments { get; }
     public BoundExpression? Receiver { get; }
+    public BoundExpression? ExtensionReceiver { get; }
 
-    public BoundInvocationExpression(IMethodSymbol method, IEnumerable<BoundExpression> arguments, BoundExpression? receiver = null)
+    public BoundInvocationExpression(
+        IMethodSymbol method,
+        IEnumerable<BoundExpression> arguments,
+        BoundExpression? receiver = null,
+        BoundExpression? extensionReceiver = null)
            : base(method.ReturnType, method, BoundExpressionReason.None)
     {
         Method = method;
         Arguments = arguments;
         Receiver = receiver;
+        ExtensionReceiver = extensionReceiver;
     }
 
     public override string ToString()
