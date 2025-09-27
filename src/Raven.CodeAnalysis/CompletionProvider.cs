@@ -51,8 +51,43 @@ public static class CompletionProvider
         }
 
         var tokenText = token.Text;
+        var tokenValueText = token.ValueText;
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
         var literalReplacementSpan = new TextSpan(position, 0);
+
+        static string EscapeIdentifierForInsertion(string identifier)
+        {
+            if (string.IsNullOrEmpty(identifier))
+                return identifier;
+
+            if (identifier[0] == '@')
+                return identifier;
+
+            return SyntaxFacts.TryParseKeyword(identifier, out _)
+                ? "@" + identifier
+                : identifier;
+        }
+
+        static (string displayText, string insertionText) CreateCompletionParts(ISymbol symbol)
+        {
+            var escapedName = EscapeIdentifierForInsertion(symbol.Name);
+            var insertionText = symbol is IMethodSymbol
+                ? escapedName + "()"
+                : escapedName;
+
+            return (escapedName, insertionText);
+        }
+
+        static int? GetDefaultCursorOffset(ISymbol symbol, string insertionText)
+        {
+            return symbol switch
+            {
+                IMethodSymbol => insertionText.Length - 1,
+                IPropertySymbol => insertionText.Length - 1,
+                ITypeSymbol => insertionText.Length - 1,
+                _ => (int?)null
+            };
+        }
 
         static ITypeSymbol UnwrapAliases(ITypeSymbol type)
         {
@@ -169,19 +204,22 @@ public static class CompletionProvider
                     var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
                     if (symbol is INamespaceOrTypeSymbol nsOrType)
                     {
-                        var prefix = nameToken.Text;
+                        var prefix = nameToken.ValueText;
                         var nameSpan = nameToken.Span;
                         foreach (var member in nsOrType.GetMembers()
                             .OfType<INamespaceOrTypeSymbol>()
                             .Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                         {
+                            var (displayText, insertText) = CreateCompletionParts(member);
+                            var cursorOffset = member is ITypeSymbol ? insertText.Length : (int?)null;
+
                             if (seen.Add(member.Name))
                             {
                                 completions.Add(new CompletionItem(
-                                    DisplayText: member.Name,
-                                    InsertionText: member.Name,
+                                    DisplayText: displayText,
+                                    InsertionText: insertText,
                                     ReplacementSpan: nameSpan,
-                                    CursorOffset: member is ITypeSymbol ? member.Name.Length : (int?)null,
+                                    CursorOffset: cursorOffset,
                                     Description: SafeToDisplayString(member),
                                     Symbol: member
                                 ));
@@ -197,15 +235,18 @@ public static class CompletionProvider
                 foreach (var symbol in binder.LookupAvailableSymbols())
                 {
                     if (symbol is INamespaceOrTypeSymbol nsOrType &&
-                        (string.IsNullOrEmpty(tokenText) || nsOrType.Name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)))
+                        (string.IsNullOrEmpty(tokenValueText) || nsOrType.Name.StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase)))
                     {
+                        var (displayText, insertText) = CreateCompletionParts(nsOrType);
+                        var cursorOffset = nsOrType is ITypeSymbol ? insertText.Length : (int?)null;
+
                         if (seen.Add(nsOrType.Name))
                         {
                             completions.Add(new CompletionItem(
-                                DisplayText: nsOrType.Name,
-                                InsertionText: nsOrType.Name,
+                                DisplayText: displayText,
+                                InsertionText: insertText,
                                 ReplacementSpan: replacementSpan,
-                                CursorOffset: nsOrType is ITypeSymbol ? nsOrType.Name.Length : (int?)null,
+                                CursorOffset: cursorOffset,
                                 Description: SafeToDisplayString(nsOrType),
                                 Symbol: nsOrType
                             ));
@@ -229,24 +270,18 @@ public static class CompletionProvider
                     var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
                     if (symbol is INamespaceOrTypeSymbol nsOrType)
                     {
-                        var prefix = nameToken.Text;
+                        var prefix = nameToken.ValueText;
                         var nameSpan = nameToken.Span;
                         foreach (var member in nsOrType.GetMembers()
                             .Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                         {
-                            var insertText = member is IMethodSymbol ? member.Name + "()" : member.Name;
-                            var cursorOffset = member switch
-                            {
-                                IMethodSymbol => insertText.Length - 1,
-                                IPropertySymbol => insertText.Length - 1,
-                                ITypeSymbol => insertText.Length - 1,
-                                _ => (int?)null
-                            };
+                            var (displayText, insertText) = CreateCompletionParts(member);
+                            var cursorOffset = member is ITypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);
 
                             if (seen.Add(member.Name))
                             {
                                 completions.Add(new CompletionItem(
-                                    DisplayText: member.Name,
+                                    DisplayText: displayText,
                                     InsertionText: insertText,
                                     ReplacementSpan: nameSpan,
                                     CursorOffset: cursorOffset,
@@ -264,22 +299,16 @@ public static class CompletionProvider
             {
                 foreach (var symbol in binder.LookupAvailableSymbols())
                 {
-                    if (!string.IsNullOrEmpty(tokenText) && !symbol.Name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrEmpty(tokenValueText) && !symbol.Name.StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    var insertText = symbol is IMethodSymbol ? symbol.Name + "()" : symbol.Name;
-                    var cursorOffset = symbol switch
-                    {
-                        IMethodSymbol => insertText.Length - 1,
-                        IPropertySymbol => insertText.Length - 1,
-                        ITypeSymbol => insertText.Length - 1,
-                        _ => (int?)null
-                    };
+                    var (displayText, insertText) = CreateCompletionParts(symbol);
+                    var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
 
                     if (seen.Add(symbol.Name))
                     {
                         completions.Add(new CompletionItem(
-                            DisplayText: symbol.Name,
+                            DisplayText: displayText,
                             InsertionText: insertText,
                             ReplacementSpan: replacementSpan,
                             CursorOffset: cursorOffset,
@@ -296,19 +325,13 @@ public static class CompletionProvider
                 var span = new TextSpan(position, 0);
                 foreach (var symbol in binder.LookupAvailableSymbols())
                 {
-                    var insertText = symbol is IMethodSymbol ? symbol.Name + "()" : symbol.Name;
-                    var cursorOffset = symbol switch
-                    {
-                        IMethodSymbol => insertText.Length - 1,
-                        IPropertySymbol => insertText.Length - 1,
-                        ITypeSymbol => insertText.Length - 1,
-                        _ => (int?)null
-                    };
+                    var (displayText, insertText) = CreateCompletionParts(symbol);
+                    var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
 
                     if (seen.Add(symbol.Name))
                     {
                         completions.Add(new CompletionItem(
-                            DisplayText: symbol.Name,
+                            DisplayText: displayText,
                             InsertionText: insertText,
                             ReplacementSpan: span,
                             CursorOffset: cursorOffset,
@@ -332,11 +355,14 @@ public static class CompletionProvider
                 {
                     if (seen.Add(type.Name))
                     {
+                        var (displayText, insertText) = CreateCompletionParts(type);
+                        var cursorOffset = insertText.Length;
+
                         completions.Add(new CompletionItem(
-                            DisplayText: type.Name,
-                            InsertionText: type.Name,
+                            DisplayText: displayText,
+                            InsertionText: insertText,
                             ReplacementSpan: replacementSpan,
-                            CursorOffset: type.Name.Length,
+                            CursorOffset: cursorOffset,
                             Description: SafeToDisplayString(type),
                             Symbol: type
                         ));
@@ -369,11 +395,13 @@ public static class CompletionProvider
 
                 if (seen.Add(label.Name))
                 {
+                    var (displayText, insertText) = CreateCompletionParts(label);
+
                     completions.Add(new CompletionItem(
-                        DisplayText: label.Name,
-                        InsertionText: label.Name,
+                        DisplayText: displayText,
+                        InsertionText: insertText,
                         ReplacementSpan: replacement,
-                        CursorOffset: label.Name.Length,
+                        CursorOffset: insertText.Length,
                         Description: SafeToDisplayString(label),
                         Symbol: label));
                 }
@@ -478,7 +506,7 @@ public static class CompletionProvider
 
                 if (members is not null)
                 {
-                    var prefix = memberAccess.Name.Identifier.Text;
+                    var prefix = memberAccess.Name.Identifier.ValueText;
                     var nameSpan = memberAccess.Name.Identifier.Span;
 
                     foreach (var member in members.Where(m => string.IsNullOrEmpty(prefix) || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
@@ -491,20 +519,13 @@ public static class CompletionProvider
                              method.MethodKind == MethodKind.EventRaise))
                             continue;
 
-                        var insertText = member is IMethodSymbol ? member.Name + "()" : member.Name;
-
-                        var cursorOffset = member switch
-                        {
-                            IMethodSymbol => insertText.Length - 1,
-                            IPropertySymbol => insertText.Length - 1,
-                            ITypeSymbol => insertText.Length - 1,
-                            _ => (int?)null
-                        };
+                        var (displayText, insertText) = CreateCompletionParts(member);
+                        var cursorOffset = GetDefaultCursorOffset(member, insertText);
 
                         if (seen.Add(member.Name))
                         {
                             completions.Add(new CompletionItem(
-                                DisplayText: member.Name,
+                                DisplayText: displayText,
                                 InsertionText: insertText,
                                 ReplacementSpan: nameSpan,
                                 CursorOffset: cursorOffset,
@@ -524,13 +545,13 @@ public static class CompletionProvider
                             if (!string.IsNullOrEmpty(prefix) && !method.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                                 continue;
 
-                            var insertText = method.Name + "()";
-                            var cursorOffset = insertText.Length - 1;
+                            var (displayText, insertText) = CreateCompletionParts(method);
+                            var cursorOffset = GetDefaultCursorOffset(method, insertText);
 
                             if (seen.Add(method.Name))
                             {
                                 completions.Add(new CompletionItem(
-                                    DisplayText: method.Name,
+                                    DisplayText: displayText,
                                     InsertionText: insertText,
                                     ReplacementSpan: nameSpan,
                                     CursorOffset: cursorOffset,
@@ -553,7 +574,7 @@ public static class CompletionProvider
             var symbol = symbolInfo.Symbol?.UnderlyingSymbol;
             if (symbol is INamespaceOrTypeSymbol nsOrType)
             {
-                var prefix = simple.Identifier.Text;
+                var prefix = simple.Identifier.ValueText;
                 var nameSpan = simple.Identifier.Span;
 
                 foreach (var member in nsOrType.GetMembers()
@@ -561,13 +582,16 @@ public static class CompletionProvider
                     || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                     .Where(IsAccessible))
                 {
+                    var (displayText, insertText) = CreateCompletionParts(member);
+                    var cursorOffset = member is ITypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);
+
                     if (seen.Add(member.Name))
                     {
                         completions.Add(new CompletionItem(
-                            DisplayText: member.Name,
-                            InsertionText: member.Name,
+                            DisplayText: displayText,
+                            InsertionText: insertText,
                             ReplacementSpan: nameSpan,
-                            CursorOffset: member is ITypeSymbol ? member.Name.Length : (int?)null,
+                            CursorOffset: cursorOffset,
                             Description: SafeToDisplayString(member),
                             Symbol: member
                         ));
@@ -578,7 +602,7 @@ public static class CompletionProvider
 
         // Language keywords
         var keywords = new[] { "if", "else", "while", "for", "return", "let", "var", "new", "true", "false", "null" };
-        foreach (var keyword in keywords.Where(k => string.IsNullOrEmpty(tokenText) || k.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)))
+        foreach (var keyword in keywords.Where(k => string.IsNullOrEmpty(tokenValueText) || k.StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase)))
         {
             if (seen.Add(keyword))
             {
@@ -598,7 +622,7 @@ public static class CompletionProvider
         {
             var selfType = GetSelfType();
             if (selfType is not null &&
-                (string.IsNullOrEmpty(tokenText) || "self".StartsWith(tokenText, StringComparison.OrdinalIgnoreCase)) &&
+                (string.IsNullOrEmpty(tokenValueText) || "self".StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase)) &&
                 seen.Add("self"))
             {
                 completions.Add(new CompletionItem(
@@ -629,23 +653,17 @@ public static class CompletionProvider
                      method.MethodKind == MethodKind.EventRaise))
                     continue;
 
-                if (!string.IsNullOrEmpty(tokenText) &&
-                    !symbol.Name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(tokenValueText) &&
+                    !symbol.Name.StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                var insertText = symbol is IMethodSymbol ? symbol.Name + "()" : symbol.Name;
-
-                var cursorOffset = symbol switch
-                {
-                    IMethodSymbol => insertText.Length - 1,
-                    ITypeSymbol => insertText.Length - 1,
-                    _ => (int?)null
-                };
+                var (displayText, insertText) = CreateCompletionParts(symbol);
+                var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
 
                 if (seen.Add(symbol.Name))
                 {
                     completions.Add(new CompletionItem(
-                        DisplayText: symbol.Name,
+                        DisplayText: displayText,
                         InsertionText: insertText,
                         ReplacementSpan: replacementSpan,
                         CursorOffset: cursorOffset,
