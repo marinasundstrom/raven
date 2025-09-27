@@ -80,6 +80,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundBlockExpression block => (BoundExpression)VisitBlockExpression(block)!,
             BoundAssignmentExpression assignment => (BoundExpression)VisitAssignmentExpression(assignment)!,
             BoundFieldAccess fieldAccess => (BoundExpression)VisitFieldAccess(fieldAccess)!,
+            BoundMemberAccessExpression memberAccess => (BoundExpression)VisitMemberAccessExpression(memberAccess)!,
             BoundCastExpression cast => (BoundExpression)VisitCastExpression(cast)!,
             BoundAsExpression asExpr => (BoundExpression)VisitAsExpression(asExpr)!,
             BoundDelegateCreationExpression delegateCreation => (BoundExpression)VisitDelegateCreationExpression(delegateCreation)!,
