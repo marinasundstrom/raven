@@ -143,12 +143,13 @@ Options:
 - `-d` &ndash; dump syntax with highlighting (single file only)
 - `-r` &ndash; print the raw source (single file only)
 - `-b` &ndash; print the binder tree (single file only)
+- `-bt` &ndash; print the bound tree (single file only)
 - `--symbols [list|hierarchy]` &ndash; inspect source symbols (`list` dumps properties, `hierarchy` prints the tree)
 - `-h`, `--help` &ndash; show help
 
 Creating a `.debug/` directory in the current or parent folder causes the
 compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,
-and binder tree) into that directory. The debug options above will additionally
+bound tree, and binder tree) into that directory. The debug options above will additionally
 write to the console when compiling a single file.
 
 > ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and a hardcoded output file path (`test.dll`).
