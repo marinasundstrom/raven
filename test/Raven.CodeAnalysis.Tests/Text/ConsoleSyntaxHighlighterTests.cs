@@ -192,6 +192,8 @@ Console.WriteLine("Bar")
         var text = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnosticsOnly: true);
         var plain = text.StripAnsiCodes();
 
+        Assert.Contains("file(", plain);
+        Assert.Contains(": error ", plain);
         Assert.Contains("Console.WriteLine2(\"Foo\")", plain);
         Assert.DoesNotContain("import System.*", plain);
         Assert.DoesNotContain("Console.WriteLine(\"Bar\")", plain);
