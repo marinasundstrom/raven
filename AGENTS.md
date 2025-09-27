@@ -31,8 +31,10 @@ cd ../..
 
 # Build and run tests for the main project
 dotnet build              # build all projects
-dotnet test test/Raven.CodeAnalysis.Tests 
+dotnet test test/Raven.CodeAnalysis.Tests
 ```
+
+If compiler errors are obscured by large numbers of warnings, temporarily lower the warning output with `dotnet build --property WarningLevel=0` to focus on the errors.
 
 If your changes touch documentation only, you may skip `dotnet build` and `dotnet test` unless they are needed to verify an example or behavior.
 
