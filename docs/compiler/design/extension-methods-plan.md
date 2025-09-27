@@ -19,9 +19,10 @@ observed when compiling LINQ-heavy samples.
    (`Select`, `Where`, `OrderBy`, aggregation helpers) and exposed it through a
    Raven test reference so the same binaries drive CLI experiments and unit
    coverage.【F:test/MetadataFixtures/ExtensionMethodsFixture/RavenEnumerableExtensions.cs†L1-L219】【F:test/Raven.CodeAnalysis.Tests/TestMetadataReferences.cs†L1-L30】
-2. Author semantic tests that import the fixture via `using` directives and
+2. ✅ Authored semantic tests that import the fixture via `using` directives and
    prove that `BlockBinder.LookupExtensionMethods` produces the expected method
-   groups for common receivers (arrays, `IEnumerable<T>`, nullable structs).
+   groups for array, `IEnumerable<T>`, and nullable receivers using the shared
+   metadata reference.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L1-L125】
 3. Trace the invocation pipeline—binding, overload resolution, and type
    inference—for representative calls and capture any metadata-only gaps before
    we attempt Raven-authored declarations.
