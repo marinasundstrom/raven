@@ -19,6 +19,12 @@ internal static class TestMetadataReferences
         return (TestTargetFramework.Default, refs);
     });
 
+    private static readonly Lazy<MetadataReference> s_extensionMethodsFixture = new(() =>
+        MetadataReference.CreateFromFile(typeof(Raven.MetadataFixtures.Linq.RavenEnumerableExtensions).Assembly.Location));
+
     public static string TargetFramework => s_default.Value.tfm;
     public static MetadataReference[] Default => s_default.Value.refs;
+    public static MetadataReference ExtensionMethodsFixture => s_extensionMethodsFixture.Value;
+    public static MetadataReference[] DefaultWithExtensionMethods
+        => [.. Default, ExtensionMethodsFixture];
 }

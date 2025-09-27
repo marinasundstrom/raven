@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TypeUnionAnalyzer", "src\Ty
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{0C88DD14-F956-CE84-757C-A364CCF449FC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExtensionMethodsFixture", "test\\MetadataFixtures\\ExtensionMethodsFixture\\ExtensionMethodsFixture.csproj", "{AF65CBBC-8270-4BD3-92F5-E46BE4F94299}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Raven.CodeAnalysis.Tests", "test\Raven.CodeAnalysis.Tests\Raven.CodeAnalysis.Tests.csproj", "{C2A668DA-9F93-445C-BF79-AD245B758052}"
@@ -240,9 +242,21 @@ Global
 		{1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|x64.ActiveCfg = Release|Any CPU
-		{1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|x64.Build.0 = Release|Any CPU
-		{1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|x86.ActiveCfg = Release|Any CPU
-		{1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|x86.Build.0 = Release|Any CPU
+                {1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|x64.Build.0 = Release|Any CPU
+                {1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|x86.ActiveCfg = Release|Any CPU
+                {1F66F4E5-2395-4D85-9D68-BEF40F894887}.Release|x86.Build.0 = Release|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Debug|Any CPU.Build.0 = Debug|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Debug|x64.ActiveCfg = Debug|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Debug|x64.Build.0 = Debug|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Debug|x86.ActiveCfg = Debug|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Debug|x86.Build.0 = Debug|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Release|Any CPU.ActiveCfg = Release|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Release|Any CPU.Build.0 = Release|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Release|x64.ActiveCfg = Release|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Release|x64.Build.0 = Release|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Release|x86.ActiveCfg = Release|Any CPU
+                {AF65CBBC-8270-4BD3-92F5-E46BE4F94299}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
