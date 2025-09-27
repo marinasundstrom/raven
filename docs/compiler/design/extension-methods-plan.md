@@ -18,28 +18,44 @@ observed when compiling LINQ-heavy samples.
    a minimal `.rav` repro and note the shape of the bound tree so future steps
    can add targeted tests.
 
-## 2. Symbol and syntax work
+## 2. Metadata consumer support
 
-1. Extend the syntax tree to recognize `extension` modifiers on static methods in
-   static classes, mirroring C#'s rules. Ensure the language specification and
-   syntax nodes mirror the new grammar.
+1. Expand coverage for consuming extension methods compiled from C# or other
+   .NET languages. Assemble a reference library that exposes common LINQ-style
+   extensions and add semantic tests that import it via `using` directives to
+   ensure `BlockBinder.LookupExtensionMethods` finds the metadata entries.
+2. Audit the invocation pipeline so that metadata-backed extensions flow through
+   overload resolution, type inference, and accessibility checks without
+   assuming Raven-authored symbols. Capture gaps in diagnostics or error
+   reporting when multiple metadata extensions compete for a receiver.
+3. Document any remaining interop limitations (e.g., open generic receivers or
+   unconstrained `this` parameters) and file follow-up issues when the fix will
+   require deeper binder work.
+
+## 3. Symbol and syntax work (deferred)
+
+1. Once consumer scenarios are solid, extend the syntax tree to recognize
+   `extension` modifiers on static methods in static classes, mirroring C#'s
+   rules. Ensure the language specification and syntax nodes mirror the new
+   grammar.
 2. Update symbol creation so that methods declared with the new modifier surface
    as `IsExtensionMethod = true`, and so that their first parameter is marked as
    the receiver. Verify that Raven-authored extension methods live in metadata
    tables compatible with existing lookup logic.
 
-## 3. Binding and overload resolution
+## 4. Binding and overload resolution
 
-1. Teach the binder to include Raven-authored extension methods in method groups.
-   This requires scoping rules similar to C#: only methods in imported namespaces
-   and static containers should be considered.
-2. Update overload resolution so that the implicit receiver argument participates
-   in type argument inference and accessibility checks in the same way as native
-   instance methods.
+1. Teach the binder to include Raven-authored extension methods in method groups
+   once the new syntax is available. This requires scoping rules similar to C#:
+   only methods in imported namespaces and static containers should be
+   considered.
+2. Update overload resolution so that the implicit receiver argument
+   participates in type argument inference and accessibility checks in the same
+   way as native instance methods.
 3. Strengthen diagnostics around ambiguous extension lookups and missing `using`
    imports to match the behavior testers expect from C#.
 
-## 4. Lowering adjustments
+## 5. Lowering adjustments
 
 1. Extend `Lowerer.RewriteInvocationExpression` to treat Raven-authored
    extensions identically to metadata-backed ones by substituting the receiver as
@@ -47,7 +63,7 @@ observed when compiling LINQ-heavy samples.
 2. Confirm that the lowered invocation obeys value-type boxing semantics and
    nullability checks that C# enforces.
 
-## 5. Code generation fixes
+## 6. Code generation fixes
 
 1. Fix `ExpressionGenerator.EmitLambdaExpression` so that it resolves delegate
    constructors using `Compilation`'s `MetadataLoadContext`-aware APIs. Avoid
@@ -58,7 +74,7 @@ observed when compiling LINQ-heavy samples.
 3. Once the failure mode is addressed, cover extension method calls inside query
    comprehensions (`Select`, `Where`, `OrderBy`) to ensure LINQ works end-to-end.
 
-## 6. Validation and polish
+## 7. Validation and polish
 
 1. Expand semantic tests under `test/Raven.CodeAnalysis.Tests` to cover Raven
    extensions calling into other Raven extensions, overload shadowing, and
