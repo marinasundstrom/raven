@@ -24,7 +24,7 @@ label:
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV2500").WithSpan(4, 1, 4, 6).WithArguments("label")
+                new DiagnosticResult("RAV2500").WithSpan(2, 1, 2, 6).WithArguments("label")
             ]);
 
         verifier.Verify();
@@ -86,6 +86,30 @@ label:
         var info = model.GetSymbolInfo(gotoStatement);
         var symbol = Assert.IsAssignableFrom<ILabelSymbol>(info.Symbol);
         Assert.Equal("label", symbol.Name);
+    }
+
+    [Fact]
+    public void GetSymbolInfo_ForGotoWithEscapedIdentifier_ReturnsLabelSymbol()
+    {
+        var code = """
+func main() {
+@loop:
+    goto @loop
+    return
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var labeled = tree.GetRoot().DescendantNodes().OfType<LabeledStatementSyntax>().Single();
+        var gotoStatement = tree.GetRoot().DescendantNodes().OfType<GotoStatementSyntax>().Single();
+
+        var declared = Assert.IsAssignableFrom<ILabelSymbol>(model.GetDeclaredSymbol(labeled));
+        Assert.Equal("loop", declared.Name);
+
+        var info = model.GetSymbolInfo(gotoStatement);
+        var symbol = Assert.IsAssignableFrom<ILabelSymbol>(info.Symbol);
+        Assert.Equal("loop", symbol.Name);
     }
 
     [Fact]
