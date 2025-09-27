@@ -302,6 +302,103 @@ let projection = numbers.Select(func (value) => value.ToString())
         Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
     }
 
+    [Fact]
+    public void Invocation_WithWhereLambda_ResolvesSingleParameterOverload()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+let numbers = List<int>()
+let positives = numbers.Where(func (value) => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Where", selected.Name);
+        Assert.Equal(2, selected.Parameters.Length);
+
+        var predicateParameter = selected.Parameters[1];
+        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        Assert.Equal("Func", predicateType.Name);
+        Assert.Equal(2, predicateType.Arity);
+        Assert.Collection(
+            predicateType.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void Invocation_WithIndexedWhereLambda_ResolvesIndexedOverload()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+let numbers = List<int>()
+let positives = numbers.Where(func (value, index) => value > index)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Where", selected.Name);
+        Assert.Equal(2, selected.Parameters.Length);
+
+        var predicateParameter = selected.Parameters[1];
+        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        Assert.Equal("Func", predicateType.Name);
+        Assert.Equal(3, predicateType.Arity);
+        Assert.Collection(
+            predicateType.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Equal(2, boundLambda.Parameters.Count());
+        Assert.All(boundLambda.Parameters.Take(2), parameter => Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType));
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
     private static MemberAccessExpressionSyntax GetMemberAccess(SyntaxTree tree, string methodName)
     {
         return tree

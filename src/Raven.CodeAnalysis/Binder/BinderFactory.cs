@@ -175,7 +175,57 @@ class BinderFactory
         ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
         {
             var full = Combine(current, name);
-            return _compilation.GetTypeByMetadataName(full) ?? _compilation.GetTypeByMetadataName(name);
+            return _compilation.GetTypeByMetadataName(full)
+                ?? _compilation.GetTypeByMetadataName(name)
+                ?? ResolveTypeFromNamespace(current, name)
+                ?? ResolveTypeFromNamespace(_compilation.GlobalNamespace, name);
+        }
+
+        static ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return null;
+
+            var parts = name.Split('.');
+            INamespaceOrTypeSymbol current = scope;
+
+            foreach (var part in parts)
+            {
+                if (current is INamespaceSymbol ns)
+                {
+                    var typeMember = ns.LookupType(part)
+                        ?? ns.GetMembers(part).OfType<ITypeSymbol>().FirstOrDefault();
+                    if (typeMember is not null)
+                    {
+                        current = typeMember;
+                        continue;
+                    }
+
+                    var namespaceMember = ns.LookupNamespace(part)
+                        ?? ns.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+                    if (namespaceMember is null)
+                        return null;
+
+                    current = namespaceMember;
+                    continue;
+                }
+
+                if (current is INamedTypeSymbol type)
+                {
+                    var nestedType = type.GetMembers()
+                        .OfType<ITypeSymbol>()
+                        .FirstOrDefault(member => member.Name == part);
+                    if (nestedType is null)
+                        return null;
+
+                    current = nestedType;
+                    continue;
+                }
+
+                return null;
+            }
+
+            return current as ITypeSymbol;
         }
 
         IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
