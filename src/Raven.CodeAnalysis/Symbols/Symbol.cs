@@ -165,7 +165,7 @@ internal abstract class Symbol : ISymbol
             return false;
         }
 
-        return Equals((ISymbol)other);
+        return Equals(other, SymbolEqualityComparer.Default);
     }
 
     private string GetDebuggerDisplay()
