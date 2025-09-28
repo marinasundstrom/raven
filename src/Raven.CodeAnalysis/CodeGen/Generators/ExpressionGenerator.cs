@@ -154,6 +154,10 @@ internal class ExpressionGenerator : Generator
                 EmitDelegateCreationExpression(delegateCreation);
                 break;
 
+            case BoundMethodGroupExpression methodGroupExpression:
+                EmitMethodGroupExpression(methodGroupExpression);
+                break;
+
             default:
                 throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
         }
@@ -183,10 +187,31 @@ internal class ExpressionGenerator : Generator
         if (delegateCreation.DelegateType is not INamedTypeSymbol delegateTypeSymbol)
             throw new InvalidOperationException("Delegate creation requires a delegate type.");
 
-        if (delegateTypeSymbol is SynthesizedDelegateTypeSymbol synthesized)
+        EmitDelegateCreation(delegateCreation.Receiver, method, delegateTypeSymbol);
+    }
+
+    private void EmitMethodGroupExpression(BoundMethodGroupExpression methodGroup)
+    {
+        var method = methodGroup.SelectedMethod;
+        var delegateType = methodGroup.DelegateType ?? methodGroup.DelegateTypeFactory?.Invoke();
+
+        if (method is null ||
+            delegateType is not INamedTypeSymbol delegateTypeSymbol ||
+            delegateTypeSymbol.TypeKind != TypeKind.Delegate)
+        {
+            EmitDefaultValue(methodGroup.MethodGroupType);
+            return;
+        }
+
+        EmitDelegateCreation(methodGroup.Receiver, method, delegateTypeSymbol);
+    }
+
+    private void EmitDelegateCreation(BoundExpression? receiver, IMethodSymbol method, INamedTypeSymbol delegateType)
+    {
+        if (delegateType is SynthesizedDelegateTypeSymbol synthesized)
             MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(synthesized);
 
-        var delegateClrType = ResolveClrType(delegateTypeSymbol);
+        var delegateClrType = ResolveClrType(delegateType);
         var ctor = GetDelegateConstructor(delegateClrType);
 
         var methodInfo = GetMethodInfo(method);
@@ -198,8 +223,8 @@ internal class ExpressionGenerator : Generator
         }
         else
         {
-            var receiver = delegateCreation.Receiver
-                ?? throw new InvalidOperationException("Instance delegate creation requires a receiver.");
+            if (receiver is null)
+                throw new InvalidOperationException("Instance delegate creation requires a receiver.");
 
             EmitExpression(receiver);
 
