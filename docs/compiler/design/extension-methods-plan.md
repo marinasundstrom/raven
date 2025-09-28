@@ -83,6 +83,27 @@ observed when compiling LINQ-heavy samples.
    as `IsExtensionMethod = true`, and so that their first parameter is marked as
    the receiver. Verify that Raven-authored extension methods live in metadata
    tables compatible with existing lookup logic.
+3. 🔍 **Investigation.** The declaration pipeline is still wired for
+   attribute-based extension detection. Bringing the keyword online will require
+   coordinated updates:
+   * The syntax generator lacks an `extension` keyword entry, so NodeGenerator
+     will continue to reject the modifier until `Tokens.xml` grows the token and
+     regenerated facts teach the parser about it.【F:src/Raven.CodeAnalysis/Syntax/Tokens.xml†L1-L120】
+   * `SourceMethodSymbol.ComputeIsExtensionMethod` only flips the extension flag
+     after finding an `[Extension]` attribute, which means declarations using a
+     keyword would never flow into lookup until the modifier is recognized at
+     binding time.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】
+   * `Binder.GetExtensionMethodsFromScope` filters candidates strictly through
+     `IsExtensionMethod`, so the symbol change above must land before newly
+     declared helpers appear in method groups or overload resolution.【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L187-L291】
+   * The language specification still documents extension **consumption** only;
+     once declarations exist we need to describe the syntax, grammar, and
+     scoping rules alongside the existing invocation text.【F:docs/lang/spec/language-specification.md†L640-L670】
+   * Code generation continues to locate delegate constructors via raw
+     reflection (`delegateType.GetConstructors()`), so enabling source-defined
+     extensions that lower through lambdas will require routing this path through
+     the metadata-load-context aware helpers from Stage&nbsp;6 to avoid the
+     existing `Type.GetConstructor` failures.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L421-L441】
 
 ## 4. Binding and overload resolution (active)
 
