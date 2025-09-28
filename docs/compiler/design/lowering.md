@@ -60,7 +60,7 @@ Even without an IR in place today, several implemented features assume that a lo
 * Rewriting each arm into cascaded `if`/`else` statements (or a switch) that preserves the source ordering and fall-through semantics.
 * Ensuring that bindings introduced by the pattern remain scoped to the guard and arm expression, matching the specification's flow rules.
 
-This transformation lets the binder and emitter operate on the simpler `if`/`else` and assignment constructs they already understand while keeping exhaustiveness diagnostics intact.
+This transformation lets the binder and emitter operate on the simpler `if`/`else` and assignment constructs they already understand while keeping exhaustiveness diagnostics intact. The concrete shape we emit today is captured in [Lowering strategy for `match` expressions](match-expression-lowering.md).
 
 ### Null-conditional access
 

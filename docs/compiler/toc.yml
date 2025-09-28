@@ -28,6 +28,8 @@
       href: design/semantic-analysis.md
     - name: Lowering
       href: design/lowering.md
+    - name: Match expression lowering
+      href: design/match-expression-lowering.md
     - name: Symbols
       href: design/symbols.md
     - name: Spans
