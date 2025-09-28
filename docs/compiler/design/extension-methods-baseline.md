@@ -55,31 +55,48 @@ let numbers = [1, 2, 3]
 let result = numbers.Where(func (value: int) -> bool => value == 2)
 ```
 
-Compile with the LINQ reference to hit the MetadataLoadContext failure:
+Compile with the LINQ reference to capture the current CLI diagnostics:
 
 ```
 dotnet run --project src/Raven.Compiler -- src/Raven.Compiler/samples/linq.rav \
     --refs ~/.dotnet/packs/Microsoft.NETCore.App.Ref/9.0.9/ref/net9.0/System.Linq.dll
 ```
 
-The compiler crashes while resolving the delegate constructor used for the
-lambda passed to `Where` inside `ExpressionGenerator.EmitLambdaExpression`.【1907c1†L1-L24】
+The invocation currently fails long before we reach code generation. The CLI
+reports two diagnostics:
 
-Removing the explicit parameter annotation exposes a second issue that blocks
-parity with C#. `System.Linq.Enumerable.Where` ships two overloads: the
-two-parameter predicate used above and an index-aware overload that expects a
-`Func<TSource, int, bool>`. Raven's overload resolution only supplies a target
-delegate type once a single candidate remains, so the lambda appears in an
-untyped context while both overloads are viable. The binder therefore reports
-`RAV2200` (“Cannot infer the type of parameter 'value'”) and the sample only
-compiles if the lambda's parameters are annotated manually. Fixing this gap will
-require pushing tentative delegate shapes into lambda binding so inference can
-disqualify overloads the same way Roslyn does.
+```
+error RAV1501: No overload for method 'Where' takes 1 arguments
+error RAV2200: Cannot infer the type of parameter 'value'. Specify an explicit
+type or use the lambda in a delegate-typed context
+```
 
-Targeted semantic tests now pin the fix: one exercises
-`System.Linq.Enumerable.Where` through the standard reference assemblies while a
-second drives the Raven LINQ fixture, both verifying that implicit lambda
-parameters bind without diagnostics.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L245-L280】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L354-L398】
+The first error shows that we still do not recognize metadata `Where`
+definitions as extension methods when a lambda argument is present, so overload
+resolution thinks the call is missing the `source` argument altogether. The
+second error is the familiar inference gap—the lambda never receives a target
+delegate type while overload resolution is still considering both overloads, so
+the binder immediately falls back to the error type and complains about the
+unannotated parameter.【395e77†L1-L7】
+
+Annotating the lambda parameters does not change the outcome. Replacing the
+predicate with `func (value: int) -> bool` still produces `RAV1501`, confirming
+that we never make it past extension recognition even when the delegate shape is
+fully specified.【4b9c5d†L1-L4】
+
+Fixing the first error requires tightening the extension lookup so that the
+metadata-backed `Enumerable.Where` overloads flow through
+`BindMemberAccessExpression` as true extension candidates. Only then will the
+lambda binder see an extension receiver and have a chance to replay delegates.
+Once that is in place we still need to address the second error by pushing
+tentative delegate shapes into lambda binding so inference can disqualify the
+index-aware overload the same way Roslyn does.
+
+Once the binder recognizes the metadata extensions, add targeted semantic tests
+that import the standard reference assemblies and the Raven LINQ fixture to
+prove implicit lambda parameters bind without diagnostics. These tests should
+guard both the metadata path (`System.Linq.Enumerable.Where`) and the
+fixture-backed helpers.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L245-L308】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L354-L472】
 
 ### Lambda inference fallout
 
@@ -102,7 +119,8 @@ instead of a single `ITypeSymbol`, then have `BindLambdaExpression` produce a
 diagnostics. Overload resolution can then apply the usual conversions, pushing
 the lambda body through whichever delegate survives inference.
 
-Run the same command with `--bound-tree --no-emit` to capture the baseline bound
-structure for future regression tests. The invocation currently binds to a
-metadata `Where` extension with a lambda parameter and records an explicit
-extension receiver.【e91466†L1-L24】
+Once the binder recognizes the extension invocation, rerun the command with
+`--bound-tree --no-emit` to capture the baseline bound structure for future
+regression tests. The previous snapshot that recorded an explicit extension
+receiver is now stale because the current pipeline fails before binding
+completes.【e91466†L1-L24】

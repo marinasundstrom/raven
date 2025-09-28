@@ -17,6 +17,12 @@ first argument. For example, `items.Where(predicate)` lowers to
 `Enumerable.Where(items, predicate)` in IL. Accessibility is enforced prior to
 rewriting, so the emitted call is always valid for the imported method.
 
+> **Implementation status:** The current CLI cannot yet recognize metadata
+> extensions when the invocation supplies a lambda argument. Compiling
+> `samples/linq.rav` still reports `RAV1501` (“No overload for method 'Where'
+> takes 1 arguments”) followed by `RAV2200` for the lambda parameter, so the
+> lowering described above is not exercised end-to-end.【395e77†L1-L7】
+
 ## Union types
 When emitted to .NET metadata, a union is projected as the narrowest common denominator of its members. If every member shares a base class, that base type becomes the metadata type; otherwise, `object` is used. Including `null` in the union marks the emitted type as nullable.
 
