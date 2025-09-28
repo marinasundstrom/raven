@@ -52,6 +52,42 @@ class Calculator {
         var projectorParameter = Assert.Single(transformSymbol.Parameters, p => p.Name == "projector");
         Assert.True(SymbolEqualityComparer.Default.Equals(projectorParameter.Type, boundLambda.DelegateType));
     }
+
+    [Fact]
+    public void Lambda_WithConflictingDelegateCandidates_SuppressesParameterInferenceDiagnostic()
+    {
+        const string code = """
+import System.*
+class Container {
+    Overloaded(pred: Func<int, bool>) -> unit { }
+    Overloaded(pred: Func<string, bool>) -> unit { }
+
+    Invoke() -> unit {
+        Overloaded(value => true)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => ReferenceEquals(
+                diagnostic.Descriptor,
+                CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var unbound = Assert.IsType<BoundUnboundLambda>(boundLambda.Unbound);
+        var suppression = Assert.Single(unbound.SuppressedDiagnostics);
+        Assert.Equal("value", suppression.ParameterName);
+    }
 }
 
 public class LambdaInferenceDiagnosticsTests : DiagnosticTestBase

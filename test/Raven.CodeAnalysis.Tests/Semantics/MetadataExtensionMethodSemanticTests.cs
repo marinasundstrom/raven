@@ -372,11 +372,23 @@ let positives = numbers.Where(value => value > 0)
         var memberAccess = GetMemberAccess(tree, "Where");
 
         var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Where", boundInvocation.Method.Name);
+        Assert.Equal("RavenEnumerableExtensions", boundInvocation.Method.ContainingType?.Name);
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
 
         var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
 
         Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
+        var unbound = Assert.IsType<BoundUnboundLambda>(boundLambda.Unbound);
+        Assert.False(unbound.CandidateDelegates.IsDefaultOrEmpty);
+        Assert.Empty(unbound.SuppressedDiagnostics);
         Assert.Contains(
             boundLambda.CandidateDelegates,
             candidate => candidate.Name == "Func" &&

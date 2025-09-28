@@ -13,7 +13,8 @@ internal sealed class OverloadResolver
         IEnumerable<IMethodSymbol> methods,
         BoundExpression[] arguments,
         Compilation compilation,
-        BoundExpression? receiver = null)
+        BoundExpression? receiver = null,
+        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda = null)
     {
         IMethodSymbol? bestMatch = null;
         int bestScore = int.MaxValue;
@@ -33,7 +34,7 @@ internal sealed class OverloadResolver
             if (!HasSufficientArguments(parameters, providedCount))
                 continue;
 
-            if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, out var score))
+            if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, canBindLambda, out var score))
                 continue;
 
             if (score < bestScore)
@@ -452,6 +453,7 @@ internal sealed class OverloadResolver
         BoundExpression? receiver,
         bool treatAsExtension,
         Compilation compilation,
+        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda,
         out int score)
     {
         score = 0;
@@ -463,7 +465,7 @@ internal sealed class OverloadResolver
             if (receiver is null || receiver.Type is null)
                 return false;
 
-            if (!TryEvaluateArgument(parameters[parameterIndex], receiver, compilation, ref score))
+            if (!TryEvaluateArgument(parameters[parameterIndex], receiver, compilation, canBindLambda, ref score))
                 return false;
 
             parameterIndex++;
@@ -471,7 +473,7 @@ internal sealed class OverloadResolver
 
         for (int i = 0; i < arguments.Length; i++, parameterIndex++)
         {
-            if (!TryEvaluateArgument(parameters[parameterIndex], arguments[i], compilation, ref score))
+            if (!TryEvaluateArgument(parameters[parameterIndex], arguments[i], compilation, canBindLambda, ref score))
                 return false;
         }
 
@@ -484,7 +486,12 @@ internal sealed class OverloadResolver
         return true;
     }
 
-    private static bool TryEvaluateArgument(IParameterSymbol parameter, BoundExpression argument, Compilation compilation, ref int score)
+    private static bool TryEvaluateArgument(
+        IParameterSymbol parameter,
+        BoundExpression argument,
+        Compilation compilation,
+        Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda,
+        ref int score)
     {
         var argType = argument.Type;
         if (argType is null)
@@ -519,7 +526,12 @@ internal sealed class OverloadResolver
 
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
-            if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
+            if (canBindLambda is not null)
+            {
+                if (!canBindLambda(parameter, lambda))
+                    return false;
+            }
+            else if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
                 return false;
         }
 

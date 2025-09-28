@@ -42,6 +42,8 @@ public class Compilation
 
     public CompilationOptions Options { get; }
 
+    public PerformanceInstrumentation PerformanceInstrumentation => Options.PerformanceInstrumentation;
+
     public IAssemblySymbol Assembly { get; private set; }
 
     public IModuleSymbol Module { get; private set; }
