@@ -192,8 +192,8 @@ ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer) ;
 MemberBindingExpression  ::= '.' Identifier ;
 
 (* ---------- Primaries ----------
-   NOTE: Block/IfExpression/WhileExpression/ForExpression can appear as expressions.
-         Each also has a corresponding statement form when used in statement position. *)
+   NOTE: Block and IfExpression can appear as expressions.
+         While and for constructs exist only as statements. *)
 PrimaryExpression        ::= Literal
                            | Identifier
                            | MemberBindingExpression
@@ -202,15 +202,11 @@ PrimaryExpression        ::= Literal
                            | ParenthesizedExpression
                            | Block
                            | IfExpression
-                           | WhileExpression
-                           | ForExpression
                            | InterpolatedStringExpression ;
 
 Block                    ::= '{' {Statement} '}' ;
 
 IfExpression             ::= 'if' Expression Expression 'else' Expression ;
-WhileExpression          ::= 'while' Expression Expression ;
-ForExpression            ::= 'for' 'each'? Identifier 'in' Expression Expression ;
 InterpolatedStringExpression ::= '"' {InterpolatedStringContent} '"' ;
 InterpolatedStringContent ::= InterpolatedStringText | Interpolation ;
 InterpolatedStringText   ::= /* text segment without ${ or closing quote */ ;

@@ -142,6 +142,12 @@
     <Slot Name="ElseStatement" Type="Statement" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
+  <Node Name="WhileStatement" Inherits="Statement">
+    <Slot Name="WhileKeyword" Type="Token" DefaultToken="WhileKeyword"/>
+    <Slot Name="Condition" Type="Expression" />
+    <Slot Name="Statement" Type="Statement" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
+  </Node>
   <Node Name="UsingDeclarationStatement" Inherits="Statement">
     <Slot Name="UsingKeyword" Type="Token" DefaultToken="UsingKeyword"/>
     <Slot Name="Declaration" Type="VariableDeclaration" />
@@ -170,6 +176,15 @@
   </Node>
   <Node Name="ContinueStatement" Inherits="Statement">
     <Slot Name="ContinueKeyword" Type="Token" DefaultToken="ContinueKeyword"/>
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
+  </Node>
+  <Node Name="ForStatement" Inherits="Statement">
+    <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword"/>
+    <Slot Name="EachKeyword" Type="Token" DefaultToken="EachKeyword" IsOptionalToken="true"/>
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword"/>
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="Body" Type="Statement" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="LocalDeclarationStatement" Inherits="Statement">
@@ -532,19 +547,6 @@
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsInherited="true" />
     <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
-  </Node>
-  <Node Name="WhileExpression" Inherits="Expression">
-    <Slot Name="WhileKeyword" Type="Token" DefaultToken="WhileKeyword"/>
-    <Slot Name="Condition" Type="Expression" />
-    <Slot Name="Expression" Type="Expression" />
-  </Node>
-  <Node Name="ForExpression" Inherits="Expression">
-    <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword"/>
-    <Slot Name="EachKeyword" Type="Token" DefaultToken="EachKeyword" IsOptionalToken="true"/>
-    <Slot Name="Identifier" Type="Token" />
-    <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword"/>
-    <Slot Name="Expression" Type="Expression" />
-    <Slot Name="Body" Type="Expression" />
   </Node>
   <Node Name="ArgumentList" Inherits="Node">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken"/>

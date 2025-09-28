@@ -75,14 +75,6 @@ internal class BoundTreeWalker : BoundTreeVisitor
                 foreach (var arg in creation.Arguments)
                     VisitExpression(arg);
                 break;
-            case BoundWhileExpression whileExpr:
-                VisitExpression(whileExpr.Condition);
-                VisitExpression(whileExpr.Body);
-                break;
-            case BoundForExpression forExpr:
-                VisitExpression(forExpr.Collection);
-                VisitExpression(forExpr.Body);
-                break;
             case BoundAssignmentExpression assign:
                 VisitExpression(assign.Right);
                 break;
