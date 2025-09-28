@@ -87,6 +87,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundMethodGroupExpression methodGroup => (BoundExpression)VisitMethodGroupExpression(methodGroup)!,
             BoundTypeOfExpression typeOfExpression => (BoundExpression)VisitTypeOfExpression(typeOfExpression)!,
             BoundTypeExpression typeExpression => (BoundExpression)VisitTypeExpression(typeExpression)!,
+            BoundMatchExpression matchExpression => (BoundExpression)VisitMatchExpression(matchExpression)!,
             _ => throw new NotImplementedException($"Unhandled expression: {node.GetType().Name}"),
         };
     }
