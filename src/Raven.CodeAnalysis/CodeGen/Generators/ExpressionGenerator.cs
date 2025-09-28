@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -540,6 +541,12 @@ internal class ExpressionGenerator : Generator
             return;
         }
 
+        if (to is IUnionTypeSymbol unionTo)
+        {
+            EmitUnionConversion(from, unionTo);
+            return;
+        }
+
         if (conversion.IsNumeric)
         {
             EmitNumericConversion(to);
@@ -573,6 +580,57 @@ internal class ExpressionGenerator : Generator
         }
 
         throw new NotSupportedException("Unsupported conversion");
+    }
+
+    private void EmitUnionConversion(ITypeSymbol from, IUnionTypeSymbol unionTo)
+    {
+        var emission = unionTo.GetUnionEmissionInfo(Compilation);
+        var targetClrType = ResolveClrType(unionTo);
+
+        if (emission.WrapInNullable)
+        {
+            EmitNullableUnionConversion(from, unionTo, emission.UnderlyingTypeSymbol, targetClrType);
+            return;
+        }
+
+        if (from.IsValueType && !targetClrType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(from));
+    }
+
+    private void EmitNullableUnionConversion(
+        ITypeSymbol from,
+        IUnionTypeSymbol unionTo,
+        ITypeSymbol underlyingSymbol,
+        Type nullableClrType)
+    {
+        if (from.TypeKind == TypeKind.Null)
+        {
+            EmitDefaultValue(unionTo);
+            return;
+        }
+
+        if (!SymbolEqualityComparer.Default.Equals(from, underlyingSymbol))
+        {
+            var underlyingConversion = Compilation.ClassifyConversion(from, underlyingSymbol);
+            if (!underlyingConversion.Exists)
+                throw new NotSupportedException("Unsupported conversion to nullable union underlying type");
+
+            EmitConversion(from, underlyingSymbol, underlyingConversion);
+        }
+
+        var underlyingClrType = ResolveClrType(underlyingSymbol);
+        var valueLocal = ILGenerator.DeclareLocal(underlyingClrType);
+        var nullableLocal = ILGenerator.DeclareLocal(nullableClrType);
+
+        ILGenerator.Emit(OpCodes.Stloc, valueLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, nullableLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+
+        var ctor = nullableClrType.GetConstructor(new[] { underlyingClrType })
+            ?? throw new InvalidOperationException($"Missing Nullable constructor for {nullableClrType}");
+
+        ILGenerator.Emit(OpCodes.Call, ctor);
+        ILGenerator.Emit(OpCodes.Ldloc, nullableLocal);
     }
 
     private void EmitNullableConversion(ITypeSymbol from, NullableTypeSymbol nullableTo)
