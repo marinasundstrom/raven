@@ -82,3 +82,14 @@ internal partial class BoundMemberAssignmentExpression : BoundAssignmentExpressi
         Receiver = receiver;
     }
 }
+
+internal sealed partial class BoundPatternAssignmentExpression : BoundAssignmentExpression
+{
+    public BoundPattern Pattern { get; }
+
+    public BoundPatternAssignmentExpression(ITypeSymbol type, BoundPattern pattern, BoundExpression right)
+        : base(type, right)
+    {
+        Pattern = pattern;
+    }
+}

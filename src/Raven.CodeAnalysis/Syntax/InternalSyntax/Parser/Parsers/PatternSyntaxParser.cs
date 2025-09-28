@@ -50,6 +50,11 @@ internal class PatternSyntaxParser : SyntaxParser
             return ParseTuplePattern();
         }
 
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.VarKeyword)
+        {
+            return ParseVariablePattern();
+        }
+
         var type = new NameSyntaxParser(this).ParseTypeName();
 
         // Optionally consume a variable designation
@@ -64,6 +69,13 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         return DeclarationPattern(type, designation);
+    }
+
+    private PatternSyntax ParseVariablePattern()
+    {
+        var letOrVarKeyword = ReadToken();
+        var designation = ParseDesignation();
+        return VariablePattern(letOrVarKeyword, designation);
     }
 
     private TuplePatternSyntax ParseTuplePattern()
@@ -90,16 +102,57 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private VariableDesignationSyntax ParseDesignation()
     {
-        SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
+        VariableDesignationSyntax designation;
+
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            identifier = ReadIdentifierToken();
+            designation = ParseParenthesizedDesignation();
         }
         else
         {
-            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+            SyntaxToken identifier;
+            if (CanTokenBeIdentifier(PeekToken()))
+            {
+                identifier = ReadIdentifierToken();
+            }
+            else
+            {
+                identifier = ExpectToken(SyntaxKind.IdentifierToken);
+            }
+
+            designation = SingleVariableDesignation(identifier);
         }
-        return SingleVariableDesignation(identifier);
+
+        if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
+        {
+            var type = new NameSyntaxParser(this).ParseTypeName();
+            var typeAnnotation = TypeAnnotationClause(colonToken, type);
+            designation = TypedVariableDesignation(designation, typeAnnotation);
+        }
+
+        return designation;
+    }
+
+    private VariableDesignationSyntax ParseParenthesizedDesignation()
+    {
+        var openParenToken = ReadToken();
+
+        var elements = new List<GreenNode>();
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        {
+            elements.Add(ParseDesignation());
+
+            while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                elements.Add(commaToken);
+                elements.Add(ParseDesignation());
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return ParenthesizedVariableDesignation(openParenToken, List(elements.ToArray()), closeParenToken);
     }
 
     private TuplePatternElementSyntax ParseTuplePatternElement()

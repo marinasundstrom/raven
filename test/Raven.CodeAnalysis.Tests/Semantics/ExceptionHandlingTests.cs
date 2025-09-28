@@ -12,7 +12,7 @@ public class ExceptionHandlingTests : DiagnosticTestBase
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1015").WithSpan(1, 1, 1, 4)
+                new DiagnosticResult("RAV1015").WithSpan(1, 7, 1, 8)
             ]);
 
         verifier.Verify();

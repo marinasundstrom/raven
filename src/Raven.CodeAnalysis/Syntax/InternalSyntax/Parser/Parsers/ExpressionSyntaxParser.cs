@@ -198,25 +198,45 @@ internal class ExpressionSyntaxParser : SyntaxParser
     {
         int start = this.Position;
 
-        var expr = ParseFactorExpression();
+        PatternSyntax? assignmentPattern = null;
+        ExpressionSyntax? expr = null;
+
+        if (precedence == 0 && TryParseAssignmentPattern(out var pattern))
+        {
+            assignmentPattern = pattern;
+        }
+        else
+        {
+            expr = ParseFactorExpression();
+        }
 
         if (ConsumeToken(SyntaxKind.EqualsToken, out var assignToken))
         {
-            if (expr is not IdentifierNameSyntax
-                and not MemberAccessExpressionSyntax
-                and not MemberBindingExpressionSyntax
-                and not ElementAccessExpressionSyntax)
+            ExpressionOrPatternSyntax leftNode;
+            if (assignmentPattern is not null)
             {
-                AddDiagnostic(
-                    DiagnosticInfo.Create(
-                        CompilerDiagnostics.IdentifierExpected,
-                        GetActualTextSpan(start, expr)
-                    ));
+                leftNode = assignmentPattern;
+            }
+            else
+            {
+                leftNode = expr!;
+
+                if (expr is not IdentifierNameSyntax
+                    and not MemberAccessExpressionSyntax
+                    and not MemberBindingExpressionSyntax
+                    and not ElementAccessExpressionSyntax)
+                {
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetActualTextSpan(start, expr)
+                        ));
+                }
             }
 
             var right = ParseExpressionCore(0);
 
-            return AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, expr, assignToken, right, Diagnostics);
+            return AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, leftNode, assignToken, right, Diagnostics);
         }
 
         while (true)
@@ -234,13 +254,45 @@ internal class ExpressionSyntaxParser : SyntaxParser
             {
                 ReadToken();
                 var right = ParseExpressionCore(prec + 1);
-                expr = BinaryExpression(GetBinaryExpressionKind(operatorCandidate), expr, operatorCandidate, right);
+                expr = BinaryExpression(GetBinaryExpressionKind(operatorCandidate), expr!, operatorCandidate, right);
             }
             else
             {
-                return expr;
+                return expr!;
             }
         }
+    }
+
+    private bool TryParseAssignmentPattern(out PatternSyntax pattern)
+    {
+        pattern = null!;
+
+        if (!IsPossibleAssignmentPatternStart(PeekToken()))
+            return false;
+
+        var checkpoint = CreateCheckpoint("assignment-pattern");
+
+        var parsedPattern = new PatternSyntaxParser(this).ParsePattern();
+
+        if (!PeekToken().IsKind(SyntaxKind.EqualsToken))
+        {
+            checkpoint.Dispose();
+            return false;
+        }
+
+        pattern = parsedPattern;
+        return true;
+    }
+
+    private static bool IsPossibleAssignmentPatternStart(SyntaxToken token)
+    {
+        return token.Kind switch
+        {
+            SyntaxKind.OpenParenToken => true,
+            SyntaxKind.LetKeyword => true,
+            SyntaxKind.VarKeyword => true,
+            _ => false,
+        };
     }
 
     /// <summary>

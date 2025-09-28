@@ -70,4 +70,9 @@ internal abstract partial class SyntaxVisitor
     {
         DefaultVisit(variableDesignation);
     }
+
+    public virtual void VisitExpressionOrPattern(ExpressionOrPatternSyntax expressionOrPattern)
+    {
+        DefaultVisit(expressionOrPattern);
+    }
 }

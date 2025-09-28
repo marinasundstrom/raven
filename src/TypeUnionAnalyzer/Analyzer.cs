@@ -710,7 +710,11 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
     private void AnalyzeAssignmentExpression(SyntaxNodeAnalysisContext context)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
-        var leftSymbol = context.SemanticModel.GetSymbolInfo(assignment.Left).Symbol;
+
+        if (assignment.Left is not ExpressionSyntax leftExpression)
+            return;
+
+        var leftSymbol = context.SemanticModel.GetSymbolInfo(leftExpression).Symbol;
 
         if (leftSymbol is IFieldSymbol or IPropertySymbol)
         {
@@ -726,7 +730,7 @@ public class TypeUnionParameterAnalyzer : DiagnosticAnalyzer
             {
                 var diag = Diagnostic.Create(
                     IncompatibleDeclarationTypeRule,
-                    assignment.Left.GetLocation(),
+                    leftExpression.GetLocation(),
                     $"{(targetSymbol is IPropertySymbol ? "Property" : "Field")} '{targetSymbol.Name}'");
                 context.ReportDiagnostic(diag);
             }
