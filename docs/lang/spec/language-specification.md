@@ -543,11 +543,26 @@ Console.WriteLine(hello + "World!")
 Console.WriteLine("Hello, " + 2)
 ```
 
-String literals recognize the standard escape sequences (`\"`, `\\`, `\n`, and
-so on) as well as Unicode escapes. Use `\uXXXX` or `\UXXXXXXXX` for fixed-width
-hexadecimal escapes, or `\u{...}` for variable-length scalars up to `0x10_FFFF`.
-Each escape expands to the corresponding UTF-16 sequence, so `"\u{1F600}"`
-produces the 😀 emoji.
+String literals recognize the standard escape sequences shown below as well as
+Unicode escapes. Use `\uXXXX` or `\UXXXXXXXX` for fixed-width hexadecimal
+escapes, or `\u{...}` for variable-length scalars up to `0x10_FFFF`. Each escape
+expands to the corresponding UTF-16 sequence, so `"\u{1F600}"` produces the 😀
+emoji.
+
+| Escape | Meaning |
+| --- | --- |
+| `\\0` | Null character |
+| `\\a` | Alert (BEL) |
+| `\\b` | Backspace |
+| `\\t` | Horizontal tab |
+| `\\n` | Line feed |
+| `\\v` | Vertical tab |
+| `\\f` | Form feed |
+| `\\r` | Carriage return |
+| `\\"` | Double quote |
+| `\\'` | Single quote |
+| `\\\\` | Backslash |
+| `\\$` | Literal dollar sign in interpolated strings |
 
 ### String interpolation
 

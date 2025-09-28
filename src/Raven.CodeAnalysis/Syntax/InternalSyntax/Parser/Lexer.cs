@@ -532,8 +532,17 @@ internal class Lexer : ILexer
                     case '\"':
                         _stringBuilder.Append(ch); // Append opening quote
 
-                        while (PeekChar(out ch2))
+                        while (true)
                         {
+                            if (!PeekChar(out ch2))
+                            {
+                                diagnostics.Add(
+                                    DiagnosticInfo.Create(
+                                        CompilerDiagnostics.NewlineInConstant,
+                                        GetTokenStartPositionSpan()));
+                                break;
+                            }
+
                             ReadChar();
 
                             if (ch2 == '\"') // Found closing quote
@@ -547,21 +556,36 @@ internal class Lexer : ILexer
                                 diagnostics.Add(
                                     DiagnosticInfo.Create(
                                         CompilerDiagnostics.NewlineInConstant,
-                                        GetTokenStartPositionSpan()
-                                    ));
-
+                                        GetTokenStartPositionSpan()));
                                 break;
                             }
 
-                            if (IsEndOfFile) // Check EOF before adding anything
+                            if (ch2 == '\\')
                             {
-                                diagnostics.Add(
-                                    DiagnosticInfo.Create(
-                                        CompilerDiagnostics.NewlineInConstant,
-                                        GetTokenStartPositionSpan()
-                                    ));
+                                _stringBuilder.Append(ch2);
 
-                                break;
+                                if (!PeekChar(out var escaped))
+                                {
+                                    diagnostics.Add(
+                                        DiagnosticInfo.Create(
+                                            CompilerDiagnostics.NewlineInConstant,
+                                            GetTokenStartPositionSpan()));
+                                    break;
+                                }
+
+                                ReadChar();
+
+                                if (IsEndOfLine(escaped))
+                                {
+                                    diagnostics.Add(
+                                        DiagnosticInfo.Create(
+                                            CompilerDiagnostics.NewlineInConstant,
+                                            GetTokenStartPositionSpan()));
+                                    break;
+                                }
+
+                                _stringBuilder.Append(escaped);
+                                continue;
                             }
 
                             _stringBuilder.Append(ch2);
