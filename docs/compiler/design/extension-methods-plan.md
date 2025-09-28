@@ -28,25 +28,27 @@ observed when compiling LINQ-heavy samples.
    pipeline trace, confirming no metadata-only gaps before we attempt
    Raven-authored declarations.【F:docs/compiler/design/extension-methods-metadata-pipeline.md†L1-L33】
 4. 🛑 Blocker: teach lambda binding to surface delegate shapes even when overload
-   resolution has multiple candidates.
-   1. ✅ Extended `GetTargetType` so that lambda arguments keep every viable
+   resolution has multiple candidates. Running
+   `src/Raven.Compiler/samples/linq.rav` still reports `RAV1501` and `RAV2200`,
+   so the delegate replay work has not landed in the CLI yet.【395e77†L1-L7】
+   1. 🛠️ Extend `GetTargetType` so that lambda arguments keep every viable
       delegate candidate even when overload resolution hasn't picked a winner,
       allowing ambiguous extension groups to feed `BindLambdaExpression` the
-      full delegate set.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2091-L2223】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L625-L679】
-   2. ✅ Updated `BindLambdaExpression` so lambdas capture every candidate
+      full delegate set.
+   2. 🛠️ Update `BindLambdaExpression` so lambdas capture every candidate
       delegate, stash suppressed `RAV2200` diagnostics, and surface a
       `BoundUnboundLambda` payload that overload resolution can replay in the
-      next step.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1082-L1265】【F:src/Raven.CodeAnalysis/BoundTree/BoundUnboundLambda.cs†L1-L43】
-   3. ✅ Replay lambda binding across overload candidates.
-      1. ✅ Adjusted overload resolution and delegate conversions to rebind
+      next step.
+   3. 🛠️ Replay lambda binding across overload candidates.
+      1. 🛠️ Adjust overload resolution and delegate conversions to rebind
          lambdas under each candidate delegate, mirroring Roslyn's
          `UnboundLambda` pipeline while preserving suppression behavior.
-      2. ✅ Captured lambda replay perf counters so we can monitor cache hit
+      2. 🛠️ Capture lambda replay perf counters so we can monitor cache hit
          rates, rebind attempts, and success ratios while iterating on
          multi-pass binding behavior.
-   4. ✅ Captured semantic tests against both `System.Linq.Enumerable.Where` and
+   4. 🛠️ Capture semantic tests against both `System.Linq.Enumerable.Where` and
       the Raven LINQ fixture to prove implicit lambda parameters bind without
-      diagnostics.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L245-L280】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L354-L398】
+      diagnostics.
    5. 📐 Add a binder integration test that covers nested lambdas (e.g. `Select`
       with a trailing `Where`) to ensure delegate replay composes.
 5. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
