@@ -1626,6 +1626,45 @@ partial class BlockBinder : Binder
 
                     return;
                 }
+            case BoundTuplePattern tuplePattern:
+                {
+                    var tuplePatternType = UnwrapAlias(tuplePattern.Type);
+
+                    if (tuplePatternType.TypeKind == TypeKind.Error)
+                        return;
+
+                    if (!PatternCanMatch(scrutineeType, tuplePatternType))
+                    {
+                        var patternDisplay = GetMatchPatternDisplay(tuplePatternType);
+                        _diagnostics.ReportMatchExpressionArmPatternInvalid(
+                            patternDisplay,
+                            scrutineeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            patternSyntax.GetLocation());
+                        return;
+                    }
+
+                    if (patternSyntax is TuplePatternSyntax tupleSyntax)
+                    {
+                        var elementTypes = GetTupleElementTypes(scrutineeType);
+
+                        if (elementTypes.Length == 0)
+                            elementTypes = GetTupleElementTypes(tuplePatternType);
+
+                        var patternElements = tuplePattern.Elements;
+                        var elementCount = Math.Min(patternElements.Length, tupleSyntax.Elements.Count);
+
+                        for (var i = 0; i < elementCount; i++)
+                        {
+                            var elementType = elementTypes.Length > i
+                                ? elementTypes[i]
+                                : patternElements[i].Type ?? Compilation.ErrorTypeSymbol;
+
+                            EnsureMatchArmPatternValid(elementType, tupleSyntax.Elements[i].Pattern, patternElements[i]);
+                        }
+                    }
+
+                    return;
+                }
         }
     }
 
@@ -1668,6 +1707,25 @@ partial class BlockBinder : Binder
 
         return IsAssignable(patternType, scrutineeType, out _) ||
                IsAssignable(scrutineeType, patternType, out _);
+    }
+
+    private ImmutableArray<ITypeSymbol> GetTupleElementTypes(ITypeSymbol type)
+    {
+        type = UnwrapAlias(type);
+
+        if (type is INamedTypeSymbol named)
+        {
+            var elements = named.TupleElements;
+            if (!elements.IsDefaultOrEmpty)
+                return elements.Select(e => e.Type).ToImmutableArray();
+        }
+
+        if (type is ITupleTypeSymbol tuple)
+        {
+            return tuple.TupleElements.Select(e => e.Type).ToImmutableArray();
+        }
+
+        return ImmutableArray<ITypeSymbol>.Empty;
     }
 
     private void EnsureMatchArmOrder(
@@ -1835,6 +1893,24 @@ partial class BlockBinder : Binder
             case BoundOrPattern orPattern:
                 return IsCatchAllPattern(scrutineeType, orPattern.Left) ||
                        IsCatchAllPattern(scrutineeType, orPattern.Right);
+            case BoundTuplePattern tuplePattern:
+                {
+                    var elementTypes = GetTupleElementTypes(scrutineeType);
+
+                    if (elementTypes.Length == 0 && tuplePattern.Elements.Length == 0)
+                        return true;
+
+                    if (elementTypes.Length != tuplePattern.Elements.Length)
+                        return false;
+
+                    for (var i = 0; i < tuplePattern.Elements.Length; i++)
+                    {
+                        if (!IsCatchAllPattern(elementTypes[i], tuplePattern.Elements[i]))
+                            return false;
+                    }
+
+                    return true;
+                }
         }
 
         return false;
@@ -1880,6 +1956,9 @@ partial class BlockBinder : Binder
             case BoundOrPattern orPattern:
                 RemoveCoveredUnionMembers(remaining, orPattern.Left);
                 RemoveCoveredUnionMembers(remaining, orPattern.Right);
+                break;
+            case BoundTuplePattern tuplePattern:
+                RemoveMembersAssignableToPattern(remaining, tuplePattern.Type);
                 break;
         }
     }

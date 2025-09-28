@@ -961,6 +961,46 @@ internal class ExpressionGenerator : Generator
                 throw new NotSupportedException("Unsupported binary pattern kind");
             }
         }
+        else if (pattern is BoundTuplePattern tuplePattern)
+        {
+            var tupleInterfaceType = typeof(System.Runtime.CompilerServices.ITuple);
+            var lengthGetter = tupleInterfaceType.GetProperty("Length")?.GetMethod;
+            var itemGetter = tupleInterfaceType.GetProperty("Item")?.GetMethod;
+
+            if (lengthGetter is null || itemGetter is null)
+                throw new NotSupportedException("System.Runtime.CompilerServices.ITuple is required to match tuple patterns.");
+
+            var tupleLocal = ILGenerator.DeclareLocal(tupleInterfaceType);
+            var labelFail = ILGenerator.DefineLabel();
+            var labelDone = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Isinst, tupleInterfaceType);
+            ILGenerator.Emit(OpCodes.Dup);
+            ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+            ILGenerator.Emit(OpCodes.Stloc, tupleLocal);
+
+            ILGenerator.Emit(OpCodes.Ldloc, tupleLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, lengthGetter);
+            ILGenerator.Emit(OpCodes.Ldc_I4, tuplePattern.Elements.Length);
+            ILGenerator.Emit(OpCodes.Bne_Un_S, labelFail);
+
+            for (var i = 0; i < tuplePattern.Elements.Length; i++)
+            {
+                ILGenerator.Emit(OpCodes.Ldloc, tupleLocal);
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                ILGenerator.Emit(OpCodes.Callvirt, itemGetter);
+                EmitPattern(tuplePattern.Elements[i], scope);
+                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+            }
+
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.Emit(OpCodes.Br_S, labelDone);
+
+            ILGenerator.MarkLabel(labelFail);
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+
+            ILGenerator.MarkLabel(labelDone);
+        }
         else
         {
             throw new NotSupportedException("Unsupported pattern");

@@ -802,6 +802,12 @@ Patterns compose from the following primitives:
 - `literal` — literal pattern; matches when the scrutinee equals the literal.
   Literal patterns piggyback on Raven's literal types, so `"on"` or `42`
   narrow unions precisely.
+- `(element1, element2, …)` — tuple pattern; matches when the scrutinee is a
+  tuple with the same arity and each element matches the corresponding
+  subpattern. Tuple patterns destructure positionally, so nested patterns may
+  test or bind each element independently. Each element may introduce a name
+  before the colon (for example `(first: int, second: string)`) to bind the
+  matched value while applying the nested subpattern.
 - `pattern1 or pattern2` — alternative; matches when either operand matches.
   Parentheses may be used to group alternatives.
 - `not pattern` — complement; succeeds when the operand fails. `not` does not

@@ -2,6 +2,8 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
@@ -43,6 +45,11 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParsePrimaryPattern()
     {
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            return ParseTuplePattern();
+        }
+
         var type = new NameSyntaxParser(this).ParseTypeName();
 
         // Optionally consume a variable designation
@@ -59,6 +66,28 @@ internal class PatternSyntaxParser : SyntaxParser
         return DeclarationPattern(type, designation);
     }
 
+    private TuplePatternSyntax ParseTuplePattern()
+    {
+        var openParenToken = ReadToken();
+
+        var elementList = new List<GreenNode>();
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        {
+            elementList.Add(ParseTuplePatternElement());
+
+            while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                elementList.Add(commaToken);
+                elementList.Add(ParseTuplePatternElement());
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return TuplePattern(openParenToken, List(elementList.ToArray()), closeParenToken);
+    }
+
     private VariableDesignationSyntax ParseDesignation()
     {
         SyntaxToken identifier;
@@ -71,5 +100,26 @@ internal class PatternSyntaxParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
         return SingleVariableDesignation(identifier);
+    }
+
+    private TuplePatternElementSyntax ParseTuplePatternElement()
+    {
+        NameColonSyntax? nameColon = null;
+
+        if (PeekToken(1).IsKind(SyntaxKind.ColonToken) && CanTokenBeIdentifier(PeekToken()))
+        {
+            var nameToken = ReadToken();
+            if (nameToken.Kind != SyntaxKind.IdentifierToken)
+            {
+                nameToken = ToIdentifierToken(nameToken);
+                UpdateLastToken(nameToken);
+            }
+
+            var colonToken = ReadToken();
+            nameColon = NameColon(IdentifierName(nameToken), colonToken);
+        }
+
+        var pattern = new PatternSyntaxParser(this).ParsePattern();
+        return TuplePatternElement(nameColon, pattern);
     }
 }

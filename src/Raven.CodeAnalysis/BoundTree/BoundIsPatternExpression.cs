@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -123,6 +126,39 @@ internal partial class BoundDeclarationPattern : BoundPattern
     }
 }
 
+internal sealed class BoundTuplePattern : BoundPattern
+{
+    public BoundTuplePattern(
+        ITypeSymbol tupleType,
+        ImmutableArray<BoundPattern> elements,
+        BoundExpressionReason reason = BoundExpressionReason.None)
+        : base(tupleType, reason)
+    {
+        Elements = elements;
+    }
+
+    public ImmutableArray<BoundPattern> Elements { get; }
+
+    public override IEnumerable<BoundDesignator> GetDesignators()
+    {
+        foreach (var element in Elements)
+        {
+            foreach (var designator in element.GetDesignators())
+                yield return designator;
+        }
+    }
+
+    public override void Accept(BoundTreeVisitor visitor)
+    {
+        visitor.DefaultVisit(this);
+    }
+
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
+    {
+        return visitor.DefaultVisit(this);
+    }
+}
+
 internal sealed class BoundConstantPattern : BoundPattern
 {
     public BoundConstantPattern(LiteralTypeSymbol literalType, BoundExpressionReason reason = BoundExpressionReason.None)
@@ -207,6 +243,7 @@ internal partial class BlockBinder
         return syntax switch
         {
             DeclarationPatternSyntax d => BindDeclarationPattern(d),
+            TuplePatternSyntax t => BindTuplePattern(t),
             UnaryPatternSyntax u => BindUnaryPattern(u),
             BinaryPatternSyntax b => BindBinaryPattern(b),
             _ => throw new NotImplementedException($"Unknown pattern kind: {syntax.Kind}")
@@ -246,6 +283,47 @@ internal partial class BlockBinder
         }
 
         return new BoundDeclarationPattern(type.Type, designator);
+    }
+
+    private BoundPattern BindTuplePattern(TuplePatternSyntax syntax)
+    {
+        var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
+
+        foreach (var elementSyntax in syntax.Elements)
+        {
+            var boundElement = BindPattern(elementSyntax.Pattern);
+            boundElement = BindTuplePatternElementDesignation(elementSyntax, boundElement);
+            elementPatterns.Add(boundElement);
+        }
+
+        var tupleElements = new List<(string? name, ITypeSymbol type)>(elementPatterns.Count);
+        foreach (var element in elementPatterns)
+        {
+            var elementType = element.Type ?? Compilation.ErrorTypeSymbol;
+            tupleElements.Add((null, elementType));
+        }
+
+        var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
+
+        return new BoundTuplePattern(tupleType, elementPatterns.ToImmutable());
+    }
+
+    private BoundPattern BindTuplePatternElementDesignation(TuplePatternElementSyntax elementSyntax, BoundPattern pattern)
+    {
+        if (elementSyntax.NameColon is null)
+            return pattern;
+
+        var identifier = elementSyntax.NameColon.Name.Identifier;
+        if (identifier.IsMissing)
+            return pattern;
+
+        if (pattern is not BoundDeclarationPattern declaration || declaration.Designator is not BoundDiscardDesignator)
+            return pattern;
+
+        var local = CreateLocalSymbol(elementSyntax.NameColon.Name, identifier.ValueText, isMutable: false, declaration.DeclaredType);
+        var designator = new BoundSingleVariableDesignator(local);
+
+        return new BoundDeclarationPattern(declaration.DeclaredType, designator, declaration.Reason);
     }
 
     private static bool IsDiscardPatternSyntax(DeclarationPatternSyntax syntax)
