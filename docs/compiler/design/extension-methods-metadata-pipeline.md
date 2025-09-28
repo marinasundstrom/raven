@@ -52,3 +52,12 @@ shapes through overload resolution. We'll return to lowering coverage once the
 new binder plumbing lands so we can record a successful trace for `Where` as
 well.【F:docs/compiler/design/extension-methods-baseline.md†L52-L104】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1056-L1109】
 
+## Regression status
+
+* 2025-09-28 — Running `dotnet test test/Raven.CodeAnalysis.Tests` keeps the
+  metadata-backed `ExtensionMethodsFixture` green, confirming the semantic trace
+  above still reflects the current implementation. The broader suite currently
+  fails earlier in `GlobalForEach_AnalyzesAsImperativeLoop`, so the extension
+  method plan remains blocked on the lambda inference work captured in Stage 2
+  even though the dedicated fixture continues to pass.【a0a663†L1-L2】【acbd56†L13-L33】
+
