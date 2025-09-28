@@ -221,6 +221,24 @@ interface implementation checks and conversions so that, for example,
 `IEnumerable<object>`, while `IComparer<object>` satisfies a requirement for
 `IComparer<string>`.
 
+#### Array interfaces
+
+Array types surface through `System.Array` but Raven augments the metadata so
+that single-dimensional arrays expose the same constructed generic interfaces as
+in C#. When an `T[]` symbol is created, the compiler resolves the generic
+definitions for `IEnumerable<T>`, `ICollection<T>`, `IList<T>`, and their
+read-only counterparts and constructs them using the array's element type. The
+resulting interfaces are cached on the `ArrayTypeSymbol`, ensuring they appear
+in both `Interfaces` and `AllInterfaces` just like metadata arrays.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ArrayTypeSymbol.cs†L70-L135】
+
+This constructed form lets ordinary interface conversions succeed. Semantic
+queries treat `int[]` as implementing `IEnumerable<int>` while still rejecting
+incompatible instantiations such as `IEnumerable<string>`, and multi-dimensional
+arrays fall back to the non-generic `System.Collections.IEnumerable`
+relationship. The behaviour is validated by the existing semantic interface
+tests, which check that `SemanticFacts.ImplementsInterface` recognises an array
+as satisfying the generic interface contracts for its element type.【F:test/Raven.CodeAnalysis.Tests/Symbols/SemanticFactsTests.cs†L96-L135】
+
 Constraint satisfaction is transitive: substituting a constrained type
 parameter for another parameter carries its constraint set. Nullable value
 types (`T?`) do not satisfy the `struct` constraint. Violations produce
