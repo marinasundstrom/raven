@@ -129,6 +129,9 @@ internal sealed class OverloadResolver
             if (argumentType is null)
                 continue;
 
+            if (argumentType.TypeKind == TypeKind.Error)
+                continue;
+
             if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions))
                 return null;
         }
