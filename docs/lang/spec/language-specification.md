@@ -1330,6 +1330,19 @@ var (head, tail: double, _) = numbers()
 (let lhs, var rhs: double, _) = evaluate()
 ```
 
+Existing locals can participate in tuple assignments alongside new
+bindings. Mixed `let`/`var` designations and inline type annotations are
+supported in both declarations and assignments:
+
+```raven
+var first = 0
+var second = 0
+
+(first, second, _) = (1, 2, 3)
+let (third, fourth: double, _) = toTuple()
+var (let fifth, var sixth: double, _) = project()
+```
+
 Use `_` to discard unwanted elements. Nested tuples work the same way:
 
 ```raven
