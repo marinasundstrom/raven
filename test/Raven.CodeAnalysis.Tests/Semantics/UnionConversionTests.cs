@@ -1,3 +1,6 @@
+using System.Linq;
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -146,5 +149,41 @@ func test(flag: bool) {
             new DiagnosticResult("RAV1504").WithAnySpan().WithArguments("2", "\"true\" | 1")
         ]);
         verifier.Verify();
+    }
+
+    [Fact]
+    public void NullLiteral_AssignableToUnionParameter()
+    {
+        var code = """
+func describe(input: string | int | null) {}
+
+describe(null)
+""";
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+}
+
+public class UnionConversionClassificationTests : CompilationTestBase
+{
+    [Fact]
+    public void NullLiteral_ClassifyConversionForUnionParameter_IsImplicit()
+    {
+        var source = """
+func describe(input: string | int | null) -> string { "" }
+
+describe(null)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var parameterType = symbol.Parameters[0].Type;
+        var conversion = compilation.ClassifyConversion(compilation.NullTypeSymbol, parameterType);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
     }
 }

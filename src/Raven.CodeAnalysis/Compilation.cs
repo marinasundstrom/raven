@@ -733,12 +733,26 @@ public class Compilation
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
+        static bool UnionContainsNull(IUnionTypeSymbol union)
+        {
+            foreach (var member in union.Types)
+            {
+                if (member.TypeKind == TypeKind.Null)
+                    return true;
+
+                if (member is IUnionTypeSymbol nested && UnionContainsNull(nested))
+                    return true;
+            }
+
+            return false;
+        }
+
         if (source.TypeKind == TypeKind.Null)
         {
             if (destination.TypeKind == TypeKind.Nullable)
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
-            if (destination is IUnionTypeSymbol unionDest && unionDest.Types.Any(t => t.TypeKind == TypeKind.Null))
+            if (destination is IUnionTypeSymbol unionDest && UnionContainsNull(unionDest))
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
             return Conversion.None;
