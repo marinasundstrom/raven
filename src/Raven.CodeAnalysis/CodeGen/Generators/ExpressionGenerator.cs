@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -540,6 +541,12 @@ internal class ExpressionGenerator : Generator
             return;
         }
 
+        if (to is IUnionTypeSymbol unionTo)
+        {
+            EmitUnionConversion(from, unionTo);
+            return;
+        }
+
         if (conversion.IsNumeric)
         {
             EmitNumericConversion(to);
@@ -573,6 +580,108 @@ internal class ExpressionGenerator : Generator
         }
 
         throw new NotSupportedException("Unsupported conversion");
+    }
+
+    private void EmitUnionConversion(ITypeSymbol from, IUnionTypeSymbol unionTo)
+    {
+        var targetClrType = ResolveClrType(unionTo);
+        var nullableUnderlying = Nullable.GetUnderlyingType(targetClrType);
+
+        if (nullableUnderlying is not null)
+        {
+            EmitNullableUnionConversion(from, unionTo, nullableUnderlying, targetClrType);
+            return;
+        }
+
+        if (from.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(from));
+    }
+
+    private void EmitNullableUnionConversion(
+        ITypeSymbol from,
+        IUnionTypeSymbol unionTo,
+        Type underlyingClrType,
+        Type nullableClrType)
+    {
+        if (from.TypeKind == TypeKind.Null)
+        {
+            EmitDefaultValue(unionTo);
+            return;
+        }
+
+        var nonNullMembers = new List<ITypeSymbol>();
+        foreach (var member in FlattenUnionMembers(unionTo))
+        {
+            if (member.TypeKind == TypeKind.Null)
+                continue;
+
+            var normalized = UnwrapUnionMember(member);
+            if (!nonNullMembers.Any(existing => SymbolEqualityComparer.Default.Equals(existing, normalized)))
+                nonNullMembers.Add(normalized);
+        }
+
+        if (nonNullMembers.Count != 1)
+            throw new NotSupportedException("Unsupported conversion to nullable union type");
+
+        var underlyingSymbol = nonNullMembers[0];
+
+        if (!SymbolEqualityComparer.Default.Equals(from, underlyingSymbol))
+        {
+            var underlyingConversion = Compilation.ClassifyConversion(from, underlyingSymbol);
+            if (!underlyingConversion.Exists)
+                throw new NotSupportedException("Unsupported conversion to nullable union underlying type");
+
+            EmitConversion(from, underlyingSymbol, underlyingConversion);
+        }
+
+        var valueLocal = ILGenerator.DeclareLocal(underlyingClrType);
+        var nullableLocal = ILGenerator.DeclareLocal(nullableClrType);
+
+        ILGenerator.Emit(OpCodes.Stloc, valueLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, nullableLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+
+        var ctor = nullableClrType.GetConstructor(new[] { underlyingClrType })
+            ?? throw new InvalidOperationException($"Missing Nullable constructor for {nullableClrType}");
+
+        ILGenerator.Emit(OpCodes.Call, ctor);
+        ILGenerator.Emit(OpCodes.Ldloc, nullableLocal);
+    }
+
+    private static IEnumerable<ITypeSymbol> FlattenUnionMembers(ITypeSymbol type)
+    {
+        if (type is IUnionTypeSymbol union)
+        {
+            foreach (var member in union.Types)
+            {
+                foreach (var nested in FlattenUnionMembers(member))
+                    yield return nested;
+            }
+
+            yield break;
+        }
+
+        yield return type;
+    }
+
+    private static ITypeSymbol UnwrapUnionMember(ITypeSymbol type)
+    {
+        while (true)
+        {
+            if (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+            {
+                type = alias;
+                continue;
+            }
+
+            if (type is LiteralTypeSymbol literal)
+            {
+                type = literal.UnderlyingType;
+                continue;
+            }
+
+            return type;
+        }
     }
 
     private void EmitNullableConversion(ITypeSymbol from, NullableTypeSymbol nullableTo)
