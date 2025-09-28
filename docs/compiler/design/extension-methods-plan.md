@@ -4,6 +4,13 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
+> **Next step.** Unblock Stage&nbsp;2 by teaching lambda binding to keep every
+> viable delegate candidate even when overload resolution is ambiguous, then
+> replay those lambdas during overload resolution. Completing this work enables
+> the LINQ samples in `src/Raven.Compiler/samples/linq.rav` to progress past the
+> current `RAV1501` and `RAV2200` diagnostics and lets us continue validating
+> metadata-backed extensions.
+
 ## 1. Baseline assessment ✅
 
 * Documented the current binder, lowering, and emitter behavior for metadata
