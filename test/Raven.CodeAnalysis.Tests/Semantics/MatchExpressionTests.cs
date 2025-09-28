@@ -1,6 +1,7 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
@@ -318,6 +319,64 @@ let result = match input {
 """;
 
         var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithTuplePattern_BindsTupleElements()
+    {
+        const string code = """
+let pair: object = (1, "two")
+
+let result = match pair {
+    (int first, string second) => second
+    _ => ""
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "tuple_match",
+                [tree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var tuplePattern = Assert.IsType<BoundTuplePattern>(boundMatch.Arms[0].Pattern);
+        Assert.Equal(2, tuplePattern.Elements.Length);
+
+        var firstElement = Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[0]);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstElement.Designator);
+        Assert.Equal("first", firstDesignator.Local.Name);
+
+        var secondElement = Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[1]);
+        var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(secondElement.Designator);
+        Assert.Equal("second", secondDesignator.Local.Name);
+
+        var tupleType = Assert.IsAssignableFrom<ITupleTypeSymbol>(tuplePattern.Type);
+        Assert.Equal(2, tupleType.TupleElements.Length);
+    }
+
+    [Fact]
+    public void MatchExpression_WithTuplePatternLengthMismatch_ReportsDiagnostic()
+    {
+        const string code = """
+let pair: (int, int) = (1, 2)
+
+let result = match pair {
+    (int a, int b, int c) => c
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("for type '(int, int, int)'", "(int, int)")]);
 
         verifier.Verify();
     }
