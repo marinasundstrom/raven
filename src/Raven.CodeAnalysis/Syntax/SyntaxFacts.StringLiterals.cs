@@ -38,6 +38,9 @@ public static partial class SyntaxFacts
                 case '\"':
                     builder.Append('\"');
                     break;
+                case '\'':
+                    builder.Append('\'');
+                    break;
                 case '\\':
                     builder.Append('\\');
                     break;

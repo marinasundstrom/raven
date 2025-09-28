@@ -59,4 +59,50 @@ public class InterpolatedStringTests
         var trailingText = Assert.IsType<InterpolatedStringTextSyntax>(interpolated.Contents[^1]);
         Assert.Equal(" بالعالم", trailingText.Token.ValueText);
     }
+
+    [Fact]
+    public void InterpolatedStringText_AllowsEscapedQuotes()
+    {
+        var source = "let s = \"Saw \\\"${text}\\\"\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var leading = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("Saw \"", leading.Token.ValueText);
+            },
+            second => Assert.IsType<InterpolationSyntax>(second),
+            third =>
+            {
+                var trailing = Assert.IsType<InterpolatedStringTextSyntax>(third);
+                Assert.Equal("\"", trailing.Token.ValueText);
+            });
+    }
+
+    [Fact]
+    public void InterpolatedStringText_AllowsEscapedSingleQuotesAndTabs()
+    {
+        var source = "let s = \"It\\'s ${text}\\'\\t\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var leading = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("It's ", leading.Token.ValueText);
+            },
+            second => Assert.IsType<InterpolationSyntax>(second),
+            third =>
+            {
+                var trailing = Assert.IsType<InterpolatedStringTextSyntax>(third);
+                Assert.Equal("'" + "\t", trailing.Token.ValueText);
+            });
+    }
 }
