@@ -21,6 +21,29 @@ public class TypeSymbolInterfacesTests
     }
 
     [Fact]
+    public void Array_AllInterfaces_IncludeIEnumerables()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var array = compilation.CreateArrayTypeSymbol(intType);
+
+        Assert.Contains(
+            array.AllInterfaces,
+            i =>
+            {
+                var typeArguments = i.TypeArguments;
+                return i.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
+                    && !typeArguments.IsDefault
+                    && typeArguments.Length == 1
+                    && SymbolEqualityComparer.Default.Equals(typeArguments[0], intType);
+            });
+        Assert.Contains(array.AllInterfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
+        Assert.Contains(array.Interfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
+    }
+
+    [Fact]
     public void Interfaces_ExcludeInheritedInterfaces()
     {
         var source = @"interface IA {} interface IB : IA {} class C : IB {}";
