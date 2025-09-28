@@ -11,6 +11,7 @@ internal sealed class Lowerer : BoundTreeRewriter
     private readonly ISymbol _containingSymbol;
     private readonly Stack<(ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _loopStack = new();
     private int _labelCounter;
+    private int _tempCounter;
 
     private Lowerer(ISymbol containingSymbol)
     {
@@ -63,6 +64,63 @@ internal sealed class Lowerer : BoundTreeRewriter
         }
 
         return new BoundInvocationExpression(node.Method, arguments, receiver, extensionReceiver);
+    }
+
+    public override BoundNode? VisitMatchExpression(BoundMatchExpression node)
+    {
+        var compilation = GetCompilation();
+        var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+
+        var scrutinee = (BoundExpression)VisitExpression(node.Expression)!;
+        var scrutineeType = scrutinee.Type ?? compilation.ErrorTypeSymbol;
+        var scrutineeLocal = CreateTempLocal("match_scrutinee", scrutineeType, isMutable: false);
+
+        var statements = new List<BoundStatement>
+        {
+            new BoundLocalDeclarationStatement([
+                new BoundVariableDeclarator(scrutineeLocal, scrutinee)
+            ])
+        };
+
+        var resultType = node.Type ?? compilation.ErrorTypeSymbol;
+        var resultLocal = CreateTempLocal("match_result", resultType, isMutable: true);
+        statements.Add(new BoundLocalDeclarationStatement([
+            new BoundVariableDeclarator(resultLocal, initializer: null)
+        ]));
+
+        var endLabel = CreateLabel("match_end");
+
+        foreach (var arm in node.Arms)
+        {
+            var pattern = (BoundPattern)VisitPattern(arm.Pattern);
+            var guard = (BoundExpression?)VisitExpression(arm.Guard);
+            var expression = (BoundExpression)VisitExpression(arm.Expression)!;
+
+            expression = ApplyConversionIfNeeded(expression, resultType, compilation);
+
+            BoundStatement armResult = new BoundBlockStatement([
+                new BoundExpressionStatement(new BoundLocalAssignmentExpression(resultLocal, expression)),
+                new BoundGotoStatement(endLabel)
+            ]);
+
+            if (guard is not null)
+            {
+                armResult = new BoundIfStatement(guard, armResult, null);
+            }
+
+            var condition = new BoundIsPatternExpression(
+                new BoundLocalAccess(scrutineeLocal),
+                pattern,
+                booleanType);
+
+            statements.Add(new BoundIfStatement(condition, armResult, null));
+        }
+
+        statements.Add(CreateLabelStatement(endLabel));
+        statements.Add(new BoundExpressionStatement(new BoundLocalAccess(resultLocal)));
+
+        return new BoundBlockExpression(statements, unitType);
     }
 
     public override BoundNode? VisitIfStatement(BoundIfStatement node)
@@ -142,8 +200,42 @@ internal sealed class Lowerer : BoundTreeRewriter
             [Location.None], Array.Empty<SyntaxReference>());
     }
 
+    private SourceLocalSymbol CreateTempLocal(string nameHint, ITypeSymbol type, bool isMutable)
+    {
+        var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
+        var containingNamespace = _containingSymbol.ContainingNamespace;
+        var name = $"<{nameHint}>__{_tempCounter++}";
+        return new SourceLocalSymbol(name, type, isMutable, _containingSymbol, containingType, containingNamespace,
+            [Location.None], Array.Empty<SyntaxReference>());
+    }
+
     private static BoundStatement CreateLabelStatement(ILabelSymbol label)
     {
         return new BoundLabeledStatement(label, new BoundBlockStatement(Array.Empty<BoundStatement>()));
+    }
+
+    private Compilation GetCompilation()
+    {
+        if (_containingSymbol.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
+            return sourceAssembly.Compilation;
+
+        throw new InvalidOperationException("Lowering requires a source assembly containing symbol.");
+    }
+
+    private static BoundExpression ApplyConversionIfNeeded(BoundExpression expression, ITypeSymbol targetType, Compilation compilation)
+    {
+        if (targetType is null)
+            return expression;
+
+        var sourceType = expression.Type ?? compilation.ErrorTypeSymbol;
+
+        if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+            return expression;
+
+        var conversion = compilation.ClassifyConversion(sourceType, targetType);
+        if (!conversion.Exists || conversion.IsIdentity)
+            return expression;
+
+        return new BoundCastExpression(expression, targetType, conversion);
     }
 }
