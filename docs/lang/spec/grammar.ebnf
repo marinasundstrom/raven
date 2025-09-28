@@ -142,19 +142,29 @@ ForStatement             ::= 'for' 'each'? Identifier 'in' Expression Statement 
 
 Expression               ::= AssignmentExpression ;
 
-AssignmentExpression     ::= Assignable AssignmentOperator AssignmentExpression
+AssignmentExpression     ::= AssignmentTarget AssignmentOperator AssignmentExpression
                            | ConditionalNullCoalesceExpression ;
 
 AssignmentOperator       ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' ;
 
+AssignmentTarget         ::= Assignable | Pattern ;
+
 Assignable               ::= Identifier
                            | MemberAccessExpression
                            | MemberBindingExpression
-                           | ElementAccessExpression
-                           | TupleDeconstruction ;
+                           | ElementAccessExpression ;
 
-TupleDeconstruction      ::= '(' DeconstructionElement {',' DeconstructionElement} ')' ;
-DeconstructionElement    ::= Identifier | '_' | TupleDeconstruction ;
+Pattern                  ::= VariablePattern | DeclarationPattern | TuplePattern ;
+
+VariablePattern          ::= ('let' | 'var') VariableDesignation ;
+DeclarationPattern       ::= Type VariableDesignation ;
+TuplePattern             ::= '(' PatternElement {',' PatternElement} ')' ;
+PatternElement           ::= [Identifier ':'] Pattern ;
+
+VariableDesignation      ::= VariableDesignationCore [':' Type] ;
+VariableDesignationCore  ::= Identifier | ParenthesizedVariableDesignation ;
+ParenthesizedVariableDesignation
+                           ::= '(' VariableDesignation {',' VariableDesignation} ')' ;
 
 ConditionalNullCoalesceExpression
                            ::= LogicalOrExpression {'??' LogicalOrExpression} ;

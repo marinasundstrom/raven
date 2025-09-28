@@ -45,6 +45,14 @@
     Title="The left-hand side of an assignment must be a variable, property or indexer"
     Message="The left-hand side of an assignment must be a variable, property or indexer"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0132" Identifier="TupleDeconstructionRequiresTupleType"
+    Title="Cannot deconstruct non-tuple type"
+    Message="Cannot deconstruct type '{typeName}' because it is not a tuple type"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0133" Identifier="TupleDeconstructionElementCountMismatch"
+    Title="Deconstruction element count mismatch"
+    Message="Deconstruction pattern expects {expectedCount} element(s) but the right-hand side contains {actualCount}"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0149" Identifier="MethodNameExpected" Title="Method name expected"
     Message="Method name expected" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />

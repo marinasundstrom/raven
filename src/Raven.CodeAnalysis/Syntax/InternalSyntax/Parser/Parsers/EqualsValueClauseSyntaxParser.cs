@@ -11,12 +11,16 @@ internal class EqualsValueClauseSyntaxParser : SyntaxParser
     {
         var equalsToken = ReadToken();
 
-        // Ensure that any newline following the '=' is treated as trivia so the
-        // initializer expression can continue on the next line without being
-        // prematurely terminated.
-        SetTreatNewlinesAsTokens(false);
+        // Ensure that newlines terminate the initializer so subsequent statements
+        // (such as tuple assignments) aren't consumed as part of the expression.
+        var previous = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(true);
+
+        ConvertLeadingNewlinesToTrivia();
 
         var expr = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(previous);
 
         if (expr.IsMissing)
         {

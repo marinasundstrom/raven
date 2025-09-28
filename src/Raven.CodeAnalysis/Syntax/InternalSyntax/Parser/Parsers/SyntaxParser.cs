@@ -279,7 +279,7 @@ internal class SyntaxParser : ParseContext
         GetBaseContext()._pendingTrivia.Add(trivia);
     }
 
-    private BaseParseContext GetBaseContext()
+    protected BaseParseContext GetBaseContext()
     {
         ParseContext ctx = this;
         while (ctx is not BaseParseContext)
@@ -288,6 +288,39 @@ internal class SyntaxParser : ParseContext
         }
 
         return (BaseParseContext)ctx;
+    }
+
+    protected void ConvertLeadingNewlinesToTrivia()
+    {
+        var baseContext = GetBaseContext();
+
+        while (true)
+        {
+            var token = PeekToken();
+
+            SyntaxKind triviaKind;
+            switch (token.Kind)
+            {
+                case SyntaxKind.NewLineToken:
+                    triviaKind = SyntaxKind.EndOfLineTrivia;
+                    break;
+                case SyntaxKind.LineFeedToken:
+                    triviaKind = SyntaxKind.LineFeedTrivia;
+                    break;
+                case SyntaxKind.CarriageReturnToken:
+                    triviaKind = SyntaxKind.CarriageReturnTrivia;
+                    break;
+                case SyntaxKind.CarriageReturnLineFeedToken:
+                    triviaKind = SyntaxKind.CarriageReturnLineFeedTrivia;
+                    break;
+                default:
+                    return;
+            }
+
+            var newlineToken = ReadToken();
+            var trivia = SyntaxFactory.Trivia(triviaKind, newlineToken.Text);
+            baseContext._pendingTrivia.Add(trivia);
+        }
     }
 
     private static bool IsNewLineToken(SyntaxToken token)

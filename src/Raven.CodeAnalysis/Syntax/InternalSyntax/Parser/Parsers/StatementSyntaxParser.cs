@@ -480,7 +480,9 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             case SyntaxKind.LetKeyword:
             case SyntaxKind.VarKeyword:
-                return ParseLocalDeclarationStatementSyntax();
+                if (PeekToken(1).Kind != SyntaxKind.OpenParenToken)
+                    return ParseLocalDeclarationStatementSyntax();
+                break;
         }
 
         SetTreatNewlinesAsTokens(false);

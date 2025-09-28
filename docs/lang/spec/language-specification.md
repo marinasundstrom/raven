@@ -1318,6 +1318,24 @@ var y: int = 2
 y = 3
 ```
 
+Tuple patterns let you bind or assign multiple values at once. The outer
+`let`/`var` controls the tuple's mutability, while each element uses a
+designation (possibly nested) to capture or discard the corresponding value.
+Elements may include inline type annotations.
+
+```raven
+let (first, second, _) = (1, 2, 3)
+var (head, tail: double, _) = numbers()
+(first, second, _) = next()
+(let lhs, var rhs: double, _) = evaluate()
+```
+
+Use `_` to discard unwanted elements. Nested tuples work the same way:
+
+```raven
+var ((x, y), let magnitude, _) = samples()
+```
+
 ### Resource declarations (`using`)
 
 Prefixing a local declaration with `using` introduces a scoped disposable resource. The
@@ -1968,7 +1986,8 @@ Lowest → highest (all left-associative unless noted):
 >
 > * `(<expr>)` is a **parenthesized expression** unless a comma appears (including trailing), in which case it’s a **tuple**.
 > * `<` starts **type arguments** only in a **type context**; elsewhere it’s the less-than operator.
-> * The LHS of assignment must be **assignable** (identifier, member access, element access, or tuple deconstruction).
+> * The LHS of assignment must be either an **assignable expression** (identifier, member access, element access, etc.) or a
+>   **pattern** such as a tuple deconstruction.
 
 ## Outstanding questions and suggested follow-ups
 

@@ -31,6 +31,11 @@ public abstract partial class SyntaxVisitor<TResult>
         return default!;
     }
 
+    public TResult VisitExpressionOrPattern(ExpressionOrPatternSyntax node)
+    {
+        return default!;
+    }
+
     public virtual SyntaxTrivia VisitTrivia(SyntaxTrivia syntaxTrivia)
     {
         return syntaxTrivia;

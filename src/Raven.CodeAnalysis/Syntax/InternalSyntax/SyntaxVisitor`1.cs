@@ -80,4 +80,9 @@ internal abstract partial class SyntaxVisitor<TResult>
     {
         return DefaultVisit(variableDesignation);
     }
+
+    public virtual TResult VisitExpressionOrPattern(ExpressionOrPatternSyntax expressionOrPattern)
+    {
+        return DefaultVisit(expressionOrPattern);
+    }
 }

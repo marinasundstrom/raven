@@ -2246,12 +2246,12 @@ partial class BlockBinder : Binder
                         return ResolveType(vds.TypeAnnotation.Type);
                     break;
 
-                case AssignmentExpressionSyntax assign when assign.Right == node:
-                    var left = BindExpression(assign.Left);
+                case AssignmentExpressionSyntax assign when assign.Right == node && assign.Left is ExpressionSyntax leftExpr:
+                    var left = BindExpression(leftExpr);
                     return left.Type;
 
-                case AssignmentStatementSyntax assign when assign.Right.Contains(node):
-                    var leftStmt = BindExpression(assign.Left);
+                case AssignmentStatementSyntax assign when assign.Right.Contains(node) && assign.Left is ExpressionSyntax leftStmtExpr:
+                    var leftStmt = BindExpression(leftStmtExpr);
                     return leftStmt.Type;
 
                 case ReturnStatementSyntax returnStmt:
@@ -4019,6 +4019,351 @@ partial class BlockBinder : Binder
         return bound is BoundAssignmentExpression assignment
             ? new BoundAssignmentStatement(assignment)
             : new BoundExpressionStatement(bound);
+    }
+
+    private BoundExpression BindAssignment(ExpressionOrPatternSyntax leftSyntax, ExpressionSyntax rightSyntax, SyntaxNode node)
+    {
+        if (leftSyntax is ExpressionSyntax leftExpression)
+            return BindAssignment(leftExpression, rightSyntax, node);
+
+        var right = BindExpression(rightSyntax);
+        if (leftSyntax is PatternSyntax patternSyntax)
+            return BindPatternAssignment(patternSyntax, right, node);
+
+        _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+        return new BoundErrorExpression(right.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindPatternAssignment(PatternSyntax patternSyntax, BoundExpression right, SyntaxNode node)
+    {
+        var valueType = right.Type ?? Compilation.ErrorTypeSymbol;
+        var boundPattern = BindPatternForAssignment(patternSyntax, valueType, node);
+
+        if (boundPattern.Reason == BoundExpressionReason.UnsupportedOperation)
+        {
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var assignmentType = right.Type ?? boundPattern.Type ?? Compilation.ErrorTypeSymbol;
+        return new BoundPatternAssignmentExpression(assignmentType, boundPattern, right);
+    }
+
+    private string GetPatternTypeDisplay(ITypeSymbol type)
+    {
+        if (type is LiteralTypeSymbol literal)
+            return literal.UnderlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        return type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat);
+    }
+
+    private BoundPattern BindPatternForAssignment(PatternSyntax patternSyntax, ITypeSymbol valueType, SyntaxNode node)
+    {
+        valueType ??= Compilation.ErrorTypeSymbol;
+
+        switch (patternSyntax)
+        {
+            case VariablePatternSyntax variablePattern:
+                return BindVariablePatternForAssignment(variablePattern, valueType);
+            case TuplePatternSyntax tuplePattern:
+                return BindTuplePatternForAssignment(tuplePattern, valueType);
+            case DeclarationPatternSyntax declaration when IsDiscardPatternSyntax(declaration):
+                return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
+            case DeclarationPatternSyntax declaration:
+                return BindDeclarationPatternForAssignment(declaration, valueType, node);
+            default:
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
+        }
+    }
+
+    private BoundPattern BindVariablePatternForAssignment(VariablePatternSyntax pattern, ITypeSymbol valueType)
+    {
+        var isMutable = pattern.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
+        return BindVariableDesignationForAssignment(pattern.Designation, valueType, isMutable);
+    }
+
+    private BoundPattern BindDeclarationPatternForAssignment(
+        DeclarationPatternSyntax pattern,
+        ITypeSymbol valueType,
+        SyntaxNode node)
+    {
+        if (pattern.Type is IdentifierNameSyntax identifier &&
+            pattern.Designation is SingleVariableDesignationSyntax { Identifier.IsMissing: true })
+        {
+            var name = identifier.Identifier.ValueText;
+
+            if (string.IsNullOrEmpty(name))
+            {
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
+            }
+
+            if (name == "_")
+                return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
+
+            ILocalSymbol? local = null;
+            if (_locals.TryGetValue(name, out var existingLocal))
+            {
+                local = existingLocal.Symbol;
+            }
+            else if (LookupSymbol(name) is ILocalSymbol scopedLocal)
+            {
+                local = scopedLocal;
+            }
+
+            if (local is null)
+            {
+                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, identifier.GetLocation());
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+            }
+
+            if (!local.IsMutable)
+            {
+                _diagnostics.ReportThisValueIsNotMutable(identifier.GetLocation());
+                return new BoundDeclarationPattern(
+                    local.Type ?? Compilation.ErrorTypeSymbol,
+                    new BoundSingleVariableDesignator(local),
+                    BoundExpressionReason.UnsupportedOperation);
+            }
+
+            var targetType = local.Type ?? Compilation.ErrorTypeSymbol;
+            var sourceType = valueType.UnwrapLiteralType() ?? valueType;
+
+            if (targetType.TypeKind != TypeKind.Error &&
+                sourceType.TypeKind != TypeKind.Error &&
+                !IsAssignable(targetType, sourceType, out _))
+            {
+                _diagnostics.ReportCannotAssignFromTypeToType(
+                    GetPatternTypeDisplay(sourceType),
+                    targetType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    identifier.GetLocation());
+
+                return new BoundDeclarationPattern(
+                    targetType,
+                    new BoundSingleVariableDesignator(local),
+                    BoundExpressionReason.TypeMismatch);
+            }
+
+            return new BoundDeclarationPattern(targetType, new BoundSingleVariableDesignator(local));
+        }
+
+        _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+        return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
+    }
+
+    private BoundPattern BindTuplePatternForAssignment(TuplePatternSyntax pattern, ITypeSymbol valueType)
+    {
+        var elements = pattern.Elements;
+        var elementCount = elements.Count;
+
+        var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
+        if (valueType.TypeKind != TypeKind.Error)
+            elementTypes = GetTupleElementTypes(valueType);
+
+        if (elementTypes.IsDefaultOrEmpty)
+        {
+            if (elementCount > 0 && valueType.TypeKind != TypeKind.Error)
+            {
+                _diagnostics.ReportTupleDeconstructionRequiresTupleType(
+                    GetPatternTypeDisplay(valueType),
+                    pattern.GetLocation());
+            }
+
+            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(elementCount);
+            for (var i = 0; i < elementCount; i++)
+                builder.Add(Compilation.ErrorTypeSymbol);
+            elementTypes = builder.ToImmutable();
+        }
+        else if (elementTypes.Length != elementCount)
+        {
+            _diagnostics.ReportTupleDeconstructionElementCountMismatch(
+                elementCount,
+                elementTypes.Length,
+                pattern.GetLocation());
+
+            if (elementTypes.Length < elementCount)
+            {
+                var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(elementCount);
+                builder.AddRange(elementTypes);
+                while (builder.Count < elementCount)
+                    builder.Add(Compilation.ErrorTypeSymbol);
+                elementTypes = builder.ToImmutable();
+            }
+            else
+            {
+                elementTypes = elementTypes.Take(elementCount).ToImmutableArray();
+            }
+        }
+
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(elementCount);
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var elementSyntax = elements[i];
+            var elementType = elementTypes.Length > i ? elementTypes[i] : Compilation.ErrorTypeSymbol;
+            var boundElement = BindPatternForAssignment(elementSyntax.Pattern, elementType, elementSyntax.Pattern);
+            boundElements.Add(boundElement);
+        }
+
+        var tupleElements = new List<(string? name, ITypeSymbol type)>(boundElements.Count);
+        foreach (var element in boundElements)
+        {
+            var elementType = element.Type ?? Compilation.ErrorTypeSymbol;
+            tupleElements.Add((null, elementType));
+        }
+
+        var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
+        return new BoundTuplePattern(tupleType, boundElements.ToImmutable());
+    }
+
+    private BoundPattern BindVariableDesignationForAssignment(
+        VariableDesignationSyntax designation,
+        ITypeSymbol valueType,
+        bool isMutable)
+    {
+        valueType ??= Compilation.ErrorTypeSymbol;
+
+        switch (designation)
+        {
+            case SingleVariableDesignationSyntax single:
+                return BindSingleVariableDesignationForAssignment(single, valueType, isMutable);
+            case ParenthesizedVariableDesignationSyntax parenthesized:
+                return BindParenthesizedDesignationForAssignment(parenthesized, valueType, isMutable);
+            case TypedVariableDesignationSyntax typed:
+                return BindTypedDesignationForAssignment(typed, valueType, isMutable);
+            default:
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(designation.GetLocation());
+                return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
+        }
+    }
+
+    private BoundPattern BindTypedDesignationForAssignment(
+        TypedVariableDesignationSyntax typedDesignation,
+        ITypeSymbol incomingType,
+        bool isMutable)
+    {
+        var declaredType = ResolveType(typedDesignation.TypeAnnotation.Type);
+        declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
+
+        if (incomingType.TypeKind != TypeKind.Error &&
+            declaredType.TypeKind != TypeKind.Error &&
+            !IsAssignable(declaredType, incomingType, out _))
+        {
+            _diagnostics.ReportCannotAssignFromTypeToType(
+                incomingType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                declaredType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                typedDesignation.TypeAnnotation.Type.GetLocation());
+
+            declaredType = Compilation.ErrorTypeSymbol;
+        }
+
+        return BindVariableDesignationForAssignment(typedDesignation.Designation, declaredType, isMutable);
+    }
+
+    private BoundPattern BindSingleVariableDesignationForAssignment(
+        SingleVariableDesignationSyntax single,
+        ITypeSymbol valueType,
+        bool isMutable)
+    {
+        var identifier = single.Identifier;
+
+        var normalizedType = TypeSymbolNormalization.NormalizeForInference(valueType);
+        if (identifier.IsMissing || identifier.ValueText == "_")
+            return new BoundDiscardPattern(normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType);
+
+        var type = normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType;
+        type = EnsureTypeAccessible(type, identifier.GetLocation());
+
+        var local = DeclarePatternLocal(single, identifier.ValueText, isMutable, type);
+        var designator = new BoundSingleVariableDesignator(local);
+
+        return new BoundDeclarationPattern(type, designator);
+    }
+
+    private BoundPattern BindParenthesizedDesignationForAssignment(
+        ParenthesizedVariableDesignationSyntax parenthesized,
+        ITypeSymbol valueType,
+        bool isMutable)
+    {
+        var variables = parenthesized.Variables;
+        var elementCount = variables.Count;
+
+        var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
+        if (valueType.TypeKind != TypeKind.Error)
+            elementTypes = GetTupleElementTypes(valueType);
+
+        if (elementTypes.IsDefaultOrEmpty)
+        {
+            if (elementCount > 0 && valueType.TypeKind != TypeKind.Error)
+            {
+                _diagnostics.ReportTupleDeconstructionRequiresTupleType(
+                    GetPatternTypeDisplay(valueType),
+                    parenthesized.GetLocation());
+            }
+
+            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(elementCount);
+            for (var i = 0; i < elementCount; i++)
+                builder.Add(Compilation.ErrorTypeSymbol);
+            elementTypes = builder.ToImmutable();
+        }
+        else if (elementTypes.Length != elementCount)
+        {
+            _diagnostics.ReportTupleDeconstructionElementCountMismatch(
+                elementCount,
+                elementTypes.Length,
+                parenthesized.GetLocation());
+
+            if (elementTypes.Length < elementCount)
+            {
+                var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(elementCount);
+                builder.AddRange(elementTypes);
+                while (builder.Count < elementCount)
+                    builder.Add(Compilation.ErrorTypeSymbol);
+                elementTypes = builder.ToImmutable();
+            }
+            else
+            {
+                elementTypes = elementTypes.Take(elementCount).ToImmutableArray();
+            }
+        }
+
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(elementCount);
+
+        for (var i = 0; i < elementCount; i++)
+        {
+            var variable = variables[i];
+            var elementType = elementTypes.Length > i ? elementTypes[i] : Compilation.ErrorTypeSymbol;
+            var boundElement = BindVariableDesignationForAssignment(variable, elementType, isMutable);
+            boundElements.Add(boundElement);
+        }
+
+        var tupleElements = new List<(string? name, ITypeSymbol type)>(boundElements.Count);
+        foreach (var element in boundElements)
+        {
+            var elementType = element.Type ?? Compilation.ErrorTypeSymbol;
+            tupleElements.Add((null, elementType));
+        }
+
+        var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
+        return new BoundTuplePattern(tupleType, boundElements.ToImmutable());
+    }
+
+    private ILocalSymbol DeclarePatternLocal(
+        SyntaxNode designationSyntax,
+        string name,
+        bool isMutable,
+        ITypeSymbol type)
+    {
+        if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
+        {
+            _diagnostics.ReportVariableAlreadyDefined(name, designationSyntax.GetLocation());
+            return existing.Symbol;
+        }
+
+        if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            _diagnostics.ReportVariableShadowsOuterScope(name, designationSyntax.GetLocation());
+
+        return CreateLocalSymbol(designationSyntax, name, isMutable, type);
     }
 
     private bool TryGetWritableAutoPropertyBackingField(

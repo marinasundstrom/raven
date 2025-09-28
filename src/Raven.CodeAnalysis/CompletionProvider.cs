@@ -159,7 +159,9 @@ public static class CompletionProvider
                 if (position < assignment.OperatorToken.Span.End)
                     return null;
 
-                return model.GetTypeInfo(assignment.Left).Type;
+                if (assignment.Left is ExpressionSyntax left)
+                    return model.GetTypeInfo(left).Type;
+                return null;
             }
 
             return null;
