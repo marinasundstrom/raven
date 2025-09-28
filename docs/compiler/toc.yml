@@ -52,6 +52,8 @@
       href: development/common-problems.md
     - name: Debugging
       href: development/debugging.md
+    - name: Code generation notes
+      href: development/code-generation.md
     - name: Source generation
       href: development/source-generation.md
     - name: Node generator
