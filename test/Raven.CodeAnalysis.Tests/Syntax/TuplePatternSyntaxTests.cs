@@ -13,7 +13,7 @@ public class TuplePatternSyntaxTests
 let value: object = (1, "two")
 
 let result = match value {
-    (int first, string second) => second
+    (first: int, second: string) => second
     _ => ""
 }
 """;
@@ -22,7 +22,18 @@ let result = match value {
         var match = tree.GetRoot().DescendantNodes().OfType<MatchArmSyntax>().First();
 
         var tuplePattern = Assert.IsType<TuplePatternSyntax>(match.Pattern);
-        Assert.Equal(2, tuplePattern.Patterns.Count);
-        Assert.All(tuplePattern.Patterns, pattern => Assert.IsType<DeclarationPatternSyntax>(pattern));
+        Assert.Equal(2, tuplePattern.Elements.Count);
+
+        Assert.Collection(tuplePattern.Elements,
+            element =>
+            {
+                Assert.Equal("first", element.NameColon?.Name.Identifier.ValueText);
+                Assert.IsType<DeclarationPatternSyntax>(element.Pattern);
+            },
+            element =>
+            {
+                Assert.Equal("second", element.NameColon?.Name.Identifier.ValueText);
+                Assert.IsType<DeclarationPatternSyntax>(element.Pattern);
+            });
     }
 }

@@ -1651,7 +1651,7 @@ partial class BlockBinder : Binder
                             elementTypes = GetTupleElementTypes(tuplePatternType);
 
                         var patternElements = tuplePattern.Elements;
-                        var elementCount = Math.Min(patternElements.Length, tupleSyntax.Patterns.Count);
+                        var elementCount = Math.Min(patternElements.Length, tupleSyntax.Elements.Count);
 
                         for (var i = 0; i < elementCount; i++)
                         {
@@ -1659,7 +1659,7 @@ partial class BlockBinder : Binder
                                 ? elementTypes[i]
                                 : patternElements[i].Type ?? Compilation.ErrorTypeSymbol;
 
-                            EnsureMatchArmPatternValid(elementType, tupleSyntax.Patterns[i], patternElements[i]);
+                            EnsureMatchArmPatternValid(elementType, tupleSyntax.Elements[i].Pattern, patternElements[i]);
                         }
                     }
 

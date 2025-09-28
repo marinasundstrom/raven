@@ -16,7 +16,7 @@ import System.*
 
 func describe(value: object) -> string {
     match value {
-        (int first, int second) => "${first + second}"
+        (first: int, second: int) => "${first + second}"
         _ => "no match"
     }
 }

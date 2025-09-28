@@ -330,7 +330,7 @@ let result = match input {
 let pair: object = (1, "two")
 
 let result = match pair {
-    (int first, string second) => second
+    (first: int, second: string) => second
     _ => ""
 }
 """;

@@ -538,8 +538,12 @@
   </Node>
   <Node Name="TuplePattern" Inherits="Pattern">
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken"/>
-    <Slot Name="Patterns" Type="SeparatedList" ElementType="Pattern" />
+    <Slot Name="Elements" Type="SeparatedList" ElementType="TuplePatternElement" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken"/>
+  </Node>
+  <Node Name="TuplePatternElement" Inherits="Node">
+    <Slot Name="NameColon" Type="NameColon" IsNullable="true" />
+    <Slot Name="Pattern" Type="Pattern" />
   </Node>
   <Node Name="EnumDeclaration" Inherits="BaseTypeDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />

@@ -70,22 +70,22 @@ internal class PatternSyntaxParser : SyntaxParser
     {
         var openParenToken = ReadToken();
 
-        var patternList = new List<GreenNode>();
+        var elementList = new List<GreenNode>();
 
         if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
-            patternList.Add(new PatternSyntaxParser(this).ParsePattern());
+            elementList.Add(ParseTuplePatternElement());
 
             while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
             {
-                patternList.Add(commaToken);
-                patternList.Add(new PatternSyntaxParser(this).ParsePattern());
+                elementList.Add(commaToken);
+                elementList.Add(ParseTuplePatternElement());
             }
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
 
-        return TuplePattern(openParenToken, List(patternList.ToArray()), closeParenToken);
+        return TuplePattern(openParenToken, List(elementList.ToArray()), closeParenToken);
     }
 
     private VariableDesignationSyntax ParseDesignation()
@@ -100,5 +100,26 @@ internal class PatternSyntaxParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
         return SingleVariableDesignation(identifier);
+    }
+
+    private TuplePatternElementSyntax ParseTuplePatternElement()
+    {
+        NameColonSyntax? nameColon = null;
+
+        if (PeekToken(1).IsKind(SyntaxKind.ColonToken) && CanTokenBeIdentifier(PeekToken()))
+        {
+            var nameToken = ReadToken();
+            if (nameToken.Kind != SyntaxKind.IdentifierToken)
+            {
+                nameToken = ToIdentifierToken(nameToken);
+                UpdateLastToken(nameToken);
+            }
+
+            var colonToken = ReadToken();
+            nameColon = NameColon(IdentifierName(nameToken), colonToken);
+        }
+
+        var pattern = new PatternSyntaxParser(this).ParsePattern();
+        return TuplePatternElement(nameColon, pattern);
     }
 }
