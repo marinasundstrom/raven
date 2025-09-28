@@ -59,6 +59,11 @@ observed when compiling LINQ-heavy samples.
       diagnostics.
    5. 📐 Add a binder integration test that covers nested lambdas (e.g. `Select`
       with a trailing `Where`) to ensure delegate replay composes.
+   6. 🔍 **Investigation (2025-03-05).** Re-running the LINQ sample after regenerating syntax still produces the original `RAV1501`/`RAV2200` errors, so the CLI remains blocked on the delegate replay work.【c451ba†L1-L17】 Walking the binders highlights the outstanding tasks:
+      * `GetTargetType` records both metadata `Where` overloads but returns `null` as soon as their delegate shapes diverge, so lambda binding never receives a concrete target delegate for inference.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2094-L2225】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2327-L2410】
+      * `BindLambdaExpression` falls back to `Compilation.ErrorTypeSymbol` for unannotated parameters and only tracks the delegate set inside `BoundUnboundLambda`, leaving overload resolution without a usable shape unless we explicitly replay the lambda per candidate.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1072-L1295】
+      * `OverloadResolver.TryMatch` already exposes a `canBindLambda` hook, but we still need to thread the recorded delegate list through that path so `EnsureLambdaCompatible` can call `ReplayLambda` before a candidate is discarded.【F:src/Raven.CodeAnalysis/OverloadResolver.cs†L12-L85】【F:src/Raven.CodeAnalysis/OverloadResolver.cs†L453-L560】
+      * Once replay succeeds, the conversion pipeline must swap in the rebound lambda (the `ConvertArguments` helper already calls `ReplayLambda`) and only surface the suppressed `RAV2200` diagnostics if every overload fails, mirroring Roslyn’s behavior.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L4008-L4072】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L4254-L4306】
 5. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
    the fixture library and recording whether the `ExpressionGenerator` failure
    is still reachable when we stay within metadata-produced extensions. Capture
