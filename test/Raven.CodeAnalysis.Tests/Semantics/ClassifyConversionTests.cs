@@ -212,12 +212,26 @@ class Foo : IDisposable {
     public void ReferenceConversion_ArrayToGenericIEnumerable_IsImplicit()
     {
         var compilation = CreateCompilation();
-        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var arrayType = compilation.CreateArrayTypeSymbol(intType);
+        var arrayType = compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32));
         var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
         var enumerableOfInt = (INamedTypeSymbol)enumerableDefinition.Construct(intType);
 
         var conversion = compilation.ClassifyConversion(arrayType, enumerableOfInt);
+
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsReference);
+    }
+
+    [Fact]
+    public void ReferenceConversion_ArrayToNonGenericIEnumerable_IsImplicit()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var arrayType = compilation.CreateArrayTypeSymbol(intType);
+        var enumerableType = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable);
+
+        var conversion = compilation.ClassifyConversion(arrayType, enumerableType);
 
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);

@@ -21,7 +21,7 @@ public class TypeSymbolInterfacesTests
     }
 
     [Fact]
-    public void Array_AllInterfaces_IncludesIEnumerableT()
+    public void Array_AllInterfaces_IncludeIEnumerables()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
@@ -34,12 +34,13 @@ public class TypeSymbolInterfacesTests
             i =>
             {
                 var typeArguments = i.TypeArguments;
-                return i.Name == "IEnumerable"
+                return i.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
                     && !typeArguments.IsDefault
                     && typeArguments.Length == 1
                     && SymbolEqualityComparer.Default.Equals(typeArguments[0], intType);
             });
-        Assert.NotEmpty(array.Interfaces);
+        Assert.Contains(array.AllInterfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
+        Assert.Contains(array.Interfaces, i => i.SpecialType == SpecialType.System_Collections_IEnumerable);
     }
 
     [Fact]
