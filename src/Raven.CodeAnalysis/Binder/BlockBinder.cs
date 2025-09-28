@@ -2490,6 +2490,11 @@ partial class BlockBinder : Binder
 
     protected BoundExpression BindTypeSyntax(TypeSyntax syntax)
     {
+        if (syntax is NullTypeSyntax)
+        {
+            return new BoundTypeExpression(Compilation.NullTypeSymbol);
+        }
+
         if (syntax is LiteralTypeSyntax literalType)
         {
             var token = literalType.Token;

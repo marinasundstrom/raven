@@ -34,12 +34,15 @@ internal sealed partial class Lowerer
         foreach (var arm in node.Arms)
         {
             var pattern = arm.Pattern;
-            if (pattern is BoundDeclarationPattern { Type.TypeKind: TypeKind.Error, Designator: BoundDiscardDesignator } &&
-                compilation is { })
+            if (pattern is BoundDeclarationPattern
+                {
+                    Type: NullTypeSymbol,
+                    Designator: BoundDiscardDesignator
+                } declarationPattern)
             {
                 var objectType = compilation.GetSpecialType(SpecialType.System_Object);
                 var literalType = new LiteralTypeSymbol(objectType, constantValue: null!, compilation);
-                pattern = new BoundConstantPattern(literalType);
+                pattern = new BoundConstantPattern(literalType, declarationPattern.Reason);
             }
             var guard = (BoundExpression?)VisitExpression(arm.Guard);
             var expression = (BoundExpression)VisitExpression(arm.Expression)!;

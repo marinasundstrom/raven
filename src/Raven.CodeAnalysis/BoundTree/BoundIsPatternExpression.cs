@@ -237,6 +237,14 @@ internal partial class BlockBinder
             return new BoundConstantPattern(literalType);
         }
 
+        if (type is BoundTypeExpression { TypeSymbol: NullTypeSymbol } &&
+            designator is BoundDiscardDesignator)
+        {
+            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+            var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, Compilation);
+            return new BoundConstantPattern(nullLiteralType);
+        }
+
         return new BoundDeclarationPattern(type.Type, designator);
     }
 
