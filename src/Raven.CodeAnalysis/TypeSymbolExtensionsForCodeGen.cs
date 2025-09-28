@@ -203,6 +203,12 @@ public static class TypeSymbolExtensionsForCodeGen
             SpecialType.System_Type => FromCoreAssembly(compilation, "System.Type"),
             SpecialType.System_ValueTuple_T1 => FromCoreAssembly(compilation, "System.ValueTuple`1"),
             SpecialType.System_ValueTuple_T2 => FromCoreAssembly(compilation, "System.ValueTuple`2"),
+            SpecialType.System_ValueTuple_T3 => FromCoreAssembly(compilation, "System.ValueTuple`3"),
+            SpecialType.System_ValueTuple_T4 => FromCoreAssembly(compilation, "System.ValueTuple`4"),
+            SpecialType.System_ValueTuple_T5 => FromCoreAssembly(compilation, "System.ValueTuple`5"),
+            SpecialType.System_ValueTuple_T6 => FromCoreAssembly(compilation, "System.ValueTuple`6"),
+            SpecialType.System_ValueTuple_T7 => FromCoreAssembly(compilation, "System.ValueTuple`7"),
+            SpecialType.System_ValueTuple_TRest => FromCoreAssembly(compilation, "System.ValueTuple`8"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
     }
