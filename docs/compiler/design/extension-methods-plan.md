@@ -9,7 +9,8 @@ observed when compiling LINQ-heavy samples.
 > replay those lambdas during overload resolution. Completing this work enables
 > the LINQ samples in `src/Raven.Compiler/samples/linq.rav` to progress past the
 > current `RAV1501` and `RAV2200` diagnostics and lets us continue validating
-> metadata-backed extensions.
+> metadata-backed extensions. The binder work is the remaining blocker before we
+> can continue iterating on metadata-backed extension scenarios.
 
 ## 1. Baseline assessment ✅
 
