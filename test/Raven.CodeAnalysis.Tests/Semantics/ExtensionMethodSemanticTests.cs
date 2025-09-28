@@ -678,4 +678,53 @@ let result = number.Apply(value => value > 0)
                 candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
                 candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean });
     }
+
+    [Fact]
+    public void LambdaReplayInstrumentation_WithAmbiguousExtensionCandidates_TracksRebinds()
+    {
+        const string source = """
+import System.*
+import System.Runtime.CompilerServices.*
+
+namespace Sample.Extensions {
+    public static class NumberExtensions {
+        [ExtensionAttribute]
+        public static Apply(value: int, predicate: System.Predicate<int>) -> bool {
+            return predicate(value)
+        }
+
+        [ExtensionAttribute]
+        public static Apply(value: int, predicate: System.Func<int, bool>) -> bool {
+            return predicate(value)
+        }
+    }
+}
+
+let number = 42
+let result = number.Apply(value => value > 0)
+""";
+
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+
+        var (compilation, _) = CreateCompilation(source, options: options);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+
+        var counters = instrumentation.LambdaReplay;
+        Assert.Equal(2, counters.ReplayAttempts);
+        Assert.Equal(2, counters.ReplaySuccesses);
+        Assert.Equal(0, counters.ReplayFailures);
+        Assert.Equal(0, counters.CacheHits);
+        Assert.Equal(2, counters.CacheMisses);
+        Assert.Equal(2, counters.BindingInvocations);
+        Assert.Equal(2, counters.BindingSuccesses);
+        Assert.Equal(0, counters.BindingFailures);
+    }
 }

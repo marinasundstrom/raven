@@ -4094,8 +4094,14 @@ partial class BlockBinder : Binder
 
     private BoundLambdaExpression? ReplayLambda(BoundLambdaExpression lambda, INamedTypeSymbol delegateType)
     {
+        var instrumentation = Compilation.PerformanceInstrumentation.LambdaReplay;
+        instrumentation.RecordReplayAttempt();
+
         if (delegateType.TypeKind != TypeKind.Delegate)
+        {
+            instrumentation.RecordReplayFailure();
             return null;
+        }
 
         var syntax = GetLambdaSyntax(lambda);
 
@@ -4103,24 +4109,39 @@ partial class BlockBinder : Binder
         {
             var key = new LambdaRebindKey(syntax, delegateType);
             if (_reboundLambdaCache.TryGetValue(key, out var cached))
+            {
+                instrumentation.RecordCacheHit();
+                instrumentation.RecordReplaySuccess();
                 return cached;
+            }
+
+            instrumentation.RecordCacheMiss();
         }
 
         BoundLambdaExpression? rebound;
         if (lambda.Unbound is { } unbound)
         {
             rebound = ReplayLambda(unbound, delegateType);
+            if (rebound is null)
+            {
+                instrumentation.RecordReplayFailure();
+                return null;
+            }
+
+            instrumentation.RecordReplaySuccess();
         }
         else if (lambda.IsCompatibleWithDelegate(delegateType, Compilation))
         {
             rebound = lambda;
+            instrumentation.RecordReplaySuccess();
         }
         else
         {
-            rebound = null;
+            instrumentation.RecordReplayFailure();
+            return null;
         }
 
-        if (rebound is not null && syntax is not null)
+        if (syntax is not null && rebound is not null)
             _reboundLambdaCache[new LambdaRebindKey(syntax, delegateType)] = rebound;
 
         return rebound;
@@ -4128,9 +4149,15 @@ partial class BlockBinder : Binder
 
     private BoundLambdaExpression? ReplayLambda(BoundUnboundLambda unbound, INamedTypeSymbol delegateType)
     {
+        var instrumentation = Compilation.PerformanceInstrumentation.LambdaReplay;
+        instrumentation.RecordBindingInvocation();
+
         var invoke = delegateType.GetDelegateInvokeMethod();
         if (invoke is null)
+        {
+            instrumentation.RecordBindingFailure();
             return null;
+        }
 
         var syntax = unbound.Syntax;
         var parameterSyntaxes = syntax switch
@@ -4141,7 +4168,10 @@ partial class BlockBinder : Binder
         };
 
         if (invoke.Parameters.Length != parameterSyntaxes.Length)
+        {
+            instrumentation.RecordBindingFailure();
             return null;
+        }
 
         var parameterSymbols = new List<IParameterSymbol>(parameterSyntaxes.Length);
 
@@ -4185,7 +4215,10 @@ partial class BlockBinder : Binder
             returnType.TypeKind != TypeKind.Error)
         {
             if (!IsAssignable(returnType, inferred, out var conversion))
+            {
+                instrumentation.RecordBindingFailure();
                 return null;
+            }
 
             body = ApplyConversion(body, returnType, conversion, syntax.ExpressionBody);
         }
@@ -4218,6 +4251,7 @@ partial class BlockBinder : Binder
             captured,
             candidateDelegates);
         rebound.AttachUnbound(unbound);
+        instrumentation.RecordBindingSuccess();
         return rebound;
     }
 

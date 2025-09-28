@@ -37,12 +37,13 @@ observed when compiling LINQ-heavy samples.
       delegate, stash suppressed `RAV2200` diagnostics, and surface a
       `BoundUnboundLambda` payload that overload resolution can replay in the
       next step.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1082-L1265】【F:src/Raven.CodeAnalysis/BoundTree/BoundUnboundLambda.cs†L1-L43】
-   3. 🔄 Replay lambda binding across overload candidates.
+   3. ✅ Replay lambda binding across overload candidates.
       1. ✅ Adjusted overload resolution and delegate conversions to rebind
          lambdas under each candidate delegate, mirroring Roslyn's
          `UnboundLambda` pipeline while preserving suppression behavior.
-      2. 🔄 Capture perf counters while iterating to ensure the multi-pass
-         binding does not regress common LINQ scenarios.
+      2. ✅ Captured lambda replay perf counters so we can monitor cache hit
+         rates, rebind attempts, and success ratios while iterating on
+         multi-pass binding behavior.
    4. 📝 Capture unit tests that prove `Enumerable.Where` now compiles without
       explicit parameter annotations using both the LINQ reference and the test
       fixture.【F:docs/compiler/design/extension-methods-baseline.md†L52-L104】

@@ -13,11 +13,13 @@ public class CompilationOptions
     public CompilationOptions(
         OutputKind outputKind,
         ImmutableDictionary<string, ReportDiagnostic>? specificDiagnosticOptions = null,
-        bool runAnalyzers = true)
+        bool runAnalyzers = true,
+        PerformanceInstrumentation? performanceInstrumentation = null)
     {
         OutputKind = outputKind;
         SpecificDiagnosticOptions = specificDiagnosticOptions ?? ImmutableDictionary<string, ReportDiagnostic>.Empty;
         RunAnalyzers = runAnalyzers;
+        PerformanceInstrumentation = performanceInstrumentation ?? PerformanceInstrumentation.Disabled;
     }
 
     public OutputKind OutputKind { get; }
@@ -27,11 +29,16 @@ public class CompilationOptions
     public bool RunAnalyzers { get; }
 
     public CompilationOptions WithSpecificDiagnosticOptions(IDictionary<string, ReportDiagnostic> options)
-        => new(OutputKind, SpecificDiagnosticOptions.SetItems(options), RunAnalyzers);
+        => new(OutputKind, SpecificDiagnosticOptions.SetItems(options), RunAnalyzers, PerformanceInstrumentation);
 
     public CompilationOptions WithSpecificDiagnosticOption(string diagnosticId, ReportDiagnostic option)
-        => new(OutputKind, SpecificDiagnosticOptions.SetItem(diagnosticId, option), RunAnalyzers);
+        => new(OutputKind, SpecificDiagnosticOptions.SetItem(diagnosticId, option), RunAnalyzers, PerformanceInstrumentation);
 
     public CompilationOptions WithRunAnalyzers(bool runAnalyzers)
-        => new(OutputKind, SpecificDiagnosticOptions, runAnalyzers);
+        => new(OutputKind, SpecificDiagnosticOptions, runAnalyzers, PerformanceInstrumentation);
+
+    public PerformanceInstrumentation PerformanceInstrumentation { get; }
+
+    public CompilationOptions WithPerformanceInstrumentation(PerformanceInstrumentation? instrumentation)
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, instrumentation ?? PerformanceInstrumentation.Disabled);
 }
