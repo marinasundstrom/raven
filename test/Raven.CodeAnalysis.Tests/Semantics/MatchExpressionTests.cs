@@ -259,6 +259,26 @@ let result = match state {
     }
 
     [Fact]
+    public void MatchExpression_WithUnionScrutineeAndGuard_NotExhaustiveWithoutCatchAll()
+    {
+        const string code = """
+let input: string | int | null = ""
+
+let result = match input {
+    null => "Nothing to report."
+    string text when text.Length > 0 => "Saw \"${text}\""
+    int number => "Counted ${number}"
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """
