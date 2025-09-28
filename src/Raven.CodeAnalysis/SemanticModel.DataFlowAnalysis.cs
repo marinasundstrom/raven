@@ -11,28 +11,35 @@ public partial class SemanticModel
     {
         if (expression is BlockSyntax block && block.Statements.Count > 0)
         {
-            var whileExpr = block.Parent?.Parent as WhileExpressionSyntax;
-            var st = whileExpr?.Parent as ExpressionStatementSyntax;
-            var globalStmt = st?.Parent as GlobalStatementSyntax;
+            SyntaxNode? loop = block.Parent;
 
-            if (globalStmt is not null && globalStmt.Parent is CompilationUnitSyntax compilationUnit)
+            if (loop is not WhileExpressionSyntax && loop is not ForExpressionSyntax)
+                loop = loop?.Parent;
+
+            if (loop is WhileExpressionSyntax or ForExpressionSyntax)
             {
-                var globalStatements = compilationUnit.Members.OfType<GlobalStatementSyntax>().ToList();
-                var index = globalStatements.IndexOf(globalStmt);
+                var st = loop.Parent as ExpressionStatementSyntax;
+                var globalStmt = st?.Parent as GlobalStatementSyntax;
 
-                var assignedBefore = new HashSet<ISymbol>();
-                for (int i = 0; i < index; i++)
+                if (globalStmt is not null && globalStmt.Parent is CompilationUnitSyntax compilationUnit)
                 {
-                    var stmt = globalStatements[i].Statement;
-                    var preCollector = new AssignmentCollector(this);
-                    preCollector.Visit(stmt);
-                    assignedBefore.UnionWith(preCollector.Written);
-                }
+                    var globalStatements = compilationUnit.Members.OfType<GlobalStatementSyntax>().ToList();
+                    var index = globalStatements.IndexOf(globalStmt);
 
-                var walker = new DataFlowWalker(this);
-                walker.SetInitialAssigned(assignedBefore);
-                walker.Visit(globalStmt.Statement);
-                return walker.ToResult();
+                    var assignedBefore = new HashSet<ISymbol>();
+                    for (int i = 0; i < index; i++)
+                    {
+                        var stmt = globalStatements[i].Statement;
+                        var preCollector = new AssignmentCollector(this);
+                        preCollector.Visit(stmt);
+                        assignedBefore.UnionWith(preCollector.Written);
+                    }
+
+                    var walker = new DataFlowWalker(this);
+                    walker.SetInitialAssigned(assignedBefore);
+                    walker.Visit(block);
+                    return walker.ToResult();
+                }
             }
         }
 
@@ -122,8 +129,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
     {
         foreach (var declarator in node.Declaration.Declarators)
         {
-            var bound = _semanticModel.GetBoundNode(declarator) as BoundLocalAccess;
-            if (bound?.Symbol is ILocalSymbol local)
+            if (_semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
                 Written.Add(local);
         }
 
@@ -177,8 +183,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode(node) as BoundLocalAccess;
-        if (bound?.Symbol is ILocalSymbol symbol)
+        if (_semanticModel.GetDeclaredSymbol(node) is ILocalSymbol symbol)
             _variablesDeclared.Add(symbol);
 
         base.VisitVariableDeclarator(node);
