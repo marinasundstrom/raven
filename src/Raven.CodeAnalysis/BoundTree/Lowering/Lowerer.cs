@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -28,110 +27,6 @@ internal sealed partial class Lowerer : BoundTreeRewriter
     {
         var lowerer = new Lowerer(containingSymbol);
         return (BoundStatement)lowerer.VisitStatement(statement);
-    }
-
-    public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
-    {
-        var statements = new List<BoundStatement>();
-
-        foreach (var statement in node.Statements)
-        {
-            statements.Add((BoundStatement)VisitStatement(statement));
-        }
-
-        return new BoundBlockStatement(statements, node.LocalsToDispose);
-    }
-
-    public override BoundNode? VisitInvocationExpression(BoundInvocationExpression node)
-    {
-        var receiver = (BoundExpression?)VisitExpression(node.Receiver);
-        var arguments = node.Arguments.Select(a => (BoundExpression)VisitExpression(a)!).ToArray();
-
-        BoundExpression? extensionReceiver = null;
-        if (node.ExtensionReceiver is not null)
-        {
-            extensionReceiver = ReferenceEquals(node.ExtensionReceiver, node.Receiver)
-                ? receiver
-                : (BoundExpression?)VisitExpression(node.ExtensionReceiver);
-        }
-
-        if (node.Method.IsExtensionMethod && extensionReceiver is not null)
-        {
-            var loweredArguments = new BoundExpression[arguments.Length + 1];
-            loweredArguments[0] = extensionReceiver;
-            Array.Copy(arguments, 0, loweredArguments, 1, arguments.Length);
-            return new BoundInvocationExpression(node.Method, loweredArguments, receiver: null);
-        }
-
-        return new BoundInvocationExpression(node.Method, arguments, receiver, extensionReceiver);
-    }
-
-    public override BoundNode? VisitIfStatement(BoundIfStatement node)
-    {
-        var condition = (BoundExpression)VisitExpression(node.Condition)!;
-        var thenStatement = (BoundStatement)VisitStatement(node.ThenNode);
-        var elseStatement = node.ElseNode is null ? null : (BoundStatement)VisitStatement(node.ElseNode);
-
-        if (elseStatement is null)
-        {
-            var endLabel = CreateLabel("if_end");
-            return new BoundBlockStatement([
-                new BoundConditionalGotoStatement(endLabel, condition, jumpIfTrue: false),
-                thenStatement,
-                CreateLabelStatement(endLabel),
-            ]);
-        }
-        else
-        {
-            var elseLabel = CreateLabel("if_else");
-            var endLabel = CreateLabel("if_end");
-            return new BoundBlockStatement([
-                new BoundConditionalGotoStatement(elseLabel, condition, jumpIfTrue: false),
-                thenStatement,
-                new BoundGotoStatement(endLabel),
-                new BoundLabeledStatement(elseLabel, elseStatement),
-                CreateLabelStatement(endLabel),
-            ]);
-        }
-    }
-
-    public override BoundNode? VisitWhileStatement(BoundWhileStatement node)
-    {
-        var breakLabel = CreateLabel("while_break");
-        var continueLabel = CreateLabel("while_continue");
-
-        var condition = (BoundExpression)VisitExpression(node.Condition)!;
-
-        _loopStack.Push((breakLabel, continueLabel));
-        var body = (BoundStatement)VisitStatement(node.Body);
-        _loopStack.Pop();
-
-        return new BoundBlockStatement([
-            new BoundLabeledStatement(continueLabel, new BoundBlockStatement([
-                new BoundConditionalGotoStatement(breakLabel, condition, jumpIfTrue: false),
-            ])),
-            body,
-            new BoundGotoStatement(continueLabel, isBackward: true),
-            CreateLabelStatement(breakLabel),
-        ]);
-    }
-
-    public override BoundNode? VisitBreakStatement(BoundBreakStatement node)
-    {
-        if (_loopStack.Count == 0)
-            return base.VisitBreakStatement(node);
-
-        var (breakLabel, _) = _loopStack.Peek();
-        return new BoundGotoStatement(breakLabel);
-    }
-
-    public override BoundNode? VisitContinueStatement(BoundContinueStatement node)
-    {
-        if (_loopStack.Count == 0)
-            return base.VisitContinueStatement(node);
-
-        var (_, continueLabel) = _loopStack.Peek();
-        return new BoundGotoStatement(continueLabel, isBackward: true);
     }
 
     private ILabelSymbol CreateLabel(string prefix)
