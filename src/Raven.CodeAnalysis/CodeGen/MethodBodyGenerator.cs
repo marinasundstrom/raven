@@ -507,6 +507,23 @@ internal class MethodBodyGenerator
             base.VisitLocalDeclarationStatement(node);
         }
 
+        public override void VisitAssignmentStatement(BoundAssignmentStatement node)
+        {
+            if (node.Expression is BoundPatternAssignmentExpression patternAssignment)
+            {
+                foreach (var designator in patternAssignment.Pattern.GetDesignators())
+                {
+                    if (designator is BoundSingleVariableDesignator single &&
+                        !Locals.Any(l => SymbolEqualityComparer.Default.Equals(l, single.Local)))
+                    {
+                        Locals.Add(single.Local);
+                    }
+                }
+            }
+
+            base.VisitAssignmentStatement(node);
+        }
+
         public override void VisitLambdaExpression(BoundLambdaExpression node)
         {
             foreach (var symbol in node.CapturedVariables)

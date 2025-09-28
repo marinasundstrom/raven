@@ -1596,10 +1596,177 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Callvirt, setter2);
                 break;
 
+            case BoundPatternAssignmentExpression patternAssignmentExpression:
+                EmitPatternAssignmentExpression(patternAssignmentExpression);
+                break;
+
             default:
                 throw new NotSupportedException($"Unknown BoundAssignmentExpression: {node.GetType().Name}");
         }
     }
+
+    private void EmitPatternAssignmentExpression(BoundPatternAssignmentExpression node)
+    {
+        EmitExpression(node.Right);
+
+        var valueType = GetPatternValueType(node.Right.Type) ?? GetPatternValueType(node.Pattern.Type);
+
+        if (valueType is null || valueType.TypeKind == TypeKind.Error)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            return;
+        }
+
+        var valueLocal = ILGenerator.DeclareLocal(ResolveClrType(valueType));
+        ILGenerator.Emit(OpCodes.Stloc, valueLocal);
+
+        EmitPatternAssignment(node.Pattern, valueLocal, valueType);
+    }
+
+    private void EmitPatternAssignment(BoundPattern pattern, LocalBuilder valueLocal, ITypeSymbol valueType)
+    {
+        if (pattern is null)
+            return;
+
+        switch (pattern)
+        {
+            case BoundTuplePattern tuplePattern:
+                EmitTuplePatternAssignment(tuplePattern, valueLocal, valueType);
+                break;
+
+            case BoundDeclarationPattern declarationPattern:
+                EmitDeclarationPatternAssignment(declarationPattern, valueLocal, valueType);
+                break;
+
+            case BoundDiscardPattern:
+                break;
+
+            default:
+                throw new NotSupportedException($"Unsupported pattern assignment: {pattern.GetType().Name}");
+        }
+    }
+
+    private void EmitTuplePatternAssignment(BoundTuplePattern tuplePattern, LocalBuilder valueLocal, ITypeSymbol valueType)
+    {
+        if (GetPatternValueType(valueType) is not ITupleTypeSymbol tupleType)
+            return;
+
+        var elements = tuplePattern.Elements;
+        var tupleElements = tupleType.TupleElements;
+        var count = Math.Min(elements.Length, tupleElements.Length);
+
+        for (var i = 0; i < count; i++)
+        {
+            var elementPattern = elements[i];
+            if (elementPattern is null)
+                continue;
+            if (elementPattern is BoundDiscardPattern)
+                continue;
+
+            var tupleElement = tupleElements[i];
+            var elementValueType = GetPatternValueType(tupleElement.Type);
+
+            ILGenerator.Emit(OpCodes.Ldloca, valueLocal);
+            ILGenerator.Emit(OpCodes.Ldfld, GetField(tupleElement));
+
+            if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)
+            {
+                ILGenerator.Emit(OpCodes.Pop);
+                continue;
+            }
+
+            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementValueType));
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+
+            EmitPatternAssignment(elementPattern, elementLocal, elementValueType);
+        }
+    }
+
+    private void EmitDeclarationPatternAssignment(BoundDeclarationPattern declarationPattern, LocalBuilder valueLocal, ITypeSymbol valueType)
+    {
+        switch (declarationPattern.Designator)
+        {
+            case BoundSingleVariableDesignator single:
+                EmitStorePatternValue(single.Local, valueLocal, valueType, GetPatternValueType(single.Local.Type));
+                break;
+
+            case BoundDiscardDesignator:
+                break;
+
+            default:
+                throw new NotSupportedException($"Unsupported declaration designator: {declarationPattern.Designator.GetType().Name}");
+        }
+    }
+
+    private void EmitStorePatternValue(ILocalSymbol localSymbol, LocalBuilder valueLocal, ITypeSymbol sourceType, ITypeSymbol? targetType)
+    {
+        var normalizedSource = GetPatternValueType(sourceType);
+        var normalizedTarget = GetPatternValueType(targetType);
+
+        if (MethodBodyGenerator.IsCapturedLocal(localSymbol))
+        {
+            if (!MethodBodyGenerator.TryGetCapturedField(localSymbol, out var fieldBuilder))
+                throw new InvalidOperationException($"Missing captured field for '{localSymbol.Name}'.");
+
+            MethodBodyGenerator.EmitLoadClosure();
+            ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
+
+            var storedType = LoadValueWithConversion(valueLocal, normalizedSource, normalizedTarget);
+
+            if (storedType is not null && storedType.IsValueType &&
+                localSymbol.Type is not null &&
+                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            {
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(storedType));
+            }
+
+            var valueField = MethodBodyGenerator.GetStrongBoxValueField(fieldBuilder.FieldType);
+            ILGenerator.Emit(OpCodes.Stfld, valueField);
+            return;
+        }
+
+        var localBuilder = GetLocal(localSymbol);
+        if (localBuilder is null)
+            return;
+
+        var finalType = LoadValueWithConversion(valueLocal, normalizedSource, normalizedTarget);
+
+        if (finalType is not null && finalType.IsValueType &&
+            localSymbol.Type is not null &&
+            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(finalType));
+        }
+
+        ILGenerator.Emit(OpCodes.Stloc, localBuilder);
+    }
+
+    private ITypeSymbol? LoadValueWithConversion(LocalBuilder valueLocal, ITypeSymbol? sourceType, ITypeSymbol? targetType)
+    {
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+
+        if (sourceType is not null)
+            sourceType = GetPatternValueType(sourceType);
+
+        if (targetType is not null)
+            targetType = GetPatternValueType(targetType);
+
+        if (sourceType is not null && targetType is not null &&
+            !SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+        {
+            var conversion = Compilation.ClassifyConversion(sourceType, targetType);
+            if (conversion.Exists)
+            {
+                EmitConversion(sourceType, targetType, conversion);
+                return targetType;
+            }
+        }
+
+        return sourceType ?? targetType;
+    }
+
+    private static ITypeSymbol? GetPatternValueType(ITypeSymbol? type)
+        => type?.UnwrapLiteralType() ?? type;
 
     private FieldInfo GetField(IFieldSymbol fieldSymbol)
     {

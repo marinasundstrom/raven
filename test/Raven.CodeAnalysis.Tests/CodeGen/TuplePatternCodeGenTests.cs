@@ -37,4 +37,28 @@ func main() {
         var result = compilation.Emit(stream);
         Assert.True(result.Success);
     }
+
+    [Fact]
+    public void LetTuplePatternAssignment_EmitsSuccessfully()
+    {
+        const string code = """
+import System.*
+
+func main() {
+    let (first, second) = (1, 2)
+    Console.WriteLine(first)
+    Console.WriteLine(second)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("let_tuple_pattern_emit", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(references);
+
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success);
+    }
 }
