@@ -156,4 +156,109 @@ class C {
         var breakLabel = Assert.IsType<BoundLabeledStatement>(statements[3]);
         Assert.Same(breakLabel.Label, bodyGoto.Target);
     }
+
+    [Fact]
+    public void Lowerer_LambdaBody_RewritesNestedLoop()
+    {
+        const string source = """
+class C {
+    Test(flag: bool) {
+        let lambda = func () => {
+            while flag {
+                ()
+            }
+        }
+
+        lambda()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.Text == "Test");
+
+        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
+        var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
+        var loweredBody = Lowerer.LowerBlock(methodSymbol, boundBody);
+
+        var lambda = loweredBody.Statements
+            .OfType<BoundLocalDeclarationStatement>()
+            .SelectMany(s => s.Declarators)
+            .Select(d => d.Initializer)
+            .OfType<BoundLambdaExpression>()
+            .Single();
+
+        var lambdaBlock = Assert.IsType<BoundBlockExpression>(lambda.Body);
+        var inspector = new LambdaLoweringInspector();
+        inspector.VisitBlockExpression(lambdaBlock);
+
+        Assert.False(inspector.SeenWhile);
+        Assert.True(inspector.GotoCount > 0);
+    }
+
+    [Fact]
+    public void Lowerer_FunctionStatement_RemainsFunctionStatement()
+    {
+        const string source = """
+class C {
+    Test(flag: bool) {
+        func nested() {
+            while flag {
+                ()
+            }
+        }
+
+        nested()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.Text == "Test");
+
+        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
+        var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
+
+        var originalFunction = boundBody.Statements.OfType<BoundFunctionStatement>().Single();
+
+        var loweredBody = Lowerer.LowerBlock(methodSymbol, boundBody);
+        var loweredFunction = loweredBody.Statements.OfType<BoundFunctionStatement>().Single();
+
+        Assert.Same(originalFunction.Method, loweredFunction.Method);
+    }
+
+    private sealed class LambdaLoweringInspector : BoundTreeWalker
+    {
+        public bool SeenWhile { get; private set; }
+        public int GotoCount { get; private set; }
+
+        public override void VisitWhileStatement(BoundWhileStatement node)
+        {
+            SeenWhile = true;
+        }
+
+        public override void VisitGotoStatement(BoundGotoStatement node)
+        {
+            GotoCount++;
+            base.VisitGotoStatement(node);
+        }
+    }
 }
