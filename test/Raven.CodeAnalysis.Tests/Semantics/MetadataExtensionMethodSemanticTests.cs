@@ -351,6 +351,55 @@ let positives = numbers.Where(func (value) => value > 0)
     }
 
     [Fact]
+    public void Invocation_SystemLinqWhereWithLambda_Binds()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+let numbers: int[] = [1, 2, 3]
+let result = numbers.Where(func (value) => value == 2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Where", selected.Name);
+        Assert.Equal("Enumerable", selected.ContainingType?.Name);
+        Assert.Equal("Linq", selected.ContainingNamespace?.Name);
+        Assert.Equal("System", selected.ContainingNamespace?.ContainingNamespace?.Name);
+
+        var predicateParameter = selected.Parameters[1];
+        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        Assert.Equal("Func", predicateType.Name);
+        Assert.Equal(2, predicateType.Arity);
+        Assert.Collection(
+            predicateType.TypeArguments,
+            argument => Assert.Equal(SpecialType.System_Int32, argument.SpecialType),
+            argument => Assert.Equal(SpecialType.System_Boolean, argument.SpecialType));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
     public void Invocation_WithImplicitLambda_CapturesExtensionDelegateCandidates()
     {
         const string source = """
