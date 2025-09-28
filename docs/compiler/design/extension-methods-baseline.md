@@ -71,6 +71,11 @@ error RAV2200: Cannot infer the type of parameter 'value'. Specify an explicit
 type or use the lambda in a delegate-typed context
 ```
 
+> **Update (2025-05-XX).** After the delegate replay work landed, both metadata
+> and fixture-backed `Where` calls now bind without diagnostics; the CLI still
+> fails later in emission because `ExpressionGenerator` looks up delegate
+> constructors via raw reflection.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L399】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L403-L441】
+
 The first error shows that we still do not recognize metadata `Where`
 definitions as extension methods when a lambda argument is present, so overload
 resolution thinks the call is missing the `source` argument altogether. The

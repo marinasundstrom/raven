@@ -13,16 +13,16 @@
   a LINQ-inspired fixture, and semantic tests confirm that enumerable, array, and
   nullable receivers all select the metadata-backed extensions and surface them
   as extension invocations.【F:test/Raven.CodeAnalysis.Tests/TestMetadataReferences.cs†L10-L29】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L11-L149】
+* **Lambda delegate retention.** `GetTargetType` and `BindLambdaExpression`
+  now cache every viable delegate candidate for lambda arguments, and overload
+  resolution replays those lambdas so both metadata and fixture-backed `Where`
+  overloads bind without diagnostics.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1072-L1175】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2322-L2468】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L463】
+* **CLI references.** The command-line host unconditionally adds
+  `System.Linq.dll` alongside the core runtime libraries, so LINQ extension
+  methods are available without manually supplying reference switches.【F:src/Raven.Compiler/Program.cs†L172-L188】
 
 ## Active blockers
 
-* **Lambda target retention.** When a lambda argument participates in an
-  overloaded extension call, `GetTargetType` still gives up as soon as more than
-  one candidate survives, so the lambda binder produces `RAV2200` instead of
-  caching the delegate shapes for overload resolution to replay.【F:docs/compiler/design/extension-methods-baseline.md†L65-L121】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2141-L2204】
-* **CLI reference gaps.** The command-line host keeps the `System.Linq`
-  reference commented out, so consuming metadata extensions still requires
-  manually supplying the LINQ assembly when running samples.【F:docs/compiler/design/extension-methods-baseline.md†L34-L71】
 * **Metadata load context failure.** Even after binding succeeds, emitting
   lambdas that capture extension invocations will continue to fail until
   `ExpressionGenerator.EmitLambdaExpression` stops calling
@@ -31,10 +31,10 @@
 
 ## Next investigations
 
-* Teach lambda binding to cache every viable delegate candidate, suppressing
-  premature diagnostics while overload resolution decides which extension wins.
-* Re-enable the LINQ reference in the CLI or flow it from the target framework
-  resolver so metadata extensions are available without manual switches.
 * Harden code generation by routing delegate construction through the
   metadata-aware helpers and adding execution tests that compile and invoke LINQ
-  expressions end to end.
+  expressions end to end.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L403-L441】
+* Add end-to-end coverage that exercises the CLI without extra `--refs`,
+  proving metadata extensions continue to bind under command-line builds.【F:src/Raven.Compiler/Program.cs†L172-L188】
+* Extend semantic tests to stress nested lambdas and query-like pipelines so the
+  cached delegate logic keeps working across more complex extension chains.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L463】

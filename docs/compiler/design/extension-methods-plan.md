@@ -4,13 +4,11 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
-> **Next step.** Unblock Stage&nbsp;2 by teaching lambda binding to keep every
-> viable delegate candidate even when overload resolution is ambiguous, then
-> replay those lambdas during overload resolution. Completing this work enables
-> the LINQ samples in `src/Raven.Compiler/samples/linq.rav` to progress past the
-> current `RAV1501` and `RAV2200` diagnostics and lets us continue validating
-> metadata-backed extensions. The binder work is the remaining blocker before we
-> can continue iterating on metadata-backed extension scenarios.
+> **Next step.** Route delegate construction through the metadata-aware helpers
+> so command-line builds that call metadata extensions can emit successfully.
+> With lambda binding now replaying every candidate delegate, the remaining
+> blocker for Stage&nbsp;2 is the `ExpressionGenerator` path that still uses raw
+> reflection and fails under `MetadataLoadContext`.
 
 ## 1. Baseline assessment ✅
 
@@ -35,41 +33,28 @@ observed when compiling LINQ-heavy samples.
    inference—for representative calls and captured the results in the metadata
    pipeline trace, confirming no metadata-only gaps before we attempt
    Raven-authored declarations.【F:docs/compiler/design/extension-methods-metadata-pipeline.md†L1-L33】
-4. 🛑 Blocker: teach lambda binding to surface delegate shapes even when overload
-   resolution has multiple candidates. Running
-   `src/Raven.Compiler/samples/linq.rav` still reports `RAV1501` and `RAV2200`,
-   so the delegate replay work has not landed in the CLI yet.【395e77†L1-L7】
-   1. 🛠️ Extend `GetTargetType` so that lambda arguments keep every viable
-      delegate candidate even when overload resolution hasn't picked a winner,
-      allowing ambiguous extension groups to feed `BindLambdaExpression` the
-      full delegate set.
-   2. 🛠️ Update `BindLambdaExpression` so lambdas capture every candidate
-      delegate, stash suppressed `RAV2200` diagnostics, and surface a
-      `BoundUnboundLambda` payload that overload resolution can replay in the
-      next step.
-   3. 🛠️ Replay lambda binding across overload candidates.
-      1. 🛠️ Adjust overload resolution and delegate conversions to rebind
-         lambdas under each candidate delegate, mirroring Roslyn's
-         `UnboundLambda` pipeline while preserving suppression behavior.
-      2. 🛠️ Capture lambda replay perf counters so we can monitor cache hit
-         rates, rebind attempts, and success ratios while iterating on
-         multi-pass binding behavior.
-   4. 🛠️ Capture semantic tests against both `System.Linq.Enumerable.Where` and
-      the Raven LINQ fixture to prove implicit lambda parameters bind without
-      diagnostics.
-   5. 📐 Add a binder integration test that covers nested lambdas (e.g. `Select`
-      with a trailing `Where`) to ensure delegate replay composes.
-   6. 🔍 **Investigation (2025-03-05).** Re-running the LINQ sample after regenerating syntax still produces the original `RAV1501`/`RAV2200` errors, so the CLI remains blocked on the delegate replay work.【c451ba†L1-L17】 Walking the binders highlights the outstanding tasks:
-      * `GetTargetType` records both metadata `Where` overloads but returns `null` as soon as their delegate shapes diverge, so lambda binding never receives a concrete target delegate for inference.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2094-L2225】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2327-L2410】
-      * `BindLambdaExpression` falls back to `Compilation.ErrorTypeSymbol` for unannotated parameters and only tracks the delegate set inside `BoundUnboundLambda`, leaving overload resolution without a usable shape unless we explicitly replay the lambda per candidate.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1072-L1295】
-      * `OverloadResolver.TryMatch` already exposes a `canBindLambda` hook, but we still need to thread the recorded delegate list through that path so `EnsureLambdaCompatible` can call `ReplayLambda` before a candidate is discarded.【F:src/Raven.CodeAnalysis/OverloadResolver.cs†L12-L85】【F:src/Raven.CodeAnalysis/OverloadResolver.cs†L453-L560】
-      * Once replay succeeds, the conversion pipeline must swap in the rebound lambda (the `ConvertArguments` helper already calls `ReplayLambda`) and only surface the suppressed `RAV2200` diagnostics if every overload fails, mirroring Roslyn’s behavior.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L4008-L4072】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L4254-L4306】
-5. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
+4. ✅ Completed the delegate replay work for lambda arguments. `GetTargetType`
+   caches every viable delegate type, `BindLambdaExpression` records the
+   candidates on both bound and unbound lambdas, and overload resolution replays
+   the lambda against each extension overload. New semantic tests covering
+   metadata `Enumerable.Where` and the Raven fixture confirm the pipeline binds
+   without diagnostics.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1072-L1175】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2322-L2468】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L463】
+5. 🛑 Blocker: fix `ExpressionGenerator.EmitLambdaExpression` so delegate
+   construction flows through the metadata load context instead of raw
+   reflection. Command-line builds that reach emission still throw when a lambda
+   captures an extension invocation.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L403-L441】
+   1. 🛠️ Resolve delegate constructors via the compilation's metadata helpers
+      instead of calling `delegateType.GetConstructors()` directly.
+   2. 🛠️ Cache resolved constructors per delegate shape to avoid redundant
+      reflection while we migrate to metadata-aware APIs.
+   3. 🔍 Investigate whether additional emission paths (e.g. captured lambdas)
+      need similar treatment once the primary constructor lookup is fixed.
+6. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
    the fixture library and recording whether the `ExpressionGenerator` failure
    is still reachable when we stay within metadata-produced extensions. Capture
    the command-line invocation and emitted IL diff in the baseline document for
    traceability.
-6. Exit criteria: metadata extensions behave like their C# counterparts in both
+7. Exit criteria: metadata extensions behave like their C# counterparts in both
    semantic analysis and emitted IL, and remaining interop gaps are documented
    with linked follow-up issues.
 
