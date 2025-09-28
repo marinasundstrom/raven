@@ -13,6 +13,8 @@ let first = describe("Raven")
 let second = describe(3)
 let third = describe(null)
 
+WriteLine(describe(""))
+
 let summary = "${first}; ${second}; ${third}"
 
 WriteLine(summary)
