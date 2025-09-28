@@ -99,6 +99,20 @@ public class LexerTests
         Assert.Equal(expected, value);
     }
 
+    [Theory]
+    [InlineData("\"Saw \\\"text\\\"\"", "Saw \"text\"")]
+    [InlineData("\"It\\'s fine\"", "It's fine")]
+    [InlineData("\"Tabbed\\tvalue\"", "Tabbed\tvalue")]
+    public void StringLiteral_DecodesCommonEscapes(string text, string expected)
+    {
+        var lexer = new Lexer(new StringReader(text));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.StringLiteralToken, token.Kind);
+        var value = Assert.IsType<string>(token.Value);
+        Assert.Equal(expected, value);
+    }
+
     [Fact]
     public void StringLiteral_SupportsNonAsciiCharacters()
     {
