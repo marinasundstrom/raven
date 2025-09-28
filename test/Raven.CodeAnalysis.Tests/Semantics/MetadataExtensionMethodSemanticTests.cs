@@ -400,6 +400,69 @@ let result = numbers.Where(func (value) => value == 2)
     }
 
     [Fact]
+    public void Invocation_SystemLinqWhereWithLambda_CapturesAllDelegateCandidates()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+let numbers: int[] = [1, 2, 3]
+let result = numbers.Where(func (value) => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
+
+        var hasPredicate = boundLambda.CandidateDelegates.Any(candidate =>
+            candidate.Name == "Func" &&
+            candidate.Arity == 2 &&
+            candidate.TypeArguments.Length == 2 &&
+            candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+            candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean });
+
+        var hasIndexedPredicate = boundLambda.CandidateDelegates.Any(candidate =>
+            candidate.Name == "Func" &&
+            candidate.Arity == 3 &&
+            candidate.TypeArguments.Length == 3 &&
+            candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+            candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Int32 } &&
+            candidate.TypeArguments[2] is { SpecialType: SpecialType.System_Boolean });
+
+        Assert.True(hasPredicate);
+        Assert.True(hasIndexedPredicate);
+
+        var unbound = Assert.IsType<BoundUnboundLambda>(boundLambda.Unbound);
+        Assert.False(unbound.CandidateDelegates.IsDefaultOrEmpty);
+        Assert.Empty(unbound.SuppressedDiagnostics);
+
+        Assert.True(unbound.CandidateDelegates.Any(candidate =>
+            candidate.Name == "Func" &&
+            candidate.Arity == 2 &&
+            candidate.TypeArguments.Length == 2 &&
+            candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+            candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean }));
+
+        Assert.True(unbound.CandidateDelegates.Any(candidate =>
+            candidate.Name == "Func" &&
+            candidate.Arity == 3 &&
+            candidate.TypeArguments.Length == 3 &&
+            candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+            candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Int32 } &&
+            candidate.TypeArguments[2] is { SpecialType: SpecialType.System_Boolean }));
+    }
+
+    [Fact]
     public void Invocation_WithImplicitLambda_CapturesExtensionDelegateCandidates()
     {
         const string source = """

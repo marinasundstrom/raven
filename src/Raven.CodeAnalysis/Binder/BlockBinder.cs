@@ -2366,14 +2366,27 @@ partial class BlockBinder : Binder
         int parameterIndex,
         bool extensionReceiverImplicit = false)
     {
-        if (argumentExpression is not LambdaExpressionSyntax lambda || methods.IsDefaultOrEmpty)
+        if (argumentExpression is not LambdaExpressionSyntax lambda)
         {
             if (argumentExpression is LambdaExpressionSyntax lambdaExpression)
                 _lambdaDelegateTargets.Remove(lambdaExpression);
             return;
         }
 
+        if (methods.IsDefaultOrEmpty)
+            return;
+
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (_lambdaDelegateTargets.TryGetValue(lambda, out var existing) && !existing.IsDefaultOrEmpty)
+        {
+            foreach (var candidate in existing)
+            {
+                if (seen.Add(candidate))
+                    builder.Add(candidate);
+            }
+        }
 
         foreach (var method in methods)
         {
@@ -2382,15 +2395,13 @@ partial class BlockBinder : Binder
 
             if (parameter.Type is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
             {
-                if (!builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateType)))
+                if (seen.Add(delegateType))
                     builder.Add(delegateType);
             }
         }
 
         if (builder.Count > 0)
             _lambdaDelegateTargets[lambda] = builder.ToImmutable();
-        else
-            _lambdaDelegateTargets.Remove(lambda);
     }
 
     private ITypeSymbol? TryInferLambdaParameterType(ImmutableArray<INamedTypeSymbol> candidateDelegates, int parameterIndex, out RefKind? inferredRefKind)
