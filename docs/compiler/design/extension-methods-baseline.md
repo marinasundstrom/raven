@@ -76,6 +76,11 @@ compiles if the lambda's parameters are annotated manually. Fixing this gap will
 require pushing tentative delegate shapes into lambda binding so inference can
 disqualify overloads the same way Roslyn does.
 
+Targeted semantic tests now pin the fix: one exercises
+`System.Linq.Enumerable.Where` through the standard reference assemblies while a
+second drives the Raven LINQ fixture, both verifying that implicit lambda
+parameters bind without diagnostics.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L245-L280】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L354-L398】
+
 ### Lambda inference fallout
 
 Tracing the repro through the binder shows why we fail today. When the lambda

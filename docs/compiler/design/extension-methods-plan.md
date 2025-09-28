@@ -44,9 +44,9 @@ observed when compiling LINQ-heavy samples.
       2. ✅ Captured lambda replay perf counters so we can monitor cache hit
          rates, rebind attempts, and success ratios while iterating on
          multi-pass binding behavior.
-   4. 📝 Capture unit tests that prove `Enumerable.Where` now compiles without
-      explicit parameter annotations using both the LINQ reference and the test
-      fixture.【F:docs/compiler/design/extension-methods-baseline.md†L52-L104】
+   4. ✅ Captured semantic tests against both `System.Linq.Enumerable.Where` and
+      the Raven LINQ fixture to prove implicit lambda parameters bind without
+      diagnostics.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L245-L280】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L354-L398】
    5. 📐 Add a binder integration test that covers nested lambdas (e.g. `Select`
       with a trailing `Where`) to ensure delegate replay composes.
 5. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with

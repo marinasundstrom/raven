@@ -247,6 +247,53 @@ let result = numbers.Where(func (value) => value == 2)
     }
 
     [Fact]
+    public void MemberAccess_LinqWhereWithImplicitLambda_BindsSuccessfully()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+let numbers = [1, 2, 3]
+let result = numbers.Where(value => value == 2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Where", boundInvocation.Method.Name);
+        Assert.Equal("Enumerable", boundInvocation.Method.ContainingType?.Name);
+        var containingNamespace = boundInvocation.Method.ContainingType?.ContainingNamespace;
+        Assert.Equal("Linq", containingNamespace?.Name);
+        Assert.Equal("System", containingNamespace?.ContainingNamespace?.Name);
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Contains(
+            boundLambda.CandidateDelegates,
+            candidate => candidate.Name == "Func" &&
+                candidate.Arity == 2 &&
+                candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+                candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean });
+    }
+
+    [Fact]
     public void MemberAccess_LinqWhereWithExplicitLambdaType_BindsSuccessfully()
     {
         const string source = """
