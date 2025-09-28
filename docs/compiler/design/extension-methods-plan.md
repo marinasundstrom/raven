@@ -39,14 +39,13 @@ observed when compiling LINQ-heavy samples.
    the lambda against each extension overload. New semantic tests covering
    metadata `Enumerable.Where` and the Raven fixture confirm the pipeline binds
    without diagnostics.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1072-L1175】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2322-L2468】【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L463】
-5. 🛑 Blocker: fix `ExpressionGenerator.EmitLambdaExpression` so delegate
-   construction flows through the metadata load context instead of raw
-   reflection. Command-line builds that reach emission still throw when a lambda
-   captures an extension invocation.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L403-L441】
-   1. 🛠️ Resolve delegate constructors via the compilation's metadata helpers
-      instead of calling `delegateType.GetConstructors()` directly.
-   2. 🛠️ Cache resolved constructors per delegate shape to avoid redundant
-      reflection while we migrate to metadata-aware APIs.
+5. ✅ Routed delegate construction through the metadata-aware helpers so
+   `EmitLambdaExpression` reuses the compilation's metadata types when locating
+   constructors and CLI builds stop throwing for extension-backed lambdas.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L393-L446】
+   1. ✅ Resolve delegate constructors via the compilation's metadata helpers
+      instead of calling `delegateType.GetConstructors()` directly.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L422-L438】
+   2. ✅ Cache resolved constructors per delegate shape to avoid redundant
+      reflection while we migrate to metadata-aware APIs.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L395-L438】
    3. 🔍 Investigate whether additional emission paths (e.g. captured lambdas)
       need similar treatment once the primary constructor lookup is fixed.
 6. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with

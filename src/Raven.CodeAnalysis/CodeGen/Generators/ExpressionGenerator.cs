@@ -13,6 +13,8 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal class ExpressionGenerator : Generator
 {
     private readonly BoundExpression _expression;
+    private readonly Dictionary<ITypeSymbol, ConstructorInfo> _delegateConstructorCache = new(SymbolEqualityComparer.Default);
+    private Type[]? _delegateConstructorSignature;
 
     private static readonly MethodInfo GetTypeFromHandleMethod = typeof(Type)
         .GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(RuntimeTypeHandle) }, modifiers: null)
@@ -212,7 +214,7 @@ internal class ExpressionGenerator : Generator
             MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(synthesized);
 
         var delegateClrType = ResolveClrType(delegateType);
-        var ctor = GetDelegateConstructor(delegateClrType);
+        var ctor = GetDelegateConstructor(delegateType, delegateClrType);
 
         var methodInfo = GetMethodInfo(method);
 
@@ -245,7 +247,12 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, ctor);
     }
 
-    private void EmitCapturedLambda(BoundLambdaExpression lambdaExpression, TypeGenerator.LambdaClosure closure, MethodInfo methodInfo, Type delegateType)
+    private void EmitCapturedLambda(
+        BoundLambdaExpression lambdaExpression,
+        TypeGenerator.LambdaClosure closure,
+        MethodInfo methodInfo,
+        ITypeSymbol delegateTypeSymbol,
+        Type delegateType)
     {
         var closureLocal = ILGenerator.DeclareLocal(closure.TypeBuilder);
         ILGenerator.Emit(OpCodes.Newobj, closure.Constructor);
@@ -261,7 +268,7 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Stfld, closure.GetField(captured));
         }
 
-        var delegateCtor = GetDelegateConstructor(delegateType);
+        var delegateCtor = GetDelegateConstructor(delegateTypeSymbol, delegateType);
 
         ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
         ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
@@ -400,44 +407,46 @@ internal class ExpressionGenerator : Generator
         if (lambdaGenerator.MethodBase is not MethodInfo methodInfo)
             throw new InvalidOperationException("Expected a method-backed lambda.");
 
-        var delegateType = ResolveClrType(lambdaExpression.DelegateType);
+        var delegateTypeSymbol = lambdaExpression.DelegateType
+            ?? throw new InvalidOperationException("Lambda delegate type missing.");
+        var delegateType = ResolveClrType(delegateTypeSymbol);
 
         if (hasCaptures)
         {
             if (closure is null && !typeGenerator.TryGetLambdaClosure(lambdaSymbol, out closure))
                 throw new InvalidOperationException("Missing closure information for captured lambda.");
 
-            EmitCapturedLambda(lambdaExpression, closure!, methodInfo, delegateType);
+            EmitCapturedLambda(lambdaExpression, closure!, methodInfo, delegateTypeSymbol, delegateType);
             return;
         }
 
-        var ctor = GetDelegateConstructor(delegateType);
+        var ctor = GetDelegateConstructor(delegateTypeSymbol, delegateType);
 
         ILGenerator.Emit(OpCodes.Ldnull);
         ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
         ILGenerator.Emit(OpCodes.Newobj, ctor);
     }
 
-    private static ConstructorInfo GetDelegateConstructor(Type delegateType)
+    private ConstructorInfo GetDelegateConstructor(ITypeSymbol delegateType, Type delegateClrType)
     {
-        foreach (var ctor in delegateType.GetConstructors())
-        {
-            var parameters = ctor.GetParameters();
+        if (_delegateConstructorCache.TryGetValue(delegateType, out var ctor))
+            return ctor;
 
-            if (parameters.Length != 2)
-                continue;
+        _delegateConstructorSignature ??=
+            [
+                ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Object)),
+                ResolveClrType(Compilation.GetSpecialType(SpecialType.System_IntPtr))
+            ];
 
-            var first = parameters[0].ParameterType;
-            var second = parameters[1].ParameterType;
+        ctor = delegateClrType.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                types: _delegateConstructorSignature,
+                modifiers: null)
+            ?? throw new InvalidOperationException($"Delegate '{delegateClrType}' lacks the expected constructor.");
 
-            if (string.Equals(first.FullName, "System.Object", StringComparison.Ordinal) &&
-                string.Equals(second.FullName, "System.IntPtr", StringComparison.Ordinal))
-            {
-                return ctor;
-            }
-        }
-
-        throw new InvalidOperationException($"Delegate '{delegateType}' lacks the expected constructor.");
+        _delegateConstructorCache[delegateType] = ctor;
+        return ctor;
     }
 
     private void EmitUnitExpression(BoundUnitExpression unitExpression)
