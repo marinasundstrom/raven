@@ -29,6 +29,12 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return (BoundStatement)lowerer.VisitStatement(statement);
     }
 
+    public static BoundExpression LowerExpression(ISymbol containingSymbol, BoundExpression expression)
+    {
+        var lowerer = new Lowerer(containingSymbol);
+        return (BoundExpression)lowerer.VisitExpression(expression)!;
+    }
+
     private ILabelSymbol CreateLabel(string prefix)
     {
         var name = $"{prefix}_{_labelCounter++}";
