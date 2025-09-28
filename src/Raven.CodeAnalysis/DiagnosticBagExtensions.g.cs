@@ -251,6 +251,9 @@ public static partial class DiagnosticBagExtensions
     public static void ReportMatchExpressionArmPatternInvalid(this DiagnosticBag diagnostics, object? patternType, object? scrutineeType, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MatchExpressionArmPatternInvalid, location, patternType, scrutineeType));
 
+    public static void ReportMatchExpressionCatchAllRedundant(this DiagnosticBag diagnostics, Location location)
+        => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MatchExpressionCatchAllRedundant, location));
+
     public static void ReportLambdaParameterTypeCannotBeInferred(this DiagnosticBag diagnostics, object? parameterName, Location location)
         => diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.LambdaParameterTypeCannotBeInferred, location, parameterName));
 

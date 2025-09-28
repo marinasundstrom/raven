@@ -491,6 +491,19 @@ match number {
 }
 ```
 
+## RAV2103: Match catch-all is redundant
+Every possible scrutinee value is already handled before the discard arm.
+
+```raven
+let state: "on" | "off" = "on"
+
+match state {
+    "on" => 1
+    "off" => 0
+    _ => -1 // RAV2103
+}
+```
+
 ## RAV2500: Label already defined
 Declared the same label name more than once in a function body.
 

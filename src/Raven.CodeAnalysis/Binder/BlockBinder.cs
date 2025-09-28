@@ -1717,11 +1717,13 @@ partial class BlockBinder : Binder
         if (scrutineeType.TypeKind == TypeKind.Error)
             return;
 
-        if (HasDefaultArm(scrutineeType, arms))
-            return;
+        var catchAllIndex = GetCatchAllArmIndex(scrutineeType, arms);
 
         if (scrutineeType is not IUnionTypeSymbol union)
         {
+            if (catchAllIndex >= 0)
+                return;
+
             _diagnostics.ReportMatchExpressionNotExhaustive(
                 "_",
                 matchExpression.GetLocation());
@@ -1732,15 +1734,53 @@ partial class BlockBinder : Binder
             GetUnionMembers(union),
             SymbolEqualityComparer.Default);
 
-        foreach (var arm in arms)
+        HashSet<ITypeSymbol>? guaranteedRemaining = null;
+        if (catchAllIndex >= 0)
         {
+            guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, SymbolEqualityComparer.Default);
+        }
+
+        var reportedRedundantCatchAll = false;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+
+            if (guaranteedRemaining is not null && arm.Guard is null && i < catchAllIndex)
+                RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern);
+
             RemoveCoveredUnionMembers(remaining, arm.Pattern);
 
             if (remaining.Count == 0)
+            {
+                if (catchAllIndex >= 0 && !reportedRedundantCatchAll)
+                {
+                    if (i < catchAllIndex)
+                    {
+                        if (guaranteedRemaining is null || guaranteedRemaining.Count == 0)
+                        {
+                            ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                            reportedRedundantCatchAll = true;
+                        }
+                    }
+                    else if (i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
+                    {
+                        ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                        reportedRedundantCatchAll = true;
+                    }
+                }
+
                 return;
+            }
+
+            if (catchAllIndex >= 0 && !reportedRedundantCatchAll && i == catchAllIndex && guaranteedRemaining is not null && guaranteedRemaining.Count == 0)
+            {
+                ReportRedundantCatchAll(matchExpression, catchAllIndex);
+                reportedRedundantCatchAll = true;
+            }
         }
 
-        if (remaining.Count == 0)
+        if (catchAllIndex >= 0)
             return;
 
         foreach (var missing in remaining
@@ -1753,18 +1793,26 @@ partial class BlockBinder : Binder
         }
     }
 
-    private bool HasDefaultArm(ITypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
+    private int GetCatchAllArmIndex(ITypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
     {
-        foreach (var arm in arms)
+        for (var i = 0; i < arms.Length; i++)
         {
+            var arm = arms[i];
+
             if (arm.Guard is not null)
                 continue;
 
             if (IsCatchAllPattern(scrutineeType, arm.Pattern))
-                return true;
+                return i;
         }
 
-        return false;
+        return -1;
+    }
+
+    private void ReportRedundantCatchAll(MatchExpressionSyntax matchExpression, int catchAllIndex)
+    {
+        var patternLocation = matchExpression.Arms[catchAllIndex].Pattern.GetLocation();
+        _diagnostics.ReportMatchExpressionCatchAllRedundant(patternLocation);
     }
 
     private bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)

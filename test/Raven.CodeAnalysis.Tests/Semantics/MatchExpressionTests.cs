@@ -221,6 +221,44 @@ let result = match state {
     }
 
     [Fact]
+    public void MatchExpression_WithUnionScrutinee_RedundantCatchAllReportsDiagnostic()
+    {
+        const string code = """
+let state: "on" | "off" = "on"
+
+let result = match state {
+    "on" => 1
+    "off" => 0
+    _ => -1
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan().WithSeverity(DiagnosticSeverity.Warning)]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnionScrutinee_CatchAllWithGuardDoesNotReportDiagnostic()
+    {
+        const string code = """
+let state: "on" | "off" = "on"
+
+let result = match state {
+    "on" => 1
+    "off" when false => 0
+    _ => -1
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """

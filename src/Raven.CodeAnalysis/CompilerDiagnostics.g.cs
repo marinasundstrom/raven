@@ -88,6 +88,7 @@ internal static partial class CompilerDiagnostics
     private static DiagnosticDescriptor? _matchExpressionNotExhaustive;
     private static DiagnosticDescriptor? _matchExpressionArmUnreachable;
     private static DiagnosticDescriptor? _matchExpressionArmPatternInvalid;
+    private static DiagnosticDescriptor? _matchExpressionCatchAllRedundant;
     private static DiagnosticDescriptor? _lambdaParameterTypeCannotBeInferred;
     private static DiagnosticDescriptor? _methodGroupRequiresDelegateType;
     private static DiagnosticDescriptor? _methodGroupConversionIsAmbiguous;
@@ -1165,6 +1166,19 @@ internal static partial class CompilerDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
+    /// RAV2103: Match expression catch-all is redundant; all cases are already handled
+    /// </summary>
+    public static DiagnosticDescriptor MatchExpressionCatchAllRedundant => _matchExpressionCatchAllRedundant ??= DiagnosticDescriptor.Create(
+        id: "RAV2103",
+        title: "Match catch-all is redundant",
+        description: "",
+        helpLinkUri: "",
+        messageFormat: "Match expression catch-all is redundant; all cases are already handled",
+        category: "compiler",
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
+    /// <summary>
     /// RAV2200: Cannot infer the type of parameter '{0}'. Specify an explicit type or use the lambda in a delegate-typed context
     /// </summary>
     public static DiagnosticDescriptor LambdaParameterTypeCannotBeInferred => _lambdaParameterTypeCannotBeInferred ??= DiagnosticDescriptor.Create(
@@ -1365,6 +1379,7 @@ internal static partial class CompilerDiagnostics
         MatchExpressionNotExhaustive,
         MatchExpressionArmUnreachable,
         MatchExpressionArmPatternInvalid,
+        MatchExpressionCatchAllRedundant,
         LambdaParameterTypeCannotBeInferred,
         MethodGroupRequiresDelegateType,
         MethodGroupConversionIsAmbiguous,
@@ -1460,6 +1475,7 @@ internal static partial class CompilerDiagnostics
         "RAV2100" => MatchExpressionNotExhaustive,
         "RAV2101" => MatchExpressionArmUnreachable,
         "RAV2102" => MatchExpressionArmPatternInvalid,
+        "RAV2103" => MatchExpressionCatchAllRedundant,
         "RAV2200" => LambdaParameterTypeCannotBeInferred,
         "RAV2201" => MethodGroupRequiresDelegateType,
         "RAV2202" => MethodGroupConversionIsAmbiguous,
