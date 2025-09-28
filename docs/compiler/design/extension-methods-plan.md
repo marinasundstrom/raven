@@ -33,18 +33,24 @@ observed when compiling LINQ-heavy samples.
       delegate candidate even when overload resolution hasn't picked a winner,
       allowing ambiguous extension groups to feed `BindLambdaExpression` the
       full delegate set.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2091-L2223】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L625-L679】
-   2. Update `BindLambdaExpression` to accept that richer target description and
-      produce a `BoundLambdaExpression` without issuing `RAV2200` until overload
-      resolution picks a delegate.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1056-L1109】
-   3. Adjust overload resolution (and the eventual conversion step) to replay the
+   2. 🔄 Update `BindLambdaExpression` to consume that richer target description.
+      Track the diagnostic suppression explicitly so that `RAV2200` only
+      materializes once overload resolution eliminates every viable delegate,
+      and thread the candidate set into `BoundUnboundLambda` for later replay.
+   3. 🔄 Adjust overload resolution (and the eventual conversion step) to replay the
       lambda body under each candidate delegate, mirroring Roslyn's
-      `UnboundLambda` behavior.
-   4. Capture unit tests that prove `Enumerable.Where` now compiles without
+      `UnboundLambda` behavior. Capture perf counters while iterating to ensure
+      the multi-pass binding does not regress common LINQ scenarios.
+   4. 📝 Capture unit tests that prove `Enumerable.Where` now compiles without
       explicit parameter annotations using both the LINQ reference and the test
       fixture.【F:docs/compiler/design/extension-methods-baseline.md†L52-L104】
+   5. 📐 Add a binder integration test that covers nested lambdas (e.g. `Select`
+      with a trailing `Where`) to ensure delegate replay composes.
 5. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
    the fixture library and recording whether the `ExpressionGenerator` failure
-   is still reachable when we stay within metadata-produced extensions.
+   is still reachable when we stay within metadata-produced extensions. Capture
+   the command-line invocation and emitted IL diff in the baseline document for
+   traceability.
 6. Exit criteria: metadata extensions behave like their C# counterparts in both
    semantic analysis and emitted IL, and remaining interop gaps are documented
    with linked follow-up issues.
@@ -89,16 +95,22 @@ observed when compiling LINQ-heavy samples.
    the first argument to the lowered static call.
 2. Confirm that the lowered invocation obeys value-type boxing semantics and
    nullability checks that C# enforces.
+3. Prototype a lowering pass trace (behind a compiler flag) that logs when a
+   call is rewritten as an extension dispatch. This will aid in validating that
+   overload resolution selected the expected candidate during manual review.
 
 ## 6. Code generation fixes
 
 1. Fix `ExpressionGenerator.EmitLambdaExpression` so that it resolves delegate
    constructors using `Compilation`'s `MetadataLoadContext`-aware APIs. Avoid
    `Type.GetConstructor` calls that introduce foreign `Type` instances.
-2. Add targeted tests that compile and execute lambdas capturing extension
+2. Harden the delegate construction path by caching resolved constructors per
+   `DelegateTypeSymbol` so repeated lambda emission does not incur redundant
+   reflection or leak metadata handles.
+3. Add targeted tests that compile and execute lambdas capturing extension
    invocations. Use `ilspycmd` to inspect the generated IL and ensure it mirrors
    the C# compiler's lowering.
-3. Once the failure mode is addressed, cover extension method calls inside query
+4. Once the failure mode is addressed, cover extension method calls inside query
    comprehensions (`Select`, `Where`, `OrderBy`) to ensure LINQ works end-to-end.
 
 ## 7. Validation and polish
