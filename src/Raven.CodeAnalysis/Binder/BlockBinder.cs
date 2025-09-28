@@ -402,10 +402,12 @@ partial class BlockBinder : Binder
             AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
+            WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
             TryStatementSyntax tryStmt => BindTryStatement(tryStmt),
             FunctionStatementSyntax function => BindFunction(function),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
+            ForStatementSyntax forStmt => BindForStatement(forStmt),
             LabeledStatementSyntax labeledStatement => BindLabeledStatement(labeledStatement),
             GotoStatementSyntax gotoStatement => BindGotoStatement(gotoStatement),
             BreakStatementSyntax breakStatement => BindBreakStatement(breakStatement),
@@ -442,6 +444,15 @@ partial class BlockBinder : Binder
         return new BoundIfStatement(condition, thenBound, elseBound);
     }
 
+    private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
+    {
+        var condition = BindExpression(whileStmt.Condition);
+
+        var body = BindStatementInLoop(whileStmt.Statement);
+
+        return new BoundWhileStatement(condition, body);
+    }
+
     private BoundStatement BindTryStatement(TryStatementSyntax tryStmt)
     {
         var tryBlock = BindBlockStatement(tryStmt.Block);
@@ -460,6 +471,23 @@ partial class BlockBinder : Binder
             return tryBlock;
 
         return new BoundTryStatement(tryBlock, catchBuilder.ToImmutable(), finallyBlock);
+    }
+
+    private BoundStatement BindForStatement(ForStatementSyntax forStmt)
+    {
+        var loopBinder = (BlockBinder)SemanticModel.GetBinder(forStmt, this)!;
+
+        var collection = BindExpression(forStmt.Expression);
+
+        ITypeSymbol elementType = collection.Type is IArrayTypeSymbol array
+            ? array.ElementType
+            : Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var local = loopBinder.CreateLocalSymbol(forStmt, forStmt.Identifier.ValueText, isMutable: false, elementType);
+
+        var body = loopBinder.BindStatementInLoop(forStmt.Body);
+
+        return new BoundForStatement(local, collection, body);
     }
 
     private BoundCatchClause BindCatchClause(CatchClauseSyntax catchClause)
@@ -510,8 +538,6 @@ partial class BlockBinder : Binder
             BoundIfExpression ifExpr => new BoundIfStatement(ifExpr.Condition,
                 ExpressionToStatement(ifExpr.ThenBranch),
                 ifExpr.ElseBranch is not null ? ExpressionToStatement(ifExpr.ElseBranch) : null),
-            BoundWhileExpression whileExpr => new BoundWhileStatement(whileExpr.Condition, ExpressionToStatement(whileExpr.Body)),
-            BoundForExpression forExpr => new BoundForStatement(forExpr.Local, forExpr.Collection, ExpressionToStatement(forExpr.Body)),
             BoundBlockExpression blockExpr => new BoundBlockStatement(blockExpr.Statements, blockExpr.LocalsToDispose),
             BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
             _ => new BoundExpressionStatement(expression),
@@ -853,12 +879,12 @@ partial class BlockBinder : Binder
         return bound;
     }
 
-    public BoundExpression BindExpressionInLoop(ExpressionSyntax syntax, bool allowReturn)
+    public BoundStatement BindStatementInLoop(StatementSyntax syntax)
     {
         var previous = EnterLoop();
         try
         {
-            return BindExpression(syntax, allowReturn);
+            return BindStatement(syntax);
         }
         finally
         {
@@ -928,8 +954,6 @@ partial class BlockBinder : Binder
             TypeOfExpressionSyntax typeOfExpression => BindTypeOfExpression(typeOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
-            WhileExpressionSyntax whileExpression => BindWhileExpression(whileExpression),
-            ForExpressionSyntax forExpression => BindForExpression(forExpression),
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
@@ -1842,51 +1866,6 @@ partial class BlockBinder : Binder
         return new BoundIfExpression(condition, thenExpr, elseExpr);
     }
 
-    private BoundExpression BindWhileExpression(WhileExpressionSyntax whileExpression)
-    {
-        var condition = BindExpression(whileExpression.Condition);
-
-        var expressionBinder = SemanticModel.GetBinder(whileExpression, this);
-        BoundExpression? expression;
-        if (expressionBinder is BlockBinder wb)
-        {
-            expression = wb.BindExpressionInLoop(whileExpression.Expression, _allowReturnsInExpression);
-        }
-        else
-        {
-            var previousLoopDepth = EnterLoop();
-            try
-            {
-                expression = expressionBinder.BindExpression(whileExpression.Expression) as BoundExpression;
-            }
-            finally
-            {
-                ExitLoop(previousLoopDepth);
-            }
-        }
-
-        return new BoundWhileExpression(condition, expression!);
-    }
-
-    private BoundExpression BindForExpression(ForExpressionSyntax forExpression)
-    {
-        var loopBinder = (BlockBinder)SemanticModel.GetBinder(forExpression, this)!;
-
-        var collection = BindExpression(forExpression.Expression);
-
-        ITypeSymbol elementType = collection.Type is IArrayTypeSymbol array
-            ? array.ElementType
-            : Compilation.GetSpecialType(SpecialType.System_Object);
-
-        var local = loopBinder.CreateLocalSymbol(forExpression, forExpression.Identifier.ValueText, isMutable: false, elementType);
-
-        var body = loopBinder.BindExpressionInLoop(forExpression.Body, _allowReturnsInExpression) as BoundExpression;
-
-        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
-
-        return new BoundForExpression(local, collection, body!, unitType);
-    }
-
     private BoundExpression BindMemberAccessExpression(MemberAccessExpressionSyntax memberAccess)
     {
         // Binding for explicit receiver
@@ -2219,7 +2198,8 @@ partial class BlockBinder : Binder
                             }
                         }
 
-                        return null;
+                        current = current.Parent;
+                        continue;
                     }
 
                 case ExpressionStatementSyntax:

@@ -288,13 +288,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseIfExpressionSyntax();
                 break;
 
-            case SyntaxKind.WhileKeyword:
-                expr = ParseWhileExpressionSyntax();
-                break;
-
-            case SyntaxKind.ForKeyword:
-                expr = ParseForExpressionSyntax();
-                break;
             case SyntaxKind.MatchKeyword:
                 expr = ParseMatchExpressionSyntax();
                 break;
@@ -933,67 +926,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
         return ElseClause(elseKeyword, expression);
-    }
-
-    private WhileExpressionSyntax ParseWhileExpressionSyntax()
-    {
-        var whileKeyword = ReadToken();
-
-        var condition = new ExpressionSyntaxParser(this).ParseExpression();
-
-        var afterCloseParen = GetEndOfLastToken();
-
-        if (condition.IsMissing)
-        {
-            AddDiagnostic(
-               DiagnosticInfo.Create(
-                   CompilerDiagnostics.InvalidExpressionTerm,
-                   GetStartOfLastToken(),
-                   [')']
-               ));
-        }
-
-        var expression = new ExpressionSyntaxParser(this).ParseExpression();
-
-        if (expression!.IsMissing)
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.SemicolonExpected,
-                    afterCloseParen
-                ));
-        }
-
-        return WhileExpression(whileKeyword, condition!, expression!, Diagnostics);
-    }
-
-    private ForExpressionSyntax ParseForExpressionSyntax()
-    {
-        var forKeyword = ReadToken();
-
-        SyntaxToken eachKeyword;
-        var next = PeekToken();
-        if (next.IsKind(SyntaxKind.EachKeyword))
-            eachKeyword = ReadToken();
-        else
-            eachKeyword = Token(SyntaxKind.None);
-
-        SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
-        {
-            identifier = ReadIdentifierToken();
-        }
-        else
-        {
-            identifier = ExpectToken(SyntaxKind.IdentifierToken);
-        }
-        ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
-
-        var expression = new ExpressionSyntaxParser(this).ParseExpression();
-
-        var body = new ExpressionSyntaxParser(this).ParseExpression();
-
-        return ForExpression(forKeyword, eachKeyword, identifier, inKeyword, expression, body, Diagnostics);
     }
 
     internal ArrowExpressionClauseSyntax? ParseArrowExpressionClause()

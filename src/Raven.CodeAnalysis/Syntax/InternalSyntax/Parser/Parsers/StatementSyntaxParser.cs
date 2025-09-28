@@ -39,12 +39,20 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseIfStatementSyntax();
                     break;
 
+                case SyntaxKind.WhileKeyword:
+                    statement = ParseWhileStatementSyntax();
+                    break;
+
                 case SyntaxKind.UsingKeyword:
                     statement = ParseUsingDeclarationStatementSyntax();
                     break;
 
                 case SyntaxKind.TryKeyword:
                     statement = ParseTryStatementSyntax();
+                    break;
+
+                case SyntaxKind.ForKeyword:
+                    statement = ParseForStatementSyntax();
                     break;
 
                 case SyntaxKind.OpenBraceToken:
@@ -203,6 +211,19 @@ internal class StatementSyntaxParser : SyntaxParser
         return IfStatement(ifKeyword, condition!, thenStatement!, elseKeyword, elseStatement, terminatorToken);
     }
 
+    private WhileStatementSyntax ParseWhileStatementSyntax()
+    {
+        var whileKeyword = ReadToken();
+
+        var condition = new ExpressionSyntaxParser(this).ParseExpression();
+        var statement = ParseStatement();
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+
+        return WhileStatement(whileKeyword, condition!, statement!, terminatorToken);
+    }
+
     private TryStatementSyntax ParseTryStatementSyntax()
     {
         var tryKeyword = ReadToken();
@@ -274,6 +295,37 @@ internal class StatementSyntaxParser : SyntaxParser
         var finallyKeyword = ReadToken();
         var block = ParseBlockStatementSyntax();
         return FinallyClause(finallyKeyword, block);
+    }
+
+    private ForStatementSyntax ParseForStatementSyntax()
+    {
+        var forKeyword = ReadToken();
+
+        SyntaxToken eachKeyword;
+        if (IsNextToken(SyntaxKind.EachKeyword, out _))
+            eachKeyword = ReadToken();
+        else
+            eachKeyword = Token(SyntaxKind.None);
+
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.InKeyword, out var inKeyword);
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        var body = ParseStatement();
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+
+        return ForStatement(forKeyword, eachKeyword, identifier, inKeyword, expression!, body!, terminatorToken);
     }
 
     private StatementSyntax? ParseFunctionSyntax()
@@ -440,15 +492,6 @@ internal class StatementSyntaxParser : SyntaxParser
             var terminatorToken2 = ConsumeTerminator();
 
             return EmptyStatement(terminatorToken2);
-        }
-
-        if (expression is WhileExpressionSyntax or ForExpressionSyntax)
-        {
-            SetTreatNewlinesAsTokens(true);
-
-            TryConsumeTerminator(out var terminatorToken2);
-
-            return ExpressionStatement(expression, terminatorToken2, Diagnostics);
         }
 
         if (expression is AssignmentExpressionSyntax assignment)

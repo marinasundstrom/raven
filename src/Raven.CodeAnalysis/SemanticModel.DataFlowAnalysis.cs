@@ -11,28 +11,32 @@ public partial class SemanticModel
     {
         if (expression is BlockSyntax block && block.Statements.Count > 0)
         {
-            var whileExpr = block.Parent?.Parent as WhileExpressionSyntax;
-            var st = whileExpr?.Parent as ExpressionStatementSyntax;
-            var globalStmt = st?.Parent as GlobalStatementSyntax;
+            SyntaxNode? loop = block.Parent;
 
-            if (globalStmt is not null && globalStmt.Parent is CompilationUnitSyntax compilationUnit)
+            if (loop is not WhileStatementSyntax && loop is not ForStatementSyntax)
+                loop = loop?.Parent;
+
+            if (loop is WhileStatementSyntax or ForStatementSyntax)
             {
-                var globalStatements = compilationUnit.Members.OfType<GlobalStatementSyntax>().ToList();
-                var index = globalStatements.IndexOf(globalStmt);
-
-                var assignedBefore = new HashSet<ISymbol>();
-                for (int i = 0; i < index; i++)
+                if (loop.Parent is GlobalStatementSyntax globalStmt && globalStmt.Parent is CompilationUnitSyntax compilationUnit)
                 {
-                    var stmt = globalStatements[i].Statement;
-                    var preCollector = new AssignmentCollector(this);
-                    preCollector.Visit(stmt);
-                    assignedBefore.UnionWith(preCollector.Written);
-                }
+                    var globalStatements = compilationUnit.Members.OfType<GlobalStatementSyntax>().ToList();
+                    var index = globalStatements.IndexOf(globalStmt);
 
-                var walker = new DataFlowWalker(this);
-                walker.SetInitialAssigned(assignedBefore);
-                walker.Visit(globalStmt.Statement);
-                return walker.ToResult();
+                    var assignedBefore = new HashSet<ISymbol>();
+                    for (int i = 0; i < index; i++)
+                    {
+                        var stmt = globalStatements[i].Statement;
+                        var preCollector = new AssignmentCollector(this);
+                        preCollector.Visit(stmt);
+                        assignedBefore.UnionWith(preCollector.Written);
+                    }
+
+                    var walker = new DataFlowWalker(this);
+                    walker.SetInitialAssigned(assignedBefore);
+                    walker.Visit(block);
+                    return walker.ToResult();
+                }
             }
         }
 
@@ -122,8 +126,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
     {
         foreach (var declarator in node.Declaration.Declarators)
         {
-            var bound = _semanticModel.GetBoundNode(declarator) as BoundLocalAccess;
-            if (bound?.Symbol is ILocalSymbol local)
+            if (_semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
                 Written.Add(local);
         }
 
@@ -177,8 +180,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
-        var bound = _semanticModel.GetBoundNode(node) as BoundLocalAccess;
-        if (bound?.Symbol is ILocalSymbol symbol)
+        if (_semanticModel.GetDeclaredSymbol(node) is ILocalSymbol symbol)
             _variablesDeclared.Add(symbol);
 
         base.VisitVariableDeclarator(node);
@@ -296,7 +298,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
         _writtenInside.IntersectWith(writtenAfterThen);
     }
 
-    public override void VisitWhileExpression(WhileExpressionSyntax node)
+    public override void VisitWhileStatement(WhileStatementSyntax node)
     {
         Visit(node.Condition);
         var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet();
@@ -304,10 +306,10 @@ internal sealed class DataFlowWalker : SyntaxWalker
         _assignedOnEntry = assignedBefore;
         _writtenInside = assignedBefore.ToHashSet();
 
-        Visit(node.Expression);
+        Visit(node.Statement);
     }
 
-    public override void VisitForExpression(ForExpressionSyntax node)
+    public override void VisitForStatement(ForStatementSyntax node)
     {
         Visit(node.Expression);
         var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet();

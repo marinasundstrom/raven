@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -619,5 +620,62 @@ namespace Sample.Extensions {
         Assert.False(boundInvocation.Method.IsExtensionMethod);
         Assert.Null(boundInvocation.ExtensionReceiver);
         Assert.Equal("Container", boundInvocation.Method.ContainingType?.Name);
+    }
+
+    [Fact]
+    public void LambdaArgument_WithMultipleExtensionCandidates_RecordsAllDelegateTargets()
+    {
+        const string source = """
+import System.*
+import System.Runtime.CompilerServices.*
+
+namespace Sample.Extensions {
+    public static class NumberExtensions {
+        [ExtensionAttribute]
+        public static Apply(value: int, predicate: System.Predicate<int>) -> bool {
+            return predicate(value)
+        }
+
+        [ExtensionAttribute]
+        public static Apply(value: int, predicate: System.Func<int, bool>) -> bool {
+            return predicate(value)
+        }
+    }
+}
+
+let number = 42
+let result = number.Apply(value => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CallIsAmbiguous);
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var argument = invocation.ArgumentList.Arguments.Single();
+        var lambda = Assert.IsAssignableFrom<LambdaExpressionSyntax>(argument.Expression);
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambda));
+
+        Assert.Equal(2, boundLambda.CandidateDelegates.Length);
+        Assert.Contains(
+            boundLambda.CandidateDelegates,
+            candidate => candidate.Name == "Predicate" &&
+                candidate.Arity == 1 &&
+                candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 });
+        Assert.Contains(
+            boundLambda.CandidateDelegates,
+            candidate => candidate.Name == "Func" &&
+                candidate.Arity == 2 &&
+                candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
+                candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Boolean });
     }
 }
