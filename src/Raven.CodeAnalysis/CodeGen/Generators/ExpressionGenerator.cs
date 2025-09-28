@@ -2224,6 +2224,9 @@ internal class ExpressionGenerator : Generator
         var scope = new Scope(this, block.LocalsToDispose);
         var statements = block.Statements.ToArray();
 
+        if (statements.Length > 0)
+            MethodBodyGenerator.DeclareLocals(scope, statements);
+
         BoundExpression? resultExpression = null;
         var count = statements.Length;
 

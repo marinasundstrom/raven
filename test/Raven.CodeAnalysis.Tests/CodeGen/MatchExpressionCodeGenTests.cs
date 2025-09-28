@@ -51,6 +51,44 @@ class Program {
     }
 
     [Fact]
+    public void MatchExpression_AsReturnValue_EmitsAndRuns()
+    {
+        const string code = """
+class Program {
+    Run(value: int) -> string {
+        return match value {
+            0 => "zero"
+            _ => value.ToString()
+        }
+    }
+
+    Main() -> unit {
+        return
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Program", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = (string)method.Invoke(instance, new object[] { 2 })!;
+        Assert.Equal("2", value);
+    }
+
+    [Fact]
     public void MatchExpression_WithStringLiteralPattern_MatchesExactValue()
     {
         const string code = """

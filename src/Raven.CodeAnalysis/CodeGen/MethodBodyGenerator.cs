@@ -416,6 +416,17 @@ internal class MethodBodyGenerator
 
     private void DeclareLocals(BoundBlockStatement block)
     {
+        DeclareLocals(scope, block);
+    }
+
+    internal void DeclareLocals(Scope targetScope, IEnumerable<BoundStatement> statements)
+    {
+        var block = statements as BoundBlockStatement ?? new BoundBlockStatement(statements);
+        DeclareLocals(targetScope, block);
+    }
+
+    private void DeclareLocals(Scope targetScope, BoundBlockStatement block)
+    {
         var collector = new LocalCollector(MethodSymbol);
         collector.Visit(block);
 
@@ -436,7 +447,7 @@ internal class MethodBodyGenerator
 
             var builder = ILGenerator.DeclareLocal(localType);
             builder.SetLocalSymInfo(localSymbol.Name);
-            scope.AddLocal(localSymbol, builder);
+            targetScope.AddLocal(localSymbol, builder);
         }
     }
 
