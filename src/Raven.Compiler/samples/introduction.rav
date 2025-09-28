@@ -1,0 +1,18 @@
+import System.Console.*
+
+func describe(input: string | int | null) -> string {
+    match input {
+        null => "Nothing to report."
+        string text when text.Length > 0 => "Saw \"${text}\""
+        int number => "Counted ${number}"
+        _ => "Empty input."
+    }
+}
+
+let first = describe("Raven")
+let second = describe(3)
+let third = describe(null)
+
+let summary = "${first}; ${second}; ${third}"
+
+WriteLine(summary)
