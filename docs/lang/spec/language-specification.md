@@ -902,7 +902,9 @@ appear (or `_` used). When the scrutinee type includes an open set (for example
 type pattern) to cover the remainder. Because `_` is a discard, it never
 introduces a binding and always matches, so placing it last is a common way to
 describe fallback behavior. Missing coverage produces `RAV2100`; redundant arms
-that can never be chosen produce unreachable diagnostics (`RAV2101`).
+that can never be chosen produce unreachable diagnostics (`RAV2101`), and
+catch-alls that are unnecessary because earlier arms already cover every case
+produce `RAV2103`.
 
 #### Flow-sensitive narrowing
 
