@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Raven.CodeAnalysis.Syntax;
 using Xunit;
@@ -104,5 +105,22 @@ public class InterpolatedStringTests
                 var trailing = Assert.IsType<InterpolatedStringTextSyntax>(third);
                 Assert.Equal("'" + "\t", trailing.Token.ValueText);
             });
+    }
+
+    [Fact]
+    public void InterpolatedStringText_SpansAccountForEscapes()
+    {
+        var source = """
+let text = "value"
+let message = "Saw \"${text}\""
+let result = describe(null)
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var invocation = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+
+        var expectedStart = source.IndexOf("describe(null)", StringComparison.Ordinal);
+        Assert.Equal(expectedStart, invocation.Span.Start);
+        Assert.Equal("describe(null)".Length, invocation.Span.Length);
     }
 }
