@@ -212,7 +212,8 @@ class Foo : IDisposable {
     public void ReferenceConversion_ArrayToGenericIEnumerable_IsImplicit()
     {
         var compilation = CreateCompilation();
-        var arrayType = compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var arrayType = compilation.CreateArrayTypeSymbol(intType);
         var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
         var enumerableOfInt = (INamedTypeSymbol)enumerableDefinition.Construct(intType);
 
