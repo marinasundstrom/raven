@@ -377,6 +377,9 @@ let positives = numbers.Where(value => value > 0)
         var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
 
         Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
+        var unbound = Assert.IsType<BoundUnboundLambda>(boundLambda.Unbound);
+        Assert.False(unbound.CandidateDelegates.IsDefaultOrEmpty);
+        Assert.Empty(unbound.SuppressedDiagnostics);
         Assert.Contains(
             boundLambda.CandidateDelegates,
             candidate => candidate.Name == "Func" &&

@@ -18,6 +18,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _syntaxByLabel = new(SymbolEqualityComparer.Default);
     private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
     private readonly Dictionary<LambdaExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<LambdaRebindKey, BoundLambdaExpression> _reboundLambdaCache = new();
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private int _loopDepth;
@@ -1080,6 +1081,9 @@ partial class BlockBinder : Binder
 
         var targetType = GetTargetType(syntax);
         var candidateDelegates = GetLambdaDelegateTargets(syntax);
+        if (candidateDelegates.IsDefaultOrEmpty)
+            candidateDelegates = ComputeLambdaDelegateTargets(syntax);
+        var suppressedDiagnostics = ImmutableArray.CreateBuilder<SuppressedLambdaDiagnostic>();
 
         INamedTypeSymbol? targetDelegate = targetType as INamedTypeSymbol;
         if (targetDelegate?.TypeKind != TypeKind.Delegate)
@@ -1138,11 +1142,21 @@ partial class BlockBinder : Binder
                 if (refKind == RefKind.None && inferredRefKind is not null)
                     refKind = inferredRefKind.Value;
 
-                if (parameterType.TypeKind == TypeKind.Error && candidateDelegates.IsDefaultOrEmpty)
+                if (parameterType.TypeKind == TypeKind.Error)
                 {
-                    _diagnostics.ReportLambdaParameterTypeCannotBeInferred(
-                        parameterSyntax.Identifier.ValueText,
-                        parameterSyntax.Identifier.GetLocation());
+                    var parameterName = parameterSyntax.Identifier.ValueText;
+                    var parameterLocation = parameterSyntax.Identifier.GetLocation();
+
+                    if (candidateDelegates.IsDefaultOrEmpty)
+                    {
+                        _diagnostics.ReportLambdaParameterTypeCannotBeInferred(
+                            parameterName,
+                            parameterLocation);
+                    }
+                    else
+                    {
+                        suppressedDiagnostics.Add(new SuppressedLambdaDiagnostic(parameterName, parameterLocation));
+                    }
                 }
             }
 
@@ -1268,7 +1282,17 @@ partial class BlockBinder : Binder
         }
 
         // 8. Return a fully bound lambda expression
-        return new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);
+        var boundLambda = new BoundLambdaExpression(parameterSymbols, returnType, bodyExpr, lambdaSymbol, delegateType, capturedVariables, candidateDelegates);
+
+        var suppressed = suppressedDiagnostics.ToImmutable();
+        if ((!candidateDelegates.IsDefaultOrEmpty || suppressed.Length > 0) && lambdaSymbol is SourceLambdaSymbol source)
+        {
+            var parameters = parameterSymbols.ToImmutableArray();
+            var unbound = new BoundUnboundLambda(source, syntax, parameters, candidateDelegates, suppressed);
+            boundLambda.AttachUnbound(unbound);
+        }
+
+        return boundLambda;
     }
 
     private BoundExpression BindMissingExpression(ExpressionSyntax.Missing missing)
@@ -2224,6 +2248,118 @@ partial class BlockBinder : Binder
         return ImmutableArray<INamedTypeSymbol>.Empty;
     }
 
+    private ImmutableArray<INamedTypeSymbol> ComputeLambdaDelegateTargets(LambdaExpressionSyntax syntax)
+    {
+        if (syntax.Parent is not ArgumentSyntax argument ||
+            argument.Parent is not ArgumentListSyntax argumentList)
+        {
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+        }
+
+        var invocation = argumentList.Parent as InvocationExpressionSyntax;
+        if (invocation is null)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var argumentExpression = argument.Expression;
+        var parameterIndex = 0;
+        foreach (var candidate in argumentList.Arguments)
+        {
+            if (candidate == argument)
+                break;
+            parameterIndex++;
+        }
+
+        ImmutableArray<IMethodSymbol> methods = default;
+        var extensionReceiverImplicit = false;
+
+        switch (invocation.Expression)
+        {
+            case MemberAccessExpressionSyntax memberAccess:
+                {
+                    var boundMember = BindMemberAccessExpression(memberAccess);
+                    if (boundMember is BoundMethodGroupExpression methodGroup)
+                    {
+                        extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
+                        methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit);
+                    }
+                    else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
+                    {
+                        extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
+                        methods = ImmutableArray.Create(method);
+                    }
+
+                    break;
+                }
+
+            case MemberBindingExpressionSyntax memberBinding:
+                {
+                    var boundMember = BindMemberBindingExpression(memberBinding);
+                    if (boundMember is BoundMethodGroupExpression methodGroup)
+                    {
+                        extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
+                        methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit);
+                    }
+                    else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
+                    {
+                        extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
+                        methods = ImmutableArray.Create(method);
+                    }
+
+                    break;
+                }
+
+            case IdentifierNameSyntax identifier:
+                {
+                    var candidates = new SymbolQuery(identifier.Identifier.ValueText)
+                        .LookupMethods(this)
+                        .ToImmutableArray();
+
+                    var accessible = GetAccessibleMethods(candidates, identifier.Identifier.GetLocation(), reportIfInaccessible: false);
+                    if (!accessible.IsDefaultOrEmpty)
+                    {
+                        methods = FilterMethodsForLambda(accessible, parameterIndex, argumentExpression, extensionReceiverImplicit: false);
+                    }
+
+                    break;
+                }
+        }
+
+        if (methods.IsDefaultOrEmpty)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var delegates = ExtractLambdaDelegates(methods, parameterIndex, extensionReceiverImplicit);
+        if (!delegates.IsDefaultOrEmpty)
+            _lambdaDelegateTargets[syntax] = delegates;
+        else
+            _lambdaDelegateTargets.Remove(syntax);
+        return delegates;
+    }
+
+    private ImmutableArray<INamedTypeSymbol> ExtractLambdaDelegates(
+        ImmutableArray<IMethodSymbol> methods,
+        int parameterIndex,
+        bool extensionReceiverImplicit)
+    {
+        if (methods.IsDefaultOrEmpty)
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+
+        foreach (var method in methods)
+        {
+            if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
+                continue;
+
+            if (parameter.Type is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+            {
+                if (!builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, delegateType)))
+                    builder.Add(delegateType);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
     private void RecordLambdaTargets(
         ExpressionSyntax argumentExpression,
         ImmutableArray<IMethodSymbol> methods,
@@ -2735,7 +2871,7 @@ partial class BlockBinder : Binder
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
 
-        var resolution = OverloadResolver.ResolveOverload(candidates, [left, right], Compilation);
+        var resolution = OverloadResolver.ResolveOverload(candidates, [left, right], Compilation, canBindLambda: EnsureLambdaCompatible);
 
         if (!resolution.Success)
             throw new InvalidOperationException("No matching Concat method found.");
@@ -2998,7 +3134,7 @@ partial class BlockBinder : Binder
                 if (accessibleMethods.IsDefaultOrEmpty)
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
 
-                var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation);
+                var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
                 if (resolution.Success)
                 {
                     var method = resolution.Method!;
@@ -3020,6 +3156,7 @@ partial class BlockBinder : Binder
                 if (nestedType is not null)
                     return BindConstructorInvocation(nestedType, boundArguments, syntax, receiver);
 
+                ReportSuppressedLambdaDiagnostics(boundArguments);
                 _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
             }
@@ -3058,7 +3195,7 @@ partial class BlockBinder : Binder
             if (accessibleCandidates.IsDefaultOrEmpty)
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
 
-            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation);
+            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -3086,7 +3223,7 @@ partial class BlockBinder : Binder
             if (accessibleMethods.IsDefaultOrEmpty)
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
 
-            var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation);
+            var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
             if (resolution.Success)
             {
                 var method = resolution.Method!;
@@ -3105,6 +3242,7 @@ partial class BlockBinder : Binder
             if (typeFallback is not null)
                 return BindConstructorInvocation(typeFallback, boundArguments, syntax);
 
+            ReportSuppressedLambdaDiagnostics(boundArguments);
             _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
@@ -3173,7 +3311,7 @@ partial class BlockBinder : Binder
             }
         }
 
-        var resolution = OverloadResolver.ResolveOverload(methodGroup.Methods, boundArguments, Compilation, extensionReceiver);
+        var resolution = OverloadResolver.ResolveOverload(methodGroup.Methods, boundArguments, Compilation, extensionReceiver, EnsureLambdaCompatible);
 
         if (resolution.Success)
         {
@@ -3194,6 +3332,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
         }
 
+        ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
@@ -3306,7 +3445,7 @@ partial class BlockBinder : Binder
         InvocationExpressionSyntax syntax,
         BoundExpression? receiver = null)
     {
-        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation);
+        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
         if (resolution.Success)
         {
             var constructor = resolution.Method!;
@@ -3322,6 +3461,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Ambiguous);
         }
 
+        ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
@@ -3377,7 +3517,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
         // Overload resolution
-        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation);
+        var resolution = OverloadResolver.ResolveOverload(typeSymbol.Constructors, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
         if (resolution.Success)
         {
             var constructor = resolution.Method!;
@@ -3394,6 +3534,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Ambiguous);
         }
 
+        ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod(typeSymbol.Name, boundArguments.Length, syntax.GetLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
@@ -3463,7 +3604,7 @@ partial class BlockBinder : Binder
                         }
                         else
                         {
-                            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation);
+                            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
                             if (resolution.Success)
                             {
                                 whenNotNull = new BoundInvocationExpression(resolution.Method!, boundArguments, receiver);
@@ -3475,6 +3616,7 @@ partial class BlockBinder : Binder
                             }
                             else
                             {
+                                ReportSuppressedLambdaDiagnostics(boundArguments);
                                 _diagnostics.ReportNoOverloadForMethod(name, boundArguments.Length, invocation.GetLocation());
                                 whenNotNull = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
                             }
@@ -3887,6 +4029,19 @@ partial class BlockBinder : Binder
             var argument = arguments[i];
             var parameter = parameters[i];
 
+            if (parameter.Type is INamedTypeSymbol delegateType && argument is BoundLambdaExpression lambdaArgument)
+            {
+                var rebound = ReplayLambda(lambdaArgument, delegateType);
+                if (rebound is null)
+                {
+                    lambdaArgument.Unbound?.ReportSuppressedDiagnostics(_diagnostics);
+                    converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
+                    continue;
+                }
+
+                argument = rebound;
+            }
+
             if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
                 converted[i] = argument;
@@ -3927,6 +4082,169 @@ partial class BlockBinder : Binder
         }
 
         return converted;
+    }
+
+    private bool EnsureLambdaCompatible(IParameterSymbol parameter, BoundLambdaExpression lambda)
+    {
+        if (parameter.Type is not INamedTypeSymbol delegateType)
+            return false;
+
+        return ReplayLambda(lambda, delegateType) is not null;
+    }
+
+    private BoundLambdaExpression? ReplayLambda(BoundLambdaExpression lambda, INamedTypeSymbol delegateType)
+    {
+        if (delegateType.TypeKind != TypeKind.Delegate)
+            return null;
+
+        var syntax = GetLambdaSyntax(lambda);
+
+        if (syntax is not null)
+        {
+            var key = new LambdaRebindKey(syntax, delegateType);
+            if (_reboundLambdaCache.TryGetValue(key, out var cached))
+                return cached;
+        }
+
+        BoundLambdaExpression? rebound;
+        if (lambda.Unbound is { } unbound)
+        {
+            rebound = ReplayLambda(unbound, delegateType);
+        }
+        else if (lambda.IsCompatibleWithDelegate(delegateType, Compilation))
+        {
+            rebound = lambda;
+        }
+        else
+        {
+            rebound = null;
+        }
+
+        if (rebound is not null && syntax is not null)
+            _reboundLambdaCache[new LambdaRebindKey(syntax, delegateType)] = rebound;
+
+        return rebound;
+    }
+
+    private BoundLambdaExpression? ReplayLambda(BoundUnboundLambda unbound, INamedTypeSymbol delegateType)
+    {
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+            return null;
+
+        var syntax = unbound.Syntax;
+        var parameterSyntaxes = syntax switch
+        {
+            SimpleLambdaExpressionSyntax simple => new[] { simple.Parameter },
+            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.ToArray(),
+            _ => Array.Empty<ParameterSyntax>()
+        };
+
+        if (invoke.Parameters.Length != parameterSyntaxes.Length)
+            return null;
+
+        var parameterSymbols = new List<IParameterSymbol>(parameterSyntaxes.Length);
+
+        for (int index = 0; index < parameterSyntaxes.Length; index++)
+        {
+            var parameterSyntax = parameterSyntaxes[index];
+            var delegateParameter = invoke.Parameters[index];
+            var parameterSymbol = new SourceParameterSymbol(
+                parameterSyntax.Identifier.ValueText,
+                delegateParameter.Type,
+                _containingSymbol,
+                _containingSymbol.ContainingType as INamedTypeSymbol,
+                _containingSymbol.ContainingNamespace,
+                [parameterSyntax.GetLocation()],
+                [parameterSyntax.GetReference()],
+                delegateParameter.RefKind);
+
+            parameterSymbols.Add(parameterSymbol);
+        }
+
+        var lambdaSymbol = new SourceLambdaSymbol(
+            parameterSymbols,
+            invoke.ReturnType,
+            _containingSymbol,
+            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol.ContainingNamespace,
+            [syntax.GetLocation()],
+            [syntax.GetReference()]);
+
+        var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
+
+        foreach (var parameter in parameterSymbols)
+            lambdaBinder.DeclareParameter(parameter);
+
+        var body = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+        var inferred = body.Type ?? ReturnTypeCollector.Infer(body);
+        var returnType = invoke.ReturnType;
+
+        if (inferred is not null &&
+            inferred.TypeKind != TypeKind.Error &&
+            returnType.TypeKind != TypeKind.Error)
+        {
+            if (!IsAssignable(returnType, inferred, out var conversion))
+                return null;
+
+            body = ApplyConversion(body, returnType, conversion, syntax.ExpressionBody);
+        }
+
+        lambdaBinder.SetLambdaBody(body);
+        var captured = lambdaBinder.AnalyzeCapturedVariables();
+
+        lambdaSymbol.SetCapturedVariables(captured);
+        lambdaSymbol.SetReturnType(returnType);
+        lambdaSymbol.SetDelegateType(delegateType);
+
+        var candidateDelegates = unbound.CandidateDelegates;
+        if (candidateDelegates.IsDefaultOrEmpty)
+        {
+            candidateDelegates = ImmutableArray.Create(delegateType);
+        }
+        else if (!candidateDelegates.Contains(delegateType, SymbolEqualityComparer.Default))
+        {
+            candidateDelegates = candidateDelegates.Add(delegateType);
+        }
+
+        _lambdaDelegateTargets[syntax] = candidateDelegates;
+
+        var rebound = new BoundLambdaExpression(
+            parameterSymbols,
+            returnType,
+            body,
+            lambdaSymbol,
+            delegateType,
+            captured,
+            candidateDelegates);
+        rebound.AttachUnbound(unbound);
+        return rebound;
+    }
+
+    private LambdaExpressionSyntax? GetLambdaSyntax(BoundLambdaExpression lambda)
+    {
+        if (lambda.Unbound is { Syntax: { } syntax })
+            return syntax;
+
+        if (lambda.Symbol is ILambdaSymbol lambdaSymbol)
+        {
+            foreach (var reference in lambdaSymbol.DeclaringSyntaxReferences)
+            {
+                if (reference.GetSyntax() is LambdaExpressionSyntax lambdaSyntax)
+                    return lambdaSyntax;
+            }
+        }
+
+        return null;
+    }
+
+    private void ReportSuppressedLambdaDiagnostics(IEnumerable<BoundExpression> arguments)
+    {
+        foreach (var argument in arguments)
+        {
+            if (argument is BoundLambdaExpression { Unbound: { } unbound })
+                unbound.ReportSuppressedDiagnostics(_diagnostics);
+        }
     }
 
     protected BoundExpression CreateOptionalArgument(IParameterSymbol parameter)
@@ -4044,6 +4362,36 @@ partial class BlockBinder : Binder
     private static bool IsExtensionReceiver(BoundExpression? receiver)
     {
         return receiver is not null and not BoundTypeExpression and not BoundNamespaceExpression;
+    }
+
+    private readonly struct LambdaRebindKey : IEquatable<LambdaRebindKey>
+    {
+        public LambdaRebindKey(LambdaExpressionSyntax syntax, INamedTypeSymbol delegateType)
+        {
+            Syntax = syntax;
+            DelegateType = delegateType;
+        }
+
+        public LambdaExpressionSyntax Syntax { get; }
+        public INamedTypeSymbol DelegateType { get; }
+
+        public bool Equals(LambdaRebindKey other)
+        {
+            return ReferenceEquals(Syntax, other.Syntax) &&
+                   SymbolEqualityComparer.Default.Equals(DelegateType, other.DelegateType);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is LambdaRebindKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = ReferenceEqualityComparer.Instance.GetHashCode(Syntax);
+            hash = (hash * 397) ^ SymbolEqualityComparer.Default.GetHashCode(DelegateType);
+            return hash;
+        }
     }
 
     private static SyntaxNode? GetInvocationReceiverSyntax(InvocationExpressionSyntax invocation)
