@@ -275,6 +275,66 @@ class Counter {
     }
 
     [Fact]
+    public void GetCompletions_InInstanceMethodWithoutIdentifier_IncludesSelf()
+    {
+        var code = """
+class Counter {
+    private value: int;
+
+    public Increment(delta: int) -> int {
+        /*caret*/
+    }
+}
+""";
+
+        var caret = code.IndexOf("/*caret*/", StringComparison.Ordinal);
+        code = code.Remove(caret, "/*caret*/".Length);
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var items = service.GetCompletions(compilation, syntaxTree, caret).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "self");
+    }
+
+    [Fact]
+    public void GetCompletions_InNamedConstructor_IncludesSelf()
+    {
+        var code = """
+class Counter {
+    private value: int;
+
+    public init WithValue(value: int) {
+        /*caret*/
+    }
+}
+""";
+
+        var caret = code.IndexOf("/*caret*/", StringComparison.Ordinal);
+        code = code.Remove(caret, "/*caret*/".Length);
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var items = service.GetCompletions(compilation, syntaxTree, caret).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "self");
+    }
+
+    [Fact]
     public void GetCompletions_OnSelfMemberAccess_ReturnsInstanceMembers()
     {
         var code = """
@@ -491,6 +551,50 @@ ST.
 
         Assert.Contains(items, i => i.DisplayText == "\"כן\"");
         Assert.Contains(items, i => i.DisplayText == "\"לא\"");
+    }
+
+    [Fact]
+    public void GetCompletions_OnNumericLiteralUnionLocal_SuggestsAllMembers()
+    {
+        var code = "let flags: 0 | 1 | 2 = ";
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var service = new CompletionService();
+        var position = code.Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "0");
+        Assert.Contains(items, i => i.DisplayText == "1");
+        Assert.Contains(items, i => i.DisplayText == "2");
+    }
+
+    [Fact]
+    public void GetCompletions_OnNumericLiteralUnionAssignment_SuggestsAllMembers()
+    {
+        var code = "let flags: 0 | 1 | 2 = 0;\nflags = ";
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var service = new CompletionService();
+        var position = code.Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "0");
+        Assert.Contains(items, i => i.DisplayText == "1");
+        Assert.Contains(items, i => i.DisplayText == "2");
     }
 
     [Fact]

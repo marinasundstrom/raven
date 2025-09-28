@@ -55,6 +55,40 @@ public static class CompletionProvider
         var replacementSpan = new TextSpan(token.Position, tokenText.Length);
         var literalReplacementSpan = new TextSpan(position, 0);
 
+        bool ShouldOfferSelfCompletion()
+        {
+            if (token.IsKind(SyntaxKind.IdentifierToken))
+                return true;
+
+            if (token.Parent is IdentifierNameSyntax { Identifier.IsMissing: false })
+                return true;
+
+            return token.GetAncestor<BlockStatementSyntax>() is not null
+                || token.GetAncestor<BlockSyntax>() is not null;
+        }
+
+        string GetSelfCompletionPrefix()
+        {
+            if (token.IsKind(SyntaxKind.IdentifierToken))
+                return token.ValueText;
+
+            if (token.Parent is IdentifierNameSyntax { Identifier: { IsMissing: false } identifier })
+                return identifier.ValueText;
+
+            return string.Empty;
+        }
+
+        TextSpan GetSelfReplacementSpan()
+        {
+            if (token.IsKind(SyntaxKind.IdentifierToken))
+                return replacementSpan;
+
+            if (token.Parent is IdentifierNameSyntax { Identifier: { IsMissing: false } identifier })
+                return identifier.Span;
+
+            return new TextSpan(position, 0);
+        }
+
         static string EscapeIdentifierForInsertion(string identifier)
         {
             if (string.IsNullOrEmpty(identifier))
@@ -503,6 +537,11 @@ public static class CompletionProvider
                         _ => null
                     };
                 }
+                else if (memberAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
+                {
+                    members = currentSelfType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
+                    instanceTypeForExtensions = currentSelfType;
+                }
 
                 if (members is not null)
                 {
@@ -614,26 +653,28 @@ public static class CompletionProvider
             }
         }
 
+        var selfType = GetSelfType();
+        if (selfType is not null && ShouldOfferSelfCompletion())
+        {
+            var prefix = GetSelfCompletionPrefix();
+            if (string.IsNullOrEmpty(prefix) || "self".StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                if (seen.Add("self"))
+                {
+                    completions.Add(new CompletionItem(
+                        DisplayText: "self",
+                        InsertionText: "self",
+                        ReplacementSpan: GetSelfReplacementSpan(),
+                        Description: $"Current instance of {SafeToDisplayString(selfType)}",
+                        Symbol: selfType
+                    ));
+                }
+            }
+        }
+
         // Visible symbols (locals, globals, etc.)
         var offerValueCompletions = token.Parent is IdentifierNameSyntax { Parent: BlockStatementSyntax or ExpressionStatementSyntax }
             || token.IsKind(SyntaxKind.IdentifierToken);
-
-        if (offerValueCompletions)
-        {
-            var selfType = GetSelfType();
-            if (selfType is not null &&
-                (string.IsNullOrEmpty(tokenValueText) || "self".StartsWith(tokenValueText, StringComparison.OrdinalIgnoreCase)) &&
-                seen.Add("self"))
-            {
-                completions.Add(new CompletionItem(
-                    DisplayText: "self",
-                    InsertionText: "self",
-                    ReplacementSpan: replacementSpan,
-                    Description: $"Current instance of {SafeToDisplayString(selfType)}",
-                    Symbol: selfType
-                ));
-            }
-        }
 
         if (offerValueCompletions)
         {
