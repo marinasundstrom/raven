@@ -306,6 +306,23 @@ let result = match input {
     }
 
     [Fact]
+    public void MatchExpression_WithUnionScrutineeIncludingNull_DoesNotReportMissingNull()
+    {
+        const string code = """
+let input: string | null = null
+
+let result = match input {
+    null => "Nothing to report."
+    string text => text
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """
