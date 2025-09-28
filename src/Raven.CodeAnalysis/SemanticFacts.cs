@@ -239,4 +239,5 @@ public static class SemanticFacts
         public int GetHashCode(ISymbol obj)
             => _comparer.GetHashCode(obj);
     }
+
 }

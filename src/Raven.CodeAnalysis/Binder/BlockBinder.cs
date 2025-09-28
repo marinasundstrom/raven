@@ -1745,11 +1745,13 @@ partial class BlockBinder : Binder
         for (var i = 0; i < arms.Length; i++)
         {
             var arm = arms[i];
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
 
-            if (guaranteedRemaining is not null && arm.Guard is null && i < catchAllIndex)
+            if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
                 RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern);
 
-            RemoveCoveredUnionMembers(remaining, arm.Pattern);
+            if (guardGuaranteesMatch)
+                RemoveCoveredUnionMembers(remaining, arm.Pattern);
 
             if (remaining.Count == 0)
             {
