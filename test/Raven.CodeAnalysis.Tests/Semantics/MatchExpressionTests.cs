@@ -182,6 +182,33 @@ let result = match state {
     }
 
     [Fact]
+    public void MatchExpression_WithNullArm_BindsToConstantPattern()
+    {
+        const string code = """
+let value: string | null = null
+
+let result = match value {
+    null => "empty"
+    string text => text
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_null_arm",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var constantPattern = Assert.IsType<BoundConstantPattern>(bound.Arms.First().Pattern);
+        Assert.Null(constantPattern.ConstantValue);
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnostic()
     {
         const string code = """
