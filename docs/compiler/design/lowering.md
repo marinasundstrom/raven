@@ -78,6 +78,12 @@ When a union type invokes a member shared by all branches, the specification req
 
 Raven's `unit` type maps to `void` in metadata, but user code can still observe a `unit` value. To bridge the gap, lowering inserts a synthetic `Unit.Value` load after any call to a `void` method when the surrounding context expects `unit`. Likewise, a bare `return` in a `unit`-returning function lowers to emit `Unit.Value` before `ret`. This keeps the surface language consistent with .NET interop requirements without complicating the emitter.
 
+### `for` statements and collection specialization
+
+`for` loops currently survive lowering as `BoundForStatement` nodes so the emitter can generate two specialized code paths: direct indexing for arrays and `IEnumerable`-based enumeration for other collections.【F:src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs†L39-L145】 Lowering them into a common `while` shape would still need to distinguish these cases to avoid regressing array performance and boxing behavior, meaning the lowering phase would end up duplicating the emitter's specialization logic.
+
+There are still benefits to consider. A lowering pass could centralize flow constructs (e.g., `break`/`continue` label synthesis) and make future optimizations reason about loops uniformly before emission. If we pursue this, the lowering should produce two lowered forms—one for arrays and another for general enumerables—so the emitter only handles primitive constructs while retaining the existing optimizations.【F:src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs†L90-L145】 Until we need those broader transformations, keeping `for` statements out of lowering avoids duplicating iterator plumbing across phases.
+
 ## Implementation tips
 
 * Place lowering visitors under `Raven.CodeAnalysis.Lowering` and favor small, composable classes over monolithic rewriters.
