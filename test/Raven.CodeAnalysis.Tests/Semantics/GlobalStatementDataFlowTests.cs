@@ -1,4 +1,5 @@
 using System.Linq;
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Shouldly;
 
@@ -24,8 +25,10 @@ for each number in numbers {
             .AddReferences(TestMetadataReferences.Default);
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        var forExpression = syntaxTree.GetRoot().DescendantNodes().OfType<ForExpressionSyntax>().Single();
-        var block = (BlockSyntax)forExpression.Body;
+        var forStatement = syntaxTree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+        var block = (BlockStatementSyntax)forStatement.Body;
+
+        semanticModel.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
         var totalDeclarator = syntaxTree.GetRoot().DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.ValueText == "total");

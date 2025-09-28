@@ -402,10 +402,12 @@ partial class BlockBinder : Binder
             AssignmentStatementSyntax assignmentStatement => BindAssignmentStatement(assignmentStatement),
             ExpressionStatementSyntax expressionStmt => BindExpressionStatement(expressionStmt),
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
+            WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
             TryStatementSyntax tryStmt => BindTryStatement(tryStmt),
             FunctionStatementSyntax function => BindFunction(function),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
+            ForStatementSyntax forStmt => BindForStatement(forStmt),
             LabeledStatementSyntax labeledStatement => BindLabeledStatement(labeledStatement),
             GotoStatementSyntax gotoStatement => BindGotoStatement(gotoStatement),
             BreakStatementSyntax breakStatement => BindBreakStatement(breakStatement),
@@ -442,6 +444,15 @@ partial class BlockBinder : Binder
         return new BoundIfStatement(condition, thenBound, elseBound);
     }
 
+    private BoundStatement BindWhileStatement(WhileStatementSyntax whileStmt)
+    {
+        var condition = BindExpression(whileStmt.Condition);
+
+        var body = BindStatementInLoop(whileStmt.Statement);
+
+        return new BoundWhileStatement(condition, body);
+    }
+
     private BoundStatement BindTryStatement(TryStatementSyntax tryStmt)
     {
         var tryBlock = BindBlockStatement(tryStmt.Block);
@@ -460,6 +471,23 @@ partial class BlockBinder : Binder
             return tryBlock;
 
         return new BoundTryStatement(tryBlock, catchBuilder.ToImmutable(), finallyBlock);
+    }
+
+    private BoundStatement BindForStatement(ForStatementSyntax forStmt)
+    {
+        var loopBinder = (BlockBinder)SemanticModel.GetBinder(forStmt, this)!;
+
+        var collection = BindExpression(forStmt.Expression);
+
+        ITypeSymbol elementType = collection.Type is IArrayTypeSymbol array
+            ? array.ElementType
+            : Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var local = loopBinder.CreateLocalSymbol(forStmt, forStmt.Identifier.ValueText, isMutable: false, elementType);
+
+        var body = loopBinder.BindStatementInLoop(forStmt.Body);
+
+        return new BoundForStatement(local, collection, body);
     }
 
     private BoundCatchClause BindCatchClause(CatchClauseSyntax catchClause)
@@ -859,6 +887,19 @@ partial class BlockBinder : Binder
         try
         {
             return BindExpression(syntax, allowReturn);
+        }
+        finally
+        {
+            ExitLoop(previous);
+        }
+    }
+
+    public BoundStatement BindStatementInLoop(StatementSyntax syntax)
+    {
+        var previous = EnterLoop();
+        try
+        {
+            return BindStatement(syntax);
         }
         finally
         {

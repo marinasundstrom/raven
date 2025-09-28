@@ -1,3 +1,10 @@
+using System.Linq;
+
+using Raven.CodeAnalysis.Syntax;
+using Shouldly;
+using Xunit;
+using Xunit.Abstractions;
+
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 public class LanguageParserTest(ITestOutputHelper testOutputHelper)
@@ -81,10 +88,10 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         var syntaxTree = SyntaxTree.ParseText(code);
         var root = syntaxTree.GetRoot();
 
-        var forExpr = root.DescendantNodes().OfType<ForExpressionSyntax>().FirstOrDefault();
-        forExpr.ShouldNotBeNull();
-        forExpr!.Identifier.Text.ShouldBe("x");
-        forExpr.EachKeyword.Kind.ShouldBe(SyntaxKind.None);
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.Identifier.Text.ShouldBe("x");
+        forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.None);
     }
 
     [Fact]
@@ -100,9 +107,9 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         var syntaxTree = SyntaxTree.ParseText(code);
         var root = syntaxTree.GetRoot();
 
-        var forExpr = root.DescendantNodes().OfType<ForExpressionSyntax>().FirstOrDefault();
-        forExpr.ShouldNotBeNull();
-        forExpr!.Identifier.Text.ShouldBe("x");
-        forExpr.EachKeyword.Kind.ShouldBe(SyntaxKind.EachKeyword);
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.Identifier.Text.ShouldBe("x");
+        forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.EachKeyword);
     }
 }
