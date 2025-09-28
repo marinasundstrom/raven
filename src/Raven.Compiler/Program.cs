@@ -138,7 +138,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../samples/interfaces{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../samples/linq{RavenFileExtensions.Raven}");
 
 for (int i = 0; i < sourceFiles.Count; i++)
 {

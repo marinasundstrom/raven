@@ -1,10 +1,9 @@
 import System.*
 import System.Console.*
-import System.Collections.Generic.*
 import System.Linq.*
 
-let numbers = [1, 2, 3]
-let result = numbers.Where(func (value) => value == 2)
+let numbers: int[] = [1, 2, 3]
+let result = numbers.Where(func (value) => value > 0)
 
 for each no in result {
     WriteLine(no)
