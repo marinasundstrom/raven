@@ -102,9 +102,11 @@ observed when compiling LINQ-heavy samples.
 
 ## 5. Lowering adjustments
 
-1. Extend `Lowerer.RewriteInvocationExpression` to treat Raven-authored
+1. ✅ Extend `Lowerer.RewriteInvocationExpression` to treat Raven-authored
    extensions identically to metadata-backed ones by substituting the receiver as
-   the first argument to the lowered static call.
+   the first argument to the lowered static call. Coverage now confirms lowering
+   rewrites source-defined extensions into static calls with the receiver as the
+   leading argument.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L540-L609】
 2. Confirm that the lowered invocation obeys value-type boxing semantics and
    nullability checks that C# enforces.
 3. Prototype a lowering pass trace (behind a compiler flag) that logs when a
