@@ -851,32 +851,29 @@ internal class ExpressionGenerator : Generator
 
             var patternLocal = EmitDesignation(declarationPattern.Designator, scope);
 
-            // [expr]
             if (typeSymbol.IsValueType)
             {
-                var labelFail = ILGenerator.DefineLabel();
+                var labelSuccess = ILGenerator.DefineLabel();
                 var labelDone = ILGenerator.DefineLabel();
-                var matchLocal = ILGenerator.DeclareLocal(typeof(object));
 
-                ILGenerator.Emit(OpCodes.Stloc, matchLocal);       // store cast attempt
-                ILGenerator.Emit(OpCodes.Ldloc, matchLocal);
-                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+                ILGenerator.Emit(OpCodes.Isinst, clrType);
+                ILGenerator.Emit(OpCodes.Dup);
+                ILGenerator.Emit(OpCodes.Brtrue_S, labelSuccess);
+                ILGenerator.Emit(OpCodes.Pop);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Br_S, labelDone);
 
-                ILGenerator.Emit(OpCodes.Ldloc, matchLocal);
-                ILGenerator.Emit(OpCodes.Unbox_Any, clrType);      // unbox value
+                ILGenerator.MarkLabel(labelSuccess);
+                ILGenerator.Emit(OpCodes.Unbox_Any, clrType);
                 if (patternLocal is not null)
                 {
-                    ILGenerator.Emit(OpCodes.Stloc, patternLocal); // store into pattern variable
+                    ILGenerator.Emit(OpCodes.Stloc, patternLocal);
                 }
                 else
                 {
-                    ILGenerator.Emit(OpCodes.Pop);                // discard the unboxed value
+                    ILGenerator.Emit(OpCodes.Pop);
                 }
                 ILGenerator.Emit(OpCodes.Ldc_I4_1);
-                ILGenerator.Emit(OpCodes.Br_S, labelDone);
-
-                ILGenerator.MarkLabel(labelFail);
-                ILGenerator.Emit(OpCodes.Ldc_I4_0);
 
                 ILGenerator.MarkLabel(labelDone);
             }
