@@ -25,7 +25,17 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
         TypeKind = TypeKind.Array;
     }
 
-    public override string Name => $"{ElementType}[]";
+    public override string Name
+    {
+        get
+        {
+            var suffix = Rank == 1
+                ? "[]"
+                : "[" + new string(',', Rank - 1) + "]";
+
+            return $"{ElementType}{suffix}";
+        }
+    }
 
     public override SymbolKind Kind => SymbolKind.Type;
 

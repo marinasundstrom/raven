@@ -1209,10 +1209,10 @@ public class Compilation
         return assemblySymbol;
     }
 
-    public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType)
+    public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank = 1)
     {
         var ns = GlobalNamespace.LookupNamespace("System");
-        return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, []);
+        return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank);
     }
 
     /*
