@@ -38,6 +38,10 @@ internal class StatementGenerator : Generator
                 EmitDeclarationStatement(localDeclarationStatement);
                 break;
 
+            case BoundIfStatement ifStatement:
+                EmitIfStatement(ifStatement);
+                break;
+
             case BoundForStatement forStatement:
                 EmitForStatement(forStatement);
                 break;
@@ -62,6 +66,37 @@ internal class StatementGenerator : Generator
                 EmitConditionalGotoStatement(conditionalGotoStatement);
                 break;
         }
+    }
+
+    private void EmitIfStatement(BoundIfStatement ifStatement)
+    {
+        var scope = new Scope(this);
+        var hasElse = ifStatement.ElseNode is not null;
+        Label elseLabel = default;
+
+        if (hasElse)
+            elseLabel = ILGenerator.DefineLabel();
+
+        var endLabel = ILGenerator.DefineLabel();
+
+        new ExpressionGenerator(scope, ifStatement.Condition).Emit();
+
+        if (hasElse)
+        {
+            ILGenerator.Emit(OpCodes.Brfalse_S, elseLabel);
+            new StatementGenerator(scope, ifStatement.ThenNode).Emit();
+            ILGenerator.Emit(OpCodes.Br_S, endLabel);
+
+            ILGenerator.MarkLabel(elseLabel);
+            new StatementGenerator(scope, ifStatement.ElseNode!).Emit();
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Brfalse_S, endLabel);
+            new StatementGenerator(scope, ifStatement.ThenNode).Emit();
+        }
+
+        ILGenerator.MarkLabel(endLabel);
     }
 
     private void EmitReturnStatement(BoundReturnStatement returnStatement)
