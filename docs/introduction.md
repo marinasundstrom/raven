@@ -1,28 +1,45 @@
 # Raven Programming Language
 
-Raven is a general-purpose programming language.
+Raven is a modern, general-purpose language that embraces expressive syntax, strong static typing, and first-class tooling. It is designed for day-to-day application development on .NET while borrowing the best ideas from contemporary languages.
 
-It mainly draws inspiration from Swift, Rust, and Kotlin in its syntax, and features from functional programming languages like F#.
+## Influences at a glance
 
-It is expression-oriented and expression-first but supports imperative constructs when those are preferred. It also has a number of functional programming constructs, but it is an impure language and supports OOP.
+- **Swift & Kotlin** inform Raven's expression-oriented surface syntax and emphasis on concise declarations.
+- **Rust** contributes exhaustiveness checking, algebraic patterns, and flow-sensitive type analysis that keep code safe without ceremony.
+- **F# and functional heritage** inspire immutable-by-default semantics, higher-order programming, and a focus on composing small expressions into larger behaviours.
+- **The .NET ecosystem** anchors Raven in pragmatic interop: every Raven project can call into existing libraries and surface analyzers for C# developers.
 
-The type system is flexible and supports type unions and literals as their own types. Types flow with expressions, similar to TypeScript. The language uses `unit` instead of `void`.
+## Language philosophy
 
-Since Raven is a .NET language, it supports interop with C#, projecting Raven types into C# and back again. There is also a C# analyzer for type unions.
+Raven aims to balance expressive power with approachability:
 
-The compiler is based on the Roslyn compiler architecture, which provides compiler-as-a-service and tooling such as analyzers.
+- **Expression-first, imperative when you need it.** Most constructs produce values, enabling pipeline-style code, yet familiar statements like `return` remain available when clarity calls for them.
+- **Types that flow with your logic.** Unions, literal types, and bidirectional inference let values carry precise information through branches, matches, and guards.
+- **Interop without friction.** Raven maps cleanly onto .NET metadata, so classes, generics, and async workflows feel at home alongside existing CLR code.
+- **Tooling built in.** The compiler follows the Roslyn architecture, unlocking analyzers, IDE support, and incremental compilation from the start.
 
-## String interpolation example
+## A quick taste of Raven
 
-In Raven, `${...}` interpolation works inside ordinary quoted strings—there is no `$` prefix like C#'s interpolated strings. For example:
+Raven uses familiar keywords, but patterns and unions make branching concise:
 
 ```raven
-let name = "Avery"
-let product = "Raven"
-let message = "Hello ${name}, welcome to ${product}!"
+func describe(input: string | int | null) -> string {
+    match input {
+        null => "Nothing to report."
+        string text when text.Length > 0 => "Saw \"${text}\""
+        int number => "Counted ${number}"
+        _ => "Empty input."
+    }
+}
+
+let first = describe("Raven")
+let second = describe(3)
+let third = describe(null)
+
+let summary = "${first}; ${second}; ${third}"
+
+System.Console.WriteLine(summary)
 ```
 
-The compiler substitutes the embedded expressions, so `message` evaluates to `Hello Avery, welcome to Raven!`.
-
-The `string-interpolation.rav` sample provides a second example with right-to-left text. Running it produces the greeting `שלום דניאל! ברוך הבא לתל אביב`, showing that interpolation works correctly even when the output mixes RTL and Latin characters.
+Because string interpolation uses `${...}` inside ordinary quotes, the final line prints `Saw "Raven"; Counted 3; Nothing to report.`. Flow-sensitive analysis ensures that `text` and `number` have the right types inside each `match` arm, and the `_` discard keeps the expression exhaustive without introducing a binding.
 
