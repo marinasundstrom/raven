@@ -218,6 +218,15 @@
     <Slot Name="Elements" Type="SeparatedList" ElementType="TupleElement" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken"/>
   </Node>
+  <Node Name="ArrayRankSpecifier" Inherits="Node">
+    <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken"/>
+    <Slot Name="CommaTokens" Type="TokenList" />
+    <Slot Name="CloseBracketToken" Type="Token" DefaultToken="CloseBracketToken"/>
+  </Node>
+  <Node Name="ArrayType" Inherits="Type">
+    <Slot Name="ElementType" Type="Type" />
+    <Slot Name="RankSpecifiers" Type="List" ElementType="ArrayRankSpecifier" />
+  </Node>
   <Node Name="CollectionExpression" Inherits="Expression">
     <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken"/>
     <Slot Name="Elements" Type="SeparatedList" ElementType="CollectionElement" />

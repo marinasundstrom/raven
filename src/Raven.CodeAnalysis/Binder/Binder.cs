@@ -369,6 +369,19 @@ internal abstract class Binder
             return new UnionTypeSymbol(types, null, null, null, []);
         }
 
+        if (typeSyntax is ArrayTypeSyntax arrayTypeSyntax)
+        {
+            var currentElementType = ResolveType(arrayTypeSyntax.ElementType);
+
+            foreach (var rankSpecifier in arrayTypeSyntax.RankSpecifiers)
+            {
+                var rank = rankSpecifier.CommaTokens.Count + 1;
+                currentElementType = Compilation.CreateArrayTypeSymbol(currentElementType, rank);
+            }
+
+            return currentElementType;
+        }
+
         if (typeSyntax is TupleTypeSyntax tupleTypeSyntax)
         {
             var elements = tupleTypeSyntax.Elements

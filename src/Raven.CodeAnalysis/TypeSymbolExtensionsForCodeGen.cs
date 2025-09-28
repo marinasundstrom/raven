@@ -51,7 +51,9 @@ public static class TypeSymbolExtensionsForCodeGen
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             var elementClrType = arrayType.ElementType.GetClrType(codeGen);
-            return elementClrType.MakeArrayType(); // TODO: support Rank > 1
+            return arrayType.Rank == 1
+                ? elementClrType.MakeArrayType()
+                : elementClrType.MakeArrayType(arrayType.Rank);
         }
 
         // Handle arrays

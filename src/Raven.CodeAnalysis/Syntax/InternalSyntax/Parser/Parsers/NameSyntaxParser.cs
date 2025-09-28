@@ -53,6 +53,13 @@ internal class NameSyntaxParser : SyntaxParser
             name = ParseNameCore();
         }
 
+        name = ParseArrayTypeSuffix(name);
+
+        if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
+        {
+            name = NullableType(name, questionToken);
+        }
+
         SyntaxList types = SyntaxList.Empty;
 
         bool isUnion = false;
@@ -125,12 +132,39 @@ internal class NameSyntaxParser : SyntaxParser
             left = QualifiedName((NameSyntax)left, dotToken, ParseUnqualifiedName());
         }
 
-        if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
+        return left;
+    }
+
+    private TypeSyntax ParseArrayTypeSuffix(TypeSyntax elementType)
+    {
+        if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
         {
-            left = NullableType(left, questionToken);
+            return elementType;
         }
 
-        return left;
+        var rankSpecifiers = new List<GreenNode>();
+
+        while (PeekToken().IsKind(SyntaxKind.OpenBracketToken))
+        {
+            rankSpecifiers.Add(ParseArrayRankSpecifier());
+        }
+
+        return ArrayType(elementType, List(rankSpecifiers.ToArray()));
+    }
+
+    private ArrayRankSpecifierSyntax ParseArrayRankSpecifier()
+    {
+        var openBracket = ReadToken();
+        SyntaxList commas = SyntaxList.Empty;
+
+        while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+        {
+            commas = commas.Add(commaToken);
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracket);
+
+        return ArrayRankSpecifier(openBracket, commas, closeBracket);
     }
 
     public UnqualifiedNameSyntax ParseUnqualifiedName()
