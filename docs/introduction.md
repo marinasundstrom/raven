@@ -23,6 +23,8 @@ Raven aims to balance expressive power with approachability:
 Raven uses familiar keywords, but patterns and unions make branching concise:
 
 ```raven
+import System.Console.*
+
 func describe(input: string | int | null) -> string {
     match input {
         null => "Nothing to report."
@@ -38,7 +40,7 @@ let third = describe(null)
 
 let summary = "${first}; ${second}; ${third}"
 
-System.Console.WriteLine(summary)
+WriteLine(summary)
 ```
 
 Because string interpolation uses `${...}` inside ordinary quotes, the final line prints `Saw "Raven"; Counted 3; Nothing to report.`. Flow-sensitive analysis ensures that `text` and `number` have the right types inside each `match` arm, and the `_` discard keeps the expression exhaustive without introducing a binding.
