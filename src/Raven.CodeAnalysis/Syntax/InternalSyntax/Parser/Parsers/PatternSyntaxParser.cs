@@ -2,6 +2,8 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
+using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
@@ -43,6 +45,11 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParsePrimaryPattern()
     {
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            return ParseTuplePattern();
+        }
+
         var type = new NameSyntaxParser(this).ParseTypeName();
 
         // Optionally consume a variable designation
@@ -57,6 +64,28 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         return DeclarationPattern(type, designation);
+    }
+
+    private TuplePatternSyntax ParseTuplePattern()
+    {
+        var openParenToken = ReadToken();
+
+        var patternList = new List<GreenNode>();
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        {
+            patternList.Add(new PatternSyntaxParser(this).ParsePattern());
+
+            while (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                patternList.Add(commaToken);
+                patternList.Add(new PatternSyntaxParser(this).ParsePattern());
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        return TuplePattern(openParenToken, List(patternList.ToArray()), closeParenToken);
     }
 
     private VariableDesignationSyntax ParseDesignation()
