@@ -1854,6 +1854,19 @@ partial class BlockBinder : Binder
                 {
                     var literalType = UnwrapAlias(constant.LiteralType);
 
+                    if (constant.ConstantValue is null)
+                    {
+                        foreach (var candidate in remaining.ToArray())
+                        {
+                            var candidateType = UnwrapAlias(candidate);
+
+                            if (candidateType.TypeKind == TypeKind.Null)
+                                remaining.Remove(candidate);
+                        }
+
+                        break;
+                    }
+
                     foreach (var candidate in remaining.ToArray())
                     {
                         var candidateType = UnwrapAlias(candidate);
