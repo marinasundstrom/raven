@@ -52,4 +52,19 @@ internal static class NamespaceSymbolExtensions
 
         return null;
     }
+
+    public static string QualifyName(this INamespaceSymbol? parentNamespace, string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return parentNamespace?.ToMetadataName() ?? string.Empty;
+
+        if (parentNamespace is null || parentNamespace.IsGlobalNamespace)
+            return name;
+
+        var parentMetadataName = parentNamespace.ToMetadataName();
+        if (string.IsNullOrEmpty(parentMetadataName))
+            return name;
+
+        return string.Concat(parentMetadataName, ".", name);
+    }
 }

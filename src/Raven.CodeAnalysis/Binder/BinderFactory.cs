@@ -88,8 +88,12 @@ class BinderFactory
 
     private Binder CreateNamespaceBinder(BaseNamespaceDeclarationSyntax nsSyntax, Binder parentBinder)
     {
-        var nsSymbol = _compilation.GetNamespaceSymbol(nsSyntax.Name.ToString());
-        var nsBinder = new NamespaceBinder(parentBinder, nsSymbol!);
+        var parentNamespace = parentBinder.CurrentNamespace;
+        var namespaceName = parentNamespace.QualifyName(nsSyntax.Name.ToString());
+        var nsSymbol = _compilation.GetOrCreateNamespaceSymbol(namespaceName)
+            ?? throw new InvalidOperationException($"Unable to resolve namespace '{namespaceName}'.");
+
+        var nsBinder = new NamespaceBinder(parentBinder, nsSymbol);
 
         var namespaceImports = new List<INamespaceOrTypeSymbol>();
         var typeImports = new List<ITypeSymbol>();

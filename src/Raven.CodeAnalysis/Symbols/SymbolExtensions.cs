@@ -121,8 +121,8 @@ public static partial class SymbolExtensions
         // Example: Include namespace and type qualification
         if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
         {
-            // Assume `Namespace` and `ContainingType` are properties of the symbol
-            if (symbol.ContainingNamespace?.ContainingNamespace is not null)
+            // Append containing namespaces when present (excluding the global namespace)
+            if (symbol.ContainingNamespace is { } containingNamespace && !containingNamespace.IsGlobalNamespace)
             {
                 var ns = GetFullNamespace(symbol, format);
                 if (!string.IsNullOrEmpty(ns))

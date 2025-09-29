@@ -75,7 +75,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
         return symbol is not null;
     }
 
-    public override string ToString() => IsGlobalNamespace ? "<global>" : this.ToDisplayString();
+    public override string ToString() => IsGlobalNamespace ? "<global>" : ToMetadataName();
 
     public string ToMetadataName()
     {
