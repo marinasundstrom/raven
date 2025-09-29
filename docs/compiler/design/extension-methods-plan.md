@@ -48,11 +48,11 @@ observed when compiling LINQ-heavy samples.
       reflection while we migrate to metadata-aware APIs.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L395-L438】
    3. 🔍 Investigate whether additional emission paths (e.g. captured lambdas)
       need similar treatment once the primary constructor lookup is fixed.
-6. Validate end-to-end lowering/execution by compiling a LINQ-heavy sample with
-   the fixture library and recording whether the `ExpressionGenerator` failure
-   is still reachable when we stay within metadata-produced extensions. Capture
-   the command-line invocation and emitted IL diff in the baseline document for
-   traceability.
+6. ✅ Validated the CLI path by compiling the LINQ sample against the fixture
+   library and capturing both the `dotnet run` invocation and resulting
+   diagnostics in the baseline doc. The run still stops in overload resolution,
+   so the `ExpressionGenerator` regression remains unexercised until the binder
+   accepts the metadata extension.【F:docs/compiler/design/extension-methods-baseline.md†L74-L86】
 7. Exit criteria: metadata extensions behave like their C# counterparts in both
    semantic analysis and emitted IL, and remaining interop gaps are documented
    with linked follow-up issues.

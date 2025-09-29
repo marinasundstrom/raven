@@ -76,6 +76,15 @@ type or use the lambda in a delegate-typed context
 > fails later in emission because `ExpressionGenerator` looks up delegate
 > constructors via raw reflection.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L399】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L403-L441】
 
+> **Update (2025-05-XX).** Running the CLI with the metadata fixture reference
+> still fails before code generation. Invoking Raven with the fixture assembly
+> on the command line—`
+> dotnet run --project src/Raven.Compiler -- src/Raven.Compiler/samples/linq.rav \
+>     --refs test/MetadataFixtures/ExtensionMethodsFixture/bin/Debug/net9.0/Raven.ExtensionMethodsFixture.dll
+> `—triggers the original overload-resolution diagnostics instead of the
+> `ExpressionGenerator` crash, so the emission bug remains untested until the
+> binder accepts the metadata extension.【5190ac†L1-L3】【d30800†L1-L6】
+
 The first error shows that we still do not recognize metadata `Where`
 definitions as extension methods when a lambda argument is present, so overload
 resolution thinks the call is missing the `source` argument altogether. The
