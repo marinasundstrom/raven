@@ -4,9 +4,8 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
-> **Next step.** Round out semantic coverage with overload shadowing and
-> generic receiver scenarios so Raven-authored extensions stay in parity with
-> their metadata counterparts before updating the language specification.
+> **Next step.** Document the end-to-end feature in the language
+> specification and user manuals before updating the roadmap and TODO list.
 
 ## 1. Baseline assessment ✅
 
@@ -148,9 +147,12 @@ observed when compiling LINQ-heavy samples.
 
 ## 7. Validation and polish
 
-1. Expand semantic tests under `test/Raven.CodeAnalysis.Tests` to cover Raven
-   extensions calling into other Raven extensions, overload shadowing, and
-   generic receivers.
+1. ✅ Expanded semantic tests under `test/Raven.CodeAnalysis.Tests` to cover
+   Raven extensions calling into other Raven extensions, overload shadowing,
+   and generic receivers so source-defined helpers stay aligned with metadata
+   behavior.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L515-L608】【F:test/Raven.CodeAnalysis.Tes
+ts/Semantics/ExtensionMethodSemanticTests.cs†L612-L703】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTest
+s.cs†L706-L764】
 2. Document the feature in the language specification and user-facing manuals,
    emphasizing parity with C#'s extension method behavior and any deliberate
    deviations.
