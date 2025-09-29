@@ -610,6 +610,91 @@ public static class NumberExtensions {
     }
 
     [Fact]
+    public void Lowerer_ExtensionInvocation_BoxesValueTypeReceiverWhenRequired()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+class Query {
+    Run() -> object {
+        let value = 3
+        return value.ToObject()
+    }
+}
+
+public static class BoxingExtensions {
+    [ExtensionAttribute]
+    public static ToObject(x: object) -> object {
+        return x
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.Text == "Run");
+
+        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
+        var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
+
+        var lowered = Lowerer.LowerBlock(methodSymbol, boundBody);
+
+        var returnStatement = Assert.IsType<BoundReturnStatement>(lowered.Statements.Last());
+        var invocation = Assert.IsType<BoundInvocationExpression>(returnStatement.Expression);
+
+        Assert.True(invocation.Method.IsExtensionMethod);
+        Assert.Null(invocation.Receiver);
+
+        var arguments = invocation.Arguments.ToArray();
+        Assert.Equal(invocation.Method.Parameters.Length, arguments.Length);
+
+        var boxedReceiver = Assert.IsType<BoundCastExpression>(arguments[0]);
+        Assert.Equal(invocation.Method.Parameters[0].Type, boxedReceiver.Type);
+
+        var local = Assert.IsType<BoundLocalAccess>(boxedReceiver.Expression);
+        Assert.Equal("value", local.Local.Name);
+    }
+
+    [Fact]
+    public void ExtensionInvocation_WithNullableValueReceiver_RequiresNonNullableParameter()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+class Query {
+    Run() -> int {
+        let value: int? = null
+        return value.Double()
+    }
+}
+
+public static class NumberExtensions {
+    [ExtensionAttribute]
+    public static Double(x: int) -> int {
+        return x + x
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, diagnostic.Descriptor);
+        Assert.Contains("Double", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ExtensionInvocation_WithUnsatisfiedGenericConstraint_ReportsDiagnostic()
     {
         const string source = """
