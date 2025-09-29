@@ -4,8 +4,9 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
-> **Next step.** Document the end-to-end feature in the language
-> specification and user manuals before updating the roadmap and TODO list.
+> **Next step.** With the language specification and user manual updated,
+> sync the roadmap and TODO list so they point at the remaining metadata
+> polish work and declaration syntax milestones.
 
 ## 1. Baseline assessment ✅
 

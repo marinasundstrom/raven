@@ -49,10 +49,11 @@ Because string interpolation uses `${...}` inside ordinary quotes, the final lin
 
 Raven leans on the familiar .NET extension model so you can add helpers to
 existing types without modifying their definitions. Declare an extension by
-placing `[Extension]` on a `static` method and giving the receiver as the first
-parameter. Because extensions live in ordinary modules or static classes, you
-bring them into scope with the same `import` directives you use for metadata
-types.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
+placing `[Extension]` on a `static` method declared inside a module or static
+class and giving the receiver as the first parameter. Because extensions live in
+ordinary types, you bring them into scope with the same `import` directives used
+for metadata types. Raven emits the standard `ExtensionAttribute` metadata, so
+both Raven and C# callers recognize the helper.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
 
 ```raven
 import System.Runtime.CompilerServices.*
@@ -64,20 +65,31 @@ public static class DescribeExtensions {
     }
 }
 
-let greeting = "Raven".Describe()  // "Raven !"
+public static class EnumerableExtensions {
+    [Extension]
+    public static Where<T>(source: IEnumerable<T>, predicate: Func<T, bool>)
+        -> IEnumerable<T> {
+        // implementation omitted
+    }
+}
+
+let greeting = "Raven".Describe()
+let evens = [1, 2, 3, 4].Where(n => n % 2 == 0)
 ```
 
 When you call the method-style syntax, Raven checks the receiver for instance
-members first and falls back to any imported extensions whose first parameter
-matches the receiver's type. The compiler then rewrites the invocation so the
-receiver becomes the leading argument to the static method, which means the
-emitted IL and runtime behavior match what C# would produce.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
+members first and then considers any imported extensions whose first parameter
+matches the receiver's type. Metadata extensions delivered through referenced
+assemblies—including the LINQ-inspired fixture that ships with the compiler—flow
+through the same pipeline as Raven-authored helpers, so overload resolution sees
+a unified candidate set. The compiler rewrites successful extension invocations
+to pass the receiver as the leading argument to the static method before
+lowering, producing the same IL that C# would emit.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
 
-> **Note:** Raven's metadata loader is still gaining parity with the .NET
-> reference assemblies. Invocations like `numbers.Where(...)` succeed when the
-> extension comes from Raven-authored code or the test fixtures bundled with the
-> compiler, but calls into `System.Linq.Enumerable` currently fail with
-> overload-resolution errors such as `RAV1501`. The
+> **Note:** The CLI automatically references `System.Linq.dll`, but support for
+> the full BCL surface still depends on ongoing delegate inference polish. Until
+> the remaining lambda compatibility work lands, the bundled fixture provides a
+> stable way to exercise LINQ-style pipelines. Progress is tracked in the
 > [extension-method consumption status](compiler/design/extension-methods-consumption-status.md)
-> tracker captures the open work needed to unblock real-world assemblies.
+> report.
 
