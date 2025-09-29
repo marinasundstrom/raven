@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -12,8 +14,10 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal class ExpressionGenerator : Generator
 {
+    private static readonly DelegateConstructorCacheKeyComparer s_delegateConstructorComparer = new();
+
     private readonly BoundExpression _expression;
-    private readonly Dictionary<ITypeSymbol, ConstructorInfo> _delegateConstructorCache = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<DelegateConstructorCacheKey, ConstructorInfo> _delegateConstructorCache = new(s_delegateConstructorComparer);
     private Type[]? _delegateConstructorSignature;
 
     private static readonly MethodInfo GetTypeFromHandleMethod = typeof(Type)
@@ -429,7 +433,9 @@ internal class ExpressionGenerator : Generator
 
     private ConstructorInfo GetDelegateConstructor(ITypeSymbol delegateType, Type delegateClrType)
     {
-        if (_delegateConstructorCache.TryGetValue(delegateType, out var ctor))
+        var cacheKey = CreateDelegateConstructorCacheKey(delegateType, delegateClrType);
+
+        if (_delegateConstructorCache.TryGetValue(cacheKey, out var ctor))
             return ctor;
 
         if (delegateType is INamedTypeSymbol namedDelegate)
@@ -453,8 +459,47 @@ internal class ExpressionGenerator : Generator
                 ?? throw new InvalidOperationException($"Delegate '{delegateClrType}' lacks the expected constructor.");
         }
 
-        _delegateConstructorCache[delegateType] = ctor;
+        _delegateConstructorCache[cacheKey] = ctor;
         return ctor;
+    }
+
+    private DelegateConstructorCacheKey CreateDelegateConstructorCacheKey(ITypeSymbol delegateType, Type delegateClrType)
+    {
+        if (delegateType is SynthesizedDelegateTypeSymbol synthesized)
+        {
+            var parameterTypes = synthesized.ParameterTypes.IsDefaultOrEmpty
+                ? ImmutableArray<ITypeSymbol>.Empty
+                : synthesized.ParameterTypes;
+            var refKinds = synthesized.ParameterRefKinds.IsDefaultOrEmpty
+                ? ImmutableArray<RefKind>.Empty
+                : synthesized.ParameterRefKinds;
+
+            return new DelegateConstructorCacheKey(delegateClrType, synthesized.ReturnType, parameterTypes, refKinds);
+        }
+
+        if (delegateType is INamedTypeSymbol namedDelegate && namedDelegate.GetDelegateInvokeMethod() is { } invoke)
+        {
+            var parameterTypesBuilder = ImmutableArray.CreateBuilder<ITypeSymbol>(invoke.Parameters.Length);
+            var refKindsBuilder = ImmutableArray.CreateBuilder<RefKind>(invoke.Parameters.Length);
+
+            foreach (var parameter in invoke.Parameters)
+            {
+                parameterTypesBuilder.Add(parameter.Type);
+                refKindsBuilder.Add(parameter.RefKind);
+            }
+
+            return new DelegateConstructorCacheKey(
+                delegateClrType,
+                invoke.ReturnType,
+                parameterTypesBuilder.MoveToImmutable(),
+                refKindsBuilder.MoveToImmutable());
+        }
+
+        return new DelegateConstructorCacheKey(
+            delegateClrType,
+            delegateType,
+            ImmutableArray<ITypeSymbol>.Empty,
+            ImmutableArray<RefKind>.Empty);
     }
 
     private ConstructorInfo? TryResolveDelegateConstructor(INamedTypeSymbol delegateType)
@@ -2646,5 +2691,70 @@ internal class ExpressionGenerator : Generator
         }
 
         throw new InvalidOperationException();
+    }
+
+    private readonly struct DelegateConstructorCacheKey
+    {
+        public DelegateConstructorCacheKey(
+            Type delegateClrType,
+            ITypeSymbol returnType,
+            ImmutableArray<ITypeSymbol> parameterTypes,
+            ImmutableArray<RefKind> refKinds)
+        {
+            DelegateClrType = delegateClrType ?? throw new ArgumentNullException(nameof(delegateClrType));
+            ReturnType = returnType ?? throw new ArgumentNullException(nameof(returnType));
+            ParameterTypes = parameterTypes.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : parameterTypes;
+            RefKinds = refKinds.IsDefault ? ImmutableArray<RefKind>.Empty : refKinds;
+        }
+
+        public Type DelegateClrType { get; }
+
+        public ITypeSymbol ReturnType { get; }
+
+        public ImmutableArray<ITypeSymbol> ParameterTypes { get; }
+
+        public ImmutableArray<RefKind> RefKinds { get; }
+    }
+
+    private sealed class DelegateConstructorCacheKeyComparer : IEqualityComparer<DelegateConstructorCacheKey>
+    {
+        public bool Equals(DelegateConstructorCacheKey x, DelegateConstructorCacheKey y)
+        {
+            if (!ReferenceEquals(x.DelegateClrType, y.DelegateClrType))
+                return false;
+
+            if (!SymbolEqualityComparer.Default.Equals(x.ReturnType, y.ReturnType))
+                return false;
+
+            if (x.ParameterTypes.Length != y.ParameterTypes.Length || x.RefKinds.Length != y.RefKinds.Length)
+                return false;
+
+            for (var i = 0; i < x.ParameterTypes.Length; i++)
+            {
+                if (x.RefKinds[i] != y.RefKinds[i])
+                    return false;
+
+                if (!SymbolEqualityComparer.Default.Equals(x.ParameterTypes[i], y.ParameterTypes[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public int GetHashCode(DelegateConstructorCacheKey obj)
+        {
+            var hash = RuntimeHelpers.GetHashCode(obj.DelegateClrType);
+            hash = HashCode.Combine(hash, SymbolEqualityComparer.Default.GetHashCode(obj.ReturnType));
+
+            for (var i = 0; i < obj.ParameterTypes.Length; i++)
+            {
+                hash = HashCode.Combine(
+                    hash,
+                    SymbolEqualityComparer.Default.GetHashCode(obj.ParameterTypes[i]),
+                    obj.RefKinds[i]);
+            }
+
+            return hash;
+        }
     }
 }

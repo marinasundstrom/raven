@@ -4,9 +4,9 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
-> **Next step.** Harden the delegate construction path by caching resolved
-> constructors per delegate signature so repeated extension lambdas avoid
-> redundant reflection while staying inside the metadata-aware helpers.
+> **Next step.** Once the failure mode is addressed, cover extension method
+> calls inside query comprehensions (`Select`, `Where`, `OrderBy`) to ensure
+> LINQ works end-to-end.
 
 ## 1. Baseline assessment ✅
 
@@ -130,9 +130,10 @@ observed when compiling LINQ-heavy samples.
    delegate constructors using `Compilation`'s `MetadataLoadContext`-aware
    APIs. Avoid `Type.GetConstructor` calls that introduce foreign `Type`
    instances.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L409-L482】
-2. Harden the delegate construction path by caching resolved constructors per
-   `DelegateTypeSymbol` so repeated lambda emission does not incur redundant
-   reflection or leak metadata handles.
+2. ✅ Hardened the delegate construction path by caching resolved constructors
+   per delegate signature so repeated lambda emission no longer incurs redundant
+   metadata lookups and the metadata-aware helpers are reused when emitting
+   extension lambdas.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L14-L33】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L419-L524】
 3. ✅ Added execution coverage that compiles and runs the LINQ sample through the
    CLI with the metadata fixture, exercising `Where`/`Select` lambdas and
    asserting the emitted program produces the projected results.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L66-L117】
