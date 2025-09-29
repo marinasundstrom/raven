@@ -1,0 +1,11 @@
+import System.Console.*
+
+let input = "foo"
+
+let value = try int.Parse(input) match {
+    int no => "No is ${no}"
+    FormatException ex => "Format invalid: ${ex.Message}"
+    _ => "unknown"
+}
+
+WriteLine(value)
