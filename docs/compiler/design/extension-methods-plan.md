@@ -4,9 +4,9 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
-> **Next step.** Build the optional lowering trace for extension invocations
-> and extend semantic coverage so nested query comprehensions keep exercising
-> the Raven-authored and metadata-backed pipelines together.
+> **Next step.** Round out semantic coverage with overload shadowing and
+> generic receiver scenarios so Raven-authored extensions stay in parity with
+> their metadata counterparts before updating the language specification.
 
 ## 1. Baseline assessment ✅
 
@@ -115,17 +115,17 @@ observed when compiling LINQ-heavy samples.
    extensions identically to metadata-backed ones by substituting the receiver as
    the first argument to the lowered static call. Coverage now confirms lowering
    rewrites source-defined extensions into static calls with the receiver as the
-   leading argument.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L540-L609】
+   leading argument.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L563-L611】
 2. ✅ Confirmed that lowered extension invocations preserve value-type boxing and
    reject nullable receivers where C# would. New lowering coverage exercises the
    boxed first argument and verifies we emit the diagnostic for `int?` receivers
-   targeting non-nullable parameters.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L585-L644】
+   targeting non-nullable parameters.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L613-L665】
 3. ✅ Prototyped a lowering pass trace (toggled via compilation options) that
    records each extension invocation rewritten during lowering. The optional
    `LoweringTraceLog` sink captures the containing symbol, method, receiver, and
    argument types so nested pipelines can be inspected in tests. New lowering
    coverage asserts that mixed Raven and metadata LINQ pipelines emit the trace
-   entries expected for nested comprehensions.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/LoweringTrace.cs†L1-L58】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L1-L47】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L609-L699】
+   entries expected for nested comprehensions.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/LoweringTrace.cs†L1-L58】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L1-L47】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L668-L900】
 
 ## 6. Code generation fixes
 
