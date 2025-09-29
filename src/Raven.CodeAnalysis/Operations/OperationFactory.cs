@@ -30,6 +30,7 @@ internal static class OperationFactory
             BoundLocalDeclarationStatement => OperationKind.LocalDeclaration,
             BoundVariableDeclarator => OperationKind.VariableDeclarator,
             BoundReturnStatement => OperationKind.Return,
+            BoundThrowStatement => OperationKind.Throw,
             BoundLiteralExpression => OperationKind.Literal,
             BoundLocalAccess => OperationKind.LocalReference,
             BoundParameterAccess => OperationKind.ParameterReference,

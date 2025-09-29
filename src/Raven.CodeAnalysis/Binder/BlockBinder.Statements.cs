@@ -319,6 +319,37 @@ partial class BlockBinder
         return new BoundReturnStatement(expr);
     }
 
+    private BoundStatement BindThrowStatement(ThrowStatementSyntax throwStatement)
+    {
+        var location = throwStatement.ThrowKeyword.GetLocation();
+
+        if (_expressionContextDepth > 0)
+            _diagnostics.ReportThrowStatementInExpression(location);
+
+        var expression = BindExpression(throwStatement.Expression);
+
+        var exceptionBase = Compilation.GetTypeByMetadataName("System.Exception")
+            ?? Compilation.ErrorTypeSymbol;
+
+        if (ShouldAttemptConversion(expression) &&
+            expression.Type is { TypeKind: not TypeKind.Error } expressionType &&
+            exceptionBase.TypeKind != TypeKind.Error)
+        {
+            if (!IsAssignable(exceptionBase, expressionType, out var conversion))
+            {
+                _diagnostics.ReportThrowExpressionMustBeException(
+                    expressionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    throwStatement.Expression.GetLocation());
+            }
+            else
+            {
+                expression = ApplyConversion(expression, exceptionBase, conversion, throwStatement.Expression);
+            }
+        }
+
+        return new BoundThrowStatement(expression);
+    }
+
     private BoundStatement BindLabeledStatement(LabeledStatementSyntax labeledStatement)
     {
         if (_expressionContextDepth > 0)

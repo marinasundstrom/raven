@@ -125,6 +125,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundReturnStatement ret:
                 VisitReturnStatement(ret);
                 break;
+            case BoundThrowStatement throwStatement:
+                VisitThrowStatement(throwStatement);
+                break;
             case BoundIfStatement ifStmt:
                 VisitIfStatement(ifStmt);
                 break;
@@ -162,6 +165,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         if (node.Expression is not null)
             VisitExpression(node.Expression);
+    }
+
+    public virtual void VisitThrowStatement(BoundThrowStatement node)
+    {
+        VisitExpression(node.Expression);
     }
 
     public override void VisitAssignmentStatement(BoundAssignmentStatement node)

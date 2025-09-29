@@ -187,6 +187,11 @@
     <Slot Name="ContinueKeyword" Type="Token" DefaultToken="ContinueKeyword"/>
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
+  <Node Name="ThrowStatement" Inherits="Statement">
+    <Slot Name="ThrowKeyword" Type="Token" DefaultToken="ThrowKeyword"/>
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
+  </Node>
   <Node Name="ForStatement" Inherits="Statement">
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword"/>
     <Slot Name="EachKeyword" Type="Token" DefaultToken="EachKeyword" IsOptionalToken="true"/>

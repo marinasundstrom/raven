@@ -407,6 +407,7 @@ partial class BlockBinder : Binder
             TryStatementSyntax tryStmt => BindTryStatement(tryStmt),
             FunctionStatementSyntax function => BindFunction(function),
             ReturnStatementSyntax returnStatement => BindReturnStatement(returnStatement),
+            ThrowStatementSyntax throwStatement => BindThrowStatement(throwStatement),
             BlockStatementSyntax blockStmt => BindBlockStatement(blockStmt),
             ForStatementSyntax forStmt => BindForStatement(forStmt),
             LabeledStatementSyntax labeledStatement => BindLabeledStatement(labeledStatement),
