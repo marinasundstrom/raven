@@ -1,8 +1,14 @@
 import System.*
 import System.Console.*
+import System.Collections.Generic.*
 import System.Linq.*
+import Raven.MetadataFixtures.Linq.*
 
-let numbers: int[] = [1, 2, 3]
+let numbers = List<int>()
+numbers.Add(1)
+numbers.Add(2)
+numbers.Add(3)
+
 let result = numbers.Where(func (value) => value > 0)
 
 for each no in result {
