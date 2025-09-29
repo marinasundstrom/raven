@@ -9,8 +9,9 @@ numbers.Add(1)
 numbers.Add(2)
 numbers.Add(3)
 
-let result = numbers.Where(func (value) => value > 0)
+let positives = numbers.Where(func (value) => value > 0)
+let doubled = positives.Select(func (value) => value * 2)
 
-for each no in result {
-    WriteLine(no)
+for each value in doubled {
+    WriteLine(value)
 }
