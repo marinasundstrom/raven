@@ -118,8 +118,10 @@ observed when compiling LINQ-heavy samples.
    the first argument to the lowered static call. Coverage now confirms lowering
    rewrites source-defined extensions into static calls with the receiver as the
    leading argument.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L540-L609】
-2. Confirm that the lowered invocation obeys value-type boxing semantics and
-   nullability checks that C# enforces.
+2. ✅ Confirmed that lowered extension invocations preserve value-type boxing and
+   reject nullable receivers where C# would. New lowering coverage exercises the
+   boxed first argument and verifies we emit the diagnostic for `int?` receivers
+   targeting non-nullable parameters.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L585-L644】
 3. Prototype a lowering pass trace (behind a compiler flag) that logs when a
    call is rewritten as an extension dispatch. This will aid in validating that
    overload resolution selected the expected candidate during manual review.
