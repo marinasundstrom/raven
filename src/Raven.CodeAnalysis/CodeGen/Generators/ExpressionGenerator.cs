@@ -459,8 +459,11 @@ internal class ExpressionGenerator : Generator
 
     private ConstructorInfo? TryResolveDelegateConstructor(INamedTypeSymbol delegateType)
     {
-        foreach (var constructor in delegateType.InstanceConstructors)
+        foreach (var constructor in delegateType.Constructors)
         {
+            if (constructor.MethodKind is not MethodKind.Constructor)
+                continue;
+
             if (!IsDelegateConstructorSignature(constructor))
                 continue;
 

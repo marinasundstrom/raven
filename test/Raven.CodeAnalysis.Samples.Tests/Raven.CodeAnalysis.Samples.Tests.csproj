@@ -29,6 +29,8 @@
     <ProjectReference
       Include="..\..\src\Raven.CodeAnalysis.Testing\Raven.CodeAnalysis.Testing.csproj" />
     <ProjectReference Include="..\..\src\Raven.CodeAnalysis.Console\Raven.CodeAnalysis.Console.csproj" />
+    <ProjectReference Include="..\MetadataFixtures\ExtensionMethodsFixture\ExtensionMethodsFixture.csproj" />
+    <ProjectReference Include="..\..\src\Raven.Compiler\Raven.Compiler.csproj" />
   </ItemGroup>
 
 </Project>

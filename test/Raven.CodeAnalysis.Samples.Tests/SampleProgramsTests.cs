@@ -4,6 +4,11 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class SampleProgramsTests
 {
+    static SampleProgramsTests()
+    {
+        Environment.SetEnvironmentVariable("MSBUILDTERMINALLOGGER", "false");
+    }
+
     public static IEnumerable<object[]> SamplePrograms =>
     [
         ["arrays.rav", Array.Empty<string>()],
@@ -29,7 +34,7 @@ public class SampleProgramsTests
         Directory.CreateDirectory(outputDir);
         var outputDll = Path.Combine(outputDir, Path.ChangeExtension(fileName, ".dll"));
 
-        var build = Process.Start(new ProcessStartInfo
+        var buildInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
             Arguments = $"run --project \"{projectDir}\" -- \"{samplePath}\" -o \"{outputDll}\"",
@@ -37,7 +42,10 @@ public class SampleProgramsTests
             RedirectStandardError = true,
             UseShellExecute = false,
             WorkingDirectory = projectDir,
-        })!;
+        };
+        buildInfo.Environment["MSBUILDTERMINALLOGGER"] = "false";
+        buildInfo.EnvironmentVariables["MSBUILDTERMINALLOGGER"] = "false";
+        var build = Process.Start(buildInfo)!;
 
         build.WaitForExit(TimeSpan.FromSeconds(3));
         _ = await build.StandardOutput.ReadToEndAsync();
@@ -51,7 +59,7 @@ public class SampleProgramsTests
 
         Assert.True(File.Exists(Path.Combine(outputDir, Path.ChangeExtension(fileName, ".runtimeconfig.json"))));
 
-        var run = Process.Start(new ProcessStartInfo
+        var runInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
             Arguments = $"\"{outputDll}\" {string.Join(' ', args)}",
@@ -59,13 +67,82 @@ public class SampleProgramsTests
             RedirectStandardError = true,
             UseShellExecute = false,
             WorkingDirectory = outputDir,
-        })!;
+        };
+        runInfo.Environment["MSBUILDTERMINALLOGGER"] = "false";
+        runInfo.EnvironmentVariables["MSBUILDTERMINALLOGGER"] = "false";
+        var run = Process.Start(runInfo)!;
 
         run.WaitForExit(TimeSpan.FromSeconds(2));
         _ = await run.StandardOutput.ReadToEndAsync();
         run.WaitForExit();
 
         Assert.Equal(0, run.ExitCode);
+    }
+
+    [Fact]
+    public async Task Linq_sample_should_execute_extension_lambdas()
+    {
+        var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
+        var samplePath = Path.Combine(projectDir, "samples", "linq.rav");
+
+        var fixtureAssembly = Path.Combine(AppContext.BaseDirectory, "Raven.ExtensionMethodsFixture.dll");
+        Assert.True(File.Exists(fixtureAssembly), $"Fixture assembly missing at '{fixtureAssembly}'.");
+
+        var outputDir = Path.Combine(Path.GetTempPath(), "raven_samples", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(outputDir);
+        var outputDll = Path.Combine(outputDir, "linq.dll");
+
+        var buildInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"run --project \"{projectDir}\" -- \"{samplePath}\" -o \"{outputDll}\" --refs \"{fixtureAssembly}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = projectDir,
+        };
+        buildInfo.Environment["MSBUILDTERMINALLOGGER"] = "false";
+        buildInfo.EnvironmentVariables["MSBUILDTERMINALLOGGER"] = "false";
+        using var build = Process.Start(buildInfo)!;
+
+        var buildStdOutTask = build.StandardOutput.ReadToEndAsync();
+        var buildStdErrTask = build.StandardError.ReadToEndAsync();
+        build.WaitForExit(TimeSpan.FromSeconds(10));
+        var buildStdOut = await buildStdOutTask;
+        var buildStdErr = await buildStdErrTask;
+
+        Assert.True(build.HasExited, $"Build process did not exit. StdOut: {buildStdOut}{Environment.NewLine}StdErr: {buildStdErr}");
+        Assert.Equal(0, build.ExitCode);
+
+        var fixtureCopy = Path.Combine(outputDir, Path.GetFileName(fixtureAssembly));
+        File.Copy(fixtureAssembly, fixtureCopy, overwrite: true);
+
+        Assert.True(File.Exists(Path.Combine(outputDir, "linq.runtimeconfig.json")));
+
+        var runInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"\"{outputDll}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = outputDir,
+        };
+        runInfo.Environment["MSBUILDTERMINALLOGGER"] = "false";
+        runInfo.EnvironmentVariables["MSBUILDTERMINALLOGGER"] = "false";
+        using var run = Process.Start(runInfo)!;
+
+        var runStdOutTask = run.StandardOutput.ReadToEndAsync();
+        var runStdErrTask = run.StandardError.ReadToEndAsync();
+        run.WaitForExit(TimeSpan.FromSeconds(5));
+        var runStdOut = await runStdOutTask;
+        var runStdErr = await runStdErrTask;
+
+        Assert.True(run.HasExited, $"Execution did not exit. StdOut: {runStdOut}{Environment.NewLine}StdErr: {runStdErr}");
+        Assert.Equal(0, run.ExitCode);
+
+        var outputLines = runStdOut.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(new[] { "2", "4", "6" }, outputLines);
     }
 
     [Fact]
@@ -78,7 +155,7 @@ public class SampleProgramsTests
         Directory.CreateDirectory(outputDir);
         var outputDll = Path.Combine(outputDir, "enums.dll");
 
-        var build = Process.Start(new ProcessStartInfo
+        var buildInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
             Arguments = $"run --project \\\"{projectDir}\\\" -- \\\"{samplePath}\\\" -o \\\"{outputDll}\\\" --no-emit",
@@ -86,7 +163,10 @@ public class SampleProgramsTests
             RedirectStandardError = true,
             UseShellExecute = false,
             WorkingDirectory = projectDir,
-        })!;
+        };
+        buildInfo.Environment["MSBUILDTERMINALLOGGER"] = "false";
+        buildInfo.EnvironmentVariables["MSBUILDTERMINALLOGGER"] = "false";
+        var build = Process.Start(buildInfo)!;
 
         build.WaitForExit(TimeSpan.FromSeconds(3));
         _ = await build.StandardOutput.ReadToEndAsync();
