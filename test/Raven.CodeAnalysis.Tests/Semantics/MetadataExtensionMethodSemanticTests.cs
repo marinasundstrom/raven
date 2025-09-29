@@ -11,7 +11,71 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class MetadataExtensionMethodSemanticTests : CompilationTestBase
 {
     protected override MetadataReference[] GetMetadataReferences()
-        => TestMetadataReferences.DefaultWithExtensionMethods;
+        => TestMetadataReferences.DefaultWithoutSystemLinqWithExtensionMethods;
+
+    [Fact]
+    public void MemberAccess_OnIEnumerableReceiver_UsesSystemLinqExtensions()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+let numbers = List<int>()
+let anyNumbers = numbers.Any()
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.Default);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Any");
+
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(memberAccess));
+        Assert.Contains(
+            methodGroup.Methods,
+            method =>
+                method.IsExtensionMethod &&
+                method.Name == "Any" &&
+                method.Parameters.Length == 1 &&
+                method.ContainingType?.Name == "Enumerable" &&
+                method.ContainingType?.ContainingNamespace?.Name == "Linq" &&
+                method.ContainingType?.ContainingNamespace?.ContainingNamespace?.Name == "System");
+
+        var symbolInfo = model.GetSymbolInfo(memberAccess);
+        Assert.Contains(
+            symbolInfo.CandidateSymbols.OfType<IMethodSymbol>(),
+            method =>
+                method.IsExtensionMethod &&
+                method.Name == "Any" &&
+                method.ContainingType?.Name == "Enumerable" &&
+                method.ContainingType?.ContainingNamespace?.Name == "Linq" &&
+                method.ContainingType?.ContainingNamespace?.ContainingNamespace?.Name == "System");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var invocationInfo = model.GetSymbolInfo(invocation);
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(invocationInfo.Symbol);
+
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Any", selected.Name);
+
+        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(selected.ContainingType);
+        Assert.Equal("Enumerable", containingType.Name);
+        Assert.Equal("Linq", containingType.ContainingNamespace?.Name);
+        Assert.Equal("System", containingType.ContainingNamespace?.ContainingNamespace?.Name);
+
+        var receiverParameter = selected.Parameters[0];
+        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverParameter.Type);
+        Assert.Equal("IEnumerable", receiverType.Name);
+        Assert.Equal("Generic", receiverType.ContainingNamespace?.Name);
+        Assert.Equal("Collections", receiverType.ContainingNamespace?.ContainingNamespace?.Name);
+        Assert.Equal("System", receiverType.ContainingNamespace?.ContainingNamespace?.ContainingNamespace?.Name);
+
+        Assert.True(selected.Parameters.Length == 1);
+    }
 
     [Fact]
     public void MemberAccess_OnIEnumerableReceiver_UsesFixtureExtensions()
@@ -157,7 +221,7 @@ import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
 let numbers = List<int>()
-let anyPositive = numbers.Any(func (value) => value > 0)
+let anyPositive = numbers.Any(func (value: int) => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -522,7 +586,7 @@ import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
 let numbers = List<int>()
-let positives = numbers.Where(func (value, index) => value > index)
+let positives = numbers.Where(func (value: int, index: int) => value > index)
 """;
 
         var (compilation, tree) = CreateCompilation(source);

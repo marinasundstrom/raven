@@ -132,6 +132,9 @@ internal sealed class OverloadResolver
             if (argumentType.TypeKind == TypeKind.Error)
                 continue;
 
+            if (arguments[i] is BoundLambdaExpression)
+                continue;
+
             if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions))
                 return null;
         }
