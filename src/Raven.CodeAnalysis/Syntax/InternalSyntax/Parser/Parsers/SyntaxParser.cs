@@ -293,33 +293,47 @@ internal class SyntaxParser : ParseContext
     protected void ConvertLeadingNewlinesToTrivia()
     {
         var baseContext = GetBaseContext();
+        var previousUseEndOfLineTrivia = baseContext.UseEndOfLineTrivia;
+        baseContext.UseEndOfLineTrivia = false;
 
-        while (true)
+        try
         {
-            var token = PeekToken();
-
-            SyntaxKind triviaKind;
-            switch (token.Kind)
+            while (true)
             {
-                case SyntaxKind.NewLineToken:
-                    triviaKind = SyntaxKind.EndOfLineTrivia;
-                    break;
-                case SyntaxKind.LineFeedToken:
-                    triviaKind = SyntaxKind.LineFeedTrivia;
-                    break;
-                case SyntaxKind.CarriageReturnToken:
-                    triviaKind = SyntaxKind.CarriageReturnTrivia;
-                    break;
-                case SyntaxKind.CarriageReturnLineFeedToken:
-                    triviaKind = SyntaxKind.CarriageReturnLineFeedTrivia;
-                    break;
-                default:
-                    return;
-            }
+                var token = PeekToken();
 
-            var newlineToken = ReadToken();
-            var trivia = SyntaxFactory.Trivia(triviaKind, newlineToken.Text);
-            baseContext._pendingTrivia.Add(trivia);
+                SyntaxToken newlineToken;
+                SyntaxKind triviaKind;
+
+                switch (token.Kind)
+                {
+                    case SyntaxKind.NewLineToken:
+                        newlineToken = ReadToken();
+                        triviaKind = GetTriviaKindForNewLineToken(baseContext, newlineToken);
+                        break;
+                    case SyntaxKind.LineFeedToken:
+                        newlineToken = ReadToken();
+                        triviaKind = baseContext.LineFeedTriviaKind;
+                        break;
+                    case SyntaxKind.CarriageReturnToken:
+                        newlineToken = ReadToken();
+                        triviaKind = baseContext.CarriageReturnTriviaKind;
+                        break;
+                    case SyntaxKind.CarriageReturnLineFeedToken:
+                        newlineToken = ReadToken();
+                        triviaKind = baseContext.CarriageReturnLineFeedTriviaKind;
+                        break;
+                    default:
+                        return;
+                }
+
+                var trivia = SyntaxFactory.Trivia(triviaKind, newlineToken.Text);
+                baseContext._pendingTrivia.Add(trivia);
+            }
+        }
+        finally
+        {
+            baseContext.UseEndOfLineTrivia = previousUseEndOfLineTrivia;
         }
     }
 
@@ -330,5 +344,16 @@ internal class SyntaxParser : ParseContext
             SyntaxKind.CarriageReturnToken or
             SyntaxKind.CarriageReturnLineFeedToken or
             SyntaxKind.NewLineToken;
+    }
+
+    private static SyntaxKind GetTriviaKindForNewLineToken(BaseParseContext baseContext, SyntaxToken newlineToken)
+    {
+        return newlineToken.Text switch
+        {
+            "\r\n" => baseContext.CarriageReturnLineFeedTriviaKind,
+            "\r" => baseContext.CarriageReturnTriviaKind,
+            "\n" => baseContext.LineFeedTriviaKind,
+            _ => baseContext.LineFeedTriviaKind,
+        };
     }
 }
