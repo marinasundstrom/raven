@@ -283,11 +283,45 @@ internal abstract class Binder
         if (parameterType is null || parameterType.TypeKind == TypeKind.Error)
             return true;
 
+        if (ContainsTypeParameters(parameterType))
+            return true;
+
         if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
             return true;
 
         var conversion = Compilation.ClassifyConversion(receiverType, parameterType);
         return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private static bool ContainsTypeParameters(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol:
+                return true;
+            case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                foreach (var argument in named.TypeArguments)
+                {
+                    if (ContainsTypeParameters(argument))
+                        return true;
+                }
+
+                return false;
+            case IArrayTypeSymbol array:
+                return ContainsTypeParameters(array.ElementType);
+            case NullableTypeSymbol nullable:
+                return ContainsTypeParameters(nullable.UnderlyingType);
+            case IUnionTypeSymbol union:
+                foreach (var member in union.Types)
+                {
+                    if (ContainsTypeParameters(member))
+                        return true;
+                }
+
+                return false;
+            default:
+                return false;
+        }
     }
 
     public virtual BoundExpression BindExpression(ExpressionSyntax expression)
