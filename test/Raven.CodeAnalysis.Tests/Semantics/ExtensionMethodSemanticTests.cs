@@ -773,6 +773,133 @@ public static class RavenPipelineExtensions {
     }
 
     [Fact]
+    public void Lowerer_WithLoweringTrace_RecordsNestedQueryPipelinesAcrossExtensionSources()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+
+class Query {
+    Run() -> IEnumerable<int> {
+        let numbers = [1, 2, 3, 4]
+        return numbers
+            .Where(value => value > 1)
+            .ProjectSquaresAndFilter(value => value * value)
+            .Select(value => value + 1)
+    }
+}
+
+public static class RavenPipelineExtensions {
+    [ExtensionAttribute]
+    public static ProjectSquaresAndFilter(values: IEnumerable<int>, projector: Func<int, int>) -> IEnumerable<int> {
+        return values
+            .Select(projector)
+            .Where(result => result.IsEven())
+    }
+}
+
+public static class IntExtensions {
+    [ExtensionAttribute]
+    public static IsEven(value: int) -> bool {
+        return value % 2 == 0
+    }
+}
+""";
+
+        var traceLog = new LoweringTraceLog();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            loweringTrace: traceLog);
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: options,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+
+        var methodDeclarations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .ToArray();
+
+        var runMethodSyntax = methodDeclarations.Single(node => node.Identifier.Text == "Run");
+        var runMethodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(runMethodSyntax)!;
+        var runBody = (BoundBlockStatement)model.GetBoundNode(runMethodSyntax.Body!)!;
+        Lowerer.LowerBlock(runMethodSymbol, runBody);
+
+        var projectMethodSyntax = methodDeclarations.Single(node => node.Identifier.Text == "ProjectSquaresAndFilter");
+        var projectMethodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(projectMethodSyntax)!;
+        var projectBody = (BoundBlockStatement)model.GetBoundNode(projectMethodSyntax.Body!)!;
+        Lowerer.LowerBlock(projectMethodSymbol, projectBody);
+
+        var entries = traceLog.ExtensionInvocations;
+        Assert.True(entries.Length >= 6, "Expected extension invocations for Where/Select and ProjectSquaresAndFilter pipelines.");
+
+        var runEntries = entries
+            .Where(entry => SymbolEqualityComparer.Default.Equals(entry.ContainingSymbol, runMethodSymbol))
+            .ToArray();
+
+        Assert.Contains(
+            runEntries,
+            entry => entry.Method.Name == "Where" &&
+                entry.Method.ContainingType?.Name == "Enumerable" &&
+                !entry.ReceiverCameFromInvocation);
+
+        Assert.Contains(
+            runEntries,
+            entry => entry.Method.Name == "ProjectSquaresAndFilter" &&
+                entry.Method.ContainingType?.Name == "RavenPipelineExtensions" &&
+                entry.ReceiverCameFromInvocation);
+
+        Assert.Contains(
+            runEntries,
+            entry => entry.Method.Name == "Select" &&
+                entry.Method.ContainingType?.Name == "Enumerable" &&
+                entry.ReceiverCameFromInvocation);
+
+        foreach (var entry in runEntries)
+        {
+            Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
+        }
+
+        var projectEntries = entries
+            .Where(entry => SymbolEqualityComparer.Default.Equals(entry.ContainingSymbol, projectMethodSymbol))
+            .ToArray();
+
+        Assert.Contains(
+            projectEntries,
+            entry => entry.Method.Name == "Select" &&
+                entry.Method.ContainingType?.Name == "Enumerable" &&
+                !entry.ReceiverCameFromInvocation);
+
+        Assert.Contains(
+            projectEntries,
+            entry => entry.Method.Name == "Where" &&
+                entry.Method.ContainingType?.Name == "Enumerable" &&
+                entry.ReceiverCameFromInvocation);
+
+        foreach (var entry in projectEntries)
+        {
+            Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
+        }
+
+        var isEvenEntry = Assert.Single(entries.Where(entry => entry.Method.Name == "IsEven"));
+        var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(isEvenEntry.ContainingSymbol);
+        Assert.True(SymbolEqualityComparer.Default.Equals(lambdaSymbol.ContainingSymbol, projectMethodSymbol));
+        Assert.False(isEvenEntry.ReceiverCameFromInvocation);
+        Assert.Equal(isEvenEntry.Method.Parameters.Length, isEvenEntry.ArgumentTypes.Length);
+        Assert.Equal("IntExtensions", isEvenEntry.Method.ContainingType?.Name);
+    }
+
+    [Fact]
     public void ExtensionInvocation_WithNullableValueReceiver_RequiresNonNullableParameter()
     {
         const string source = """

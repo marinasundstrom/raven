@@ -29,11 +29,8 @@
 
 ## Follow-up investigations
 
-* Prototype the optional lowering trace that logs when an invocation is
-  rewritten as an extension call to aid manual debugging of overload resolution
-  decisions.【F:docs/compiler/design/extension-methods-plan.md†L96-L107】
-* Broaden semantic tests to cover nested query comprehensions and chained Raven
-  extensions so the cached delegate logic keeps handling complex pipelines.
-  【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L463】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L515-L644】
+* Broaden semantic tests to cover overload shadowing and generic receivers for
+  Raven-authored extensions so binder and lowering parity holds as syntax work
+  resumes.【F:docs/compiler/design/extension-methods-plan.md†L6-L8】
 * Continue documenting declaration support gaps so the consumption work stays in
   sync with upcoming syntax changes once extension modifiers become available.
