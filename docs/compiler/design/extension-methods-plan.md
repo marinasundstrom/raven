@@ -107,6 +107,13 @@ observed when compiling LINQ-heavy samples.
    Raven extensions declared in separate namespaces, verify missing imports keep
    them out of scope, and confirm instance methods still win when extensions
    compete for the same receiver shape.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L515-L608】
+5. 🔄 Specialise lambda delegate candidates before compatibility checks. The
+   delegate cache currently records the open generic `Func<TSource, …>` delegates
+   supplied by metadata methods, so `BoundLambdaExpression.IsCompatibleWithDelegate`
+   compares lambdas against signatures that still expose method type parameters.
+   Substitute the inferred receiver element type (or relax the compatibility
+   check) so `HaveCompatibleSignature` recognises `Func<int, bool>` when
+   metadata LINQ methods are in scope.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L325-L347】【F:src/Raven.CodeAnalysis/BoundTree/BoundLambdaExpression.cs†L34-L83】
 
 ## 5. Lowering adjustments
 
