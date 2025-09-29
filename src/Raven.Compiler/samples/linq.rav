@@ -9,10 +9,8 @@ numbers.Add(-1)
 numbers.Add(2)
 numbers.Add(1)
 
-let positives = numbers.Where(func (value) => value > 0)
-let ordered = positives.OrderBy(func (value) => value)
-let doubled = ordered.Select(func (value) => value * 2)
+let positives = numbers.Where(func (value: int) -> bool => value > 0)
 
-for each value in doubled {
+for each value in positives {
     WriteLine(value)
 }
