@@ -52,6 +52,9 @@ internal partial class BoundLambdaExpression : BoundExpression
             if (candidate.TypeKind != TypeKind.Delegate)
                 continue;
 
+            if (SymbolEqualityComparer.Default.Equals(candidate, delegateType))
+                return true;
+
             var candidateInvoke = candidate.GetDelegateInvokeMethod();
             if (candidateInvoke is null)
                 continue;
@@ -108,7 +111,12 @@ internal partial class BoundLambdaExpression : BoundExpression
                 }
 
                 var substitutedSource = SubstituteType(sourceParameter.Type, substitutions, compilation);
-                var conversion = compilation.ClassifyConversion(substitutedSource, targetParameter.Type);
+                var substitutedTarget = SubstituteType(targetParameter.Type, substitutions, compilation);
+
+                if (SymbolEqualityComparer.Default.Equals(substitutedSource, substitutedTarget))
+                    continue;
+
+                var conversion = compilation.ClassifyConversion(substitutedSource, substitutedTarget);
                 if (!conversion.Exists || !conversion.IsImplicit)
                     return false;
             }
@@ -126,7 +134,12 @@ internal partial class BoundLambdaExpression : BoundExpression
             }
 
             var substitutedReturn = SubstituteType(source.ReturnType, substitutions, compilation);
-            var returnConversion = compilation.ClassifyConversion(substitutedReturn, target.ReturnType);
+            var substitutedTargetReturn = SubstituteType(target.ReturnType, substitutions, compilation);
+
+            if (SymbolEqualityComparer.Default.Equals(substitutedReturn, substitutedTargetReturn))
+                return true;
+
+            var returnConversion = compilation.ClassifyConversion(substitutedReturn, substitutedTargetReturn);
             return returnConversion.Exists && returnConversion.IsImplicit;
 
             static bool TryAddTypeMappings(
@@ -134,6 +147,9 @@ internal partial class BoundLambdaExpression : BoundExpression
                 ITypeSymbol targetType,
                 Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
             {
+                if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
+                    return true;
+
                 if (sourceType is ITypeParameterSymbol typeParameter)
                 {
                     if (substitutions.TryGetValue(typeParameter, out var existing))
@@ -147,16 +163,25 @@ internal partial class BoundLambdaExpression : BoundExpression
                 {
                     case INamedTypeSymbol sourceNamed when targetType is INamedTypeSymbol targetNamed:
                         {
+                            var sourceDefinition = sourceNamed.ConstructedFrom ?? sourceNamed;
+                            var targetDefinition = targetNamed.ConstructedFrom ?? targetNamed;
+
+                            if (!SymbolEqualityComparer.Default.Equals(sourceDefinition, targetDefinition))
+                                return false;
+
                             var sourceArgs = sourceNamed.TypeArguments;
                             var targetArgs = targetNamed.TypeArguments;
 
-                            if (!sourceArgs.IsDefaultOrEmpty && sourceArgs.Length == targetArgs.Length)
+                            if (sourceArgs.IsDefaultOrEmpty || targetArgs.IsDefaultOrEmpty)
+                                return true;
+
+                            if (sourceArgs.Length != targetArgs.Length)
+                                return false;
+
+                            for (int i = 0; i < sourceArgs.Length; i++)
                             {
-                                for (int i = 0; i < sourceArgs.Length; i++)
-                                {
-                                    if (!TryAddTypeMappings(sourceArgs[i], targetArgs[i], substitutions))
-                                        return false;
-                                }
+                                if (!TryAddTypeMappings(sourceArgs[i], targetArgs[i], substitutions))
+                                    return false;
                             }
 
                             return true;
