@@ -65,6 +65,20 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithDiscardArmOnNewLine_DoesNotInsertEmptyArm()
+    {
+        const string code = """
+let result = false match {
+    _ => "none"
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithTypedDiscardArm_IsCatchAll()
     {
         const string code = """
@@ -79,6 +93,51 @@ let result = value match {
         var verifier = CreateVerifier(code);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithTuplePatternOnUnion_BindsElementDesignations()
+    {
+        const string code = """
+let x: bool | (a: int, b: string) = false
+
+let result = x match {
+    true => "hej"
+    (a: int, b: string) => "tuple ${a} ${b}"
+    _ => "none"
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "tuple_union_match",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var tupleArm = bound.Arms[1];
+        var tuplePattern = Assert.IsType<BoundTuplePattern>(tupleArm.Pattern);
+
+        Assert.Collection(tuplePattern.Elements,
+            element =>
+            {
+                var declaration = Assert.IsType<BoundDeclarationPattern>(element);
+                var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+                Assert.Equal("a", designator.Local.Name);
+            },
+            element =>
+            {
+                var declaration = Assert.IsType<BoundDeclarationPattern>(element);
+                var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+                Assert.Equal("b", designator.Local.Name);
+            });
     }
 
     [Fact]

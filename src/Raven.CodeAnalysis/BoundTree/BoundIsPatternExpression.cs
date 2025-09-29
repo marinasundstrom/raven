@@ -297,10 +297,20 @@ internal partial class BlockBinder
         }
 
         var tupleElements = new List<(string? name, ITypeSymbol type)>(elementPatterns.Count);
-        foreach (var element in elementPatterns)
+        for (var i = 0; i < elementPatterns.Count; i++)
         {
+            var element = elementPatterns[i];
+            var elementSyntax = syntax.Elements[i];
             var elementType = element.Type ?? Compilation.ErrorTypeSymbol;
-            tupleElements.Add((null, elementType));
+            string? elementName = null;
+
+            if (elementSyntax.NameColon is { Name: IdentifierNameSyntax identifier } &&
+                !identifier.Identifier.IsMissing)
+            {
+                elementName = identifier.Identifier.ValueText;
+            }
+
+            tupleElements.Add((elementName, elementType));
         }
 
         var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
