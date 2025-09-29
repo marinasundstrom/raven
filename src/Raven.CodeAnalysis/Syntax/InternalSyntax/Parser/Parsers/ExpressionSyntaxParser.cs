@@ -926,8 +926,13 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var arms = new List<MatchArmSyntax>();
 
         EnterParens();
-        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        while (true)
         {
+            ConvertLeadingNewlinesToTrivia();
+
+            if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                break;
+
             var pattern = new PatternSyntaxParser(this).ParsePattern();
 
             WhenClauseSyntax? whenClause = null;
