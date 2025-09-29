@@ -42,8 +42,10 @@ internal partial class BoundLambdaExpression : BoundExpression
         if (targetInvoke is null)
             return false;
 
+        var lambdaParameters = Parameters.ToImmutableArray();
+
         if (CandidateDelegates.IsDefaultOrEmpty)
-            return targetInvoke.Parameters.Length == Parameters.Count();
+            return targetInvoke.Parameters.Length == lambdaParameters.Length;
 
         foreach (var candidate in CandidateDelegates)
         {
@@ -54,7 +56,7 @@ internal partial class BoundLambdaExpression : BoundExpression
             if (candidateInvoke is null)
                 continue;
 
-            if (!HaveCompatibleSignature(candidateInvoke, targetInvoke, compilation))
+            if (!HaveCompatibleSignature(candidateInvoke, targetInvoke, lambdaParameters, ReturnType, compilation))
                 continue;
 
             return true;
@@ -62,7 +64,12 @@ internal partial class BoundLambdaExpression : BoundExpression
 
         return false;
 
-        static bool HaveCompatibleSignature(IMethodSymbol source, IMethodSymbol target, Compilation compilation)
+        static bool HaveCompatibleSignature(
+            IMethodSymbol source,
+            IMethodSymbol target,
+            ImmutableArray<IParameterSymbol> lambdaParameters,
+            ITypeSymbol lambdaReturnType,
+            Compilation compilation)
         {
             var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
 
@@ -87,6 +94,19 @@ internal partial class BoundLambdaExpression : BoundExpression
                 if (!TryAddTypeMappings(sourceParameter.Type, targetParameter.Type, substitutions))
                     return false;
 
+                if (i < lambdaParameters.Length)
+                {
+                    var lambdaParameter = lambdaParameters[i];
+                    if (lambdaParameter.Type is ITypeSymbol lambdaType)
+                    {
+                        if (!TryAddTypeMappings(sourceParameter.Type, lambdaType, substitutions))
+                            return false;
+
+                        if (!TryAddTypeMappings(targetParameter.Type, lambdaType, substitutions))
+                            return false;
+                    }
+                }
+
                 var substitutedSource = SubstituteType(sourceParameter.Type, substitutions, compilation);
                 var conversion = compilation.ClassifyConversion(substitutedSource, targetParameter.Type);
                 if (!conversion.Exists || !conversion.IsImplicit)
@@ -95,6 +115,15 @@ internal partial class BoundLambdaExpression : BoundExpression
 
             if (!TryAddTypeMappings(source.ReturnType, target.ReturnType, substitutions))
                 return false;
+
+            if (lambdaReturnType is not null)
+            {
+                if (!TryAddTypeMappings(source.ReturnType, lambdaReturnType, substitutions))
+                    return false;
+
+                if (!TryAddTypeMappings(target.ReturnType, lambdaReturnType, substitutions))
+                    return false;
+            }
 
             var substitutedReturn = SubstituteType(source.ReturnType, substitutions, compilation);
             var returnConversion = compilation.ClassifyConversion(substitutedReturn, target.ReturnType);
@@ -117,21 +146,21 @@ internal partial class BoundLambdaExpression : BoundExpression
                 switch (sourceType)
                 {
                     case INamedTypeSymbol sourceNamed when targetType is INamedTypeSymbol targetNamed:
-                    {
-                        var sourceArgs = sourceNamed.TypeArguments;
-                        var targetArgs = targetNamed.TypeArguments;
-
-                        if (!sourceArgs.IsDefaultOrEmpty && sourceArgs.Length == targetArgs.Length)
                         {
-                            for (int i = 0; i < sourceArgs.Length; i++)
-                            {
-                                if (!TryAddTypeMappings(sourceArgs[i], targetArgs[i], substitutions))
-                                    return false;
-                            }
-                        }
+                            var sourceArgs = sourceNamed.TypeArguments;
+                            var targetArgs = targetNamed.TypeArguments;
 
-                        return true;
-                    }
+                            if (!sourceArgs.IsDefaultOrEmpty && sourceArgs.Length == targetArgs.Length)
+                            {
+                                for (int i = 0; i < sourceArgs.Length; i++)
+                                {
+                                    if (!TryAddTypeMappings(sourceArgs[i], targetArgs[i], substitutions))
+                                        return false;
+                                }
+                            }
+
+                            return true;
+                        }
 
                     case IArrayTypeSymbol sourceArray when targetType is IArrayTypeSymbol targetArray:
                         if (sourceArray.Rank != targetArray.Rank)
@@ -166,58 +195,58 @@ internal partial class BoundLambdaExpression : BoundExpression
                 switch (sourceType)
                 {
                     case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty && named.TypeArguments.Length > 0:
-                    {
-                        var typeArguments = named.TypeArguments;
-                        var substitutedArgs = new ITypeSymbol[typeArguments.Length];
-                        bool changed = false;
-
-                        for (int i = 0; i < typeArguments.Length; i++)
                         {
-                            var substituted = SubstituteType(typeArguments[i], substitutions, compilation);
-                            substitutedArgs[i] = substituted;
-                            changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i]);
-                        }
+                            var typeArguments = named.TypeArguments;
+                            var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+                            bool changed = false;
 
-                        if (changed && named.ConstructedFrom is INamedTypeSymbol definition)
-                        {
-                            return (INamedTypeSymbol)definition.Construct(substitutedArgs);
-                        }
+                            for (int i = 0; i < typeArguments.Length; i++)
+                            {
+                                var substituted = SubstituteType(typeArguments[i], substitutions, compilation);
+                                substitutedArgs[i] = substituted;
+                                changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i]);
+                            }
 
-                        return named;
-                    }
+                            if (changed && named.ConstructedFrom is INamedTypeSymbol definition)
+                            {
+                                return (INamedTypeSymbol)definition.Construct(substitutedArgs);
+                            }
+
+                            return named;
+                        }
 
                     case IArrayTypeSymbol arrayType:
-                    {
-                        var substitutedElement = SubstituteType(arrayType.ElementType, substitutions, compilation);
-                        if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
                         {
-                            return compilation.CreateArrayTypeSymbol(substitutedElement, arrayType.Rank);
-                        }
+                            var substitutedElement = SubstituteType(arrayType.ElementType, substitutions, compilation);
+                            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
+                            {
+                                return compilation.CreateArrayTypeSymbol(substitutedElement, arrayType.Rank);
+                            }
 
-                        return arrayType;
-                    }
+                            return arrayType;
+                        }
 
                     case NullableTypeSymbol nullableType:
-                    {
-                        var substitutedUnderlying = SubstituteType(nullableType.UnderlyingType, substitutions, compilation);
-                        if (!SymbolEqualityComparer.Default.Equals(substitutedUnderlying, nullableType.UnderlyingType))
                         {
-                            return new NullableTypeSymbol(substitutedUnderlying, null, null, null, []);
-                        }
+                            var substitutedUnderlying = SubstituteType(nullableType.UnderlyingType, substitutions, compilation);
+                            if (!SymbolEqualityComparer.Default.Equals(substitutedUnderlying, nullableType.UnderlyingType))
+                            {
+                                return new NullableTypeSymbol(substitutedUnderlying, null, null, null, []);
+                            }
 
-                        return nullableType;
-                    }
+                            return nullableType;
+                        }
 
                     case ByRefTypeSymbol byRefType:
-                    {
-                        var substitutedElement = SubstituteType(byRefType.ElementType, substitutions, compilation);
-                        if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRefType.ElementType))
                         {
-                            return new ByRefTypeSymbol(substitutedElement, byRefType.RefKind);
-                        }
+                            var substitutedElement = SubstituteType(byRefType.ElementType, substitutions, compilation);
+                            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRefType.ElementType))
+                            {
+                                return new ByRefTypeSymbol(substitutedElement, byRefType.RefKind);
+                            }
 
-                        return byRefType;
-                    }
+                            return byRefType;
+                        }
                 }
 
                 return sourceType;

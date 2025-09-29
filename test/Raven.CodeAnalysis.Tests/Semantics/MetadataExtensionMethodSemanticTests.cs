@@ -466,6 +466,7 @@ let result = numbers.Where(func (value) => value == 2)
     [Fact]
     public void Invocation_SystemLinqWhereWithLambda_CapturesAllDelegateCandidates()
     {
+
         const string source = """
 import System.*
 import System.Linq.*
@@ -524,6 +525,27 @@ let result = numbers.Where(func (value) => value > 0)
             candidate.TypeArguments[0] is { SpecialType: SpecialType.System_Int32 } &&
             candidate.TypeArguments[1] is { SpecialType: SpecialType.System_Int32 } &&
             candidate.TypeArguments[2] is { SpecialType: SpecialType.System_Boolean }));
+    }
+
+    [Fact]
+    public void Invocation_SystemLinqWhereWithLambda_CompatibleWithMetadataDelegates()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+let numbers: int[] = [1, 2, 3]
+let result = numbers.Where(func (value) => value > 0)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Where");
     }
 
     [Fact]
