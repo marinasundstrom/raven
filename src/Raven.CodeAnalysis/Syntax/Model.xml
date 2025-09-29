@@ -422,8 +422,8 @@
     <Slot Name="ElseClause" Type="ElseClause" IsNullable="true" />
   </Node>
   <Node Name="MatchExpression" Inherits="Expression">
-    <Slot Name="MatchKeyword" Type="Token" DefaultToken="MatchKeyword"/>
     <Slot Name="Expression" Type="Expression" />
+    <Slot Name="MatchKeyword" Type="Token" DefaultToken="MatchKeyword"/>
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken"/>
     <Slot Name="Arms" Type="List" ElementType="MatchArm" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken"/>

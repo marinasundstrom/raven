@@ -16,7 +16,7 @@ public class MatchExpressionCodeGenTests
 class Program {
     Run() -> string {
         let value = 42
-        let result = match value {
+        let result = value match {
             int i => i.ToString()
             _ => "None"
         }
@@ -56,7 +56,7 @@ class Program {
         const string code = """
 class Program {
     Run(value: int) -> string {
-        return match value {
+        return value match {
             0 => "zero"
             _ => value.ToString()
         }
@@ -94,12 +94,12 @@ class Program {
         const string code = """
 class Program {
     Run() -> string {
-        let foo = match "foo" {
+        let foo = "foo" match {
             "foo" => "str"
             _ => "None"
         }
 
-        let empty = match "" {
+        let empty = "" match {
             "foo" => "str"
             _ => "None"
         }

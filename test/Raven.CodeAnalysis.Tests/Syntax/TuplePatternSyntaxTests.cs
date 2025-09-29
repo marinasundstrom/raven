@@ -12,7 +12,7 @@ public class TuplePatternSyntaxTests
         const string code = """
 let value: object = (1, "two")
 
-let result = match value {
+let result = value match {
     (first: int, second: string) => second
     _ => ""
 }

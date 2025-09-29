@@ -857,10 +857,10 @@ if token is int n {
 
 #### `match` expression
 
-`match` uses braces with newline-separated arms:
+`match` uses braces with newline-separated arms. The keyword follows the scrutinee expression, so any expression can flow directly into a `match`:
 
 ```raven
-match scrutinee {
+scrutinee match {
     pattern [when guard] => result
     pattern => result
 }
@@ -881,7 +881,7 @@ to the next arm.
 let state: "on" | "off" | "auto"
 
 let description =
-    match state {
+    state match {
         "on" or "auto" => "enabled"
         "off"         => "disabled"
     }
@@ -892,7 +892,7 @@ union of the arm results.
 
 ```raven
 func classify(value: object) -> string {
-    match value {
+    value match {
         string text when text.Length > 0 => text
         0                                 => "zero"
         _                                 => "unknown ${value}"

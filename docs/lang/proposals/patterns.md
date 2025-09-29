@@ -68,7 +68,7 @@ Nested bindings use the same `type name` layout. Use `as` to rename a field whil
 The `match` expression evaluates an input value against a sequence of patterns and returns the result of the first matching arm:
 
 ```raven
-let result = match value {
+let result = value match {
     0        => "zero"
     int x    => "an int ${x}"
     _        => "other"
@@ -82,7 +82,7 @@ Literal-value types from [literal-type unions](literal-types.md) may be used dir
 Combine alternatives for a single arm using `or`, and add an expression guard with `when`:
 
 ```raven
-match value {
+value match {
     0 or 1            => "zero or one"
     int x when x > 0  => "positive int"
     _                 => "other"

@@ -56,7 +56,7 @@ Raven is expression-oriented: almost every construct evaluates to a value, encou
 Raven embraces declarative programming: describing *what* rather than *how*. Pattern matching, expressions-as-values, and implicit returns enable elegant problem modeling:
 
 ```raven
-match value {
+value match {
     (0, _) -> "zero"
     (_, 0) -> "zero again"
     _ -> "non-zero"
