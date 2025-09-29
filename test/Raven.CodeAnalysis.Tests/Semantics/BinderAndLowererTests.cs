@@ -39,7 +39,7 @@ let value = if flag 1 else 2
     public void MatchExpression_WithWildcard_BindsToBoundMatchExpression()
     {
         const string source = """
-let value = match 0 {
+let value = 0 match {
     0 => 1
     _ => 2
 }

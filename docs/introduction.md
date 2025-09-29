@@ -26,7 +26,7 @@ Raven uses familiar keywords, but patterns and unions make branching concise:
 import System.Console.*
 
 func describe(input: string | int | null) -> string {
-    match input {
+    input match {
         null => "Nothing to report."
         string text when text.Length > 0 => "Saw \"${text}\""
         int number => "Counted ${number}"

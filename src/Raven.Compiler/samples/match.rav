@@ -4,7 +4,7 @@ let value = 42
 
 WriteLine(value.GetType().Name)
 
-let result = match value {
+let result = value match {
     //"foo" => "it's foo"
     int x => "foo"
     //string str => str

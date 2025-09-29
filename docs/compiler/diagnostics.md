@@ -464,7 +464,7 @@ let items = [..value] // RAV2022
 ```raven
 let state: "on" | "off" = "on"
 
-match state {
+state match {
     "on" => 1
 } // RAV2100 (missing "off")
 ```
@@ -473,7 +473,7 @@ match state {
 An earlier guardless catch-all arm prevents later arms from matching.
 
 ```raven
-match value {
+value match {
     _ => 0
     1 => 1 // RAV2101
 }
@@ -485,7 +485,7 @@ The pattern's type cannot match the scrutinee's type.
 ```raven
 let number: int = 0
 
-match number {
+number match {
     string text => text // RAV2102
     _ => ""
 }
@@ -497,7 +497,7 @@ Every possible scrutinee value is already handled before the discard arm.
 ```raven
 let state: "on" | "off" = "on"
 
-match state {
+state match {
     "on" => 1
     "off" => 0
     _ => -1 // RAV2103

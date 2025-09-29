@@ -15,7 +15,7 @@ public class TuplePatternCodeGenTests
 import System.*
 
 func describe(value: object) -> string {
-    match value {
+    value match {
         (first: int, second: int) => "${first + second}"
         _ => "no match"
     }

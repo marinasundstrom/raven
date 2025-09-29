@@ -16,7 +16,7 @@ public class MatchExpressionTests : DiagnosticTestBase
         const string code = """
 let value: object = "hello"
 
-let result = match value {
+let result = value match {
     string text => text
     object obj => obj.ToString()
 }
@@ -35,7 +35,7 @@ let result = match value {
         const string code = """
 let value: object = "hello"
 
-let result = match value {
+let result = value match {
     string text => text
     object => value.ToString()
 }
@@ -52,7 +52,7 @@ let result = match value {
         const string code = """
 let value: object = "hello"
 
-let result = match value {
+let result = value match {
     string text => text
     object obj => obj.ToString()
     _ => ""
@@ -70,7 +70,7 @@ let result = match value {
         const string code = """
 let value: object = "hello"
 
-let result = match value {
+let result = value match {
     string text => text
     object _ => value.ToString()
 }
@@ -87,7 +87,7 @@ let result = match value {
         const string code = """
 let value: object = "hello"
 
-let result = match value {
+let result = value match {
     _ => ""
     string text => text
 }
@@ -106,7 +106,7 @@ let result = match value {
         const string code = """
 let value: object = "hello"
 
-let result = match value {
+let result = value match {
     object _ => value.ToString()
     string text => text
 }
@@ -125,7 +125,7 @@ let result = match value {
         const string code = """
 let value: object = "hello"
 
-let result = match value {
+let result = value match {
     string text => text
     object obj => obj.ToString()
     _ => "None"
@@ -150,7 +150,7 @@ let result = match value {
     {
         const string code = """
 func describe(value: object) -> string? {
-    match value {
+    value match {
         string text when text.Length > 3 => text
         string text => text.ToUpper()
         object obj => obj.ToString()
@@ -171,7 +171,7 @@ func describe(value: object) -> string? {
         const string code = """
 let state: "on" | "off" = "on"
 
-let result = match state {
+let result = state match {
     "on" => 1
     "off" => 0
 }
@@ -188,7 +188,7 @@ let result = match state {
         const string code = """
 let value: string | null = null
 
-let result = match value {
+let result = value match {
     null => "empty"
     string text => text
 }
@@ -210,12 +210,33 @@ let result = match value {
     }
 
     [Fact]
+    public void MatchExpression_AfterIfExpression_EvaluatesScrutineeOnce()
+    {
+        const string code = """
+func describe(input: bool) -> string {
+    if input {
+        1
+    } else {
+        2
+    } match {
+        1 => "one"
+        _ => "two"
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnostic()
     {
         const string code = """
 let state: "on" | "off" = "on"
 
-let result = match state {
+let result = state match {
     "on" => 1
 }
 """;
@@ -233,7 +254,7 @@ let result = match state {
         const string code = """
 let state: "on" | "off" | "unknown" = "on"
 
-let result = match state {
+let result = state match {
     "on" => 1
 }
 """;
@@ -254,7 +275,7 @@ let result = match state {
         const string code = """
 let state: "on" | "off" = "on"
 
-let result = match state {
+let result = state match {
     "on" => 1
     "off" => 0
     _ => -1
@@ -274,7 +295,7 @@ let result = match state {
         const string code = """
 let state: "on" | "off" = "on"
 
-let result = match state {
+let result = state match {
     "on" => 1
     "off" when false => 0
     _ => -1
@@ -292,7 +313,7 @@ let result = match state {
         const string code = """
 let input: string | int | null = ""
 
-let result = match input {
+let result = input match {
     null => "Nothing to report."
     string text when text.Length > 0 => "Saw \"${text}\""
     int number => "Counted ${number}"
@@ -312,7 +333,7 @@ let result = match input {
         const string code = """
 let input: string | null = null
 
-let result = match input {
+let result = input match {
     null => "Nothing to report."
     string text => text
 }
@@ -329,7 +350,7 @@ let result = match input {
         const string code = """
 let pair: object = (1, "two")
 
-let result = match pair {
+let result = pair match {
     (first: int, second: string) => second
     _ => ""
 }
@@ -369,7 +390,7 @@ let result = match pair {
         const string code = """
 let pair: (int, int) = (1, 2)
 
-let result = match pair {
+let result = pair match {
     (int a, int b, int c) => c
 }
 """;
@@ -387,7 +408,7 @@ let result = match pair {
         const string code = """
 let value: int = 0
 
-let result = match value {
+let result = value match {
     string text => text
     _ => ""
 }
@@ -406,7 +427,7 @@ let result = match value {
         const string code = """
 let value: "on" | "off" = "on"
 
-let result = match value {
+let result = value match {
     bool flag => 1
     _ => 0
 }
@@ -425,7 +446,7 @@ let result = match value {
         const string code = """
 let value: int = 0
 
-let result = match value {
+let result = value match {
     "foo" => 1
     _ => 0
 }

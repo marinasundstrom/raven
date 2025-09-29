@@ -340,10 +340,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseIfExpressionSyntax();
                 break;
 
-            case SyntaxKind.MatchKeyword:
-                expr = ParseMatchExpressionSyntax();
-                break;
-
             case SyntaxKind.OpenBraceToken:
                 expr = ParseBlockSyntax();
                 break;
@@ -353,10 +349,11 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 break;
 
             default:
-                return ParsePowerExpression();
+                expr = ParsePowerExpression();
+                break;
         }
 
-        return expr;
+        return ParseMatchExpressionSuffixes(expr);
     }
 
     private LambdaExpressionSyntax ParseLambdaExpression()
@@ -893,11 +890,19 @@ internal class ExpressionSyntaxParser : SyntaxParser
         throw new Exception();
     }
 
-    private MatchExpressionSyntax ParseMatchExpressionSyntax()
+    private ExpressionSyntax ParseMatchExpressionSuffixes(ExpressionSyntax expression)
+    {
+        while (PeekToken().IsKind(SyntaxKind.MatchKeyword))
+        {
+            expression = ParseMatchExpressionSuffix(expression);
+        }
+
+        return expression;
+    }
+
+    private MatchExpressionSyntax ParseMatchExpressionSuffix(ExpressionSyntax scrutinee)
     {
         var matchKeyword = ReadToken();
-
-        var scrutinee = new ExpressionSyntaxParser(this).ParseExpression();
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
 
@@ -927,7 +932,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
-        return MatchExpression(matchKeyword, scrutinee, openBraceToken, List(arms.ToArray()), closeBraceToken);
+        return MatchExpression(scrutinee, matchKeyword, openBraceToken, List(arms.ToArray()), closeBraceToken);
     }
 
     private IfExpressionSyntax ParseIfExpressionSyntax()
