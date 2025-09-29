@@ -52,6 +52,9 @@ internal partial class BoundLambdaExpression : BoundExpression
             if (candidate.TypeKind != TypeKind.Delegate)
                 continue;
 
+            if (SymbolEqualityComparer.Default.Equals(candidate, delegateType))
+                return true;
+
             var candidateInvoke = candidate.GetDelegateInvokeMethod();
             if (candidateInvoke is null)
                 continue;
@@ -108,7 +111,8 @@ internal partial class BoundLambdaExpression : BoundExpression
                 }
 
                 var substitutedSource = SubstituteType(sourceParameter.Type, substitutions, compilation);
-                var conversion = compilation.ClassifyConversion(substitutedSource, targetParameter.Type);
+                var substitutedTarget = SubstituteType(targetParameter.Type, substitutions, compilation);
+                var conversion = compilation.ClassifyConversion(substitutedSource, substitutedTarget);
                 if (!conversion.Exists || !conversion.IsImplicit)
                     return false;
             }
@@ -126,7 +130,8 @@ internal partial class BoundLambdaExpression : BoundExpression
             }
 
             var substitutedReturn = SubstituteType(source.ReturnType, substitutions, compilation);
-            var returnConversion = compilation.ClassifyConversion(substitutedReturn, target.ReturnType);
+            var substitutedTargetReturn = SubstituteType(target.ReturnType, substitutions, compilation);
+            var returnConversion = compilation.ClassifyConversion(substitutedReturn, substitutedTargetReturn);
             return returnConversion.Exists && returnConversion.IsImplicit;
 
             static bool TryAddTypeMappings(

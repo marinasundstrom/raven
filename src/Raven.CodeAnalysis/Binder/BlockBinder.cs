@@ -724,10 +724,16 @@ partial class BlockBinder : Binder
             if (methodParameter.RefKind != delegateParameter.RefKind)
                 return false;
 
+            if (SymbolEqualityComparer.Default.Equals(delegateParameter.Type, methodParameter.Type))
+                continue;
+
             var conversion = Compilation.ClassifyConversion(delegateParameter.Type, methodParameter.Type);
             if (!conversion.Exists || !conversion.IsImplicit)
                 return false;
         }
+
+        if (SymbolEqualityComparer.Default.Equals(method.ReturnType, invoke.ReturnType))
+            return true;
 
         var returnConversion = Compilation.ClassifyConversion(method.ReturnType, invoke.ReturnType);
         return returnConversion.Exists && returnConversion.IsImplicit;
