@@ -459,20 +459,22 @@ matched positionally before defaults are considered.
 
 #### Extension methods
 
-Raven declares extension methods using the .NET `ExtensionAttribute`. A method
-is considered an extension when all of the following hold:
+Raven follows the CLR extension model so source and metadata helpers behave the
+same way. An extension method is a `static` method whose first parameter is
+treated as the **receiver**. Raven considers a declaration an extension when it
+appears on a `static` method inside a module or static class that can be
+imported like any other type and the method carries the .NET
+`ExtensionAttribute`. The attribute may be spelled either `[Extension]` or
+`[ExtensionAttribute]`; both forms produce the required metadata. Raven emits the
+same attribute when compiling the method so C# and other CLR languages recognize
+it as an extension.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】
 
-* The method is `static` and has at least one parameter.
-* Its declaration includes `[Extension]` or `[ExtensionAttribute]`.
-* The attribute appears on a method defined in a module or static class that can
-  be imported like any other type.
-
-The first parameter becomes the **receiver**. Its type determines which
-expressions qualify for the extension when Raven looks up member invocations.
-Additional parameters behave like ordinary method parameters and may be
-optional, generic, or accept lambdas. Raven emits the standard
-`ExtensionAttribute` metadata so C# and other CLR languages recognize the method
-as an extension, matching .NET's rules.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】
+The receiver parameter determines which expressions may invoke the extension.
+Additional parameters follow the ordinary parameter rules: they may be generic,
+optional, `params`, or accept lambdas. Generic receiver parameters are
+substituted during method type inference, so helpers like `Where<T>(this
+IEnumerable<T>, Func<T, bool>)` become available to Raven code as soon as the
+appropriate namespace is imported.
 
 ```raven
 import System.Runtime.CompilerServices.*
@@ -483,22 +485,39 @@ public static class NumberExtensions {
         return x + x
     }
 }
+
+public static class EnumerableExtensions {
+    [Extension]
+    public static Where<T>(source: IEnumerable<T>, predicate: Func<T, bool>)
+        -> IEnumerable<T> {
+        // implementation omitted
+    }
+}
 ```
 
-To invoke an extension, write a method-style member access. When a member access
-does not resolve to an instance method, Raven searches the imported namespaces
-and static types for extension methods whose first parameter accepts the
-receiver expression. Eligible candidates join overload resolution alongside
-instance members, with instance methods winning ties. Once an extension method
-is selected, the compiler rewrites the call to pass the receiver as the leading
-argument to the static method before lowering.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
+Extension methods participate in lookup through the same `import` mechanism used
+for types. Importing a namespace brings every extension method declared on the
+static types within that namespace into scope. Importing a specific static type
+exposes only the extensions declared on that type. Metadata extensions contained
+in referenced assemblies, such as `System.Linq.Enumerable`, and Raven-authored
+extensions are surfaced uniformly by binding, so source and metadata callers see
+the same candidates.【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
 
-Extension methods become available by importing their declaring type or
-namespace with `import`. For example, `import System.Linq.*` exposes the LINQ
-operators from `System.Linq.Enumerable`, and `import Sample.NumberExtensions`
-brings the `Double` helper declared above into scope. Accessibility checks and
-diagnostics mirror those for ordinary methods; the compiler reports an error
-when no applicable extension can be found.
+Invoking an extension uses method-style member access. When `expr.Member(...)`
+fails to resolve to an instance member, Raven gathers the in-scope extension
+methods whose receiver parameter is compatible with `expr`. Eligible extensions
+join overload resolution alongside instance members; if both an instance member
+and an extension are applicable, the instance member wins. Once overload
+resolution selects an extension, the compiler rewrites the invocation to pass the
+receiver as the leading argument to the static method before lowering, so the
+generated IL matches the direct static-call form.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
+
+Because extension methods are ordinary `static` methods, accessibility rules and
+diagnostics mirror those for other members. Missing imports or inaccessible
+extensions produce the same `RAV1xxx` diagnostics emitted for ordinary method
+lookups. Lambdas supplied to extension method parameters participate in the same
+delegate inference as other calls; Raven replays the lambda for each candidate
+signature until one succeeds.
 
 ### Object creation
 
