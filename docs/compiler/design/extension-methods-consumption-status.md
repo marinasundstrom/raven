@@ -23,18 +23,18 @@
 
 ## Active blockers
 
-* **Real-world metadata gaps.** The infrastructure that recognises extension
-  methods inside the metadata fixture still fails against the reference
-  assemblies that ship with .NET. Running the CLI against
-  `src/Raven.Compiler/samples/linq.rav` produces overload-resolution failures
-  (`RAV1501: No overload for method 'Where' takes 1 arguments`) and misses
-  `System.Linq.Enumerable` entirely, even though `Program.cs` adds
-  `System.Linq.dll` by default.【F:src/Raven.Compiler/samples/linq.rav†L1-L18】【F:src/Raven.Compiler/Program.cs†L172-L188】 This
-  suggests the metadata walker is either skipping the reference-assembly types
-  or rejecting the generic receiver conversion when the declaring type comes
-  from the BCL. Until the binder can surface those real assemblies, extension
-  consumption only succeeds when callers reference the bespoke test fixture or
-  Raven-authored extensions compiled into the same project.
+* **Real-world metadata gaps.** The CLI does load `System.Linq.Enumerable`, but
+  overload resolution still drops every LINQ candidate once the lambda argument
+  is analysed. The delegate cache records the open generic `Func<TSource, bool>`
+  signatures emitted by `ExtractLambdaDelegates`, so
+  `BoundLambdaExpression.IsCompatibleWithDelegate` compares the lambda against a
+  delegate whose parameters are still the method type parameters. The conversion
+  check in `HaveCompatibleSignature` then fails because `TSource` never
+  substitutes to the inferred receiver element type, and overload resolution
+  reports `RAV1501` even though the metadata method was discovered.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L325-L347】【F:src/Raven.CodeAnalysis/BoundTree/BoundLambdaExpression.cs†L34-L83】
+  Until the candidate delegates are specialised before the compatibility check,
+  extension consumption continues to fall back to the bespoke fixture instead of
+  the BCL implementation.
 
 ## Follow-up investigations
 
