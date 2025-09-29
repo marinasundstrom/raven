@@ -163,7 +163,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
         return string.Join(".", parts);
     }
 
-    public override string ToString() => IsGlobalNamespace ? "<global>" : this.ToDisplayString();
+    public override string ToString() => IsGlobalNamespace ? "<global>" : ToMetadataName();
 
     private static IEnumerable<INamespaceSymbol> Flatten(IEnumerable<INamespaceSymbol> namespaces)
     {
