@@ -125,8 +125,8 @@ internal class ExpressionGenerator : Generator
                 EmitEmptyCollectionExpression(emptyCollectionExpression);
                 break;
 
-            case BoundTryBlockExpression tryBlockExpression:
-                EmitTryBlockExpression(tryBlockExpression);
+            case BoundTryExpression tryExpression:
+                EmitTryExpression(tryExpression);
                 break;
 
             case BoundArrayAccessExpression boundArrayAccessExpression:
@@ -2636,7 +2636,7 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
     }
 
-    private void EmitTryBlockExpression(BoundTryBlockExpression tryExpression)
+    private void EmitTryExpression(BoundTryExpression tryExpression)
     {
         var resultType = tryExpression.Type ?? Compilation.ErrorTypeSymbol;
         var resultClrType = ResolveClrType(resultType);
@@ -2646,18 +2646,18 @@ internal class ExpressionGenerator : Generator
         if (exceptionType.TypeKind == TypeKind.Error)
             exceptionType = Compilation.GetSpecialType(SpecialType.System_Object);
 
-        var blockType = tryExpression.Block.Type ?? Compilation.ErrorTypeSymbol;
+        var expressionType = tryExpression.Expression.Type ?? Compilation.ErrorTypeSymbol;
 
         ILGenerator.BeginExceptionBlock();
 
         var tryScope = new Scope(this);
-        new ExpressionGenerator(tryScope, tryExpression.Block).Emit();
+        new ExpressionGenerator(tryScope, tryExpression.Expression).Emit();
 
-        if (!SymbolEqualityComparer.Default.Equals(blockType, resultType))
+        if (!SymbolEqualityComparer.Default.Equals(expressionType, resultType))
         {
-            var blockConversion = Compilation.ClassifyConversion(blockType, resultType);
-            if (blockConversion.Exists && !blockConversion.IsIdentity)
-                EmitConversion(blockType, resultType, blockConversion);
+            var expressionConversion = Compilation.ClassifyConversion(expressionType, resultType);
+            if (expressionConversion.Exists && !expressionConversion.IsIdentity)
+                EmitConversion(expressionType, resultType, expressionConversion);
         }
 
         ILGenerator.Emit(OpCodes.Stloc, resultLocal);

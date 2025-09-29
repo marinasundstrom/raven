@@ -376,23 +376,21 @@ Each `catch` may declare an exception type and optional identifier using `catch 
 
 The optional `finally` clause executes regardless of whether the `try` block or any `catch` clause complete normally. It also runs when a `catch` clause rethrows or when control leaves the statement early (for example, because of `return`, `break`, or `goto`).
 
-### `try` block expression
+### `try` expression
 
-A `try` block expression evaluates a block and produces a value that represents either the block's result or any exception thrown while evaluating it. The syntax is simply `try { ... }` with no accompanying `catch` or `finally` clauses. Because it is an expression, this form is valid anywhere an expression can appear, including as the scrutinee for `match` expressions or as part of larger expression trees.
+A `try` expression evaluates an arbitrary subexpression and produces a value representing either that expression's result or any exception thrown while evaluating it. The syntax is `try <expression>` with no accompanying `catch` or `finally` clauses. Because it is an expression, this form is valid anywhere an expression can appear, including as the scrutinee for `match` expressions or as part of larger expression trees. The operand may be a block expression, a method invocation, a conditional, and so on.
 
-The expression's type is the normalized union of the block's value type and `System.Exception`. If the block completes normally, its result is converted to the union and returned. If an exception escapes the block, the expression instead yields the caught exception instance. This makes `try` block expressions particularly useful with pattern matching:
+The expression's type is the normalized union of the operand's value type and `System.Exception`. If the operand completes normally, its result is converted to the union and returned. If an exception escapes the operand, the expression instead yields the caught exception instance. This makes `try` expressions particularly useful with pattern matching:
 
 ```raven
-let value = try {
-    int.Parse(input)
-} match {
+let value = try int.Parse(input) match {
     int no => $"No is {no}"
     FormatException ex => $"Format invalid: {ex.Message}"
     _ => "unknown"
 }
 ```
 
-Because the exception is materialized as a value, the block still executes its normal scope unwinding before control reaches the surrounding expression. A `try` block expression cannot attach `catch` or `finally` clauses; those constructs are reserved for the statement form.
+Because the exception is materialized as a value, the operand still executes its normal scope unwinding before control reaches the surrounding expression. A `try` expression cannot attach `catch` or `finally` clauses; those constructs are reserved for the statement form. Additionally, `try` expressions cannot nest directly—`try try value` reports an error—both to avoid ambiguous typing and to encourage pattern matching over the union result.
 
 ## Expressions
 

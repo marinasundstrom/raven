@@ -384,9 +384,9 @@
     <Slot Name="Statements" Type="List" ElementType="Statement" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken"/>
   </Node>
-  <Node Name="TryBlockExpression" Inherits="Expression">
+  <Node Name="TryExpression" Inherits="Expression">
     <Slot Name="TryKeyword" Type="Token" DefaultToken="TryKeyword"/>
-    <Slot Name="Block" Type="Block" />
+    <Slot Name="Expression" Type="Expression" />
   </Node>
   <Node Name="BlockStatement" Inherits="Statement">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken"/>

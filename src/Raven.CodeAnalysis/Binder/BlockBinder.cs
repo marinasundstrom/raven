@@ -464,7 +464,7 @@ partial class BlockBinder : Binder
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
-            TryBlockExpressionSyntax tryBlockExpression => BindTryBlockExpression(tryBlockExpression),
+            TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
@@ -804,13 +804,19 @@ partial class BlockBinder : Binder
         return new BoundMatchExpression(scrutinee, arms, resultType);
     }
 
-    private BoundExpression BindTryBlockExpression(TryBlockExpressionSyntax tryExpression)
+    private BoundExpression BindTryExpression(TryExpressionSyntax tryExpression)
     {
-        var block = BindBlock(tryExpression.Block, allowReturn: _allowReturnsInExpression);
+        if (tryExpression.Expression is TryExpressionSyntax nestedTry)
+        {
+            _diagnostics.ReportTryExpressionCannotBeNested(nestedTry.TryKeyword.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol);
+        }
+
+        var expression = BindExpression(tryExpression.Expression);
         var exceptionType = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
-        var blockType = block.Type ?? Compilation.ErrorTypeSymbol;
-        var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { blockType, exceptionType });
-        return new BoundTryBlockExpression(block, exceptionType, resultType);
+        var expressionType = expression.Type ?? Compilation.ErrorTypeSymbol;
+        var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { expressionType, exceptionType });
+        return new BoundTryExpression(expression, exceptionType, resultType);
     }
 
     private void EnsureMatchArmPatternsValid(

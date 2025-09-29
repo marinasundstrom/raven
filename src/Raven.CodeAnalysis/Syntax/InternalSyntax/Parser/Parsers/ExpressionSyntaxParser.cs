@@ -10,9 +10,12 @@ using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal class ExpressionSyntaxParser : SyntaxParser
 {
-    public ExpressionSyntaxParser(ParseContext parent) : base(parent)
-    {
+    private readonly bool _allowMatchExpressionSuffixes;
 
+    public ExpressionSyntaxParser(ParseContext parent, bool allowMatchExpressionSuffixes = true)
+        : base(parent)
+    {
+        _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -341,7 +344,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 break;
 
             case SyntaxKind.TryKeyword:
-                expr = ParseTryBlockExpression();
+                expr = ParseTryExpression();
                 break;
 
             case SyntaxKind.OpenBraceToken:
@@ -357,14 +360,17 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 break;
         }
 
+        if (!_allowMatchExpressionSuffixes)
+            return expr;
+
         return ParseMatchExpressionSuffixes(expr);
     }
 
-    private TryBlockExpressionSyntax ParseTryBlockExpression()
+    private TryExpressionSyntax ParseTryExpression()
     {
         var tryKeyword = ReadToken();
-        var block = ParseBlockSyntax();
-        return TryBlockExpression(tryKeyword, block);
+        var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
+        return TryExpression(tryKeyword, expression);
     }
 
     private LambdaExpressionSyntax ParseLambdaExpression()

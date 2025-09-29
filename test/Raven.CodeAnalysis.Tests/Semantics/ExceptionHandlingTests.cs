@@ -43,12 +43,10 @@ catch (int ex) {
     }
 
     [Fact]
-    public void TryBlockExpression_InferredTypeIncludesException()
+    public void TryExpression_InferredTypeIncludesException()
     {
         var code = """
-let value = try {
-    int.Parse("foo")
-}
+let value = try int.Parse("foo")
 """;
 
         var verifier = CreateVerifier(code);
@@ -65,6 +63,19 @@ let value = try {
         var exceptionType = result.Compilation.GetTypeByMetadataName("System.Exception");
         Assert.NotNull(exceptionType);
         Assert.Contains(union.Types, t => SymbolEqualityComparer.Default.Equals(TypeSymbolNormalization.NormalizeForInference(t), exceptionType));
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void TryExpression_NestedTryReportsDiagnostic()
+    {
+        var code = "let value = try try 1";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult("RAV1906").WithSpan(1, 17, 1, 20)
+            ]);
 
         verifier.Verify();
     }
