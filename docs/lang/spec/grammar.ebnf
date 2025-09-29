@@ -118,6 +118,7 @@ Statement                ::= LocalDeclaration
                            | IfStatement
                            | WhileStatement
                            | ForStatement
+                           | TryStatement
                            | ExpressionStatement ;
 
 LocalDeclaration         ::= ('let' | 'var') LocalVariableDeclarators ;
@@ -137,6 +138,12 @@ ExpressionStatement      ::= Expression ;
 IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
 WhileStatement           ::= 'while' Expression Statement ;
 ForStatement             ::= 'for' 'each'? Identifier 'in' Expression Statement ;
+
+TryStatement             ::= 'try' Block (CatchClauseList [FinallyClause] | FinallyClause) ;
+CatchClauseList          ::= CatchClause {CatchClause} ;
+CatchClause              ::= 'catch' CatchDeclaration? Block ;
+CatchDeclaration         ::= '(' Type [Identifier] ')' ;
+FinallyClause            ::= 'finally' Block ;
 
 (* ---------- Expressions & precedence (lowest → highest) ---------- *)
 
@@ -210,9 +217,12 @@ PrimaryExpression        ::= Literal
                            | ObjectCreationExpression
                            | TupleExpression
                            | ParenthesizedExpression
+                           | TryBlockExpression
                            | Block
                            | IfExpression
                            | InterpolatedStringExpression ;
+
+TryBlockExpression       ::= 'try' Block ;
 
 Block                    ::= '{' {Statement} '}' ;
 

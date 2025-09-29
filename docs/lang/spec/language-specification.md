@@ -358,9 +358,9 @@ Gotos cannot escape the body they are declared in. A `goto` inside a function, l
 
 `goto` statements follow the same placement rules as other control-flow statements: they are only legal in statement contexts. Embedding a `goto` inside an expression context (such as the body of an `if` expression) produces diagnostic `RAV1904`.
 
-### Try statements
+### `try` statements
 
-`try` statements provide structured exception handling. A `try` statement wraps a block and must include at least one `catch` clause or a `finally` clause. Omitting both results in diagnostic `RAV1015`.
+`try` provides structured exception handling and comes in both statement and expression forms. The statement form wraps a block and must include at least one `catch` clause or a `finally` clause. Omitting both results in diagnostic `RAV1015`. Statement `try` constructs follow the usual placement rules for statements: they can only appear where a statement is permitted.
 
 ```
 try {
@@ -372,9 +372,27 @@ try {
 }
 ```
 
-Each `catch` may declare an exception type and optional identifier using `catch (Type name)`. The declared type must be or derive from `System.Exception`; otherwise the compiler reports `RAV1016`. When the identifier is omitted, the exception value is still available for pattern-based filtering but is not bound to a local. A bare `catch` with no parentheses is equivalent to `catch (System.Exception)` and handles all exceptions of that type.
+Each `catch` may declare an exception type and optional identifier using `catch (Type name)`. The declared type must be or derive from `System.Exception`; otherwise the compiler reports `RAV1016`. When the identifier is omitted, the exception value is still available for pattern-based filtering but is not bound to a local. A bare `catch` with no parentheses is equivalent to `catch (System.Exception)` and handles all exceptions of that type. Catch clauses run in source order until one handles the propagated exception; execution then resumes after the `try` statement unless a `finally` clause alters control flow.
 
-The optional `finally` clause executes regardless of whether the `try` block or any `catch` clause complete normally.
+The optional `finally` clause executes regardless of whether the `try` block or any `catch` clause complete normally. It also runs when a `catch` clause rethrows or when control leaves the statement early (for example, because of `return`, `break`, or `goto`).
+
+### `try` block expression
+
+A `try` block expression evaluates a block and produces a value that represents either the block's result or any exception thrown while evaluating it. The syntax is simply `try { ... }` with no accompanying `catch` or `finally` clauses. Because it is an expression, this form is valid anywhere an expression can appear, including as the scrutinee for `match` expressions or as part of larger expression trees.
+
+The expression's type is the normalized union of the block's value type and `System.Exception`. If the block completes normally, its result is converted to the union and returned. If an exception escapes the block, the expression instead yields the caught exception instance. This makes `try` block expressions particularly useful with pattern matching:
+
+```raven
+let value = try {
+    int.Parse(input)
+} match {
+    int no => $"No is {no}"
+    FormatException ex => $"Format invalid: {ex.Message}"
+    _ => "unknown"
+}
+```
+
+Because the exception is materialized as a value, the block still executes its normal scope unwinding before control reaches the surrounding expression. A `try` block expression cannot attach `catch` or `finally` clauses; those constructs are reserved for the statement form.
 
 ## Expressions
 
