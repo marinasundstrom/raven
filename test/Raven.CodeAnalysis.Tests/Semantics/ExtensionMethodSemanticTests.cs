@@ -491,6 +491,143 @@ public static class NumberExtensions {
     }
 
     [Fact]
+    public void MemberAccess_WithShadowingExtensions_PrefersMostSpecificReceiver()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let text = "value"
+let textAsObject: object = text
+
+let stringResult = text.Describe()
+let objectResult = textAsObject.Describe()
+
+public static class DescribeExtensions {
+    [ExtensionAttribute]
+    public static Describe(x: object) -> string {
+        return "object"
+    }
+
+    [ExtensionAttribute]
+    public static Describe(x: string) -> string {
+        return x
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .ToArray();
+
+        Assert.Equal(2, invocations.Length);
+
+        var stringInvocationSyntax = invocations.Single(
+            node => node.Expression is MemberAccessExpressionSyntax member
+                    && member.Expression is IdentifierNameSyntax identifier
+                    && identifier.Identifier.Text == "text");
+
+        var stringInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(stringInvocationSyntax));
+        Assert.True(stringInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Describe", stringInvocation.Method.Name);
+        Assert.Equal(SpecialType.System_String, stringInvocation.Method.Parameters[0].Type.SpecialType);
+        Assert.NotNull(stringInvocation.ExtensionReceiver);
+        Assert.Equal(stringInvocation.Method.Parameters[0].Type, stringInvocation.ExtensionReceiver!.Type);
+
+        var objectInvocationSyntax = invocations.Single(
+            node => node.Expression is MemberAccessExpressionSyntax member
+                    && member.Expression is IdentifierNameSyntax identifier
+                    && identifier.Identifier.Text == "textAsObject");
+
+        var objectInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(objectInvocationSyntax));
+        Assert.True(objectInvocation.Method.IsExtensionMethod);
+        Assert.Equal("Describe", objectInvocation.Method.Name);
+        Assert.Equal(SpecialType.System_Object, objectInvocation.Method.Parameters[0].Type.SpecialType);
+        Assert.NotNull(objectInvocation.ExtensionReceiver);
+        Assert.Equal(objectInvocation.Method.Parameters[0].Type, objectInvocation.ExtensionReceiver!.Type);
+    }
+
+    [Fact]
+    public void MemberAccess_WithGenericReceiverExtension_BindsTypeParameterReceiver()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let text = "value"
+let number = 42
+
+let textResult = text.Identity()
+let numberResult = number.Identity()
+
+public static class GenericExtensions {
+    [ExtensionAttribute]
+    public static Identity<T>(value: T) -> T {
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .ToArray();
+
+        Assert.Equal(2, invocations.Length);
+
+        var textInvocationSyntax = invocations.Single(
+            node => node.Expression is MemberAccessExpressionSyntax member
+                    && member.Expression is IdentifierNameSyntax identifier
+                    && identifier.Identifier.Text == "text");
+
+        var textInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(textInvocationSyntax));
+        Assert.True(textInvocation.Method.IsExtensionMethod);
+        Assert.True(textInvocation.Method.IsGenericMethod);
+        Assert.Equal("Identity", textInvocation.Method.Name);
+        Assert.Single(textInvocation.Method.TypeArguments);
+        Assert.Equal(SpecialType.System_String, textInvocation.Method.TypeArguments[0].SpecialType);
+        Assert.NotNull(textInvocation.ExtensionReceiver);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            textInvocation.Method.Parameters[0].Type,
+            textInvocation.ExtensionReceiver!.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            textInvocation.Method.ReturnType,
+            textInvocation.ExtensionReceiver!.Type));
+
+        var numberInvocationSyntax = invocations.Single(
+            node => node.Expression is MemberAccessExpressionSyntax member
+                    && member.Expression is IdentifierNameSyntax identifier
+                    && identifier.Identifier.Text == "number");
+
+        var numberInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(numberInvocationSyntax));
+        Assert.True(numberInvocation.Method.IsExtensionMethod);
+        Assert.True(numberInvocation.Method.IsGenericMethod);
+        Assert.Equal("Identity", numberInvocation.Method.Name);
+        Assert.Single(numberInvocation.Method.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, numberInvocation.Method.TypeArguments[0].SpecialType);
+        Assert.NotNull(numberInvocation.ExtensionReceiver);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            numberInvocation.Method.Parameters[0].Type,
+            numberInvocation.ExtensionReceiver!.Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            numberInvocation.Method.ReturnType,
+            numberInvocation.ExtensionReceiver!.Type));
+    }
+
+    [Fact]
     public void Lowerer_RewritesExtensionInvocation()
     {
         const string mainSource = """
