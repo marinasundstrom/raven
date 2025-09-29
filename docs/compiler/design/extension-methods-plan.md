@@ -4,11 +4,10 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
-> **Next step.** Route delegate construction through the metadata-aware helpers
-> so command-line builds that call metadata extensions can emit successfully.
-> With lambda binding now replaying every candidate delegate, the remaining
-> blocker for Stage&nbsp;2 is the `ExpressionGenerator` path that still uses raw
-> reflection and fails under `MetadataLoadContext`.
+> **Next step.** Add execution coverage for lambdas that invoke metadata
+> extensions so the CLI path exercises the fixed delegate construction logic.
+> Capturing `Where`/`Select` calls will prove the emitter survives extension
+> lambdas end to end before we expand into query comprehension scenarios.
 
 ## 1. Baseline assessment ✅
 
@@ -128,9 +127,10 @@ observed when compiling LINQ-heavy samples.
 
 ## 6. Code generation fixes
 
-1. Fix `ExpressionGenerator.EmitLambdaExpression` so that it resolves delegate
-   constructors using `Compilation`'s `MetadataLoadContext`-aware APIs. Avoid
-   `Type.GetConstructor` calls that introduce foreign `Type` instances.
+1. ✅ Fix `ExpressionGenerator.EmitLambdaExpression` so that it resolves
+   delegate constructors using `Compilation`'s `MetadataLoadContext`-aware
+   APIs. Avoid `Type.GetConstructor` calls that introduce foreign `Type`
+   instances.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L409-L482】
 2. Harden the delegate construction path by caching resolved constructors per
    `DelegateTypeSymbol` so repeated lambda emission does not incur redundant
    reflection or leak metadata handles.

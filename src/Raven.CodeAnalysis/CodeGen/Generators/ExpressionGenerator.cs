@@ -432,21 +432,100 @@ internal class ExpressionGenerator : Generator
         if (_delegateConstructorCache.TryGetValue(delegateType, out var ctor))
             return ctor;
 
-        _delegateConstructorSignature ??=
+        if (delegateType is INamedTypeSymbol namedDelegate)
+        {
+            ctor = TryResolveDelegateConstructor(namedDelegate);
+        }
+
+        if (ctor is null)
+        {
+            _delegateConstructorSignature ??=
             [
                 ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Object)),
                 ResolveClrType(Compilation.GetSpecialType(SpecialType.System_IntPtr))
             ];
 
-        ctor = delegateClrType.GetConstructor(
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                types: _delegateConstructorSignature,
-                modifiers: null)
-            ?? throw new InvalidOperationException($"Delegate '{delegateClrType}' lacks the expected constructor.");
+            ctor = delegateClrType.GetConstructor(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null,
+                    types: _delegateConstructorSignature,
+                    modifiers: null)
+                ?? throw new InvalidOperationException($"Delegate '{delegateClrType}' lacks the expected constructor.");
+        }
 
         _delegateConstructorCache[delegateType] = ctor;
         return ctor;
+    }
+
+    private ConstructorInfo? TryResolveDelegateConstructor(INamedTypeSymbol delegateType)
+    {
+        foreach (var constructor in delegateType.InstanceConstructors)
+        {
+            if (!IsDelegateConstructorSignature(constructor))
+                continue;
+
+            var ctorInfo = TryGetConstructorInfo(constructor);
+            if (ctorInfo is not null)
+                return ctorInfo;
+        }
+
+        return null;
+    }
+
+    private bool IsDelegateConstructorSignature(IMethodSymbol constructor)
+    {
+        if (constructor.Parameters.Length != 2)
+            return false;
+
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        var intPtrType = Compilation.GetSpecialType(SpecialType.System_IntPtr);
+
+        return SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, objectType)
+            && SymbolEqualityComparer.Default.Equals(constructor.Parameters[1].Type, intPtrType);
+    }
+
+    private ConstructorInfo? TryGetConstructorInfo(IMethodSymbol constructor)
+    {
+        return constructor switch
+        {
+            SourceMethodSymbol source when GetMemberBuilder(source) is ConstructorInfo sourceCtor => sourceCtor,
+            PEMethodSymbol pe => pe.GetConstructorInfo(),
+            SubstitutedMethodSymbol substituted => substituted.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
+            ConstructedMethodSymbol constructed => TryGetConstructedConstructorInfo(constructed),
+            _ => null
+        };
+    }
+
+    private ConstructorInfo? TryGetConstructedConstructorInfo(ConstructedMethodSymbol constructed)
+    {
+        var definitionCtor = TryGetConstructorInfo(constructed.Definition);
+        if (definitionCtor is null)
+            return null;
+
+        var declaringType = definitionCtor.DeclaringType;
+        if (declaringType is null)
+            return definitionCtor;
+
+        if (constructed.TypeArguments.IsDefaultOrEmpty || constructed.TypeArguments.Length == 0)
+            return definitionCtor;
+
+        if (!declaringType.IsGenericTypeDefinition && !declaringType.ContainsGenericParameters)
+            return definitionCtor;
+
+        var runtimeArguments = constructed.TypeArguments.Select(ResolveClrType).ToArray();
+        var constructedType = declaringType.MakeGenericType(runtimeArguments);
+
+        _delegateConstructorSignature ??=
+        [
+            ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Object)),
+            ResolveClrType(Compilation.GetSpecialType(SpecialType.System_IntPtr))
+        ];
+
+        return constructedType.GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: _delegateConstructorSignature,
+            modifiers: null);
     }
 
     private void EmitUnitExpression(BoundUnitExpression unitExpression)
