@@ -228,6 +228,10 @@
     Title="Catch type must derive from System.Exception"
     Message="Type '{typeName}' is not derived from System.Exception"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1020" Identifier="ThrowExpressionMustBeException"
+    Title="Thrown expression must be an exception type"
+    Message="Expression of type '{typeName}' cannot be thrown because it does not derive from System.Exception"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1018" Identifier="FileScopedNamespaceOutOfOrder"
     Title="File-scoped namespace out of order"
     Message="File-scoped namespace declarations must appear before any other members" Category="compiler"
@@ -269,6 +273,10 @@
   <Descriptor Id="RAV1905" Identifier="LabelInExpression"
     Title="Label not allowed here"
     Message="Labels are not valid in expressions; use a statement block instead"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1907" Identifier="ThrowStatementInExpression"
+    Title="Throw statement not allowed here"
+    Message="Throw statements are not valid in expressions; use a statement block instead"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1906" Identifier="TryExpressionCannotBeNested"
     Title="Nested try expression"

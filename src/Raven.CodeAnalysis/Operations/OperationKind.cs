@@ -46,6 +46,11 @@ public enum OperationKind
     Return,
 
     /// <summary>
+    /// A throw statement.
+    /// </summary>
+    Throw,
+
+    /// <summary>
     /// A literal value.
     /// </summary>
     Literal,

@@ -294,6 +294,34 @@ func log(msg: string) {
 }
 ```
 
+### `throw` statements
+
+The `throw` keyword aborts the current control flow by propagating an exception. The operand must be an expression whose type derives from `System.Exception`; using any other type produces diagnostic `RAV1020`. Like other control-flow statements, `throw` may only appear in statement positions. When it occurs inside an expression context—such as within the branches of an `if` expression—the compiler reports diagnostic `RAV1907`.
+
+Throwing an exception unwinds the stack just like returning early: `using` declarations in the current scope are disposed before the exception escapes. Because exceptions are expensive and intended for unexpected situations, prefer returning a dedicated result object (for example, a union or struct that carries either the value or an error) to model normal control flow. Reserve `throw` for genuinely exceptional circumstances so APIs remain predictable and declarative.
+
+```raven
+func parseInt(text: string) -> int | ParseError {
+    if text.isEmpty {
+        return ParseError.Empty
+    }
+
+    try {
+        return int.Parse(text)
+    } catch (System.FormatException ex) {
+        return ParseError.Invalid(ex.Message)
+    }
+}
+
+func readConfig(path: string) {
+    using let stream = File.OpenRead(path)
+    if stream is null {
+        throw System.IO.FileNotFoundException(path)
+    }
+    // ...
+}
+```
+
 ### `break` statements
 
 `break` exits the innermost enclosing loop statement immediately. Execution resumes at the statement following that loop.

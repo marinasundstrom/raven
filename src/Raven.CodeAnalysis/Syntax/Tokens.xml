@@ -36,6 +36,7 @@
   <TokenKind Name="ContinueKeyword" Text="continue" IsReservedWord="true" />
   <TokenKind Name="MatchKeyword" Text="match" IsReservedWord="true" />
   <TokenKind Name="ReturnKeyword" Text="return" IsReservedWord="true" />
+  <TokenKind Name="ThrowKeyword" Text="throw" IsReservedWord="true" />
   <TokenKind Name="NewKeyword" Text="new" IsReservedWord="true" />
   <TokenKind Name="TrueKeyword" Text="true" IsReservedWord="true" />
   <TokenKind Name="FalseKeyword" Text="false" IsReservedWord="true" />

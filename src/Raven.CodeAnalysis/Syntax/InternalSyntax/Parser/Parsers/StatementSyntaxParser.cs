@@ -35,6 +35,10 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseReturnStatementSyntax();
                     break;
 
+                case SyntaxKind.ThrowKeyword:
+                    statement = ParseThrowStatementSyntax();
+                    break;
+
                 case SyntaxKind.IfKeyword:
                     statement = ParseIfStatementSyntax();
                     break;
@@ -461,6 +465,21 @@ internal class StatementSyntaxParser : SyntaxParser
         }
 
         return ReturnStatement(returnKeyword, expression, terminatorToken, Diagnostics);
+    }
+
+    private StatementSyntax ParseThrowStatementSyntax()
+    {
+        var throwKeyword = ReadToken();
+
+        SetTreatNewlinesAsTokens(false);
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(true);
+
+        var terminatorToken = ConsumeTerminator();
+
+        return ThrowStatement(throwKeyword, expression, terminatorToken, Diagnostics);
     }
 
     private UsingDeclarationStatementSyntax ParseUsingDeclarationStatementSyntax()

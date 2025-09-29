@@ -112,6 +112,7 @@ BracketedParameterList   ::= '[' ParameterList? ']' ;
 
 Statement                ::= LocalDeclaration
                            | ReturnStatement
+                           | ThrowStatement
                            | BreakStatement
                            | ContinueStatement
                            | FunctionStatement
@@ -126,6 +127,8 @@ LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarato
 LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;
 
 ReturnStatement          ::= 'return' Expression? ;
+
+ThrowStatement           ::= 'throw' Expression ;
 
 BreakStatement           ::= 'break' ;
 

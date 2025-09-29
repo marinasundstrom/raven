@@ -26,6 +26,10 @@ internal class StatementGenerator : Generator
                 EmitReturnStatement(returnStatement);
                 break;
 
+            case BoundThrowStatement throwStatement:
+                EmitThrowStatement(throwStatement);
+                break;
+
             case BoundExpressionStatement expressionStatement:
                 EmitExpressionStatement(expressionStatement);
                 break;
@@ -140,6 +144,67 @@ internal class StatementGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private void EmitThrowStatement(BoundThrowStatement throwStatement)
+    {
+        var localsToDispose = EnumerateLocalsToDispose().ToImmutableArray();
+        var expression = throwStatement.Expression;
+        var expressionType = expression.Type;
+
+        LocalBuilder? resultTemp = null;
+        var hasValueOnStack = true;
+
+        new ExpressionGenerator(this, expression).Emit();
+
+        if (localsToDispose.Length > 0 && expressionType is { TypeKind: not TypeKind.Error })
+        {
+            var clrType = ResolveClrType(expressionType);
+            resultTemp = ILGenerator.DeclareLocal(clrType);
+            ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+            hasValueOnStack = false;
+        }
+        else if (localsToDispose.Length > 0)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            hasValueOnStack = false;
+        }
+
+        EmitDispose(localsToDispose);
+
+        if (resultTemp is not null)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+            hasValueOnStack = true;
+        }
+        else if (!hasValueOnStack)
+        {
+            ILGenerator.Emit(OpCodes.Ldnull);
+            hasValueOnStack = true;
+        }
+
+        if (expressionType is { TypeKind: not TypeKind.Error })
+        {
+            if (expressionType.IsValueType)
+            {
+                var valueClrType = ResolveClrType(expressionType);
+                ILGenerator.Emit(OpCodes.Box, valueClrType);
+            }
+
+            var exceptionType = Compilation.GetTypeByMetadataName("System.Exception");
+            if (exceptionType is { TypeKind: not TypeKind.Error })
+            {
+                var exceptionClrType = ResolveClrType(exceptionType);
+                ILGenerator.Emit(OpCodes.Castclass, exceptionClrType);
+            }
+        }
+        else if (hasValueOnStack)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ldnull);
+        }
+
+        ILGenerator.Emit(OpCodes.Throw);
     }
 
     private void EmitExpressionStatement(BoundExpressionStatement expressionStatement)
