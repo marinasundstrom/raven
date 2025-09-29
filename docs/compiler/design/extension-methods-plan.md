@@ -137,8 +137,11 @@ observed when compiling LINQ-heavy samples.
 3. ✅ Added execution coverage that compiles and runs the LINQ sample through the
    CLI with the metadata fixture, exercising `Where`/`Select` lambdas and
    asserting the emitted program produces the projected results.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L66-L117】
-4. Once the failure mode is addressed, cover extension method calls inside query
-   comprehensions (`Select`, `Where`, `OrderBy`) to ensure LINQ works end-to-end.
+4. ✅ Exercised the LINQ sample through a full query-style pipeline. The
+   `linq.rav` program filters, sorts, and projects via the metadata-backed
+   `Where`, `OrderBy`, and `Select` helpers, and the CLI integration test still
+   expects the ordered `2, 4, 6` projection so query comprehension lowering is
+   covered end to end.【F:src/Raven.Compiler/samples/linq.rav†L7-L19】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L87-L140】
 
 ## 7. Validation and polish
 
