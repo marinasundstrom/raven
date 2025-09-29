@@ -380,7 +380,19 @@ public partial class SemanticModel
         parentBinder = importBinder;
 
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
-        RegisterNamespaceMembers(cu, compilationUnitBinder, targetNamespace);
+
+        Binder? fileScopedBinder = null;
+        if (fileScopedNamespace is not null)
+        {
+            fileScopedBinder = Compilation.BinderFactory.GetBinder(fileScopedNamespace, compilationUnitBinder)
+                ?? throw new InvalidOperationException("Unable to create binder for file-scoped namespace.");
+            _binderCache[fileScopedNamespace] = fileScopedBinder;
+            RegisterNamespaceMembers(fileScopedNamespace, fileScopedBinder, targetNamespace);
+        }
+        else
+        {
+            RegisterNamespaceMembers(cu, compilationUnitBinder, targetNamespace);
+        }
 
         foreach (var diagnostic in compilationUnitBinder.Diagnostics.AsEnumerable())
             importBinder.Diagnostics.Report(diagnostic);
@@ -420,8 +432,8 @@ public partial class SemanticModel
         CreateTopLevelBinder(cu, targetNamespace, importBinder);
 
         _binderCache[cu] = importBinder;
-        if (fileScopedNamespace != null)
-            _binderCache[fileScopedNamespace] = importBinder;
+        if (fileScopedNamespace != null && fileScopedBinder is not null)
+            _binderCache[fileScopedNamespace] = fileScopedBinder;
 
         return importBinder;
 
