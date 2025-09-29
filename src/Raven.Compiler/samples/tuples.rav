@@ -13,3 +13,11 @@ System.Console.WriteLine(tuple.GetType())
 let tuple2 : (id: int, name: string) = (42, "Bar")
 
 let name = tuple2.name
+
+let x : bool | (a: 2, b: "bor") = false
+
+let r = x match {
+    _ => "none"
+}
+
+System.Console.WriteLine(r)
