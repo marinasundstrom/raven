@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -159,28 +160,41 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public bool IsDefinition => true; // Metadata methods are always definitions
 
-    public bool IsExtensionMethod
+    private bool? _lazyIsExtensionMethod;
+
+    public bool IsExtensionMethod => _lazyIsExtensionMethod ??= ComputeIsExtensionMethod();
+
+    private bool ComputeIsExtensionMethod()
     {
-        get
+        if (_methodInfo is null || !_methodInfo.IsStatic)
+            return false;
+
+        try
         {
-            if (_methodInfo is null)
+            if (HasExtensionAttribute(_methodInfo.GetCustomAttributesData()))
+                return true;
+
+            var declaringType = _methodInfo.DeclaringType;
+            if (declaringType is null)
                 return false;
 
-            try
-            {
-                foreach (var attribute in _methodInfo.GetCustomAttributesData())
-                {
-                    if (attribute.AttributeType.FullName == typeof(ExtensionAttribute).FullName)
-                        return true;
-                }
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-
+            return HasExtensionAttribute(declaringType.GetCustomAttributesData());
+        }
+        catch (Exception)
+        {
             return false;
         }
+    }
+
+    private static bool HasExtensionAttribute(IList<CustomAttributeData> attributes)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (attribute.AttributeType.FullName == typeof(ExtensionAttribute).FullName)
+                return true;
+        }
+
+        return false;
     }
 
     public bool IsExtern => _methodInfo.IsAbstract || (_methodInfo.Attributes & MethodAttributes.PinvokeImpl) != 0;
