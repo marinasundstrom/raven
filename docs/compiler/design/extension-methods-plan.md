@@ -153,7 +153,7 @@ observed when compiling LINQ-heavy samples.
    behavior.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L515-L608】【F:test/Raven.CodeAnalysis.Tes
 ts/Semantics/ExtensionMethodSemanticTests.cs†L612-L703】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTest
 s.cs†L706-L764】
-2. Document the feature in the language specification and user-facing manuals,
-   emphasizing parity with C#'s extension method behavior and any deliberate
-   deviations.
+2. ✅ Documented the feature in the language specification and user-facing
+   manuals, emphasizing parity with C#'s extension method behavior and the
+   attribute-based declaration rules.【F:docs/lang/spec/language-specification.md†L676-L714】【F:docs/introduction.md†L73-L104】【F:docs/lang/spec/dotnet-implementation.md†L9-L21】
 3. Update the TODO/roadmap once the end-to-end support is in place.

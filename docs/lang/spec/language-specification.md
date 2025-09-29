@@ -668,20 +668,46 @@ When the target has optional parameters, omitted trailing arguments are filled
 in using the defaults declared on the parameter list. The supplied arguments are
 matched positionally before defaults are considered.
 
-#### Extension method invocation
+#### Extension methods
 
-Raven participates in the .NET extension method model for consumption. When a
-method-style member access does not resolve to an instance member, the compiler
-searches imported namespaces and type scopes for extension methods whose first
-parameter (the `this` receiver in C#) accepts the receiver expression. Eligible
-candidates are merged into overload resolution alongside instance methods, with
-instance members winning any ties. Once selected, the receiver expression is
-passed as the leading argument to the static method.
+Raven declares extension methods using the .NET `ExtensionAttribute`. A method
+is considered an extension when all of the following hold:
+
+* The method is `static` and has at least one parameter.
+* Its declaration includes `[Extension]` or `[ExtensionAttribute]`.
+* The attribute appears on a method defined in a module or static class that can
+  be imported like any other type.
+
+The first parameter becomes the **receiver**. Its type determines which
+expressions qualify for the extension when Raven looks up member invocations.
+Additional parameters behave like ordinary method parameters and may be
+optional, generic, or accept lambdas. Raven emits the standard
+`ExtensionAttribute` metadata so C# and other CLR languages recognize the method
+as an extension, matching .NET's rules.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】
+
+```raven
+import System.Runtime.CompilerServices.*
+
+public static class NumberExtensions {
+    [Extension]
+    public static Double(x: int) -> int {
+        return x + x
+    }
+}
+```
+
+To invoke an extension, write a method-style member access. When a member access
+does not resolve to an instance method, Raven searches the imported namespaces
+and static types for extension methods whose first parameter accepts the
+receiver expression. Eligible candidates join overload resolution alongside
+instance members, with instance methods winning ties. Once an extension method
+is selected, the compiler rewrites the call to pass the receiver as the leading
+argument to the static method before lowering.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
 
 Extension methods become available by importing their declaring type or
-namespace using `import`. For example, `import System.Linq.*` exposes the LINQ
-operators from `System.Linq.Enumerable`, and `import System.MemoryExtensions`
-brings the span helpers from `System.MemoryExtensions`. Accessibility checks and
+namespace with `import`. For example, `import System.Linq.*` exposes the LINQ
+operators from `System.Linq.Enumerable`, and `import Sample.NumberExtensions`
+brings the `Double` helper declared above into scope. Accessibility checks and
 diagnostics mirror those for ordinary methods; the compiler reports an error
 when no applicable extension can be found.
 
