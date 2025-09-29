@@ -18,6 +18,7 @@ var stopwatch = Stopwatch.StartNew();
 // Options:
 // --framework <tfm> - target framework
 // --refs <path>     - additional metadata reference (repeatable)
+// --output-type <console|classlib> - output kind
 // -o <path>         - output assembly path
 // -s [flat|group]   - display the syntax tree (single file only)
 // -d [plain|pretty[:no-diagnostics]] - dump syntax (single file only)
@@ -33,6 +34,7 @@ var sourceFiles = new List<string>();
 var additionalRefs = new List<string>();
 string? targetFrameworkTfm = null;
 string? outputPath = null;
+var outputKind = OutputKind.ConsoleApplication;
 
 var printSyntaxTree = false;
 var syntaxTreeFormat = SyntaxTreeFormat.Flat;
@@ -116,6 +118,12 @@ for (int i = 0; i < args.Length; i++)
             if (i + 1 < args.Length)
                 additionalRefs.Add(args[++i]);
             break;
+        case "--output-type":
+            if (!TryParseOutputKind(args, ref i, out var kind))
+                hasInvalidOption = true;
+            else
+                outputKind = kind;
+            break;
         case "--framework":
             if (i + 1 < args.Length)
                 targetFrameworkTfm = args[++i];
@@ -156,7 +164,7 @@ var targetFramework = targetFrameworkTfm ?? TargetFrameworkUtil.GetLatestFramewo
 var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
 var refAssembliesPath = TargetFrameworkResolver.GetDirectoryPath(version);
 
-var options = new CompilationOptions(OutputKind.ConsoleApplication);
+var options = new CompilationOptions(outputKind);
 var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
 var projectId = workspace.AddProject(assemblyName, compilationOptions: options);
 var project = workspace.CurrentSolution.GetProject(projectId)!;
@@ -416,6 +424,8 @@ static void PrintHelp()
     Console.WriteLine("Options:");
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
+    Console.WriteLine("  --output-type <console|classlib>");
+    Console.WriteLine("                     Output kind for the produced assembly.");
     Console.WriteLine("  -o <path>          Output assembly path");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
@@ -516,6 +526,39 @@ static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool prin
     }
 
     AnsiConsole.MarkupLine($"[red]Unknown syntax dump format '{value}'.[/]");
+    return false;
+}
+
+static bool TryParseOutputKind(string[] args, ref int index, out OutputKind outputKind)
+{
+    var value = ConsumeOptionValue(args, ref index);
+
+    if (value is null)
+    {
+        outputKind = OutputKind.ConsoleApplication;
+        return true;
+    }
+
+    switch (value.ToLowerInvariant())
+    {
+        case "console":
+        case "consoleapp":
+        case "console-app":
+        case "exe":
+            outputKind = OutputKind.ConsoleApplication;
+            return true;
+
+        case "classlib":
+        case "class-library":
+        case "classlibrary":
+        case "library":
+        case "dll":
+            outputKind = OutputKind.DynamicallyLinkedLibrary;
+            return true;
+    }
+
+    AnsiConsole.MarkupLine($"[red]Unknown output type '{value}'.[/]");
+    outputKind = OutputKind.ConsoleApplication;
     return false;
 }
 
