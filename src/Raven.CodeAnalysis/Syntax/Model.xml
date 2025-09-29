@@ -384,6 +384,10 @@
     <Slot Name="Statements" Type="List" ElementType="Statement" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken"/>
   </Node>
+  <Node Name="TryBlockExpression" Inherits="Expression">
+    <Slot Name="TryKeyword" Type="Token" DefaultToken="TryKeyword"/>
+    <Slot Name="Block" Type="Block" />
+  </Node>
   <Node Name="BlockStatement" Inherits="Statement">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken"/>
     <Slot Name="Statements" Type="List" ElementType="Statement" />

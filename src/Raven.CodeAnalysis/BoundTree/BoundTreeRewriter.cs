@@ -88,6 +88,7 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundTypeOfExpression typeOfExpression => (BoundExpression)VisitTypeOfExpression(typeOfExpression)!,
             BoundTypeExpression typeExpression => (BoundExpression)VisitTypeExpression(typeExpression)!,
             BoundMatchExpression matchExpression => (BoundExpression)VisitMatchExpression(matchExpression)!,
+            BoundTryBlockExpression tryBlockExpression => (BoundExpression)VisitTryBlockExpression(tryBlockExpression)!,
             _ => node,
         };
     }

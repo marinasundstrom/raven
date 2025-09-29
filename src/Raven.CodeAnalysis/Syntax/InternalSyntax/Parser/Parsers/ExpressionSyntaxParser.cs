@@ -340,6 +340,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseIfExpressionSyntax();
                 break;
 
+            case SyntaxKind.TryKeyword:
+                expr = ParseTryBlockExpression();
+                break;
+
             case SyntaxKind.OpenBraceToken:
                 expr = ParseBlockSyntax();
                 break;
@@ -354,6 +358,13 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
 
         return ParseMatchExpressionSuffixes(expr);
+    }
+
+    private TryBlockExpressionSyntax ParseTryBlockExpression()
+    {
+        var tryKeyword = ReadToken();
+        var block = ParseBlockSyntax();
+        return TryBlockExpression(tryKeyword, block);
     }
 
     private LambdaExpressionSyntax ParseLambdaExpression()

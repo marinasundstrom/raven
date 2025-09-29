@@ -464,6 +464,7 @@ partial class BlockBinder : Binder
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
+            TryBlockExpressionSyntax tryBlockExpression => BindTryBlockExpression(tryBlockExpression),
             LambdaExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             UnaryExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
@@ -801,6 +802,15 @@ partial class BlockBinder : Binder
             arms.Select(arm => arm.Expression.Type ?? Compilation.ErrorTypeSymbol));
 
         return new BoundMatchExpression(scrutinee, arms, resultType);
+    }
+
+    private BoundExpression BindTryBlockExpression(TryBlockExpressionSyntax tryExpression)
+    {
+        var block = BindBlock(tryExpression.Block, allowReturn: _allowReturnsInExpression);
+        var exceptionType = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
+        var blockType = block.Type ?? Compilation.ErrorTypeSymbol;
+        var resultType = TypeSymbolNormalization.NormalizeUnion(new[] { blockType, exceptionType });
+        return new BoundTryBlockExpression(block, exceptionType, resultType);
     }
 
     private void EnsureMatchArmPatternsValid(

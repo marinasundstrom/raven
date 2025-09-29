@@ -121,6 +121,10 @@ internal class ExpressionGenerator : Generator
                 EmitEmptyCollectionExpression(emptyCollectionExpression);
                 break;
 
+            case BoundTryBlockExpression tryBlockExpression:
+                EmitTryBlockExpression(tryBlockExpression);
+                break;
+
             case BoundArrayAccessExpression boundArrayAccessExpression:
                 EmitArrayAccessExpression(boundArrayAccessExpression);
                 break;
@@ -2585,6 +2589,45 @@ internal class ExpressionGenerator : Generator
 
         if (resultTemp is not null)
             ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+    }
+
+    private void EmitTryBlockExpression(BoundTryBlockExpression tryExpression)
+    {
+        var resultType = tryExpression.Type ?? Compilation.ErrorTypeSymbol;
+        var resultClrType = ResolveClrType(resultType);
+        var resultLocal = ILGenerator.DeclareLocal(resultClrType);
+
+        var exceptionType = tryExpression.ExceptionType;
+        if (exceptionType.TypeKind == TypeKind.Error)
+            exceptionType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+        var blockType = tryExpression.Block.Type ?? Compilation.ErrorTypeSymbol;
+
+        ILGenerator.BeginExceptionBlock();
+
+        var tryScope = new Scope(this);
+        new ExpressionGenerator(tryScope, tryExpression.Block).Emit();
+
+        if (!SymbolEqualityComparer.Default.Equals(blockType, resultType))
+        {
+            var blockConversion = Compilation.ClassifyConversion(blockType, resultType);
+            if (blockConversion.Exists && !blockConversion.IsIdentity)
+                EmitConversion(blockType, resultType, blockConversion);
+        }
+
+        ILGenerator.Emit(OpCodes.Stloc, resultLocal);
+
+        ILGenerator.BeginCatchBlock(ResolveClrType(exceptionType));
+
+        var catchConversion = Compilation.ClassifyConversion(exceptionType, resultType);
+        if (catchConversion.Exists && !catchConversion.IsIdentity)
+            EmitConversion(exceptionType, resultType, catchConversion);
+
+        ILGenerator.Emit(OpCodes.Stloc, resultLocal);
+
+        ILGenerator.EndExceptionBlock();
+
+        ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
     }
 
     private void EmitStatement(BoundStatement statement, Scope scope)
