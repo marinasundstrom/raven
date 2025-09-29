@@ -925,32 +925,42 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var arms = new List<MatchArmSyntax>();
 
+        var previousTreatNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(true);
+
         EnterParens();
-        while (true)
+        try
         {
-            ConvertLeadingNewlinesToTrivia();
-
-            if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
-                break;
-
-            var pattern = new PatternSyntaxParser(this).ParsePattern();
-
-            WhenClauseSyntax? whenClause = null;
-            if (ConsumeToken(SyntaxKind.WhenKeyword, out var whenKeyword))
+            while (true)
             {
-                var condition = new ExpressionSyntaxParser(this).ParseExpression();
-                whenClause = WhenClause(whenKeyword, condition);
+                ConvertLeadingNewlinesToTrivia();
+
+                if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
+                    break;
+
+                var pattern = new PatternSyntaxParser(this).ParsePattern();
+
+                WhenClauseSyntax? whenClause = null;
+                if (ConsumeToken(SyntaxKind.WhenKeyword, out var whenKeyword))
+                {
+                    var condition = new ExpressionSyntaxParser(this).ParseExpression();
+                    whenClause = WhenClause(whenKeyword, condition);
+                }
+
+                ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var arrowToken);
+
+                var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+                TryConsumeTerminator(out var terminatorToken);
+
+                arms.Add(MatchArm(pattern, whenClause, arrowToken, expression, terminatorToken));
             }
-
-            ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var arrowToken);
-
-            var expression = new ExpressionSyntaxParser(this).ParseExpression();
-
-            TryConsumeTerminator(out var terminatorToken);
-
-            arms.Add(MatchArm(pattern, whenClause, arrowToken, expression, terminatorToken));
         }
-        ExitParens();
+        finally
+        {
+            ExitParens();
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+        }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
