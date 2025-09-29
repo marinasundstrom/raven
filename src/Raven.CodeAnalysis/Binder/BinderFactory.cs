@@ -89,7 +89,10 @@ class BinderFactory
     private Binder CreateNamespaceBinder(BaseNamespaceDeclarationSyntax nsSyntax, Binder parentBinder)
     {
         var parentNamespace = parentBinder.CurrentNamespace;
-        var namespaceName = parentNamespace.QualifyName(nsSyntax.Name.ToString());
+        var namespaceName = nsSyntax is FileScopedNamespaceDeclarationSyntax
+            ? nsSyntax.Name.ToString()
+            : parentNamespace.QualifyName(nsSyntax.Name.ToString());
+
         var nsSymbol = _compilation.GetOrCreateNamespaceSymbol(namespaceName)
             ?? throw new InvalidOperationException($"Unable to resolve namespace '{namespaceName}'.");
 
