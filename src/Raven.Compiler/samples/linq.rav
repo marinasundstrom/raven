@@ -2,7 +2,6 @@ import System.*
 import System.Console.*
 import System.Collections.Generic.*
 import System.Linq.*
-import Raven.MetadataFixtures.Linq.*
 
 let numbers = List<int>()
 numbers.Add(3)
