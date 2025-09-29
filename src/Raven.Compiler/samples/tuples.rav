@@ -14,10 +14,12 @@ let tuple2 : (id: int, name: string) = (42, "Bar")
 
 let name = tuple2.name
 
-let x : bool | (a: 2, b: "bor") = false
+let x : bool | (a: bool, b: string) = false
 
 let r = x match {
-    _ => "none"
+    //true => "hej"
+    //(a: bool, b: string) => "tuple"
+    //_ => "none"
 }
 
 System.Console.WriteLine(r)
