@@ -648,7 +648,10 @@ public partial class SemanticModel
             {
                 case BaseNamespaceDeclarationSyntax nsDecl:
                     {
-                        var namespaceName = parentNamespace.QualifyName(nsDecl.Name.ToString());
+                        var namespaceName = nsDecl is FileScopedNamespaceDeclarationSyntax
+                            ? nsDecl.Name.ToString()
+                            : parentNamespace.QualifyName(nsDecl.Name.ToString());
+
                         var nsSymbol = Compilation.GetOrCreateNamespaceSymbol(namespaceName);
 
                         var nsBinder = Compilation.BinderFactory.GetBinder(nsDecl, parentBinder)!;
