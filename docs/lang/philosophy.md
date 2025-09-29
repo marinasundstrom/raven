@@ -59,6 +59,11 @@ let summary = match (positives, negatives) {
   ([], _) -> "losses",
   _ -> "mixed"
 }
+
+let totalRevenue = orders
+  .filter { $0.isPaid }
+  .map { Invoice(from: $0) }
+  .sum { $0.total }
 ```
 
 Declarative-first does not forbid imperative code; it simply makes the declarative path the straightest line to clarity.
@@ -75,6 +80,11 @@ value match {
     (_, 0) -> "zero again"
     _ -> "non-zero"
 }
+
+let message = if user.isAnonymous
+  "Welcome!"
+else
+  $"Welcome back, {user.displayName}!"
 ```
 
 ---
@@ -149,6 +159,20 @@ Raven values approachability. Simple programs should look simple; advanced featu
 ### 11. **Safety without Ceremony**
 
 Raven pursues correctness through the type system, diagnostics, and analyzers. Safety features are designed to prevent sharp edges without introducing ritualistic syntax. Compiler errors prefer actionable guidance over cryptic jargon, and warnings are invitations to better patterns—not arbitrary punishments.
+
+Exception handling follows the same philosophy: `try` is an expression, and `match` offers structured recovery without imperative sprawl.
+
+```raven
+let profile = try fetchProfile(for: userId)
+
+let theme = match try loadSettings("prefs.json") {
+  Settings(value) -> value.theme,
+  FileError.NotFound -> "light",
+  error -> throw error
+}
+```
+
+Declarative recovery paths make it clear when errors are intentionally absorbed versus rethrown, keeping control flow as legible as the happy path.
 
 ---
 
