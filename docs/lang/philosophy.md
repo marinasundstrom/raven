@@ -2,7 +2,9 @@
 
 Raven is a modern programming language designed with clarity, expressiveness, and composability at its core. It draws inspiration from C#, F#, Swift, and Python — but is not bound by their conventions. Raven's guiding philosophy is to prioritize conceptual integrity, minimize syntactic noise, and empower developers to write code that reads like intention, not ceremony.
 
-It embraces an expression-first, expression-oriented design where nearly every construct yields a value.
+This document captures the non-negotiable beliefs that shape every layer of the project—from syntax and semantics to the architecture of the compiler itself. They act as a compass when making trade-offs, evaluating features, or deciding how tooling should feel.
+
+Raven embraces an expression-first, expression-oriented design where nearly every construct yields a value, but value is never pursued at the expense of readability or tooling.
 
 ---
 
@@ -10,13 +12,13 @@ It embraces an expression-first, expression-oriented design where nearly every c
 
 ### 1. **Syntactic Clarity over Tradition**
 
-Raven eliminates redundant syntax where it doesn’t add value. Object construction does not require repeating type names:
+Raven eliminates redundant syntax where it doesn’t add value. Familiar patterns are respected when they communicate intent, but tradition alone is never a sufficient reason to carry ceremony forward. Object construction does not require repeating type names:
 
 ```raven
 let user = User(name: "Anna")  // Not new User(...)
 ```
 
-Constructors are expressed through `init` blocks or named methods, making object creation feel like invoking functionality, not a compiler formality.
+Constructors are expressed through `init` blocks or named methods, making object creation feel like invoking functionality, not a compiler formality. The language defaults to the shortest spelling that still tells the truth about what the code is doing.
 
 ```raven
 public init WithName(name: string) {
@@ -34,7 +36,7 @@ let user = User.WithName("Anna")
 
 ### 2. **Symmetric Design**
 
-Raven unifies callables, indexers, and member access through a common concept: `self`-bound methods. Types are invocable if they define a `self(...)` method, indexable with `self[...]`, and internally consistent.
+Symmetry is a design tool, not a slogan. Raven unifies callables, indexers, and member access through a common concept: `self`-bound methods. Types are invocable if they define a `self(...)` method, indexable with `self[...]`, and internally consistent. Users learn one model of invocation and reuse it everywhere.
 
 ```raven
 public self(x: int) -> string { ... }    // Callable object
@@ -47,7 +49,7 @@ This symmetry improves reasoning and avoids special cases.
 
 ### 3. **Expression-First Design**
 
-Raven is expression-oriented: almost every construct evaluates to a value, encouraging composition and reducing the distinction between statements and expressions.
+Raven is expression-oriented: almost every construct evaluates to a value, encouraging composition and reducing the distinction between statements and expressions. But expression-first does not mean expression-only—statements remain where they aid clarity.
 
 ---
 
@@ -67,13 +69,13 @@ value match {
 
 ### 5. **Contextual Precision and Modularity**
 
-Every part of Raven's compiler is context-sensitive and modular. Parsers, binders, and code generators are composable and disposable — no global state, no implicit magic. This architecture makes Raven suitable for rich tooling, speculative parsing, and precise error recovery.
+Precision is not optional; it is the backbone of tooling. Every part of Raven's compiler is context-sensitive and modular. Parsers, binders, and code generators are composable and disposable — no global state, no implicit magic. This architecture makes Raven suitable for rich tooling, speculative parsing, and precise error recovery, whether in an IDE, a CLI build, or a future language service.
 
 ---
 
 ### 6. **Syntax is Structure**
 
-Raven's syntax trees are not just parsing artifacts — they are designed objects. Nodes are generated from formal XML specifications, ensuring consistency, testability, and predictability. This emphasis on structural design reflects the language's belief that **syntax is architecture**.
+Raven's syntax trees are not just parsing artifacts — they are designed objects. Nodes are generated from formal XML specifications, ensuring consistency, testability, and predictability. This emphasis on structural design reflects the language's belief that **syntax is architecture**. When the tree is precise, analyzers, refactorings, and code generators can be equally precise.
 
 ---
 
@@ -126,11 +128,24 @@ This distinction aligns with Raven’s declarative nature: it expresses *intent*
 
 ---
 
+### 10. **Progressive Disclosure of Power**
+
+Raven values approachability. Simple programs should look simple; advanced features should only surface when asked for. Features such as traits, extensions, and advanced pattern constructs build upon the same foundational syntax, enabling newcomers to explore the language in concentric circles of understanding.
+
+---
+
+### 11. **Safety without Ceremony**
+
+Raven pursues correctness through the type system, diagnostics, and analyzers. Safety features are designed to prevent sharp edges without introducing ritualistic syntax. Compiler errors prefer actionable guidance over cryptic jargon, and warnings are invitations to better patterns—not arbitrary punishments.
+
+---
+
 ## 🛠️ Raven Is:
 
 * A language where **form serves meaning**
 * A toolkit for building **tools and compilers**, not just scripts
 * A framework for **designing clarity** into every layer — syntax, semantics, and code generation
+* A platform for **progressive learning**, meeting developers where they are and inviting them deeper
 
 ---
 
@@ -139,6 +154,7 @@ This distinction aligns with Raven’s declarative nature: it expresses *intent*
 * A syntax experiment for its own sake
 * A clone of another language
 * A compromise between too many paradigms
+* A language that prizes novelty over the developer experience
 
 ---
 
