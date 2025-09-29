@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 internal partial class BoundLambdaExpression : BoundExpression
@@ -62,6 +64,15 @@ internal partial class BoundLambdaExpression : BoundExpression
 
         static bool HaveCompatibleSignature(IMethodSymbol source, IMethodSymbol target, Compilation compilation)
         {
+            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+            if (source.ContainingType is INamedTypeSymbol sourceDelegate &&
+                target.ContainingType is INamedTypeSymbol targetDelegate)
+            {
+                if (!TryAddTypeMappings(sourceDelegate, targetDelegate, substitutions))
+                    return false;
+            }
+
             if (source.Parameters.Length != target.Parameters.Length)
                 return false;
 
@@ -73,13 +84,144 @@ internal partial class BoundLambdaExpression : BoundExpression
                 if (sourceParameter.RefKind != targetParameter.RefKind)
                     return false;
 
-                var conversion = compilation.ClassifyConversion(sourceParameter.Type, targetParameter.Type);
+                if (!TryAddTypeMappings(sourceParameter.Type, targetParameter.Type, substitutions))
+                    return false;
+
+                var substitutedSource = SubstituteType(sourceParameter.Type, substitutions, compilation);
+                var conversion = compilation.ClassifyConversion(substitutedSource, targetParameter.Type);
                 if (!conversion.Exists || !conversion.IsImplicit)
                     return false;
             }
 
-            var returnConversion = compilation.ClassifyConversion(source.ReturnType, target.ReturnType);
+            if (!TryAddTypeMappings(source.ReturnType, target.ReturnType, substitutions))
+                return false;
+
+            var substitutedReturn = SubstituteType(source.ReturnType, substitutions, compilation);
+            var returnConversion = compilation.ClassifyConversion(substitutedReturn, target.ReturnType);
             return returnConversion.Exists && returnConversion.IsImplicit;
+
+            static bool TryAddTypeMappings(
+                ITypeSymbol sourceType,
+                ITypeSymbol targetType,
+                Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+            {
+                if (sourceType is ITypeParameterSymbol typeParameter)
+                {
+                    if (substitutions.TryGetValue(typeParameter, out var existing))
+                        return SymbolEqualityComparer.Default.Equals(existing, targetType);
+
+                    substitutions[typeParameter] = targetType;
+                    return true;
+                }
+
+                switch (sourceType)
+                {
+                    case INamedTypeSymbol sourceNamed when targetType is INamedTypeSymbol targetNamed:
+                    {
+                        var sourceArgs = sourceNamed.TypeArguments;
+                        var targetArgs = targetNamed.TypeArguments;
+
+                        if (!sourceArgs.IsDefaultOrEmpty && sourceArgs.Length == targetArgs.Length)
+                        {
+                            for (int i = 0; i < sourceArgs.Length; i++)
+                            {
+                                if (!TryAddTypeMappings(sourceArgs[i], targetArgs[i], substitutions))
+                                    return false;
+                            }
+                        }
+
+                        return true;
+                    }
+
+                    case IArrayTypeSymbol sourceArray when targetType is IArrayTypeSymbol targetArray:
+                        if (sourceArray.Rank != targetArray.Rank)
+                            return true;
+
+                        return TryAddTypeMappings(sourceArray.ElementType, targetArray.ElementType, substitutions);
+
+                    case NullableTypeSymbol sourceNullable when targetType is NullableTypeSymbol targetNullable:
+                        return TryAddTypeMappings(sourceNullable.UnderlyingType, targetNullable.UnderlyingType, substitutions);
+
+                    case ByRefTypeSymbol sourceByRef when targetType is ByRefTypeSymbol targetByRef:
+                        if (sourceByRef.RefKind != targetByRef.RefKind)
+                            return true;
+
+                        return TryAddTypeMappings(sourceByRef.ElementType, targetByRef.ElementType, substitutions);
+                }
+
+                return true;
+            }
+
+            static ITypeSymbol SubstituteType(
+                ITypeSymbol sourceType,
+                Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+                Compilation compilation)
+            {
+                if (sourceType is ITypeParameterSymbol typeParameter &&
+                    substitutions.TryGetValue(typeParameter, out var mapped))
+                {
+                    return mapped;
+                }
+
+                switch (sourceType)
+                {
+                    case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty && named.TypeArguments.Length > 0:
+                    {
+                        var typeArguments = named.TypeArguments;
+                        var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+                        bool changed = false;
+
+                        for (int i = 0; i < typeArguments.Length; i++)
+                        {
+                            var substituted = SubstituteType(typeArguments[i], substitutions, compilation);
+                            substitutedArgs[i] = substituted;
+                            changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i]);
+                        }
+
+                        if (changed && named.ConstructedFrom is INamedTypeSymbol definition)
+                        {
+                            return (INamedTypeSymbol)definition.Construct(substitutedArgs);
+                        }
+
+                        return named;
+                    }
+
+                    case IArrayTypeSymbol arrayType:
+                    {
+                        var substitutedElement = SubstituteType(arrayType.ElementType, substitutions, compilation);
+                        if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
+                        {
+                            return compilation.CreateArrayTypeSymbol(substitutedElement, arrayType.Rank);
+                        }
+
+                        return arrayType;
+                    }
+
+                    case NullableTypeSymbol nullableType:
+                    {
+                        var substitutedUnderlying = SubstituteType(nullableType.UnderlyingType, substitutions, compilation);
+                        if (!SymbolEqualityComparer.Default.Equals(substitutedUnderlying, nullableType.UnderlyingType))
+                        {
+                            return new NullableTypeSymbol(substitutedUnderlying, null, null, null, []);
+                        }
+
+                        return nullableType;
+                    }
+
+                    case ByRefTypeSymbol byRefType:
+                    {
+                        var substitutedElement = SubstituteType(byRefType.ElementType, substitutions, compilation);
+                        if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRefType.ElementType))
+                        {
+                            return new ByRefTypeSymbol(substitutedElement, byRefType.RefKind);
+                        }
+
+                        return byRefType;
+                    }
+                }
+
+                return sourceType;
+            }
         }
     }
 }
