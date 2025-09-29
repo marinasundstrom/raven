@@ -26,13 +26,15 @@
 * **Real-world metadata gaps.** The infrastructure that recognises extension
   methods inside the metadata fixture still fails against the reference
   assemblies that ship with .NET. Running the CLI against
-  `src/Raven.Compiler/samples/linq.rav` produces overload-resolution failures and
-  misses `System.Linq.Enumerable` entirely, even though `Program.cs` adds
+  `src/Raven.Compiler/samples/linq.rav` produces overload-resolution failures
+  (`RAV1501: No overload for method 'Where' takes 1 arguments`) and misses
+  `System.Linq.Enumerable` entirely, even though `Program.cs` adds
   `System.Linq.dll` by default.【F:src/Raven.Compiler/samples/linq.rav†L1-L18】【F:src/Raven.Compiler/Program.cs†L172-L188】 This
   suggests the metadata walker is either skipping the reference-assembly types
   or rejecting the generic receiver conversion when the declaring type comes
   from the BCL. Until the binder can surface those real assemblies, extension
-  consumption only succeeds when callers reference the bespoke test fixture.
+  consumption only succeeds when callers reference the bespoke test fixture or
+  Raven-authored extensions compiled into the same project.
 
 ## Follow-up investigations
 

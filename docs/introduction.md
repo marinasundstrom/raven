@@ -73,3 +73,11 @@ matches the receiver's type. The compiler then rewrites the invocation so the
 receiver becomes the leading argument to the static method, which means the
 emitted IL and runtime behavior match what C# would produce.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
 
+> **Note:** Raven's metadata loader is still gaining parity with the .NET
+> reference assemblies. Invocations like `numbers.Where(...)` succeed when the
+> extension comes from Raven-authored code or the test fixtures bundled with the
+> compiler, but calls into `System.Linq.Enumerable` currently fail with
+> overload-resolution errors such as `RAV1501`. The
+> [extension-method consumption status](compiler/design/extension-methods-consumption-status.md)
+> tracker captures the open work needed to unblock real-world assemblies.
+
