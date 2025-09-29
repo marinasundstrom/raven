@@ -53,8 +53,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundBlockExpression block:
                 VisitBlockExpression(block);
                 break;
-            case BoundTryBlockExpression tryBlock:
-                VisitTryBlockExpression(tryBlock);
+            case BoundTryExpression tryExpression:
+                VisitTryExpression(tryExpression);
                 break;
             case BoundParenthesizedExpression paren:
                 VisitParenthesizedExpression(paren);
@@ -211,9 +211,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
         }
     }
 
-    public virtual void VisitTryBlockExpression(BoundTryBlockExpression node)
+    public virtual void VisitTryExpression(BoundTryExpression node)
     {
-        VisitBlockExpression(node.Block);
+        VisitExpression(node.Expression);
     }
 
     public override void VisitParenthesizedExpression(BoundParenthesizedExpression node)

@@ -217,12 +217,12 @@ PrimaryExpression        ::= Literal
                            | ObjectCreationExpression
                            | TupleExpression
                            | ParenthesizedExpression
-                           | TryBlockExpression
+                           | TryExpression
                            | Block
                            | IfExpression
                            | InterpolatedStringExpression ;
 
-TryBlockExpression       ::= 'try' Block ;
+TryExpression            ::= 'try' Expression ;
 
 Block                    ::= '{' {Statement} '}' ;
 
