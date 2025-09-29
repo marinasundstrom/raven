@@ -4,7 +4,7 @@ Raven is a modern programming language designed with clarity, expressiveness, an
 
 This document captures the non-negotiable beliefs that shape every layer of the project—from syntax and semantics to the architecture of the compiler itself. They act as a compass when making trade-offs, evaluating features, or deciding how tooling should feel.
 
-Raven embraces an expression-first, expression-oriented design where nearly every construct yields a value, but value is never pursued at the expense of readability or tooling.
+Raven embraces a declarative, expression-first design where nearly every construct yields a value, but value is never pursued at the expense of readability or tooling.
 
 ---
 
@@ -47,15 +47,27 @@ This symmetry improves reasoning and avoids special cases.
 
 ---
 
-### 3. **Expression-First Design**
+### 3. **Declarative Defaults**
 
-Raven is expression-oriented: almost every construct evaluates to a value, encouraging composition and reducing the distinction between statements and expressions. But expression-first does not mean expression-only—statements remain where they aid clarity.
+Raven favors declarative constructs before imperative ceremony. Control flow and data shaping begin as expressions that state *what* should happen, reserving step-by-step mutation for cases where it truly clarifies intent. Pattern matching, comprehensions, and expression-bodied members keep business logic focused on outcomes, not scaffolding.
+
+```raven
+let positives = numbers.filter { $0 > 0 }
+let summary = match (positives, negatives) {
+  ([], []) -> "empty",
+  (_, []) -> "gains",
+  ([], _) -> "losses",
+  _ -> "mixed"
+}
+```
+
+Declarative-first does not forbid imperative code; it simply makes the declarative path the straightest line to clarity.
 
 ---
 
-### 4. **Declarative, Not Just Functional**
+### 4. **Expression-First Design**
 
-Raven embraces declarative programming: describing *what* rather than *how*. Pattern matching, expressions-as-values, and implicit returns enable elegant problem modeling:
+Raven is expression-oriented: almost every construct evaluates to a value, encouraging composition and reducing the distinction between statements and expressions. Statements remain where they aid readability, but the language nudges you toward value-oriented composition by default.
 
 ```raven
 value match {
