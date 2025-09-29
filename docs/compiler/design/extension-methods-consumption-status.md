@@ -23,18 +23,17 @@
 
 ## Active blockers
 
-* **Metadata load context failure.** Even after binding succeeds, emitting
-  lambdas that capture extension invocations will continue to fail until
-  `ExpressionGenerator.EmitLambdaExpression` stops calling
-  `Type.GetConstructor` directly and resolves delegate constructors through the
-  compiler's metadata load context helpers.【F:docs/compiler/design/extension-methods-baseline.md†L17-L125】
+* None. Binding, lowering, and emission all reuse the metadata-aware helpers, so
+  extension-backed lambdas now compile successfully through the CLI and unit
+  harness.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L393-L524】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L66-L140】
 
-## Next investigations
+## Follow-up investigations
 
-* Harden code generation by routing delegate construction through the
-  metadata-aware helpers and adding execution tests that compile and invoke LINQ
-  expressions end to end.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L403-L441】
-* Add end-to-end coverage that exercises the CLI without extra `--refs`,
-  proving metadata extensions continue to bind under command-line builds.【F:src/Raven.Compiler/Program.cs†L172-L188】
-* Extend semantic tests to stress nested lambdas and query-like pipelines so the
-  cached delegate logic keeps working across more complex extension chains.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L463】
+* Prototype the optional lowering trace that logs when an invocation is
+  rewritten as an extension call to aid manual debugging of overload resolution
+  decisions.【F:docs/compiler/design/extension-methods-plan.md†L96-L107】
+* Broaden semantic tests to cover nested query comprehensions and chained Raven
+  extensions so the cached delegate logic keeps handling complex pipelines.
+  【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L305-L463】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L515-L644】
+* Continue documenting declaration support gaps so the consumption work stays in
+  sync with upcoming syntax changes once extension modifiers become available.

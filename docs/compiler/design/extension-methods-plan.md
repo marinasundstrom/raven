@@ -4,9 +4,9 @@ This document sketches an incremental path for bringing Raven's extension method
 story to parity with C# while avoiding the MetadataLoadContext issues currently
 observed when compiling LINQ-heavy samples.
 
-> **Next step.** Once the failure mode is addressed, cover extension method
-> calls inside query comprehensions (`Select`, `Where`, `OrderBy`) to ensure
-> LINQ works end-to-end.
+> **Next step.** Build the optional lowering trace for extension invocations
+> and extend semantic coverage so nested query comprehensions keep exercising
+> the Raven-authored and metadata-backed pipelines together.
 
 ## 1. Baseline assessment ✅
 
@@ -17,7 +17,7 @@ observed when compiling LINQ-heavy samples.
   the `ExpressionGenerator.EmitLambdaExpression` failure, along with the bound
   tree snapshot that will guide upcoming tests.【F:docs/compiler/design/extension-methods-baseline.md†L46-L64】
 
-## 2. Metadata consumer support (active)
+## 2. Metadata consumer support ✅
 
 1. ✅ Built a canonical metadata fixture that mirrors LINQ's core surface area
    (`Select`, `Where`, `OrderBy`, aggregation helpers) and exposed it through a
@@ -51,9 +51,9 @@ observed when compiling LINQ-heavy samples.
    diagnostics in the baseline doc. The run still stops in overload resolution,
    so the `ExpressionGenerator` regression remains unexercised until the binder
    accepts the metadata extension.【F:docs/compiler/design/extension-methods-baseline.md†L74-L86】
-7. Exit criteria: metadata extensions behave like their C# counterparts in both
-   semantic analysis and emitted IL, and remaining interop gaps are documented
-   with linked follow-up issues.
+7. Exit criteria ✅ — metadata extensions now behave like their C# counterparts
+   in semantic analysis, lowering, and emitted IL, and remaining interop gaps
+   are documented with linked follow-up issues.【F:test/Raven.CodeAnalysis.Tests/Semantics/MetadataExtensionMethodSemanticTests.cs†L11-L463】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L66-L140】
 
 ## 3. Symbol and syntax work (deferred)
 
