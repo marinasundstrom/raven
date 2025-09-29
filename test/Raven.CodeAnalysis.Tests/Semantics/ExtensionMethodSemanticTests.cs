@@ -5,6 +5,7 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
@@ -661,6 +662,114 @@ public static class BoxingExtensions {
 
         var local = Assert.IsType<BoundLocalAccess>(boxedReceiver.Expression);
         Assert.Equal("value", local.Local.Name);
+    }
+
+    [Fact]
+    public void Lowerer_WithLoweringTrace_RecordsNestedExtensionInvocations()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import Raven.MetadataFixtures.Linq.*
+
+class Query {
+    Run() -> IEnumerable<int> {
+        let numbers = [1, 2, 3, 4]
+        return numbers
+            .Where(value => value > 1)
+            .ProjectSquares(value => value * value)
+            .Select(value => value + 1)
+    }
+}
+
+public static class RavenPipelineExtensions {
+    [ExtensionAttribute]
+    public static ProjectSquares(values: IEnumerable<int>, projector: Func<int, int>) -> IEnumerable<int> {
+        return values.Select(projector)
+    }
+}
+""";
+
+        var traceLog = new LoweringTraceLog();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            loweringTrace: traceLog);
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: options,
+            references: TestMetadataReferences.DefaultWithExtensionMethods);
+
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+
+        var runMethodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(node => node.Identifier.Text == "Run");
+
+        var runMethodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(runMethodSyntax)!;
+        var runBody = (BoundBlockStatement)model.GetBoundNode(runMethodSyntax.Body!)!;
+        Lowerer.LowerBlock(runMethodSymbol, runBody);
+
+        var projectMethodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(node => node.Identifier.Text == "ProjectSquares");
+
+        var projectMethodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(projectMethodSyntax)!;
+        var projectBody = (BoundBlockStatement)model.GetBoundNode(projectMethodSyntax.Body!)!;
+        Lowerer.LowerBlock(projectMethodSymbol, projectBody);
+
+        var entries = traceLog.ExtensionInvocations;
+        Assert.NotEmpty(entries);
+
+        var runEntries = entries
+            .Where(entry => SymbolEqualityComparer.Default.Equals(entry.ContainingSymbol, runMethodSymbol))
+            .ToArray();
+
+        Assert.True(runEntries.Length >= 3, "Expected extension invocations for Where, ProjectSquares, and Select.");
+
+        Assert.Contains(
+            runEntries,
+            entry => entry.Method.Name == "Where" &&
+                entry.Method.ContainingType?.Name == "Enumerable" &&
+                entry.ReceiverCameFromInvocation);
+
+        Assert.Contains(
+            runEntries,
+            entry => entry.Method.Name == "ProjectSquares" &&
+                entry.Method.ContainingType?.Name == "RavenPipelineExtensions" &&
+                entry.ReceiverCameFromInvocation);
+
+        Assert.Contains(
+            runEntries,
+            entry => entry.Method.Name == "Select" &&
+                entry.Method.ContainingType?.Name == "Enumerable" &&
+                entry.ReceiverCameFromInvocation);
+
+        foreach (var entry in runEntries)
+        {
+            Assert.Equal(entry.Method.Parameters.Length, entry.ArgumentTypes.Length);
+            Assert.True(SymbolEqualityComparer.Default.Equals(entry.Method.Parameters[0].Type, entry.ArgumentTypes[0]));
+        }
+
+        var nestedEntries = entries
+            .Where(entry => SymbolEqualityComparer.Default.Equals(entry.ContainingSymbol, projectMethodSymbol))
+            .ToArray();
+
+        var nestedSelect = Assert.Single(nestedEntries);
+        Assert.Equal("Select", nestedSelect.Method.Name);
+        Assert.Equal("Enumerable", nestedSelect.Method.ContainingType?.Name);
+        Assert.True(nestedSelect.ReceiverCameFromInvocation);
+        Assert.Equal(nestedSelect.Method.Parameters.Length, nestedSelect.ArgumentTypes.Length);
+        Assert.True(SymbolEqualityComparer.Default.Equals(nestedSelect.Method.Parameters[0].Type, nestedSelect.ArgumentTypes[0]));
     }
 
     [Fact]

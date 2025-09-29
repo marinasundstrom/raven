@@ -9,30 +9,46 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 {
     private readonly ISymbol _containingSymbol;
     private readonly Stack<(ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _loopStack = new();
+    private readonly ILoweringTraceSink? _loweringTrace;
     private int _labelCounter;
     private int _tempCounter;
 
-    private Lowerer(ISymbol containingSymbol)
+    private Lowerer(ISymbol containingSymbol, ILoweringTraceSink? loweringTrace)
     {
         _containingSymbol = containingSymbol;
+        _loweringTrace = loweringTrace;
     }
 
     public static BoundBlockStatement LowerBlock(ISymbol containingSymbol, BoundBlockStatement block)
     {
-        var lowerer = new Lowerer(containingSymbol);
+        var lowerer = CreateLowerer(containingSymbol);
         return (BoundBlockStatement)lowerer.VisitStatement(block);
     }
 
     public static BoundStatement LowerStatement(ISymbol containingSymbol, BoundStatement statement)
     {
-        var lowerer = new Lowerer(containingSymbol);
+        var lowerer = CreateLowerer(containingSymbol);
         return (BoundStatement)lowerer.VisitStatement(statement);
     }
 
     public static BoundExpression LowerExpression(ISymbol containingSymbol, BoundExpression expression)
     {
-        var lowerer = new Lowerer(containingSymbol);
+        var lowerer = CreateLowerer(containingSymbol);
         return (BoundExpression)lowerer.VisitExpression(expression)!;
+    }
+
+    private static Lowerer CreateLowerer(ISymbol containingSymbol)
+    {
+        var loweringTrace = TryGetLoweringTrace(containingSymbol);
+        return new Lowerer(containingSymbol, loweringTrace);
+    }
+
+    private static ILoweringTraceSink? TryGetLoweringTrace(ISymbol containingSymbol)
+    {
+        if (containingSymbol.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
+            return sourceAssembly.Compilation.LoweringTrace;
+
+        return null;
     }
 
     private ILabelSymbol CreateLabel(string prefix)

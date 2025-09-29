@@ -44,6 +44,8 @@ public class Compilation
 
     public PerformanceInstrumentation PerformanceInstrumentation => Options.PerformanceInstrumentation;
 
+    public ILoweringTraceSink? LoweringTrace => Options.LoweringTrace;
+
     public IAssemblySymbol Assembly { get; private set; }
 
     public IModuleSymbol Module { get; private set; }

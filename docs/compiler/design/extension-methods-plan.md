@@ -120,9 +120,12 @@ observed when compiling LINQ-heavy samples.
    reject nullable receivers where C# would. New lowering coverage exercises the
    boxed first argument and verifies we emit the diagnostic for `int?` receivers
    targeting non-nullable parameters.【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L585-L644】
-3. Prototype a lowering pass trace (behind a compiler flag) that logs when a
-   call is rewritten as an extension dispatch. This will aid in validating that
-   overload resolution selected the expected candidate during manual review.
+3. ✅ Prototyped a lowering pass trace (toggled via compilation options) that
+   records each extension invocation rewritten during lowering. The optional
+   `LoweringTraceLog` sink captures the containing symbol, method, receiver, and
+   argument types so nested pipelines can be inspected in tests. New lowering
+   coverage asserts that mixed Raven and metadata LINQ pipelines emit the trace
+   entries expected for nested comprehensions.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/LoweringTrace.cs†L1-L58】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L1-L47】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L609-L699】
 
 ## 6. Code generation fixes
 
