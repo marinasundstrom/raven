@@ -45,3 +45,31 @@ WriteLine(summary)
 
 Because string interpolation uses `${...}` inside ordinary quotes, the final line prints `Saw "Raven"; Counted 3; Nothing to report.`. Flow-sensitive analysis ensures that `text` and `number` have the right types inside each `match` arm, and the `_` discard keeps the expression exhaustive without introducing a binding.
 
+## Working with extension methods
+
+Raven leans on the familiar .NET extension model so you can add helpers to
+existing types without modifying their definitions. Declare an extension by
+placing `[Extension]` on a `static` method and giving the receiver as the first
+parameter. Because extensions live in ordinary modules or static classes, you
+bring them into scope with the same `import` directives you use for metadata
+types.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】【F:src/Raven.CodeAnalysis/Binder/NamespaceBinder.cs†L33-L61】
+
+```raven
+import System.Runtime.CompilerServices.*
+
+public static class DescribeExtensions {
+    [Extension]
+    public static Describe(x: string) -> string {
+        return $"{x} !"
+    }
+}
+
+let greeting = "Raven".Describe()  // "Raven !"
+```
+
+When you call the method-style syntax, Raven checks the receiver for instance
+members first and falls back to any imported extensions whose first parameter
+matches the receiver's type. The compiler then rewrites the invocation so the
+receiver becomes the leading argument to the static method, which means the
+emitted IL and runtime behavior match what C# would produce.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
+

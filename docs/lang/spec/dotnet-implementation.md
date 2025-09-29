@@ -9,19 +9,18 @@ When interacting with .NET, methods that return `void` are projected as returnin
 A `return` without an expression in a method that returns `unit` emits IL with no value. If the underlying method returns `void`, `Unit.Value` is loaded to produce a `unit` result before the `ret` instruction.
 
 ## Extension methods
-Raven does not declare extension methods directly, but it consumes existing .NET
-extension methods using the same lowering strategy as C#. After overload
-resolution chooses an extension method, the compiler rewrites the invocation to
-call the static method on its declaring type and supplies the receiver as the
-first argument. For example, `items.Where(predicate)` lowers to
-`Enumerable.Where(items, predicate)` in IL. Accessibility is enforced prior to
-rewriting, so the emitted call is always valid for the imported method.
+Raven both declares and consumes extension methods using the CLR's
+`ExtensionAttribute`. Source extensions are `static` methods whose first
+parameter is marked as the receiver, and the compiler emits the attribute so the
+metadata matches C#'s expectations.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】 When binding a
+member-style invocation, Raven merges instance methods with any imported
+extensions that can accept the receiver, then rewrites the call to pass the
+receiver as the leading static argument during lowering and IL emission.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
 
-> **Implementation status:** The current CLI cannot yet recognize metadata
-> extensions when the invocation supplies a lambda argument. Compiling
-> `samples/linq.rav` still reports `RAV1501` (“No overload for method 'Where'
-> takes 1 arguments”) followed by `RAV2200` for the lambda parameter, so the
-> lowering described above is not exercised end-to-end.【395e77†L1-L7】
+The CLI ships with regression coverage that compiles and runs extension-heavy
+programs, including LINQ-style pipelines that rely on lambda arguments, to
+ensure the metadata load context path continues to resolve delegate
+constructors and emit correct IL.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L66-L140】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L563-L703】
 
 ## Union types
 When emitted to .NET metadata, a union is projected as the narrowest common denominator of its members. If every member shares a base class, that base type becomes the metadata type; otherwise, `object` is used. Including `null` in the union marks the emitted type as nullable.
