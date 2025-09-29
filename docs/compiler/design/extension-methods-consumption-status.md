@@ -23,9 +23,16 @@
 
 ## Active blockers
 
-* None. Binding, lowering, and emission all reuse the metadata-aware helpers, so
-  extension-backed lambdas now compile successfully through the CLI and unit
-  harness.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L393-L524】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L66-L140】
+* **Real-world metadata gaps.** The infrastructure that recognises extension
+  methods inside the metadata fixture still fails against the reference
+  assemblies that ship with .NET. Running the CLI against
+  `src/Raven.Compiler/samples/linq.rav` produces overload-resolution failures and
+  misses `System.Linq.Enumerable` entirely, even though `Program.cs` adds
+  `System.Linq.dll` by default.【F:src/Raven.Compiler/samples/linq.rav†L1-L18】【F:src/Raven.Compiler/Program.cs†L172-L188】 This
+  suggests the metadata walker is either skipping the reference-assembly types
+  or rejecting the generic receiver conversion when the declaring type comes
+  from the BCL. Until the binder can surface those real assemblies, extension
+  consumption only succeeds when callers reference the bespoke test fixture.
 
 ## Follow-up investigations
 
