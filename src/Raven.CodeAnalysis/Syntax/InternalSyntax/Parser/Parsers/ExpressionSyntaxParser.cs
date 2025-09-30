@@ -953,6 +953,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
                 TryConsumeTerminator(out var terminatorToken);
 
+                SetTreatNewlinesAsTokens(false);
+
                 arms.Add(MatchArm(pattern, whenClause, arrowToken, expression, terminatorToken));
             }
         }
@@ -963,6 +965,8 @@ internal class ExpressionSyntaxParser : SyntaxParser
         }
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+
+        SetTreatNewlinesAsTokens(false);
 
         return MatchExpression(scrutinee, matchKeyword, openBraceToken, List(arms.ToArray()), closeBraceToken);
     }
