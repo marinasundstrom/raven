@@ -87,16 +87,16 @@ internal class StatementGenerator : Generator
 
         if (hasElse)
         {
-            ILGenerator.Emit(OpCodes.Brfalse_S, elseLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, elseLabel);
             new StatementGenerator(scope, ifStatement.ThenNode).Emit();
-            ILGenerator.Emit(OpCodes.Br_S, endLabel);
+            ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(elseLabel);
             new StatementGenerator(scope, ifStatement.ElseNode!).Emit();
         }
         else
         {
-            ILGenerator.Emit(OpCodes.Brfalse_S, endLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, endLabel);
             new StatementGenerator(scope, ifStatement.ThenNode).Emit();
         }
 
@@ -276,7 +276,7 @@ internal class StatementGenerator : Generator
             ILGenerator.Emit(OpCodes.Add);
             ILGenerator.Emit(OpCodes.Stloc, indexLocal);
 
-            ILGenerator.Emit(OpCodes.Br_S, beginLabel);
+            ILGenerator.Emit(OpCodes.Br, beginLabel);
             ILGenerator.MarkLabel(endLabel);
         }
         else
@@ -314,7 +314,7 @@ internal class StatementGenerator : Generator
             new StatementGenerator(scope, forStatement.Body).Emit();
 
             ILGenerator.MarkLabel(continueLabel);
-            ILGenerator.Emit(OpCodes.Br_S, beginLabel);
+            ILGenerator.Emit(OpCodes.Br, beginLabel);
             ILGenerator.MarkLabel(endLabel);
         }
     }
@@ -407,9 +407,9 @@ internal class StatementGenerator : Generator
         new ExpressionGenerator(scope, conditionalGotoStatement.Condition).Emit();
 
         if (conditionalGotoStatement.JumpIfTrue)
-            ILGenerator.Emit(OpCodes.Brfalse_S, skipLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, skipLabel);
         else
-            ILGenerator.Emit(OpCodes.Brtrue_S, skipLabel);
+            ILGenerator.Emit(OpCodes.Brtrue, skipLabel);
 
         var targetScope = MethodBodyGenerator.GetLabelScope(conditionalGotoStatement.Target);
         EmitScopeDisposals(scope, targetScope);
