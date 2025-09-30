@@ -875,6 +875,12 @@ public class Compilation
             return Finalize(new Conversion(isImplicit: true, isReference: true));
         }
 
+        if (IsExplicitReferenceConversion(source, destination))
+        {
+            // Explicit reference conversion (e.g., downcasts)
+            return Finalize(new Conversion(isImplicit: false, isReference: true));
+        }
+
         if (IsBoxingConversion(source, destination))
         {
             // Boxing conversion
@@ -955,6 +961,54 @@ public class Compilation
         {
             if (SemanticFacts.ImplementsInterface(source, destinationNamed, SymbolEqualityComparer.Default))
                 return true;
+        }
+
+        if (source.TypeKind == TypeKind.Interface && destination.SpecialType is SpecialType.System_Object)
+            return true;
+
+        return false;
+    }
+
+    private bool IsExplicitReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
+    {
+        if (source.IsValueType || destination.IsValueType)
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(source, destination))
+            return false;
+
+        var comparer = SymbolEqualityComparer.Default;
+
+        if (SemanticFacts.IsDerivedFrom(destination, source, comparer))
+            return true;
+
+        if (source.SpecialType is SpecialType.System_Object && !destination.IsValueType)
+            return true;
+
+        if (source is INamedTypeSymbol sourceInterface && sourceInterface.TypeKind == TypeKind.Interface)
+        {
+            if (destination.SpecialType is SpecialType.System_Object)
+                return true;
+
+            if (destination is INamedTypeSymbol destinationNamed &&
+                destinationNamed.TypeKind != TypeKind.Interface &&
+                SemanticFacts.ImplementsInterface(destinationNamed, sourceInterface, comparer))
+            {
+                return true;
+            }
+
+            if (destination is INamedTypeSymbol sourceToTargetInterface && sourceToTargetInterface.TypeKind == TypeKind.Interface &&
+                (SemanticFacts.ImplementsInterface(sourceInterface, sourceToTargetInterface, comparer) ||
+                 SemanticFacts.ImplementsInterface(sourceToTargetInterface, sourceInterface, comparer)))
+            {
+                return true;
+            }
+        }
+
+        if (destination is INamedTypeSymbol targetInterface && targetInterface.TypeKind == TypeKind.Interface &&
+            SemanticFacts.ImplementsInterface(source, targetInterface, comparer))
+        {
+            return true;
         }
 
         return false;
