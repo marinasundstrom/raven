@@ -1094,7 +1094,7 @@ internal class ExpressionGenerator : Generator
         }
         else if (pattern is BoundTuplePattern tuplePattern)
         {
-            var tupleInterfaceType = typeof(System.Runtime.CompilerServices.ITuple);
+            var tupleInterfaceType = Compilation.CoreAssembly.GetType("System.Runtime.CompilerServices.ITuple");
             var lengthGetter = tupleInterfaceType.GetProperty("Length")?.GetMethod;
             var itemGetter = tupleInterfaceType.GetProperty("Item")?.GetMethod;
 

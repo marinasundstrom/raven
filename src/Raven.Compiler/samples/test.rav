@@ -1,9 +1,9 @@
 let x : bool | (a: bool, b: string) = false
 
 let r = x match {
-    bool => "foo"
-    (a: bool, b: string) => "tuple"
-    //_ => "none"
+    true => "true"
+    (a: bool, b: string) => "tuple ${a} ${b}"
+    _ => "else"
 }
 
 System.Console.WriteLine(r)
