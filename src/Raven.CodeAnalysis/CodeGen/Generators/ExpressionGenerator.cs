@@ -1106,9 +1106,9 @@ internal class ExpressionGenerator : Generator
             var labelDone = ILGenerator.DefineLabel();
 
             ILGenerator.Emit(OpCodes.Isinst, tupleInterfaceType);
-            ILGenerator.Emit(OpCodes.Dup);
-            ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
             ILGenerator.Emit(OpCodes.Stloc, tupleLocal);
+            ILGenerator.Emit(OpCodes.Ldloc, tupleLocal);
+            ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
 
             ILGenerator.Emit(OpCodes.Ldloc, tupleLocal);
             ILGenerator.Emit(OpCodes.Callvirt, lengthGetter);

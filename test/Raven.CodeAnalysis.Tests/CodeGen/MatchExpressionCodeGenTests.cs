@@ -4,6 +4,7 @@ using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -131,5 +132,47 @@ class Program {
         var method = type.GetMethod("Run")!;
         var value = (string)method.Invoke(instance, Array.Empty<object>())!;
         Assert.Equal("str,None", value);
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnionTupleArm_EmitsAndRuns()
+    {
+        const string code = """
+class Program {
+    Describe(value: bool | (flag: bool, text: string)) -> string {
+        return value match {
+            true => "true"
+            false => "false"
+            (flag: bool, text: string) => text
+        }
+    }
+
+    Run() -> string {
+        let tuple: bool | (flag: bool, text: string) = (false, "tuple")
+        let boolResult = Describe(false)
+        let tupleResult = Describe(tuple)
+        return boolResult + "," + tupleResult
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("match_union_tuple", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Program", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = (string)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal("false,tuple", value);
     }
 }
