@@ -35,9 +35,9 @@ let result = value match {
         Assert.Equal("\"match\"", firstExpressionToken.Text);
 
         var secondArm = match.Arms[1];
-        var secondPatternToken = secondArm.Pattern.GetFirstToken();
-        Assert.Equal(SyntaxKind.IdentifierToken, secondPatternToken.Kind);
-        Assert.Equal("_", secondPatternToken.Text);
+        var discardPattern = Assert.IsType<DiscardPatternSyntax>(secondArm.Pattern);
+        Assert.Equal(SyntaxKind.UnderscoreToken, discardPattern.UnderscoreToken.Kind);
+        Assert.Equal("_", discardPattern.UnderscoreToken.Text);
 
         Assert.False(secondArm.Expression.IsMissing);
         var secondExpressionToken = secondArm.Expression.GetFirstToken();
@@ -99,6 +99,85 @@ let result = value match {
         Assert.IsType<VariablePatternSyntax>(unary.Pattern);
 
         AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void MatchExpression_WithCommentedOutCatchAll_ParsesArms()
+    {
+        const string code = """
+let r = x match {
+    bool => "foo"
+    (a: bool, b: string) => "tuple"
+    //_ => "none"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Collection(
+            match.Arms,
+            first => Assert.IsType<DeclarationPatternSyntax>(first.Pattern),
+            second => Assert.IsType<TuplePatternSyntax>(second.Pattern));
+    }
+
+    [Fact]
+    public void MatchExpression_WithCommentBetweenArms_ParsesArms()
+    {
+        const string code = """
+let r = x match {
+    bool => "foo"
+    // comment
+    (a: bool, b: string) => "tuple"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Collection(
+            match.Arms,
+            first => Assert.IsType<DeclarationPatternSyntax>(first.Pattern),
+            second => Assert.IsType<TuplePatternSyntax>(second.Pattern));
+    }
+
+    [Fact]
+    public void MatchExpression_WithTrailingCommentAfterArmExpression_ParsesArms()
+    {
+        const string code = """
+let r = x match {
+    bool => "foo" // comment
+    (a: bool, b: string) => "tuple"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Collection(
+            match.Arms,
+            first => Assert.IsType<DeclarationPatternSyntax>(first.Pattern),
+            second => Assert.IsType<TuplePatternSyntax>(second.Pattern));
+    }
+
+    [Fact]
+    public void MatchExpression_WithBlankLineBetweenArms_ParsesArms()
+    {
+        const string code = """
+let r = x match {
+    bool => "foo"
+
+    (a: bool, b: string) => "tuple"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Collection(
+            match.Arms,
+            first => Assert.IsType<DeclarationPatternSyntax>(first.Pattern),
+            second => Assert.IsType<TuplePatternSyntax>(second.Pattern));
     }
 
     private static (MatchArmSyntax Arm, SyntaxTree Tree) ParseFirstMatchArm(string patternText)
