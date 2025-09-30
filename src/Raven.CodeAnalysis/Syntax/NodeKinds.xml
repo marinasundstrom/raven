@@ -54,6 +54,7 @@
   <NodeKind Name="RightShiftAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="ConcatenateAssignmentStatement" Type="AssignmentStatement" />
   <NodeKind Name="SimpleMemberAccessExpression" Type="MemberAccessExpression" />
+  <NodeKind Name="DiscardPattern" Type="DiscardPattern" />
   <NodeKind Name="NotPattern" Type="UnaryPattern" />
   <NodeKind Name="AndPattern" Type="BinaryPattern" />
   <NodeKind Name="OrPattern" Type="BinaryPattern" />

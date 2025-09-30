@@ -554,6 +554,9 @@
     <Slot Name="LetOrVarKeyword" Type="Token" />
     <Slot Name="Designation" Type="VariableDesignation" />
   </Node>
+  <Node Name="DiscardPattern" Inherits="Pattern">
+    <Slot Name="UnderscoreToken" Type="Token" DefaultToken="UnderscoreToken"/>
+  </Node>
   <Node Name="DeclarationPattern" Inherits="Pattern">
     <Slot Name="Type" Type="Type" />
     <Slot Name="Designation" Type="VariableDesignation" />

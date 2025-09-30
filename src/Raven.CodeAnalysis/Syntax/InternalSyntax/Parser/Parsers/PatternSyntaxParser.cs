@@ -72,7 +72,7 @@ internal class PatternSyntaxParser : SyntaxParser
         if (PeekToken().Kind is SyntaxKind.UnderscoreToken)
         {
             var underscoreToken = ReadToken();
-            //return new DiscardPattern(underscoreToken);
+            return DiscardPattern(underscoreToken);
         }
 
         var type = new NameSyntaxParser(this).ParseTypeName();

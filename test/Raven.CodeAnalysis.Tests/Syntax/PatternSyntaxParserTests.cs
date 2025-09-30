@@ -25,6 +25,18 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void DiscardPattern_Parses()
+    {
+        var (pattern, tree) = ParsePattern("_");
+        var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text.");
+
+        var discard = Assert.IsType<DiscardPatternSyntax>(pattern);
+        Assert.Equal("_", sourceText.ToString(discard.Span));
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void VariablePattern_WithTypedParenthesizedDesignation_Parses()
     {
         var (pattern, tree) = ParsePattern("let (first, second): (int, string)");

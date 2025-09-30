@@ -3069,7 +3069,7 @@ partial class BlockBinder : Binder
                 return BindVariablePatternForAssignment(variablePattern, valueType);
             case TuplePatternSyntax tuplePattern:
                 return BindTuplePatternForAssignment(tuplePattern, valueType);
-            case DeclarationPatternSyntax declaration when IsDiscardPatternSyntax(declaration):
+            case DiscardPatternSyntax:
                 return new BoundDiscardPattern(valueType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : valueType);
             case DeclarationPatternSyntax declaration:
                 return BindDeclarationPatternForAssignment(declaration, valueType, node);
