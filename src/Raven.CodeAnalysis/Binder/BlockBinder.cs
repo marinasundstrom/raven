@@ -2621,6 +2621,29 @@ partial class BlockBinder : Binder
 
         var boundArguments = boundArgumentsList.ToArray();
 
+        if (receiver is not null)
+        {
+            var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
+
+            if (methodName == "Invoke" &&
+                receiverType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
+                delegateType.GetDelegateInvokeMethod() is { } invokeMethod)
+            {
+                if (!EnsureMemberAccessible(invokeMethod, syntax.Expression.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+                if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver))
+                {
+                    ReportSuppressedLambdaDiagnostics(boundArguments);
+                    _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+                }
+
+                var converted = ConvertArguments(invokeMethod.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+                return new BoundInvocationExpression(invokeMethod, converted, receiver);
+            }
+        }
+
         // Handle different receiver kinds
         if (receiver is BoundNamespaceExpression nsReceiver)
         {
