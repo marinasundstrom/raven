@@ -1,9 +1,8 @@
 let x : bool | (a: bool, b: string) = false
 
 let r = x match {
-    bool e => "hej"
-    //true => "true"
-    //(a: bool, b: string) => "tuple"
+    bool => "foo"
+    (a: bool, b: string) => "tuple"
     _ => "none"
 }
 

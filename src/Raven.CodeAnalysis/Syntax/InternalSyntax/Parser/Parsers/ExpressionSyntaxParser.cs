@@ -2,6 +2,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+using System.IO.Pipelines;
 using System.Text;
 
 using Raven.CodeAnalysis.Text;
@@ -427,6 +428,17 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
             if (token.IsKind(SyntaxKind.OpenParenToken)) // Invocation
             {
+                // INFO: Break if next token is a newline.
+                // This prevents: <expr> [newline] '('
+
+                SetTreatNewlinesAsTokens(true);
+                var token2 = PeekToken();
+                if (token2.IsKind(SyntaxKind.NewLineToken))
+                {
+                    SetTreatNewlinesAsTokens(false);
+                    return expr;
+                }
+
                 var argumentList = ParseArgumentListSyntax();
                 expr = InvocationExpression(expr, argumentList);
             }

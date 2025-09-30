@@ -3,6 +3,7 @@ namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
 using System.Collections.Generic;
+
 using Raven.CodeAnalysis.Syntax.InternalSyntax;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -78,7 +79,8 @@ internal class PatternSyntaxParser : SyntaxParser
         }
         else
         {
-            designation = SingleVariableDesignation(MissingToken(SyntaxKind.IdentifierToken));
+            // TODO: Investigate
+            designation = SingleVariableDesignation(Token(SyntaxKind.None));
         }
 
         return DeclarationPattern(type, designation);
