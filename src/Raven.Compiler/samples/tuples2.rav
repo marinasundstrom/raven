@@ -1,0 +1,8 @@
+let x : bool | (a: bool, b: string) = false
+
+let r = x match {
+    (a: bool, b: string) => "tuple"
+    _ => "none"
+}
+
+System.Console.WriteLine(r)
