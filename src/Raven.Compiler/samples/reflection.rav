@@ -1,0 +1,21 @@
+import System.*
+import System.Console.*
+import System.Reflection.*
+
+let r = typeof(Object)
+WriteLine(r)
+
+let members = r.GetMembers()
+
+for member in members {
+    WriteLine(member.Name)
+}
+
+let member = members[1]
+
+WriteLine(member.Name)
+
+let type = ((MethodInfo)member).Invoke(member, null)
+WriteLine(type))
+
+//((System.Reflection.MethodInfo)member).Invoke(member, [])
