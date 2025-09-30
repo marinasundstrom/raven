@@ -933,8 +933,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             while (true)
             {
-                ConvertLeadingNewlinesToTrivia();
-
                 if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
                     break;
 
