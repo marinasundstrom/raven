@@ -259,6 +259,8 @@ internal partial class BlockBinder
         BoundDesignator designator = syntax.Designation switch
         {
             SingleVariableDesignationSyntax single when !single.Identifier.IsMissing &&
+                                                      single.Identifier.Kind != SyntaxKind.None &&
+                                                      !string.IsNullOrEmpty(single.Identifier.ValueText) &&
                                                       single.Identifier.ValueText != "_"
                 => BindSingleVariableDesignation(single)!,
             _ => new BoundDiscardDesignator(type.Type)
