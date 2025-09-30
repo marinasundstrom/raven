@@ -506,12 +506,22 @@ internal abstract class Binder
 
     private ITypeSymbol? ResolveQualifiedType(QualifiedNameSyntax qualified)
     {
+        var symbol = ResolveQualifiedNamespaceOrType(qualified);
+        return symbol as ITypeSymbol;
+    }
+
+    private INamespaceOrTypeSymbol? ResolveQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
+    {
         var left = ResolveQualifiedLeft(qualified.Left);
 
         if (left is INamespaceSymbol ns)
         {
             if (qualified.Right is IdentifierNameSyntax id)
             {
+                var namespaceMember = ns.LookupNamespace(id.Identifier.ValueText);
+                if (namespaceMember is not null)
+                    return namespaceMember;
+
                 var type = SelectByArity(ns.GetMembers(id.Identifier.ValueText)
                         .OfType<INamedTypeSymbol>(), 0)
                     ?? ns.LookupType(id.Identifier.ValueText);
@@ -549,10 +559,10 @@ internal abstract class Binder
             return null;
         }
 
-        return null;
+        return left;
     }
 
-    private object? ResolveQualifiedLeft(TypeSyntax left)
+    private INamespaceOrTypeSymbol? ResolveQualifiedLeft(TypeSyntax left)
     {
         if (left is IdentifierNameSyntax id)
         {
@@ -603,7 +613,7 @@ internal abstract class Binder
 
         if (left is QualifiedNameSyntax qualified)
         {
-            return ResolveQualifiedType(qualified);
+            return ResolveQualifiedNamespaceOrType(qualified);
         }
 
         return null;
