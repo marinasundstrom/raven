@@ -933,9 +933,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             while (true)
             {
-                SetTreatNewlinesAsTokens(true);
-
-                SkipMatchArmSeparators();
+                SetTreatNewlinesAsTokens(false);
 
                 if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
                     break;
@@ -953,9 +951,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
                 var expression = new ExpressionSyntaxParser(this).ParseExpression();
 
-                TryConsumeTerminator(out var terminatorToken);
+                SetTreatNewlinesAsTokens(true);
 
-                SetTreatNewlinesAsTokens(false);
+                TryConsumeTerminator(out var terminatorToken);
 
                 arms.Add(MatchArm(pattern, whenClause, arrowToken, expression, terminatorToken));
             }
