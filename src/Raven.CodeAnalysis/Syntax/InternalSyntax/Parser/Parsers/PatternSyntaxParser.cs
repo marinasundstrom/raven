@@ -69,6 +69,12 @@ internal class PatternSyntaxParser : SyntaxParser
             return ParseVariablePattern();
         }
 
+        if (PeekToken().Kind is SyntaxKind.UnderscoreToken)
+        {
+            var underscoreToken = ReadToken();
+            //return new DiscardPattern(underscoreToken);
+        }
+
         var type = new NameSyntaxParser(this).ParseTypeName();
 
         // Optionally consume a variable designation

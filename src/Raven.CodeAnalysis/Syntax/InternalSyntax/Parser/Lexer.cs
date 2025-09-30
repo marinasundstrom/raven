@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Text;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -158,6 +159,11 @@ internal class Lexer : ILexer
                     {
                         ReadChar();
                         _stringBuilder.Append(ch);
+                    }
+
+                    if (GetStringBuilderValue() == "_")
+                    {
+                        syntaxKind = SyntaxKind.UnderscoreToken;
                     }
 
                     if (!SyntaxFacts.TryParseKeyword(GetStringBuilderValue(), out syntaxKind))
