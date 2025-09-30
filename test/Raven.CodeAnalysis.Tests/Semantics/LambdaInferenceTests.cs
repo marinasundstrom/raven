@@ -88,6 +88,39 @@ class Container {
         var suppression = Assert.Single(unbound.SuppressedDiagnostics);
         Assert.Equal("value", suppression.ParameterName);
     }
+
+    [Fact]
+    public void Lambda_AssignedToLocal_InvocationBindsToDelegateInvoke()
+    {
+        const string code = """
+import System.*
+class Calculator {
+    Compute() -> int {
+        let add = func (left: int, right: int) -> int => left + right
+        return add(2, 3)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.Equal("Invoke", boundInvocation.Method.Name);
+
+        Assert.NotNull(boundInvocation.Receiver);
+        var receiver = boundInvocation.Receiver!;
+        var delegateType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiver.Type);
+        Assert.Equal(TypeKind.Delegate, delegateType.TypeKind);
+        Assert.Same(delegateType.GetDelegateInvokeMethod(), boundInvocation.Method);
+    }
 }
 
 public class LambdaInferenceDiagnosticsTests : DiagnosticTestBase
