@@ -1596,6 +1596,18 @@ partial class BlockBinder : Binder
 
         if (receiver is BoundTypeExpression typeExpr)
         {
+            var nonMethodMember = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+                .Lookup(this)
+                .FirstOrDefault(static m => m is not IMethodSymbol);
+
+            if (nonMethodMember is not null)
+            {
+                if (!EnsureMemberAccessible(nonMethodMember, memberAccess.Name.GetLocation(), GetSymbolKindForDiagnostic(nonMethodMember)))
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+                return new BoundMemberAccessExpression(typeExpr, nonMethodMember);
+            }
+
             var methodCandidates = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
                 .LookupMethods(this)
                 .ToImmutableArray();
@@ -1634,6 +1646,18 @@ partial class BlockBinder : Binder
         if (receiver.Type is not null)
         {
             var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
+
+            var nonMethodMember = new SymbolQuery(name, receiverType, IsStatic: false)
+                .Lookup(this)
+                .FirstOrDefault(static m => m is not IMethodSymbol);
+
+            if (nonMethodMember is not null)
+            {
+                if (!EnsureMemberAccessible(nonMethodMember, nameLocation, GetSymbolKindForDiagnostic(nonMethodMember)))
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+
+                return new BoundMemberAccessExpression(receiver, nonMethodMember);
+            }
 
             var methodCandidates = ImmutableArray<IMethodSymbol>.Empty;
 
