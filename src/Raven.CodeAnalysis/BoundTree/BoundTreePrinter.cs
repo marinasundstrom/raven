@@ -147,6 +147,8 @@ public static class BoundTreePrinter
 
     private static IEnumerable<BoundNode> GetChildren(BoundNode node)
     {
+        var visitedContainers = new HashSet<object>(ReferenceEqualityComparer.Instance);
+
         foreach (var property in node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (property.GetIndexParameters().Length > 0)
@@ -155,36 +157,73 @@ public static class BoundTreePrinter
             if (ShouldSkipProperty(property.Name))
                 continue;
 
-            var propertyType = property.PropertyType;
-
-            if (typeof(BoundNode).IsAssignableFrom(propertyType))
-            {
-                if (property.GetValue(node) is BoundNode child)
-                    yield return child;
-
-                continue;
-            }
-
-            if (typeof(IEnumerable).IsAssignableFrom(propertyType) && propertyType != typeof(string))
-            {
-                var value = property.GetValue(node);
-                if (value is null)
-                    continue;
-
-                if (propertyType.IsGenericType && propertyType.GetGenericTypeDefinition() == typeof(ImmutableArray<>))
-                {
-                    var isDefault = (bool)(value.GetType().GetProperty("IsDefault")?.GetValue(value) ?? false);
-                    if (isDefault)
-                        continue;
-                }
-
-                foreach (var item in (IEnumerable)value)
-                {
-                    if (item is BoundNode child)
-                        yield return child;
-                }
-            }
+            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(node), visitedContainers))
+                yield return child;
         }
+    }
+
+    private static IEnumerable<BoundNode> EnumerateBoundNodeChildren(object? value, HashSet<object> visitedContainers)
+    {
+        if (value is null)
+            yield break;
+
+        if (value is BoundNode bound)
+        {
+            yield return bound;
+            yield break;
+        }
+
+        if (value is IEnumerable enumerable && value is not string)
+        {
+            if (IsDefaultImmutableArray(value))
+                yield break;
+
+            foreach (var item in enumerable)
+            {
+                foreach (var child in EnumerateBoundNodeChildren(item, visitedContainers))
+                    yield return child;
+            }
+
+            yield break;
+        }
+
+        var type = value.GetType();
+
+        if (type.IsPrimitive || value is string || value is Enum)
+            yield break;
+
+        if (typeof(ISymbol).IsAssignableFrom(type) || typeof(ITypeSymbol).IsAssignableFrom(type))
+            yield break;
+
+        if (!string.Equals(type.Namespace, typeof(BoundNode).Namespace, StringComparison.Ordinal))
+            yield break;
+
+        if (!type.Name.StartsWith("Bound", StringComparison.Ordinal))
+            yield break;
+
+        if (!visitedContainers.Add(value))
+            yield break;
+
+        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.GetIndexParameters().Length > 0)
+                continue;
+
+            if (ShouldSkipProperty(property.Name))
+                continue;
+
+            foreach (var child in EnumerateBoundNodeChildren(property.GetValue(value), visitedContainers))
+                yield return child;
+        }
+    }
+
+    private static bool IsDefaultImmutableArray(object value)
+    {
+        var type = value.GetType();
+        if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(ImmutableArray<>))
+            return false;
+
+        return (bool)(type.GetProperty("IsDefault")?.GetValue(value) ?? false);
     }
 
     private static string Describe(BoundNode node, IReadOnlyDictionary<BoundNode, SyntaxNode> nodeToSyntax)
