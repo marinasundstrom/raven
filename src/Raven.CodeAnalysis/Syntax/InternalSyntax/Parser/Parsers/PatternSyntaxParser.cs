@@ -21,12 +21,25 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParseOrPattern()
     {
-        var left = ParseUnaryPattern();
+        var left = ParseAndPattern();
 
         while (ConsumeToken(SyntaxKind.OrToken, out var orKeyword))
         {
-            var right = ParseUnaryPattern();
+            var right = ParseAndPattern();
             left = BinaryPattern(SyntaxKind.OrPattern, left, orKeyword, right);
+        }
+
+        return left;
+    }
+
+    private PatternSyntax ParseAndPattern()
+    {
+        var left = ParseUnaryPattern();
+
+        while (ConsumeToken(SyntaxKind.AndToken, out var andKeyword))
+        {
+            var right = ParseUnaryPattern();
+            left = BinaryPattern(SyntaxKind.AndPattern, left, andKeyword, right);
         }
 
         return left;
