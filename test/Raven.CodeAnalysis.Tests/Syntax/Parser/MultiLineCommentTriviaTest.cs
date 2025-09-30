@@ -46,6 +46,8 @@ public class MultiLineCommentTriviaTest
     [InlineData("/* Привет мир */", "/* Привет мир */")]
     [InlineData("/* 😀 emoji */", "/* 😀 emoji */")]
     [InlineData("/* Café au lait */", "/* Café au lait */")]
+    [InlineData("/* let x = \"hej\" */", "/* let x = \"hej\" */")]
+    [InlineData("/* let x = “hej” */", "/* let x = “hej” */")]
     public void MultiLineCommentTrivia_PreservesUnicodeContent(string code, string expectedComment)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

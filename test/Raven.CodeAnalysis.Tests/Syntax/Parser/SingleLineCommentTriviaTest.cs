@@ -60,6 +60,8 @@ public class SingleLineCommentTriviaTest
     [InlineData("let x = 1; // Привет мир", "// Привет мир")]
     [InlineData("let x = 1; // Café au lait", "// Café au lait")]
     [InlineData("let x = 1; // 😀 emoji", "// 😀 emoji")]
+    [InlineData("let x = 1; // let x = \"hej\"", "// let x = \"hej\"")]
+    [InlineData("let x = 1; // let x = “hej”", "// let x = “hej”")]
     public void SingleLineCommentTrivia_PreservesUnicodeContent(string code, string expectedComment)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
