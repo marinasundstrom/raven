@@ -133,6 +133,36 @@ System.Console.WriteLine(r)
         Assert.Equal("none", output);
     }
 
+    [Fact]
+    public void MatchExpression_WithMixedPrimitiveAndTupleArms_EmitsAndRuns()
+    {
+        const string code = """
+let describer = Describer()
+let boolResult = describer.Describe(false)
+let tupleValue: bool | (flag: bool, text: string) = (false, "tuple")
+let tupleResult = describer.Describe(tupleValue)
+
+System.Console.WriteLine(boolResult + "," + tupleResult)
+
+class Describer {
+    Describe(value: bool | (flag: bool, text: string)) -> string {
+        return value match {
+            false => "false"
+            true => "true"
+            (flag: bool, text: string) => text
+            _ => "none"
+        }
+    }
+}
+""";
+
+        var output = EmitAndRun(code, "match_union_mixed_tuple");
+        if (output is null)
+            return;
+
+        Assert.Equal("false,tuple", output);
+    }
+
     private static string? EmitAndRun(string code, string assemblyName, params string[] additionalSources)
     {
         var syntaxTrees = new List<RavenSyntaxTree> { RavenSyntaxTree.ParseText(code) };
