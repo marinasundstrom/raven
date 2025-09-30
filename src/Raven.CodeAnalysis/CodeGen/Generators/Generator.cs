@@ -88,7 +88,7 @@ internal abstract class Generator
                 var skipLabel = ILGenerator.DefineLabel();
                 ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
                 ILGenerator.Emit(OpCodes.Ldfld, valueField);
-                ILGenerator.Emit(OpCodes.Brfalse_S, skipLabel);
+                ILGenerator.Emit(OpCodes.Brfalse, skipLabel);
                 ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
                 ILGenerator.Emit(OpCodes.Ldfld, valueField);
                 ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
@@ -110,7 +110,7 @@ internal abstract class Generator
         {
             var skipLabel = ILGenerator.DefineLabel();
             ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-            ILGenerator.Emit(OpCodes.Brfalse_S, skipLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, skipLabel);
             ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
             ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
             ILGenerator.MarkLabel(skipLabel);

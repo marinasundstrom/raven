@@ -949,12 +949,12 @@ internal class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
             EmitPattern(arm.Pattern, scope);
-            ILGenerator.Emit(OpCodes.Brfalse_S, nextArmLabel);
+            ILGenerator.Emit(OpCodes.Brfalse, nextArmLabel);
 
             if (arm.Guard is not null)
             {
                 new ExpressionGenerator(scope, arm.Guard).Emit();
-                ILGenerator.Emit(OpCodes.Brfalse_S, nextArmLabel);
+                ILGenerator.Emit(OpCodes.Brfalse, nextArmLabel);
             }
 
             new ExpressionGenerator(scope, arm.Expression).Emit();
@@ -964,7 +964,7 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
 
             ILGenerator.Emit(OpCodes.Stloc, resultLocal);
-            ILGenerator.Emit(OpCodes.Br_S, endLabel);
+            ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(nextArmLabel);
         }
@@ -998,10 +998,10 @@ internal class ExpressionGenerator : Generator
 
                 ILGenerator.Emit(OpCodes.Isinst, clrType);
                 ILGenerator.Emit(OpCodes.Dup);
-                ILGenerator.Emit(OpCodes.Brtrue_S, labelSuccess);
+                ILGenerator.Emit(OpCodes.Brtrue, labelSuccess);
                 ILGenerator.Emit(OpCodes.Pop);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
-                ILGenerator.Emit(OpCodes.Br_S, labelDone);
+                ILGenerator.Emit(OpCodes.Br, labelDone);
 
                 ILGenerator.MarkLabel(labelSuccess);
                 ILGenerator.Emit(OpCodes.Unbox_Any, clrType);
@@ -1056,13 +1056,13 @@ internal class ExpressionGenerator : Generator
             if (binaryPattern.Kind == BoundPatternKind.And)
             {
                 EmitPattern(binaryPattern.Left, scope);
-                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
                 EmitPattern(binaryPattern.Right, scope);
-                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_1);
-                ILGenerator.Emit(OpCodes.Br_S, labelDone);
+                ILGenerator.Emit(OpCodes.Br, labelDone);
 
                 ILGenerator.MarkLabel(labelFail);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
@@ -1074,13 +1074,13 @@ internal class ExpressionGenerator : Generator
                 var labelTrue = ILGenerator.DefineLabel();
 
                 EmitPattern(binaryPattern.Left, scope);
-                ILGenerator.Emit(OpCodes.Brtrue_S, labelTrue);
+                ILGenerator.Emit(OpCodes.Brtrue, labelTrue);
 
                 EmitPattern(binaryPattern.Right, scope);
-                ILGenerator.Emit(OpCodes.Brtrue_S, labelTrue);
+                ILGenerator.Emit(OpCodes.Brtrue, labelTrue);
 
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
-                ILGenerator.Emit(OpCodes.Br_S, labelDone);
+                ILGenerator.Emit(OpCodes.Br, labelDone);
 
                 ILGenerator.MarkLabel(labelTrue);
                 ILGenerator.Emit(OpCodes.Ldc_I4_1);
@@ -1108,12 +1108,12 @@ internal class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Isinst, tupleInterfaceType);
             ILGenerator.Emit(OpCodes.Stloc, tupleLocal);
             ILGenerator.Emit(OpCodes.Ldloc, tupleLocal);
-            ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+            ILGenerator.Emit(OpCodes.Brfalse, labelFail);
 
             ILGenerator.Emit(OpCodes.Ldloc, tupleLocal);
             ILGenerator.Emit(OpCodes.Callvirt, lengthGetter);
             ILGenerator.Emit(OpCodes.Ldc_I4, tuplePattern.Elements.Length);
-            ILGenerator.Emit(OpCodes.Bne_Un_S, labelFail);
+            ILGenerator.Emit(OpCodes.Bne_Un, labelFail);
 
             for (var i = 0; i < tuplePattern.Elements.Length; i++)
             {
@@ -1121,11 +1121,11 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldc_I4, i);
                 ILGenerator.Emit(OpCodes.Callvirt, itemGetter);
                 EmitPattern(tuplePattern.Elements[i], scope);
-                ILGenerator.Emit(OpCodes.Brfalse_S, labelFail);
+                ILGenerator.Emit(OpCodes.Brfalse, labelFail);
             }
 
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
-            ILGenerator.Emit(OpCodes.Br_S, labelDone);
+            ILGenerator.Emit(OpCodes.Br, labelDone);
 
             ILGenerator.MarkLabel(labelFail);
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
@@ -1158,10 +1158,10 @@ internal class ExpressionGenerator : Generator
         var endLabel = ILGenerator.DefineLabel();
 
         ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
-        ILGenerator.Emit(OpCodes.Brtrue_S, notNullLabel);
+        ILGenerator.Emit(OpCodes.Brtrue, notNullLabel);
 
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
-        ILGenerator.Emit(OpCodes.Br_S, endLabel);
+        ILGenerator.Emit(OpCodes.Br, endLabel);
 
         ILGenerator.MarkLabel(notNullLabel);
         ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
@@ -2490,7 +2490,7 @@ internal class ExpressionGenerator : Generator
             var endIfLabel = ILGenerator.DefineLabel();
 
             // Branch to end of 'if' after the 'if' block
-            ILGenerator.Emit(OpCodes.Br_S, endIfLabel);
+            ILGenerator.Emit(OpCodes.Br, endIfLabel);
 
             // Mark the 'else' label
             ILGenerator.MarkLabel(elseLabel);
@@ -2534,34 +2534,34 @@ internal class ExpressionGenerator : Generator
             {
                 case BinaryOperatorKind.Equality:
                     ILGenerator.Emit(OpCodes.Ceq); // compare
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    ILGenerator.Emit(OpCodes.Brfalse, end);
                     break;
 
                 case BinaryOperatorKind.Inequality:
                     ILGenerator.Emit(OpCodes.Ceq);
                     ILGenerator.Emit(OpCodes.Ldc_I4_0);
                     ILGenerator.Emit(OpCodes.Ceq); // logical NOT
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    ILGenerator.Emit(OpCodes.Brfalse, end);
                     break;
 
                 case BinaryOperatorKind.GreaterThan:
                     ILGenerator.Emit(OpCodes.Cgt);
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    ILGenerator.Emit(OpCodes.Brfalse, end);
                     break;
 
                 case BinaryOperatorKind.LessThan:
                     ILGenerator.Emit(OpCodes.Clt);
-                    ILGenerator.Emit(OpCodes.Brfalse_S, end);
+                    ILGenerator.Emit(OpCodes.Brfalse, end);
                     break;
 
                 case BinaryOperatorKind.GreaterThanOrEqual:
                     ILGenerator.Emit(OpCodes.Clt);
-                    ILGenerator.Emit(OpCodes.Brtrue_S, end);
+                    ILGenerator.Emit(OpCodes.Brtrue, end);
                     break;
 
                 case BinaryOperatorKind.LessThanOrEqual:
                     ILGenerator.Emit(OpCodes.Cgt);
-                    ILGenerator.Emit(OpCodes.Brtrue_S, end);
+                    ILGenerator.Emit(OpCodes.Brtrue, end);
                     break;
 
                 default:
@@ -2576,7 +2576,7 @@ internal class ExpressionGenerator : Generator
             }
             else if (literalExpression.Kind == BoundLiteralExpressionKind.FalseLiteral)
             {
-                ILGenerator.Emit(OpCodes.Br_S, end);
+                ILGenerator.Emit(OpCodes.Br, end);
             }
         }
         else
@@ -2584,7 +2584,7 @@ internal class ExpressionGenerator : Generator
             // Other kinds of expressions... member access etc.
 
             EmitExpression(expression);
-            ILGenerator.Emit(OpCodes.Brfalse_S, end);
+            ILGenerator.Emit(OpCodes.Brfalse, end);
         }
     }
 
