@@ -1101,14 +1101,14 @@ partial class BlockBinder : Binder
             GetUnionMembers(union),
             SymbolEqualityComparer.Default);
 
-        var booleanCoverage = CreateBooleanCoverage(remaining);
+        var literalCoverage = CreateLiteralCoverage(remaining);
 
         HashSet<ITypeSymbol>? guaranteedRemaining = null;
-        Dictionary<ITypeSymbol, BooleanCoverage>? guaranteedBooleanCoverage = null;
+        Dictionary<ITypeSymbol, HashSet<object?>>? guaranteedLiteralCoverage = null;
         if (catchAllIndex >= 0)
         {
             guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, SymbolEqualityComparer.Default);
-            guaranteedBooleanCoverage = CloneBooleanCoverage(booleanCoverage);
+            guaranteedLiteralCoverage = CloneLiteralCoverage(literalCoverage);
         }
 
         var reportedRedundantCatchAll = false;
@@ -1119,10 +1119,10 @@ partial class BlockBinder : Binder
             var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
 
             if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
-                RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern, guaranteedBooleanCoverage);
+                RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern, guaranteedLiteralCoverage);
 
             if (guardGuaranteesMatch)
-                RemoveCoveredUnionMembers(remaining, arm.Pattern, booleanCoverage);
+                RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
 
             if (remaining.Count == 0)
             {
@@ -1153,18 +1153,13 @@ partial class BlockBinder : Binder
             }
         }
 
-        if (booleanCoverage is not null && booleanCoverage.Count > 0)
+        if (literalCoverage is not null && literalCoverage.Count > 0)
         {
-            foreach (var (booleanMember, coverage) in booleanCoverage)
+            foreach (var (type, constants) in literalCoverage)
             {
-                if (remaining.Contains(booleanMember))
+                if (remaining.Contains(type))
                 {
-                    if ((coverage & BooleanCoverage.True) == 0)
-                        _diagnostics.ReportMatchExpressionNotExhaustive("true", matchExpression.GetLocation());
-
-                    if ((coverage & BooleanCoverage.False) == 0)
-                        _diagnostics.ReportMatchExpressionNotExhaustive("false", matchExpression.GetLocation());
-
+                    ReportMissingLiteralCoverage(matchExpression, type, constants);
                     return;
                 }
             }
@@ -1249,26 +1244,23 @@ partial class BlockBinder : Binder
     private void RemoveCoveredUnionMembers(
         HashSet<ITypeSymbol> remaining,
         BoundPattern pattern,
-        Dictionary<ITypeSymbol, BooleanCoverage>? booleanCoverage = null)
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
     {
         switch (pattern)
         {
             case BoundDiscardPattern:
                 remaining.Clear();
-                booleanCoverage?.Clear();
+                literalCoverage?.Clear();
                 break;
             case BoundDeclarationPattern declaration:
-                RemoveMembersAssignableToPattern(remaining, declaration.DeclaredType, booleanCoverage);
+                RemoveMembersAssignableToPattern(remaining, declaration.DeclaredType, literalCoverage);
                 break;
             case BoundConstantPattern constant:
                 {
-                    var literalType = UnwrapAlias(constant.LiteralType);
+                    var literalType = (LiteralTypeSymbol)UnwrapAlias(constant.LiteralType);
 
-                    if (constant.ConstantValue is bool boolValue &&
-                        TryUpdateBooleanCoverage(remaining, booleanCoverage, boolValue))
-                    {
+                    if (TryUpdateLiteralCoverage(remaining, literalCoverage, literalType))
                         break;
-                    }
 
                     if (constant.ConstantValue is null)
                     {
@@ -1279,7 +1271,7 @@ partial class BlockBinder : Binder
                             if (candidateType.TypeKind == TypeKind.Null)
                             {
                                 remaining.Remove(candidate);
-                                booleanCoverage?.Remove(candidate);
+                                literalCoverage?.Remove(candidate);
                             }
                         }
 
@@ -1293,18 +1285,18 @@ partial class BlockBinder : Binder
                         if (SymbolEqualityComparer.Default.Equals(candidateType, literalType))
                         {
                             remaining.Remove(candidate);
-                            booleanCoverage?.Remove(candidate);
+                            literalCoverage?.Remove(candidate);
                         }
                     }
 
                     break;
                 }
             case BoundOrPattern orPattern:
-                RemoveCoveredUnionMembers(remaining, orPattern.Left, booleanCoverage);
-                RemoveCoveredUnionMembers(remaining, orPattern.Right, booleanCoverage);
+                RemoveCoveredUnionMembers(remaining, orPattern.Left, literalCoverage);
+                RemoveCoveredUnionMembers(remaining, orPattern.Right, literalCoverage);
                 break;
             case BoundTuplePattern tuplePattern:
-                RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, booleanCoverage);
+                RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
                 break;
         }
     }
@@ -1312,7 +1304,7 @@ partial class BlockBinder : Binder
     private void RemoveMembersAssignableToPattern(
         HashSet<ITypeSymbol> remaining,
         ITypeSymbol patternType,
-        Dictionary<ITypeSymbol, BooleanCoverage>? booleanCoverage = null)
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
     {
         patternType = UnwrapAlias(patternType);
 
@@ -1326,14 +1318,23 @@ partial class BlockBinder : Binder
             if (candidateType.TypeKind == TypeKind.Error)
             {
                 remaining.Remove(candidate);
-                booleanCoverage?.Remove(candidate);
+                literalCoverage?.Remove(candidate);
                 continue;
             }
 
             if (IsAssignable(patternType, candidateType, out _))
             {
                 remaining.Remove(candidate);
-                booleanCoverage?.Remove(candidate);
+                literalCoverage?.Remove(candidate);
+                continue;
+            }
+
+            if (patternType is IUnionTypeSymbol patternUnion &&
+                candidateType is IUnionTypeSymbol candidateUnion &&
+                TypeCoverageHelper.UnionIsCoveredByTypes(patternUnion, candidateUnion.Types))
+            {
+                remaining.Remove(candidate);
+                literalCoverage?.Remove(candidate);
             }
         }
     }
@@ -1427,73 +1428,92 @@ partial class BlockBinder : Binder
         }
     }
 
-    private static Dictionary<ITypeSymbol, BooleanCoverage>? CreateBooleanCoverage(IEnumerable<ITypeSymbol> members)
+    private static Dictionary<ITypeSymbol, HashSet<object?>>? CreateLiteralCoverage(IEnumerable<ITypeSymbol> members)
     {
-        Dictionary<ITypeSymbol, BooleanCoverage>? coverage = null;
+        Dictionary<ITypeSymbol, HashSet<object?>>? coverage = null;
 
         foreach (var member in members)
         {
             var type = UnwrapAlias(member);
 
-            if (type.SpecialType == SpecialType.System_Boolean)
+            if (TypeCoverageHelper.RequiresLiteralCoverage(type))
             {
-                coverage ??= new Dictionary<ITypeSymbol, BooleanCoverage>(SymbolEqualityComparer.Default);
-                coverage[member] = BooleanCoverage.None;
+                coverage ??= new Dictionary<ITypeSymbol, HashSet<object?>>(SymbolEqualityComparer.Default);
+                coverage[member] = new HashSet<object?>();
             }
         }
 
         return coverage;
     }
 
-    private static Dictionary<ITypeSymbol, BooleanCoverage>? CloneBooleanCoverage(Dictionary<ITypeSymbol, BooleanCoverage>? coverage)
-        => coverage is null
-            ? null
-            : new Dictionary<ITypeSymbol, BooleanCoverage>(coverage, SymbolEqualityComparer.Default);
-
-    private static bool TryUpdateBooleanCoverage(
-        HashSet<ITypeSymbol> remaining,
-        Dictionary<ITypeSymbol, BooleanCoverage>? booleanCoverage,
-        bool value)
+    private static Dictionary<ITypeSymbol, HashSet<object?>>? CloneLiteralCoverage(Dictionary<ITypeSymbol, HashSet<object?>>? coverage)
     {
-        if (booleanCoverage is null || booleanCoverage.Count == 0)
+        if (coverage is null)
+            return null;
+
+        var clone = new Dictionary<ITypeSymbol, HashSet<object?>>(SymbolEqualityComparer.Default);
+
+        foreach (var (type, constants) in coverage)
+            clone[type] = new HashSet<object?>(constants);
+
+        return clone;
+    }
+
+    private static bool TryUpdateLiteralCoverage(
+        HashSet<ITypeSymbol> remaining,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage,
+        LiteralTypeSymbol literal)
+    {
+        if (literalCoverage is null || literalCoverage.Count == 0)
             return false;
 
-        var flag = value ? BooleanCoverage.True : BooleanCoverage.False;
         var updated = false;
 
-        foreach (var entry in booleanCoverage.ToArray())
+        foreach (var entry in literalCoverage.ToArray())
         {
             var candidate = entry.Key;
 
             if (!remaining.Contains(candidate))
             {
-                booleanCoverage.Remove(candidate);
+                literalCoverage.Remove(candidate);
                 continue;
             }
 
-            var newCoverage = entry.Value | flag;
+            var targetType = UnwrapAlias(candidate);
 
-            if (newCoverage != entry.Value)
-            {
-                updated = true;
+            if (!TypeCoverageHelper.LiteralBelongsToType(literal, targetType))
+                continue;
 
-                if (newCoverage == BooleanCoverage.All)
-                {
-                    remaining.Remove(candidate);
-                    booleanCoverage.Remove(candidate);
-                }
-                else
-                {
-                    booleanCoverage[candidate] = newCoverage;
-                }
-            }
-            else
+            updated = true;
+
+            var constants = entry.Value;
+            constants.Add(literal.ConstantValue);
+
+            if (TypeCoverageHelper.LiteralsCoverType(targetType, constants))
             {
-                updated = true;
+                remaining.Remove(candidate);
+                literalCoverage.Remove(candidate);
             }
         }
 
         return updated;
+    }
+
+    private void ReportMissingLiteralCoverage(
+        MatchExpressionSyntax matchExpression,
+        ITypeSymbol type,
+        HashSet<object?> constants)
+    {
+        var targetType = UnwrapAlias(type);
+
+        if (targetType.SpecialType == SpecialType.System_Boolean)
+        {
+            if (!constants.Contains(true))
+                _diagnostics.ReportMatchExpressionNotExhaustive("true", matchExpression.GetLocation());
+
+            if (!constants.Contains(false))
+                _diagnostics.ReportMatchExpressionNotExhaustive("false", matchExpression.GetLocation());
+        }
     }
 
     [Flags]
