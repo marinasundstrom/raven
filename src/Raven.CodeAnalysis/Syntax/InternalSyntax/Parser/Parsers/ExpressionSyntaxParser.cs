@@ -463,6 +463,17 @@ internal class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.OpenBracketToken)) // Element access
             {
+                // INFO: Break if next token is a newline.
+                // This prevents: <expr> [newline] '('
+
+                SetTreatNewlinesAsTokens(true);
+                var token2 = PeekToken();
+                if (token2.IsKind(SyntaxKind.NewLineToken))
+                {
+                    SetTreatNewlinesAsTokens(false);
+                    return expr;
+                }
+
                 var argumentList = ParseBracketedArgumentListSyntax();
 
                 expr = ElementAccessExpression(expr, argumentList, Diagnostics);
@@ -967,14 +978,17 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
                 TryConsumeTerminator(out var terminatorToken);
 
+                SetTreatNewlinesAsTokens(false);
+
                 arms.Add(MatchArm(pattern, whenClause, arrowToken, expression, terminatorToken));
             }
         }
         finally
         {
             ExitParens();
-            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
         }
+
+        SetTreatNewlinesAsTokens(false);
 
         ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 

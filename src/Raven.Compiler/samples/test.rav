@@ -3,7 +3,7 @@ let x : bool | (a: bool, b: string) = false
 let r = x match {
     bool => "foo"
     (a: bool, b: string) => "tuple"
-    _ => "none"
+    //_ => "none"
 }
 
 System.Console.WriteLine(r)
