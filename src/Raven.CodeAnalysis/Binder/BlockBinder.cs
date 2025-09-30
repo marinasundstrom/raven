@@ -1909,6 +1909,23 @@ partial class BlockBinder : Binder
         {
             var token = literalType.Token;
             var value = token.Value ?? token.ValueText!;
+
+            if (value is string stringValue)
+            {
+                if (literalType.Kind == SyntaxKind.TrueLiteralType)
+                {
+                    value = true;
+                }
+                else if (literalType.Kind == SyntaxKind.FalseLiteralType)
+                {
+                    value = false;
+                }
+                else
+                {
+                    value = stringValue;
+                }
+            }
+
             ITypeSymbol underlying = value switch
             {
                 int => Compilation.GetSpecialType(SpecialType.System_Int32),
