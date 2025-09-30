@@ -242,6 +242,7 @@ internal partial class BlockBinder
     {
         return syntax switch
         {
+            DiscardPatternSyntax discard => BindDiscardPattern(discard),
             DeclarationPatternSyntax d => BindDeclarationPattern(d),
             TuplePatternSyntax t => BindTuplePattern(t),
             UnaryPatternSyntax u => BindUnaryPattern(u),
@@ -252,12 +253,6 @@ internal partial class BlockBinder
 
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax)
     {
-        if (IsDiscardPatternSyntax(syntax))
-        {
-            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
-            return new BoundDiscardPattern(objectType);
-        }
-
         var type = BindTypeSyntax(syntax.Type);
 
         BoundDesignator designator = syntax.Designation switch
@@ -336,21 +331,10 @@ internal partial class BlockBinder
         return new BoundDeclarationPattern(declaration.DeclaredType, designator, declaration.Reason);
     }
 
-    private static bool IsDiscardPatternSyntax(DeclarationPatternSyntax syntax)
+    private BoundPattern BindDiscardPattern(DiscardPatternSyntax syntax)
     {
-        if (syntax.Type is not IdentifierNameSyntax identifier)
-            return false;
-
-        if (identifier.Identifier.ValueText != "_")
-            return false;
-
-        if (syntax.Designation is not SingleVariableDesignationSyntax designation)
-            return false;
-
-        if (designation.Identifier.IsMissing)
-            return true;
-
-        return designation.Identifier.ValueText == "_";
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        return new BoundDiscardPattern(objectType);
     }
 
     private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax)
