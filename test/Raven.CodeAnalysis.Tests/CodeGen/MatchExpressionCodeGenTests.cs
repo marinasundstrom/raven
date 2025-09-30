@@ -108,6 +108,31 @@ class Describer {
         Assert.Equal("false,tuple", output);
     }
 
+    [Fact]
+    public void MatchExpression_WithUnionTupleFallback_EmitsAndRuns()
+    {
+        const string code = """
+let tuple = (42, 2)
+let foo = tuple.Item1
+let tuple2 = (42, "Bar")
+let name = tuple2.Item2
+let x: bool | (flag: bool, text: string) = false
+
+let r = x match {
+    (flag: bool, text: string) => "tuple"
+    _ => "none"
+}
+
+System.Console.WriteLine(r)
+""";
+
+        var output = EmitAndRun(code, "match_union_tuple_fallback");
+        if (output is null)
+            return;
+
+        Assert.Equal("none", output);
+    }
+
     private static string? EmitAndRun(string code, string assemblyName, params string[] additionalSources)
     {
         var syntaxTrees = new List<RavenSyntaxTree> { RavenSyntaxTree.ParseText(code) };
