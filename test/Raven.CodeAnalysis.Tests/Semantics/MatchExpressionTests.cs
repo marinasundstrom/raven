@@ -47,6 +47,41 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithBooleanLiteralArms_IsExhaustive()
+    {
+        const string code = """
+let value: bool = true
+
+let result = value match {
+    true => "true"
+    false => "false"
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithBooleanLiteralArmsOnUnion_IsExhaustive()
+    {
+        const string code = """
+let value: bool | (flag: bool, text: string) = false
+
+let result = value match {
+    true => "true"
+    false => "false"
+    (flag: bool, text: string) => "tuple ${text}"
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithDiscardArm_BindsDesignation()
     {
         const string code = """
