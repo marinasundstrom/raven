@@ -57,6 +57,23 @@ public class SingleLineCommentTriviaTest
     }
 
     [Theory]
+    [InlineData("let x = 1; // test\r\n", "// test")]
+    [InlineData("let x = 1; // test\n", "// test")]
+    public void SingleLineCommentTrivia_HandlesNewline(string code, string expectedComment)
+    {
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var root = syntaxTree.GetRoot();
+
+        var trivia = root.DescendantTokens()
+            .SelectMany(t => t.LeadingTrivia.Concat(t.TrailingTrivia))
+            .FirstOrDefault(x => x.Kind == SyntaxKind.SingleLineCommentTrivia);
+
+        trivia.ShouldNotBeNull();
+        trivia!.Text.ShouldBe(expectedComment);
+    }
+
+    [Theory]
     [InlineData("let x = 1; // Привет мир", "// Привет мир")]
     [InlineData("let x = 1; // Café au lait", "// Café au lait")]
     [InlineData("let x = 1; // 😀 emoji", "// 😀 emoji")]
