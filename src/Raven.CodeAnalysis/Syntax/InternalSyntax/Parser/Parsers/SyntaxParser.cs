@@ -290,53 +290,6 @@ internal class SyntaxParser : ParseContext
         return (BaseParseContext)ctx;
     }
 
-    protected void ConvertLeadingNewlinesToTrivia()
-    {
-        var baseContext = GetBaseContext();
-        var previousUseEndOfLineTrivia = baseContext.UseEndOfLineTrivia;
-        baseContext.UseEndOfLineTrivia = false;
-
-        try
-        {
-            while (true)
-            {
-                var token = PeekToken();
-
-                SyntaxToken newlineToken;
-                SyntaxKind triviaKind;
-
-                switch (token.Kind)
-                {
-                    case SyntaxKind.NewLineToken:
-                        newlineToken = ReadToken();
-                        triviaKind = GetTriviaKindForNewLineToken(baseContext, newlineToken);
-                        break;
-                    case SyntaxKind.LineFeedToken:
-                        newlineToken = ReadToken();
-                        triviaKind = baseContext.LineFeedTriviaKind;
-                        break;
-                    case SyntaxKind.CarriageReturnToken:
-                        newlineToken = ReadToken();
-                        triviaKind = baseContext.CarriageReturnTriviaKind;
-                        break;
-                    case SyntaxKind.CarriageReturnLineFeedToken:
-                        newlineToken = ReadToken();
-                        triviaKind = baseContext.CarriageReturnLineFeedTriviaKind;
-                        break;
-                    default:
-                        return;
-                }
-
-                var trivia = SyntaxFactory.Trivia(triviaKind, newlineToken.Text);
-                baseContext._pendingTrivia.Add(trivia);
-            }
-        }
-        finally
-        {
-            baseContext.UseEndOfLineTrivia = previousUseEndOfLineTrivia;
-        }
-    }
-
     private static bool IsNewLineToken(SyntaxToken token)
     {
         return token.Kind is

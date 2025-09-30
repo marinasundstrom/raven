@@ -14,9 +14,7 @@ internal class EqualsValueClauseSyntaxParser : SyntaxParser
         // Ensure that newlines terminate the initializer so subsequent statements
         // (such as tuple assignments) aren't consumed as part of the expression.
         var previous = TreatNewlinesAsTokens;
-        SetTreatNewlinesAsTokens(true);
-
-        ConvertLeadingNewlinesToTrivia();
+        SetTreatNewlinesAsTokens(false);
 
         var expr = new ExpressionSyntaxParser(this).ParseExpression();
 
