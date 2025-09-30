@@ -933,6 +933,10 @@ internal class ExpressionSyntaxParser : SyntaxParser
         {
             while (true)
             {
+                SetTreatNewlinesAsTokens(true);
+
+                SkipMatchArmSeparators();
+
                 if (IsNextToken(SyntaxKind.CloseBraceToken, out _))
                     break;
 
@@ -967,6 +971,22 @@ internal class ExpressionSyntaxParser : SyntaxParser
         SetTreatNewlinesAsTokens(false);
 
         return MatchExpression(scrutinee, matchKeyword, openBraceToken, List(arms.ToArray()), closeBraceToken);
+    }
+
+    private void SkipMatchArmSeparators()
+    {
+        while (true)
+        {
+            var kind = PeekToken().Kind;
+
+            if (kind is SyntaxKind.NewLineToken or SyntaxKind.LineFeedToken or SyntaxKind.CarriageReturnToken or SyntaxKind.CarriageReturnLineFeedToken)
+            {
+                ReadToken();
+                continue;
+            }
+
+            break;
+        }
     }
 
     private IfExpressionSyntax ParseIfExpressionSyntax()

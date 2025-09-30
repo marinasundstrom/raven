@@ -1,4 +1,5 @@
 using System.Linq;
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Xunit;
 
@@ -23,19 +24,101 @@ let result = value match {
 
         Assert.Equal(2, match.Arms.Count);
 
-        Assert.Collection(
-            match.Arms,
-            arm =>
-            {
-                Assert.Equal("\"hi\"", arm.Pattern.ToString());
-                Assert.False(arm.Expression.IsMissing);
-                Assert.Equal("\"match\"", arm.Expression.ToString());
-            },
-            arm =>
-            {
-                Assert.Equal("_", arm.Pattern.ToString());
-                Assert.False(arm.Expression.IsMissing);
-                Assert.Equal("\"default\"", arm.Expression.ToString());
-            });
+        var firstArm = match.Arms[0];
+        var firstPatternToken = firstArm.Pattern.GetFirstToken();
+        Assert.Equal(SyntaxKind.StringLiteralToken, firstPatternToken.Kind);
+        Assert.Equal("\"hi\"", firstPatternToken.Text);
+
+        Assert.False(firstArm.Expression.IsMissing);
+        var firstExpressionToken = firstArm.Expression.GetFirstToken();
+        Assert.Equal(SyntaxKind.StringLiteralToken, firstExpressionToken.Kind);
+        Assert.Equal("\"match\"", firstExpressionToken.Text);
+
+        var secondArm = match.Arms[1];
+        var secondPatternToken = secondArm.Pattern.GetFirstToken();
+        Assert.Equal(SyntaxKind.IdentifierToken, secondPatternToken.Kind);
+        Assert.Equal("_", secondPatternToken.Text);
+
+        Assert.False(secondArm.Expression.IsMissing);
+        var secondExpressionToken = secondArm.Expression.GetFirstToken();
+        Assert.Equal(SyntaxKind.StringLiteralToken, secondExpressionToken.Kind);
+        Assert.Equal("\"default\"", secondExpressionToken.Text);
+    }
+
+    [Fact]
+    public void MatchExpression_WithDeclarationPatternArm_ParsesDeclarationPattern()
+    {
+        var (arm, tree) = ParseFirstMatchArm("int number");
+
+        var declaration = Assert.IsType<DeclarationPatternSyntax>(arm.Pattern);
+        Assert.Equal("int", declaration.Type.ToString());
+
+        var designation = Assert.IsType<SingleVariableDesignationSyntax>(declaration.Designation);
+        Assert.Equal("number", designation.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void MatchExpression_WithVariablePatternArm_ParsesVariablePattern()
+    {
+        var (arm, tree) = ParseFirstMatchArm("let value");
+
+        var variable = Assert.IsType<VariablePatternSyntax>(arm.Pattern);
+        Assert.Equal(SyntaxKind.LetKeyword, variable.LetOrVarKeyword.Kind);
+
+        var designation = Assert.IsType<SingleVariableDesignationSyntax>(variable.Designation);
+        Assert.Equal("value", designation.Identifier.ValueText);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void MatchExpression_WithBinaryPatternArm_ParsesBinaryPattern()
+    {
+        var (arm, tree) = ParseFirstMatchArm("let left and let right");
+
+        var binary = Assert.IsType<BinaryPatternSyntax>(arm.Pattern);
+        Assert.Equal(SyntaxKind.AndPattern, binary.Kind);
+        Assert.Equal("and", binary.OperatorToken.Text);
+
+        Assert.IsType<VariablePatternSyntax>(binary.Left);
+        Assert.IsType<VariablePatternSyntax>(binary.Right);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnaryPatternArm_ParsesUnaryPattern()
+    {
+        var (arm, tree) = ParseFirstMatchArm("not let value");
+
+        var unary = Assert.IsType<UnaryPatternSyntax>(arm.Pattern);
+        Assert.Equal(SyntaxKind.NotPattern, unary.Kind);
+        Assert.Equal("not", unary.OperatorToken.Text);
+        Assert.IsType<VariablePatternSyntax>(unary.Pattern);
+
+        AssertNoErrors(tree);
+    }
+
+    private static (MatchArmSyntax Arm, SyntaxTree Tree) ParseFirstMatchArm(string patternText)
+    {
+        var code = $$"""
+let value = 0
+
+let result = value match {
+    {{patternText}} => value
+    _ => value
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        return (match.Arms[0], tree);
+    }
+
+    private static void AssertNoErrors(SyntaxTree tree)
+    {
+        Assert.DoesNotContain(tree.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 }
