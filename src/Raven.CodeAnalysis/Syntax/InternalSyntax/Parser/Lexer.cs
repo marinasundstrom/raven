@@ -161,14 +161,14 @@ internal class Lexer : ILexer
                         _stringBuilder.Append(ch);
                     }
 
-                    if (GetStringBuilderValue() == "_")
-                    {
-                        syntaxKind = SyntaxKind.UnderscoreToken;
-                    }
-
                     if (!SyntaxFacts.TryParseKeyword(GetStringBuilderValue(), out syntaxKind))
                     {
                         syntaxKind = SyntaxKind.IdentifierToken;
+                    }
+
+                    if (GetStringBuilderValue() == "_")
+                    {
+                        syntaxKind = SyntaxKind.UnderscoreToken;
                     }
 
                     switch (syntaxKind)
