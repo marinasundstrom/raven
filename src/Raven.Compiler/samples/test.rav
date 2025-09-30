@@ -1,27 +1,15 @@
-let tuple = (a: 42, b: 2)
+import System.Console.*
+import System.Func<>
 
-System.Console.WriteLine(tuple)
+let r = typeof(Func<>)
+WriteLine(r)
 
-let foo = tuple.a; System.Console
-    .WriteLine(
-    tuple.a)
+let members = r.GetMembers()
 
-System.Console.WriteLine(tuple.Item1)
-
-System.Console.WriteLine(tuple.GetType())
-
-let tuple2 : (id: int, name: string) = (42, "Bar")
-
-let name = tuple2.name
-
-let x : bool | (a: bool, b: string) = false
-
-let r = x match {
-    false => "false"
-    true => "true"
-    //bool => "bool"
-    (a: bool, b: string) => "tuple"
-    _ => "none"
+for member in members {
+    WriteLine(member.Name)
 }
 
-System.Console.WriteLine(r)
+let member = members[0]
+
+WriteLine(member.Name)
