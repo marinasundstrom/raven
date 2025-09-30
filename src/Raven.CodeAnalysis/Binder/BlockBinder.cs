@@ -2002,16 +2002,15 @@ partial class BlockBinder : Binder
 
         if (syntax is GenericNameSyntax generic)
         {
-            var typeArgs = generic.TypeArgumentList.Arguments
-                .Select(arg => BindTypeSyntax(arg.Type))
-                .OfType<BoundTypeExpression>()
-                .Select(b => b.Type)
-                .ToImmutableArray();
-
-            if (typeArgs.Length != generic.TypeArgumentList.Arguments.Count)
+            if (!TryBindTypeArguments(generic, out var typeArgs, out var requestedArity))
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
-            return BindTypeName(generic.Identifier.ValueText, generic.GetLocation(), typeArgs, generic.TypeArgumentList.Arguments);
+            return BindTypeName(
+                generic.Identifier.ValueText,
+                generic.GetLocation(),
+                typeArgs,
+                generic.TypeArgumentList.Arguments,
+                requestedArity);
         }
 
         if (syntax is QualifiedNameSyntax qualified)
@@ -2025,6 +2024,7 @@ partial class BlockBinder : Binder
             ImmutableArray<ITypeSymbol> typeArgs = [];
 
             GenericNameSyntax? rightGeneric = null;
+            int requestedArity = 0;
 
             if (qualified.Right is IdentifierNameSyntax id2)
             {
@@ -2034,31 +2034,25 @@ partial class BlockBinder : Binder
             {
                 name = generic2.Identifier.ValueText;
                 rightGeneric = generic2;
-                typeArgs = generic2.TypeArgumentList.Arguments
-                    .Select(arg => BindTypeSyntax(arg.Type))
-                    .OfType<BoundTypeExpression>()
-                    .Select(b => b.Type)
-                    .ToImmutableArray();
-
-                if (typeArgs.Length != generic2.TypeArgumentList.Arguments.Count)
+                if (!TryBindTypeArguments(generic2, out typeArgs, out requestedArity))
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
-
-                // Why does this fall down to:
-                // ISymbol? member = left switch
-                // The type is resolved, not?
             }
             else
             {
                 return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
             }
 
+            if (rightGeneric is null)
+                requestedArity = typeArgs.Length;
+
             ISymbol? member = left switch
             {
                 BoundNamespaceExpression nsExpr => nsExpr.Namespace.GetMembers(name)
-                    .FirstOrDefault(s => s is INamespaceSymbol || s is INamedTypeSymbol),
+                    .FirstOrDefault(s => s is INamespaceSymbol ||
+                        (s is INamedTypeSymbol type && type.Arity == requestedArity)),
                 BoundTypeExpression typeExpr => typeExpr.Type.GetMembers(name)
                     .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault(m => m.Arity == typeArgs.Length),
+                    .FirstOrDefault(m => m.Arity == requestedArity),
                 _ => null
             };
 
@@ -2067,7 +2061,7 @@ partial class BlockBinder : Binder
 
             if (member is INamedTypeSymbol namedType)
             {
-                if (namedType.Arity != typeArgs.Length)
+                if (namedType.Arity != requestedArity)
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
                 if (!typeArgs.IsEmpty && rightGeneric is not null && !ValidateTypeArgumentConstraints(namedType, typeArgs, i => GetTypeArgumentLocation(rightGeneric.TypeArgumentList.Arguments, rightGeneric.GetLocation(), i), namedType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
@@ -2086,9 +2080,11 @@ partial class BlockBinder : Binder
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
-    private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments, SeparatedSyntaxList<TypeArgumentSyntax> typeArgumentSyntax = default)
+    private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments, SeparatedSyntaxList<TypeArgumentSyntax> typeArgumentSyntax = default, int? arityOverride = null)
     {
         var symbol = LookupType(name);
+
+        var requestedArity = arityOverride ?? typeArguments.Length;
 
         if (symbol is null && typeArguments.IsEmpty)
         {
@@ -2116,9 +2112,9 @@ partial class BlockBinder : Binder
 
             var definition = NormalizeDefinition(named);
 
-            if (definition.Arity != typeArguments.Length)
+            if (definition.Arity != requestedArity)
             {
-                var match = FindAccessibleNamedType(name, typeArguments.Length);
+                var match = FindAccessibleNamedType(name, requestedArity);
                 if (match is null)
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
 
@@ -2135,7 +2131,7 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(constructed);
         }
 
-        var alternate = FindAccessibleNamedType(name, typeArguments.Length);
+        var alternate = FindAccessibleNamedType(name, requestedArity);
         if (alternate is not null)
         {
             if (typeArguments.IsEmpty)
@@ -2150,6 +2146,71 @@ partial class BlockBinder : Binder
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, location);
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private bool TryBindTypeArguments(GenericNameSyntax generic, out ImmutableArray<ITypeSymbol> boundArguments, out int requestedArity)
+    {
+        requestedArity = GetTypeArgumentArity(generic.TypeArgumentList);
+
+        var argumentSyntax = generic.TypeArgumentList.Arguments;
+        if (argumentSyntax.Count == 0)
+        {
+            boundArguments = ImmutableArray<ITypeSymbol>.Empty;
+            return true;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(argumentSyntax.Count);
+        var hasExplicitArguments = false;
+        var hasOmittedArguments = false;
+
+        foreach (var argument in argumentSyntax)
+        {
+            if (argument.Type.IsMissing)
+            {
+                hasOmittedArguments = true;
+                continue;
+            }
+
+            hasExplicitArguments = true;
+
+            if (BindTypeSyntax(argument.Type) is not BoundTypeExpression bt)
+            {
+                boundArguments = ImmutableArray<ITypeSymbol>.Empty;
+                return false;
+            }
+
+            builder.Add(bt.Type);
+        }
+
+        if (hasExplicitArguments && hasOmittedArguments)
+        {
+            boundArguments = ImmutableArray<ITypeSymbol>.Empty;
+            return false;
+        }
+
+        boundArguments = builder.ToImmutable();
+        if (hasExplicitArguments && boundArguments.Length != requestedArity)
+            return false;
+
+        return true;
+    }
+
+    private static int GetTypeArgumentArity(TypeArgumentListSyntax typeArgumentList)
+    {
+        var arguments = typeArgumentList.Arguments;
+        var argumentCount = arguments.Count;
+        var separatorCount = arguments.SeparatorCount;
+
+        if (argumentCount == 0)
+        {
+            // `<>` represents an open generic with a single type parameter.
+            return separatorCount == 0 ? 1 : separatorCount + 1;
+        }
+
+        // When omitted type arguments are present (e.g., `<,>`), the separator count
+        // reflects the intended arity even though some argument nodes may be missing.
+        var inferredArity = separatorCount + 1;
+        return Math.Max(argumentCount, inferredArity);
     }
 
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
