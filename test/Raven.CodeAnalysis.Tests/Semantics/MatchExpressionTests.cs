@@ -205,6 +205,102 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithVariablePattern_BindsDesignation()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = value match {
+    let text => text
+    _ => ""
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var variableArm = bound.Arms[0];
+        var declaration = Assert.IsType<BoundDeclarationPattern>(variableArm.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+
+        Assert.Equal("text", designator.Local.Name);
+        Assert.False(designator.Local.IsMutable);
+    }
+
+    [Fact]
+    public void MatchExpression_WithVarPattern_BindsMutableDesignation()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = value match {
+    var text => text
+    _ => ""
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var variableArm = bound.Arms[0];
+        var declaration = Assert.IsType<BoundDeclarationPattern>(variableArm.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+
+        Assert.Equal("text", designator.Local.Name);
+        Assert.True(designator.Local.IsMutable);
+    }
+
+    [Fact]
+    public void MatchExpression_WithTypedVariablePattern_UsesAnnotation()
+    {
+        const string code = """
+let value: object = "hello"
+
+let result = value match {
+    let text: string => text
+    _ => ""
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var variableArm = bound.Arms[0];
+        var declaration = Assert.IsType<BoundDeclarationPattern>(variableArm.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declaration.Designator);
+
+        var stringType = result.Compilation.GetSpecialType(SpecialType.System_String);
+        Assert.True(SymbolEqualityComparer.Default.Equals(designator.Local.Type, stringType));
+    }
+
+    [Fact]
     public void MatchExpression_WithGuard_UsesDesignation()
     {
         const string code = """

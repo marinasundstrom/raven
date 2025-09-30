@@ -243,6 +243,7 @@ internal partial class BlockBinder
         return syntax switch
         {
             DiscardPatternSyntax discard => BindDiscardPattern(discard),
+            VariablePatternSyntax variable => BindVariablePattern(variable),
             DeclarationPatternSyntax d => BindDeclarationPattern(d),
             TuplePatternSyntax t => BindTuplePattern(t),
             UnaryPatternSyntax u => BindUnaryPattern(u),
@@ -311,6 +312,101 @@ internal partial class BlockBinder
         var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
 
         return new BoundTuplePattern(tupleType, elementPatterns.ToImmutable());
+    }
+
+    private BoundPattern BindVariablePattern(VariablePatternSyntax syntax)
+    {
+        var isMutable = syntax.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
+        return BindVariableDesignation(syntax.Designation, isMutable, expectedType: null);
+    }
+
+    private BoundPattern BindVariableDesignation(
+        VariableDesignationSyntax designation,
+        bool isMutable,
+        ITypeSymbol? expectedType)
+    {
+        expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+
+        return designation switch
+        {
+            SingleVariableDesignationSyntax single => BindVariableDesignation(single, isMutable, expectedType),
+            ParenthesizedVariableDesignationSyntax parenthesized => BindVariableDesignation(parenthesized, isMutable, expectedType),
+            TypedVariableDesignationSyntax typed => BindTypedVariableDesignation(typed, isMutable, expectedType),
+            _ => new BoundDiscardPattern(expectedType)
+        };
+    }
+
+    private BoundPattern BindTypedVariableDesignation(
+        TypedVariableDesignationSyntax typedDesignation,
+        bool isMutable,
+        ITypeSymbol? expectedType)
+    {
+        var declaredType = ResolveType(typedDesignation.TypeAnnotation.Type);
+        declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
+
+        return BindVariableDesignation(typedDesignation.Designation, isMutable, declaredType);
+    }
+
+    private BoundPattern BindVariableDesignation(
+        SingleVariableDesignationSyntax single,
+        bool isMutable,
+        ITypeSymbol expectedType)
+    {
+        var normalizedType = TypeSymbolNormalization.NormalizeForInference(expectedType);
+
+        if (single.Identifier.IsMissing || single.Identifier.ValueText == "_")
+        {
+            var discardType = normalizedType.TypeKind == TypeKind.Error
+                ? Compilation.ErrorTypeSymbol
+                : normalizedType;
+
+            return new BoundDiscardPattern(discardType);
+        }
+
+        var type = normalizedType.TypeKind == TypeKind.Error
+            ? Compilation.ErrorTypeSymbol
+            : normalizedType;
+
+        type = EnsureTypeAccessible(type, single.Identifier.GetLocation());
+
+        var local = CreateLocalSymbol(single, single.Identifier.ValueText, isMutable, type);
+        var designator = new BoundSingleVariableDesignator(local);
+
+        return new BoundDeclarationPattern(type, designator);
+    }
+
+    private BoundPattern BindVariableDesignation(
+        ParenthesizedVariableDesignationSyntax parenthesized,
+        bool isMutable,
+        ITypeSymbol expectedType)
+    {
+        var variables = parenthesized.Variables;
+        var elementTypes = GetTupleElementTypes(expectedType);
+
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(variables.Count);
+
+        for (var i = 0; i < variables.Count; i++)
+        {
+            var variable = variables[i];
+            var elementType = elementTypes.Length > i
+                ? elementTypes[i]
+                : Compilation.GetSpecialType(SpecialType.System_Object);
+
+            var boundElement = BindVariableDesignation(variable, isMutable, elementType);
+            boundElements.Add(boundElement);
+        }
+
+        var tupleElements = new List<(string? name, ITypeSymbol type)>(boundElements.Count);
+
+        foreach (var element in boundElements)
+        {
+            var elementType = element.Type ?? Compilation.ErrorTypeSymbol;
+            tupleElements.Add((null, elementType));
+        }
+
+        var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
+
+        return new BoundTuplePattern(tupleType, boundElements.ToImmutable());
     }
 
     private BoundPattern BindTuplePatternElementDesignation(TuplePatternElementSyntax elementSyntax, BoundPattern pattern)
