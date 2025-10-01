@@ -159,6 +159,23 @@ class Calculator {
         Assert.Equal(TypeKind.Delegate, delegateType.TypeKind);
         Assert.Same(delegateType.GetDelegateInvokeMethod(), boundInvocation.Method);
     }
+
+    [Fact]
+    public void MetadataDelegate_PreservesDelegateTypeKind_WhenConstructed()
+    {
+        const string code = "class Container { }";
+
+        var (compilation, _) = CreateCompilation(code);
+
+        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Func`2"));
+        Assert.Equal(TypeKind.Delegate, definition.TypeKind);
+
+        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(
+            compilation.GetSpecialType(SpecialType.System_Int32),
+            compilation.GetSpecialType(SpecialType.System_Int32)));
+        Assert.Equal(TypeKind.Delegate, constructed.TypeKind);
+    }
 }
 
 public class LambdaInferenceDiagnosticsTests : DiagnosticTestBase

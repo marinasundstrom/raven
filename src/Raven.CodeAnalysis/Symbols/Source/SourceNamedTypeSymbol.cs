@@ -18,7 +18,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object");
 
-        TypeKind = TypeKind.Class;
+        TypeKind = DetermineTypeKind(TypeKind.Class, BaseType);
         IsSealed = true;
         IsAbstract = false;
     }
@@ -39,7 +39,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         BaseType = baseType;
 
-        TypeKind = typeKind;
+        TypeKind = DetermineTypeKind(typeKind, baseType);
         IsSealed = isSealed;
         IsAbstract = isAbstract;
     }
@@ -203,5 +203,19 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
             throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments but received {typeArguments.Length}.", nameof(typeArguments));
 
         return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
+    }
+
+    private static TypeKind DetermineTypeKind(TypeKind declaredTypeKind, INamedTypeSymbol? baseType)
+    {
+        if (declaredTypeKind == TypeKind.Class && baseType is not null)
+        {
+            if (baseType.TypeKind == TypeKind.Delegate)
+                return TypeKind.Delegate;
+
+            if (baseType.SpecialType is SpecialType.System_MulticastDelegate or SpecialType.System_Delegate)
+                return TypeKind.Delegate;
+        }
+
+        return declaredTypeKind;
     }
 }
