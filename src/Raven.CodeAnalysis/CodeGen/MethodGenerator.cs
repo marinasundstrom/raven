@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal class MethodGenerator
 {
-    private readonly IDictionary<ISymbol, ParameterBuilder> _parameterBuilders = new Dictionary<ISymbol, ParameterBuilder>(SymbolEqualityComparer.Default);
+    private readonly List<(IParameterSymbol Symbol, ParameterBuilder Builder)> _parameterBuilders = new();
     private bool _bodyEmitted;
     private Compilation _compilation;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
@@ -180,7 +180,7 @@ internal class MethodGenerator
 
             TypeGenerator.CodeGen.ApplyCustomAttributes(parameterSymbol.GetAttributes(), attribute => parameterBuilder.SetCustomAttribute(attribute));
 
-            _parameterBuilders[parameterSymbol] = parameterBuilder;
+            _parameterBuilders.Add((parameterSymbol, parameterBuilder));
             i++;
         }
 
@@ -242,9 +242,22 @@ internal class MethodGenerator
         return customAttributeBuilder;
     }
 
-    public IEnumerable<ParameterBuilder> GetParameterBuilders() => _parameterBuilders.Values;
+    public IEnumerable<ParameterBuilder> GetParameterBuilders()
+    {
+        foreach (var (_, builder) in _parameterBuilders)
+            yield return builder;
+    }
 
-    public ParameterBuilder GetParameterBuilder(IParameterSymbol parameterSymbol) => _parameterBuilders[parameterSymbol];
+    public ParameterBuilder GetParameterBuilder(IParameterSymbol parameterSymbol)
+    {
+        foreach (var (symbol, builder) in _parameterBuilders)
+        {
+            if (ReferenceEquals(symbol, parameterSymbol) || SymbolEqualityComparer.Default.Equals(symbol, parameterSymbol))
+                return builder;
+        }
+
+        throw new KeyNotFoundException($"Missing parameter builder for '{parameterSymbol.Name}'.");
+    }
 
     public void EmitBody()
     {
