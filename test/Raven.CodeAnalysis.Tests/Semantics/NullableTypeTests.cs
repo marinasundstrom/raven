@@ -25,6 +25,16 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void MetadataNullableDefinition_ReportsNullableSpecialType()
+    {
+        var compilation = CreateCompilation();
+        var nullableDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Nullable`1"));
+
+        Assert.Equal(SpecialType.System_Nullable_T, nullableDefinition.SpecialType);
+    }
+
+    [Fact]
     public void ReferencedLibrary_NullabilityAnnotations_AreRead()
     {
         var compilation = CreateCompilation();

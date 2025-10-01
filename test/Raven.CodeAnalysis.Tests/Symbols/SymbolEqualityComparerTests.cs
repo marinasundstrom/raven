@@ -31,7 +31,7 @@ public class SymbolEqualityComparerTests
     }
 
     [Fact]
-    public void IgnoringNullabilityComparer_TreatsNullableAndUnderlyingAsEqual()
+    public void IgnoringNullabilityComparer_DistinguishesNullableValueTypes()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
@@ -40,14 +40,14 @@ public class SymbolEqualityComparerTests
         var nullableInt = new NullableTypeSymbol(intType, null, null, null, []);
 
         var comparer = SymbolEqualityComparer.IgnoringNullability;
-        Assert.True(comparer.Equals(intType, nullableInt));
+        Assert.False(comparer.Equals(intType, nullableInt));
 
         var dictionary = new Dictionary<ISymbol, int>(comparer)
         {
             [intType] = 1,
         };
 
-        Assert.True(dictionary.ContainsKey(nullableInt));
+        Assert.False(dictionary.ContainsKey(nullableInt));
     }
 
     [Fact]
