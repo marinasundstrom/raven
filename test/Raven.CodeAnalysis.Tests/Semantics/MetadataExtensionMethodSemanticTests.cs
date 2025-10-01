@@ -86,7 +86,7 @@ import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
 let numbers = List<int>()
-let projection = numbers.Select(func (value) => value)
+let projection = numbers.Select(value => value)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -221,7 +221,7 @@ import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
 let numbers = List<int>()
-let anyPositive = numbers.Any(func (value: int) => value > 0)
+let anyPositive = numbers.Any((value: int) => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -321,7 +321,7 @@ import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
 let numbers = List<int>()
-let projection = numbers.Select(func (value) => value.ToString())
+let projection = numbers.Select(value => value.ToString())
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -375,7 +375,7 @@ import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
 let numbers = List<int>()
-let positives = numbers.Where(func (value) => value > 0)
+let positives = numbers.Where(value => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -422,7 +422,7 @@ import System.*
 import System.Linq.*
 
 let numbers: int[] = [1, 2, 3]
-let result = numbers.Where(func (value) => value == 2)
+let result = numbers.Where(value => value == 2)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -472,7 +472,7 @@ import System.*
 import System.Linq.*
 
 let numbers: int[] = [1, 2, 3]
-let result = numbers.Where(func (value) => value > 0)
+let result = numbers.Where(value => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -535,7 +535,7 @@ import System.*
 import System.Linq.*
 
 let numbers: int[] = [1, 2, 3]
-let result = numbers.Where(func (value) => value > 0)
+let result = numbers.Where(value => value > 0)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -608,7 +608,7 @@ import System.Collections.Generic.*
 import Raven.MetadataFixtures.Linq.*
 
 let numbers = List<int>()
-let positives = numbers.Where(func (value: int, index: int) => value > index)
+let positives = numbers.Where((value: int, index: int) => value > index)
 """;
 
         var (compilation, tree) = CreateCompilation(source);

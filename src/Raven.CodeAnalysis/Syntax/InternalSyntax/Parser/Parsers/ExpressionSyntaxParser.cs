@@ -316,6 +316,14 @@ internal class ExpressionSyntaxParser : SyntaxParser
     /// <returns>An expression.</returns>
     private ExpressionSyntax ParseFactorExpression()
     {
+        if (TryParseLambdaExpression(out var lambda))
+        {
+            if (!_allowMatchExpressionSuffixes)
+                return lambda;
+
+            return ParseMatchExpressionSuffixes(lambda);
+        }
+
         ExpressionSyntax expr;
 
         SyntaxToken token = PeekToken();
@@ -352,10 +360,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseBlockSyntax();
                 break;
 
-            case SyntaxKind.FuncKeyword:
-                expr = ParseLambdaExpression();
-                break;
-
             default:
                 expr = ParsePowerExpression();
                 break;
@@ -374,29 +378,110 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return TryExpression(tryKeyword, expression);
     }
 
-    private LambdaExpressionSyntax ParseLambdaExpression()
+    private bool TryParseLambdaExpression(out LambdaExpressionSyntax? lambda)
     {
-        var funcKeyword = ReadToken();
+        lambda = null;
+
+        var token = PeekToken();
+
+        if (token.Kind == SyntaxKind.OpenParenToken && TryParseParenthesizedLambdaExpression(out lambda))
+            return true;
+
+        if (CanTokenBeIdentifier(token) && TryParseSimpleLambdaExpression(out lambda))
+            return true;
+
+        return false;
+    }
+
+    private bool TryParseParenthesizedLambdaExpression(out LambdaExpressionSyntax? lambda)
+    {
+        lambda = null;
+
+        if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
+            return false;
+
+        var checkpoint = CreateCheckpoint("parenthesized-lambda");
 
         var parameterList = new StatementSyntaxParser(this).ParseParameterList();
 
-        var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation()
-            ?? ArrowTypeClause(
-                SyntaxList.Empty,
-                MissingToken(SyntaxKind.ArrowToken),
-                IdentifierName(MissingToken(SyntaxKind.IdentifierToken)));
+        var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+
+        if (returnType is null && !IsNextToken(SyntaxKind.FatArrowToken))
+        {
+            checkpoint.Dispose();
+            return false;
+        }
 
         ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 
-        return ParenthesizedLambdaExpression(
-            funcKeyword,
+        returnType ??= ArrowTypeClause(
+            SyntaxList.Empty,
+            MissingToken(SyntaxKind.ArrowToken),
+            IdentifierName(MissingToken(SyntaxKind.IdentifierToken)));
+
+        lambda = ParenthesizedLambdaExpression(
             parameterList,
-            returnParameterAnnotation,
+            returnType,
             fatArrowToken,
-            body
-        );
+            body);
+
+        return true;
+    }
+
+    private bool TryParseSimpleLambdaExpression(out LambdaExpressionSyntax? lambda)
+    {
+        lambda = null;
+
+        var checkpoint = CreateCheckpoint("simple-lambda");
+
+        var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
+        SyntaxList modifiers = SyntaxList.Empty;
+        if (ConsumeToken(SyntaxKind.RefKeyword, out var modifier)
+            || ConsumeToken(SyntaxKind.OutKeyword, out modifier)
+            || ConsumeToken(SyntaxKind.InKeyword, out modifier))
+        {
+            modifiers = modifiers.Add(modifier);
+        }
+
+        if (!CanTokenBeIdentifier(PeekToken()))
+        {
+            checkpoint.Dispose();
+            return false;
+        }
+
+        var identifier = ReadIdentifierToken();
+
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+
+        EqualsValueClauseSyntax? defaultValue = null;
+        if (IsNextToken(SyntaxKind.EqualsToken, out _))
+            defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+
+        var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
+
+        if (returnType is null && !IsNextToken(SyntaxKind.FatArrowToken))
+        {
+            checkpoint.Dispose();
+            return false;
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
+
+        var body = new ExpressionSyntaxParser(this).ParseExpression();
+
+        returnType ??= ArrowTypeClause(
+            SyntaxList.Empty,
+            MissingToken(SyntaxKind.ArrowToken),
+            IdentifierName(MissingToken(SyntaxKind.IdentifierToken)));
+
+        var parameter = Parameter(attributeLists, modifiers, identifier, typeAnnotation, defaultValue);
+
+        lambda = SimpleLambdaExpression(parameter, returnType, fatArrowToken, body);
+
+        return true;
     }
 
     /// <summary>

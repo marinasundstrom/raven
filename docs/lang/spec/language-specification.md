@@ -811,7 +811,7 @@ import System.Linq.*
 let odds = List<int>()
 odds.Add(1)
 odds.Add(3)
-let filtered = odds.Where(func (value) => value % 2 == 1)
+let filtered = odds.Where(value => value % 2 == 1)
 ```
 
 The compiler treats `Where` as an instance-style invocation even though it is
@@ -1012,9 +1012,10 @@ func outer() {
 
 ### Lambda expressions and captured variables
 
-Lambda expressions use the `func` keyword followed by a parameter list, an
-arrow, and either an expression or block body. Lambdas may appear wherever a
-function value is expected. When a lambda references a local defined in an
+Lambda expressions start with either a parenthesized parameter list or a single
+identifier, optionally followed by a return-type arrow, and then the `=>` token
+with either an expression or block body. Lambdas may appear wherever a function
+value is expected. When a lambda references a local defined in an
 outer scope, the compiler lifts that local into shared closure storage so both
 the outer scope and the lambda observe the same value. Each captured local is
 wrapped in a reference cell (implemented with `System.Runtime.CompilerServices.StrongBox<T>`)
