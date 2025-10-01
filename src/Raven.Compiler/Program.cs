@@ -173,6 +173,7 @@ foreach (var filePath in sourceFiles)
 {
     using var file = File.OpenRead(filePath);
     var sourceText = SourceText.From(file);
+    var parsedTree = SyntaxTree.ParseText(sourceText, path: filePath);
     var document = project.AddDocument(Path.GetFileName(filePath), sourceText, filePath);
     project = document.Project;
 }
@@ -200,6 +201,7 @@ workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
 
 var compilation = workspace.GetCompilation(projectId);
+
 var diagnostics = workspace.GetDiagnostics(projectId);
 
 outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
