@@ -125,7 +125,7 @@ sealed class LambdaSelfCaptureCollector : BoundTreeWalker
     {
         foreach (var captured in node.CapturedVariables)
         {
-            if (captured is not null && SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingSymbol))
+            if (captured is not null && ShouldPropagateCapture(captured))
                 _captures.Add(captured);
         }
 
@@ -133,11 +133,22 @@ sealed class LambdaSelfCaptureCollector : BoundTreeWalker
         {
             foreach (var captured in sourceLambda.CapturedVariables)
             {
-                if (SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingSymbol))
+                if (captured is not null && ShouldPropagateCapture(captured))
                     _captures.Add(captured);
             }
         }
 
         base.VisitLambdaExpression(node);
+    }
+
+    private bool ShouldPropagateCapture(ISymbol captured)
+    {
+        if (SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingSymbol))
+            return true;
+
+        if (captured is ITypeSymbol typeSymbol && _containingSymbol.ContainingType is { } containingType)
+            return SymbolEqualityComparer.Default.Equals(typeSymbol, containingType);
+
+        return false;
     }
 }
