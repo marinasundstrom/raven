@@ -227,6 +227,22 @@ class Calculator {
     }
 
     [Fact]
+    public void Lambda_ReturningLambda_WithExplicitReturnType_ComposesSuccessfully()
+    {
+        const string code = """
+import System.*
+import System.Console.*
+
+let makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a
+""";
+
+        var (compilation, _) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void MetadataDelegate_PreservesDelegateTypeKind_WhenConstructed()
     {
         const string code = "class Container { }";
