@@ -36,6 +36,11 @@ public enum OperationKind
     LocalDeclaration,
 
     /// <summary>
+    /// A function declaration statement.
+    /// </summary>
+    Function,
+
+    /// <summary>
     /// An individual variable declarator.
     /// </summary>
     VariableDeclarator,
@@ -49,6 +54,36 @@ public enum OperationKind
     /// A throw statement.
     /// </summary>
     Throw,
+
+    /// <summary>
+    /// A break statement.
+    /// </summary>
+    Break,
+
+    /// <summary>
+    /// A continue statement.
+    /// </summary>
+    Continue,
+
+    /// <summary>
+    /// A goto statement.
+    /// </summary>
+    Goto,
+
+    /// <summary>
+    /// A labeled statement.
+    /// </summary>
+    Labeled,
+
+    /// <summary>
+    /// A try statement.
+    /// </summary>
+    Try,
+
+    /// <summary>
+    /// A catch clause.
+    /// </summary>
+    CatchClause,
 
     /// <summary>
     /// A literal value.
@@ -111,6 +146,11 @@ public enum OperationKind
     ConditionalAccess,
 
     /// <summary>
+    /// A try expression.
+    /// </summary>
+    TryExpression,
+
+    /// <summary>
     /// A while loop statement or expression.
     /// </summary>
     WhileLoop,
@@ -146,6 +186,21 @@ public enum OperationKind
     Tuple,
 
     /// <summary>
+    /// An address-of expression.
+    /// </summary>
+    AddressOf,
+
+    /// <summary>
+    /// An array element access expression.
+    /// </summary>
+    ArrayElement,
+
+    /// <summary>
+    /// An indexer element access expression.
+    /// </summary>
+    IndexerElement,
+
+    /// <summary>
     /// A typeof expression.
     /// </summary>
     TypeOf,
@@ -169,6 +224,16 @@ public enum OperationKind
     /// A type expression.
     /// </summary>
     TypeExpression,
+
+    /// <summary>
+    /// A namespace expression.
+    /// </summary>
+    NamespaceExpression,
+
+    /// <summary>
+    /// A reference to the current instance.
+    /// </summary>
+    SelfReference,
 
     /// <summary>
     /// The unit literal value.
