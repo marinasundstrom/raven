@@ -14,7 +14,7 @@ public class LambdaCapturedVariablesTests
         var code = """
 class Calculator {
     Apply(base: int) -> int {
-        let lambda = func (offset: int) -> int => base + offset
+        let lambda = (offset: int) -> int => base + offset
         return lambda(2)
     }
 }
@@ -45,7 +45,7 @@ class Calculator {
 class Calculator {
     Apply() -> int {
         let factor = 3
-        let lambda = func (value: int) -> int => factor * value
+        let lambda = (value: int) -> int => factor * value
         return lambda(4)
     }
 }

@@ -22,7 +22,7 @@ class Calculator {
     }
 
     Apply() -> int {
-        return Transform(5, func (delta) => delta + 1)
+        return Transform(5, delta => delta + 1)
     }
 }
 """;
@@ -134,7 +134,7 @@ class Container {
 import System.*
 class Calculator {
     Compute() -> int {
-        let add = func (left: int, right: int) -> int => left + right
+        let add = (left: int, right: int) -> int => left + right
         return add(2, 3)
     }
 }
@@ -169,7 +169,7 @@ public class LambdaInferenceDiagnosticsTests : DiagnosticTestBase
         const string code = """
 class Container {
     Provide() -> unit {
-        let lambda = func (value) => value
+        let lambda = (value) => value
     }
 }
 """;

@@ -9,7 +9,7 @@ numbers.Add(-1)
 numbers.Add(2)
 numbers.Add(1)
 
-let positives = numbers.Where(func (value: int) -> bool => value > 0)
+let positives = numbers.Where((value: int) -> bool => value > 0)
 
 for each value in positives {
     WriteLine(value)

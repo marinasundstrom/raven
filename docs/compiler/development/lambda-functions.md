@@ -7,16 +7,17 @@ compiler and highlights the remaining work needed to make them executable.
 
 * The syntax model exposes an abstract `LambdaExpressionSyntax` with concrete
   `SimpleLambdaExpressionSyntax` and `ParenthesizedLambdaExpressionSyntax`
-  shapes in `Model.xml`. Both forms share a leading `func` keyword, an arrow
-  token, and an expression body slot. The simple form stores a single `Parameter`
-  node while the parenthesized form reuses the `ParameterList` structure used by
-  function declarations.【F:src/Raven.CodeAnalysis/Syntax/Model.xml†L323-L377】【F:src/Raven.CodeAnalysis/Syntax/Model.xml†L391-L415】
-* `ExpressionSyntaxParser.ParseFactorExpression` treats `func` as a prefix for
-  lambda expressions. The parser delegates parameter parsing to
-  `StatementSyntaxParser.ParseParameterList`, reuses the return-type helper used
-  by declarations, consumes the `=>` token, and finally parses the expression
-  body. Only the parenthesized form is constructed today; no call site creates
-  `SimpleLambdaExpressionSyntax`.【F:src/Raven.CodeAnalysis/Syntax/InternalSyntax/Parser/Parsers/ExpressionSyntaxParser.cs†L292-L334】【F:src/Raven.CodeAnalysis/Syntax/InternalSyntax/Parser/Parsers/StatementSyntaxParser.cs†L123-L173】
+  shapes in `Model.xml`. Both forms now omit a leading keyword; they share the
+  `=>` arrow token and an expression body slot. The simple form stores a single
+  `Parameter` node while the parenthesized form reuses the `ParameterList`
+  structure used by function declarations.【F:src/Raven.CodeAnalysis/Syntax/Model.xml†L479-L504】【F:src/Raven.CodeAnalysis/Syntax/Model.xml†L632-L656】
+* `ExpressionSyntaxParser.ParseFactorExpression` speculatively interprets either
+  a parenthesized parameter list or a single identifier as the start of a
+  lambda. The parser delegates parenthesized parameters to
+  `StatementSyntaxParser.ParseParameterList`, parses the simple form inline, and
+  consumes any optional return type before expecting the `=>` token and body.
+  This flow now constructs both `SimpleLambdaExpressionSyntax` and
+  `ParenthesizedLambdaExpressionSyntax` nodes depending on the source.
 * Because blocks are first-class expressions, a lambda body can be either a
   single expression or a braced block expression, letting the binder reuse the
   regular expression binding pipeline.
@@ -90,20 +91,17 @@ compiler and highlights the remaining work needed to make them executable.
 ## Investigation: simple lambda syntax
 
 The syntax model already exposes both `SimpleLambdaExpressionSyntax` and
-`ParenthesizedLambdaExpressionSyntax`, but the parser always returns the
-parenthesized form. `ParseLambdaExpression` delegates parameter parsing to
-`StatementSyntaxParser.ParseParameterList`, which unconditionally consumes an
-opening parenthesis and therefore cannot produce a single-parameter lambda that
-omits the parentheses.
+`ParenthesizedLambdaExpressionSyntax`, and the parser now constructs either
+shape depending on the tokens it encounters. When a lambda omits parentheses,
+`ParseFactorExpression` parses a single `Parameter` node inline and produces a
+`SimpleLambdaExpressionSyntax`. Parenthesized forms continue to route through
+`StatementSyntaxParser.ParseParameterList`, so both shapes share the same
+parameter and optional return-type parsing helpers.
 
-The remainder of the pipeline is already prepared for the shorthand form.
-`BlockBinder.BindLambdaExpression` and the lambda replay helpers enumerate the
-parameter syntax via pattern matching, so a `SimpleLambdaExpressionSyntax`
-would seamlessly flow through binding and delegate rebinding without additional
+The remainder of the pipeline handles both forms uniformly. `BlockBinder.BindLambdaExpression`
+and the replay helpers enumerate the parameter syntax via pattern matching, so
+either shape flows through binding and delegate rebinding without additional
 changes.
-
-Because no product code currently synthesizes the simple form, wiring it up in
-the parser is the next functional step toward full lambda expression coverage.
 
 ## Recent commit review
 
@@ -145,7 +143,7 @@ suite needs to be broadened so the new syntax is exercised end-to-end.
   exclusively with parentheses. Adding equivalents that use the shorthand form
   will verify closure emission, delegate materialization, and nested lambda
   handling once the parser can produce the simple syntax.【F:test/Raven.CodeAnalysis.Tests/CodeGen/LambdaCodeGenTests.cs†L13-L120】【F:test/Raven.CodeAnalysis.Tests/CodeGen/LambdaCodeGenTests.cs†L189-L268】
-* Parser-focused tests should assert that `func value => value + 1` now yields a
+* Parser-focused tests should assert that `value => value + 1` yields a
   `SimpleLambdaExpressionSyntax`. The grammar already models the node shape, so
   a targeted syntax test will guard against regressions that reintroduce the
   parenthesized-only behaviour.
@@ -155,10 +153,9 @@ syntax, binding, and emission layers.
 
 ## Next steps
 
-1. Teach the expression parser to recognize the single-parameter shorthand by
-   peeking for an identifier immediately after `func` and constructing a
-   `SimpleLambdaExpressionSyntax` when no opening parenthesis is present. The
-   binder and replay helpers already handle this shape, so the work is limited
-   to parsing plus follow-up tests.
-2. Expand semantic, syntax, and code-generation tests to cover the shorthand
-   form so that the new parser behaviour is verified end-to-end.
+1. Harden the speculative parser by covering ambiguous parenthesized forms—such
+   as casts versus lambdas—with targeted tests so the rollback logic stays
+   resilient.
+2. Expand semantic, syntax, and code-generation tests to include combinations of
+   optional return types, attributes, and default values in the shorthand form
+   to ensure all parameter features work without parentheses.

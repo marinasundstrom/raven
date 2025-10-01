@@ -225,7 +225,7 @@ import System.Collections.Generic.*
 import System.Linq.*
 
 let numbers = [1, 2, 3]
-let result = numbers.Where(func (value) => value == 2)
+let result = numbers.Where(value => value == 2)
 """;
 
         var (compilation, tree) = CreateCompilation(source);
@@ -303,7 +303,7 @@ import System.Collections.Generic.*
 import System.Linq.*
 
 let numbers = [1, 2, 3]
-let result = numbers.Where(func (value: int) -> bool => value == 2)
+let result = numbers.Where((value: int) -> bool => value == 2)
 """;
 
         var (compilation, _) = CreateCompilation(source);
