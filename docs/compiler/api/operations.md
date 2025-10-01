@@ -55,7 +55,10 @@ public sealed class ControlFlowCollector : OperationVisitor
 {
     public override void DefaultVisit(IOperation operation)
     {
-        if (operation.Kind is OperationKind.IfStatement or OperationKind.Loop)
+        if (operation.Kind is OperationKind.Conditional
+            or OperationKind.WhileLoop
+            or OperationKind.ForLoop
+            or OperationKind.Try)
         {
             // Record the construct for later analysis.
         }
@@ -65,14 +68,28 @@ public sealed class ControlFlowCollector : OperationVisitor
 }
 ```
 
-Operations delegate child discovery to `OperationFactory`, which currently walks
-syntax children and converts them into operations. This behavior will evolve as
-more operation kinds are implemented.
+Operations delegate child discovery to `OperationFactory`, which walks syntax
+children and converts them into operations. As more `BoundNode` shapes are
+mapped, the factory recognizes additional control-flow and reference patterns.
+
+## Supported operation kinds
+
+Beyond the foundational expression and statement nodes, the factory surfaces
+semantic kinds for:
+
+- Control flow: `Break`, `Continue`, `Goto`, `Labeled`, and `Try` statements as
+  well as individual `CatchClause` nodes.
+- Exception expressions: `TryExpression` for expression-based exception
+  handling forms.
+- Indirection and access: `AddressOf`, `ArrayElement`, and `IndexerElement`
+  expressions.
+- Contextual references: `NamespaceExpression` and `SelfReference` to model
+  namespace qualifiers and `self`/`this` usages.
 
 ## Current limitations
 
-The initial implementation focuses on establishing the public surface. Only a
-subset of `OperationKind` values produce meaningful trees today, and several
-concepts—such as control flow regions and data flow analysis—are not yet
-represented. Future work will flesh out specialized operation types, improve
-child synthesis, and surface additional semantic annotations.
+The initial implementation focuses on establishing the public surface. While
+more control-flow and reference constructs now map to dedicated operation
+kinds, several concepts—such as control flow regions and data flow analysis—are
+not yet represented. Future work will flesh out specialized operation types,
+improve child synthesis, and surface additional semantic annotations.
