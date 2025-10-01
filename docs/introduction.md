@@ -89,7 +89,6 @@ lowering, producing the same IL that C# would emit.【F:src/Raven.CodeAnalysis/B
 > **Note:** The CLI automatically references `System.Linq.dll`, but support for
 > the full BCL surface still depends on ongoing delegate inference polish. Until
 > the remaining lambda compatibility work lands, the bundled fixture provides a
-> stable way to exercise LINQ-style pipelines. Progress is tracked in the
-> [extension-method consumption status](compiler/design/extension-methods-consumption-status.md)
-> report.
+> stable way to exercise LINQ-style pipelines. Progress is now tracked in the
+> [extension methods and lambda integration investigation](investigations/extension-lambda-integration.md).
 
