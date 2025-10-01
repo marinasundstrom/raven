@@ -32,7 +32,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         if (typeInfo.IsEnum)
             TypeKind = TypeKind.Enum;
-        else if (typeof(MulticastDelegate).IsAssignableFrom(typeInfo))
+        else if (IsDelegateType(typeInfo))
             TypeKind = TypeKind.Delegate;
         else if (typeInfo.IsValueType)
             TypeKind = TypeKind.Struct;
@@ -89,13 +89,38 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                                                  other.AllInterfaces.Contains(i, SymbolEqualityComparer.Default)))
                     .ToImmutableArray();
             }
+
             return _interfaces.Value;
         }
     }
+
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
         _allInterfaces ??= _typeInfo.GetInterfaces()
             .Select(i => (INamedTypeSymbol)_typeResolver.ResolveType(i)!)
             .ToImmutableArray();
+
+    private static bool IsDelegateType(System.Reflection.TypeInfo typeInfo)
+    {
+        if (typeInfo.FullName == typeof(MulticastDelegate).FullName ||
+            typeInfo.FullName == typeof(Delegate).FullName)
+        {
+            return true;
+        }
+
+        if (typeof(MulticastDelegate).IsAssignableFrom(typeInfo))
+            return true;
+
+        var baseType = typeInfo.BaseType;
+        while (baseType is not null)
+        {
+            if (baseType.FullName == typeof(MulticastDelegate).FullName)
+                return true;
+
+            baseType = baseType.BaseType;
+        }
+
+        return false;
+    }
 
     public SpecialType SpecialType
     {

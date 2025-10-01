@@ -103,7 +103,16 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public string Name => _originalDefinition.Name;
     public string MetadataName => _originalDefinition.MetadataName;
     public SymbolKind Kind => _originalDefinition.Kind;
-    public TypeKind TypeKind => _originalDefinition.TypeKind;
+    public TypeKind TypeKind
+    {
+        get
+        {
+            if (ConstructedFrom is INamedTypeSymbol constructedFrom)
+                return constructedFrom.TypeKind;
+
+            return _originalDefinition.TypeKind;
+        }
+    }
     public SpecialType SpecialType => _originalDefinition.SpecialType;
     public bool IsNamespace => false;
     public bool IsType => true;
