@@ -120,6 +120,47 @@ public class SymbolEqualityComparerTests
     }
 
     [Fact]
+    public void Comparer_EquatesConstructedGenericsWithSameArguments()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var first = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+        var second = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+
+        var comparer = SymbolEqualityComparer.Default;
+
+        Assert.True(comparer.Equals(first, second));
+        Assert.Equal(comparer.GetHashCode(first), comparer.GetHashCode(second));
+
+        var set = new HashSet<ISymbol>(comparer) { first };
+        Assert.Contains(second, set);
+    }
+
+    [Fact]
+    public void Comparer_EquatesOpenGenericDefinitions()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var openInstance = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            listDefinition.Construct(listDefinition.TypeParameters.Cast<ITypeSymbol>().ToArray()));
+
+        var comparer = SymbolEqualityComparer.Default;
+
+        Assert.True(comparer.Equals(listDefinition, openInstance));
+        Assert.Equal(comparer.GetHashCode(listDefinition), comparer.GetHashCode(openInstance));
+    }
+
+    [Fact]
     public void Comparer_DistinguishesArrayElementTypes()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
