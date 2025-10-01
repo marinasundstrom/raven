@@ -1,4 +1,4 @@
-
+using System.Collections.Generic;
 
 namespace Raven.CodeAnalysis;
 
@@ -12,6 +12,8 @@ class LambdaBinder : BlockBinder
     {
         _parameters[param.Name] = param;
     }
+
+    public IEnumerable<IParameterSymbol> GetParameters() => _parameters.Values;
 
     public override ISymbol? LookupSymbol(string name)
     {
@@ -34,9 +36,9 @@ class LambdaBinder : BlockBinder
         if (_parameters.Values.Contains(symbol))
             return true;
 
-        foreach (var local in _locals)
+        foreach (var local in _locals.Values)
         {
-            if (ReferenceEquals(local.Value, symbol))
+            if (ReferenceEquals(local.Symbol, symbol))
                 return true;
         }
 
