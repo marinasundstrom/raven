@@ -163,15 +163,15 @@ internal abstract class Binder
 
     public virtual INamespaceSymbol? LookupNamespace(string name)
     {
-        var globalNamespace = Compilation.GlobalNamespace.LookupNamespace(name);
-        if (globalNamespace is not null)
-            return globalNamespace;
-
         var currentNamespace = CurrentNamespace?.LookupNamespace(name);
         if (currentNamespace is not null)
             return currentNamespace;
 
-        return ParentBinder?.LookupNamespace(name);
+        var namespaceFromParent = ParentBinder?.LookupNamespace(name);
+        if (namespaceFromParent is not null)
+            return namespaceFromParent;
+
+        return Compilation.GlobalNamespace.LookupNamespace(name);
     }
 
     public virtual ISymbol? LookupSymbol(string name)
@@ -350,12 +350,16 @@ internal abstract class Binder
         return result;
     }
 
+    public ITypeSymbol ResolveType(TypeSyntax typeSyntax, RefKind refKindHint)
+        => ResolveTypeInternal(typeSyntax, refKindHint);
+
     public virtual ITypeSymbol ResolveType(TypeSyntax typeSyntax)
+        => ResolveTypeInternal(typeSyntax, refKindHint: null);
+
+    private ITypeSymbol ResolveTypeInternal(TypeSyntax typeSyntax, RefKind? refKindHint)
     {
         if (typeSyntax is NullTypeSyntax)
-        {
-            return Compilation.NullTypeSymbol;
-        }
+            return ApplyRefKindHint(Compilation.NullTypeSymbol, refKindHint);
 
         if (typeSyntax is LiteralTypeSyntax literalType)
         {
@@ -372,18 +376,21 @@ internal abstract class Binder
                 string => Compilation.GetSpecialType(SpecialType.System_String),
                 _ => Compilation.ErrorTypeSymbol
             };
-            return new LiteralTypeSymbol(underlying, value, Compilation);
+
+            return ApplyRefKindHint(new LiteralTypeSymbol(underlying, value, Compilation), refKindHint);
         }
 
         if (typeSyntax is ByRefTypeSyntax byRef)
         {
-            return ResolveType(byRef.ElementType);
+            var elementType = ResolveTypeInternal(byRef.ElementType, refKindHint: null);
+            var effectiveRefKind = refKindHint ?? RefKind.Ref;
+            return new ByRefTypeSymbol(elementType, effectiveRefKind);
         }
 
         if (typeSyntax is NullableTypeSyntax nb)
         {
-            var elementType = ResolveType(nb.ElementType);
-            return new NullableTypeSymbol(elementType, null, null, null, []);
+            var elementType = ResolveTypeInternal(nb.ElementType, refKindHint: null);
+            return ApplyRefKindHint(new NullableTypeSymbol(elementType, null, null, null, []), refKindHint);
         }
 
         if (typeSyntax is UnionTypeSyntax ut)
@@ -394,18 +401,18 @@ internal abstract class Binder
                 if (t is NullableTypeSyntax nt)
                 {
                     _diagnostics.ReportNullableTypeInUnion(nt.GetLocation());
-                    return Compilation.ErrorTypeSymbol;
+                    return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
                 }
 
-                types.Add(ResolveType(t));
+                types.Add(ResolveTypeInternal(t, refKindHint: null));
             }
 
-            return new UnionTypeSymbol(types, null, null, null, []);
+            return ApplyRefKindHint(new UnionTypeSymbol(types, null, null, null, []), refKindHint);
         }
 
         if (typeSyntax is ArrayTypeSyntax arrayTypeSyntax)
         {
-            var currentElementType = ResolveType(arrayTypeSyntax.ElementType);
+            var currentElementType = ResolveTypeInternal(arrayTypeSyntax.ElementType, refKindHint: null);
 
             foreach (var rankSpecifier in arrayTypeSyntax.RankSpecifiers)
             {
@@ -413,37 +420,33 @@ internal abstract class Binder
                 currentElementType = Compilation.CreateArrayTypeSymbol(currentElementType, rank);
             }
 
-            return currentElementType;
+            return ApplyRefKindHint(currentElementType, refKindHint);
         }
 
         if (typeSyntax is TupleTypeSyntax tupleTypeSyntax)
         {
             var elements = tupleTypeSyntax.Elements
-                .Select(e => (e.NameColon?.Name.ToString(), ResolveType(e.Type)))
+                .Select(e => (e.NameColon?.Name.ToString(), ResolveTypeInternal(e.Type, refKindHint: null)))
                 .ToArray();
-            return Compilation.CreateTupleTypeSymbol(elements);
+            return ApplyRefKindHint(Compilation.CreateTupleTypeSymbol(elements), refKindHint);
         }
 
         if (typeSyntax is PredefinedTypeSyntax predefinedTypeSyntax)
-        {
-            return Compilation.ResolvePredefinedType(predefinedTypeSyntax);
-        }
+            return ApplyRefKindHint(Compilation.ResolvePredefinedType(predefinedTypeSyntax), refKindHint);
 
         if (typeSyntax is UnitTypeSyntax)
-        {
-            return Compilation.GetSpecialType(SpecialType.System_Unit);
-        }
+            return ApplyRefKindHint(Compilation.GetSpecialType(SpecialType.System_Unit), refKindHint);
 
         if (typeSyntax is IdentifierNameSyntax ident)
         {
             if (ident.Identifier.IsMissing)
-                return Compilation.ErrorTypeSymbol;
+                return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
 
             var type = LookupType(ident.Identifier.ValueText);
             if (type is INamedTypeSymbol named)
             {
                 if (named.IsAlias)
-                    return named;
+                    return ApplyRefKindHint(named, refKindHint);
 
                 if (named.Arity > 0 && named.IsUnboundGenericType)
                 {
@@ -451,17 +454,17 @@ internal abstract class Binder
                     if (zeroArity is null)
                     {
                         _diagnostics.ReportTypeRequiresTypeArguments(named.Name, named.Arity, ident.Identifier.GetLocation());
-                        return Compilation.ErrorTypeSymbol;
+                        return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
                     }
 
-                    return zeroArity;
+                    return ApplyRefKindHint(zeroArity, refKindHint);
                 }
 
-                return NormalizeDefinition(named);
+                return ApplyRefKindHint(NormalizeDefinition(named), refKindHint);
             }
 
             if (type is not null)
-                return type;
+                return ApplyRefKindHint(type, refKindHint);
         }
 
         if (typeSyntax is GenericNameSyntax generic)
@@ -474,24 +477,24 @@ internal abstract class Binder
             if (symbol is null)
             {
                 _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(generic.Identifier.ValueText, generic.GetLocation());
-                return Compilation.ErrorTypeSymbol;
+                return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
             }
 
             if (!ValidateTypeArgumentConstraints(symbol, typeArgs, i => GetTypeArgumentLocation(generic.TypeArgumentList.Arguments, generic.GetLocation(), i), symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
-                return Compilation.ErrorTypeSymbol;
+                return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
 
             var constructed = TryConstructGeneric(symbol, typeArgs, arity);
             if (constructed is not null)
-                return constructed;
+                return ApplyRefKindHint(constructed, refKindHint);
 
-            return symbol;
+            return ApplyRefKindHint(symbol, refKindHint);
         }
 
         if (typeSyntax is QualifiedNameSyntax qualified)
         {
             var symbol = ResolveQualifiedType(qualified);
             if (symbol is not null)
-                return symbol;
+                return ApplyRefKindHint(symbol, refKindHint);
         }
 
         var name = typeSyntax switch
@@ -501,7 +504,23 @@ internal abstract class Binder
         };
 
         _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, typeSyntax.GetLocation());
-        return Compilation.ErrorTypeSymbol;
+        return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
+    }
+
+    private static ITypeSymbol ApplyRefKindHint(ITypeSymbol type, RefKind? refKindHint)
+    {
+        if (refKindHint is not RefKind.Ref and not RefKind.Out and not RefKind.In and not RefKind.RefReadOnly and not RefKind.RefReadOnlyParameter)
+            return type;
+
+        if (type is ByRefTypeSymbol existing)
+        {
+            if (existing.RefKind == refKindHint)
+                return existing;
+
+            return new ByRefTypeSymbol(existing.ElementType, refKindHint.Value);
+        }
+
+        return new ByRefTypeSymbol(type, refKindHint.Value);
     }
 
     private ITypeSymbol? ResolveQualifiedType(QualifiedNameSyntax qualified)
@@ -566,10 +585,6 @@ internal abstract class Binder
     {
         if (left is IdentifierNameSyntax id)
         {
-            var ns = LookupNamespace(id.Identifier.ValueText);
-            if (ns is not null)
-                return ns;
-
             var type = LookupType(id.Identifier.ValueText);
             if (type is INamedTypeSymbol named)
             {
@@ -591,6 +606,10 @@ internal abstract class Binder
 
             if (type is not null)
                 return type;
+
+            var ns = LookupNamespace(id.Identifier.ValueText);
+            if (ns is not null)
+                return ns;
 
             return null;
         }

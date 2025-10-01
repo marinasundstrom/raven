@@ -23,6 +23,8 @@ class C {
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
         var symbol = methodSymbol.Parameters.Single();
+        var type = Assert.IsType<ByRefTypeSymbol>(symbol.Type);
+        Assert.Equal(RefKind.Ref, type.RefKind);
         Assert.Equal(RefKind.Ref, symbol.RefKind);
     }
 
@@ -40,6 +42,8 @@ class C {
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
         var symbol = methodSymbol.Parameters.Single();
+        var type = Assert.IsType<ByRefTypeSymbol>(symbol.Type);
+        Assert.Equal(RefKind.Out, type.RefKind);
         Assert.Equal(RefKind.Out, symbol.RefKind);
     }
 
@@ -57,6 +61,8 @@ class C {
         var ctor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
         var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
         var parameter = ctorSymbol.Parameters.Single();
+        var type = Assert.IsType<ByRefTypeSymbol>(parameter.Type);
+        Assert.Equal(RefKind.Ref, type.RefKind);
         Assert.Equal(RefKind.Ref, parameter.RefKind);
     }
 
@@ -74,6 +80,8 @@ class C {
         var ctor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
         var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
         var parameter = ctorSymbol.Parameters.Single();
+        var type = Assert.IsType<ByRefTypeSymbol>(parameter.Type);
+        Assert.Equal(RefKind.Out, type.RefKind);
         Assert.Equal(RefKind.Out, parameter.RefKind);
     }
 
@@ -91,6 +99,8 @@ func outer() {
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
+        var type = Assert.IsType<ByRefTypeSymbol>(parameter.Type);
+        Assert.Equal(RefKind.Ref, type.RefKind);
         Assert.Equal(RefKind.Ref, parameter.RefKind);
     }
 
@@ -108,6 +118,8 @@ func outer() {
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
         var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
+        var type = Assert.IsType<ByRefTypeSymbol>(parameter.Type);
+        Assert.Equal(RefKind.Out, type.RefKind);
         Assert.Equal(RefKind.Out, parameter.RefKind);
     }
 

@@ -52,11 +52,8 @@ partial class BlockBinder
             var typeSyntax = annotation?.Type;
             var refKind = RefKind.None;
 
-            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-            {
+            if (typeSyntax is ByRefTypeSyntax)
                 refKind = parameterSyntax.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                typeSyntax = byRefSyntax.ElementType;
-            }
 
             var targetParam = targetSignature is { } invoke && invoke.Parameters.Length > index
                 ? invoke.Parameters[index]
@@ -65,7 +62,10 @@ partial class BlockBinder
             ITypeSymbol parameterType;
             if (typeSyntax is not null)
             {
-                parameterType = ResolveType(typeSyntax);
+                var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+                parameterType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? ResolveType(typeSyntax, refKindForType)
+                    : ResolveType(typeSyntax);
             }
             else if (targetParam is not null)
             {
