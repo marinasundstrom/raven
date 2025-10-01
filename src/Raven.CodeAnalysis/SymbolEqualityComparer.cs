@@ -37,6 +37,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (x is ITypeSymbol typeX && y is ITypeSymbol typeY)
         {
+            if (typeX.TypeKind != typeY.TypeKind)
+                return false;
+
             if (typeX.SpecialType != SpecialType.None &&
                 typeX.SpecialType == typeY.SpecialType &&
                 IsSimpleSpecialType(typeX.SpecialType))
@@ -162,6 +165,19 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         var hash = new HashCode();
         hash.Add(obj.Kind);
+
+        if (obj is ITypeSymbol typeSymbol)
+        {
+            hash.Add(typeSymbol.TypeKind);
+
+            if (typeSymbol.SpecialType != SpecialType.None &&
+                IsSimpleSpecialType(typeSymbol.SpecialType))
+            {
+                hash.Add(typeSymbol.SpecialType);
+                return hash.ToHashCode();
+            }
+        }
+
         hash.Add(obj.Name, StringComparer.Ordinal);
         hash.Add(obj.MetadataName, StringComparer.Ordinal);
 
