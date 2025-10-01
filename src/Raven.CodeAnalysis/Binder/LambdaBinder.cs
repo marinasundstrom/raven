@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Raven.CodeAnalysis;
@@ -97,5 +98,46 @@ sealed class CapturedVariableWalker : BoundTreeWalker
     {
         if (symbol is not null)
             _accessedSymbols.Add(symbol);
+    }
+}
+
+sealed class LambdaSelfCaptureCollector : BoundTreeWalker
+{
+    private readonly ISymbol _containingSymbol;
+    private readonly HashSet<ISymbol> _captures = new(SymbolEqualityComparer.Default);
+
+    private LambdaSelfCaptureCollector(ISymbol containingSymbol)
+    {
+        _containingSymbol = containingSymbol;
+    }
+
+    public static IEnumerable<ISymbol> Collect(BoundExpression body, ISymbol containingSymbol)
+    {
+        if (body is null)
+            return Array.Empty<ISymbol>();
+
+        var collector = new LambdaSelfCaptureCollector(containingSymbol);
+        collector.VisitExpression(body);
+        return collector._captures;
+    }
+
+    public override void VisitLambdaExpression(BoundLambdaExpression node)
+    {
+        foreach (var captured in node.CapturedVariables)
+        {
+            if (captured is not null && SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingSymbol))
+                _captures.Add(captured);
+        }
+
+        if (node.Unbound is { LambdaSymbol: SourceLambdaSymbol sourceLambda } && sourceLambda.HasCaptures)
+        {
+            foreach (var captured in sourceLambda.CapturedVariables)
+            {
+                if (SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingSymbol))
+                    _captures.Add(captured);
+            }
+        }
+
+        base.VisitLambdaExpression(node);
     }
 }
