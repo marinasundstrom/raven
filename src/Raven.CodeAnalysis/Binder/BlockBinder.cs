@@ -4398,6 +4398,13 @@ partial class BlockBinder : Binder
                         yield return param;
             }
 
+            if (current is LambdaBinder lambdaBinder)
+            {
+                foreach (var param in lambdaBinder.GetParameters())
+                    if (param.Name == name && seen.Add(param))
+                        yield return param;
+            }
+
             if (current is TypeMemberBinder typeMemberBinder)
             {
                 foreach (var member in typeMemberBinder.ContainingSymbol.GetMembers(name))
