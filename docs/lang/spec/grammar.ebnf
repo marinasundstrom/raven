@@ -190,9 +190,13 @@ TypeTestExpression       ::= AdditiveExpression {('is' | 'as') Type} ;
 AdditiveExpression       ::= MultiplicativeExpression {('+' | '-') MultiplicativeExpression} ;
 MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression} ;
 
-UnaryExpression          ::= PostfixExpression
+UnaryExpression          ::= LambdaExpression
+                           | PostfixExpression
                            | ('+' | '-' | '!') UnaryExpression
                            | CastExpression ;
+
+LambdaExpression         ::= LambdaParameterClause ReturnTypeClause? '=>' Expression ;
+LambdaParameterClause    ::= '(' ParameterList? ')' | Parameter ;
 
 CastExpression           ::= '(' Type ')' UnaryExpression ;
 

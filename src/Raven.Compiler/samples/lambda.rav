@@ -5,12 +5,12 @@
 import System.Console.*
 
 // Expression-bodied lambda assigned to a local delegate
-let add = func (a: int, b: int) -> int => a + b
+let add = (a: int, b: int) -> int => a + b
 WriteLine("2 + 3 = " + add(2, 3).ToString())
 
 // Block-bodied lambda that captures and mutates an outer variable
 var offset = 10
-let adjust = func (value: int) -> int => {
+let adjust = (value: int) -> int => {
     let result = value + offset
     offset = offset + 1
     result
@@ -20,10 +20,10 @@ WriteLine("adjust(5) = " + adjust(5).ToString())
 WriteLine("offset after adjust = " + offset.ToString())
 
 // Nested lambda returning a closure that shares captured state
-let makeIncrementer = func (start: int) => {
+let makeIncrementer = (start: int) => {
     var current = start
 
-    let increment = func (delta: int) -> int => {
+    let increment = (delta: int) -> int => {
         current = current + delta
         current
     }
