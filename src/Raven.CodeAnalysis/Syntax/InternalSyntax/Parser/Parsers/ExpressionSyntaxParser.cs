@@ -416,11 +416,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 
-        returnType ??= ArrowTypeClause(
-            SyntaxList.Empty,
-            MissingToken(SyntaxKind.ArrowToken),
-            IdentifierName(MissingToken(SyntaxKind.IdentifierToken)));
-
         lambda = ParenthesizedLambdaExpression(
             parameterList,
             returnType,
@@ -471,11 +466,6 @@ internal class ExpressionSyntaxParser : SyntaxParser
         ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var fatArrowToken);
 
         var body = new ExpressionSyntaxParser(this).ParseExpression();
-
-        returnType ??= ArrowTypeClause(
-            SyntaxList.Empty,
-            MissingToken(SyntaxKind.ArrowToken),
-            IdentifierName(MissingToken(SyntaxKind.IdentifierToken)));
 
         var parameter = Parameter(attributeLists, modifiers, identifier, typeAnnotation, defaultValue);
 

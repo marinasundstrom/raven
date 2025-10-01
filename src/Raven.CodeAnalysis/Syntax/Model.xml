@@ -478,7 +478,7 @@
   </Node>
   <Node Name="SimpleLambdaExpression" Inherits="LambdaExpression">
     <Slot Name="Parameter" Type="Parameter" />
-    <Slot Name="ReturnType" Type="ArrowTypeClause" />
+    <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" IsInherited="true"  DefaultToken="ArrowToken"/>
     <Slot Name="ExpressionBody" Type="Expression" IsInherited="true" />
   </Node>
@@ -647,7 +647,7 @@
   </Node>
   <Node Name="ParenthesizedLambdaExpression" Inherits="LambdaExpression">
     <Slot Name="ParameterList" Type="ParameterList" />
-    <Slot Name="ReturnType" Type="ArrowTypeClause" />
+    <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" IsInherited="true"  DefaultToken="ArrowToken"/>
     <Slot Name="ExpressionBody" Type="Expression" IsInherited="true" />
   </Node>
