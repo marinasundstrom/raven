@@ -123,7 +123,6 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             {
                 var module = peParent.ContainingModule as PEModuleSymbol ?? this;
                 var nestedNamespace = new PENamespaceSymbol(_typeResolver, module, name, peParent, peParent);
-                peParent.AddMember(nestedNamespace);
                 return nestedNamespace;
             }
 
