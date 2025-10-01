@@ -278,6 +278,21 @@ func example(x: int) -> {
 // inferred return type: int | string
 ```
 
+When a lambda expression is assigned to a binding without an explicit type, Raven
+still materialises a concrete delegate. The compiler synthesises an appropriate
+`System.Func`/`System.Action` definition using the lambda's parameter types and
+the inferred return type (treating `unit`/`void` as an action). Captured
+variables participate in the enclosing flow analysis before the delegate type is
+constructed, so the lambda observes the same declared type as any other use of
+the variable.
+
+```raven
+let a = 42
+let makeAdder = () => a + 3
+
+makeAdder() // returns 45, makeAdder : System.Func<int>
+```
+
 ### Additional type inference rules (normative)
 
 The following clarifications extend the type inference model:
