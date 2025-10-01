@@ -2,3 +2,5 @@ import System.*
 import System.Console.*
 
 let makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a
+
+WriteLine(makeAdder(2))
