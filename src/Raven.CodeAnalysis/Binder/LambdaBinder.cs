@@ -129,7 +129,7 @@ sealed class LambdaSelfCaptureCollector : BoundTreeWalker
                 _captures.Add(captured);
         }
 
-        if (node.Unbound is { LambdaSymbol: SourceLambdaSymbol sourceLambda } && sourceLambda.HasCaptures)
+        if (node.Unbound is { LambdaSymbol: Symbols.SourceLambdaSymbol sourceLambda } && sourceLambda.HasCaptures)
         {
             foreach (var captured in sourceLambda.CapturedVariables)
             {
