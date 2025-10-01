@@ -17,5 +17,3 @@ WriteLine(member.Name)
 
 let type = ((MethodInfo)member).Invoke(member, null)
 WriteLine(type))
-
-//((System.Reflection.MethodInfo)member).Invoke(member, [])
