@@ -98,4 +98,20 @@ class TypeInspector {
         Assert.Equal("RAV0119", diagnostic.Descriptor.Id);
         Assert.Equal($"'{typeSyntax}' is a namespace but is used like a type", diagnostic.GetMessage());
     }
+
+    [Fact]
+    public void TypeOfExpression_WithFullyQualifiedSystemType_BindsSuccessfully()
+    {
+        var (compilation, tree) = CreateCompilation("let t = typeof(System.Object)");
+        var model = compilation.GetSemanticModel(tree);
+        var typeOfExpression = tree.GetRoot().DescendantNodes().OfType<TypeOfExpressionSyntax>().Single();
+
+        var typeInfo = model.GetTypeInfo(typeOfExpression);
+        Assert.Equal(SpecialType.System_Type, typeInfo.Type!.SpecialType);
+
+        var operandType = model.GetTypeInfo(typeOfExpression.Type).Type;
+        Assert.Equal(SpecialType.System_Object, operandType!.SpecialType);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
 }

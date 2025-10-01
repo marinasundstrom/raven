@@ -119,6 +119,13 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             if (parentNs.IsMemberDefined(name, out var existingSymbol))
                 return existingSymbol;
 
+            if (parentNs is PENamespaceSymbol peParent)
+            {
+                var module = peParent.ContainingModule as PEModuleSymbol ?? this;
+                var nestedNamespace = new PENamespaceSymbol(_typeResolver, module, name, peParent, peParent);
+                return nestedNamespace;
+            }
+
             return new PENamespaceSymbol(_typeResolver, name, parentNs, parentNs);
         }
 
