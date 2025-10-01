@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -70,14 +71,17 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         {
             if (namedTypeX.IsGenericType || namedTypeY.IsGenericType)
             {
-                var typeArgumentsX = namedTypeX.TypeArguments;
-                var typeArgumentsY = namedTypeY.TypeArguments;
+                var definitionX = GetGenericDefinition(namedTypeX);
+                var definitionY = GetGenericDefinition(namedTypeY);
 
-                if (typeArgumentsX.IsDefault)
-                    typeArgumentsX = ImmutableArray<ITypeSymbol>.Empty;
+                if (!ReferenceEquals(namedTypeX, definitionX) || !ReferenceEquals(namedTypeY, definitionY))
+                {
+                    if (!Equals(definitionX, definitionY))
+                        return false;
+                }
 
-                if (typeArgumentsY.IsDefault)
-                    typeArgumentsY = ImmutableArray<ITypeSymbol>.Empty;
+                var typeArgumentsX = GetTypeArgumentsOrParameters(namedTypeX);
+                var typeArgumentsY = GetTypeArgumentsOrParameters(namedTypeY);
 
                 if (typeArgumentsX.Length != typeArgumentsY.Length)
                     return false;
@@ -194,10 +198,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (obj is INamedTypeSymbol namedType)
         {
-            var typeArguments = namedType.TypeArguments;
-            if (typeArguments.IsDefault)
-                typeArguments = ImmutableArray<ITypeSymbol>.Empty;
-
+            var typeArguments = GetTypeArgumentsOrParameters(namedType);
             hash.Add(typeArguments.Length);
             foreach (var typeArgument in typeArguments)
                 hash.Add(GetHashCode(typeArgument));
@@ -237,5 +238,28 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
             return current;
         }
+    }
+
+    private static INamedTypeSymbol GetGenericDefinition(INamedTypeSymbol symbol)
+    {
+        if (symbol.ConstructedFrom is INamedTypeSymbol constructedFrom && !ReferenceEquals(symbol, constructedFrom))
+            return constructedFrom;
+
+        if (symbol.OriginalDefinition is INamedTypeSymbol original && !ReferenceEquals(symbol, original))
+            return original;
+
+        return symbol;
+    }
+
+    private static ImmutableArray<ITypeSymbol> GetTypeArgumentsOrParameters(INamedTypeSymbol symbol)
+    {
+        var typeArguments = symbol.TypeArguments;
+        if (!typeArguments.IsDefault)
+            return typeArguments;
+
+        if (!symbol.TypeParameters.IsDefault)
+            return symbol.TypeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+
+        return ImmutableArray<ITypeSymbol>.Empty;
     }
 }
