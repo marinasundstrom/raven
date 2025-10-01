@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -53,6 +55,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (!string.Equals(x.Name, y.Name, StringComparison.Ordinal))
             return false;
 
+        if (!string.Equals(x.MetadataName, y.MetadataName, StringComparison.Ordinal))
+            return false;
+
         var namespaceX = x.ContainingNamespace?.ToDisplayString();
         var namespaceY = y.ContainingNamespace?.ToDisplayString();
         if (!string.Equals(namespaceX, namespaceY, StringComparison.Ordinal))
@@ -60,6 +65,39 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (!Equals(x.ContainingSymbol, y.ContainingSymbol))
             return false;
+
+        if (x is INamedTypeSymbol namedTypeX && y is INamedTypeSymbol namedTypeY)
+        {
+            if (namedTypeX.IsGenericType || namedTypeY.IsGenericType)
+            {
+                var typeArgumentsX = namedTypeX.TypeArguments;
+                var typeArgumentsY = namedTypeY.TypeArguments;
+
+                if (typeArgumentsX.IsDefault)
+                    typeArgumentsX = ImmutableArray<ITypeSymbol>.Empty;
+
+                if (typeArgumentsY.IsDefault)
+                    typeArgumentsY = ImmutableArray<ITypeSymbol>.Empty;
+
+                if (typeArgumentsX.Length != typeArgumentsY.Length)
+                    return false;
+
+                for (var i = 0; i < typeArgumentsX.Length; i++)
+                {
+                    if (!Equals(typeArgumentsX[i], typeArgumentsY[i]))
+                        return false;
+                }
+            }
+        }
+
+        if (x is IArrayTypeSymbol arrayX && y is IArrayTypeSymbol arrayY)
+        {
+            if (arrayX.Rank != arrayY.Rank)
+                return false;
+
+            if (!Equals(arrayX.ElementType, arrayY.ElementType))
+                return false;
+        }
 
         if (x is IMethodSymbol methodX && y is IMethodSymbol methodY)
         {
@@ -72,6 +110,24 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             for (int i = 0; i < methodX.Parameters.Length; i++)
             {
                 if (!Equals(methodX.Parameters[i], methodY.Parameters[i]))
+                    return false;
+            }
+
+            var typeArgumentsX = methodX.TypeArguments;
+            var typeArgumentsY = methodY.TypeArguments;
+
+            if (typeArgumentsX.IsDefault)
+                typeArgumentsX = ImmutableArray<ITypeSymbol>.Empty;
+
+            if (typeArgumentsY.IsDefault)
+                typeArgumentsY = ImmutableArray<ITypeSymbol>.Empty;
+
+            if (typeArgumentsX.Length != typeArgumentsY.Length)
+                return false;
+
+            for (var i = 0; i < typeArgumentsX.Length; i++)
+            {
+                if (!Equals(typeArgumentsX[i], typeArgumentsY[i]))
                     return false;
             }
         }
@@ -126,6 +182,31 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(param.RefKind);
                 hash.Add(GetHashCode(param.Type));
             }
+
+            var typeArguments = method.TypeArguments;
+            if (typeArguments.IsDefault)
+                typeArguments = ImmutableArray<ITypeSymbol>.Empty;
+
+            hash.Add(typeArguments.Length);
+            foreach (var typeArgument in typeArguments)
+                hash.Add(GetHashCode(typeArgument));
+        }
+
+        if (obj is INamedTypeSymbol namedType)
+        {
+            var typeArguments = namedType.TypeArguments;
+            if (typeArguments.IsDefault)
+                typeArguments = ImmutableArray<ITypeSymbol>.Empty;
+
+            hash.Add(typeArguments.Length);
+            foreach (var typeArgument in typeArguments)
+                hash.Add(GetHashCode(typeArgument));
+        }
+
+        if (obj is IArrayTypeSymbol arrayType)
+        {
+            hash.Add(arrayType.Rank);
+            hash.Add(GetHashCode(arrayType.ElementType));
         }
 
         if (obj.ContainingSymbol is { } containingSymbol && obj is not ITypeParameterSymbol)

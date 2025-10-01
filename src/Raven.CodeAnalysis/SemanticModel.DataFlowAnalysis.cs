@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -9,38 +11,12 @@ public partial class SemanticModel
 {
     public DataFlowAnalysis AnalyzeDataFlow(ExpressionSyntax expression)
     {
-        if (expression is BlockSyntax block && block.Statements.Count > 0)
-        {
-            SyntaxNode? loop = block.Parent;
-
-            if (loop is not WhileStatementSyntax && loop is not ForStatementSyntax)
-                loop = loop?.Parent;
-
-            if (loop is WhileStatementSyntax or ForStatementSyntax)
-            {
-                if (loop.Parent is GlobalStatementSyntax globalStmt && globalStmt.Parent is CompilationUnitSyntax compilationUnit)
-                {
-                    var globalStatements = compilationUnit.Members.OfType<GlobalStatementSyntax>().ToList();
-                    var index = globalStatements.IndexOf(globalStmt);
-
-                    var assignedBefore = new HashSet<ISymbol>();
-                    for (int i = 0; i < index; i++)
-                    {
-                        var stmt = globalStatements[i].Statement;
-                        var preCollector = new AssignmentCollector(this);
-                        preCollector.Visit(stmt);
-                        assignedBefore.UnionWith(preCollector.Written);
-                    }
-
-                    var walker = new DataFlowWalker(this);
-                    walker.SetInitialAssigned(assignedBefore);
-                    walker.Visit(block);
-                    return walker.ToResult();
-                }
-            }
-        }
-
         var collector = new DataFlowWalker(this);
+
+        var assignedBefore = GetAssignedBeforeGlobalStatement(expression);
+        if (assignedBefore is not null)
+            collector.SetInitialAssigned(assignedBefore);
+
         collector.Visit(expression);
         return collector.ToResult();
     }
@@ -48,6 +24,9 @@ public partial class SemanticModel
     public DataFlowAnalysis AnalyzeDataFlow(StatementSyntax statement)
     {
         var collector = new DataFlowWalker(this);
+        var assignedBefore = GetAssignedBeforeGlobalStatement(statement);
+        if (assignedBefore is not null)
+            collector.SetInitialAssigned(assignedBefore);
         collector.Visit(statement);
         return collector.ToResult();
     }
@@ -73,12 +52,43 @@ public partial class SemanticModel
         }
 
         var collector = new DataFlowWalker(this);
+
+        var globalAssigned = GetAssignedBeforeGlobalStatement(block);
+        if (globalAssigned is not null)
+            assignedBeforeRegion.UnionWith(globalAssigned);
+
         collector.SetInitialAssigned(assignedBeforeRegion);
 
         for (int i = startIndex; i <= endIndex; i++)
             collector.Visit(block.Statements[i]);
 
         return collector.ToResult();
+    }
+
+    private HashSet<ISymbol>? GetAssignedBeforeGlobalStatement(SyntaxNode node)
+    {
+        var globalStatement = node.AncestorsAndSelf().OfType<GlobalStatementSyntax>().FirstOrDefault();
+        if (globalStatement is null)
+            return null;
+
+        if (globalStatement.Parent is not CompilationUnitSyntax compilationUnit)
+            return null;
+
+        var globalStatements = compilationUnit.Members.OfType<GlobalStatementSyntax>().ToList();
+        var index = globalStatements.IndexOf(globalStatement);
+        if (index <= 0)
+            return new HashSet<ISymbol>();
+
+        var assignedBefore = new HashSet<ISymbol>();
+        for (var i = 0; i < index; i++)
+        {
+            var statement = globalStatements[i].Statement;
+            var collector = new AssignmentCollector(this);
+            collector.Visit(statement);
+            assignedBefore.UnionWith(collector.Written);
+        }
+
+        return assignedBefore;
     }
 }
 
