@@ -100,7 +100,7 @@ internal partial class BoundLambdaExpression : BoundExpression
                 if (i < lambdaParameters.Length)
                 {
                     var lambdaParameter = lambdaParameters[i];
-                    if (lambdaParameter.Type is ITypeSymbol lambdaType)
+                    if (lambdaParameter.Type is ITypeSymbol lambdaType && lambdaType.TypeKind != TypeKind.Error)
                     {
                         if (!TryAddTypeMappings(sourceParameter.Type, lambdaType, substitutions))
                             return false;
@@ -124,7 +124,7 @@ internal partial class BoundLambdaExpression : BoundExpression
             if (!TryAddTypeMappings(source.ReturnType, target.ReturnType, substitutions))
                 return false;
 
-            if (lambdaReturnType is not null)
+            if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
             {
                 if (!TryAddTypeMappings(source.ReturnType, lambdaReturnType, substitutions))
                     return false;

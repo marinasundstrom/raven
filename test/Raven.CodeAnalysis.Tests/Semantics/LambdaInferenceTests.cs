@@ -34,21 +34,35 @@ class Calculator {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .OfType<SimpleLambdaExpressionSyntax>()
             .Single();
 
         var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.False(boundLambda.CandidateDelegates.IsDefaultOrEmpty);
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var parameter = Assert.Single(boundLambda.Parameters);
-        Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type));
-        Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(intType, parameter.Type),
+            parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        Assert.NotNull(boundLambda.Body.Type);
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(intType, boundLambda.Body.Type),
+            $"{boundLambda.Body.GetType().FullName} - {boundLambda.Body.Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType),
+            boundLambda.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        Assert.True(
+            SymbolEqualityComparer.Default.Equals(
+                compilation.GetTypeByMetadataName("System.Func`2")?.Construct(intType, intType),
+                boundLambda.DelegateType),
+            boundLambda.DelegateType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
         var transformSyntax = tree.GetRoot()
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .First(f => f.Identifier.Text == "Transform");
-        var transformSymbol = Assert.IsType<IMethodSymbol>(model.GetDeclaredSymbol(transformSyntax));
+        var transformSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(transformSyntax));
         var projectorParameter = Assert.Single(transformSymbol.Parameters, p => p.Name == "projector");
         Assert.True(SymbolEqualityComparer.Default.Equals(projectorParameter.Type, boundLambda.DelegateType));
     }
@@ -125,6 +139,58 @@ class Container {
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var parameter = Assert.Single(boundLambda.Parameters);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type));
+    }
+
+    [Fact]
+    public void Lambda_WithOverloadSpecificDelegate_RebindsToSelectedMethod()
+    {
+        const string code = """
+import System.*
+class Container {
+    Overloaded(projector: Func<int, int>, value: int) -> int {
+        return projector(value)
+    }
+
+    Overloaded(projector: Func<string, string>, value: string) -> string {
+        return projector(value)
+    }
+
+    Invoke() -> int {
+        return Overloaded(value => value + 1, 5)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression is IdentifierNameSyntax { Identifier.ValueText: "Overloaded" });
+
+        var invocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(invocation.Method);
+
+        Assert.Equal("Overloaded", method.Name);
+
+        var funcDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Func`2"));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var expectedDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(funcDefinition.Construct(intType, intType));
+
+        var projectorParameter = Assert.Single(method.Parameters, p => p.Name == "projector");
+        Assert.Equal(
+            expectedDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+            projectorParameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+        var lambdaArgument = Assert.IsAssignableFrom<BoundLambdaExpression>(invocation.Arguments.First());
+        Assert.NotNull(lambdaArgument.Unbound);
+        Assert.False(lambdaArgument.CandidateDelegates.IsDefaultOrEmpty);
+        var lambdaParameter = Assert.Single(lambdaArgument.Parameters);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, lambdaParameter.Type));
     }
 
     [Fact]

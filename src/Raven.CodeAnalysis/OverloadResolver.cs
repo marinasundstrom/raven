@@ -530,12 +530,15 @@ internal sealed class OverloadResolver
             return true;
         }
 
+        bool lambdaCompatible = false;
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
             if (canBindLambda is not null)
             {
                 if (!canBindLambda(parameter, lambda))
                     return false;
+
+                lambdaCompatible = true;
             }
             else if (!lambda.IsCompatibleWithDelegate(delegateType, compilation))
                 return false;
@@ -544,22 +547,25 @@ internal sealed class OverloadResolver
         if (argument is BoundAddressOfExpression)
             return false;
 
-        var conversion = compilation.ClassifyConversion(argType, parameter.Type);
-        if (!conversion.IsImplicit)
-            return false;
-
-        var conversionScore = GetConversionScore(conversion);
-
-        if (parameter.Type is NullableTypeSymbol nullableParam && argType is not NullableTypeSymbol)
+        if (!lambdaCompatible)
         {
-            var liftedConversion = compilation.ClassifyConversion(argType, nullableParam.UnderlyingType);
-            if (liftedConversion.Exists)
-                conversionScore = GetConversionScore(liftedConversion);
+            var conversion = compilation.ClassifyConversion(argType, parameter.Type);
+            if (!conversion.IsImplicit)
+                return false;
 
-            conversionScore++;
+            var conversionScore = GetConversionScore(conversion);
+
+            if (parameter.Type is NullableTypeSymbol nullableParam && argType is not NullableTypeSymbol)
+            {
+                var liftedConversion = compilation.ClassifyConversion(argType, nullableParam.UnderlyingType);
+                if (liftedConversion.Exists)
+                    conversionScore = GetConversionScore(liftedConversion);
+
+                conversionScore++;
+            }
+
+            score += conversionScore;
         }
-
-        score += conversionScore;
         return true;
     }
 
