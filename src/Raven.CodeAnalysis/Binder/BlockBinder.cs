@@ -2933,6 +2933,11 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
         }
 
+        if (LookupType(methodName) is INamedTypeSymbol typeFallback)
+        {
+            return BindConstructorInvocation(typeFallback, boundArguments, syntax, receiver: null);
+        }
+
         ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
