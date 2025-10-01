@@ -451,7 +451,7 @@ internal class TypeGenerator
         if (symbol is ILocalSymbol localSymbol && localSymbol.Type is not null)
         {
             var elementType = ResolveClrType(localSymbol.Type);
-            return typeof(System.Runtime.CompilerServices.StrongBox<>).MakeGenericType(elementType);
+            return CodeGen.GetStrongBoxType(elementType);
         }
 
         return ResolveClrType(typeSymbol);

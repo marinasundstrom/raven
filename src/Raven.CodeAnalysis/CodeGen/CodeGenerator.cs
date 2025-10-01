@@ -95,6 +95,7 @@ internal class CodeGenerator
     public Type? TypeUnionAttributeType { get; private set; }
     public Type? NullType { get; private set; }
     public Type? NullableAttributeType { get; private set; }
+    private Type? _strongBoxGenericType;
     public Type? UnitType { get; private set; }
     ConstructorInfo? _nullableCtor;
 
@@ -299,6 +300,55 @@ internal class CodeGenerator
 
         NullableAttributeType = attrBuilder.CreateType();
         _nullableCtor = NullableAttributeType.GetConstructor(new[] { typeof(byte) });
+    }
+
+    internal Type GetStrongBoxType(Type elementType)
+    {
+        EnsureStrongBoxType();
+        return _strongBoxGenericType!.MakeGenericType(elementType);
+    }
+
+    private void EnsureStrongBoxType()
+    {
+        if (_strongBoxGenericType is not null)
+            return;
+
+        var typeBuilder = ModuleBuilder.DefineType(
+            "<>StrongBox",
+            TypeAttributes.NotPublic | TypeAttributes.Sealed | TypeAttributes.Class |
+            TypeAttributes.AutoClass | TypeAttributes.AnsiClass | TypeAttributes.BeforeFieldInit,
+            typeof(object));
+
+        var typeParameters = typeBuilder.DefineGenericParameters("T");
+        var valueField = typeBuilder.DefineField("Value", typeParameters[0], FieldAttributes.Public);
+
+        var objectCtor = typeof(object).GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing System.Object.ctor().");
+
+        var defaultCtor = typeBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            Type.EmptyTypes);
+
+        var defaultIl = defaultCtor.GetILGenerator();
+        defaultIl.Emit(OpCodes.Ldarg_0);
+        defaultIl.Emit(OpCodes.Call, objectCtor);
+        defaultIl.Emit(OpCodes.Ret);
+
+        var valueCtor = typeBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            new[] { typeParameters[0] });
+
+        var valueIl = valueCtor.GetILGenerator();
+        valueIl.Emit(OpCodes.Ldarg_0);
+        valueIl.Emit(OpCodes.Call, objectCtor);
+        valueIl.Emit(OpCodes.Ldarg_0);
+        valueIl.Emit(OpCodes.Ldarg_1);
+        valueIl.Emit(OpCodes.Stfld, valueField);
+        valueIl.Emit(OpCodes.Ret);
+
+        _strongBoxGenericType = typeBuilder.CreateTypeInfo()!.AsType();
     }
 
     public CodeGenerator(Compilation compilation)
