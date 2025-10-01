@@ -140,7 +140,14 @@ partial class BlockBinder
 
         var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
 
-        var inferred = bodyExpr.Type ?? ReturnTypeCollector.Infer(bodyExpr);
+        var inferred = bodyExpr.Type;
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
+        {
+            var collected = ReturnTypeCollector.Infer(bodyExpr);
+            if (collected is not null)
+                inferred = collected;
+        }
 
         ITypeSymbol returnType;
         if (returnTypeSyntax is not null)
