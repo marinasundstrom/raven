@@ -87,6 +87,30 @@ compiler and highlights the remaining work needed to make them executable.
   than materializing a new storage location, ensuring all delegates observe the
   same underlying state.
 
+## Recent commit review
+
+Examining the latest ten commits on the `work` branch shows no functional
+changes to the lambda pipeline:
+
+* `9eed2740` (**Expand operations coverage (#771)**) broadens operation tests
+  without touching lambda binding, lowering, or emission paths.
+* `647bfce7` (**Fix data flow for global statements (#770)**) amends flow
+  analysis in global statement handling only.
+* `49eca8f1` (**Expand lambda investigation notes (#769)**) updates this
+  document but does not alter compiler behaviour.
+* `696b5e7c` (**Handle nullable type member lookups (#768)**) narrows symbol
+  lookup for nullable member access.
+* `0bcb1769` (**Allow fully qualified types in casts (#767)**) relaxes parsing
+  for cast targets.
+* `39e1afb6`, `a9f98e33`, `0a7e926e`, and `2ec3c4ee` adjust sample programs
+  (`test.rav`, `reflection.rav`) without impacting lambda semantics.
+* `8a84d91b` (**Support explicit reference casts (#766)**) adds reference-cast
+  support only.
+
+Because none of these commits modify the binder, overload resolver, or code
+generation layers responsible for lambdas, the outstanding work described below
+remains accurate.
+
 ## Next steps
 
 1. Consider wiring up `SimpleLambdaExpressionSyntax` in the parser if a shorthand
