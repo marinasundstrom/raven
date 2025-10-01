@@ -179,7 +179,21 @@ public class SymbolEqualityComparerTests
         Assert.DoesNotContain(stringArray, set);
     }
 
-    private sealed class StubSymbol : ISymbol
+    [Fact]
+    public void Comparer_DistinguishesTypeKinds()
+    {
+        var comparer = SymbolEqualityComparer.Default;
+
+        var delegateSymbol = new StubTypeSymbol(TypeKind.Delegate);
+        var classSymbol = new StubTypeSymbol(TypeKind.Class);
+
+        Assert.False(comparer.Equals(delegateSymbol, classSymbol));
+
+        var set = new HashSet<ISymbol>(comparer) { delegateSymbol };
+        Assert.DoesNotContain(classSymbol, set);
+    }
+
+    private class StubSymbol : ISymbol
     {
         public StubSymbol(
             SymbolKind kind,
@@ -240,5 +254,42 @@ public class SymbolEqualityComparerTests
         public void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+    }
+
+    private sealed class StubTypeSymbol : StubSymbol, ITypeSymbol
+    {
+        public StubTypeSymbol(TypeKind typeKind)
+            : base(SymbolKind.Type, "Processor", "Processor")
+        {
+            TypeKind = typeKind;
+        }
+
+        public INamedTypeSymbol? BaseType => null;
+
+        public ITypeSymbol? OriginalDefinition => this;
+
+        public SpecialType SpecialType => SpecialType.None;
+
+        public TypeKind TypeKind { get; }
+
+        public ImmutableArray<INamedTypeSymbol> Interfaces => ImmutableArray<INamedTypeSymbol>.Empty;
+
+        public ImmutableArray<INamedTypeSymbol> AllInterfaces => ImmutableArray<INamedTypeSymbol>.Empty;
+
+        public bool IsNamespace => false;
+
+        public bool IsType => true;
+
+        public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
+
+        public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
+
+        public ITypeSymbol? LookupType(string name) => null;
+
+        public bool IsMemberDefined(string name, out ISymbol? symbol)
+        {
+            symbol = null;
+            return false;
+        }
     }
 }
