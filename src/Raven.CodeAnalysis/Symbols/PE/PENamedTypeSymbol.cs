@@ -192,8 +192,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             _tupleElements = _members
                 .OfType<IFieldSymbol>()
-                .Where(field => field.Name.StartsWith("Item", StringComparison.Ordinal))
-                .OrderBy(field => field.Name, StringComparer.Ordinal)
+                .Where(@field => @field.Name.StartsWith("Item", StringComparison.Ordinal))
+                .OrderBy(@field => @field.Name, StringComparer.Ordinal)
                 .ToImmutableArray();
 
             return _tupleElements.Value;
