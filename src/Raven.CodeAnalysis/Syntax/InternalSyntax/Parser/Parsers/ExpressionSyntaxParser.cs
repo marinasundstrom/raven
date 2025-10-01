@@ -384,13 +384,43 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var token = PeekToken();
 
-        if (token.Kind == SyntaxKind.OpenParenToken && TryParseParenthesizedLambdaExpression(out lambda))
-            return true;
+        if (token.Kind == SyntaxKind.OpenParenToken)
+        {
+            if (IsParenthesizedCastAhead())
+                return false;
+
+            if (TryParseParenthesizedLambdaExpression(out lambda))
+                return true;
+        }
 
         if (CanTokenBeIdentifier(token) && TryParseSimpleLambdaExpression(out lambda))
             return true;
 
         return false;
+    }
+
+    private bool IsParenthesizedCastAhead()
+    {
+        using var checkpoint = CreateCheckpoint("lambda-cast-lookahead");
+
+        if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
+            return false;
+
+        ReadToken();
+
+        var typeName = new NameSyntaxParser(this).ParseTypeName();
+
+        if (typeName.IsMissing)
+            return false;
+
+        if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
+            return false;
+
+        ReadToken();
+
+        var next = PeekToken();
+
+        return !next.IsKind(SyntaxKind.FatArrowToken);
     }
 
     private bool TryParseParenthesizedLambdaExpression(out LambdaExpressionSyntax? lambda)

@@ -57,4 +57,15 @@ public class CastExpressionTests : DiagnosticTestBase
         var verifier = CreateVerifier(code);
         verifier.Verify();
     }
+
+    [Fact]
+    public void ExplicitCast_WithAdditionalParentheses_NoDiagnostic()
+    {
+        string code = """
+        let value = ((double)1)
+        """;
+
+        var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
 }

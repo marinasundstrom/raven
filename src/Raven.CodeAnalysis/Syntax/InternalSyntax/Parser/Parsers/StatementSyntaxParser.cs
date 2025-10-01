@@ -409,7 +409,23 @@ internal class StatementSyntaxParser : SyntaxParser
             }
             else
             {
-                name = ExpectToken(SyntaxKind.IdentifierToken);
+                name = MissingToken(SyntaxKind.IdentifierToken);
+
+                if (!PeekToken().IsKind(SyntaxKind.CloseParenToken))
+                {
+                    ReadToken();
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetSpanOfLastToken()));
+                }
+                else
+                {
+                    AddDiagnostic(
+                        DiagnosticInfo.Create(
+                            CompilerDiagnostics.IdentifierExpected,
+                            GetEndOfLastToken()));
+                }
             }
 
             var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
