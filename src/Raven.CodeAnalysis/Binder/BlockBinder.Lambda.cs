@@ -404,7 +404,7 @@ partial class BlockBinder
         {
             var invoke = delegateType.GetDelegateInvokeMethod();
             if (invoke is null || invoke.Parameters.Length <= parameterIndex)
-                return null;
+                continue;
 
             var parameter = invoke.Parameters[parameterIndex];
 
