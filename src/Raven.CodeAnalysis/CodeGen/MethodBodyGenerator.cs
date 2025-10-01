@@ -402,9 +402,9 @@ internal class MethodBodyGenerator
 
     internal bool IsCapturedLocal(ILocalSymbol local) => _capturedLocals.Contains(local);
 
-    private static Type MakeStrongBoxType(Type elementType)
+    private Type MakeStrongBoxType(Type elementType)
     {
-        return typeof(System.Runtime.CompilerServices.StrongBox<>).MakeGenericType(elementType);
+        return MethodGenerator.TypeGenerator.CodeGen.GetStrongBoxType(elementType);
     }
 
     internal static FieldInfo GetStrongBoxValueField(Type strongBoxType)
@@ -429,6 +429,10 @@ internal class MethodBodyGenerator
     {
         var collector = new LocalCollector(MethodSymbol);
         collector.Visit(block);
+
+        var capturedFromLambdas = CapturedLocalGatherer.Collect(MethodSymbol, block);
+        foreach (var capturedLocal in capturedFromLambdas)
+            collector.CapturedLocals.Add(capturedLocal);
 
         foreach (var localSymbol in collector.Locals)
         {
@@ -524,18 +528,60 @@ internal class MethodBodyGenerator
             base.VisitAssignmentStatement(node);
         }
 
+    }
+
+    private sealed class CapturedLocalGatherer : Raven.CodeAnalysis.BoundTreeWalker
+    {
+        private readonly ISymbol _containingSymbol;
+        private readonly HashSet<ILocalSymbol> _captured = new(SymbolEqualityComparer.Default);
+
+        private CapturedLocalGatherer(ISymbol containingSymbol)
+        {
+            _containingSymbol = containingSymbol;
+        }
+
+        public static HashSet<ILocalSymbol> Collect(ISymbol containingSymbol, BoundBlockStatement block)
+        {
+            var gatherer = new CapturedLocalGatherer(containingSymbol);
+            gatherer.VisitBlockStatement(block);
+            return gatherer._captured;
+        }
+
         public override void VisitLambdaExpression(BoundLambdaExpression node)
         {
-            foreach (var symbol in node.CapturedVariables)
+            foreach (var captured in node.CapturedVariables)
+                RegisterCaptured(captured);
+
+            if (node.Unbound is { LambdaSymbol: SourceLambdaSymbol sourceLambda } && sourceLambda.HasCaptures)
             {
-                if (symbol is ILocalSymbol local &&
-                    SymbolEqualityComparer.Default.Equals(local.ContainingSymbol, _containingSymbol))
-                {
-                    CapturedLocals.Add(local);
-                }
+                foreach (var captured in sourceLambda.CapturedVariables)
+                    RegisterCaptured(captured);
             }
 
             base.VisitLambdaExpression(node);
+        }
+
+        public override void VisitExpressionStatement(BoundExpressionStatement node)
+        {
+            VisitExpression(node.Expression);
+        }
+
+        public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
+        {
+            foreach (var declarator in node.Declarators)
+            {
+                if (declarator.Initializer is not null)
+                    VisitExpression(declarator.Initializer);
+            }
+        }
+
+        private void RegisterCaptured(ISymbol symbol)
+        {
+            if (symbol is ILocalSymbol local &&
+                SymbolEqualityComparer.Default.Equals(local.ContainingSymbol, _containingSymbol))
+            {
+                _captured.Add(local);
+            }
         }
     }
 
