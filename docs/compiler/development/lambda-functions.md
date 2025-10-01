@@ -87,6 +87,24 @@ compiler and highlights the remaining work needed to make them executable.
   than materializing a new storage location, ensuring all delegates observe the
   same underlying state.
 
+## Investigation: simple lambda syntax
+
+The syntax model already exposes both `SimpleLambdaExpressionSyntax` and
+`ParenthesizedLambdaExpressionSyntax`, but the parser always returns the
+parenthesized form. `ParseLambdaExpression` delegates parameter parsing to
+`StatementSyntaxParser.ParseParameterList`, which unconditionally consumes an
+opening parenthesis and therefore cannot produce a single-parameter lambda that
+omits the parentheses.
+
+The remainder of the pipeline is already prepared for the shorthand form.
+`BlockBinder.BindLambdaExpression` and the lambda replay helpers enumerate the
+parameter syntax via pattern matching, so a `SimpleLambdaExpressionSyntax`
+would seamlessly flow through binding and delegate rebinding without additional
+changes.
+
+Because no product code currently synthesizes the simple form, wiring it up in
+the parser is the next functional step toward full lambda expression coverage.
+
 ## Recent commit review
 
 Examining the latest ten commits on the `work` branch shows no functional
@@ -111,10 +129,36 @@ Because none of these commits modify the binder, overload resolver, or code
 generation layers responsible for lambdas, the outstanding work described below
 remains accurate.
 
+## Investigation: validating the simple form
+
+Once the parser constructs `SimpleLambdaExpressionSyntax`, the existing test
+suite needs to be broadened so the new syntax is exercised end-to-end.
+
+* Semantic tests such as `LambdaCapturedVariablesTests` and
+  `LambdaInferenceTests` currently grab parenthesized lambdas directly from the
+  syntax tree, e.g. by filtering for
+  `SyntaxKind.ParenthesizedLambdaExpression`. After the parser change these
+  scenarios should be duplicated (or converted) to assert that
+  `SimpleLambdaExpressionSyntax` binds, infers delegate parameters, and reports
+  captures correctly.【F:test/Raven.CodeAnalysis.Tests/Semantics/LambdaCapturedVariablesTests.cs†L25-L47】【F:test/Raven.CodeAnalysis.Tests/Semantics/LambdaInferenceTests.cs†L35-L100】
+* The code-generation coverage in `LambdaCodeGenTests` also instantiates lambdas
+  exclusively with parentheses. Adding equivalents that use the shorthand form
+  will verify closure emission, delegate materialization, and nested lambda
+  handling once the parser can produce the simple syntax.【F:test/Raven.CodeAnalysis.Tests/CodeGen/LambdaCodeGenTests.cs†L13-L120】【F:test/Raven.CodeAnalysis.Tests/CodeGen/LambdaCodeGenTests.cs†L189-L268】
+* Parser-focused tests should assert that `func value => value + 1` now yields a
+  `SimpleLambdaExpressionSyntax`. The grammar already models the node shape, so
+  a targeted syntax test will guard against regressions that reintroduce the
+  parenthesized-only behaviour.
+
+With these additions in place the parser work will be observable across the
+syntax, binding, and emission layers.
+
 ## Next steps
 
-1. Consider wiring up `SimpleLambdaExpressionSyntax` in the parser if a shorthand
-   form (without parentheses) is desired, or remove the unused node to reduce
-   generator output.
-2. Expand semantic and code-generation tests to cover nested closures and
-   combinations of captures with other expression features.
+1. Teach the expression parser to recognize the single-parameter shorthand by
+   peeking for an identifier immediately after `func` and constructing a
+   `SimpleLambdaExpressionSyntax` when no opening parenthesis is present. The
+   binder and replay helpers already handle this shape, so the work is limited
+   to parsing plus follow-up tests.
+2. Expand semantic, syntax, and code-generation tests to cover the shorthand
+   form so that the new parser behaviour is verified end-to-end.
