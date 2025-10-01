@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -173,9 +174,31 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public int Arity => _typeInfo.GenericTypeParameters.Length;
 
-    public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
+    private ImmutableArray<IFieldSymbol>? _tupleElements;
 
-    public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
+    public INamedTypeSymbol UnderlyingTupleType => this;
+
+    public ImmutableArray<IFieldSymbol> TupleElements
+    {
+        get
+        {
+            if (!IsValueTupleSpecialType())
+                return ImmutableArray<IFieldSymbol>.Empty;
+
+            if (_tupleElements is not null)
+                return _tupleElements.Value;
+
+            EnsureMembersLoaded();
+
+            _tupleElements = _members
+                .OfType<IFieldSymbol>()
+                .Where(field => field.Name.StartsWith("Item", StringComparison.Ordinal))
+                .OrderBy(field => field.Name, StringComparer.Ordinal)
+                .ToImmutableArray();
+
+            return _tupleElements.Value;
+        }
+    }
 
     public ImmutableArray<ISymbol> GetMembers()
     {
@@ -197,7 +220,21 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ITypeSymbol? LookupType(string name)
     {
-        return null;
+        EnsureMembersLoaded();
+        return _members
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault(type => type.Name == name);
+    }
+
+    private bool IsValueTupleSpecialType()
+    {
+        return SpecialType is SpecialType.System_ValueTuple_T1
+            or SpecialType.System_ValueTuple_T2
+            or SpecialType.System_ValueTuple_T3
+            or SpecialType.System_ValueTuple_T4
+            or SpecialType.System_ValueTuple_T5
+            or SpecialType.System_ValueTuple_T6
+            or SpecialType.System_ValueTuple_T7;
     }
 
     internal void AddMember(ISymbol member)

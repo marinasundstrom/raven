@@ -13,6 +13,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     private readonly INamedTypeSymbol _originalDefinition;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
     private ImmutableArray<ISymbol>? _members;
+    private ImmutableArray<IFieldSymbol>? _tupleElements;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
 
@@ -59,8 +60,44 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
         IMethodSymbol m => new SubstitutedMethodSymbol(m, this),
         IFieldSymbol f => new SubstitutedFieldSymbol(f, this),
         IPropertySymbol p => new SubstitutedPropertySymbol(p, this),
+        INamedTypeSymbol t => SubstituteNamedType(t),
         _ => member
     };
+
+    private INamedTypeSymbol SubstituteNamedType(INamedTypeSymbol namedType)
+    {
+        if (namedType.Arity == 0)
+            return namedType;
+
+        var typeArguments = new ITypeSymbol[namedType.Arity];
+        var typeParameters = namedType.TypeParameters;
+        var outerArity = _originalDefinition.Arity;
+
+        for (var i = 0; i < typeArguments.Length; i++)
+        {
+            if (i < TypeArguments.Length)
+            {
+                typeArguments[i] = TypeArguments[i];
+                continue;
+            }
+
+            var parameter = typeParameters[i];
+            if (_substitutionMap.TryGetValue(parameter, out var replacement))
+            {
+                typeArguments[i] = replacement;
+            }
+            else if (i < outerArity)
+            {
+                typeArguments[i] = TypeArguments[i];
+            }
+            else
+            {
+                typeArguments[i] = parameter;
+            }
+        }
+
+        return (INamedTypeSymbol)namedType.Construct(typeArguments);
+    }
 
     // Symbol metadata forwarding
     public string Name => _originalDefinition.Name;
@@ -105,9 +142,26 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers().OfType<IMethodSymbol>().Where(x => !x.IsStatic && x.IsConstructor).ToImmutableArray();
     public IMethodSymbol? StaticConstructor => GetMembers().OfType<IMethodSymbol>().Where(x => x.IsStatic && x.IsConstructor).FirstOrDefault();
 
-    public INamedTypeSymbol UnderlyingTupleType => throw new NotImplementedException();
+    public INamedTypeSymbol UnderlyingTupleType
+    {
+        get
+        {
+            var underlying = _originalDefinition.UnderlyingTupleType;
+            if (underlying is null)
+                return null!;
 
-    public ImmutableArray<IFieldSymbol> TupleElements => throw new NotImplementedException();
+            if (SymbolEqualityComparer.Default.Equals(underlying, _originalDefinition))
+                return this;
+
+            return SubstituteNamedType(underlying);
+        }
+    }
+
+    public ImmutableArray<IFieldSymbol> TupleElements =>
+        _tupleElements ??= _originalDefinition.TupleElements
+            .Select(member => SubstituteMember(member))
+            .OfType<IFieldSymbol>()
+            .ToImmutableArray();
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitNamedType(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);
@@ -120,12 +174,28 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 
     public ITypeSymbol? LookupType(string name)
     {
-        throw new NotImplementedException();
+        foreach (var member in _originalDefinition.GetMembers(name))
+        {
+            if (member is INamedTypeSymbol namedType)
+                return SubstituteNamedType(namedType);
+        }
+
+        return null;
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        throw new NotImplementedException();
+        foreach (var member in _originalDefinition.GetMembers(name))
+        {
+            if (member.Name == name)
+            {
+                symbol = SubstituteMember(member);
+                return true;
+            }
+        }
+
+        symbol = null;
+        return false;
     }
 
     internal System.Reflection.TypeInfo GetTypeInfo(CodeGenerator codeGen)
