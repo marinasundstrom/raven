@@ -114,6 +114,42 @@ class Calculator {
     }
 
     [Fact]
+    public void Lambda_BlockBody_WithExplicitReturn_ReturnsComputedValue()
+    {
+        var code = """
+class Calculator {
+    Sum() -> int {
+        let make = (x: int, y: int) -> int => {
+            return x + y;
+        }
+
+        return make(4, 6)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Calculator", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Sum")!;
+
+        var value = (int)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal(10, value);
+    }
+
+    [Fact]
     public void Lambda_CapturesParameter_ReturnsExpectedResult()
     {
         var code = """
