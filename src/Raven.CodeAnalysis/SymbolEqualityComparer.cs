@@ -106,6 +106,30 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 return false;
         }
 
+        if (x is IFieldSymbol fieldX && y is IFieldSymbol fieldY)
+        {
+            if (!Equals(fieldX.Type, fieldY.Type))
+                return false;
+
+            if (fieldX.IsLiteral != fieldY.IsLiteral)
+                return false;
+        }
+
+        if (x is IPropertySymbol propertyX && y is IPropertySymbol propertyY)
+        {
+            if (!Equals(propertyX.Type, propertyY.Type))
+                return false;
+
+            if (propertyX.IsIndexer != propertyY.IsIndexer)
+                return false;
+
+            if ((propertyX.GetMethod is null) != (propertyY.GetMethod is null))
+                return false;
+
+            if ((propertyX.SetMethod is null) != (propertyY.SetMethod is null))
+                return false;
+        }
+
         if (x is IMethodSymbol methodX && y is IMethodSymbol methodY)
         {
             if (!Equals(methodX.ReturnType, methodY.ReturnType))
@@ -224,6 +248,20 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         {
             hash.Add(arrayType.Rank);
             hash.Add(GetHashCode(arrayType.ElementType));
+        }
+
+        if (obj is IFieldSymbol field)
+        {
+            hash.Add(GetHashCode(field.Type));
+            hash.Add(field.IsLiteral);
+        }
+
+        if (obj is IPropertySymbol property)
+        {
+            hash.Add(GetHashCode(property.Type));
+            hash.Add(property.IsIndexer);
+            hash.Add(property.GetMethod is not null);
+            hash.Add(property.SetMethod is not null);
         }
 
         if (obj.ContainingSymbol is { } containingSymbol && obj is not ITypeParameterSymbol)

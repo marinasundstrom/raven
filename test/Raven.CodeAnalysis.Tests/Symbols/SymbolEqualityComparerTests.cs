@@ -143,6 +143,188 @@ public class SymbolEqualityComparerTests
     }
 
     [Fact]
+    public void Comparer_PreservesEqualityAcrossCompilations()
+    {
+        const string source = """
+class C {
+    class Nested {}
+
+    M() -> unit {
+        let number = 42;
+    }
+}
+""";
+
+        var tree1 = SyntaxTree.ParseText(source);
+        var tree2 = SyntaxTree.ParseText(source);
+
+        var compilation1 = Compilation.Create(
+            "test",
+            [tree1],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var compilation2 = Compilation.Create(
+            "test",
+            [tree2],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model1 = compilation1.GetSemanticModel(tree1);
+        var model2 = compilation2.GetSemanticModel(tree2);
+
+        var root1 = tree1.GetRoot();
+        var root2 = tree2.GetRoot();
+
+        var classSyntax1 = Assert.IsAssignableFrom<ClassDeclarationSyntax>(Assert.Single(root1.Members));
+        var classSyntax2 = Assert.IsAssignableFrom<ClassDeclarationSyntax>(Assert.Single(root2.Members));
+
+        var class1 = Assert.IsAssignableFrom<INamedTypeSymbol>(model1.GetDeclaredSymbol(classSyntax1));
+        var class2 = Assert.IsAssignableFrom<INamedTypeSymbol>(model2.GetDeclaredSymbol(classSyntax2));
+
+        var comparer = SymbolEqualityComparer.Default;
+
+        Assert.True(comparer.Equals(compilation1.Assembly, compilation2.Assembly));
+        Assert.True(comparer.Equals(compilation1.GlobalNamespace, compilation2.GlobalNamespace));
+        Assert.True(comparer.Equals(compilation1.Assembly.Modules.Single(), compilation2.Assembly.Modules.Single()));
+
+        Assert.True(comparer.Equals(class1, class2));
+        Assert.Equal(comparer.GetHashCode(class1), comparer.GetHashCode(class2));
+
+        var classSet = new HashSet<ISymbol>(comparer) { class1 };
+        Assert.Contains(class2, classSet);
+
+        var nested1 = Assert.IsAssignableFrom<INamedTypeSymbol>(class1.GetMembers("Nested").Single());
+        var nested2 = Assert.IsAssignableFrom<INamedTypeSymbol>(class2.GetMembers("Nested").Single());
+
+        Assert.True(comparer.Equals(nested1, nested2));
+        Assert.Equal(comparer.GetHashCode(nested1), comparer.GetHashCode(nested2));
+
+        var nestedSet = new HashSet<ISymbol>(comparer) { nested1 };
+        Assert.Contains(nested2, nestedSet);
+
+        var method1 = Assert.IsAssignableFrom<IMethodSymbol>(class1.GetMembers("M").Single());
+        var method2 = Assert.IsAssignableFrom<IMethodSymbol>(class2.GetMembers("M").Single());
+
+        Assert.True(comparer.Equals(method1, method2));
+        Assert.Equal(comparer.GetHashCode(method1), comparer.GetHashCode(method2));
+
+        var methodSet = new HashSet<ISymbol>(comparer) { method1 };
+        Assert.Contains(method2, methodSet);
+
+        var string1 = compilation1.GetSpecialType(SpecialType.System_String);
+        var string2 = compilation2.GetSpecialType(SpecialType.System_String);
+
+        Assert.True(comparer.Equals(string1, string2));
+        Assert.Equal(comparer.GetHashCode(string1), comparer.GetHashCode(string2));
+
+        var metadataSet = new HashSet<ISymbol>(comparer) { string1 };
+        Assert.Contains(string2, metadataSet);
+
+        var declarator1 = root1.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+        var declarator2 = root2.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+
+        var local1 = Assert.IsAssignableFrom<ILocalSymbol>(model1.GetDeclaredSymbol(declarator1));
+        var local2 = Assert.IsAssignableFrom<ILocalSymbol>(model2.GetDeclaredSymbol(declarator2));
+
+        Assert.True(comparer.Equals(local1, local2));
+        Assert.Equal(comparer.GetHashCode(local1), comparer.GetHashCode(local2));
+
+        var localSet = new HashSet<ISymbol>(comparer) { local1 };
+        Assert.Contains(local2, localSet);
+    }
+
+    [Fact]
+    public void Comparer_DistinguishesFieldTypesAcrossCompilations()
+    {
+        const string template = """
+class Sample {{
+    value: {0} = {1};
+}}
+""";
+
+        var tree1 = SyntaxTree.ParseText(string.Format(template, "int", "0"));
+        var tree2 = SyntaxTree.ParseText(string.Format(template, "string", "\"\""));
+
+        var compilation1 = Compilation.Create(
+            "test",
+            [tree1],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var compilation2 = Compilation.Create(
+            "test",
+            [tree2],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model1 = compilation1.GetSemanticModel(tree1);
+        var model2 = compilation2.GetSemanticModel(tree2);
+
+        var root1 = tree1.GetRoot();
+        var root2 = tree2.GetRoot();
+
+        var fieldSyntax1 = root1.DescendantNodes().OfType<FieldDeclarationSyntax>().Single();
+        var fieldSyntax2 = root2.DescendantNodes().OfType<FieldDeclarationSyntax>().Single();
+
+        var declarator1 = fieldSyntax1.Declaration.Declarators.Single();
+        var declarator2 = fieldSyntax2.Declaration.Declarators.Single();
+
+        var field1 = Assert.IsAssignableFrom<IFieldSymbol>(model1.GetDeclaredSymbol(declarator1));
+        var field2 = Assert.IsAssignableFrom<IFieldSymbol>(model2.GetDeclaredSymbol(declarator2));
+
+        var comparer = SymbolEqualityComparer.Default;
+
+        Assert.False(comparer.Equals(field1, field2));
+        Assert.NotEqual(comparer.GetHashCode(field1), comparer.GetHashCode(field2));
+
+        var set = new HashSet<ISymbol>(comparer) { field1 };
+        Assert.DoesNotContain(field2, set);
+    }
+
+    [Fact]
+    public void Comparer_DistinguishesPropertyTypesAcrossCompilations()
+    {
+        const string template = """
+class Sample {{
+    public Value: {0} {{ get; }}
+}}
+""";
+
+        var tree1 = SyntaxTree.ParseText(string.Format(template, "int"));
+        var tree2 = SyntaxTree.ParseText(string.Format(template, "string"));
+
+        var compilation1 = Compilation.Create(
+            "test",
+            [tree1],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var compilation2 = Compilation.Create(
+            "test",
+            [tree2],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model1 = compilation1.GetSemanticModel(tree1);
+        var model2 = compilation2.GetSemanticModel(tree2);
+
+        var propertySyntax1 = tree1.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var propertySyntax2 = tree2.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+
+        var property1 = Assert.IsAssignableFrom<IPropertySymbol>(model1.GetDeclaredSymbol(propertySyntax1));
+        var property2 = Assert.IsAssignableFrom<IPropertySymbol>(model2.GetDeclaredSymbol(propertySyntax2));
+
+        var comparer = SymbolEqualityComparer.Default;
+
+        Assert.False(comparer.Equals(property1, property2));
+        Assert.NotEqual(comparer.GetHashCode(property1), comparer.GetHashCode(property2));
+
+        var set = new HashSet<ISymbol>(comparer) { property1 };
+        Assert.DoesNotContain(property2, set);
+    }
+
+    [Fact]
     public void Comparer_EquatesOpenGenericDefinitions()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
