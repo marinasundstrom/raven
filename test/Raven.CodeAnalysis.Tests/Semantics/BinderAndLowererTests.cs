@@ -163,7 +163,7 @@ class C {
         const string source = """
 class C {
     Test(flag: bool) {
-        let lambda = func () => {
+        let lambda = () => {
             while flag {
                 ()
             }

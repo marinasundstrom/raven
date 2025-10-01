@@ -13,7 +13,7 @@ public class LambdaCodeGenTests
         var code = """
 class Calculator {
     Add() -> int {
-        let add = func (x: int, y: int) -> int => x + y
+        let add = (x: int, y: int) -> int => x + y
         return add(2, 3)
     }
 }
@@ -46,7 +46,7 @@ class Calculator {
         var code = """
 class Checker {
     AreEqual(left: int, right: int) -> bool {
-        let equals = func (x: int, y: int) -> bool => x == y
+        let equals = (x: int, y: int) -> bool => x == y
         return equals(left, right)
     }
 }
@@ -82,7 +82,7 @@ class Checker {
         var code = """
 class Calculator {
     Sum() -> int {
-        let make = func (x: int, y: int) -> int => {
+        let make = (x: int, y: int) -> int => {
             let total = x + y
             total
         }
@@ -119,7 +119,7 @@ class Calculator {
         var code = """
 class Calculator {
     Combine(x: int) -> int {
-        let add = func (y: int) -> int => x + y
+        let add = (y: int) -> int => x + y
         return add(4)
     }
 }
@@ -153,7 +153,7 @@ class Calculator {
 class Counter {
     Multiply() -> int {
         let factor = 5
-        let multiply = func (value: int) -> int => factor * value
+        let multiply = (value: int) -> int => factor * value
         return multiply(3)
     }
 }
@@ -188,7 +188,7 @@ class Holder {
     value: int = 8
 
     Compute() -> int {
-        let add = func (offset: int) -> int => self.value + offset
+        let add = (offset: int) -> int => self.value + offset
         return add(7)
     }
 }
@@ -222,7 +222,7 @@ class Holder {
 class Counter {
     Run() -> int {
         var total = 1
-        let add = func (delta: int) -> int => {
+        let add = (delta: int) -> int => {
             total = total + delta
             total
         }
@@ -262,8 +262,8 @@ class Counter {
 class Counter {
     Run() -> int {
         var total = 1
-        let make = func () => {
-            let inner = func (delta: int) -> int => {
+        let make = () => {
+            let inner = (delta: int) -> int => {
                 total = total + delta
                 return total
             }
