@@ -684,7 +684,13 @@ partial class BlockBinder
         lambdaBinder.SetLambdaBody(body);
         var captured = lambdaBinder.AnalyzeCapturedVariables();
 
-        lambdaSymbol.SetCapturedVariables(captured);
+        var capturedSet = new HashSet<ISymbol>(captured, SymbolEqualityComparer.Default);
+        foreach (var nestedCapture in LambdaSelfCaptureCollector.Collect(body, lambdaSymbol))
+            capturedSet.Add(nestedCapture);
+
+        var capturedVariables = capturedSet.ToImmutableArray();
+
+        lambdaSymbol.SetCapturedVariables(capturedVariables);
         lambdaSymbol.SetReturnType(returnType);
         lambdaSymbol.SetDelegateType(delegateType);
 
@@ -706,7 +712,7 @@ partial class BlockBinder
             body,
             lambdaSymbol,
             delegateType,
-            captured,
+            capturedVariables,
             candidateDelegates);
         rebound.AttachUnbound(unbound);
         instrumentation.RecordBindingSuccess();

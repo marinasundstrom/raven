@@ -276,6 +276,9 @@ internal class MethodBodyGenerator
 
         try
         {
+            if (_lambdaClosure is not null)
+                InitializeCapturedParameters();
+
             if (lambda.Body is BoundBlockExpression blockExpression)
             {
                 var block = new BoundBlockStatement(blockExpression.Statements);
@@ -290,6 +293,28 @@ internal class MethodBodyGenerator
         finally
         {
             _lambdaClosure = null;
+        }
+    }
+
+    private void InitializeCapturedParameters()
+    {
+        if (_lambdaClosure is null)
+            return;
+
+        foreach (var parameter in MethodSymbol.Parameters)
+        {
+            if (!_lambdaClosure.TryGetField(parameter, out var fieldBuilder))
+                continue;
+
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+
+            var parameterBuilder = MethodGenerator.GetParameterBuilder(parameter);
+            var position = parameterBuilder.Position;
+            if (MethodSymbol.IsStatic)
+                position -= 1;
+
+            ILGenerator.Emit(OpCodes.Ldarg, position);
+            ILGenerator.Emit(OpCodes.Stfld, fieldBuilder);
         }
     }
 
