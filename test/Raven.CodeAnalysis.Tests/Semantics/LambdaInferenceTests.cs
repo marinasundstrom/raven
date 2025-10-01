@@ -90,6 +90,44 @@ class Container {
     }
 
     [Fact]
+    public void Lambda_WithCandidateMissingParameters_StillInfersTypeFromValidDelegate()
+    {
+        const string code = """
+import System.*
+class Container {
+    Overloaded(projector: Func<int, int>) -> int {
+        return projector(1)
+    }
+
+    Overloaded(callback: Action) -> int {
+        callback()
+        return 0
+    }
+
+    Invoke() -> int {
+        return Overloaded(value => value + 1)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameter.Type));
+    }
+
+    [Fact]
     public void Lambda_AssignedToLocal_InvocationBindsToDelegateInvoke()
     {
         const string code = """
