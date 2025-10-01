@@ -578,6 +578,13 @@ internal abstract class Binder
             return null;
         }
 
+        var metadataName = qualified.ToString();
+        if (!string.IsNullOrEmpty(metadataName))
+        {
+            if (Compilation.GetTypeByMetadataName(metadataName) is { } metadataType)
+                return metadataType;
+        }
+
         return left;
     }
 
