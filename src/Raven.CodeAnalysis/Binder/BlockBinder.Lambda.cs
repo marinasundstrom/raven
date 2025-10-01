@@ -115,8 +115,8 @@ partial class BlockBinder
 
         TypeSyntax? returnTypeSyntax = syntax switch
         {
-            SimpleLambdaExpressionSyntax s => s.ReturnType.Type,
-            ParenthesizedLambdaExpressionSyntax p => p.ReturnType.Type,
+            SimpleLambdaExpressionSyntax s => s.ReturnType?.Type,
+            ParenthesizedLambdaExpressionSyntax p => p.ReturnType?.Type,
             _ => null
         };
 
