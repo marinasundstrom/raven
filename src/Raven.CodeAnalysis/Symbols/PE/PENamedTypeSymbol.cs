@@ -169,6 +169,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (type.FullName == "System.Type")
                 return SpecialType.System_Type;
 
+            if (type.FullName == "System.Nullable`1")
+                return SpecialType.System_Nullable_T;
+
             if (type.Namespace == "System" && type.Name.StartsWith("ValueTuple`"))
             {
                 return type.GetGenericArguments().Length switch
