@@ -1273,12 +1273,12 @@ public partial class SemanticModel
                 refKind = RefKind.Ref;
 
             var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
-            if (typeSyntax is ByRefTypeSyntax byRefType)
-                typeSyntax = byRefType.ElementType;
-
+            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
             var parameterType = typeSyntax is null
                 ? Compilation.ErrorTypeSymbol
-                : classBinder.ResolveType(typeSyntax);
+                : refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? classBinder.ResolveType(typeSyntax, refKindForType)
+                    : classBinder.ResolveType(typeSyntax);
 
             var hasDefaultValue = TypeMemberBinder.TryEvaluateParameterDefaultValue(parameterSyntax, parameterType, out var defaultValue);
             var parameterSymbol = new SourceParameterSymbol(

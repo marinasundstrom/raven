@@ -67,13 +67,15 @@ class FunctionBinder : Binder
             {
                 var typeSyntax = p.TypeAnnotation.Type;
                 var refKind = RefKind.None;
-                if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-                {
-                    refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                    typeSyntax = byRefSyntax.ElementType;
-                }
+                var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
 
-                var type = ResolveType(typeSyntax);
+                if (isByRefSyntax)
+                    refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+
+                var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
+                var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? ResolveType(typeSyntax, refKindForType)
+                    : ResolveType(typeSyntax);
                 var hasDefaultValue = TypeMemberBinder.TryEvaluateParameterDefaultValue(p, type, out var defaultValue);
                 return new SourceParameterSymbol(
                     p.Identifier.ValueText,

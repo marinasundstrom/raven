@@ -190,11 +190,8 @@ internal class TypeMemberBinder : Binder
         {
             var typeSyntax = p.TypeAnnotation!.Type;
             var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-            {
+            if (typeSyntax is ByRefTypeSyntax)
                 refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                typeSyntax = byRefSyntax.ElementType;
-            }
 
             paramInfos.Add((p.Identifier.ValueText, typeSyntax, refKind, p));
         }
@@ -296,7 +293,10 @@ internal class TypeMemberBinder : Binder
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
         foreach (var (paramName, typeSyntax, refKind, syntax) in paramInfos)
         {
-            var resolvedType = methodBinder.ResolveType(typeSyntax);
+            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+            var resolvedType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                ? methodBinder.ResolveType(typeSyntax, refKindForType)
+                : methodBinder.ResolveType(typeSyntax);
             resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax));
         }
 
@@ -470,13 +470,13 @@ internal class TypeMemberBinder : Binder
         {
             var typeSyntax = p.TypeAnnotation!.Type;
             var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-            {
+            if (typeSyntax is ByRefTypeSyntax)
                 refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                typeSyntax = byRefSyntax.ElementType;
-            }
 
-            var pType = ResolveType(typeSyntax);
+            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+            var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                ? ResolveType(typeSyntax, refKindForType)
+                : ResolveType(typeSyntax);
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p));
         }
 
@@ -551,13 +551,13 @@ internal class TypeMemberBinder : Binder
         {
             var typeSyntax = p.TypeAnnotation!.Type;
             var refKind = RefKind.None;
-            if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-            {
+            if (typeSyntax is ByRefTypeSyntax)
                 refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                typeSyntax = byRefSyntax.ElementType;
-            }
 
-            var pType = ResolveType(typeSyntax);
+            var refKindForType = refKind == RefKind.None && typeSyntax is ByRefTypeSyntax ? RefKind.Ref : refKind;
+            var pType = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                ? ResolveType(typeSyntax, refKindForType)
+                : ResolveType(typeSyntax);
             paramInfos.Add((p.Identifier.ValueText, pType, refKind, p));
         }
 
@@ -943,13 +943,14 @@ internal class TypeMemberBinder : Binder
             {
                 var typeSyntax = p.TypeAnnotation!.Type;
                 var refKind = RefKind.None;
-                if (typeSyntax is ByRefTypeSyntax byRefSyntax)
-                {
+                var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
+                if (isByRefSyntax)
                     refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
-                    typeSyntax = byRefSyntax.ElementType;
-                }
 
-                var type = ResolveType(typeSyntax);
+                var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
+                var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                    ? ResolveType(typeSyntax, refKindForType)
+                    : ResolveType(typeSyntax);
                 var hasDefaultValue = TryEvaluateParameterDefaultValue(p, type, out var defaultValue);
                 return new { Syntax = p, Type = type, RefKind = refKind, HasDefaultValue = hasDefaultValue, DefaultValue = defaultValue };
             })

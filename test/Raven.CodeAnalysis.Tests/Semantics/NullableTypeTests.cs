@@ -61,6 +61,29 @@ public class NullableTypeTests : CompilationTestBase
     }
 
     [Fact]
+    public void NullableTypeSymbol_LookupType_DoesNotThrow()
+    {
+        var compilation = CreateCompilation();
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var nullable = new NullableTypeSymbol(intType, null, null, null, []);
+
+        var exception = Record.Exception(() => nullable.LookupType("DoesNotExist"));
+        Assert.Null(exception);
+
+        Assert.Null(nullable.LookupType("DoesNotExist"));
+        Assert.False(nullable.IsMemberDefined("DoesNotExist", out _));
+    }
+
+    [Fact]
+    public void NullableQualifiedName_ReportsMissingType()
+    {
+        var (compilation, _) = CreateCompilation("let x: string?.Nested = null");
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, diagnostic.Descriptor);
+    }
+
+    [Fact]
     public void NonNullable_To_Nullable_Conversion_IsImplicit()
     {
         var compilation = CreateCompilation();
