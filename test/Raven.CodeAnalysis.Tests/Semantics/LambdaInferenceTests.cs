@@ -142,6 +142,37 @@ class Container {
     }
 
     [Fact]
+    public void Lambda_WithoutReturnType_InferredFromBody()
+    {
+        const string code = """
+import System.*
+class Container {
+    Provide() -> unit {
+        let lambda = (value: int) => value + 1
+        lambda(1)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdaSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .Single();
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(boundLambda.Symbol);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(intType, lambdaSymbol.ReturnType));
+    }
+
+    [Fact]
     public void Lambda_WithOverloadSpecificDelegate_RebindsToSelectedMethod()
     {
         const string code = """

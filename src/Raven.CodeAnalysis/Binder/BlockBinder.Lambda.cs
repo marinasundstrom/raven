@@ -141,6 +141,12 @@ partial class BlockBinder
         var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
 
         var inferred = bodyExpr.Type;
+        if (returnTypeSyntax is null &&
+            inferred is not null &&
+            inferred.TypeKind != TypeKind.Error)
+        {
+            inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
+        }
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
         {
@@ -658,6 +664,8 @@ partial class BlockBinder
 
         var body = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
         var inferred = body.Type ?? ReturnTypeCollector.Infer(body);
+        if (inferred is not null && inferred.TypeKind != TypeKind.Error)
+            inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
         var returnType = invoke.ReturnType;
 
         if (inferred is not null &&
