@@ -1,6 +1,6 @@
 import System.*
 import System.Console.*
 
-let f = (x: int) -> int => {
-    return 0;
+let f = (x: int) -> Func<int, int> => {
+    return (a) => x + a;
 }
