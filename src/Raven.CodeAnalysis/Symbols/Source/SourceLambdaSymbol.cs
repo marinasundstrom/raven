@@ -34,7 +34,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public bool IsConstructor => false;
 
-    public override bool IsStatic => true;
+    public override bool IsStatic => !HasCaptures;
 
     public MethodKind MethodKind => MethodKind.LambdaMethod;
 
