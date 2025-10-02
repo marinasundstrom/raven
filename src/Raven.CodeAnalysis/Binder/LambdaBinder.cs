@@ -39,8 +39,17 @@ class LambdaBinder : BlockBinder
 
         foreach (var local in _locals.Values)
         {
-            if (ReferenceEquals(local.Symbol, symbol))
+            if (SymbolEqualityComparer.Default.Equals(local.Symbol, symbol))
                 return true;
+        }
+
+        if (symbol is ILocalSymbol or IParameterSymbol)
+        {
+            if (symbol.ContainingSymbol is { } containing &&
+                SymbolEqualityComparer.Default.Equals(containing, ContainingSymbol))
+            {
+                return true;
+            }
         }
 
         return false;
