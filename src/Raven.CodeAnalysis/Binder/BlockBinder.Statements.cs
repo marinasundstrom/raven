@@ -169,6 +169,18 @@ partial class BlockBinder
                     : BindExpression(ret.Expression);
                 bound = new BoundExpressionStatement(expr);
             }
+            else if (!allowReturn && stmt is YieldReturnStatementSyntax yieldRet)
+            {
+                _diagnostics.ReportYieldReturnStatementInExpression(stmt.GetLocation());
+                var expr = BindExpression(yieldRet.Expression, allowReturn: false);
+                bound = new BoundExpressionStatement(expr);
+            }
+            else if (!allowReturn && stmt is YieldBreakStatementSyntax)
+            {
+                _diagnostics.ReportYieldBreakStatementInExpression(stmt.GetLocation());
+                var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+                bound = new BoundExpressionStatement(new BoundUnitExpression(unit));
+            }
             else
             {
                 bound = BindStatement(stmt);
@@ -177,6 +189,17 @@ partial class BlockBinder
                     _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
                     var expr = br.Expression ?? new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
                     bound = new BoundExpressionStatement(expr);
+                }
+                else if (!allowReturn && bound is BoundYieldReturnStatement yieldReturn)
+                {
+                    _diagnostics.ReportYieldReturnStatementInExpression(stmt.GetLocation());
+                    bound = new BoundExpressionStatement(yieldReturn.Expression);
+                }
+                else if (!allowReturn && bound is BoundYieldBreakStatement)
+                {
+                    _diagnostics.ReportYieldBreakStatementInExpression(stmt.GetLocation());
+                    var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+                    bound = new BoundExpressionStatement(new BoundUnitExpression(unit));
                 }
             }
             boundStatements.Add(bound);
@@ -317,6 +340,121 @@ partial class BlockBinder
         }
 
         return new BoundReturnStatement(expr);
+    }
+
+    private BoundStatement BindYieldReturnStatement(YieldReturnStatementSyntax yieldReturnStatement)
+    {
+        var location = yieldReturnStatement.YieldKeyword.GetLocation();
+
+        if (_expressionContextDepth > 0)
+        {
+            _diagnostics.ReportYieldReturnStatementInExpression(location);
+            var exprInExpression = BindExpression(yieldReturnStatement.Expression, allowReturn: false);
+            return new BoundExpressionStatement(exprInExpression);
+        }
+
+        var expression = BindExpression(yieldReturnStatement.Expression, allowReturn: false);
+
+        if (_containingSymbol is not IMethodSymbol method)
+        {
+            _diagnostics.ReportYieldStatementRequiresIteratorReturnType("void", location);
+            return new BoundExpressionStatement(expression);
+        }
+
+        if (method.IsConstructor || method.IsNamedConstructor)
+        {
+            _diagnostics.ReportYieldStatementNotAllowedInConstructor(location);
+            return new BoundExpressionStatement(expression);
+        }
+
+        if (!TryGetIteratorElementType(method.ReturnType, out var elementType))
+        {
+            _diagnostics.ReportYieldStatementRequiresIteratorReturnType(
+                method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                location);
+            return new BoundExpressionStatement(expression);
+        }
+
+        if (ShouldAttemptConversion(expression) &&
+            expression.Type is { TypeKind: not TypeKind.Error } expressionType &&
+            elementType.TypeKind != TypeKind.Error)
+        {
+            if (!IsAssignable(elementType, expressionType, out var conversion))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    expressionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    yieldReturnStatement.Expression.GetLocation());
+            }
+            else
+            {
+                expression = ApplyConversion(expression, elementType, conversion, yieldReturnStatement.Expression);
+            }
+        }
+
+        var bound = new BoundYieldReturnStatement(expression);
+        CacheBoundNode(yieldReturnStatement, bound);
+        return bound;
+    }
+
+    private BoundStatement BindYieldBreakStatement(YieldBreakStatementSyntax yieldBreakStatement)
+    {
+        var location = yieldBreakStatement.YieldKeyword.GetLocation();
+
+        if (_expressionContextDepth > 0)
+        {
+            _diagnostics.ReportYieldBreakStatementInExpression(location);
+            var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+            return new BoundExpressionStatement(new BoundUnitExpression(unit));
+        }
+
+        if (_containingSymbol is not IMethodSymbol method)
+        {
+            _diagnostics.ReportYieldStatementRequiresIteratorReturnType("void", location);
+            var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+            return new BoundExpressionStatement(new BoundUnitExpression(unit));
+        }
+
+        if (method.IsConstructor || method.IsNamedConstructor)
+        {
+            _diagnostics.ReportYieldStatementNotAllowedInConstructor(location);
+            var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+            return new BoundExpressionStatement(new BoundUnitExpression(unit));
+        }
+
+        if (!TryGetIteratorElementType(method.ReturnType, out _))
+        {
+            _diagnostics.ReportYieldStatementRequiresIteratorReturnType(
+                method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                location);
+            var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+            return new BoundExpressionStatement(new BoundUnitExpression(unit));
+        }
+
+        var bound = new BoundYieldBreakStatement();
+        CacheBoundNode(yieldBreakStatement, bound);
+        return bound;
+    }
+
+    private bool TryGetIteratorElementType(ITypeSymbol returnType, out ITypeSymbol elementType)
+    {
+        elementType = Compilation.ErrorTypeSymbol;
+
+        if (returnType is INamedTypeSymbol named &&
+            named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+            named.TypeArguments.Length == 1)
+        {
+            elementType = named.TypeArguments[0];
+            return true;
+        }
+
+        if (returnType.SpecialType == SpecialType.System_Collections_IEnumerable)
+        {
+            elementType = Compilation.GetSpecialType(SpecialType.System_Object);
+            return true;
+        }
+
+        return false;
     }
 
     private BoundStatement BindThrowStatement(ThrowStatementSyntax throwStatement)

@@ -12,6 +12,16 @@ partial class BoundTreeVisitor
     {
         boundNode.Accept(this);
     }
+
+    public virtual void VisitYieldReturnStatement(BoundYieldReturnStatement node)
+    {
+        DefaultVisit(node);
+    }
+
+    public virtual void VisitYieldBreakStatement(BoundYieldBreakStatement node)
+    {
+        DefaultVisit(node);
+    }
 }
 
 partial class BoundTreeVisitor<TResult>
@@ -25,5 +35,15 @@ partial class BoundTreeVisitor<TResult>
     public virtual TResult Visit(BoundNode boundNode)
     {
         return boundNode.Accept(this);
+    }
+
+    public virtual TResult VisitYieldReturnStatement(BoundYieldReturnStatement node)
+    {
+        return DefaultVisit(node);
+    }
+
+    public virtual TResult VisitYieldBreakStatement(BoundYieldBreakStatement node)
+    {
+        return DefaultVisit(node);
     }
 }

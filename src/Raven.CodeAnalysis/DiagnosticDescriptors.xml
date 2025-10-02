@@ -278,6 +278,14 @@
     Title="Throw statement not allowed here"
     Message="Throw statements are not valid in expressions; use a statement block instead"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1908" Identifier="YieldReturnStatementInExpression"
+    Title="Yield return statement not allowed here"
+    Message="Yield return statements are not valid in expressions; use a statement block instead"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1909" Identifier="YieldBreakStatementInExpression"
+    Title="Yield break statement not allowed here"
+    Message="Yield break statements are not valid in expressions; use a statement block instead"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1906" Identifier="TryExpressionCannotBeNested"
     Title="Nested try expression"
     Message="Nested try expressions are not allowed"
@@ -348,5 +356,11 @@
     Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2601" Identifier="ContinueStatementNotWithinLoop" Title="Continue statement not within loop"
     Message="Continue statements are only valid inside loops" Category="compiler" Severity="Error" EnabledByDefault="true"
+    Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2602" Identifier="YieldStatementRequiresIteratorReturnType" Title="Yield statements require iterator return type"
+    Message="Yield statements are only valid in members returning IEnumerable or IEnumerable&lt;T&gt;; this member returns '{returnType}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2603" Identifier="YieldStatementNotAllowedInConstructor" Title="Yield statements not allowed in constructors"
+    Message="Constructors cannot contain yield statements" Category="compiler" Severity="Error" EnabledByDefault="true"
     Description="" HelpLinkUri="" />
 </Diagnostics>
