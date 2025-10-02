@@ -6,7 +6,7 @@ let value = tryParse("foo")
 WriteLine(value)
 
 func tryParse(input: string) -> string {
-   return try int.Parse(input) match {
+    return try int.Parse(input) match {
         int no => "No is ${no}"
         FormatException ex => "Format invalid: ${ex.Message}"
         _ => "unknown"
