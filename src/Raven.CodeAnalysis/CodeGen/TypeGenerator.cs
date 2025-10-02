@@ -117,6 +117,30 @@ internal class TypeGenerator
                 TypeBuilder.SetParent(ResolveClrType(TypeSymbol.BaseType));
 
         }
+        else if (TypeSymbol is INamedTypeSymbol synthesizedType)
+        {
+            var synthesizedAttributes = GetTypeAccessibilityAttributes(synthesizedType);
+
+            if (synthesizedType.TypeKind == TypeKind.Interface)
+                synthesizedAttributes |= TypeAttributes.Interface | TypeAttributes.Abstract;
+            else
+            {
+                synthesizedAttributes |= TypeAttributes.Class;
+
+                if (synthesizedType.IsAbstract)
+                    synthesizedAttributes |= TypeAttributes.Abstract;
+
+                if (synthesizedType.IsSealed)
+                    synthesizedAttributes |= TypeAttributes.Sealed;
+            }
+
+            TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                synthesizedType.MetadataName,
+                synthesizedAttributes);
+
+            if (synthesizedType.BaseType is not null)
+                TypeBuilder.SetParent(ResolveClrType(synthesizedType.BaseType));
+        }
 
         if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
         {

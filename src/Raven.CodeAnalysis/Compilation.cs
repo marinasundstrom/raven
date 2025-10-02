@@ -20,7 +20,9 @@ public class Compilation
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, IAssemblySymbol>();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new Dictionary<Assembly, IAssemblySymbol>();
     private readonly Dictionary<DelegateSignature, SynthesizedDelegateTypeSymbol> _synthesizedDelegates = new(new DelegateSignatureComparer());
+    private readonly Dictionary<SourceMethodSymbol, SynthesizedIteratorTypeSymbol> _synthesizedIterators = new(ReferenceEqualityComparer.Instance);
     private int _synthesizedDelegateOrdinal;
+    private int _synthesizedIteratorOrdinal;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
     private readonly object _entryPointGate = new();
@@ -326,6 +328,20 @@ public class Compilation
 
     internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
         => _synthesizedDelegates.Values;
+
+    internal SynthesizedIteratorTypeSymbol CreateIteratorStateMachine(SourceMethodSymbol method, IteratorMethodKind iteratorKind, ITypeSymbol elementType)
+    {
+        if (_synthesizedIterators.TryGetValue(method, out var existing))
+            return existing;
+
+        var name = $"<>c__Iterator{_synthesizedIteratorOrdinal++}";
+        var stateMachine = new SynthesizedIteratorTypeSymbol(this, method, name, iteratorKind, elementType);
+        _synthesizedIterators[method] = stateMachine;
+        return stateMachine;
+    }
+
+    internal IEnumerable<SynthesizedIteratorTypeSymbol> GetSynthesizedIteratorTypes()
+        => _synthesizedIterators.Values;
 
     private readonly object _setupLock = new();
 

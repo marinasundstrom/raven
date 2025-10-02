@@ -88,7 +88,20 @@ internal class MethodBodyGenerator
                      ?? (MethodBase as ConstructorBuilder)?.GetILGenerator()
                      ?? throw new InvalidOperationException();
 
-        var syntax = MethodSymbol.DeclaringSyntaxReferences.First().GetSyntax();
+        if (MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
+        {
+            EmitIteratorMethod(iteratorType);
+            return;
+        }
+
+        var syntaxReference = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var syntax = syntaxReference.GetSyntax();
 
         var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);
 
@@ -260,6 +273,54 @@ internal class MethodBodyGenerator
             default:
                 throw new InvalidOperationException($"Unsupported syntax node in MethodBodyGenerator: {syntax.GetType().Name}");
         }
+    }
+
+    private void EmitIteratorMethod(SynthesizedIteratorTypeSymbol iteratorType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.Constructor))
+        {
+            EmitConstructorInitializer();
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var body = GetIteratorBody(iteratorType);
+        if (body is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        DeclareLocals(body);
+        EmitBoundBlock(body);
+    }
+
+    private BoundBlockStatement? GetIteratorBody(SynthesizedIteratorTypeSymbol iteratorType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.MoveNextMethod))
+            return iteratorType.MoveNextBody;
+
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.DisposeMethod))
+            return iteratorType.DisposeBody;
+
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.ResetMethod))
+            return iteratorType.ResetBody;
+
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.CurrentProperty.GetMethod))
+            return iteratorType.CurrentGetterBody;
+
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.NonGenericCurrentProperty.GetMethod))
+            return iteratorType.NonGenericCurrentGetterBody;
+
+        if (iteratorType.GenericGetEnumeratorMethod is not null &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.GenericGetEnumeratorMethod))
+            return iteratorType.GenericGetEnumeratorBody;
+
+        if (iteratorType.NonGenericGetEnumeratorMethod is not null &&
+            SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.NonGenericGetEnumeratorMethod))
+            return iteratorType.NonGenericGetEnumeratorBody;
+
+        return null;
     }
 
     public void EmitLambda(BoundLambdaExpression lambda, TypeGenerator.LambdaClosure? closure)

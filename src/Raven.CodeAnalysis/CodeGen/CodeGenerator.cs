@@ -10,6 +10,7 @@ using System.Reflection.PortableExecutable;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
@@ -600,6 +601,8 @@ internal class CodeGenerator
 
     private void DefineTypeBuilders()
     {
+        EnsureIteratorStateMachines();
+
         var types = Compilation.Module.GlobalNamespace
             .GetAllMembersRecursive()
             .OfType<ITypeSymbol>()
@@ -607,6 +610,7 @@ internal class CodeGenerator
             .ToArray();
 
         var synthesizedDelegates = Compilation.GetSynthesizedDelegateTypes().ToArray();
+        var synthesizedIterators = Compilation.GetSynthesizedIteratorTypes().ToArray();
 
         foreach (var typeSymbol in types)
         {
@@ -616,6 +620,11 @@ internal class CodeGenerator
         foreach (var delegateType in synthesizedDelegates)
         {
             GetOrCreateTypeGenerator(delegateType);
+        }
+
+        foreach (var iteratorType in synthesizedIterators)
+        {
+            GetOrCreateTypeGenerator(iteratorType);
         }
 
         var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
@@ -629,6 +638,37 @@ internal class CodeGenerator
         foreach (var delegateType in synthesizedDelegates)
         {
             EnsureTypeBuilderDefined(delegateType, visited, visiting);
+        }
+
+        foreach (var iteratorType in synthesizedIterators)
+        {
+            EnsureTypeBuilderDefined(iteratorType, visited, visiting);
+        }
+    }
+
+    private void EnsureIteratorStateMachines()
+    {
+        foreach (var tree in Compilation.SyntaxTrees)
+        {
+            var semanticModel = Compilation.GetSemanticModel(tree);
+            var root = tree.GetRoot();
+
+            foreach (var methodDeclaration in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                if (methodDeclaration.Body is null)
+                    continue;
+
+                if (semanticModel.GetDeclaredSymbol(methodDeclaration) is not SourceMethodSymbol methodSymbol)
+                    continue;
+
+                if (semanticModel.GetBoundNode(methodDeclaration.Body) is not BoundBlockStatement boundBody)
+                    continue;
+
+                if (!IteratorLowerer.ShouldRewrite(methodSymbol, boundBody))
+                    continue;
+
+                IteratorLowerer.Rewrite(methodSymbol, boundBody);
+            }
         }
     }
 

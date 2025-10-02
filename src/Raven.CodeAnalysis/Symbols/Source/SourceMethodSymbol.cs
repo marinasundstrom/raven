@@ -22,6 +22,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private IteratorMethodKind _iteratorKind;
     private ITypeSymbol? _iteratorElementType;
     private bool _isIterator;
+    private SynthesizedIteratorTypeSymbol? _iteratorStateMachine;
 
     public SourceMethodSymbol(
         string name,
@@ -112,6 +113,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public ITypeSymbol? IteratorElementType => _iteratorElementType;
 
+    public SynthesizedIteratorTypeSymbol? IteratorStateMachine => _iteratorStateMachine;
+
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 
     internal void SetOverriddenMethod(IMethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
@@ -151,6 +154,17 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _isIterator = true;
         _iteratorKind = kind;
         _iteratorElementType = elementType;
+    }
+
+    internal void SetIteratorStateMachine(SynthesizedIteratorTypeSymbol stateMachine)
+    {
+        if (stateMachine is null)
+            throw new ArgumentNullException(nameof(stateMachine));
+
+        if (_iteratorStateMachine is not null && !ReferenceEquals(_iteratorStateMachine, stateMachine))
+            throw new InvalidOperationException("Iterator state machine already assigned.");
+
+        _iteratorStateMachine = stateMachine;
     }
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
