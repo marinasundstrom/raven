@@ -75,12 +75,10 @@ compiler and highlights the remaining work needed to make them executable.
   copies the current values into the fields, and produces a delegate via
   `Delegate.CreateDelegate` so the closure instance becomes the bound receiver
   for the generated static helper.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L24-L223】【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L12-L195】
-* Captured locals now flow through `System.Runtime.CompilerServices.StrongBox<T>`
-  cells so both the outer scope and the lambda body share the same storage. The
+* Captured locals now live directly on the synthesized closure instance. The
   binder still reports captures on the lambda symbol, and the emitters translate
-  captured locals into strong-box fields on the synthesized closure and strong
-  boxes for the declaring scope's locals. Assignments and reads in either scope
-  dereference the shared cell so mutations are immediately visible to all
+  each capture into a field on the closure class. Assignments and reads in either
+  scope operate on those fields so mutations are immediately visible to all
   delegates.
 * Nested lambdas reuse the closure instances created by their enclosing scopes.
   When a nested lambda captures a variable owned by a parent closure, the

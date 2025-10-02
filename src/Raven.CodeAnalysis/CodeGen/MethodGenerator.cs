@@ -44,6 +44,9 @@ internal class MethodGenerator
 
         MethodAttributes attributes = MethodAttributes.HideBySig | GetMethodAccessibilityAttributes(MethodSymbol);
 
+        if (_lambdaClosure is not null)
+            attributes = (attributes & ~MethodAttributes.MemberAccessMask) | MethodAttributes.Public;
+
         if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet)
             attributes |= MethodAttributes.SpecialName;
 

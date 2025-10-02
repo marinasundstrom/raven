@@ -1032,15 +1032,15 @@ identifier, optionally followed by a return-type arrow, and then the `=>` token
 with either an expression or block body. Lambdas may appear wherever a function
 value is expected. When a lambda references a local defined in an
 outer scope, the compiler lifts that local into shared closure storage so both
-the outer scope and the lambda observe the same value. Each captured local is
-wrapped in a reference cell (implemented with `System.Runtime.CompilerServices.StrongBox<T>`)
-when the local is declared. Reads and writes in any scope dereference that
-shared cell, so mutating a `var` binding after creating a lambda immediately
-affects all delegates that captured it. Capturing `self` produces a reference to
-the enclosing instance, and capturing parameters preserves the argument value
-from the invoking scope. Nested lambdas reuse the closure instances produced by
-their enclosing scopes so that captures shared across multiple lambda layers
-continue to reference the same storage locations.
+the outer scope and the lambda observe the same value. Each capturing lambda
+materializes a synthesized closure class that stores the lambda body as an
+instance method and exposes fields for every captured symbol. Reads and writes
+in any scope access those fields directly, so mutating a `var` binding after
+creating a lambda immediately affects all delegates that captured it. Capturing
+`self` produces a reference to the enclosing instance, and capturing parameters
+preserves the argument value from the invoking scope. Nested lambdas reuse the
+closure instances produced by their enclosing scopes so that captures shared
+across multiple lambda layers continue to reference the same storage locations.
 
 Lambda parameter types are optional when the expression is converted to a known
 delegate type. The compiler infers the parameter types (and any `ref`/`out`
