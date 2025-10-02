@@ -33,6 +33,12 @@ internal class NameSyntaxParser : SyntaxParser
             return ByRefType(ampToken, elementType);
         }
 
+        var signedLiteral = TryParseSignedNumericLiteralType();
+        if (signedLiteral is not null)
+        {
+            return signedLiteral;
+        }
+
         TypeSyntax name;
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
@@ -82,6 +88,79 @@ internal class NameSyntaxParser : SyntaxParser
         }
 
         return name;
+    }
+
+    private TypeSyntax? TryParseSignedNumericLiteralType()
+    {
+        var signToken = PeekToken();
+
+        if (!signToken.IsKind(SyntaxKind.PlusToken) && !signToken.IsKind(SyntaxKind.MinusToken))
+        {
+            return null;
+        }
+
+        var checkpoint = CreateCheckpoint("signed-numeric-literal-type");
+        signToken = ReadToken();
+
+        var numericToken = PeekToken();
+
+        if (!numericToken.IsKind(SyntaxKind.NumericLiteralToken) ||
+            signToken.TrailingTrivia.Count > 0 ||
+            numericToken.LeadingTrivia.Count > 0)
+        {
+            checkpoint.Dispose();
+            return null;
+        }
+
+        numericToken = ReadToken();
+
+        var combinedToken = CreateSignedNumericLiteralToken(signToken, numericToken);
+        return LiteralType(SyntaxKind.NumericLiteralType, combinedToken);
+    }
+
+    private static InternalSyntax.SyntaxToken CreateSignedNumericLiteralToken(InternalSyntax.SyntaxToken signToken, InternalSyntax.SyntaxToken numericToken)
+    {
+        var sign = signToken.Kind == SyntaxKind.MinusToken ? -1 : 1;
+        var tokenText = string.Concat(signToken.Text, numericToken.Text);
+        object? signedValue = numericToken.GetValue() switch
+        {
+            int value => sign * value,
+            long value => sign * value,
+            float value => sign * value,
+            double value => sign * value,
+            _ => numericToken.GetValue(),
+        };
+
+        var diagnostics = CombineDiagnostics(signToken, numericToken);
+
+        return new InternalSyntax.SyntaxToken(
+            SyntaxKind.NumericLiteralToken,
+            tokenText,
+            signedValue,
+            tokenText.Length,
+            signToken.LeadingTrivia,
+            numericToken.TrailingTrivia,
+            diagnostics,
+            annotations: null);
+    }
+
+    private static DiagnosticInfo[]? CombineDiagnostics(InternalSyntax.SyntaxToken first, InternalSyntax.SyntaxToken second)
+    {
+        List<DiagnosticInfo>? diagnostics = null;
+
+        foreach (var diagnostic in first.GetDiagnostics())
+        {
+            diagnostics ??= new List<DiagnosticInfo>();
+            diagnostics.Add(diagnostic);
+        }
+
+        foreach (var diagnostic in second.GetDiagnostics())
+        {
+            diagnostics ??= new List<DiagnosticInfo>();
+            diagnostics.Add(diagnostic);
+        }
+
+        return diagnostics?.ToArray();
     }
 
     private TypeSyntax ParseNameCore()

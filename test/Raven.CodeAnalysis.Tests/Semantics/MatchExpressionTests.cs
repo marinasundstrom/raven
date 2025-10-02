@@ -82,6 +82,23 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithNegativeNumericPattern_AllowsConstantArm()
+    {
+        const string code = """
+let value: int = -1
+
+let result = value match {
+    -1 => "minus one"
+    _ => "other"
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithDiscardArm_BindsDesignation()
     {
         const string code = """
