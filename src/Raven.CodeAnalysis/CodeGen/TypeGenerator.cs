@@ -215,6 +215,9 @@ internal class TypeGenerator
             {
                 case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet):
                     {
+                        if (methodSymbol.MethodKind == MethodKind.LambdaMethod)
+                            break;
+
                         var methodGenerator = new MethodGenerator(this, methodSymbol);
 
                         if (methodSymbol is SourceLambdaSymbol sourceLambda && sourceLambda.HasCaptures)
