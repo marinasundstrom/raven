@@ -66,6 +66,45 @@ public static class SemanticFacts
         return false;
     }
 
+    public static bool SatisfiesConstraints(
+        ITypeSymbol? typeArgument,
+        ITypeParameterSymbol? typeParameter)
+    {
+        if (typeArgument is null || typeParameter is null)
+            return false;
+
+        if (typeArgument is IErrorTypeSymbol)
+            return true;
+
+        var constraintKind = typeParameter.ConstraintKind;
+
+        if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
+            !Binder.SatisfiesReferenceTypeConstraint(typeArgument))
+        {
+            return false;
+        }
+
+        if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 &&
+            !Binder.SatisfiesValueTypeConstraint(typeArgument))
+        {
+            return false;
+        }
+
+        if ((constraintKind & TypeParameterConstraintKind.TypeConstraint) != 0)
+        {
+            foreach (var constraintType in typeParameter.ConstraintTypes)
+            {
+                if (constraintType is IErrorTypeSymbol)
+                    continue;
+
+                if (!Binder.SatisfiesTypeConstraint(typeArgument, constraintType))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
     private static bool IsDerivedFromTypeParameter(
         ITypeParameterSymbol typeParameter,
         ITypeSymbol potentialBase,

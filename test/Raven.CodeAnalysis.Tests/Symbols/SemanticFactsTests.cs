@@ -94,6 +94,100 @@ public class SemanticFactsTests
     }
 
     [Fact]
+    public void SatisfiesConstraints_ReturnsTrueForClassConstraint()
+    {
+        var source = "class Base {} class Derived : Base {} class Container<T : Base> {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var typeParameter = container.TypeParameters[0];
+        var derived = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Derived")!;
+
+        Assert.True(SemanticFacts.SatisfiesConstraints(derived, typeParameter));
+    }
+
+    [Fact]
+    public void SatisfiesConstraints_ReturnsFalseForClassConstraint()
+    {
+        var source = "class Base {} class Other {} class Container<T : Base> {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var typeParameter = container.TypeParameters[0];
+        var other = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Other")!;
+
+        Assert.False(SemanticFacts.SatisfiesConstraints(other, typeParameter));
+    }
+
+    [Fact]
+    public void SatisfiesConstraints_ReturnsTrueForInterfaceConstraint()
+    {
+        var source = "interface IMarker {} class Container<T : IMarker> {} class Implementation : IMarker {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var typeParameter = container.TypeParameters[0];
+        var implementation = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Implementation")!;
+
+        Assert.True(SemanticFacts.SatisfiesConstraints(implementation, typeParameter));
+    }
+
+    [Fact]
+    public void SatisfiesConstraints_HonorsStructConstraint()
+    {
+        var source = "class Container<T : struct> {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var typeParameter = container.TypeParameters[0];
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+
+        Assert.True(SemanticFacts.SatisfiesConstraints(intType, typeParameter));
+        Assert.False(SemanticFacts.SatisfiesConstraints(stringType, typeParameter));
+    }
+
+    [Fact]
+    public void SatisfiesConstraints_HonorsReferenceTypeConstraint()
+    {
+        var source = "class Container<T : class> {}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "test",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var container = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Container")!;
+        var typeParameter = container.TypeParameters[0];
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        Assert.True(SemanticFacts.SatisfiesConstraints(stringType, typeParameter));
+        Assert.False(SemanticFacts.SatisfiesConstraints(intType, typeParameter));
+    }
+
+    [Fact]
     public void ImplementsInterface_ReturnsTrueForArrayInterfaces()
     {
         var tree = SyntaxTree.ParseText("class C {}");
