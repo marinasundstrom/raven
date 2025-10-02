@@ -113,7 +113,10 @@ internal class MethodBodyGenerator
         };
 
         if (boundBody != null)
+        {
+            boundBody = Lowerer.LowerBlock(MethodSymbol, boundBody);
             DeclareLocals(boundBody);
+        }
 
         switch (syntax)
         {
@@ -280,7 +283,8 @@ internal class MethodBodyGenerator
 
             if (lambda.Body is BoundBlockExpression blockExpression)
             {
-                var block = new BoundBlockStatement(blockExpression.Statements);
+                var block = new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+                block = Lowerer.LowerBlock(MethodSymbol, block);
                 DeclareLocals(block);
                 EmitBoundBlock(block);
                 return;
@@ -456,7 +460,6 @@ internal class MethodBodyGenerator
 
     private void EmitBoundBlock(BoundBlockStatement block, bool withReturn = true)
     {
-        block = Lowerer.LowerBlock(MethodSymbol, block);
         var blockScope = new Scope(scope, block.LocalsToDispose);
 
         for (var i = 0; i < block.Statements.Count(); i++)
