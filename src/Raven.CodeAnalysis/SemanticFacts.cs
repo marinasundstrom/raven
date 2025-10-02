@@ -80,13 +80,13 @@ public static class SemanticFacts
         var constraintKind = typeParameter.ConstraintKind;
 
         if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
-            !Binder.SatisfiesReferenceTypeConstraint(typeArgument))
+            !SatisfiesReferenceTypeConstraint(typeArgument))
         {
             return false;
         }
 
         if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 &&
-            !Binder.SatisfiesValueTypeConstraint(typeArgument))
+            !SatisfiesValueTypeConstraint(typeArgument))
         {
             return false;
         }
@@ -98,12 +98,102 @@ public static class SemanticFacts
                 if (constraintType is IErrorTypeSymbol)
                     continue;
 
-                if (!Binder.SatisfiesTypeConstraint(typeArgument, constraintType))
+                if (!SatisfiesTypeConstraint(typeArgument, constraintType))
                     return false;
             }
         }
 
         return true;
+    }
+
+    public static bool SatisfiesReferenceTypeConstraint(ITypeSymbol type)
+    {
+        if (type.IsReferenceType)
+            return true;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
+
+        return false;
+    }
+
+    public static bool SatisfiesValueTypeConstraint(ITypeSymbol type)
+    {
+        if (type.TypeKind == TypeKind.Nullable)
+            return false;
+
+        if (type.IsValueType)
+            return true;
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
+
+        return false;
+    }
+
+    public static bool SatisfiesTypeConstraint(ITypeSymbol typeArgument, ITypeSymbol constraintType)
+    {
+        if (typeArgument is IErrorTypeSymbol || constraintType is IErrorTypeSymbol)
+            return true;
+
+        if (SymbolEqualityComparer.Default.Equals(typeArgument, constraintType))
+            return true;
+
+        if (constraintType is INamedTypeSymbol namedConstraint)
+            return SatisfiesNamedTypeConstraint(typeArgument, namedConstraint);
+
+        return true;
+    }
+
+    public static bool SatisfiesNamedTypeConstraint(ITypeSymbol typeArgument, INamedTypeSymbol constraintType)
+    {
+        if (SymbolEqualityComparer.Default.Equals(typeArgument, constraintType))
+            return true;
+
+        if (constraintType.TypeKind == TypeKind.Interface)
+        {
+            if (typeArgument is INamedTypeSymbol namedArgument &&
+                namedArgument.TypeKind == TypeKind.Interface &&
+                SymbolEqualityComparer.Default.Equals(namedArgument, constraintType))
+            {
+                return true;
+            }
+
+            foreach (var implemented in typeArgument.AllInterfaces)
+            {
+                if (SymbolEqualityComparer.Default.Equals(implemented, constraintType))
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (typeArgument is INamedTypeSymbol namedType)
+        {
+            for (var current = namedType; current is not null; current = current.BaseType)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, constraintType))
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (typeArgument is ITypeParameterSymbol typeParameter)
+        {
+            foreach (var nestedConstraint in typeParameter.ConstraintTypes)
+            {
+                if (nestedConstraint is INamedTypeSymbol nestedNamed &&
+                    SatisfiesNamedTypeConstraint(nestedNamed, constraintType))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
     }
 
     private static bool IsDerivedFromTypeParameter(

@@ -296,13 +296,13 @@ internal sealed class OverloadResolver
             var constraintKind = typeParameter.ConstraintKind;
 
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
-                !Binder.SatisfiesReferenceTypeConstraint(typeArgument))
+                !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
                 return false;
             }
 
             if ((constraintKind & TypeParameterConstraintKind.ValueType) != 0 &&
-                !Binder.SatisfiesValueTypeConstraint(typeArgument))
+                !SemanticFacts.SatisfiesValueTypeConstraint(typeArgument))
             {
                 return false;
             }
@@ -317,13 +317,13 @@ internal sealed class OverloadResolver
 
                 if (constraintType is INamedTypeSymbol namedConstraint)
                 {
-                    if (!Binder.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                    if (!SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
                         return false;
 
                     continue;
                 }
 
-                if (!Binder.SatisfiesTypeConstraint(typeArgument, constraintType))
+                if (!SemanticFacts.SatisfiesTypeConstraint(typeArgument, constraintType))
                     return false;
             }
         }
