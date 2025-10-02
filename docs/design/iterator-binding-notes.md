@@ -11,7 +11,7 @@ This note documents the current state of iterator (`yield`) support in the binde
 
 * The main lowering pipeline now checks for iterators before performing its usual transformations. Both `LowerBlock` and `LowerStatement` call `RewriteIteratorsIfNeeded`, which invokes `IteratorLowerer` only when the method contains `yield`. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.cs†L22-L37】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Iterators.cs†L7-L15】
 * `IteratorLowerer.Rewrite` determines the iterator signature, marks the method, creates (or reuses) a synthesized state machine via `Compilation.CreateIteratorStateMachine`, and populates the synthesized members and helper bodies. The original method body is rewritten to instantiate the state machine, capture `this` and parameters, seed the initial state, and return the instance. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L24-L281】【F:src/Raven.CodeAnalysis/Compilation.cs†L332-L344】
-* During emission the backend ensures all iterator state machines are synthesized and registered before IL generation. `CodeGenerator.EnsureIteratorStateMachines` walks the syntax trees, triggers the iterator rewrite, and the compilation keeps each synthesized iterator in a dedicated cache that `GetSynthesizedIteratorTypes` exposes to the type and method generators. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L649-L671】【F:src/Raven.CodeAnalysis/Compilation.cs†L22-L25】【F:src/Raven.CodeAnalysis/Compilation.cs†L332-L344】
+* During emission the backend ensures all iterator state machines are synthesized and registered before IL generation. `CodeGenerator.EnsureIteratorStateMachines` walks the syntax trees, triggers the iterator rewrite, and the compilation keeps each synthesized iterator in a dedicated cache that `GetSynthesizedIteratorTypes` exposes to the type and method generators. The pass now also visits top-level `func` declarations so script entry points produce their state machines ahead of lowering. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L649-L688】【F:src/Raven.CodeAnalysis/Compilation.cs†L22-L25】【F:src/Raven.CodeAnalysis/Compilation.cs†L332-L344】
 
 ## Synthesized state machine shape
 
@@ -29,6 +29,8 @@ Before rewriting the control flow, `MoveNextBuilder` now walks the iterator body
 
 ## Outstanding work to finish the generator feature
 
-1. **End-to-end validation.**  With the lowering and disposal semantics in place, add integration tests that compile and execute iterator-heavy programs—such as `samples/generator.rav`, lambda captures with `yield`, and the LINQ sample—to verify the generated state machines behave correctly and that existing lowering paths continue to work. 【F:src/Raven.Compiler/samples/generator.rav†L1-L17】
+* `MethodBodyGenerator.EmitBoundBlock` re-runs the local declaration pass after lowering so that synthesized iterator locals (like the state-machine temporary) always have IL builders, regardless of whether the rewrite ran during `EnsureIteratorStateMachines` or just-in-time during lowering. 【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L520-L556】
+
+1. **End-to-end validation.**  With the lowering and disposal semantics in place, add integration tests that compile and execute iterator-heavy programs—including script-level functions—to verify the generated state machines behave correctly and that existing lowering paths continue to work. 【F:src/Raven.Compiler/samples/generator.rav†L1-L17】
 
 Updating these notes after each milestone will keep the generator roadmap accurate and highlight any additional issues discovered during implementation.

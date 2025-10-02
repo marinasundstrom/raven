@@ -520,6 +520,12 @@ internal class MethodBodyGenerator
         block = Lowerer.LowerBlock(MethodSymbol, block);
         var blockScope = new Scope(scope, block.LocalsToDispose);
 
+        // Locals synthesized during lowering (e.g., iterator state machines) won't
+        // be present in the original bound body we used for the initial declaration
+        // pass. Ensure we register builders for any newly introduced locals so
+        // downstream emitters can load and store them.
+        DeclareLocals(blockScope, block);
+
         for (var i = 0; i < block.Statements.Count(); i++)
         {
             var statement = block.Statements.ElementAt(i);
