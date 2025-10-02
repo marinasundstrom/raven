@@ -73,6 +73,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsReadOnly => _definition.IsReadOnly;
     public bool IsSealed => _definition.IsSealed;
     public bool IsVirtual => _definition.IsVirtual;
+    public bool IsIterator => _definition.IsIterator;
+    public IteratorMethodKind IteratorKind => _definition.IteratorKind;
+    public ITypeSymbol? IteratorElementType => _definition.IteratorElementType;
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _definition.ExplicitInterfaceImplementations;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _definition.TypeParameters;
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;

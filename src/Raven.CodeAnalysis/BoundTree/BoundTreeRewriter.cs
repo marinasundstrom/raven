@@ -59,6 +59,8 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             BoundForStatement forStmt => (BoundStatement)VisitForStatement(forStmt)!,
             BoundBlockStatement blockStmt => (BoundStatement)VisitBlockStatement(blockStmt)!,
             BoundAssignmentStatement assignmentStmt => (BoundStatement)VisitAssignmentStatement(assignmentStmt)!,
+            BoundYieldReturnStatement yieldReturn => (BoundStatement)VisitYieldReturnStatement(yieldReturn)!,
+            BoundYieldBreakStatement yieldBreak => (BoundStatement)VisitYieldBreakStatement(yieldBreak)!,
             _ => statement,
         };
     }
@@ -97,7 +99,6 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
     public virtual BoundNode? VisitBreakStatement(BoundBreakStatement node) => node;
 
     public virtual BoundNode? VisitContinueStatement(BoundContinueStatement node) => node;
-
 
     public virtual INamespaceSymbol VisitNamespace(INamespaceSymbol @namespace)
     {

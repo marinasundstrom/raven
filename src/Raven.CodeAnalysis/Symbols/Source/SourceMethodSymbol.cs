@@ -19,6 +19,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _isSealed;
     private ImmutableArray<AttributeData> _lazyReturnTypeAttributes;
     private bool? _lazyIsExtensionMethod;
+    private IteratorMethodKind _iteratorKind;
+    private ITypeSymbol? _iteratorElementType;
+    private bool _isIterator;
 
     public SourceMethodSymbol(
         string name,
@@ -103,6 +106,12 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public IMethodSymbol? ConstructedFrom => this;
 
+    public bool IsIterator => _isIterator;
+
+    public IteratorMethodKind IteratorKind => _iteratorKind;
+
+    public ITypeSymbol? IteratorElementType => _iteratorElementType;
+
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 
     internal void SetOverriddenMethod(IMethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
@@ -132,6 +141,16 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _isOverride = isOverride;
         _isVirtual = isVirtual || isOverride;
         _isSealed = isSealed;
+    }
+
+    internal void MarkIterator(IteratorMethodKind kind, ITypeSymbol elementType)
+    {
+        if (kind == IteratorMethodKind.None)
+            return;
+
+        _isIterator = true;
+        _iteratorKind = kind;
+        _iteratorElementType = elementType;
     }
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)

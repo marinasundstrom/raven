@@ -262,6 +262,9 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     public bool IsReadOnly => _original.IsReadOnly;
     public bool IsSealed => _original.IsSealed;
     public bool IsVirtual => _original.IsVirtual;
+    public bool IsIterator => _original.IsIterator;
+    public IteratorMethodKind IteratorKind => _original.IteratorKind;
+    public ITypeSymbol? IteratorElementType => _original.IteratorElementType;
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _original.ExplicitInterfaceImplementations;
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _original.TypeParameters;
     public ImmutableArray<ITypeSymbol> TypeArguments => _original.TypeArguments;

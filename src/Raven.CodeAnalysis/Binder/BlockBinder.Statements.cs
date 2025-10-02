@@ -319,6 +319,46 @@ partial class BlockBinder
         return new BoundReturnStatement(expr);
     }
 
+    private BoundStatement BindYieldReturnStatement(YieldReturnStatementSyntax yieldReturn)
+    {
+        if (_expressionContextDepth > 0)
+        {
+            var exprInExpressionContext = BindExpression(yieldReturn.Expression);
+            return new BoundExpressionStatement(exprInExpressionContext);
+        }
+
+        var expression = BindExpression(yieldReturn.Expression);
+        var (kind, elementType) = ResolveIteratorInfoForCurrentMethod();
+
+        if (elementType.TypeKind == TypeKind.Error)
+            elementType = Compilation.ErrorTypeSymbol;
+
+        if (ShouldAttemptConversion(expression) &&
+            expression.Type is { TypeKind: not TypeKind.Error } expressionType &&
+            elementType.TypeKind != TypeKind.Error &&
+            IsAssignable(elementType, expressionType, out var conversion))
+        {
+            expression = ApplyConversion(expression, elementType, conversion, yieldReturn.Expression);
+        }
+
+        return new BoundYieldReturnStatement(expression, elementType, kind);
+    }
+
+    private BoundStatement BindYieldBreakStatement(YieldBreakStatementSyntax yieldBreak)
+    {
+        if (_expressionContextDepth > 0)
+        {
+            var unit = new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit));
+            return new BoundExpressionStatement(unit);
+        }
+
+        var (kind, elementType) = ResolveIteratorInfoForCurrentMethod();
+        if (elementType.TypeKind == TypeKind.Error)
+            elementType = Compilation.ErrorTypeSymbol;
+
+        return new BoundYieldBreakStatement(elementType, kind);
+    }
+
     private BoundStatement BindThrowStatement(ThrowStatementSyntax throwStatement)
     {
         var location = throwStatement.ThrowKeyword.GetLocation();
@@ -524,6 +564,58 @@ partial class BlockBinder
         SemanticModel?.RegisterLabel(labeledStatement, symbol);
 
         return symbol;
+    }
+
+    private (IteratorMethodKind Kind, ITypeSymbol ElementType) ResolveIteratorInfoForCurrentMethod()
+    {
+        if (_containingSymbol is not IMethodSymbol method)
+            return (IteratorMethodKind.None, Compilation.ErrorTypeSymbol);
+
+        var result = ResolveIteratorInfo(method);
+
+        if (result.Kind != IteratorMethodKind.None && _containingSymbol is SourceMethodSymbol sourceMethod)
+            sourceMethod.MarkIterator(result.Kind, result.ElementType);
+
+        return result;
+    }
+
+    private (IteratorMethodKind Kind, ITypeSymbol ElementType) ResolveIteratorInfo(IMethodSymbol method)
+    {
+        var errorType = Compilation.ErrorTypeSymbol;
+        var returnType = method.ReturnType;
+
+        if (returnType.SpecialType == SpecialType.System_Collections_IEnumerable)
+        {
+            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+            return (IteratorMethodKind.Enumerable, objectType);
+        }
+
+        if (returnType.SpecialType == SpecialType.System_Collections_IEnumerator)
+        {
+            var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+            return (IteratorMethodKind.Enumerator, objectType);
+        }
+
+        if (returnType is INamedTypeSymbol named)
+        {
+            var definition = named;
+            if (named.ConstructedFrom is INamedTypeSymbol constructedFrom)
+                definition = constructedFrom;
+
+            if (definition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
+            {
+                var elementType = named.TypeArguments.Length > 0 ? named.TypeArguments[0] : errorType;
+                return (IteratorMethodKind.Enumerable, elementType);
+            }
+
+            if (definition.SpecialType == SpecialType.System_Collections_Generic_IEnumerator_T)
+            {
+                var elementType = named.TypeArguments.Length > 0 ? named.TypeArguments[0] : errorType;
+                return (IteratorMethodKind.Enumerator, elementType);
+            }
+        }
+
+        return (IteratorMethodKind.None, errorType);
     }
 
     private ILabelSymbol CreateLabelSymbol(string name, Location location, SyntaxReference reference)

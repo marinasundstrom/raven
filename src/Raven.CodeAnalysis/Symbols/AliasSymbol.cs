@@ -273,6 +273,12 @@ internal sealed class AliasMethodSymbol : AliasSymbol, IMethodSymbol
 
     public bool IsVirtual => _method.IsVirtual;
 
+    public bool IsIterator => _method.IsIterator;
+
+    public IteratorMethodKind IteratorKind => _method.IteratorKind;
+
+    public ITypeSymbol? IteratorElementType => _method.IteratorElementType;
+
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => _method.ExplicitInterfaceImplementations;
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => _method.TypeParameters;

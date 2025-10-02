@@ -266,6 +266,9 @@ public interface IMethodSymbol : ISymbol
     bool IsReadOnly { get; }
     bool IsSealed { get; }
     bool IsVirtual { get; }
+    bool IsIterator { get; }
+    IteratorMethodKind IteratorKind { get; }
+    ITypeSymbol? IteratorElementType { get; }
 
     ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations { get; }
 
@@ -299,6 +302,13 @@ public enum MethodKind
     BuiltinOperator,
     Function,
     FunctionPointerSignature
+}
+
+public enum IteratorMethodKind
+{
+    None,
+    Enumerable,
+    Enumerator
 }
 
 public interface IParameterSymbol : ISymbol
