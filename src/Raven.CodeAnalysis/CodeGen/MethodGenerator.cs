@@ -36,6 +36,9 @@ internal class MethodGenerator
 
     internal void DefineMethodBuilder()
     {
+        var targetTypeBuilder = _lambdaClosure?.TypeBuilder ?? TypeGenerator.TypeBuilder
+            ?? throw new InvalidOperationException("Type builder must be defined before creating method builders.");
+
         var isExplicitInterfaceImplementation = MethodSymbol.MethodKind == MethodKind.ExplicitInterfaceImplementation
             || !MethodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty;
 
@@ -93,14 +96,14 @@ internal class MethodGenerator
             parameterTypes = BuildParameterTypes();
 
             if (MethodSymbol.IsStatic)
-                MethodBase = TypeGenerator.TypeBuilder!.DefineTypeInitializer();
+                MethodBase = targetTypeBuilder.DefineTypeInitializer();
             else
-                MethodBase = TypeGenerator.TypeBuilder!
+                MethodBase = targetTypeBuilder
                     .DefineConstructor(attributes, CallingConventions.Standard, parameterTypes);
         }
         else
         {
-            var methodBuilder = TypeGenerator.TypeBuilder!
+            var methodBuilder = targetTypeBuilder
                 .DefineMethod(MethodSymbol.Name,
                     attributes, CallingConventions.Standard);
 
@@ -142,16 +145,6 @@ internal class MethodGenerator
         TypeGenerator.CodeGen.ApplyCustomAttributes(MethodSymbol.GetReturnTypeAttributes(), attribute => returnParamBuilder.SetCustomAttribute(attribute));
 
         int i = 1;
-
-        if (_lambdaClosure is not null)
-        {
-            if (MethodBase is MethodBuilder closureBuilder)
-                closureBuilder.DefineParameter(i, ParameterAttributes.None, "<closure>");
-            else
-                ((ConstructorBuilder)MethodBase).DefineParameter(i, ParameterAttributes.None, "<closure>");
-
-            i++;
-        }
 
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {
@@ -202,7 +195,7 @@ internal class MethodGenerator
         {
             var builder = new List<Type>();
 
-            if (_lambdaClosure is not null)
+            if (_lambdaClosure is not null && MethodSymbol.IsStatic)
                 builder.Add(_lambdaClosure.TypeBuilder);
 
             foreach (var parameter in MethodSymbol.Parameters)
