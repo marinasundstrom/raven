@@ -339,10 +339,6 @@ internal class ExpressionGenerator : Generator
 
         MethodBodyGenerator.EmitLoadClosure();
         ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
-
-        if (symbol is ILocalSymbol)
-            ILGenerator.Emit(OpCodes.Ldfld, MethodBodyGenerator.GetStrongBoxValueField(fieldBuilder.FieldType));
-
         return true;
     }
 
@@ -352,24 +348,16 @@ internal class ExpressionGenerator : Generator
             return false;
 
         MethodBodyGenerator.EmitLoadClosure();
-        if (symbol is ILocalSymbol localSymbol)
+        EmitExpression(value);
+
+        if (symbol is ILocalSymbol localSymbol &&
+            value.Type is { IsValueType: true } &&
+            localSymbol.Type is not null &&
+            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
         {
-            ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
-            EmitExpression(value);
-
-            if (value.Type is { IsValueType: true } &&
-                localSymbol.Type is not null &&
-                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
-            {
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(value.Type));
-            }
-
-            var valueField = MethodBodyGenerator.GetStrongBoxValueField(fieldBuilder.FieldType);
-            ILGenerator.Emit(OpCodes.Stfld, valueField);
-            return true;
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(value.Type));
         }
 
-        EmitExpression(value);
         ILGenerator.Emit(OpCodes.Stfld, fieldBuilder);
         return true;
     }
@@ -628,13 +616,6 @@ internal class ExpressionGenerator : Generator
         var localBuilder = GetLocal(localAccess.Local);
         if (localBuilder is null)
             throw new InvalidOperationException($"Missing local builder for '{localAccess.Local.Name}'");
-
-        if (MethodBodyGenerator.IsCapturedLocal(localAccess.Local))
-        {
-            ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-            ILGenerator.Emit(OpCodes.Ldfld, MethodBodyGenerator.GetStrongBoxValueField(localBuilder.LocalType));
-            return;
-        }
 
         ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
     }
@@ -1592,25 +1573,6 @@ internal class ExpressionGenerator : Generator
                 if (localBuilder is null)
                     throw new InvalidOperationException($"Missing local builder for '{localAssignmentExpression.Local.Name}'");
 
-                if (MethodBodyGenerator.IsCapturedLocal(localAssignmentExpression.Local))
-                {
-                    ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-                    EmitExpression(localAssignmentExpression.Right);
-
-                    var rightType = localAssignmentExpression.Right.Type;
-                    var localType = localAssignmentExpression.Local.Type;
-                    if (rightType is { IsValueType: true } &&
-                        localType is not null &&
-                        (localType.SpecialType is SpecialType.System_Object || localType is IUnionTypeSymbol))
-                    {
-                        ILGenerator.Emit(OpCodes.Box, ResolveClrType(rightType));
-                    }
-
-                    var valueField = MethodBodyGenerator.GetStrongBoxValueField(localBuilder.LocalType);
-                    ILGenerator.Emit(OpCodes.Stfld, valueField);
-                    break;
-                }
-
                 EmitExpression(localAssignmentExpression.Right);
 
                 if (localAssignmentExpression.Right.Type.IsValueType && localAssignmentExpression.Type.SpecialType is SpecialType.System_Object)
@@ -1834,14 +1796,9 @@ internal class ExpressionGenerator : Generator
         var normalizedSource = GetPatternValueType(sourceType);
         var normalizedTarget = GetPatternValueType(targetType);
 
-        if (MethodBodyGenerator.IsCapturedLocal(localSymbol))
+        if (MethodBodyGenerator.TryGetCapturedField(localSymbol, out var fieldBuilder))
         {
-            if (!MethodBodyGenerator.TryGetCapturedField(localSymbol, out var fieldBuilder))
-                throw new InvalidOperationException($"Missing captured field for '{localSymbol.Name}'.");
-
             MethodBodyGenerator.EmitLoadClosure();
-            ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
-
             var storedType = LoadValueWithConversion(valueLocal, normalizedSource, normalizedTarget);
 
             if (storedType is not null && storedType.IsValueType &&
@@ -1851,8 +1808,7 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(storedType));
             }
 
-            var valueField = MethodBodyGenerator.GetStrongBoxValueField(fieldBuilder.FieldType);
-            ILGenerator.Emit(OpCodes.Stfld, valueField);
+            ILGenerator.Emit(OpCodes.Stfld, fieldBuilder);
             return;
         }
 

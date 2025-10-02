@@ -79,33 +79,6 @@ internal abstract class Generator
         if (localBuilder is null)
             return;
 
-        if (MethodBodyGenerator.IsCapturedLocal(local))
-        {
-            var valueField = MethodBodyGenerator.GetStrongBoxValueField(localBuilder.LocalType);
-
-            if (local.Type.IsReferenceType || local.Type.TypeKind == TypeKind.Null)
-            {
-                var skipLabel = ILGenerator.DefineLabel();
-                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-                ILGenerator.Emit(OpCodes.Ldfld, valueField);
-                ILGenerator.Emit(OpCodes.Brfalse, skipLabel);
-                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-                ILGenerator.Emit(OpCodes.Ldfld, valueField);
-                ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
-                ILGenerator.MarkLabel(skipLabel);
-            }
-            else
-            {
-                var clrType = ResolveClrType(local.Type);
-                ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
-                ILGenerator.Emit(OpCodes.Ldflda, valueField);
-                ILGenerator.Emit(OpCodes.Constrained, clrType);
-                ILGenerator.Emit(OpCodes.Callvirt, disposeMethod);
-            }
-
-            return;
-        }
-
         if (local.Type.IsReferenceType || local.Type.TypeKind == TypeKind.Null)
         {
             var skipLabel = ILGenerator.DefineLabel();

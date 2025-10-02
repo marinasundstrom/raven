@@ -448,12 +448,6 @@ internal class TypeGenerator
             _ => Compilation.ErrorTypeSymbol
         };
 
-        if (symbol is ILocalSymbol localSymbol && localSymbol.Type is not null)
-        {
-            var elementType = ResolveClrType(localSymbol.Type);
-            return CodeGen.GetStrongBoxType(elementType);
-        }
-
         return ResolveClrType(typeSymbol);
     }
 

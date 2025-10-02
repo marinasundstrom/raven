@@ -18,7 +18,6 @@ internal class MethodBodyGenerator
     private Compilation _compilation;
     private IMethodSymbol _methodSymbol;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
-    private readonly HashSet<ILocalSymbol> _capturedLocals = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<ILabelSymbol, Label> _labels = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(SymbolEqualityComparer.Default);
 
@@ -425,20 +424,6 @@ internal class MethodBodyGenerator
         methodGenerator.EmitBody();
     }
 
-    internal bool IsCapturedLocal(ILocalSymbol local) => _capturedLocals.Contains(local);
-
-    private Type MakeStrongBoxType(Type elementType)
-    {
-        return MethodGenerator.TypeGenerator.CodeGen.GetStrongBoxType(elementType);
-    }
-
-    internal static FieldInfo GetStrongBoxValueField(Type strongBoxType)
-    {
-        var definition = strongBoxType.IsGenericType ? strongBoxType.GetGenericTypeDefinition() : strongBoxType;
-        return definition.GetField("Value")
-               ?? throw new InvalidOperationException($"StrongBox field missing: {strongBoxType.FullName}.Value");
-    }
-
     private void DeclareLocals(BoundBlockStatement block)
     {
         DeclareLocals(scope, block);
@@ -455,10 +440,6 @@ internal class MethodBodyGenerator
         var collector = new LocalCollector(MethodSymbol);
         collector.Visit(block);
 
-        var capturedFromLambdas = CapturedLocalGatherer.Collect(MethodSymbol, block);
-        foreach (var capturedLocal in capturedFromLambdas)
-            collector.CapturedLocals.Add(capturedLocal);
-
         foreach (var localSymbol in collector.Locals)
         {
             // Skip locals without a type. This can occur when the initializer
@@ -467,14 +448,7 @@ internal class MethodBodyGenerator
                 continue;
 
             var clrType = ResolveClrType(localSymbol.Type);
-            var localType = collector.CapturedLocals.Contains(localSymbol)
-                ? MakeStrongBoxType(clrType)
-                : clrType;
-
-            if (collector.CapturedLocals.Contains(localSymbol))
-                _capturedLocals.Add(localSymbol);
-
-            var builder = ILGenerator.DeclareLocal(localType);
+            var builder = ILGenerator.DeclareLocal(clrType);
             builder.SetLocalSymInfo(localSymbol.Name);
             targetScope.AddLocal(localSymbol, builder);
         }
@@ -526,8 +500,6 @@ internal class MethodBodyGenerator
 
         public List<ILocalSymbol> Locals { get; } = new();
 
-        public HashSet<ILocalSymbol> CapturedLocals { get; } = new(SymbolEqualityComparer.Default);
-
         public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
         {
             foreach (var d in node.Declarators)
@@ -553,61 +525,6 @@ internal class MethodBodyGenerator
             base.VisitAssignmentStatement(node);
         }
 
-    }
-
-    private sealed class CapturedLocalGatherer : Raven.CodeAnalysis.BoundTreeWalker
-    {
-        private readonly ISymbol _containingSymbol;
-        private readonly HashSet<ILocalSymbol> _captured = new(SymbolEqualityComparer.Default);
-
-        private CapturedLocalGatherer(ISymbol containingSymbol)
-        {
-            _containingSymbol = containingSymbol;
-        }
-
-        public static HashSet<ILocalSymbol> Collect(ISymbol containingSymbol, BoundBlockStatement block)
-        {
-            var gatherer = new CapturedLocalGatherer(containingSymbol);
-            gatherer.VisitBlockStatement(block);
-            return gatherer._captured;
-        }
-
-        public override void VisitLambdaExpression(BoundLambdaExpression node)
-        {
-            foreach (var captured in node.CapturedVariables)
-                RegisterCaptured(captured);
-
-            if (node.Unbound is { LambdaSymbol: SourceLambdaSymbol sourceLambda } && sourceLambda.HasCaptures)
-            {
-                foreach (var captured in sourceLambda.CapturedVariables)
-                    RegisterCaptured(captured);
-            }
-
-            base.VisitLambdaExpression(node);
-        }
-
-        public override void VisitExpressionStatement(BoundExpressionStatement node)
-        {
-            VisitExpression(node.Expression);
-        }
-
-        public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
-        {
-            foreach (var declarator in node.Declarators)
-            {
-                if (declarator.Initializer is not null)
-                    VisitExpression(declarator.Initializer);
-            }
-        }
-
-        private void RegisterCaptured(ISymbol symbol)
-        {
-            if (symbol is ILocalSymbol local &&
-                SymbolEqualityComparer.Default.Equals(local.ContainingSymbol, _containingSymbol))
-            {
-                _captured.Add(local);
-            }
-        }
     }
 
     private void EmitIL(IEnumerable<StatementSyntax> statements, ImmutableArray<ILocalSymbol> localsToDispose, bool withReturn = true)
