@@ -7,6 +7,10 @@ for item in items {
 }
 
 func test() -> IEnumerable<int> {
-    yield return 42;
-    ()
+    let x = 0
+    yield return 42
+    while x < 10 {
+        yield return i
+        i = i + 1
+    }
 }
