@@ -549,7 +549,7 @@ internal class MethodBodyGenerator
 
         blockScope.EmitDispose(block.LocalsToDispose);
 
-        if (withReturn)
+        if (withReturn && ShouldEmitImplicitReturn())
         {
             ILGenerator.Emit(OpCodes.Nop);
             ILGenerator.Emit(OpCodes.Ret);
@@ -624,11 +624,20 @@ internal class MethodBodyGenerator
 
         executionScope.EmitDispose(localsToDispose);
 
-        if (withReturn)
+        if (withReturn && ShouldEmitImplicitReturn())
         {
             ILGenerator.Emit(OpCodes.Nop);
             ILGenerator.Emit(OpCodes.Ret);
         }
+    }
+
+    private bool ShouldEmitImplicitReturn()
+    {
+        var returnType = MethodSymbol.ReturnType;
+        if (returnType is null)
+            return true;
+
+        return returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
     }
 
     private void EmitStatement(BoundStatement statement)
