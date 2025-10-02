@@ -1,0 +1,17 @@
+import System.Console.*
+import System.Collections.Generic.*
+
+let items = test()
+
+for item in items {
+    WriteLine(item)
+}
+
+func test() -> IEnumerable<int> {
+    var i = 1
+    yield return 42
+    while i < 10 {
+        yield return i
+        i = i + 2
+    }
+}
