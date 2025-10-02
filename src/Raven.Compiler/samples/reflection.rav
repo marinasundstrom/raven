@@ -1,8 +1,7 @@
 import System.*
 import System.Console.*
-import System.Reflection.*
 
-let r = typeof(Object)
+let r = typeof(System.Object)
 WriteLine(r)
 
 let members = r.GetMembers()
@@ -15,5 +14,6 @@ let member = members[1]
 
 WriteLine(member.Name)
 
-let type = ((MethodInfo)member).Invoke(member, null)
-WriteLine(type))
+let type = ((System.Reflection.MethodInfo)member).Invoke(member, null)
+
+WriteLine(type)
