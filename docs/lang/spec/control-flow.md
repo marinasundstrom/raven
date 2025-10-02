@@ -5,6 +5,42 @@ appear wherever an expression is expected, reflecting its expression-first desig
 While Raven aims to be expression-oriented and declarative, it can still be used
 in an imperative and procedural manner when desired.
 
+## Expression and statement context
+
+Every occurrence of code appears in either an **expression** or a **statement**
+context.
+
+* An **expression context** expects a value. Examples include the right-hand
+  side of an assignment, arguments in an invocation, the scrutinee or arms of a
+  `match`, the condition and branches of an `if` expression, and the final
+  position in a block expression where the block's resulting value is produced.
+  Any expression form is valid in these positions, including control-flow
+  expressions (`if`, `while`, `for`, `match`), lambdas, tuples, collection
+  expressions, and nested blocks. The expression contributes to type inference
+  and must evaluate to a value assignable to the surrounding context's target
+  type.
+* A **statement context** expects an effect rather than a value. Statement
+  positions occur inside blocks before the final expression, inside method and
+  accessor bodies, and anywhere a newline (or semicolon) can terminate a
+  statement. The parser rewrites standalone expressions in these positions into
+  expression statements that discard the produced value. Declarations such as
+  `let`/`var` bindings and dedicated control-flow statements all occupy
+  statement contexts.
+
+Only certain constructs are legal exclusively in statement context because they
+do not yield a value:
+
+* `return` (including the omission of a value when returning `unit`).
+* Iterator statements `yield return` and `yield break`.
+* Loop-control transfers `break` and `continue`.
+* `throw` statements that propagate exceptions.
+* Statement-form `try` blocks that attach `catch` or `finally` clauses.
+
+Using any of these constructs inside an expression context produces the
+diagnostics called out in the sections below. Conversely, expression constructs
+are always valid in statement context—their values are simply discarded unless
+captured.
+
 For clarity and early exits, the language nevertheless permits certain imperative
 statement forms, such as the explicit `return` statement. Statements are
 terminated by a **newline**, or by an **optional semicolon** `;` that may separate
