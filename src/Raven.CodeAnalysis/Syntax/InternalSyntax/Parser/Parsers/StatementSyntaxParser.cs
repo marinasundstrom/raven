@@ -31,6 +31,10 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseFunctionSyntax();
                     break;
 
+                case SyntaxKind.YieldKeyword:
+                    statement = ParseYieldStatementSyntax();
+                    break;
+
                 case SyntaxKind.ReturnKeyword:
                     statement = ParseReturnStatementSyntax();
                     break;
@@ -190,6 +194,57 @@ internal class StatementSyntaxParser : SyntaxParser
         var terminatorToken = ConsumeTerminator();
 
         return ContinueStatement(continueKeyword, terminatorToken, Diagnostics);
+    }
+
+    private StatementSyntax ParseYieldStatementSyntax()
+    {
+        var yieldKeyword = ReadToken();
+
+        var next = PeekToken();
+
+        if (next.Kind == SyntaxKind.BreakKeyword)
+        {
+            return ParseYieldBreakStatementSyntax(yieldKeyword);
+        }
+
+        var returnKeyword = next.Kind == SyntaxKind.ReturnKeyword
+            ? ReadToken()
+            : ExpectToken(SyntaxKind.ReturnKeyword);
+
+        return ParseYieldReturnStatementSyntax(yieldKeyword, returnKeyword);
+    }
+
+    private YieldReturnStatementSyntax ParseYieldReturnStatementSyntax(SyntaxToken yieldKeyword, SyntaxToken returnKeyword)
+    {
+        SetTreatNewlinesAsTokens(false);
+
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(true);
+
+        SyntaxToken? terminatorToken = null;
+        if (PeekToken().Kind != SyntaxKind.ElseKeyword)
+        {
+            if (!TryConsumeTerminator(out terminatorToken))
+            {
+                SkipUntil(SyntaxKind.NewLineToken, SyntaxKind.SemicolonToken);
+            }
+        }
+        else
+        {
+            terminatorToken = Token(SyntaxKind.None);
+        }
+
+        return YieldReturnStatement(yieldKeyword, returnKeyword, expression, terminatorToken, Diagnostics);
+    }
+
+    private YieldBreakStatementSyntax ParseYieldBreakStatementSyntax(SyntaxToken yieldKeyword)
+    {
+        var breakKeyword = ExpectToken(SyntaxKind.BreakKeyword);
+
+        var terminatorToken = ConsumeTerminator();
+
+        return YieldBreakStatement(yieldKeyword, breakKeyword, terminatorToken, Diagnostics);
     }
 
     private IfStatementSyntax ParseIfStatementSyntax()
