@@ -1157,6 +1157,30 @@ public class Compilation
         {
             return GetTypeByMetadataName("System.Type");
         }
+        else if (specialType is SpecialType.System_Collections_IEnumerable)
+        {
+            return GetTypeByMetadataName("System.Collections.IEnumerable");
+        }
+        else if (specialType is SpecialType.System_Collections_Generic_IEnumerable_T)
+        {
+            return GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
+        }
+        else if (specialType is SpecialType.System_Collections_Generic_IList_T)
+        {
+            return GetTypeByMetadataName("System.Collections.Generic.IList`1");
+        }
+        else if (specialType is SpecialType.System_Collections_Generic_ICollection_T)
+        {
+            return GetTypeByMetadataName("System.Collections.Generic.ICollection`1");
+        }
+        else if (specialType is SpecialType.System_Collections_IEnumerator)
+        {
+            return GetTypeByMetadataName("System.Collections.IEnumerator");
+        }
+        else if (specialType is SpecialType.System_Collections_Generic_IEnumerator_T)
+        {
+            return GetTypeByMetadataName("System.Collections.Generic.IEnumerator`1");
+        }
 
         throw new InvalidOperationException("Special type is not supported.");
     }

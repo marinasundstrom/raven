@@ -414,6 +414,8 @@ partial class BlockBinder : Binder
             GotoStatementSyntax gotoStatement => BindGotoStatement(gotoStatement),
             BreakStatementSyntax breakStatement => BindBreakStatement(breakStatement),
             ContinueStatementSyntax continueStatement => BindContinueStatement(continueStatement),
+            YieldReturnStatementSyntax yieldReturn => BindYieldReturnStatement(yieldReturn),
+            YieldBreakStatementSyntax yieldBreak => BindYieldBreakStatement(yieldBreak),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
         };

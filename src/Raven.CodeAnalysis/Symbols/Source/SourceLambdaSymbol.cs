@@ -57,6 +57,9 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public bool IsReadOnly => false;
     public bool IsSealed => false;
     public bool IsVirtual => false;
+    public bool IsIterator => false;
+    public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
+    public ITypeSymbol? IteratorElementType => null;
 
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
 
