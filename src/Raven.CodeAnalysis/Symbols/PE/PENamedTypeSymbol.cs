@@ -172,6 +172,24 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (type.FullName == "System.Nullable`1")
                 return SpecialType.System_Nullable_T;
 
+            if (type.FullName == "System.Collections.IEnumerable")
+                return SpecialType.System_Collections_IEnumerable;
+
+            if (type.FullName == "System.Collections.IEnumerator")
+                return SpecialType.System_Collections_IEnumerator;
+
+            if (type.FullName == "System.Collections.Generic.IEnumerable`1")
+                return SpecialType.System_Collections_Generic_IEnumerable_T;
+
+            if (type.FullName == "System.Collections.Generic.IEnumerator`1")
+                return SpecialType.System_Collections_Generic_IEnumerator_T;
+
+            if (type.FullName == "System.Collections.Generic.ICollection`1")
+                return SpecialType.System_Collections_Generic_ICollection_T;
+
+            if (type.FullName == "System.Collections.Generic.IList`1")
+                return SpecialType.System_Collections_Generic_IList_T;
+
             if (type.Namespace == "System" && type.Name.StartsWith("ValueTuple`"))
             {
                 return type.GetGenericArguments().Length switch
