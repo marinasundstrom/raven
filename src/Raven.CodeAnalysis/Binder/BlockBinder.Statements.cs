@@ -441,7 +441,7 @@ partial class BlockBinder
         elementType = Compilation.ErrorTypeSymbol;
 
         if (returnType is INamedTypeSymbol named &&
-            named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+            (named.OriginalDefinition ?? named).SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
             named.TypeArguments.Length == 1)
         {
             elementType = named.TypeArguments[0];
