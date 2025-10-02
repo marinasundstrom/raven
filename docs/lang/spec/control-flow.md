@@ -131,6 +131,48 @@ func log(msg: string) {
 }
 ```
 
+## `yield return` statements
+
+Iterator-like members may suspend execution with `yield return expression`.
+Each `yield return` produces the next element in the enumerator sequence while
+preserving the generator's state so execution can resume on the next
+iteration. The `yield` keyword must be immediately followed by `return`, and an
+expression is required.
+
+```raven
+func numbers() -> IEnumerable<int> {
+    var i = 0
+    while i < 3 {
+        yield return i
+        i += 1
+    }
+}
+```
+
+Like explicit `return` statements, `yield return` is limited to statement
+positions and cannot appear in expression context.
+
+## `yield break` statements
+
+`yield break` terminates an iterator early. Any remaining statements in the
+member are skipped, and the enumerator completes without producing additional
+values.
+
+```raven
+func firstOrNone(values: IEnumerable<int>) -> IEnumerable<int> {
+    for each value in values {
+        yield return value
+        yield break
+    }
+
+    yield break
+}
+```
+
+The `yield break` form follows the same placement rules as `yield return` and
+`break`—it must appear in statement position and is illegal outside iterator
+bodies.
+
 ## `break` statements
 
 `break` exits the innermost enclosing loop statement immediately. Execution

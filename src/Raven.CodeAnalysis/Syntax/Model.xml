@@ -285,6 +285,17 @@
     <Slot Name="Expression" Type="Expression" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
+  <Node Name="YieldReturnStatement" Inherits="Statement">
+    <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword"/>
+    <Slot Name="ReturnKeyword" Type="Token" DefaultToken="ReturnKeyword"/>
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
+  </Node>
+  <Node Name="YieldBreakStatement" Inherits="Statement">
+    <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword"/>
+    <Slot Name="BreakKeyword" Type="Token" DefaultToken="BreakKeyword"/>
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
+  </Node>
   <Node Name="CatchClause" Inherits="Node">
     <Slot Name="CatchKeyword" Type="Token" DefaultToken="CatchKeyword"/>
     <Slot Name="Declaration" Type="CatchDeclaration" IsNullable="true" />
