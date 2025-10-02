@@ -21,12 +21,17 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
     public static BoundBlockStatement LowerBlock(ISymbol containingSymbol, BoundBlockStatement block)
     {
+        block = RewriteIteratorsIfNeeded(containingSymbol, block);
+
         var lowerer = CreateLowerer(containingSymbol);
         return (BoundBlockStatement)lowerer.VisitStatement(block);
     }
 
     public static BoundStatement LowerStatement(ISymbol containingSymbol, BoundStatement statement)
     {
+        if (statement is BoundBlockStatement block)
+            statement = RewriteIteratorsIfNeeded(containingSymbol, block);
+
         var lowerer = CreateLowerer(containingSymbol);
         return (BoundStatement)lowerer.VisitStatement(statement);
     }
