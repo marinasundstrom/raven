@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -12,6 +13,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
     private readonly ILoweringTraceSink? _loweringTrace;
     private int _labelCounter;
     private int _tempCounter;
+    private IteratorState? _iteratorState;
 
     private Lowerer(ISymbol containingSymbol, ILoweringTraceSink? loweringTrace)
     {
@@ -97,5 +99,72 @@ internal sealed partial class Lowerer : BoundTreeRewriter
             return expression;
 
         return new BoundCastExpression(expression, targetType, conversion);
+    }
+
+    private readonly struct IteratorState
+    {
+        public IteratorState(SourceLocalSymbol builderLocal, IMethodSymbol? addMethod, ITypeSymbol elementType, ITypeSymbol returnType)
+        {
+            BuilderLocal = builderLocal;
+            AddMethod = addMethod;
+            ElementType = elementType;
+            ReturnType = returnType;
+        }
+
+        public SourceLocalSymbol BuilderLocal { get; }
+        public IMethodSymbol? AddMethod { get; }
+        public ITypeSymbol ElementType { get; }
+        public ITypeSymbol ReturnType { get; }
+    }
+
+    private bool TryGetIteratorElementType(ITypeSymbol returnType, out ITypeSymbol elementType)
+    {
+        elementType = GetCompilation().ErrorTypeSymbol;
+
+        if (returnType is INamedTypeSymbol named &&
+            named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+            named.TypeArguments.Length == 1)
+        {
+            elementType = named.TypeArguments[0];
+            return true;
+        }
+
+        if (returnType.SpecialType == SpecialType.System_Collections_IEnumerable)
+        {
+            elementType = GetCompilation().GetSpecialType(SpecialType.System_Object);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool ContainsYield(BoundBlockStatement node)
+    {
+        var finder = new YieldFinder();
+        finder.VisitStatement(node);
+        return finder.Found;
+    }
+
+    private sealed class YieldFinder : BoundTreeWalker
+    {
+        public bool Found { get; private set; }
+
+        public override void VisitYieldReturnStatement(BoundYieldReturnStatement node)
+        {
+            Found = true;
+        }
+
+        public override void VisitYieldBreakStatement(BoundYieldBreakStatement node)
+        {
+            Found = true;
+        }
+
+        public override void Visit(BoundNode boundNode)
+        {
+            if (Found)
+                return;
+
+            base.Visit(boundNode);
+        }
     }
 }

@@ -158,6 +158,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundBlockStatement blockStmt:
                 VisitBlockStatement(blockStmt);
                 break;
+            case BoundYieldReturnStatement yieldReturn:
+                VisitYieldReturnStatement(yieldReturn);
+                break;
+            case BoundYieldBreakStatement yieldBreak:
+                VisitYieldBreakStatement(yieldBreak);
+                break;
         }
     }
 
@@ -188,6 +194,15 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public virtual void VisitConditionalGotoStatement(BoundConditionalGotoStatement node)
     {
         VisitExpression(node.Condition);
+    }
+
+    public virtual void VisitYieldReturnStatement(BoundYieldReturnStatement node)
+    {
+        VisitExpression(node.Expression);
+    }
+
+    public virtual void VisitYieldBreakStatement(BoundYieldBreakStatement node)
+    {
     }
 
     public override void VisitBinaryExpression(BoundBinaryExpression node)
