@@ -100,7 +100,7 @@ internal static class IteratorLowerer
             -1,
             stateMachine.StateField.Type);
         var assignment = new BoundFieldAssignmentExpression(null, stateMachine.StateField, literal);
-        statements.Add(new BoundExpressionStatement(assignment));
+        statements.Add(new BoundAssignmentStatement(assignment));
 
         statements.Add(new BoundReturnStatement(null));
         return new BoundBlockStatement(statements);
@@ -134,7 +134,7 @@ internal static class IteratorLowerer
             0,
             stateMachine.StateField.Type);
         var assignment = new BoundFieldAssignmentExpression(null, stateMachine.StateField, literal);
-        statements.Add(new BoundExpressionStatement(assignment));
+        statements.Add(new BoundAssignmentStatement(assignment));
 
         BoundExpression result = new BoundSelfExpression(stateMachine);
         var method = stateMachine.GenericGetEnumeratorMethod!;
@@ -255,7 +255,7 @@ internal static class IteratorLowerer
             var receiver = new BoundLocalAccess(stateMachineLocal);
             var value = new BoundSelfExpression(stateMachine.ThisField.Type);
             var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.ThisField, value);
-            statements.Add(new BoundExpressionStatement(assignment));
+            statements.Add(new BoundAssignmentStatement(assignment));
         }
 
         foreach (var parameter in method.Parameters)
@@ -266,7 +266,7 @@ internal static class IteratorLowerer
             var receiver = new BoundLocalAccess(stateMachineLocal);
             var value = new BoundParameterAccess(parameter);
             var assignment = new BoundFieldAssignmentExpression(receiver, field, value);
-            statements.Add(new BoundExpressionStatement(assignment));
+            statements.Add(new BoundAssignmentStatement(assignment));
         }
 
         var stateReceiver = new BoundLocalAccess(stateMachineLocal);
@@ -275,7 +275,7 @@ internal static class IteratorLowerer
             0,
             stateMachine.StateField.Type);
         var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateMachine.StateField, initialState);
-        statements.Add(new BoundExpressionStatement(stateAssignment));
+        statements.Add(new BoundAssignmentStatement(stateAssignment));
 
         BoundExpression returnExpression = new BoundLocalAccess(stateMachineLocal);
         var returnType = method.ReturnType;
@@ -467,7 +467,7 @@ internal static class IteratorLowerer
                     if (initializer is not null)
                     {
                         var assignment = new BoundFieldAssignmentExpression(null, field, initializer);
-                        hoistedStatements.Add(new BoundExpressionStatement(assignment));
+                        hoistedStatements.Add(new BoundAssignmentStatement(assignment));
                     }
                 }
                 else
@@ -620,7 +620,7 @@ internal static class IteratorLowerer
             var expression = VisitExpression(node.Expression) ?? node.Expression;
             var currentValue = ApplyElementConversion(expression);
 
-            var assignCurrent = new BoundExpressionStatement(
+            var assignCurrent = new BoundAssignmentStatement(
                 new BoundFieldAssignmentExpression(null, _stateMachine.CurrentField, currentValue));
 
             var assignState = CreateStateAssignment(resumeState.Value);
@@ -737,11 +737,11 @@ internal static class IteratorLowerer
             return new BoundBlockStatement(new BoundStatement[] { guard });
         }
 
-        private BoundExpressionStatement CreateStateAssignment(int value)
+        private BoundAssignmentStatement CreateStateAssignment(int value)
         {
             var literal = CreateIntLiteral(value);
             var assignment = new BoundFieldAssignmentExpression(null, _stateMachine.StateField, literal);
-            return new BoundExpressionStatement(assignment);
+            return new BoundAssignmentStatement(assignment);
         }
 
         private BoundLiteralExpression CreateIntLiteral(int value)
