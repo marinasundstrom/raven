@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -7,7 +8,7 @@ namespace Raven.CodeAnalysis;
 public static class SemanticFacts
 {
     public static bool IsDerivedFrom(
-        ITypeSymbol? type,
+        this ITypeSymbol? type,
         ITypeSymbol? potentialBase,
         SymbolEqualityComparer? comparer = null)
     {
@@ -29,7 +30,7 @@ public static class SemanticFacts
     }
 
     public static bool ImplementsInterface(
-        ITypeSymbol? type,
+        this ITypeSymbol? type,
         INamedTypeSymbol? interfaceType,
         SymbolEqualityComparer? comparer = null)
     {
@@ -67,7 +68,7 @@ public static class SemanticFacts
     }
 
     public static bool SatisfiesConstraints(
-        ITypeSymbol? typeArgument,
+        this ITypeSymbol? typeArgument,
         ITypeParameterSymbol? typeParameter)
     {
         if (typeArgument is null || typeParameter is null)
