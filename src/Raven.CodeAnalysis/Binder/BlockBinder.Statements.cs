@@ -292,12 +292,18 @@ partial class BlockBinder
         out INamedTypeSymbol? enumerableInterface)
     {
         if (type is INamedTypeSymbol named &&
-            named.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
             named.TypeArguments.Length == 1)
         {
-            elementType = named.TypeArguments[0];
-            enumerableInterface = named;
-            return true;
+            var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
+                SpecialType.System_Collections_Generic_IEnumerable_T);
+
+            if (enumerableDefinition.TypeKind != TypeKind.Error &&
+                SymbolEqualityComparer.Default.Equals(GetEnumerableDefinition(named), enumerableDefinition))
+            {
+                elementType = named.TypeArguments[0];
+                enumerableInterface = (INamedTypeSymbol)enumerableDefinition.Construct(elementType);
+                return true;
+            }
         }
 
         elementType = null!;
@@ -305,8 +311,23 @@ partial class BlockBinder
         return false;
     }
 
+    private static INamedTypeSymbol GetEnumerableDefinition(INamedTypeSymbol symbol)
+    {
+        if (symbol.OriginalDefinition is INamedTypeSymbol original)
+            return original;
+
+        if (symbol.ConstructedFrom is INamedTypeSymbol constructed)
+            return constructed;
+
+        return symbol;
+    }
+
     private bool TryGetEnumeratorElementType(INamedTypeSymbol type, out ITypeSymbol elementType)
     {
+        ITypeSymbol? nonGenericElementType = null;
+        var genericEnumeratorDefinition = GetGenericEnumeratorDefinition();
+        var nonGenericEnumeratorDefinition = GetNonGenericEnumeratorDefinition();
+
         foreach (var member in type.GetMembers("GetEnumerator"))
         {
             if (member is not IMethodSymbol { Parameters.Length: 0 } getEnumerator)
@@ -322,8 +343,11 @@ partial class BlockBinder
 
             if (returnType is INamedTypeSymbol named)
             {
-                if (named.SpecialType == SpecialType.System_Collections_Generic_IEnumerator_T &&
-                    named.TypeArguments.Length == 1)
+                if (named.TypeArguments.Length == 1 &&
+                    genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
+                    SymbolEqualityComparer.Default.Equals(
+                        GetEnumerableDefinition(named),
+                        genericEnumeratorDefinition))
                 {
                     elementType = named.TypeArguments[0];
                     return true;
@@ -331,20 +355,32 @@ partial class BlockBinder
 
                 foreach (var iface in named.AllInterfaces)
                 {
-                    if (iface.SpecialType == SpecialType.System_Collections_Generic_IEnumerator_T &&
-                        iface is INamedTypeSymbol { TypeArguments.Length: 1 } genericEnumerator)
+                    if (iface is INamedTypeSymbol { TypeArguments.Length: 1 } genericEnumerator &&
+                        genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
+                        SymbolEqualityComparer.Default.Equals(
+                            GetEnumerableDefinition(genericEnumerator),
+                            genericEnumeratorDefinition))
                     {
                         elementType = genericEnumerator.TypeArguments[0];
                         return true;
                     }
                 }
 
-                if (named.SpecialType == SpecialType.System_Collections_IEnumerator)
+                if (nonGenericElementType is null &&
+                    nonGenericEnumeratorDefinition.TypeKind != TypeKind.Error &&
+                    SymbolEqualityComparer.Default.Equals(
+                        GetEnumerableDefinition(named),
+                        nonGenericEnumeratorDefinition))
                 {
-                    elementType = Compilation.GetSpecialType(SpecialType.System_Object);
-                    return true;
+                    nonGenericElementType = Compilation.GetSpecialType(SpecialType.System_Object);
                 }
             }
+        }
+
+        if (nonGenericElementType is not null)
+        {
+            elementType = nonGenericElementType;
+            return true;
         }
 
         elementType = null!;
@@ -696,6 +732,14 @@ partial class BlockBinder
 
         return symbol;
     }
+
+    private INamedTypeSymbol GetGenericEnumeratorDefinition()
+        => (INamedTypeSymbol)Compilation.GetSpecialType(
+            SpecialType.System_Collections_Generic_IEnumerator_T);
+
+    private INamedTypeSymbol GetNonGenericEnumeratorDefinition()
+        => (INamedTypeSymbol)Compilation.GetSpecialType(
+            SpecialType.System_Collections_IEnumerator);
 
     private (IteratorMethodKind Kind, ITypeSymbol ElementType) ResolveIteratorInfoForCurrentMethod()
     {
