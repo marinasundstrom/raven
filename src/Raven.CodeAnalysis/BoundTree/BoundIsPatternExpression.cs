@@ -477,7 +477,7 @@ internal partial class BlockBinder
         var name = singleVariableDesignation.Identifier.ValueText;
         var type = ResolveType(declaration.Type);
 
-        var local = CreateLocalSymbol(singleVariableDesignation, name, true, type);
+        var local = CreateLocalSymbol(singleVariableDesignation, name, isMutable: false, type);
 
         return new BoundSingleVariableDesignator(local);
     }
