@@ -416,6 +416,8 @@ internal static class IteratorLowerer
         private readonly ITypeSymbol _boolType;
         private bool _isTopLevelBlock = true;
         private StateEntry _startState;
+        private LabelSymbol? _returnLabel;
+        private SourceLocalSymbol? _resultLocal;
         private int _nextHoistedLocalId;
 
         public BoundBlockStatement? DisposeBody { get; private set; }
@@ -435,15 +437,28 @@ internal static class IteratorLowerer
 
             HoistLocals(block);
             _startState = AllocateState();
+            _returnLabel = CreateLabel("<>Return");
+            _resultLocal = CreateResultLocal();
 
             var rewrittenBody = (BoundBlockStatement)VisitBlockStatement(block);
 
             var statements = new List<BoundStatement>();
+            var resultLocal = _resultLocal ?? throw new InvalidOperationException("Result local not created.");
+            var resultDeclarator = new BoundVariableDeclarator(resultLocal, CreateBoolLiteral(false));
+            statements.Add(new BoundLocalDeclarationStatement(new[] { resultDeclarator }));
+
             statements.AddRange(CreateStateDispatch());
-            statements.Add(new BoundReturnStatement(CreateBoolLiteral(false)));
+            statements.Add(CreateReturnStatement(CreateBoolLiteral(false)));
             statements.AddRange(rewrittenBody.Statements);
             statements.Add(CreateStateAssignment(-1));
-            statements.Add(new BoundReturnStatement(CreateBoolLiteral(false)));
+            statements.Add(CreateReturnStatement(CreateBoolLiteral(false)));
+
+            var returnLabel = _returnLabel ?? throw new InvalidOperationException("Return label not created.");
+            var returnBlock = new BoundBlockStatement(new BoundStatement[]
+            {
+                new BoundReturnStatement(new BoundLocalAccess(resultLocal)),
+            });
+            statements.Add(new BoundLabeledStatement(returnLabel, returnBlock));
 
             DisposeBody = BuildDisposeBody();
 
@@ -517,6 +532,18 @@ internal static class IteratorLowerer
                 return new BoundFieldAccess(field, node.Reason);
 
             return node;
+        }
+
+        public override BoundNode? VisitReturnStatement(BoundReturnStatement node)
+        {
+            if (node is null)
+                return null;
+
+            var expression = node.Expression is null
+                ? null
+                : VisitExpression(node.Expression) ?? node.Expression;
+
+            return CreateReturnStatement(expression);
         }
 
         public override BoundNode? VisitLocalAssignmentExpression(BoundLocalAssignmentExpression node)
@@ -625,7 +652,7 @@ internal static class IteratorLowerer
 
             var assignState = CreateStateAssignment(resumeState.Value);
 
-            var returnTrue = new BoundReturnStatement(CreateBoolLiteral(true));
+            var returnTrue = CreateReturnStatement(CreateBoolLiteral(true));
             var resumeLabel = new BoundLabeledStatement(resumeState.Label, new BoundBlockStatement(Array.Empty<BoundStatement>()));
 
             if (_finallyStack.Count > 0)
@@ -652,7 +679,7 @@ internal static class IteratorLowerer
                 return null;
 
             var assignCompleted = CreateStateAssignment(-1);
-            var returnFalse = new BoundReturnStatement(CreateBoolLiteral(false));
+            var returnFalse = CreateReturnStatement(CreateBoolLiteral(false));
 
             return new BoundBlockStatement(new BoundStatement[]
             {
@@ -695,6 +722,25 @@ internal static class IteratorLowerer
             statements.Add(new BoundReturnStatement(null));
 
             return new BoundBlockStatement(statements);
+        }
+
+        private BoundStatement CreateReturnStatement(BoundExpression? expression)
+        {
+            if (_resultLocal is null || _returnLabel is null)
+                throw new InvalidOperationException("Return infrastructure not initialized.");
+
+            var value = expression ?? CreateBoolLiteral(false);
+            value = ConvertIfNeeded(_compilation, value, _boolType);
+
+            var assignment = new BoundLocalAssignmentExpression(_resultLocal, value);
+            var assignStatement = new BoundExpressionStatement(assignment);
+            var gotoStatement = new BoundGotoStatement(_returnLabel);
+
+            return new BoundBlockStatement(new BoundStatement[]
+            {
+                assignStatement,
+                gotoStatement,
+            });
         }
 
         private IEnumerable<BoundStatement> CreateStateDispatch()
@@ -742,6 +788,30 @@ internal static class IteratorLowerer
             var literal = CreateIntLiteral(value);
             var assignment = new BoundFieldAssignmentExpression(null, _stateMachine.StateField, literal);
             return new BoundAssignmentStatement(assignment);
+        }
+
+        private LabelSymbol CreateLabel(string name)
+        {
+            return new LabelSymbol(
+                name,
+                _moveNextMethod,
+                _stateMachine,
+                _stateMachine.ContainingNamespace,
+                new[] { Location.None },
+                Array.Empty<SyntaxReference>());
+        }
+
+        private SourceLocalSymbol CreateResultLocal()
+        {
+            return new SourceLocalSymbol(
+                "<>result",
+                _boolType,
+                isMutable: true,
+                _moveNextMethod,
+                _stateMachine,
+                _stateMachine.ContainingNamespace,
+                new[] { Location.None },
+                Array.Empty<SyntaxReference>());
         }
 
         private BoundLiteralExpression CreateIntLiteral(int value)
