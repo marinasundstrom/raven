@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Symbols;
@@ -327,11 +328,9 @@ internal class StatementGenerator : Generator
         var enumerableClrType = ResolveClrType(enumerableInterface);
         ILGenerator.Emit(OpCodes.Castclass, enumerableClrType);
 
-        var getEnumerator = (PEMethodSymbol)enumerableInterface
-            .GetMembers(nameof(IEnumerable.GetEnumerator))
-            .OfType<PEMethodSymbol>()
-            .First(m => m.Parameters.Length == 0);
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var getEnumerator = enumerableClrType.GetMethod(nameof(IEnumerable.GetEnumerator), Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing IEnumerable<T>.GetEnumerator method.");
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator);
 
         var enumeratorClrType = ResolveClrType(enumeratorInterface);
         var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorClrType);
@@ -342,22 +341,18 @@ internal class StatementGenerator : Generator
 
         ILGenerator.MarkLabel(beginLabel);
 
-        var moveNext = (PEMethodSymbol)enumeratorInterface
-            .GetMembers(nameof(IEnumerator.MoveNext))
-            .OfType<PEMethodSymbol>()
-            .First(m => m.Parameters.Length == 0);
+        var moveNext = enumeratorClrType.GetMethod(nameof(IEnumerator.MoveNext), Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing IEnumerator.MoveNext method.");
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext);
         ILGenerator.Emit(OpCodes.Brfalse, endLabel);
 
-        var currentProperty = enumeratorInterface
-            .GetMembers("Current")
-            .OfType<PEPropertySymbol>()
-            .First(p => SymbolEqualityComparer.Default.Equals(p.Type, forStatement.Local.Type));
-        var currentGetter = currentProperty.GetMethod
+        var currentProperty = enumeratorClrType.GetProperty("Current")
+            ?? throw new InvalidOperationException("Missing IEnumerator<T>.Current property.");
+        var currentGetter = currentProperty.GetGetMethod()
             ?? throw new InvalidOperationException("Missing IEnumerator<T>.Current getter.");
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, ((PEMethodSymbol)currentGetter).GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, currentGetter);
         ILGenerator.Emit(OpCodes.Stloc, elementLocal);
 
         new StatementGenerator(scope, forStatement.Body).Emit();

@@ -292,12 +292,18 @@ partial class BlockBinder
         out INamedTypeSymbol? enumerableInterface)
     {
         if (type is INamedTypeSymbol named &&
-            named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
             named.TypeArguments.Length == 1)
         {
-            elementType = named.TypeArguments[0];
-            enumerableInterface = named;
-            return true;
+            var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
+                SpecialType.System_Collections_Generic_IEnumerable_T);
+
+            if (enumerableDefinition.TypeKind != TypeKind.Error &&
+                SymbolEqualityComparer.Default.Equals(GetEnumerableDefinition(named), enumerableDefinition))
+            {
+                elementType = named.TypeArguments[0];
+                enumerableInterface = (INamedTypeSymbol)enumerableDefinition.Construct(elementType);
+                return true;
+            }
         }
 
         elementType = null!;
@@ -305,9 +311,22 @@ partial class BlockBinder
         return false;
     }
 
+    private static INamedTypeSymbol GetEnumerableDefinition(INamedTypeSymbol symbol)
+    {
+        if (symbol.OriginalDefinition is INamedTypeSymbol original)
+            return original;
+
+        if (symbol.ConstructedFrom is INamedTypeSymbol constructed)
+            return constructed;
+
+        return symbol;
+    }
+
     private bool TryGetEnumeratorElementType(INamedTypeSymbol type, out ITypeSymbol elementType)
     {
         ITypeSymbol? nonGenericElementType = null;
+        var genericEnumeratorDefinition = GetGenericEnumeratorDefinition();
+        var nonGenericEnumeratorDefinition = GetNonGenericEnumeratorDefinition();
 
         foreach (var member in type.GetMembers("GetEnumerator"))
         {
@@ -324,8 +343,11 @@ partial class BlockBinder
 
             if (returnType is INamedTypeSymbol named)
             {
-                if (named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerator_T &&
-                    named.TypeArguments.Length == 1)
+                if (named.TypeArguments.Length == 1 &&
+                    genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
+                    SymbolEqualityComparer.Default.Equals(
+                        GetEnumerableDefinition(named),
+                        genericEnumeratorDefinition))
                 {
                     elementType = named.TypeArguments[0];
                     return true;
@@ -333,8 +355,11 @@ partial class BlockBinder
 
                 foreach (var iface in named.AllInterfaces)
                 {
-                    if (iface.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerator_T &&
-                        iface is INamedTypeSymbol { TypeArguments.Length: 1 } genericEnumerator)
+                    if (iface is INamedTypeSymbol { TypeArguments.Length: 1 } genericEnumerator &&
+                        genericEnumeratorDefinition.TypeKind != TypeKind.Error &&
+                        SymbolEqualityComparer.Default.Equals(
+                            GetEnumerableDefinition(genericEnumerator),
+                            genericEnumeratorDefinition))
                     {
                         elementType = genericEnumerator.TypeArguments[0];
                         return true;
@@ -342,7 +367,10 @@ partial class BlockBinder
                 }
 
                 if (nonGenericElementType is null &&
-                    named.OriginalDefinition.SpecialType == SpecialType.System_Collections_IEnumerator)
+                    nonGenericEnumeratorDefinition.TypeKind != TypeKind.Error &&
+                    SymbolEqualityComparer.Default.Equals(
+                        GetEnumerableDefinition(named),
+                        nonGenericEnumeratorDefinition))
                 {
                     nonGenericElementType = Compilation.GetSpecialType(SpecialType.System_Object);
                 }
@@ -704,6 +732,14 @@ partial class BlockBinder
 
         return symbol;
     }
+
+    private INamedTypeSymbol GetGenericEnumeratorDefinition()
+        => (INamedTypeSymbol)Compilation.GetSpecialType(
+            SpecialType.System_Collections_Generic_IEnumerator_T);
+
+    private INamedTypeSymbol GetNonGenericEnumeratorDefinition()
+        => (INamedTypeSymbol)Compilation.GetSpecialType(
+            SpecialType.System_Collections_IEnumerator);
 
     private (IteratorMethodKind Kind, ITypeSymbol ElementType) ResolveIteratorInfoForCurrentMethod()
     {
