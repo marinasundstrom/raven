@@ -241,83 +241,242 @@ internal class StatementGenerator : Generator
         var scope = new Scope(this);
         scope.SetLoopTargets(endLabel, continueLabel);
 
+        var collectionType = forStatement.Collection.Type;
+        var elementType = forStatement.Local.Type;
+        var genericEnumeratorInfo = TryGetGenericEnumeratorInfo(collectionType, elementType);
+
         new ExpressionGenerator(scope, forStatement.Collection).Emit();
 
-        if (forStatement.Collection.Type is IArrayTypeSymbol)
+        if (collectionType is IArrayTypeSymbol arrayType)
         {
-            var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Collection.Type));
-            ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
-
-            var indexLocal = ILGenerator.DeclareLocal(ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Int32)));
-            ILGenerator.Emit(OpCodes.Ldc_I4_0);
-            ILGenerator.Emit(OpCodes.Stloc, indexLocal);
-
-            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
-            scope.AddLocal(forStatement.Local, elementLocal);
-
-            ILGenerator.MarkLabel(beginLabel);
-
-            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-            ILGenerator.Emit(OpCodes.Ldlen);
-            ILGenerator.Emit(OpCodes.Conv_I4);
-            ILGenerator.Emit(OpCodes.Bge, endLabel);
-
-            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-            EmitLoadElement(forStatement.Local.Type);
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
-
-            new StatementGenerator(scope, forStatement.Body).Emit();
-
-            ILGenerator.MarkLabel(continueLabel);
-            ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-            ILGenerator.Emit(OpCodes.Ldc_I4_1);
-            ILGenerator.Emit(OpCodes.Add);
-            ILGenerator.Emit(OpCodes.Stloc, indexLocal);
-
-            ILGenerator.Emit(OpCodes.Br, beginLabel);
-            ILGenerator.MarkLabel(endLabel);
+            EmitArrayForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, arrayType);
+            return;
         }
+
+        if (genericEnumeratorInfo is { } info)
+        {
+            EmitGenericEnumeratorForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, info.Enumerable, info.Enumerator);
+            return;
+        }
+
+        EmitNonGenericEnumeratorForLoop(forStatement, scope, beginLabel, continueLabel, endLabel);
+    }
+
+    private void EmitArrayForLoop(
+        BoundForStatement forStatement,
+        Scope scope,
+        ILLabel beginLabel,
+        ILLabel continueLabel,
+        ILLabel endLabel,
+        IArrayTypeSymbol arrayType)
+    {
+        var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
+        ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
+
+        var indexLocal = ILGenerator.DeclareLocal(ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Int32)));
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+        var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
+        scope.AddLocal(forStatement.Local, elementLocal);
+
+        ILGenerator.MarkLabel(beginLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Ldlen);
+        ILGenerator.Emit(OpCodes.Conv_I4);
+        ILGenerator.Emit(OpCodes.Bge, endLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        EmitLoadElement(forStatement.Local.Type);
+        ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+
+        new StatementGenerator(scope, forStatement.Body).Emit();
+
+        ILGenerator.MarkLabel(continueLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+        ILGenerator.Emit(OpCodes.Br, beginLabel);
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private void EmitGenericEnumeratorForLoop(
+        BoundForStatement forStatement,
+        Scope scope,
+        ILLabel beginLabel,
+        ILLabel continueLabel,
+        ILLabel endLabel,
+        INamedTypeSymbol enumerableInterface,
+        INamedTypeSymbol enumeratorInterface)
+    {
+        var enumerableClrType = ResolveClrType(enumerableInterface);
+        ILGenerator.Emit(OpCodes.Castclass, enumerableClrType);
+
+        var getEnumerator = (PEMethodSymbol)enumerableInterface
+            .GetMembers(nameof(IEnumerable.GetEnumerator))
+            .OfType<PEMethodSymbol>()
+            .First(m => m.Parameters.Length == 0);
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+
+        var enumeratorClrType = ResolveClrType(enumeratorInterface);
+        var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorClrType);
+        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+        var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
+        scope.AddLocal(forStatement.Local, elementLocal);
+
+        ILGenerator.MarkLabel(beginLabel);
+
+        var moveNext = (PEMethodSymbol)enumeratorInterface
+            .GetMembers(nameof(IEnumerator.MoveNext))
+            .OfType<PEMethodSymbol>()
+            .First(m => m.Parameters.Length == 0);
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Brfalse, endLabel);
+
+        var currentProperty = enumeratorInterface
+            .GetMembers("Current")
+            .OfType<PEPropertySymbol>()
+            .First(p => SymbolEqualityComparer.Default.Equals(p.Type, forStatement.Local.Type));
+        var currentGetter = currentProperty.GetMethod
+            ?? throw new InvalidOperationException("Missing IEnumerator<T>.Current getter.");
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, currentGetter.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+
+        new StatementGenerator(scope, forStatement.Body).Emit();
+
+        ILGenerator.MarkLabel(continueLabel);
+        ILGenerator.Emit(OpCodes.Br, beginLabel);
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private void EmitNonGenericEnumeratorForLoop(
+        BoundForStatement forStatement,
+        Scope scope,
+        ILLabel beginLabel,
+        ILLabel continueLabel,
+        ILLabel endLabel)
+    {
+        var enumerable = Compilation.GetTypeByMetadataName("System.Collections.IEnumerable");
+        var enumerableClrType = ResolveClrType(enumerable);
+        ILGenerator.Emit(OpCodes.Castclass, enumerableClrType);
+
+        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+
+        var enumeratorType = getEnumerator.ReturnType;
+        var enumeratorClrType = ResolveClrType(enumeratorType);
+        var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorClrType);
+        ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
+
+        var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
+        scope.AddLocal(forStatement.Local, elementLocal);
+
+        ILGenerator.MarkLabel(beginLabel);
+
+        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Brfalse, endLabel);
+
+        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+
+        var localClr = ResolveClrType(forStatement.Local.Type);
+        if (localClr.IsValueType)
+            ILGenerator.Emit(OpCodes.Unbox_Any, localClr);
         else
+            ILGenerator.Emit(OpCodes.Castclass, localClr);
+        ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+
+        new StatementGenerator(scope, forStatement.Body).Emit();
+
+        ILGenerator.MarkLabel(continueLabel);
+        ILGenerator.Emit(OpCodes.Br, beginLabel);
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private (INamedTypeSymbol Enumerable, INamedTypeSymbol Enumerator)? TryGetGenericEnumeratorInfo(
+        ITypeSymbol? collectionType,
+        ITypeSymbol elementType)
+    {
+        if (collectionType is null ||
+            collectionType.TypeKind == TypeKind.Error ||
+            elementType.TypeKind == TypeKind.Error)
         {
-            var enumerable = Compilation.GetTypeByMetadataName("System.Collections.IEnumerable");
-            var enumerableClrType = ResolveClrType(enumerable);
-            ILGenerator.Emit(OpCodes.Castclass, enumerableClrType);
-            var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
-            ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
-            var enumeratorType = getEnumerator.ReturnType;
-            var enumeratorClrType = ResolveClrType(enumeratorType);
-            var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorClrType);
-            ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
-
-            var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
-            scope.AddLocal(forStatement.Local, elementLocal);
-
-            ILGenerator.MarkLabel(beginLabel);
-
-            var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
-            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-            ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
-            ILGenerator.Emit(OpCodes.Brfalse, endLabel);
-
-            var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
-            ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-            ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
-
-            var localClr = ResolveClrType(forStatement.Local.Type);
-            if (localClr.IsValueType)
-                ILGenerator.Emit(OpCodes.Unbox_Any, localClr);
-            else
-                ILGenerator.Emit(OpCodes.Castclass, localClr);
-            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
-
-            new StatementGenerator(scope, forStatement.Body).Emit();
-
-            ILGenerator.MarkLabel(continueLabel);
-            ILGenerator.Emit(OpCodes.Br, beginLabel);
-            ILGenerator.MarkLabel(endLabel);
+            return null;
         }
+
+        var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T);
+        var enumeratorDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerator_T);
+
+        if (enumerableDefinition.TypeKind == TypeKind.Error || enumeratorDefinition.TypeKind == TypeKind.Error)
+            return null;
+
+        var match = FindGenericEnumerable(collectionType, enumerableDefinition, elementType);
+        if (match is null)
+            return null;
+
+        var enumeratorInterface = enumeratorDefinition.Construct(elementType);
+        return (match, enumeratorInterface);
+    }
+
+    private INamedTypeSymbol? FindGenericEnumerable(
+        ITypeSymbol type,
+        INamedTypeSymbol enumerableDefinition,
+        ITypeSymbol elementType)
+    {
+        switch (type)
+        {
+            case INamedTypeSymbol named when named.TypeKind != TypeKind.Error:
+                if (IsMatchingGenericEnumerable(named, enumerableDefinition, elementType))
+                    return named;
+
+                foreach (var iface in named.AllInterfaces)
+                {
+                    if (iface is INamedTypeSymbol namedInterface &&
+                        IsMatchingGenericEnumerable(namedInterface, enumerableDefinition, elementType))
+                    {
+                        return namedInterface;
+                    }
+                }
+
+                break;
+
+            case ITypeParameterSymbol typeParameter:
+                foreach (var constraint in typeParameter.ConstraintTypes)
+                {
+                    var match = FindGenericEnumerable(constraint, enumerableDefinition, elementType);
+                    if (match is not null)
+                        return match;
+                }
+
+                break;
+        }
+
+        return null;
+    }
+
+    private bool IsMatchingGenericEnumerable(
+        INamedTypeSymbol candidate,
+        INamedTypeSymbol enumerableDefinition,
+        ITypeSymbol elementType)
+    {
+        if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, enumerableDefinition))
+            return false;
+
+        if (candidate.TypeArguments.Length != 1)
+            return false;
+
+        return SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], elementType);
     }
 
     private void EmitTryStatement(BoundTryStatement tryStatement)
