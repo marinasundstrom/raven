@@ -76,7 +76,7 @@ internal class StatementGenerator : Generator
     {
         var scope = new Scope(this);
         var hasElse = ifStatement.ElseNode is not null;
-        Label elseLabel = default;
+        ILLabel elseLabel = default;
 
         if (hasElse)
             elseLabel = ILGenerator.DefineLabel();
@@ -109,7 +109,7 @@ internal class StatementGenerator : Generator
         var returnType = MethodSymbol.ReturnType;
         var expression = returnStatement.Expression;
         ITypeSymbol? expressionType = expression?.Type;
-        LocalBuilder? resultTemp = null;
+        IILocal? resultTemp = null;
 
         if (expression is not null)
         {
@@ -152,7 +152,7 @@ internal class StatementGenerator : Generator
         var expression = throwStatement.Expression;
         var expressionType = expression.Type;
 
-        LocalBuilder? resultTemp = null;
+        IILocal? resultTemp = null;
         var hasValueOnStack = true;
 
         new ExpressionGenerator(this, expression).Emit();

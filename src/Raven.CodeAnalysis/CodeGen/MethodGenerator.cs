@@ -15,11 +15,14 @@ internal class MethodGenerator
     private Compilation _compilation;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
 
-    public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol)
+    public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol, IILBuilderFactory? ilBuilderFactory = null)
     {
         TypeGenerator = typeGenerator;
         MethodSymbol = methodSymbol;
+        ILBuilderFactory = ilBuilderFactory ?? typeGenerator.CodeGen.ILBuilderFactory;
     }
+
+    public IILBuilderFactory ILBuilderFactory { get; }
 
     internal void SetLambdaClosure(TypeGenerator.LambdaClosure closure)
     {
