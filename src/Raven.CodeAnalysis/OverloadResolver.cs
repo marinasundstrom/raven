@@ -9,6 +9,8 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class OverloadResolver
 {
+    private const int MethodGroupConversionScore = 2;
+
     public static OverloadResolutionResult ResolveOverload(
         IEnumerable<IMethodSymbol> methods,
         BoundExpression[] arguments,
@@ -530,6 +532,11 @@ internal sealed class OverloadResolver
             return true;
         }
 
+        if (argument is BoundMethodGroupExpression methodGroup)
+        {
+            return TryEvaluateMethodGroupArgument(parameter, methodGroup, compilation, ref score);
+        }
+
         bool lambdaCompatible = false;
         if (argument is BoundLambdaExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
         {
@@ -567,6 +574,80 @@ internal sealed class OverloadResolver
             score += conversionScore;
         }
         return true;
+    }
+
+    private static bool TryEvaluateMethodGroupArgument(
+        IParameterSymbol parameter,
+        BoundMethodGroupExpression methodGroup,
+        Compilation compilation,
+        ref int score)
+    {
+        if (parameter.Type is not INamedTypeSymbol delegateType || delegateType.TypeKind != TypeKind.Delegate)
+            return false;
+
+        var invoke = delegateType.GetDelegateInvokeMethod();
+        if (invoke is null)
+            return false;
+
+        var hasReceiver = methodGroup.Receiver is not null;
+        var compatible = methodGroup.Methods
+            .Where(candidate => IsCompatibleWithDelegate(candidate, invoke, hasReceiver, compilation))
+            .ToList();
+
+        if (compatible.Count == 0)
+            return false;
+
+        var convertedType = methodGroup.GetConvertedType();
+        if (convertedType is not null)
+        {
+            var conversion = compilation.ClassifyConversion(convertedType, parameter.Type);
+            if (!conversion.Exists || !conversion.IsImplicit)
+                return false;
+
+            score += GetConversionScore(conversion);
+            return true;
+        }
+
+        score += MethodGroupConversionScore;
+        return true;
+    }
+
+    private static bool IsCompatibleWithDelegate(
+        IMethodSymbol method,
+        IMethodSymbol invoke,
+        bool hasReceiver,
+        Compilation compilation)
+    {
+        if (!hasReceiver && !method.IsStatic)
+            return false;
+
+        if (method.IsGenericMethod)
+            return false;
+
+        if (method.Parameters.Length != invoke.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < method.Parameters.Length; i++)
+        {
+            var methodParameter = method.Parameters[i];
+            var delegateParameter = invoke.Parameters[i];
+
+            if (methodParameter.RefKind != delegateParameter.RefKind)
+                return false;
+
+            if (SymbolEqualityComparer.Default.Equals(delegateParameter.Type, methodParameter.Type))
+                continue;
+
+            var conversion = compilation.ClassifyConversion(delegateParameter.Type, methodParameter.Type);
+            if (!conversion.Exists || !conversion.IsImplicit)
+                return false;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(method.ReturnType, invoke.ReturnType))
+            return true;
+
+        var returnConversion = compilation.ClassifyConversion(method.ReturnType, invoke.ReturnType);
+        return returnConversion.Exists && returnConversion.IsImplicit;
     }
 
     private static ITypeSymbol GetUnderlying(ITypeSymbol type) => type switch

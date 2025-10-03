@@ -218,6 +218,48 @@ public sealed class OverloadResolverTests : CompilationTestBase
         Assert.Equal(2, result.Method.Parameters.Length);
     }
 
+    [Fact]
+    public void ResolveOverload_MethodGroupArgument_BindsToDelegateParameter()
+    {
+        var compilation = CreateInitializedCompilation();
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+
+        var callback = new FakeMethodSymbol(
+            "Callback",
+            unitType,
+            ImmutableArray<IParameterSymbol>.Empty);
+
+        var delegateType = compilation.GetMethodReferenceDelegate(callback);
+        var delegateParameter = new FakeParameterSymbol("callback", delegateType, RefKind.None, isParams: false);
+        var methodWithDelegate = new FakeMethodSymbol(
+            "UseDelegate",
+            unitType,
+            ImmutableArray.Create<IParameterSymbol>(delegateParameter));
+
+        var valueParameter = new FakeParameterSymbol(
+            "value",
+            compilation.GetSpecialType(SpecialType.System_Int32),
+            RefKind.None,
+            isParams: false);
+        var methodWithValue = new FakeMethodSymbol(
+            "UseValue",
+            unitType,
+            ImmutableArray.Create<IParameterSymbol>(valueParameter));
+
+        var methodGroup = new BoundMethodGroupExpression(
+            receiver: null,
+            ImmutableArray.Create<IMethodSymbol>(callback),
+            compilation.ErrorTypeSymbol);
+
+        var result = OverloadResolver.ResolveOverload(
+            [methodWithDelegate, methodWithValue],
+            CreateArguments(methodGroup),
+            compilation);
+
+        Assert.True(result.Success);
+        Assert.Same(methodWithDelegate, result.Method);
+    }
+
     protected override MetadataReference[] GetMetadataReferences()
     {
         var runtimeDirectory = RuntimeEnvironment.GetRuntimeDirectory();
