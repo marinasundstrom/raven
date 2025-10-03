@@ -347,7 +347,7 @@ internal class StatementGenerator : Generator
         var currentGetter = currentProperty.GetMethod
             ?? throw new InvalidOperationException("Missing IEnumerator<T>.Current getter.");
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentGetter.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, ((PEMethodSymbol)currentGetter).GetMethodInfo());
         ILGenerator.Emit(OpCodes.Stloc, elementLocal);
 
         new StatementGenerator(scope, forStatement.Body).Emit();
@@ -425,7 +425,7 @@ internal class StatementGenerator : Generator
         if (match is null)
             return null;
 
-        var enumeratorInterface = enumeratorDefinition.Construct(elementType);
+        var enumeratorInterface = (INamedTypeSymbol)enumeratorDefinition.Construct(elementType);
         return (match, enumeratorInterface);
     }
 

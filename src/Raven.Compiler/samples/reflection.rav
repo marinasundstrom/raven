@@ -1,12 +1,13 @@
 import System.*
 import System.Console.*
+import System.Linq.*
 
 let r = typeof(System.Object)
 WriteLine(r)
 
 let members = r.GetMembers()
 
-for member in members {
+for member in members.Where(x => x.Name.Equals("Equals")) {
     WriteLine(member.Name)
 }
 
@@ -14,6 +15,7 @@ let member = members[1]
 
 WriteLine(member.Name)
 
-let type = ((System.Reflection.MethodInfo)member).Invoke(member, null)
+let method = (System.Reflection.MethodInfo)member
+let type = method.Invoke(member, null)
 
 WriteLine(type)

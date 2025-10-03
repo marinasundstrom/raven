@@ -1,9 +1,10 @@
 import System.Console.*
 import System.Collections.Generic.*
+import System.Linq.*
 
 let items = test()
 
-for item in items {
+for item in items.Where(x => x > 2) {
     WriteLine(item)
 }
 
