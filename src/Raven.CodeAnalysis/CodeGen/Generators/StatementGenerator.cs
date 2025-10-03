@@ -282,12 +282,13 @@ internal class StatementGenerator : Generator
         else
         {
             var enumerable = Compilation.GetTypeByMetadataName("System.Collections.IEnumerable");
-            var clrType = ResolveClrType(enumerable);
-            ILGenerator.Emit(OpCodes.Castclass, clrType);
+            var enumerableClrType = ResolveClrType(enumerable);
+            ILGenerator.Emit(OpCodes.Castclass, enumerableClrType);
             var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
             ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
             var enumeratorType = getEnumerator.ReturnType;
-            var enumeratorLocal = ILGenerator.DeclareLocal(clrType);
+            var enumeratorClrType = ResolveClrType(enumeratorType);
+            var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorClrType);
             ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
 
             var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
