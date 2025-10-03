@@ -644,6 +644,104 @@ type. Other collections are currently treated as `System.Collections.IEnumerable
 and default the iteration variable to `object`. Like other looping constructs, a
 `for` expression evaluates to `()`.
 
+### `break` and `continue`
+
+`break` immediately exits the innermost loop (`while`, `for`, or other
+expression-oriented loop construct). `continue` skips the remainder of the
+current iteration and evaluates the loop condition for the next pass. Both
+keywords are only valid inside loops; using them elsewhere produces diagnostics
+(`RAV2600` for `break`, `RAV2601` for `continue`). They are statements, not
+expressions, so placing them in an expression context—such as inside an
+expression-bodied lambda—also triggers an error. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L614-L648】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L346-L351】
+
+```raven
+while cond {
+    if shouldStop {
+        break
+    }
+
+    if shouldSkip {
+        continue
+    }
+
+    work()
+}
+```
+
+### Labeled statements and `goto`
+
+A label is written as `identifier:` ahead of a statement. Labels share a single
+scope within the surrounding function body: redeclaring the same label name, or
+using a reserved keyword as the label, produces a diagnostic. Escaped
+identifiers such as `@loop:` use the identifier's logical name for lookup, so
+`goto @loop` and `@loop:` refer to the same target. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L560-L609】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L702-L733】
+
+`goto name` transfers control to the labeled statement with the given name.
+Targets must be labels declared in the same function; unresolved names, missing
+identifiers, or reserved words report diagnostics (`RAV2500`–`RAV2502`). `goto`
+statements are likewise disallowed in expression contexts. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L572-L609】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L337-L345】
+
+```raven
+func retryingWork() {
+start:
+    let ok = tryOnce()
+    if not ok {
+        goto start
+    }
+}
+```
+
+### `throw` statement
+
+`throw expression` aborts the current control path by raising an exception. The
+expression must be implicitly convertible to `System.Exception`; otherwise the
+compiler reports `RAV1020`. As with other imperative statements, `throw` cannot
+appear in expression contexts such as the arms of an `if` expression.
+【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L529-L557】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L231-L240】
+
+```raven
+func parse(text: string) -> int {
+    if text.Length == 0 {
+        throw System.ArgumentException("Value is required")
+    }
+
+    return int.Parse(text)
+}
+```
+
+### Iterator statements (`yield return`, `yield break`)
+
+Iterator methods produce lazily-evaluated sequences by using `yield` statements.
+`yield return expression` publishes the next element of the sequence; the
+expression is converted to the iterator's element type before emission.
+`yield break` terminates the sequence early. Both forms may only appear in
+methods whose return type implements `System.Collections.Generic.IEnumerable<T>`,
+`System.Collections.Generic.IEnumerator<T>`, or their non-generic counterparts.
+When such a method contains `yield`, the compiler rewrites it into a state
+machine that implements the appropriate enumerator pattern. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L489-L527】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L25-L58】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L302-L340】
+
+```raven
+import System.Collections.Generic.*
+
+class Counter {
+    Numbers(max: int) -> IEnumerable<int> {
+        var current = 0
+        while current < max {
+            yield return current
+            current = current + 1
+        }
+
+        yield break
+    }
+}
+```
+
+The generated state machine preserves captured locals and surfaces the same
+metadata shape (`Current`, `MoveNext`, `Dispose`, and `GetEnumerator`) as .NET
+iterators. Each `yield return` resumes exactly where it left off on the next
+`MoveNext` call, allowing Raven iterators to interoperate seamlessly with .NET's
+enumeration APIs. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L46-L128】
+
 ### Pattern matching
 
 Patterns let you inspect values using concise, algebraic syntax. They appear in
