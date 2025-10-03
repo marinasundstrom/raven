@@ -246,7 +246,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             ContainingNamespace,
             s_emptyLocations,
             s_emptySyntax,
-            declaredAccessibility: Accessibility.Private);
+            declaredAccessibility: Accessibility.Internal);
     }
 
     private SourceMethodSymbol CreateConstructor(Compilation compilation, SourceMethodSymbol iteratorMethod)

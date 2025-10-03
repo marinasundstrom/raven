@@ -691,7 +691,7 @@ internal class CodeGenerator
         }
     }
 
-    private TypeGenerator GetOrCreateTypeGenerator(ITypeSymbol typeSymbol)
+    internal TypeGenerator GetOrCreateTypeGenerator(ITypeSymbol typeSymbol)
     {
         if (!_typeGenerators.TryGetValue(typeSymbol, out var generator))
         {
