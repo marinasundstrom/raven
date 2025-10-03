@@ -356,6 +356,12 @@ internal class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseTryExpression();
                 break;
 
+            case SyntaxKind.AwaitKeyword:
+                ReadToken();
+                expr = ParseFactorExpression();
+                expr = UnaryExpression(SyntaxKind.AwaitExpression, token, expr);
+                break;
+
             case SyntaxKind.OpenBraceToken:
                 expr = ParseBlockSyntax();
                 break;

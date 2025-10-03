@@ -51,7 +51,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `base`, `bool`, `catch`, `char`, `class`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `true`, `try`, `var`, `when`, `while` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `catch`, `char`, `class`, `double`, `each`, `else`, `enum`, `false`, `finally`, `for`, `func`, `if`, `int`, `interface`, `is`, `let`, `match`, `new`, `not`, `null`, `object`, `or`, `return`, `self`, `string`, `struct`, `true`, `try`, `var`, `when`, `while` |
 | Contextual | `abstract`, `alias`, `get`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `using`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers—even when a construct makes
@@ -325,6 +325,15 @@ let pet = if flag { Dog() } else { Cat() } // Dog | Cat
 let a: Animal = pet   // ok: Dog and Cat derive from Animal
 let s: string = pet   // error: neither member converts to string
 ```
+
+### Await expressions
+
+The `await` keyword introduces a unary expression with the grammar `await`
+*expression*. Await expressions participate in the same precedence as other
+prefix unary operators. Because `await` is reserved, the identifier form must be
+escaped as `@await` when used outside this construct. The asynchronous behaviour
+of `await` will be defined alongside coroutine semantics; the current
+specification reserves the syntax.
 
 ### Cast expressions
 

@@ -28,6 +28,7 @@
   <TokenKind Name="TryKeyword" Text="try" IsReservedWord="true" />
   <TokenKind Name="CatchKeyword" Text="catch" IsReservedWord="true" />
   <TokenKind Name="FinallyKeyword" Text="finally" IsReservedWord="true" />
+  <TokenKind Name="AwaitKeyword" Text="await" IsReservedWord="true" />
   <TokenKind Name="WhileKeyword" Text="while" IsReservedWord="true" />
   <TokenKind Name="ForKeyword" Text="for" IsReservedWord="true" />
   <TokenKind Name="EachKeyword" Text="each" IsReservedWord="true" />
