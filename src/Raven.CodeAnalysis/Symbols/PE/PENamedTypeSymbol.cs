@@ -17,6 +17,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private string _name;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
+    private readonly ITypeSymbol? _constructedFrom;
+    private readonly ITypeSymbol? _originalDefinition;
 
     public PENamedTypeSymbol(TypeResolver typeResolver, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -27,6 +29,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         if (typeInfo?.Name == "Object" || typeInfo.BaseType?.Name == "Object")
         {
             TypeKind = TypeKind.Class;
+            (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();
             return;
         }
 
@@ -44,6 +47,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             TypeKind = TypeKind.Array;
         else
             TypeKind = TypeKind.Class;
+
+        (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();
     }
 
     public override SymbolKind Kind => SymbolKind.Type;
@@ -71,7 +76,36 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             _typeInfo.GenericTypeParameters
                 .Select(t => (ITypeParameterSymbol)_typeResolver.ResolveType(t)!)
                 .ToImmutableArray();
-    public ITypeSymbol? ConstructedFrom { get; }
+    public ITypeSymbol? ConstructedFrom => _constructedFrom;
+
+    private (ITypeSymbol constructedFrom, ITypeSymbol originalDefinition) ResolveGenericOrigins()
+    {
+        var self = (ITypeSymbol)this;
+        var constructedFrom = self;
+        var originalDefinition = self;
+
+        if (!_typeInfo.IsGenericType)
+            return (constructedFrom, originalDefinition);
+
+        if (_typeInfo.IsGenericTypeDefinition)
+            return (constructedFrom, originalDefinition);
+
+        var type = _typeInfo.AsType();
+        var definitionType = type.GetGenericTypeDefinition();
+
+        if (ReferenceEquals(definitionType, type))
+            return (constructedFrom, originalDefinition);
+
+        var resolved = _typeResolver.ResolveType(definitionType);
+        if (resolved is INamedTypeSymbol definitionSymbol)
+        {
+            constructedFrom = definitionSymbol;
+
+            originalDefinition = definitionSymbol.OriginalDefinition ?? definitionSymbol;
+        }
+
+        return (constructedFrom, originalDefinition);
+    }
     public bool IsAbstract => _typeInfo.IsAbstract;
     public bool IsSealed => _typeInfo.IsSealed;
     public bool IsGenericType => _typeInfo.IsGenericType;
@@ -198,7 +232,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public TypeKind TypeKind { get; }
 
-    public ITypeSymbol? OriginalDefinition { get; }
+    public ITypeSymbol? OriginalDefinition => _originalDefinition;
 
     public int Arity => _typeInfo.GenericTypeParameters.Length;
 
@@ -361,3 +395,4 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
     }
 }
+
