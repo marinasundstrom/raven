@@ -209,15 +209,114 @@ partial class BlockBinder
 
         var collection = BindExpression(forStmt.Expression);
 
-        ITypeSymbol elementType = collection.Type is IArrayTypeSymbol array
-            ? array.ElementType
-            : Compilation.GetSpecialType(SpecialType.System_Object);
+        var elementType = InferForElementType(collection.Type);
 
         var local = loopBinder.CreateLocalSymbol(forStmt, forStmt.Identifier.ValueText, isMutable: false, elementType);
 
         var body = loopBinder.BindStatementInLoop(forStmt.Body);
 
         return new BoundForStatement(local, collection, body);
+    }
+
+    private ITypeSymbol InferForElementType(ITypeSymbol? collectionType)
+    {
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+
+        if (collectionType is null)
+            return objectType;
+
+        if (collectionType is IArrayTypeSymbol array)
+            return array.ElementType;
+
+        if (collectionType.SpecialType == SpecialType.System_String)
+            return Compilation.GetSpecialType(SpecialType.System_Char);
+
+        if (collectionType is INamedTypeSymbol named)
+        {
+            if (TryGetGenericEnumerableElement(named, out var elementType))
+                return elementType;
+
+            foreach (var iface in named.AllInterfaces)
+            {
+                if (TryGetGenericEnumerableElement(iface, out elementType))
+                    return elementType;
+            }
+
+            if (TryGetEnumeratorElementType(named, out elementType))
+                return elementType;
+        }
+
+        if (collectionType is ITypeParameterSymbol typeParameter)
+        {
+            foreach (var constraint in typeParameter.ConstraintTypes)
+            {
+                var inferred = InferForElementType(constraint);
+                if (!SymbolEqualityComparer.Default.Equals(inferred, objectType))
+                    return inferred;
+            }
+        }
+
+        return objectType;
+    }
+
+    private bool TryGetGenericEnumerableElement(ITypeSymbol type, out ITypeSymbol elementType)
+    {
+        if (type is INamedTypeSymbol named &&
+            named.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
+            named.TypeArguments.Length == 1)
+        {
+            elementType = named.TypeArguments[0];
+            return true;
+        }
+
+        elementType = null!;
+        return false;
+    }
+
+    private bool TryGetEnumeratorElementType(INamedTypeSymbol type, out ITypeSymbol elementType)
+    {
+        foreach (var member in type.GetMembers("GetEnumerator"))
+        {
+            if (member is not IMethodSymbol { Parameters.Length: 0 } getEnumerator)
+                continue;
+
+            var returnType = getEnumerator.ReturnType;
+
+            if (returnType is IArrayTypeSymbol array)
+            {
+                elementType = array.ElementType;
+                return true;
+            }
+
+            if (returnType is INamedTypeSymbol named)
+            {
+                if (named.SpecialType == SpecialType.System_Collections_Generic_IEnumerator_T &&
+                    named.TypeArguments.Length == 1)
+                {
+                    elementType = named.TypeArguments[0];
+                    return true;
+                }
+
+                foreach (var iface in named.AllInterfaces)
+                {
+                    if (iface.SpecialType == SpecialType.System_Collections_Generic_IEnumerator_T &&
+                        iface is INamedTypeSymbol { TypeArguments.Length: 1 } genericEnumerator)
+                    {
+                        elementType = genericEnumerator.TypeArguments[0];
+                        return true;
+                    }
+                }
+
+                if (named.SpecialType == SpecialType.System_Collections_IEnumerator)
+                {
+                    elementType = Compilation.GetSpecialType(SpecialType.System_Object);
+                    return true;
+                }
+            }
+        }
+
+        elementType = null!;
+        return false;
     }
 
     private BoundCatchClause BindCatchClause(CatchClauseSyntax catchClause)
