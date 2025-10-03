@@ -733,7 +733,7 @@ internal static class IteratorLowerer
             value = ConvertIfNeeded(_compilation, value, _boolType);
 
             var assignment = new BoundLocalAssignmentExpression(_resultLocal, value);
-            var assignStatement = new BoundExpressionStatement(assignment);
+            var assignStatement = new BoundAssignmentStatement(assignment);
             var gotoStatement = new BoundGotoStatement(_returnLabel);
 
             return new BoundBlockStatement(new BoundStatement[]
