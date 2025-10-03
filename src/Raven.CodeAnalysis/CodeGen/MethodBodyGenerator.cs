@@ -482,7 +482,6 @@ internal class MethodBodyGenerator
         var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol);
         MethodGenerator.TypeGenerator.Add(methodSymbol, methodGenerator);
         methodGenerator.DefineMethodBuilder();
-        methodGenerator.EmitBody();
     }
 
     private void DeclareLocals(BoundBlockStatement block)
@@ -520,6 +519,12 @@ internal class MethodBodyGenerator
         block = Lowerer.LowerBlock(MethodSymbol, block);
         var blockScope = new Scope(scope, block.LocalsToDispose);
 
+        // Locals synthesized during lowering (e.g., iterator state machines) won't
+        // be present in the original bound body we used for the initial declaration
+        // pass. Ensure we register builders for any newly introduced locals so
+        // downstream emitters can load and store them.
+        DeclareLocals(blockScope, block);
+
         for (var i = 0; i < block.Statements.Count(); i++)
         {
             var statement = block.Statements.ElementAt(i);
@@ -543,7 +548,7 @@ internal class MethodBodyGenerator
 
         blockScope.EmitDispose(block.LocalsToDispose);
 
-        if (withReturn)
+        if (withReturn && ShouldEmitImplicitReturn())
         {
             ILGenerator.Emit(OpCodes.Nop);
             ILGenerator.Emit(OpCodes.Ret);
@@ -618,11 +623,20 @@ internal class MethodBodyGenerator
 
         executionScope.EmitDispose(localsToDispose);
 
-        if (withReturn)
+        if (withReturn && ShouldEmitImplicitReturn())
         {
             ILGenerator.Emit(OpCodes.Nop);
             ILGenerator.Emit(OpCodes.Ret);
         }
+    }
+
+    private bool ShouldEmitImplicitReturn()
+    {
+        var returnType = MethodSymbol.ReturnType;
+        if (returnType is null)
+            return true;
+
+        return returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
     }
 
     private void EmitStatement(BoundStatement statement)

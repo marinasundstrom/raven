@@ -430,6 +430,134 @@ class C {
     }
 
     [Fact]
+    public void Rewrite_WrapsFinallyBlockWithStateGuard()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+class C {
+    Iterator(count: int) -> IEnumerable<int> {
+        try {
+            yield return count
+        } finally {
+            let disposed = count
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var methodSyntax = root
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        IteratorLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedIteratorTypeSymbol>(methodSymbol.IteratorStateMachine);
+        var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
+        var statements = moveNextBody.Statements.ToArray();
+
+        var entryLabel = Assert.IsType<BoundLabeledStatement>(statements[3]);
+        var entryBlock = Assert.IsType<BoundBlockStatement>(entryLabel.Statement);
+        var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(entryBlock.Statements));
+
+        var finallyBlock = Assert.IsType<BoundBlockStatement>(tryStatement.FinallyBlock);
+        var guard = Assert.IsType<BoundIfStatement>(Assert.Single(finallyBlock.Statements));
+        var condition = Assert.IsType<BoundBinaryExpression>(guard.Condition);
+
+        var stateAccess = Assert.IsType<BoundFieldAccess>(condition.Left);
+        Assert.Equal(stateMachine.StateField, stateAccess.Field);
+
+        var zeroLiteral = Assert.IsType<BoundLiteralExpression>(condition.Right);
+        Assert.Equal(0, zeroLiteral.Value);
+        Assert.Equal(BinaryOperatorKind.LessThan, condition.Operator.OperatorKind);
+
+        var guardedBlock = Assert.IsType<BoundBlockStatement>(guard.ThenNode);
+        var guardedStatements = guardedBlock.Statements.ToArray();
+        Assert.Single(guardedStatements);
+    }
+
+    [Fact]
+    public void Rewrite_DisposeRunsPendingFinalizers()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+class C {
+    Iterator(count: int) -> IEnumerable<int> {
+        try {
+            yield return count
+        } finally {
+            let disposed = count
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var methodSyntax = root
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        IteratorLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedIteratorTypeSymbol>(methodSymbol.IteratorStateMachine);
+
+        var disposeBody = Assert.IsType<BoundBlockStatement>(stateMachine.DisposeBody);
+        var disposeStatements = disposeBody.Statements.ToArray();
+        Assert.Equal(3, disposeStatements.Length);
+
+        var conditional = Assert.IsType<BoundIfStatement>(disposeStatements[0]);
+        var condition = Assert.IsType<BoundBinaryExpression>(conditional.Condition);
+
+        var stateAccess = Assert.IsType<BoundFieldAccess>(condition.Left);
+        Assert.Equal(stateMachine.StateField, stateAccess.Field);
+
+        var resumeLiteral = Assert.IsType<BoundLiteralExpression>(condition.Right);
+        Assert.Equal(1, resumeLiteral.Value);
+
+        var thenBlock = Assert.IsType<BoundBlockStatement>(conditional.ThenNode);
+        var thenStatements = thenBlock.Statements.ToArray();
+        Assert.True(thenStatements.Length >= 3);
+
+        var assignPending = Assert.IsType<BoundExpressionStatement>(thenStatements[0]);
+        AssertFieldAssignment(assignPending.Expression, stateMachine.StateField, expectedValue: -1);
+
+        var finalizerBlock = Assert.IsType<BoundBlockStatement>(thenStatements[1]);
+
+        var moveNextStatements = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody).Statements.ToArray();
+        var entryLabel = Assert.IsType<BoundLabeledStatement>(moveNextStatements.OfType<BoundLabeledStatement>().First());
+        var entryBlock = Assert.IsType<BoundBlockStatement>(entryLabel.Statement);
+        var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(entryBlock.Statements));
+        var finallyBlock = Assert.IsType<BoundBlockStatement>(tryStatement.FinallyBlock);
+        Assert.Same(finallyBlock, finalizerBlock);
+
+        var finalAssignment = Assert.IsType<BoundExpressionStatement>(disposeStatements[1]);
+        AssertFieldAssignment(finalAssignment.Expression, stateMachine.StateField, expectedValue: -1);
+
+        var finalReturn = Assert.IsType<BoundReturnStatement>(disposeStatements[2]);
+        Assert.Null(finalReturn.Expression);
+    }
+
+    [Fact]
     public void Rewrite_DoesNotCreateGetEnumeratorBodies_ForEnumeratorIterator()
     {
         const string source = """

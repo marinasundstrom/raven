@@ -669,6 +669,23 @@ internal class CodeGenerator
 
                 IteratorLowerer.Rewrite(methodSymbol, boundBody);
             }
+
+            foreach (var functionStatement in root.DescendantNodes().OfType<FunctionStatementSyntax>())
+            {
+                if (functionStatement.Body is null)
+                    continue;
+
+                if (semanticModel.GetDeclaredSymbol(functionStatement) is not SourceMethodSymbol functionSymbol)
+                    continue;
+
+                if (semanticModel.GetBoundNode(functionStatement.Body) is not BoundBlockStatement functionBody)
+                    continue;
+
+                if (!IteratorLowerer.ShouldRewrite(functionSymbol, functionBody))
+                    continue;
+
+                IteratorLowerer.Rewrite(functionSymbol, functionBody);
+            }
         }
     }
 

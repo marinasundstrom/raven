@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -63,7 +64,12 @@ internal static class IteratorLowerer
         BoundBlockStatement body)
     {
         var builder = new MoveNextBuilder(compilation, stateMachine);
-        return builder.Rewrite(body);
+        var moveNext = builder.Rewrite(body);
+
+        if (stateMachine.DisposeBody is null && builder.DisposeBody is not null)
+            stateMachine.SetDisposeBody(builder.DisposeBody);
+
+        return moveNext;
     }
 
     private static BoundBlockStatement CreateCurrentGetterBody(SynthesizedIteratorTypeSymbol stateMachine)
@@ -94,7 +100,7 @@ internal static class IteratorLowerer
             -1,
             stateMachine.StateField.Type);
         var assignment = new BoundFieldAssignmentExpression(null, stateMachine.StateField, literal);
-        statements.Add(new BoundExpressionStatement(assignment));
+        statements.Add(new BoundAssignmentStatement(assignment));
 
         statements.Add(new BoundReturnStatement(null));
         return new BoundBlockStatement(statements);
@@ -128,7 +134,7 @@ internal static class IteratorLowerer
             0,
             stateMachine.StateField.Type);
         var assignment = new BoundFieldAssignmentExpression(null, stateMachine.StateField, literal);
-        statements.Add(new BoundExpressionStatement(assignment));
+        statements.Add(new BoundAssignmentStatement(assignment));
 
         BoundExpression result = new BoundSelfExpression(stateMachine);
         var method = stateMachine.GenericGetEnumeratorMethod!;
@@ -249,7 +255,7 @@ internal static class IteratorLowerer
             var receiver = new BoundLocalAccess(stateMachineLocal);
             var value = new BoundSelfExpression(stateMachine.ThisField.Type);
             var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.ThisField, value);
-            statements.Add(new BoundExpressionStatement(assignment));
+            statements.Add(new BoundAssignmentStatement(assignment));
         }
 
         foreach (var parameter in method.Parameters)
@@ -260,7 +266,7 @@ internal static class IteratorLowerer
             var receiver = new BoundLocalAccess(stateMachineLocal);
             var value = new BoundParameterAccess(parameter);
             var assignment = new BoundFieldAssignmentExpression(receiver, field, value);
-            statements.Add(new BoundExpressionStatement(assignment));
+            statements.Add(new BoundAssignmentStatement(assignment));
         }
 
         var stateReceiver = new BoundLocalAccess(stateMachineLocal);
@@ -269,7 +275,7 @@ internal static class IteratorLowerer
             0,
             stateMachine.StateField.Type);
         var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateMachine.StateField, initialState);
-        statements.Add(new BoundExpressionStatement(stateAssignment));
+        statements.Add(new BoundAssignmentStatement(stateAssignment));
 
         BoundExpression returnExpression = new BoundLocalAccess(stateMachineLocal);
         var returnType = method.ReturnType;
@@ -403,9 +409,16 @@ internal static class IteratorLowerer
         private readonly SynthesizedIteratorTypeSymbol _stateMachine;
         private readonly SourceMethodSymbol _moveNextMethod;
         private readonly List<StateEntry> _states = new();
+        private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocals = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<string> _hoistedFieldNames = new(StringComparer.Ordinal);
+        private readonly Stack<FinallyFrame> _finallyStack = new();
+        private readonly Dictionary<int, ImmutableArray<FinallyFrame>> _pendingFinallyStates = new();
         private readonly ITypeSymbol _boolType;
         private bool _isTopLevelBlock = true;
         private StateEntry _startState;
+        private int _nextHoistedLocalId;
+
+        public BoundBlockStatement? DisposeBody { get; private set; }
 
         public MoveNextBuilder(Compilation compilation, SynthesizedIteratorTypeSymbol stateMachine)
         {
@@ -420,6 +433,7 @@ internal static class IteratorLowerer
             if (block is null)
                 throw new ArgumentNullException(nameof(block));
 
+            HoistLocals(block);
             _startState = AllocateState();
 
             var rewrittenBody = (BoundBlockStatement)VisitBlockStatement(block);
@@ -431,7 +445,94 @@ internal static class IteratorLowerer
             statements.Add(CreateStateAssignment(-1));
             statements.Add(new BoundReturnStatement(CreateBoolLiteral(false)));
 
+            DisposeBody = BuildDisposeBody();
+
             return new BoundBlockStatement(statements);
+        }
+
+        public override BoundNode? VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
+        {
+            if (node is null)
+                return null;
+
+            var hoistedStatements = new List<BoundStatement>();
+            var remainingDeclarators = new List<BoundVariableDeclarator>();
+
+            foreach (var declarator in node.Declarators)
+            {
+                var initializer = VisitExpression(declarator.Initializer) ?? declarator.Initializer;
+
+                if (_hoistedLocals.TryGetValue(declarator.Local, out var field))
+                {
+                    if (initializer is not null)
+                    {
+                        var assignment = new BoundFieldAssignmentExpression(null, field, initializer);
+                        hoistedStatements.Add(new BoundAssignmentStatement(assignment));
+                    }
+                }
+                else
+                {
+                    if (!ReferenceEquals(initializer, declarator.Initializer))
+                        remainingDeclarators.Add(new BoundVariableDeclarator(declarator.Local, initializer));
+                    else
+                        remainingDeclarators.Add(declarator);
+                }
+            }
+
+            if (remainingDeclarators.Count == 0)
+            {
+                return hoistedStatements.Count switch
+                {
+                    0 => new BoundBlockStatement(Array.Empty<BoundStatement>()),
+                    1 => hoistedStatements[0],
+                    _ => new BoundBlockStatement(hoistedStatements),
+                };
+            }
+
+            var declaration = new BoundLocalDeclarationStatement(remainingDeclarators, node.IsUsing);
+            if (hoistedStatements.Count == 0)
+                return declaration;
+
+            hoistedStatements.Add(declaration);
+            return new BoundBlockStatement(hoistedStatements);
+        }
+
+        public override BoundNode? VisitLocalAccess(BoundLocalAccess node)
+        {
+            if (node is null)
+                return null;
+
+            if (_hoistedLocals.TryGetValue(node.Local, out var field))
+                return new BoundFieldAccess(field, node.Reason);
+
+            return node;
+        }
+
+        public override BoundNode? VisitVariableExpression(BoundVariableExpression node)
+        {
+            if (node is null)
+                return null;
+
+            if (_hoistedLocals.TryGetValue(node.Variable, out var field))
+                return new BoundFieldAccess(field, node.Reason);
+
+            return node;
+        }
+
+        public override BoundNode? VisitLocalAssignmentExpression(BoundLocalAssignmentExpression node)
+        {
+            if (node is null)
+                return null;
+
+            var right = VisitExpression(node.Right) ?? node.Right;
+
+            if (_hoistedLocals.TryGetValue(node.Local, out var field))
+                return new BoundFieldAssignmentExpression(null, field, right);
+
+            if (!ReferenceEquals(right, node.Right))
+                return new BoundLocalAssignmentExpression(node.Local, right);
+
+            return node;
         }
 
         public override BoundNode? VisitBlockStatement(BoundBlockStatement node)
@@ -444,7 +545,17 @@ internal static class IteratorLowerer
 
             var statements = new List<BoundStatement>();
             foreach (var statement in node.Statements)
-                statements.Add(VisitStatement(statement));
+            {
+                var rewritten = VisitStatement(statement);
+                if (rewritten is BoundBlockStatement rewrittenBlock &&
+                    !rewrittenBlock.Statements.Any() &&
+                    rewrittenBlock.LocalsToDispose.Length == 0)
+                {
+                    continue;
+                }
+
+                statements.Add(rewritten);
+            }
 
             _isTopLevelBlock = wasTopLevel;
 
@@ -458,6 +569,48 @@ internal static class IteratorLowerer
             return new BoundBlockStatement(statements, node.LocalsToDispose);
         }
 
+        public override BoundNode? VisitTryStatement(BoundTryStatement node)
+        {
+            if (node is null)
+                return null;
+
+            FinallyFrame? frame = null;
+            if (node.FinallyBlock is not null)
+            {
+                frame = new FinallyFrame();
+                _finallyStack.Push(frame);
+            }
+
+            try
+            {
+                var tryBlock = (BoundBlockStatement)VisitBlockStatement(node.TryBlock);
+
+                var catchBuilder = ImmutableArray.CreateBuilder<BoundCatchClause>(node.CatchClauses.Length);
+                foreach (var catchClause in node.CatchClauses)
+                {
+                    var catchBlock = (BoundBlockStatement)VisitBlockStatement(catchClause.Block);
+                    catchBuilder.Add(new BoundCatchClause(catchClause.ExceptionType, catchClause.Local, catchBlock));
+                }
+
+                BoundBlockStatement? finallyBlock = null;
+                if (node.FinallyBlock is not null)
+                {
+                    var rewrittenFinally = (BoundBlockStatement)VisitBlockStatement(node.FinallyBlock);
+                    finallyBlock = WrapFinallyBlock(rewrittenFinally);
+
+                    if (frame is not null)
+                        frame.FinallyBlock = finallyBlock;
+                }
+
+                return new BoundTryStatement(tryBlock, catchBuilder.ToImmutable(), finallyBlock);
+            }
+            finally
+            {
+                if (frame is not null && _finallyStack.Count > 0 && ReferenceEquals(_finallyStack.Peek(), frame))
+                    _finallyStack.Pop();
+            }
+        }
+
         public override BoundNode? VisitYieldReturnStatement(BoundYieldReturnStatement node)
         {
             if (node is null)
@@ -467,13 +620,22 @@ internal static class IteratorLowerer
             var expression = VisitExpression(node.Expression) ?? node.Expression;
             var currentValue = ApplyElementConversion(expression);
 
-            var assignCurrent = new BoundExpressionStatement(
+            var assignCurrent = new BoundAssignmentStatement(
                 new BoundFieldAssignmentExpression(null, _stateMachine.CurrentField, currentValue));
 
             var assignState = CreateStateAssignment(resumeState.Value);
 
             var returnTrue = new BoundReturnStatement(CreateBoolLiteral(true));
             var resumeLabel = new BoundLabeledStatement(resumeState.Label, new BoundBlockStatement(Array.Empty<BoundStatement>()));
+
+            if (_finallyStack.Count > 0)
+            {
+                var builder = ImmutableArray.CreateBuilder<FinallyFrame>(_finallyStack.Count);
+                foreach (var frame in _finallyStack)
+                    builder.Add(frame);
+
+                _pendingFinallyStates[resumeState.Value] = builder.ToImmutable();
+            }
 
             return new BoundBlockStatement(new BoundStatement[]
             {
@@ -497,6 +659,42 @@ internal static class IteratorLowerer
                 assignCompleted,
                 returnFalse,
             });
+        }
+
+        private BoundBlockStatement? BuildDisposeBody()
+        {
+            if (_pendingFinallyStates.Count == 0)
+                return null;
+
+            var statements = new List<BoundStatement>();
+
+            foreach (var entry in _pendingFinallyStates.OrderBy(static pair => pair.Key))
+            {
+                var condition = CreateStateEquals(entry.Key);
+                var thenStatements = new List<BoundStatement>
+                {
+                    CreateStateAssignment(-1),
+                };
+
+                foreach (var frame in entry.Value)
+                {
+                    if (frame.FinallyBlock is null)
+                        continue;
+
+                    thenStatements.Add(frame.FinallyBlock);
+                    thenStatements.Add(CreateStateAssignment(-1));
+                }
+
+                thenStatements.Add(new BoundReturnStatement(null));
+
+                var thenBlock = new BoundBlockStatement(thenStatements);
+                statements.Add(new BoundIfStatement(condition, thenBlock));
+            }
+
+            statements.Add(CreateStateAssignment(-1));
+            statements.Add(new BoundReturnStatement(null));
+
+            return new BoundBlockStatement(statements);
         }
 
         private IEnumerable<BoundStatement> CreateStateDispatch()
@@ -525,11 +723,25 @@ internal static class IteratorLowerer
             return new BoundBinaryExpression(stateAccess, op, literal);
         }
 
-        private BoundExpressionStatement CreateStateAssignment(int value)
+        private BoundBlockStatement WrapFinallyBlock(BoundBlockStatement block)
+        {
+            var stateAccess = new BoundFieldAccess(_stateMachine.StateField);
+            var zero = CreateIntLiteral(0);
+
+            if (!BoundBinaryOperator.TryLookup(_compilation, SyntaxKind.LessThanToken, stateAccess.Type, zero.Type, out var op))
+                throw new InvalidOperationException("Iterator lowering requires integer comparison operator.");
+
+            var condition = new BoundBinaryExpression(stateAccess, op, zero);
+            var guard = new BoundIfStatement(condition, block);
+
+            return new BoundBlockStatement(new BoundStatement[] { guard });
+        }
+
+        private BoundAssignmentStatement CreateStateAssignment(int value)
         {
             var literal = CreateIntLiteral(value);
             var assignment = new BoundFieldAssignmentExpression(null, _stateMachine.StateField, literal);
-            return new BoundExpressionStatement(assignment);
+            return new BoundAssignmentStatement(assignment);
         }
 
         private BoundLiteralExpression CreateIntLiteral(int value)
@@ -580,5 +792,79 @@ internal static class IteratorLowerer
         }
 
         private readonly record struct StateEntry(int Value, ILabelSymbol Label);
+
+        private void HoistLocals(BoundBlockStatement body)
+        {
+            var collector = new HoistableLocalCollector();
+            collector.VisitBlockStatement(body);
+
+            foreach (var local in collector.Locals)
+            {
+                if (_hoistedLocals.ContainsKey(local))
+                    continue;
+
+                var type = local.Type ?? _compilation.ErrorTypeSymbol;
+                var fieldName = CreateHoistedLocalFieldName();
+                var field = _stateMachine.AddHoistedLocal(fieldName, type);
+                _hoistedLocals.Add(local, field);
+            }
+        }
+
+        private string CreateHoistedLocalFieldName()
+        {
+            string candidate;
+            do
+            {
+                candidate = $"_local{_nextHoistedLocalId++}";
+            } while (!_hoistedFieldNames.Add(candidate));
+
+            return candidate;
+        }
+
+        private sealed class HoistableLocalCollector : BoundTreeWalker
+        {
+            private readonly HashSet<ILocalSymbol> _locals = new(SymbolEqualityComparer.Default);
+
+            public IEnumerable<ILocalSymbol> Locals => _locals;
+
+            public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
+            {
+                foreach (var declarator in node.Declarators)
+                    _locals.Add(declarator.Local);
+
+                base.VisitLocalDeclarationStatement(node);
+            }
+
+            public override void VisitLocalAccess(BoundLocalAccess node)
+            {
+                _locals.Add(node.Local);
+                base.VisitLocalAccess(node);
+            }
+
+            public override void VisitVariableExpression(BoundVariableExpression node)
+            {
+                _locals.Add(node.Variable);
+                base.VisitVariableExpression(node);
+            }
+
+            public override void VisitLocalAssignmentExpression(BoundLocalAssignmentExpression node)
+            {
+                _locals.Add(node.Local);
+                base.VisitLocalAssignmentExpression(node);
+            }
+
+            public override void VisitForStatement(BoundForStatement node)
+            {
+                if (node.Local is not null)
+                    _locals.Add(node.Local);
+
+                base.VisitForStatement(node);
+            }
+        }
+
+        private sealed class FinallyFrame
+        {
+            public BoundBlockStatement? FinallyBlock { get; set; }
+        }
     }
 }
