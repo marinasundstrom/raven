@@ -58,4 +58,21 @@ class Program {
         var verifier = CreateVerifier(testCode);
         verifier.Verify();
     }
+
+    [Fact]
+    public void TargetTypedMemberAccess_ParticipatesInOverloadResolution()
+    {
+        string testCode = """
+import System.*
+import System.Reflection.*
+
+class Program {
+    static Run() -> unit {
+        let members = typeof(System.Object).GetMembers(.NonPublic)
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
 }

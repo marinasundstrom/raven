@@ -1818,6 +1818,7 @@ partial class BlockBinder : Binder
                                 index++;
                             }
 
+                            var argumentCount = argList.Arguments.Count;
                             IMethodSymbol? targetMethod = null;
                             var targetUsesImplicitExtension = false;
                             var argumentExpression = arg.Expression;
@@ -1828,7 +1829,22 @@ partial class BlockBinder : Binder
                                 if (boundMember is BoundMethodGroupExpression methodGroup)
                                 {
                                     var extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
-                                    var methods = FilterMethodsForLambda(methodGroup.Methods, index, argumentExpression, extensionReceiverImplicit);
+                                    var methods = methodGroup.Methods;
+
+                                    if (!methods.IsDefaultOrEmpty)
+                                    {
+                                        methods = methods
+                                            .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, methodGroup.Receiver))
+                                            .ToImmutableArray();
+                                    }
+
+                                    if (methods.IsDefaultOrEmpty)
+                                    {
+                                        current = current.Parent;
+                                        continue;
+                                    }
+
+                                    methods = FilterMethodsForLambda(methods, index, argumentExpression, extensionReceiverImplicit);
                                     RecordLambdaTargets(argumentExpression, methods, index, extensionReceiverImplicit);
                                     if (methods.Length == 1)
                                     {
@@ -1841,11 +1857,14 @@ partial class BlockBinder : Binder
                                 else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol m })
                                 {
                                     var extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
-                                    targetMethod = m;
-                                    targetUsesImplicitExtension = extensionReceiverImplicit && m.IsExtensionMethod;
-                                    RecordLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, extensionReceiverImplicit);
-                                    if (TryGetLambdaParameter(m, index, extensionReceiverImplicit, out var parameter))
-                                        return parameter.Type;
+                                    if (AreArgumentsCompatibleWithMethod(m, argumentCount, receiver))
+                                    {
+                                        targetMethod = m;
+                                        targetUsesImplicitExtension = extensionReceiverImplicit && m.IsExtensionMethod;
+                                        RecordLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, extensionReceiverImplicit);
+                                        if (TryGetLambdaParameter(m, index, extensionReceiverImplicit, out var parameter))
+                                            return parameter.Type;
+                                    }
                                 }
                             }
                             else if (invocation.Expression is MemberBindingExpressionSyntax memberBinding)
@@ -1854,7 +1873,22 @@ partial class BlockBinder : Binder
                                 if (boundMember is BoundMethodGroupExpression methodGroup)
                                 {
                                     var extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
-                                    var methods = FilterMethodsForLambda(methodGroup.Methods, index, argumentExpression, extensionReceiverImplicit);
+                                    var methods = methodGroup.Methods;
+
+                                    if (!methods.IsDefaultOrEmpty)
+                                    {
+                                        methods = methods
+                                            .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, methodGroup.Receiver))
+                                            .ToImmutableArray();
+                                    }
+
+                                    if (methods.IsDefaultOrEmpty)
+                                    {
+                                        current = current.Parent;
+                                        continue;
+                                    }
+
+                                    methods = FilterMethodsForLambda(methods, index, argumentExpression, extensionReceiverImplicit);
                                     RecordLambdaTargets(argumentExpression, methods, index, extensionReceiverImplicit);
                                     if (methods.Length == 1)
                                     {
@@ -1867,11 +1901,14 @@ partial class BlockBinder : Binder
                                 else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol m })
                                 {
                                     var extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
-                                    targetMethod = m;
-                                    targetUsesImplicitExtension = extensionReceiverImplicit && m.IsExtensionMethod;
-                                    RecordLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, extensionReceiverImplicit);
-                                    if (TryGetLambdaParameter(m, index, extensionReceiverImplicit, out var parameter))
-                                        return parameter.Type;
+                                    if (AreArgumentsCompatibleWithMethod(m, argumentCount, receiver))
+                                    {
+                                        targetMethod = m;
+                                        targetUsesImplicitExtension = extensionReceiverImplicit && m.IsExtensionMethod;
+                                        RecordLambdaTargets(argumentExpression, ImmutableArray.Create(m), index, extensionReceiverImplicit);
+                                        if (TryGetLambdaParameter(m, index, extensionReceiverImplicit, out var parameter))
+                                            return parameter.Type;
+                                    }
                                 }
                             }
                             else if (invocation.Expression is IdentifierNameSyntax id)
@@ -1882,7 +1919,19 @@ partial class BlockBinder : Binder
                                 var accessible = GetAccessibleMethods(candidates, id.Identifier.GetLocation(), reportIfInaccessible: false);
 
                                 if (!accessible.IsDefaultOrEmpty)
+                                {
+                                    accessible = accessible
+                                        .Where(m => AreArgumentsCompatibleWithMethod(m, argumentCount, receiver: null))
+                                        .ToImmutableArray();
+
+                                    if (accessible.IsDefaultOrEmpty)
+                                    {
+                                        current = current.Parent;
+                                        continue;
+                                    }
+
                                     accessible = FilterMethodsForLambda(accessible, index, argumentExpression, extensionReceiverImplicit: false);
+                                }
 
                                 RecordLambdaTargets(argumentExpression, accessible, index, extensionReceiverImplicit: false);
 
