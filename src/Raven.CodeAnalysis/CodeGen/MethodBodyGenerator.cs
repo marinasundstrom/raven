@@ -184,14 +184,14 @@ internal class MethodBodyGenerator
 
             case FunctionStatementSyntax functionStatement:
                 if (boundBody != null)
-                    EmitBoundBlock(boundBody);
+                    EmitMethodBlock(boundBody);
                 else
                     ILGenerator.Emit(OpCodes.Ret);
                 break;
 
             case MethodDeclarationSyntax methodDeclaration:
                 if (boundBody != null)
-                    EmitBoundBlock(boundBody);
+                    EmitMethodBlock(boundBody);
                 else if (expressionBody is not null)
                     EmitExpressionBody(expressionBody);
                 else
@@ -209,7 +209,7 @@ internal class MethodBodyGenerator
                 EmitFieldInitializers(MethodSymbol.IsStatic);
 
                 if (boundBody != null)
-                    EmitBoundBlock(boundBody, false);
+                    EmitMethodBlock(boundBody, includeImplicitReturn: false);
                 else if (expressionBody is not null)
                     EmitExpressionBody(expressionBody, includeReturn: !ordinaryConstr);
 
@@ -222,7 +222,7 @@ internal class MethodBodyGenerator
             case AccessorDeclarationSyntax accessorDeclaration:
                 if (boundBody != null)
                 {
-                    EmitBoundBlock(boundBody);
+                    EmitMethodBlock(boundBody);
                 }
                 else if (expressionBody is not null)
                 {
@@ -290,7 +290,7 @@ internal class MethodBodyGenerator
         }
 
         DeclareLocals(body);
-        EmitBoundBlock(body);
+        EmitMethodBlock(body);
     }
 
     private BoundBlockStatement? GetIteratorBody(SynthesizedIteratorTypeSymbol iteratorType)
@@ -339,7 +339,7 @@ internal class MethodBodyGenerator
             {
                 var block = new BoundBlockStatement(blockExpression.Statements);
                 DeclareLocals(block);
-                EmitBoundBlock(block);
+                EmitMethodBlock(block);
                 return;
             }
 
@@ -510,9 +510,20 @@ internal class MethodBodyGenerator
         }
     }
 
-    private void EmitBoundBlock(BoundBlockStatement block, bool withReturn = true)
+    private void EmitMethodBlock(BoundBlockStatement block, bool includeImplicitReturn = true)
+    {
+        EmitBlock(block, treatAsMethodBody: true, includeImplicitReturn);
+    }
+
+    private void EmitBoundBlock(BoundBlockStatement block)
+    {
+        EmitBlock(block, treatAsMethodBody: false, includeImplicitReturn: false);
+    }
+
+    private void EmitBlock(BoundBlockStatement block, bool treatAsMethodBody, bool includeImplicitReturn)
     {
         block = Lowerer.LowerBlock(MethodSymbol, block);
+        var statements = block.Statements as IReadOnlyList<BoundStatement> ?? block.Statements.ToArray();
         var blockScope = new Scope(scope, block.LocalsToDispose);
 
         // Locals synthesized during lowering (e.g., iterator state machines) won't
@@ -521,16 +532,16 @@ internal class MethodBodyGenerator
         // downstream emitters can load and store them.
         DeclareLocals(blockScope, block);
 
-        for (var i = 0; i < block.Statements.Count(); i++)
+        for (var i = 0; i < statements.Count; i++)
         {
-            var statement = block.Statements.ElementAt(i);
+            var statement = statements[i];
 
             // If this is the last statement in the block and the method expects a
             // value, treat a bare expression statement as an implicit return. This
             // allows functions to omit an explicit `return` for the final
             // expression, while still emitting any required boxing.
-            var isLast = i == block.Statements.Count() - 1;
-            if (withReturn && isLast &&
+            if (treatAsMethodBody && includeImplicitReturn &&
+                i == statements.Count - 1 &&
                 MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void &&
                 statement is BoundExpressionStatement exprStmt)
             {
@@ -544,7 +555,13 @@ internal class MethodBodyGenerator
 
         blockScope.EmitDispose(block.LocalsToDispose);
 
-        if (withReturn && ShouldEmitImplicitReturn())
+        if (!treatAsMethodBody || !includeImplicitReturn)
+            return;
+
+        var endsWithTerminator = statements.Count > 0 &&
+            statements[^1] is BoundReturnStatement or BoundThrowStatement;
+
+        if (!endsWithTerminator && ShouldEmitImplicitReturn())
         {
             ILGenerator.Emit(OpCodes.Nop);
             ILGenerator.Emit(OpCodes.Ret);
