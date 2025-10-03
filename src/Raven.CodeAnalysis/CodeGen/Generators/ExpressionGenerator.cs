@@ -374,7 +374,7 @@ internal class ExpressionGenerator : Generator
 
         if (lambdaGenerator is null)
         {
-            lambdaGenerator = new MethodGenerator(typeGenerator, lambdaSymbol);
+            lambdaGenerator = new MethodGenerator(typeGenerator, lambdaSymbol, typeGenerator.CodeGen.ILBuilderFactory);
 
             if (hasCaptures && lambdaSymbol is SourceLambdaSymbol sourceLambda)
             {
@@ -1177,7 +1177,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private LocalBuilder? EmitDesignation(BoundDesignator designation, Generator scope)
+    private IILocal? EmitDesignation(BoundDesignator designation, Generator scope)
     {
         if (designation is BoundSingleVariableDesignator single)
         {
@@ -1332,7 +1332,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
     }
 
-    private void EmitSpreadElement(LocalBuilder collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, IMethodSymbol addMethod)
+    private void EmitSpreadElement(IILocal collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, IMethodSymbol addMethod)
     {
         EmitExpression(spread.Expression);
 
@@ -1379,7 +1379,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(loopEnd);
     }
 
-    private void EmitSpreadElement(LocalBuilder collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, MethodInfo addMethodInfo)
+    private void EmitSpreadElement(IILocal collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, MethodInfo addMethodInfo)
     {
         EmitExpression(spread.Expression);
 
@@ -1716,7 +1716,7 @@ internal class ExpressionGenerator : Generator
         EmitPatternAssignment(node.Pattern, valueLocal, valueType);
     }
 
-    private void EmitPatternAssignment(BoundPattern pattern, LocalBuilder valueLocal, ITypeSymbol valueType)
+    private void EmitPatternAssignment(BoundPattern pattern, IILocal valueLocal, ITypeSymbol valueType)
     {
         if (pattern is null)
             return;
@@ -1739,7 +1739,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitTuplePatternAssignment(BoundTuplePattern tuplePattern, LocalBuilder valueLocal, ITypeSymbol valueType)
+    private void EmitTuplePatternAssignment(BoundTuplePattern tuplePattern, IILocal valueLocal, ITypeSymbol valueType)
     {
         if (GetPatternValueType(valueType) is not ITupleTypeSymbol tupleType)
             return;
@@ -1775,7 +1775,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitDeclarationPatternAssignment(BoundDeclarationPattern declarationPattern, LocalBuilder valueLocal, ITypeSymbol valueType)
+    private void EmitDeclarationPatternAssignment(BoundDeclarationPattern declarationPattern, IILocal valueLocal, ITypeSymbol valueType)
     {
         switch (declarationPattern.Designator)
         {
@@ -1791,7 +1791,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitStorePatternValue(ILocalSymbol localSymbol, LocalBuilder valueLocal, ITypeSymbol sourceType, ITypeSymbol? targetType)
+    private void EmitStorePatternValue(ILocalSymbol localSymbol, IILocal valueLocal, ITypeSymbol sourceType, ITypeSymbol? targetType)
     {
         var normalizedSource = GetPatternValueType(sourceType);
         var normalizedTarget = GetPatternValueType(targetType);
@@ -1828,7 +1828,7 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Stloc, localBuilder);
     }
 
-    private ITypeSymbol? LoadValueWithConversion(LocalBuilder valueLocal, ITypeSymbol? sourceType, ITypeSymbol? targetType)
+    private ITypeSymbol? LoadValueWithConversion(IILocal valueLocal, ITypeSymbol? sourceType, ITypeSymbol? targetType)
     {
         ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
 
@@ -2473,7 +2473,7 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBranchOpForCondition(BoundExpression expression, Label end)
+    private void EmitBranchOpForCondition(BoundExpression expression, ILLabel end)
     {
         if (expression is BoundParenthesizedExpression parenthesizedExpression)
         {
@@ -2569,7 +2569,7 @@ internal class ExpressionGenerator : Generator
             EmitStatement(statement, scope);
         }
 
-        LocalBuilder? resultTemp = null;
+        IILocal? resultTemp = null;
         if (resultExpression is not null)
         {
             new ExpressionGenerator(scope, resultExpression).Emit();

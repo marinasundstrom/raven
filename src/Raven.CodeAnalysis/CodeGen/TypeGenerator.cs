@@ -242,7 +242,7 @@ internal class TypeGenerator
                         if (methodSymbol.MethodKind == MethodKind.LambdaMethod)
                             break;
 
-                        var methodGenerator = new MethodGenerator(this, methodSymbol);
+                        var methodGenerator = new MethodGenerator(this, methodSymbol, CodeGen.ILBuilderFactory);
 
                         if (methodSymbol is SourceLambdaSymbol sourceLambda && sourceLambda.HasCaptures)
                         {
@@ -294,7 +294,7 @@ internal class TypeGenerator
 
                         if (getterSymbol is not null)
                         {
-                            getGen = new MethodGenerator(this, getterSymbol);
+                            getGen = new MethodGenerator(this, getterSymbol, CodeGen.ILBuilderFactory);
                             _methodGenerators[getterSymbol] = getGen;
                             getGen.DefineMethodBuilder();
                             CodeGen.AddMemberBuilder((SourceSymbol)getterSymbol, getGen.MethodBase);
@@ -302,7 +302,7 @@ internal class TypeGenerator
 
                         if (setterSymbol is not null)
                         {
-                            setGen = new MethodGenerator(this, setterSymbol);
+                            setGen = new MethodGenerator(this, setterSymbol, CodeGen.ILBuilderFactory);
                             _methodGenerators[setterSymbol] = setGen;
                             setGen.DefineMethodBuilder();
                             CodeGen.AddMemberBuilder((SourceSymbol)setterSymbol, setGen.MethodBase);

@@ -20,6 +20,8 @@ internal class CodeGenerator
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new Dictionary<ITypeParameterSymbol, Type>(SymbolEqualityComparer.Default);
 
+    public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
+
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
 
     public MemberInfo? GetMemberBuilder(SourceSymbol symbol) => _mappings[symbol];

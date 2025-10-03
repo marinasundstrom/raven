@@ -1,19 +1,17 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Reflection.Emit;
-
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
 class Scope : Generator
 {
-    private readonly IDictionary<ISymbol, LocalBuilder> _localBuilders = new Dictionary<ISymbol, LocalBuilder>(SymbolEqualityComparer.Default);
+    private readonly IDictionary<ISymbol, IILocal> _localBuilders = new Dictionary<ISymbol, IILocal>(SymbolEqualityComparer.Default);
     private readonly ImmutableArray<ILocalSymbol> _localsToDispose;
     private bool _hasBreakLabel;
-    private Label _breakLabel;
+    private ILLabel _breakLabel;
     private bool _hasContinueLabel;
-    private Label _continueLabel;
+    private ILLabel _continueLabel;
 
     public Scope(Generator parent) : this(parent, ImmutableArray<ILocalSymbol>.Empty)
     {
@@ -24,13 +22,13 @@ class Scope : Generator
         _localsToDispose = localsToDispose.IsDefault ? ImmutableArray<ILocalSymbol>.Empty : localsToDispose;
     }
 
-    public override void AddLocal(ILocalSymbol localSymbol, LocalBuilder builder)
+    public override void AddLocal(ILocalSymbol localSymbol, IILocal builder)
     {
         if (!_localBuilders.ContainsKey(localSymbol))
             _localBuilders.Add(localSymbol, builder);
     }
 
-    public override LocalBuilder? GetLocal(ILocalSymbol localSymbol)
+    public override IILocal? GetLocal(ILocalSymbol localSymbol)
     {
         if (_localBuilders.TryGetValue(localSymbol, out var localBuilder))
             return localBuilder;
@@ -54,7 +52,7 @@ class Scope : Generator
 
     public bool IsLoopScope => _hasBreakLabel || _hasContinueLabel;
 
-    public void SetLoopTargets(Label breakLabel, Label continueLabel)
+    public void SetLoopTargets(ILLabel breakLabel, ILLabel continueLabel)
     {
         _breakLabel = breakLabel;
         _continueLabel = continueLabel;
@@ -62,7 +60,7 @@ class Scope : Generator
         _hasContinueLabel = true;
     }
 
-    public bool TryGetBreakLabel(out Label label)
+    public bool TryGetBreakLabel(out ILLabel label)
     {
         if (_hasBreakLabel)
         {
@@ -74,7 +72,7 @@ class Scope : Generator
         return false;
     }
 
-    public bool TryGetContinueLabel(out Label label)
+    public bool TryGetContinueLabel(out ILLabel label)
     {
         if (_hasContinueLabel)
         {

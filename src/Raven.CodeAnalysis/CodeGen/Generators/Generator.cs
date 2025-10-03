@@ -29,19 +29,19 @@ internal abstract class Generator
 
     public IMethodSymbol MethodSymbol => MethodBodyGenerator.MethodSymbol;
 
-    public ILGenerator ILGenerator => MethodBodyGenerator.ILGenerator;
+    public IILBuilder ILGenerator => MethodBodyGenerator.ILGenerator;
 
     public virtual void Emit()
     {
 
     }
 
-    public virtual void AddLocal(ILocalSymbol localSymbol, LocalBuilder builder)
+    public virtual void AddLocal(ILocalSymbol localSymbol, IILocal builder)
     {
         Parent?.AddLocal(localSymbol, builder);
     }
 
-    public virtual LocalBuilder? GetLocal(ILocalSymbol localSymbol)
+    public virtual IILocal? GetLocal(ILocalSymbol localSymbol)
     {
         return Parent?.GetLocal(localSymbol);
     }
