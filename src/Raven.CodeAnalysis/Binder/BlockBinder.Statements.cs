@@ -307,6 +307,8 @@ partial class BlockBinder
 
     private bool TryGetEnumeratorElementType(INamedTypeSymbol type, out ITypeSymbol elementType)
     {
+        ITypeSymbol? nonGenericElementType = null;
+
         foreach (var member in type.GetMembers("GetEnumerator"))
         {
             if (member is not IMethodSymbol { Parameters.Length: 0 } getEnumerator)
@@ -339,12 +341,18 @@ partial class BlockBinder
                     }
                 }
 
-                if (named.SpecialType == SpecialType.System_Collections_IEnumerator)
+                if (nonGenericElementType is null &&
+                    named.SpecialType == SpecialType.System_Collections_IEnumerator)
                 {
-                    elementType = Compilation.GetSpecialType(SpecialType.System_Object);
-                    return true;
+                    nonGenericElementType = Compilation.GetSpecialType(SpecialType.System_Object);
                 }
             }
+        }
+
+        if (nonGenericElementType is not null)
+        {
+            elementType = nonGenericElementType;
+            return true;
         }
 
         elementType = null!;
