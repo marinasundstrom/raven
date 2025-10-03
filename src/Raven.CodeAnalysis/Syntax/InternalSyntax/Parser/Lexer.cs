@@ -200,7 +200,7 @@ internal class Lexer : ILexer
                             ReadChar();
                             return new Token(SyntaxKind.ArrowToken, "->");
                         }
-                        else if (PeekChar(out ch2) && char.IsDigit(ch2))
+                        else if (PeekChar(out ch2) && (char.IsDigit(ch2) || ch2 == '.'))
                         {
                             return ParseNumber(diagnostics, ref ch, true);
                         }
@@ -540,7 +540,17 @@ internal class Lexer : ILexer
 
         if (negative)
         {
-            ReadChar();
+            _stringBuilder.Append('-');
+
+            if (ReadChar(out ch))
+            {
+                _stringBuilder.Append(ch);
+                hasDecimal |= ch == '.';
+            }
+            else
+            {
+                ch = '\0';
+            }
         }
 
         if (ch != '.')

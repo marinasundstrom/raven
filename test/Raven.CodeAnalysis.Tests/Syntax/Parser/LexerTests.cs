@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
@@ -18,6 +19,24 @@ public class LexerTests
         Assert.Equal(".12", token.Text);
         var value = Assert.IsType<double>(token.Value);
         Assert.Equal(0.12d, value);
+    }
+
+    [Theory]
+    [InlineData("-42", typeof(int), -42)]
+    [InlineData("-2147483649", typeof(long), -2147483649L)]
+    [InlineData("-1.5", typeof(double), -1.5d)]
+    [InlineData("-.5", typeof(double), -0.5d)]
+    [InlineData("-1.5f", typeof(float), -1.5f)]
+    [InlineData("-1.5e2", typeof(double), -150d)]
+    public void NegativeNumericLiteral_IsParsedWithCorrectValue(string text, Type expectedType, object expectedValue)
+    {
+        var lexer = new Lexer(new StringReader(text));
+        var token = lexer.ReadToken();
+
+        Assert.Equal(SyntaxKind.NumericLiteralToken, token.Kind);
+        Assert.Equal(text, token.Text);
+        Assert.Equal(expectedType, token.Value?.GetType());
+        Assert.Equal(expectedValue, token.Value);
     }
 
     [Theory]
