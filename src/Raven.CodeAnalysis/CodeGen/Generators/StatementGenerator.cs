@@ -341,7 +341,7 @@ internal class StatementGenerator : Generator
 
         ILGenerator.MarkLabel(beginLabel);
 
-        var moveNext = enumeratorClrType.GetMethod(nameof(IEnumerator.MoveNext), Type.EmptyTypes)
+        var moveNext = Compilation.CoreAssembly.GetType("System.Collections.IEnumerator").GetMethod(nameof(IEnumerator.MoveNext), Type.EmptyTypes)
             ?? throw new InvalidOperationException("Missing IEnumerator.MoveNext method.");
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, moveNext);
