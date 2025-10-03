@@ -134,12 +134,36 @@ internal class TypeGenerator
                     synthesizedAttributes |= TypeAttributes.Sealed;
             }
 
-            TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                synthesizedType.MetadataName,
-                synthesizedAttributes);
+            TypeBuilder? containingTypeBuilder = null;
+            if (synthesizedType.ContainingType is INamedTypeSymbol containingType)
+            {
+                var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
+                if (containingGenerator.TypeBuilder is null)
+                    containingGenerator.DefineTypeBuilder();
 
-            if (synthesizedType.BaseType is not null)
-                TypeBuilder.SetParent(ResolveClrType(synthesizedType.BaseType));
+                containingTypeBuilder = containingGenerator.TypeBuilder;
+            }
+
+            var baseClrType = synthesizedType.BaseType is not null
+                ? ResolveClrType(synthesizedType.BaseType)
+                : null;
+
+            if (containingTypeBuilder is not null)
+            {
+                TypeBuilder = containingTypeBuilder.DefineNestedType(
+                    synthesizedType.MetadataName,
+                    synthesizedAttributes,
+                    baseClrType);
+            }
+            else
+            {
+                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                    synthesizedType.MetadataName,
+                    synthesizedAttributes);
+
+                if (baseClrType is not null)
+                    TypeBuilder.SetParent(baseClrType);
+            }
         }
 
         if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)

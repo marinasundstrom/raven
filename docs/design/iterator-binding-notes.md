@@ -23,6 +23,32 @@ The synthesized iterator type carries the state slot, current element, captured 
 
 `MoveNextBuilder` provides the first pass at state-machine rewriting: it allocates numeric states, injects a dispatch table at the top of `MoveNext`, rewrites each `yield return` into assignments to `_current`/`_state` followed by `return true`, and turns `yield break` into `_state = -1` with `return false`. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L400-L583】
 
+### Comparison with the Roslyn iterator contract
+
+When Roslyn lowers the simple iterator shown below, the generated nested type implements both enumerable and enumerator interfaces, exposes `_state`, `_current`, an `_initialThreadId` field used to guard re-entrancy, and a constructor that accepts the initial state. Every interface member is emitted as an explicit override. 【5a412e†L1-L24】
+
+```
+static IEnumerable<int> Test()
+{
+    int i = 0;
+    yield return 42;
+    while (i < 2)
+    {
+        yield return i;
+        i++;
+    }
+}
+```
+
+Our synthesized iterator type diverges from that contract in several important ways:
+
+* **Missing thread-id capture.**  We currently allocate only the `_state` and `_current` fields up front, so the state machine never records the creating thread and cannot differentiate the original enumerable instance from clones. 【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedIteratorTypeSymbol.cs†L36-L65】
+* **Constructor shape mismatch.**  Roslyn’s iterator constructor accepts the initial state and stores the caller’s thread id, but our constructor is parameterless and never initializes those values. The outer method therefore has to assign `_state` manually after instantiating the state machine. 【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedIteratorTypeSymbol.cs†L252-L274】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L306-L333】
+* **Enumerator cloning is unimplemented.**  `CreateGenericGetEnumeratorBody` always resets `_state` to `0` and returns `this`. Roslyn only returns `this` when the caller is iterating on the creating thread and the state is the sentinel `-2`; otherwise it constructs a fresh iterator so multiple `foreach` loops can run independently. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L126-L145】
+* **Sentinel states are skipped entirely.**  Because we skip the constructor parameter and hard-code the post-construction assignment to `0`, the state machine never transitions through Roslyn’s `-2` (unstarted enumerable) state. That sentinel is what lets `GetEnumerator` distinguish between the first enumeration and subsequent calls, so its absence prevents us from cloning correctly and makes the generated iterator shape incompatible with the CLR verifier. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L320-L333】
+
+Documenting these gaps clarifies why the emitted type currently fails to load and outlines the work needed to match the CLR-facing contract that C# relies on.
+
 ## Local hoisting
 
 Before rewriting the control flow, `MoveNextBuilder` now walks the iterator body to collect every local symbol and assigns each hoistable variable a unique `_localN` field on the synthesized iterator via `SynthesizedIteratorTypeSymbol.AddHoistedLocal`. The builder then rewrites local declarations, reads, and writes so that the state machine persists their values between suspensions, pruning empty declarations and leaving stack-only locals untouched. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L400-L750】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedIteratorTypeSymbol.cs†L123-L132】
