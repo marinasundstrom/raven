@@ -209,18 +209,45 @@ partial class BlockBinder
 
         var collection = BindExpression(forStmt.Expression);
 
-        var elementType = InferForElementType(collection.Type);
+        var iteration = ClassifyForIteration(collection);
 
-        var local = loopBinder.CreateLocalSymbol(forStmt, forStmt.Identifier.ValueText, isMutable: false, elementType);
+        var local = loopBinder.CreateLocalSymbol(forStmt, forStmt.Identifier.ValueText, isMutable: false, iteration.ElementType);
 
         var body = loopBinder.BindStatementInLoop(forStmt.Body);
 
-        return new BoundForStatement(local, collection, body);
+        return new BoundForStatement(local, iteration, collection, body);
     }
 
-    private ITypeSymbol InferForElementType(ITypeSymbol? collectionType)
+    private ForIterationInfo ClassifyForIteration(BoundExpression collection)
+    {
+        var collectionType = collection.Type;
+        var elementType = InferForElementType(collectionType, out var enumerableInterface);
+
+        if (collectionType is IArrayTypeSymbol arrayType)
+            return ForIterationInfo.ForArray(arrayType);
+
+        if (enumerableInterface is { } &&
+            enumerableInterface.TypeArguments.Length == 1 &&
+            enumerableInterface.TypeArguments[0].TypeKind != TypeKind.Error)
+        {
+            var enumeratorDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(
+                SpecialType.System_Collections_Generic_IEnumerator_T);
+
+            if (enumeratorDefinition.TypeKind != TypeKind.Error)
+            {
+                var enumeratorInterface = (INamedTypeSymbol)enumeratorDefinition.Construct(
+                    enumerableInterface.TypeArguments[0]);
+                return ForIterationInfo.ForGeneric(enumerableInterface, enumeratorInterface);
+            }
+        }
+
+        return ForIterationInfo.ForNonGeneric(elementType);
+    }
+
+    private ITypeSymbol InferForElementType(ITypeSymbol? collectionType, out INamedTypeSymbol? enumerableInterface)
     {
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        enumerableInterface = null;
 
         if (collectionType is null)
             return objectType;
@@ -228,17 +255,14 @@ partial class BlockBinder
         if (collectionType is IArrayTypeSymbol array)
             return array.ElementType;
 
-        if (collectionType.SpecialType == SpecialType.System_String)
-            return Compilation.GetSpecialType(SpecialType.System_Char);
-
         if (collectionType is INamedTypeSymbol named)
         {
-            if (TryGetGenericEnumerableElement(named, out var elementType))
+            if (TryGetGenericEnumerableElement(named, out var elementType, out enumerableInterface))
                 return elementType;
 
             foreach (var iface in named.AllInterfaces)
             {
-                if (TryGetGenericEnumerableElement(iface, out elementType))
+                if (TryGetGenericEnumerableElement(iface, out elementType, out enumerableInterface))
                     return elementType;
             }
 
@@ -250,26 +274,34 @@ partial class BlockBinder
         {
             foreach (var constraint in typeParameter.ConstraintTypes)
             {
-                var inferred = InferForElementType(constraint);
+                var inferred = InferForElementType(constraint, out var constraintEnumerable);
                 if (!SymbolEqualityComparer.Default.Equals(inferred, objectType))
+                {
+                    enumerableInterface ??= constraintEnumerable;
                     return inferred;
+                }
             }
         }
 
         return objectType;
     }
 
-    private bool TryGetGenericEnumerableElement(ITypeSymbol type, out ITypeSymbol elementType)
+    private bool TryGetGenericEnumerableElement(
+        ITypeSymbol type,
+        out ITypeSymbol elementType,
+        out INamedTypeSymbol? enumerableInterface)
     {
         if (type is INamedTypeSymbol named &&
             named.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
             named.TypeArguments.Length == 1)
         {
             elementType = named.TypeArguments[0];
+            enumerableInterface = named;
             return true;
         }
 
         elementType = null!;
+        enumerableInterface = null;
         return false;
     }
 

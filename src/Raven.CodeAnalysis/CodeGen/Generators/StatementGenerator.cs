@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Emit;
 
@@ -241,25 +242,34 @@ internal class StatementGenerator : Generator
         var scope = new Scope(this);
         scope.SetLoopTargets(endLabel, continueLabel);
 
-        var collectionType = forStatement.Collection.Type;
-        var elementType = forStatement.Local.Type;
-        var genericEnumeratorInfo = TryGetGenericEnumeratorInfo(collectionType, elementType);
+        var iteration = forStatement.Iteration;
 
         new ExpressionGenerator(scope, forStatement.Collection).Emit();
 
-        if (collectionType is IArrayTypeSymbol arrayType)
+        switch (iteration.Kind)
         {
-            EmitArrayForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, arrayType);
-            return;
-        }
+            case ForIterationKind.Array:
+                Debug.Assert(iteration.ArrayType is not null, "Missing array type for array iteration.");
+                EmitArrayForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, iteration.ArrayType!);
+                break;
 
-        if (genericEnumeratorInfo is { } info)
-        {
-            EmitGenericEnumeratorForLoop(forStatement, scope, beginLabel, continueLabel, endLabel, info.Enumerable, info.Enumerator);
-            return;
-        }
+            case ForIterationKind.Generic:
+                Debug.Assert(iteration.EnumerableInterface is not null && iteration.EnumeratorInterface is not null,
+                    "Missing generic interfaces for generic iteration.");
+                EmitGenericEnumeratorForLoop(
+                    forStatement,
+                    scope,
+                    beginLabel,
+                    continueLabel,
+                    endLabel,
+                    iteration.EnumerableInterface!,
+                    iteration.EnumeratorInterface!);
+                break;
 
-        EmitNonGenericEnumeratorForLoop(forStatement, scope, beginLabel, continueLabel, endLabel);
+            default:
+                EmitNonGenericEnumeratorForLoop(forStatement, scope, beginLabel, continueLabel, endLabel);
+                break;
+        }
     }
 
     private void EmitArrayForLoop(
@@ -402,81 +412,6 @@ internal class StatementGenerator : Generator
         ILGenerator.MarkLabel(continueLabel);
         ILGenerator.Emit(OpCodes.Br, beginLabel);
         ILGenerator.MarkLabel(endLabel);
-    }
-
-    private (INamedTypeSymbol Enumerable, INamedTypeSymbol Enumerator)? TryGetGenericEnumeratorInfo(
-        ITypeSymbol? collectionType,
-        ITypeSymbol elementType)
-    {
-        if (collectionType is null ||
-            collectionType.TypeKind == TypeKind.Error ||
-            elementType.TypeKind == TypeKind.Error)
-        {
-            return null;
-        }
-
-        var enumerableDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T);
-        var enumeratorDefinition = (INamedTypeSymbol)Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerator_T);
-
-        if (enumerableDefinition.TypeKind == TypeKind.Error || enumeratorDefinition.TypeKind == TypeKind.Error)
-            return null;
-
-        var match = FindGenericEnumerable(collectionType, enumerableDefinition, elementType);
-        if (match is null)
-            return null;
-
-        var enumeratorInterface = (INamedTypeSymbol)enumeratorDefinition.Construct(elementType);
-        return (match, enumeratorInterface);
-    }
-
-    private INamedTypeSymbol? FindGenericEnumerable(
-        ITypeSymbol type,
-        INamedTypeSymbol enumerableDefinition,
-        ITypeSymbol elementType)
-    {
-        switch (type)
-        {
-            case INamedTypeSymbol named when named.TypeKind != TypeKind.Error:
-                if (IsMatchingGenericEnumerable(named, enumerableDefinition, elementType))
-                    return named;
-
-                foreach (var iface in named.AllInterfaces)
-                {
-                    if (iface is INamedTypeSymbol namedInterface &&
-                        IsMatchingGenericEnumerable(namedInterface, enumerableDefinition, elementType))
-                    {
-                        return namedInterface;
-                    }
-                }
-
-                break;
-
-            case ITypeParameterSymbol typeParameter:
-                foreach (var constraint in typeParameter.ConstraintTypes)
-                {
-                    var match = FindGenericEnumerable(constraint, enumerableDefinition, elementType);
-                    if (match is not null)
-                        return match;
-                }
-
-                break;
-        }
-
-        return null;
-    }
-
-    private bool IsMatchingGenericEnumerable(
-        INamedTypeSymbol candidate,
-        INamedTypeSymbol enumerableDefinition,
-        ITypeSymbol elementType)
-    {
-        if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, enumerableDefinition))
-            return false;
-
-        if (candidate.TypeArguments.Length != 1)
-            return false;
-
-        return SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], elementType);
     }
 
     private void EmitTryStatement(BoundTryStatement tryStatement)
