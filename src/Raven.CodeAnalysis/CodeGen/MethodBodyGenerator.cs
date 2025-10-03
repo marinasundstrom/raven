@@ -482,7 +482,6 @@ internal class MethodBodyGenerator
         var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol);
         MethodGenerator.TypeGenerator.Add(methodSymbol, methodGenerator);
         methodGenerator.DefineMethodBuilder();
-        methodGenerator.EmitBody();
     }
 
     private void DeclareLocals(BoundBlockStatement block)

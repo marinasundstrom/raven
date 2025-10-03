@@ -389,9 +389,19 @@ internal class TypeGenerator
 
     public void EmitMemberILBodies()
     {
-        foreach (var methodGenerator in _methodGenerators.Values.ToList())
+        while (true)
         {
-            methodGenerator.EmitBody();
+            var pending = _methodGenerators.Values
+                .Where(static generator => !generator.HasEmittedBody)
+                .ToList();
+
+            if (pending.Count == 0)
+                break;
+
+            foreach (var methodGenerator in pending)
+            {
+                methodGenerator.EmitBody();
+            }
         }
     }
 
