@@ -183,143 +183,7 @@ internal class Lexer : ILexer
                     return new Token(syntaxKind, GetStringBuilderValue(), diagnostics: diagnostics);
                 }
                 else if (char.IsDigit(ch) || ch == '.')
-                {
-                    bool isFloat = false;
-                    bool hasDecimal = ch == '.';
-                    bool hasExponent = false;
-
-                    if (ch != '.')
-                    {
-                        // Integer part
-                        while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
-                        {
-                            ReadChar();
-                            _stringBuilder.Append(ch);
-                        }
-
-                        // Decimal point
-                        if (PeekChar(out ch) && ch == '.')
-                        {
-                            var decimalCheckpoint = _currentPosition;
-                            _textSource.PushPosition();
-                            ReadChar();
-
-                            if (PeekChar(out ch) && char.IsDigit(ch))
-                            {
-                                _textSource.PopPosition();
-                                hasDecimal = true;
-                                _stringBuilder.Append('.');
-                                do
-                                {
-                                    ReadChar();
-                                    _stringBuilder.Append(ch);
-                                }
-                                while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'));
-                            }
-                            else
-                            {
-                                _textSource.PopAndRestorePosition();
-                                _currentPosition = decimalCheckpoint;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Leading decimal point without integer part
-                        while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
-                        {
-                            ReadChar();
-                            _stringBuilder.Append(ch);
-                        }
-                    }
-
-                    // Exponent part (e.g., e+10)
-                    if (PeekChar(out ch) && (ch == 'e' || ch == 'E'))
-                    {
-                        hasExponent = true;
-                        ReadChar(); _stringBuilder.Append(ch);
-
-                        if (PeekChar(out ch) && (ch == '+' || ch == '-'))
-                        {
-                            ReadChar(); _stringBuilder.Append(ch);
-                        }
-
-                        while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
-                        {
-                            ReadChar();
-                            _stringBuilder.Append(ch);
-                        }
-                    }
-
-                    // Suffix
-                    if (PeekChar(out ch) && (ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D'))
-                    {
-                        isFloat = true;
-                        ReadChar(); _stringBuilder.Append(ch);
-                    }
-
-                    var text = GetStringBuilderValue();
-
-                    // Float literal
-                    if (text.EndsWith("f", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var numericText = text[..^1].Replace("_", string.Empty);
-                        if (float.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatValue))
-                        {
-                            return new Token(SyntaxKind.NumericLiteralToken, text, floatValue, text.Length, diagnostics: diagnostics);
-                        }
-                        else
-                        {
-                            diagnostics.Add(DiagnosticInfo.Create(
-                                CompilerDiagnostics.NumericLiteralOutOfRange,
-                                new TextSpan(_tokenStartPosition, text.Length)
-                            ));
-                            return new Token(SyntaxKind.NumericLiteralToken, text, 0f, text.Length, diagnostics: diagnostics);
-                        }
-                    }
-
-                    // Double literal
-                    if (hasDecimal || hasExponent || text.EndsWith("d", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var numericText = text.EndsWith("d", StringComparison.OrdinalIgnoreCase)
-                            ? text[..^1]
-                            : text;
-                        numericText = numericText.Replace("_", string.Empty);
-
-                        if (double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
-                        {
-                            return new Token(SyntaxKind.NumericLiteralToken, text, doubleValue, text.Length, diagnostics: diagnostics);
-                        }
-                        else
-                        {
-                            diagnostics.Add(DiagnosticInfo.Create(
-                                CompilerDiagnostics.NumericLiteralOutOfRange,
-                                new TextSpan(_tokenStartPosition, text.Length)
-                            ));
-                            return new Token(SyntaxKind.NumericLiteralToken, text, 0d, text.Length, diagnostics: diagnostics);
-                        }
-                    }
-
-                    // Integer literal (default case)
-                    var numericIntText = text.Replace("_", string.Empty);
-                    if (int.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
-                    {
-                        return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length, diagnostics: diagnostics);
-                    }
-                    // Long literal
-                    else if (long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
-                    {
-                        return new Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length, diagnostics: diagnostics);
-                    }
-                    else
-                    {
-                        diagnostics.Add(DiagnosticInfo.Create(
-                            CompilerDiagnostics.NumericLiteralOutOfRange,
-                            new TextSpan(_tokenStartPosition, text.Length)
-                        ));
-                        return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length, diagnostics: diagnostics);
-                    }
-                }
+                    return ParseNumber(diagnostics, ref ch);
             }
             else
             {
@@ -335,6 +199,10 @@ internal class Lexer : ILexer
                         {
                             ReadChar();
                             return new Token(SyntaxKind.ArrowToken, "->");
+                        }
+                        else if (PeekChar(out ch2) && char.IsDigit(ch2))
+                        {
+                            return ParseNumber(diagnostics, ref ch, true);
                         }
                         return new Token(SyntaxKind.MinusToken, chStr);
 
@@ -662,6 +530,150 @@ internal class Lexer : ILexer
         }
 
         return new Token(SyntaxKind.EndOfFileToken, string.Empty);
+    }
+
+    private Token ParseNumber(List<DiagnosticInfo> diagnostics, ref char ch, bool negative = false)
+    {
+        bool isFloat = false;
+        bool hasDecimal = ch == '.';
+        bool hasExponent = false;
+
+        if (negative)
+        {
+            ReadChar();
+        }
+
+        if (ch != '.')
+        {
+            // Integer part
+            while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
+            {
+                ReadChar();
+                _stringBuilder.Append(ch);
+            }
+
+            // Decimal point
+            if (PeekChar(out ch) && ch == '.')
+            {
+                var decimalCheckpoint = _currentPosition;
+                _textSource.PushPosition();
+                ReadChar();
+
+                if (PeekChar(out ch) && char.IsDigit(ch))
+                {
+                    _textSource.PopPosition();
+                    hasDecimal = true;
+                    _stringBuilder.Append('.');
+                    do
+                    {
+                        ReadChar();
+                        _stringBuilder.Append(ch);
+                    }
+                    while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'));
+                }
+                else
+                {
+                    _textSource.PopAndRestorePosition();
+                    _currentPosition = decimalCheckpoint;
+                }
+            }
+        }
+        else
+        {
+            // Leading decimal point without integer part
+            while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
+            {
+                ReadChar();
+                _stringBuilder.Append(ch);
+            }
+        }
+
+        // Exponent part (e.g., e+10)
+        if (PeekChar(out ch) && (ch == 'e' || ch == 'E'))
+        {
+            hasExponent = true;
+            ReadChar(); _stringBuilder.Append(ch);
+
+            if (PeekChar(out ch) && (ch == '+' || ch == '-'))
+            {
+                ReadChar(); _stringBuilder.Append(ch);
+            }
+
+            while (PeekChar(out ch) && (char.IsDigit(ch) || ch == '_'))
+            {
+                ReadChar();
+                _stringBuilder.Append(ch);
+            }
+        }
+
+        // Suffix
+        if (PeekChar(out ch) && (ch == 'f' || ch == 'F' || ch == 'd' || ch == 'D'))
+        {
+            isFloat = true;
+            ReadChar(); _stringBuilder.Append(ch);
+        }
+
+        var text = GetStringBuilderValue();
+
+        // Float literal
+        if (text.EndsWith("f", StringComparison.OrdinalIgnoreCase))
+        {
+            var numericText = text[..^1].Replace("_", string.Empty);
+            if (float.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatValue))
+            {
+                return new Token(SyntaxKind.NumericLiteralToken, text, floatValue, text.Length, diagnostics: diagnostics);
+            }
+            else
+            {
+                diagnostics.Add(DiagnosticInfo.Create(
+                    CompilerDiagnostics.NumericLiteralOutOfRange,
+                    new TextSpan(_tokenStartPosition, text.Length)
+                ));
+                return new Token(SyntaxKind.NumericLiteralToken, text, 0f, text.Length, diagnostics: diagnostics);
+            }
+        }
+
+        // Double literal
+        if (hasDecimal || hasExponent || text.EndsWith("d", StringComparison.OrdinalIgnoreCase))
+        {
+            var numericText = text.EndsWith("d", StringComparison.OrdinalIgnoreCase)
+                ? text[..^1]
+                : text;
+            numericText = numericText.Replace("_", string.Empty);
+
+            if (double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
+            {
+                return new Token(SyntaxKind.NumericLiteralToken, text, doubleValue, text.Length, diagnostics: diagnostics);
+            }
+            else
+            {
+                diagnostics.Add(DiagnosticInfo.Create(
+                    CompilerDiagnostics.NumericLiteralOutOfRange,
+                    new TextSpan(_tokenStartPosition, text.Length)
+                ));
+                return new Token(SyntaxKind.NumericLiteralToken, text, 0d, text.Length, diagnostics: diagnostics);
+            }
+        }
+
+        // Integer literal (default case)
+        var numericIntText = text.Replace("_", string.Empty);
+        if (int.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+        {
+            return new Token(SyntaxKind.NumericLiteralToken, text, intValue, text.Length, diagnostics: diagnostics);
+        }
+        // Long literal
+        else if (long.TryParse(numericIntText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
+        {
+            return new Token(SyntaxKind.NumericLiteralToken, text, longValue, text.Length, diagnostics: diagnostics);
+        }
+        else
+        {
+            diagnostics.Add(DiagnosticInfo.Create(
+                CompilerDiagnostics.NumericLiteralOutOfRange,
+                new TextSpan(_tokenStartPosition, text.Length)
+            ));
+            return new Token(SyntaxKind.NumericLiteralToken, text, 0, text.Length, diagnostics: diagnostics);
+        }
     }
 
     private bool IsEndOfLine(char ch)
