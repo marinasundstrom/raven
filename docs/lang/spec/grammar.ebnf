@@ -193,6 +193,7 @@ MultiplicativeExpression ::= UnaryExpression {('*' | '/' | '%') UnaryExpression}
 UnaryExpression          ::= LambdaExpression
                            | PostfixExpression
                            | ('+' | '-' | '!') UnaryExpression
+                           | 'await' UnaryExpression
                            | CastExpression ;
 
 LambdaExpression         ::= LambdaParameterClause ReturnTypeClause? '=>' Expression ;
