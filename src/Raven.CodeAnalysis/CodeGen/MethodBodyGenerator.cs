@@ -31,6 +31,7 @@ internal class MethodBodyGenerator
     public IMethodSymbol MethodSymbol => _methodSymbol ??= MethodGenerator.MethodSymbol;
     public TypeBuilder TypeBuilder => _typeBuilder ??= MethodGenerator.TypeGenerator.TypeBuilder!;
     public MethodBase MethodBase => _methodBase ??= MethodGenerator.MethodBase;
+    public RuntimeTypeResolver RuntimeTypeResolver => MethodGenerator.TypeGenerator.CodeGen.RuntimeTypeResolver;
 
     private BaseGenerator baseGenerator;
     private Scope scope;

@@ -16,9 +16,9 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal class CodeGenerator
 {
-    readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
-    readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
-    readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new Dictionary<ITypeParameterSymbol, Type>(SymbolEqualityComparer.Default);
+    readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new(SymbolEqualityComparer.Default);
+    readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new(SymbolEqualityComparer.Default);
+    readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new(SymbolEqualityComparer.Default);
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
 
@@ -94,6 +94,8 @@ internal class CodeGenerator
     public ModuleBuilder ModuleBuilder { get; private set; }
 
     private MethodBase? EntryPoint { get; set; }
+
+    public RuntimeTypeResolver RuntimeTypeResolver { get; }
 
     public Type? TypeUnionAttributeType { get; private set; }
     public Type? NullType { get; private set; }
@@ -307,6 +309,7 @@ internal class CodeGenerator
     public CodeGenerator(Compilation compilation)
     {
         _compilation = compilation;
+        RuntimeTypeResolver = new RuntimeTypeResolver(compilation);
     }
 
     public Type? GetTypeBuilder(INamedTypeSymbol namedTypeSymbol)
@@ -323,7 +326,7 @@ internal class CodeGenerator
             Version = new Version(1, 0, 0, 0)
         };
 
-        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly);
+        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, RuntimeTypeResolver.CoreAssembly);
         ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
         DetermineShimTypeRequirements();

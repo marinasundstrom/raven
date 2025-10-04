@@ -25,7 +25,7 @@ public static class TypeSymbolExtensionsForCodeGen
             if (!nullableType.UnderlyingType.IsValueType)
                 return underlying;
 
-            var nullableDefinition = GetMetadataNullableType(codeGen.Compilation);
+            var nullableDefinition = GetMetadataNullableType(codeGen);
             return nullableDefinition.MakeGenericType(underlying);
         }
 
@@ -100,7 +100,7 @@ public static class TypeSymbolExtensionsForCodeGen
         // Handle special types like int, string, etc.
         if (typeSymbol.SpecialType != SpecialType.None)
         {
-            return GetSpecialClrType(typeSymbol.SpecialType, compilation);
+            return GetSpecialClrType(typeSymbol.SpecialType, codeGen);
         }
 
         // Handle constructed generic types (from metadata or emitted)
@@ -149,11 +149,7 @@ public static class TypeSymbolExtensionsForCodeGen
 
             // Otherwise, attempt to resolve from metadata (reference assemblies)
             var metadataName = namedType.ToFullyQualifiedMetadataName();
-            var metadataType = compilation.CoreAssembly.GetType(metadataName, throwOnError: false);
-            if (metadataType != null)
-                return metadataType;
-
-            throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {metadataName}");
+            return codeGen.RuntimeTypeResolver.GetRequiredType(metadataName);
         }
 
         // Handle union types
@@ -164,7 +160,7 @@ public static class TypeSymbolExtensionsForCodeGen
 
             if (emission.WrapInNullable)
             {
-                var nullableDefinition = GetMetadataNullableType(compilation);
+                var nullableDefinition = GetMetadataNullableType(codeGen);
                 return nullableDefinition.MakeGenericType(underlyingClr);
             }
 
@@ -174,47 +170,45 @@ public static class TypeSymbolExtensionsForCodeGen
         throw new NotSupportedException($"Unsupported type symbol: {typeSymbol}");
     }
 
-    private static Type GetMetadataNullableType(Compilation compilation)
+    private static Type GetMetadataNullableType(CodeGenerator codeGen)
     {
-        return compilation.CoreAssembly.GetType("System.Nullable`1")
-            ?? throw new InvalidOperationException("System.Nullable`1 not found in the core assembly.");
+        return codeGen.RuntimeTypeResolver.GetRequiredType("System.Nullable`1");
     }
 
-    private static Type GetSpecialClrType(SpecialType specialType, Compilation compilation)
+    private static Type GetSpecialClrType(SpecialType specialType, CodeGenerator codeGen)
     {
-        static Type FromCoreAssembly(Compilation c, string fullName) =>
-            c.CoreAssembly.GetType(fullName)
-            ?? throw new InvalidOperationException($"Type '{fullName}' not found in CoreAssembly");
+        static Type FromRuntime(CodeGenerator generator, string fullName) =>
+            generator.RuntimeTypeResolver.GetRequiredType(fullName);
 
         return specialType switch
         {
-            SpecialType.System_Int32 => FromCoreAssembly(compilation, "System.Int32"),
-            SpecialType.System_String => FromCoreAssembly(compilation, "System.String"),
-            SpecialType.System_Boolean => FromCoreAssembly(compilation, "System.Boolean"),
-            SpecialType.System_Object => FromCoreAssembly(compilation, "System.Object"),
-            SpecialType.System_Void => FromCoreAssembly(compilation, "System.Void"),
-            SpecialType.System_Double => FromCoreAssembly(compilation, "System.Double"),
-            SpecialType.System_Char => FromCoreAssembly(compilation, "System.Char"),
-            SpecialType.System_Int64 => FromCoreAssembly(compilation, "System.Int64"),
-            SpecialType.System_Single => FromCoreAssembly(compilation, "System.Single"),
-            SpecialType.System_Byte => FromCoreAssembly(compilation, "System.Byte"),
-            SpecialType.System_Decimal => FromCoreAssembly(compilation, "System.Decimal"),
-            SpecialType.System_Int16 => FromCoreAssembly(compilation, "System.Int16"),
-            SpecialType.System_UInt32 => FromCoreAssembly(compilation, "System.UInt32"),
-            SpecialType.System_UInt64 => FromCoreAssembly(compilation, "System.UInt64"),
-            SpecialType.System_UInt16 => FromCoreAssembly(compilation, "System.UInt16"),
-            SpecialType.System_SByte => FromCoreAssembly(compilation, "System.SByte"),
-            SpecialType.System_DateTime => FromCoreAssembly(compilation, "System.DateTime"),
-            SpecialType.System_Array => FromCoreAssembly(compilation, "System.Array"),
-            SpecialType.System_Type => FromCoreAssembly(compilation, "System.Type"),
-            SpecialType.System_ValueTuple_T1 => FromCoreAssembly(compilation, "System.ValueTuple`1"),
-            SpecialType.System_ValueTuple_T2 => FromCoreAssembly(compilation, "System.ValueTuple`2"),
-            SpecialType.System_ValueTuple_T3 => FromCoreAssembly(compilation, "System.ValueTuple`3"),
-            SpecialType.System_ValueTuple_T4 => FromCoreAssembly(compilation, "System.ValueTuple`4"),
-            SpecialType.System_ValueTuple_T5 => FromCoreAssembly(compilation, "System.ValueTuple`5"),
-            SpecialType.System_ValueTuple_T6 => FromCoreAssembly(compilation, "System.ValueTuple`6"),
-            SpecialType.System_ValueTuple_T7 => FromCoreAssembly(compilation, "System.ValueTuple`7"),
-            SpecialType.System_ValueTuple_TRest => FromCoreAssembly(compilation, "System.ValueTuple`8"),
+            SpecialType.System_Int32 => FromRuntime(codeGen, "System.Int32"),
+            SpecialType.System_String => FromRuntime(codeGen, "System.String"),
+            SpecialType.System_Boolean => FromRuntime(codeGen, "System.Boolean"),
+            SpecialType.System_Object => FromRuntime(codeGen, "System.Object"),
+            SpecialType.System_Void => FromRuntime(codeGen, "System.Void"),
+            SpecialType.System_Double => FromRuntime(codeGen, "System.Double"),
+            SpecialType.System_Char => FromRuntime(codeGen, "System.Char"),
+            SpecialType.System_Int64 => FromRuntime(codeGen, "System.Int64"),
+            SpecialType.System_Single => FromRuntime(codeGen, "System.Single"),
+            SpecialType.System_Byte => FromRuntime(codeGen, "System.Byte"),
+            SpecialType.System_Decimal => FromRuntime(codeGen, "System.Decimal"),
+            SpecialType.System_Int16 => FromRuntime(codeGen, "System.Int16"),
+            SpecialType.System_UInt32 => FromRuntime(codeGen, "System.UInt32"),
+            SpecialType.System_UInt64 => FromRuntime(codeGen, "System.UInt64"),
+            SpecialType.System_UInt16 => FromRuntime(codeGen, "System.UInt16"),
+            SpecialType.System_SByte => FromRuntime(codeGen, "System.SByte"),
+            SpecialType.System_DateTime => FromRuntime(codeGen, "System.DateTime"),
+            SpecialType.System_Array => FromRuntime(codeGen, "System.Array"),
+            SpecialType.System_Type => FromRuntime(codeGen, "System.Type"),
+            SpecialType.System_ValueTuple_T1 => FromRuntime(codeGen, "System.ValueTuple`1"),
+            SpecialType.System_ValueTuple_T2 => FromRuntime(codeGen, "System.ValueTuple`2"),
+            SpecialType.System_ValueTuple_T3 => FromRuntime(codeGen, "System.ValueTuple`3"),
+            SpecialType.System_ValueTuple_T4 => FromRuntime(codeGen, "System.ValueTuple`4"),
+            SpecialType.System_ValueTuple_T5 => FromRuntime(codeGen, "System.ValueTuple`5"),
+            SpecialType.System_ValueTuple_T6 => FromRuntime(codeGen, "System.ValueTuple`6"),
+            SpecialType.System_ValueTuple_T7 => FromRuntime(codeGen, "System.ValueTuple`7"),
+            SpecialType.System_ValueTuple_TRest => FromRuntime(codeGen, "System.ValueTuple`8"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
     }

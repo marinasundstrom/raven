@@ -31,6 +31,8 @@ internal abstract class Generator
 
     public IILBuilder ILGenerator => MethodBodyGenerator.ILGenerator;
 
+    public RuntimeTypeResolver RuntimeTypeResolver => MethodBodyGenerator.RuntimeTypeResolver;
+
     public virtual void Emit()
     {
 
