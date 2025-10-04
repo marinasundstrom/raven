@@ -255,7 +255,15 @@ Literal                  ::= NumericLiteral
 
 Type                     ::= '&'? UnionType ;
 
-UnionType                ::= NullableType {'|' NullableType} ;     (* left-assoc *)
+UnionType                ::= FunctionType {'|' FunctionType} ;     (* left-assoc *)
+
+FunctionType             ::= FunctionParameterClause '->' Type
+                           | NullableType ;
+
+FunctionParameterClause  ::= FunctionTypeParameterList | NullableType ;
+
+FunctionTypeParameterList
+                           ::= '(' [Type {',' Type}] ')' ;
 
 NullableType             ::= PrimaryType ['?'] ;
 

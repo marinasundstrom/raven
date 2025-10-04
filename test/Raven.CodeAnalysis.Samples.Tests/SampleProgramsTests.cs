@@ -14,6 +14,7 @@ public class SampleProgramsTests
         ["arrays.rav", Array.Empty<string>()],
         ["enums.rav", Array.Empty<string>()],
         ["general.rav", Array.Empty<string>()],
+        ["function-types.rav", Array.Empty<string>()],
         ["generics.rav", Array.Empty<string>()],
         ["io.rav", new[] {"."}],
         ["test2.rav", Array.Empty<string>()],

@@ -37,10 +37,14 @@ func onClick(handler: () -> unit)
 let compose: (int -> int, int -> int) -> (int -> int) = (f, g) => x => f(g(x))
 ```
 
-## Open Questions
+## Implementation notes
 
-* Should nullability annotations appear inside the function type (e.g. `(int?, string) -> string?`)?
-* Do we allow attributes or parameter names within the function type signature?
-* How should variance be expressed for synthesized delegates?
-
-These items can be resolved during implementation once the parser and binder work begins.
+* Parameter and return types participate fully in Raven's existing nullability
+  rules. Types like `(int?, string) -> string?` are legal and flow through the
+  nullable analysis exactly as their desugared delegate counterparts would.
+* The function notation focuses solely on types. Parameter names and attributes
+  remain unsupported to keep the syntax lightweight; annotations belong on the
+  delegate declaration if they are required.
+* Synthesized delegates inherit the default variance generated for anonymous
+  delegates today. They are emitted as internal compiler-generated types and
+  surface in metadata so .NET consumers can bind to them when necessary.
