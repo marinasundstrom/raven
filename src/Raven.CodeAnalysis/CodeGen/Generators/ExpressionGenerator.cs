@@ -739,8 +739,13 @@ internal class ExpressionGenerator : Generator
             return;
         }
 
-        if (from.IsValueType && !targetClrType.IsValueType)
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(from));
+        if (from.TypeKind != TypeKind.Null && from.TypeKind != TypeKind.Error)
+        {
+            var fromClrType = ResolveClrType(from);
+
+            if (fromClrType.IsValueType && !targetClrType.IsValueType)
+                ILGenerator.Emit(OpCodes.Box, fromClrType);
+        }
     }
 
     private void EmitNullableUnionConversion(
