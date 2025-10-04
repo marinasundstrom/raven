@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -2912,13 +2913,43 @@ internal class ExpressionGenerator : Generator
                 return runtimeType;
 
             var assemblyName = type.Assembly.GetName();
-            var assembly = Assembly.Load(assemblyName);
-            var resolved = assembly.GetType(type.FullName!);
-            if (resolved is not null)
-                return resolved;
+            var assembly = TryResolveRuntimeAssembly(assemblyName);
+            if (assembly is not null)
+            {
+                var resolved = assembly.GetType(type.FullName!, throwOnError: false, ignoreCase: false);
+                if (resolved is not null)
+                    return resolved;
+            }
         }
 
         return type;
+    }
+
+    private static Assembly? TryResolveRuntimeAssembly(AssemblyName assemblyName)
+    {
+        foreach (var loaded in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            var loadedName = loaded.GetName();
+            if (string.Equals(loadedName.Name, assemblyName.Name, StringComparison.Ordinal))
+                return loaded;
+        }
+
+        try
+        {
+            return Assembly.Load(new AssemblyName(assemblyName.Name!));
+        }
+        catch (FileNotFoundException)
+        {
+        }
+
+        try
+        {
+            return Assembly.Load(assemblyName);
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
     }
 
     private readonly struct DelegateConstructorCacheKey
