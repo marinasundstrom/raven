@@ -1,0 +1,362 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+
+using Raven.CodeAnalysis.Symbols;
+
+namespace Raven.CodeAnalysis;
+
+public partial class Compilation
+{
+    public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination)
+    {
+        static ITypeSymbol Unalias(ITypeSymbol type, ref bool wasAlias)
+        {
+            while (true)
+            {
+                if (!type.IsAlias)
+                    return type;
+
+                wasAlias = true;
+
+                if (type.UnderlyingSymbol is ITypeSymbol aliasTarget)
+                {
+                    type = aliasTarget;
+                    continue;
+                }
+
+                return type;
+            }
+        }
+
+        bool sourceUsedAlias = false;
+        source = Unalias(source, ref sourceUsedAlias);
+
+        bool destinationUsedAlias = false;
+        destination = Unalias(destination, ref destinationUsedAlias);
+
+        if (destination is null)
+            return Conversion.None;
+
+        var aliasInvolved = sourceUsedAlias || destinationUsedAlias;
+
+        Conversion Finalize(Conversion conversion)
+        {
+            if (!conversion.Exists)
+                return conversion;
+
+            return conversion.WithAlias(aliasInvolved);
+        }
+
+        if (source is LiteralTypeSymbol litSrc && destination is LiteralTypeSymbol litDest)
+            return Equals(litSrc.ConstantValue, litDest.ConstantValue)
+                ? Finalize(new Conversion(isImplicit: true, isIdentity: true))
+                : Conversion.None;
+
+        if (destination is LiteralTypeSymbol)
+            return Conversion.None;
+
+        if (SymbolEqualityComparer.Default.Equals(source, destination) &&
+            source is not NullableTypeSymbol &&
+            destination is not NullableTypeSymbol)
+        {
+            return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+        }
+
+        static bool UnionContainsNull(IUnionTypeSymbol union)
+        {
+            foreach (var member in union.Types)
+            {
+                if (member.TypeKind == TypeKind.Null)
+                    return true;
+
+                if (member is IUnionTypeSymbol nested && UnionContainsNull(nested))
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (source.TypeKind == TypeKind.Null)
+        {
+            if (destination.TypeKind == TypeKind.Nullable)
+                return Finalize(new Conversion(isImplicit: true, isReference: true));
+
+            if (destination is IUnionTypeSymbol unionDest && UnionContainsNull(unionDest))
+                return Finalize(new Conversion(isImplicit: true, isReference: true));
+
+            return Conversion.None;
+        }
+
+        if (source is NullableTypeSymbol nullableSource)
+        {
+            var conv = ClassifyConversion(nullableSource.UnderlyingType, destination);
+            if (conv.Exists)
+            {
+                var isImplicit = !SymbolEqualityComparer.Default.Equals(nullableSource.UnderlyingType, destination) && conv.IsImplicit;
+                return Finalize(new Conversion(
+                    isImplicit: isImplicit,
+                    isIdentity: conv.IsIdentity,
+                    isNumeric: conv.IsNumeric,
+                    isReference: conv.IsReference,
+                    isBoxing: conv.IsBoxing,
+                    isUnboxing: conv.IsUnboxing,
+                    isUserDefined: conv.IsUserDefined,
+                    isAlias: conv.IsAlias,
+                    methodSymbol: conv.MethodSymbol));
+            }
+        }
+
+        if (destination is NullableTypeSymbol nullableDest)
+        {
+            if (source is IUnionTypeSymbol unionSource &&
+                unionSource.Types.Count() == 2 &&
+                unionSource.Types.Any(t => t.TypeKind == TypeKind.Null) &&
+                unionSource.Types.Any(t => SymbolEqualityComparer.Default.Equals(t, nullableDest.UnderlyingType)))
+            {
+                return Finalize(new Conversion(isImplicit: true, isReference: true));
+            }
+
+            var conv = ClassifyConversion(source, nullableDest.UnderlyingType);
+            if (conv.Exists)
+                return Finalize(new Conversion(
+                    isImplicit: true,
+                    isIdentity: false,
+                    isNumeric: conv.IsNumeric,
+                    isReference: conv.IsReference || !source.IsValueType,
+                    isBoxing: conv.IsBoxing,
+                    isUnboxing: conv.IsUnboxing,
+                    isUserDefined: conv.IsUserDefined,
+                    isAlias: conv.IsAlias,
+                    methodSymbol: conv.MethodSymbol));
+        }
+
+        if (source is IUnionTypeSymbol unionSource2)
+        {
+            var conversions = unionSource2.Types.Select(t => ClassifyConversion(t, destination)).ToArray();
+            if (conversions.All(c => c.Exists))
+            {
+                var isImplicit = conversions.All(c => c.IsImplicit);
+                var isAlias = conversions.Any(c => c.IsAlias);
+                var destinationIsValueType = destination.IsValueType;
+
+                return Finalize(new Conversion(
+                    isImplicit: isImplicit,
+                    isReference: !destinationIsValueType,
+                    isUnboxing: destinationIsValueType,
+                    isAlias: isAlias));
+            }
+
+            return Conversion.None;
+        }
+
+        if (source.SpecialType == SpecialType.System_Void)
+            return Conversion.None;
+
+        var objType = GetSpecialType(SpecialType.System_Object);
+
+        if (destination.Equals(objType, SymbolEqualityComparer.Default))
+        {
+            if (source.Equals(objType, SymbolEqualityComparer.Default))
+            {
+                return Conversion.None;
+            }
+
+            return Finalize(new Conversion(
+                isImplicit: true,
+                isReference: !source.IsValueType,
+                isBoxing: source.IsValueType));
+        }
+
+        if (destination is IUnionTypeSymbol unionType)
+        {
+            Conversion matchConversion = default;
+            var foundMatch = false;
+
+            foreach (var branch in unionType.Types)
+            {
+                var branchConversion = ClassifyConversion(source, branch);
+                if (branchConversion.Exists)
+                {
+                    matchConversion = branchConversion;
+                    foundMatch = true;
+                    break;
+                }
+            }
+
+            if (!foundMatch)
+                return Conversion.None;
+
+            return Finalize(new Conversion(
+                isImplicit: true,
+                isBoxing: source.IsValueType,
+                isAlias: matchConversion.IsAlias));
+        }
+
+        if (source is LiteralTypeSymbol litSrc2)
+            return Finalize(ClassifyConversion(litSrc2.UnderlyingType, destination));
+
+        if (IsReferenceConversion(source, destination))
+        {
+            return Finalize(new Conversion(isImplicit: true, isReference: true));
+        }
+
+        if (IsExplicitReferenceConversion(source, destination))
+        {
+            return Finalize(new Conversion(isImplicit: false, isReference: true));
+        }
+
+        if (IsBoxingConversion(source, destination))
+        {
+            return Finalize(new Conversion(isImplicit: true, isBoxing: true));
+        }
+
+        if (IsUnboxingConversion(source, destination))
+        {
+            return Finalize(new Conversion(isImplicit: false, isUnboxing: true));
+        }
+
+        if (IsImplicitNumericConversion(source, destination))
+        {
+            return Finalize(new Conversion(isImplicit: true, isNumeric: true));
+        }
+
+        if (IsExplicitNumericConversion(source, destination))
+        {
+            return Finalize(new Conversion(isImplicit: false, isNumeric: true));
+        }
+
+        var sourceNamed = source as INamedTypeSymbol;
+        var destinationNamed = destination as INamedTypeSymbol;
+
+        if (sourceNamed != null || destinationNamed != null)
+        {
+            IEnumerable<IMethodSymbol> candidateConversions =
+                Enumerable.Empty<IMethodSymbol>();
+
+            if (sourceNamed != null)
+                candidateConversions = candidateConversions.Concat(sourceNamed.GetMembers().OfType<IMethodSymbol>());
+            if (destinationNamed != null && !SymbolEqualityComparer.Default.Equals(source, destination))
+                candidateConversions = candidateConversions.Concat(destinationNamed.GetMembers().OfType<IMethodSymbol>());
+
+            foreach (var method in candidateConversions)
+            {
+                if (method.MethodKind is MethodKind.Conversion &&
+                    method.Parameters.Length == 1 &&
+                    SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, source) &&
+                    SymbolEqualityComparer.Default.Equals(method.ReturnType, destination))
+                {
+                    var isImplicit = method.Name == "op_Implicit";
+                    return Finalize(new Conversion(isImplicit: isImplicit, isUserDefined: true, methodSymbol: method));
+                }
+            }
+        }
+
+        return Conversion.None;
+    }
+
+    private bool IsReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
+    {
+        if (source.IsValueType || destination.IsValueType)
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(source, destination))
+            return false;
+
+        var current = source.BaseType;
+        while (current is not null)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, destination))
+                return true;
+
+            current = current.BaseType;
+        }
+
+        if (destination is INamedTypeSymbol destinationNamed &&
+            destinationNamed.TypeKind == TypeKind.Interface)
+        {
+            if (SemanticFacts.ImplementsInterface(source, destinationNamed, SymbolEqualityComparer.Default))
+                return true;
+        }
+
+        if (source.TypeKind == TypeKind.Interface && destination.SpecialType is SpecialType.System_Object)
+            return true;
+
+        return false;
+    }
+
+    private bool IsExplicitReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
+    {
+        if (source.IsValueType || destination.IsValueType)
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(source, destination))
+            return false;
+
+        var comparer = SymbolEqualityComparer.Default;
+
+        if (SemanticFacts.IsDerivedFrom(destination, source, comparer))
+            return true;
+
+        if (source.SpecialType is SpecialType.System_Object && !destination.IsValueType)
+            return true;
+
+        if (source is INamedTypeSymbol sourceInterface && sourceInterface.TypeKind == TypeKind.Interface)
+        {
+            if (destination.SpecialType is SpecialType.System_Object)
+                return true;
+
+            if (destination is INamedTypeSymbol destinationNamed &&
+                destinationNamed.TypeKind != TypeKind.Interface &&
+                SemanticFacts.ImplementsInterface(destinationNamed, sourceInterface, comparer))
+            {
+                return true;
+            }
+
+            if (destination is INamedTypeSymbol sourceToTargetInterface && sourceToTargetInterface.TypeKind == TypeKind.Interface &&
+                (SemanticFacts.ImplementsInterface(sourceInterface, sourceToTargetInterface, comparer) ||
+                 SemanticFacts.ImplementsInterface(sourceToTargetInterface, sourceInterface, comparer)))
+            {
+                return true;
+            }
+        }
+
+        if (destination is INamedTypeSymbol targetInterface && targetInterface.TypeKind == TypeKind.Interface &&
+            SemanticFacts.ImplementsInterface(source, targetInterface, comparer))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsBoxingConversion(ITypeSymbol source, ITypeSymbol destination)
+    {
+        return source.IsValueType && destination.SpecialType is SpecialType.System_Object;
+    }
+
+    private bool IsUnboxingConversion(ITypeSymbol source, ITypeSymbol destination)
+    {
+        return source.SpecialType is SpecialType.System_Object && destination.IsValueType;
+    }
+
+    private bool IsImplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)
+    {
+        var sourceType = source.SpecialType;
+        var destType = destination.SpecialType;
+
+        return (sourceType is SpecialType.System_Int32 && destType is SpecialType.System_Int64) ||
+               (sourceType is SpecialType.System_Int32 && destType is SpecialType.System_Double) ||
+               (sourceType is SpecialType.System_Single && destType is SpecialType.System_Double);
+    }
+
+    private bool IsExplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)
+    {
+        var sourceType = source.SpecialType;
+        var destType = destination.SpecialType;
+
+        return (sourceType is SpecialType.System_Double && destType is SpecialType.System_Int32) ||
+               (sourceType is SpecialType.System_Int64 && destType is SpecialType.System_Int32);
+    }
+}
