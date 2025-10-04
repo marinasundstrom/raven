@@ -17,7 +17,7 @@ MemberModifier           ::= AccessModifier
 
 AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 
-AccessorModifier         ::= AccessModifier ;
+AccessorModifier         ::= AccessModifier | 'async' | 'ref' | 'out' | 'in' ;
 
 TypeModifiers            ::= { TypeModifier } ;
 TypeModifier             ::= AccessModifier | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' ;
@@ -134,7 +134,7 @@ BreakStatement           ::= 'break' ;
 
 ContinueStatement        ::= 'continue' ;
 
-FunctionStatement        ::= 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
+FunctionStatement        ::= 'async'? 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
 
 ExpressionStatement      ::= Expression ;
 
@@ -196,7 +196,7 @@ UnaryExpression          ::= LambdaExpression
                            | 'await' UnaryExpression
                            | CastExpression ;
 
-LambdaExpression         ::= LambdaParameterClause ReturnTypeClause? '=>' Expression ;
+LambdaExpression         ::= 'async'? LambdaParameterClause ReturnTypeClause? '=>' Expression ;
 LambdaParameterClause    ::= '(' ParameterList? ')' | Parameter ;
 
 CastExpression           ::= '(' Type ')' UnaryExpression ;

@@ -72,4 +72,6 @@ public enum SpecialType
 
     System_Type,
     System_Unit = 60,
+    System_Exception = 61,
+    System_Runtime_CompilerServices_IAsyncStateMachine = 62,
 }

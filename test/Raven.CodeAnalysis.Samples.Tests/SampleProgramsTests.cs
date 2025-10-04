@@ -21,6 +21,7 @@ public class SampleProgramsTests
         ["tuples.rav", Array.Empty<string>()],
         ["main.rav", Array.Empty<string>()],
         ["classes.rav", Array.Empty<string>()],
+        ["async-await.rav", Array.Empty<string>()],
     ];
 
     [Theory]
@@ -143,6 +144,68 @@ public class SampleProgramsTests
 
         var outputLines = runStdOut.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(new[] { "2", "4", "6" }, outputLines);
+    }
+
+    [Fact]
+    public async Task AsyncAwait_sample_executes_expected_flow()
+    {
+        var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
+        var samplePath = Path.Combine(projectDir, "samples", "async-await.rav");
+
+        var outputDir = Path.Combine(Path.GetTempPath(), "raven_samples", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(outputDir);
+        var outputDll = Path.Combine(outputDir, "async-await.dll");
+
+        var buildInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"run --project \"{projectDir}\" -- \"{samplePath}\" -o \"{outputDll}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = projectDir,
+        };
+        buildInfo.Environment["MSBUILDTERMINALLOGGER"] = "false";
+        buildInfo.EnvironmentVariables["MSBUILDTERMINALLOGGER"] = "false";
+
+        using var build = Process.Start(buildInfo)!;
+
+        var buildStdOutTask = build.StandardOutput.ReadToEndAsync();
+        var buildStdErrTask = build.StandardError.ReadToEndAsync();
+        build.WaitForExit(TimeSpan.FromSeconds(10));
+        var buildStdOut = await buildStdOutTask;
+        var buildStdErr = await buildStdErrTask;
+
+        Assert.True(build.HasExited, $"Build process did not exit. StdOut: {buildStdOut}{Environment.NewLine}StdErr: {buildStdErr}");
+        Assert.Equal(0, build.ExitCode);
+
+        Assert.True(File.Exists(Path.Combine(outputDir, "async-await.runtimeconfig.json")));
+
+        var runInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"\"{outputDll}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            WorkingDirectory = outputDir,
+        };
+        runInfo.Environment["MSBUILDTERMINALLOGGER"] = "false";
+        runInfo.EnvironmentVariables["MSBUILDTERMINALLOGGER"] = "false";
+
+        using var run = Process.Start(runInfo)!;
+
+        var runStdOutTask = run.StandardOutput.ReadToEndAsync();
+        var runStdErrTask = run.StandardError.ReadToEndAsync();
+        run.WaitForExit(TimeSpan.FromSeconds(5));
+        var runStdOut = await runStdOutTask;
+        var runStdErr = await runStdErrTask;
+
+        Assert.True(run.HasExited, $"Execution did not exit. StdOut: {runStdOut}{Environment.NewLine}StdErr: {runStdErr}");
+        Assert.Equal(0, run.ExitCode);
+
+        var outputLines = runStdOut.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(new[] { "first:1", "sum:5", "done" }, outputLines);
     }
 
     [Fact]

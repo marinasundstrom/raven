@@ -198,6 +198,7 @@ internal class TypeMemberBinder : Binder
 
         var modifiers = methodDecl.Modifiers;
         var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+        var isAsync = modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
@@ -241,9 +242,13 @@ internal class TypeMemberBinder : Binder
 
         var methodKind = explicitInterfaceType is not null ? MethodKind.ExplicitInterfaceImplementation : MethodKind.Ordinary;
 
+        var defaultReturnType = isAsync
+            ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
+            : Compilation.GetSpecialType(SpecialType.System_Unit);
+
         var methodSymbol = new SourceMethodSymbol(
             metadataName,
-            Compilation.GetSpecialType(SpecialType.System_Unit),
+            defaultReturnType,
             ImmutableArray<SourceParameterSymbol>.Empty,
             _containingType,
             _containingType,
@@ -252,6 +257,7 @@ internal class TypeMemberBinder : Binder
             [methodDecl.GetReference()],
             isStatic: isStatic,
             methodKind: methodKind,
+            isAsync: isAsync,
             isVirtual: isVirtual,
             isOverride: isOverride,
             isSealed: isSealed,
@@ -287,8 +293,15 @@ internal class TypeMemberBinder : Binder
         methodBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
         var returnType = methodDecl.ReturnType is null
-            ? Compilation.GetSpecialType(SpecialType.System_Unit)
+            ? defaultReturnType
             : methodBinder.ResolveType(methodDecl.ReturnType.Type);
+
+        if (isAsync && methodDecl.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
+        {
+            var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, annotatedReturn.Type.GetLocation());
+            returnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+        }
 
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
         foreach (var (paramName, typeSyntax, refKind, syntax) in paramInfos)
@@ -854,6 +867,14 @@ internal class TypeMemberBinder : Binder
                 var accessorVirtual = accessorOverride || isVirtual;
                 var accessorSealed = accessorOverride && isSealed;
 
+                var isAsync = accessor.Modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
+
+                if (isGet && isAsync && !IsValidAsyncReturnType(propertyType))
+                {
+                    var display = propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, propertyDecl.Type.Type.GetLocation());
+                }
+
                 var methodSymbol = new SourceMethodSymbol(
                     name,
                     returnType,
@@ -865,6 +886,7 @@ internal class TypeMemberBinder : Binder
                     [accessor.GetReference()],
                     isStatic: isStatic,
                     methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
+                    isAsync: isAsync,
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
                     isSealed: accessorSealed,
@@ -1134,6 +1156,14 @@ internal class TypeMemberBinder : Binder
                 var accessorVirtual = accessorOverride || isVirtual;
                 var accessorSealed = accessorOverride && isSealed;
 
+                var isAsync = accessor.Modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
+
+                if (isGet && isAsync && !IsValidAsyncReturnType(propertyType))
+                {
+                    var display = propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, indexerDecl.Type.Type.GetLocation());
+                }
+
                 var methodSymbol = new SourceMethodSymbol(
                     name,
                     returnType,
@@ -1145,6 +1175,7 @@ internal class TypeMemberBinder : Binder
                     [accessor.GetReference()],
                     isStatic: isStatic,
                     methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
+                    isAsync: isAsync,
                     isVirtual: accessorVirtual,
                     isOverride: accessorOverride,
                     isSealed: accessorSealed,

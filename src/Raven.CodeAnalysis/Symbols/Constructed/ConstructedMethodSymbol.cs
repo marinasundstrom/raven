@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -177,5 +178,136 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
 
         public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
+    }
+
+    internal MethodInfo GetMethodInfo(CodeGen.CodeGenerator codeGen)
+    {
+        if (codeGen is null)
+            throw new ArgumentNullException(nameof(codeGen));
+
+        var containingType = _definition.ContainingType
+            ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
+
+        var containingClrType = containingType.GetClrType(codeGen);
+        var expectedParameterTypes = Parameters
+            .Select(parameter => parameter.Type.GetClrType(codeGen))
+            .ToArray();
+        var expectedReturnType = ReturnType.GetClrType(codeGen);
+        var runtimeTypeArguments = TypeArguments
+            .Select(argument => argument.GetClrType(codeGen))
+            .ToArray();
+
+        const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        foreach (var method in containingClrType.GetMethods(Flags))
+        {
+            if (!string.Equals(method.Name, _definition.Name, StringComparison.Ordinal))
+                continue;
+
+            if (method.IsGenericMethodDefinition != _definition.IsGenericMethod)
+            {
+                if (!method.IsGenericMethodDefinition)
+                    continue;
+            }
+
+            MethodInfo candidate = method;
+
+            if (method.IsGenericMethodDefinition)
+            {
+                if (method.GetGenericArguments().Length != runtimeTypeArguments.Length)
+                    continue;
+
+                candidate = method.MakeGenericMethod(runtimeTypeArguments);
+            }
+            else if (method.ContainsGenericParameters)
+            {
+                continue;
+            }
+
+            var candidateParameters = candidate.GetParameters();
+            if (candidateParameters.Length != expectedParameterTypes.Length)
+                continue;
+
+            var parametersMatch = true;
+            for (var i = 0; i < candidateParameters.Length; i++)
+            {
+                if (!TypesEquivalent(candidateParameters[i].ParameterType, expectedParameterTypes[i]))
+                {
+                    parametersMatch = false;
+                    break;
+                }
+            }
+
+            if (!parametersMatch)
+                continue;
+
+            if (!TypesEquivalent(candidate.ReturnType, expectedReturnType))
+                continue;
+
+            return candidate;
+        }
+
+        throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
+    }
+
+    private static bool TypesEquivalent(Type left, Type right)
+    {
+        if (left == right)
+            return true;
+
+        if (left.IsByRef || right.IsByRef)
+        {
+            if (left.IsByRef != right.IsByRef)
+                return false;
+
+            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
+        }
+
+        if (left.IsPointer || right.IsPointer)
+        {
+            if (left.IsPointer != right.IsPointer)
+                return false;
+
+            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
+        }
+
+        if (left.IsArray || right.IsArray)
+        {
+            if (left.IsArray != right.IsArray || left.GetArrayRank() != right.GetArrayRank())
+                return false;
+
+            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
+        }
+
+        if (left.IsGenericType || right.IsGenericType)
+        {
+            if (left.IsGenericType != right.IsGenericType)
+                return false;
+
+            var leftDefinition = left.IsGenericTypeDefinition ? left : left.GetGenericTypeDefinition();
+            var rightDefinition = right.IsGenericTypeDefinition ? right : right.GetGenericTypeDefinition();
+
+            if (!TypesEquivalent(leftDefinition, rightDefinition))
+                return false;
+
+            if (!left.IsGenericTypeDefinition)
+            {
+                var leftArguments = left.GetGenericArguments();
+                var rightArguments = right.GetGenericArguments();
+
+                if (leftArguments.Length != rightArguments.Length)
+                    return false;
+
+                for (var i = 0; i < leftArguments.Length; i++)
+                {
+                    if (!TypesEquivalent(leftArguments[i], rightArguments[i]))
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        return string.Equals(left.FullName, right.FullName, StringComparison.Ordinal) &&
+               string.Equals(left.Assembly.FullName, right.Assembly.FullName, StringComparison.Ordinal);
     }
 }

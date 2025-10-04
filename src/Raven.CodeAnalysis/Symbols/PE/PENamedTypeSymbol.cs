@@ -206,6 +206,33 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (type.FullName == "System.Nullable`1")
                 return SpecialType.System_Nullable_T;
 
+            if (type.FullName == "System.Runtime.CompilerServices.AsyncVoidMethodBuilder")
+                return SpecialType.System_Runtime_CompilerServices_AsyncVoidMethodBuilder;
+
+            if (type.FullName == "System.Runtime.CompilerServices.AsyncTaskMethodBuilder")
+                return SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder;
+
+            if (type.FullName == "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1")
+                return SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T;
+
+            if (type.FullName == "System.Runtime.CompilerServices.AsyncStateMachineAttribute")
+                return SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute;
+
+            if (type.FullName == "System.Runtime.CompilerServices.IteratorStateMachineAttribute")
+                return SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute;
+
+            if (type.FullName == "System.Runtime.CompilerServices.IAsyncStateMachine")
+                return SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine;
+
+            if (type.FullName == "System.Threading.Tasks.Task")
+                return SpecialType.System_Threading_Tasks_Task;
+
+            if (type.FullName == "System.Threading.Tasks.Task`1")
+                return SpecialType.System_Threading_Tasks_Task_T;
+
+            if (type.FullName == "System.Exception")
+                return SpecialType.System_Exception;
+
             if (type.Namespace == "System" && type.Name.StartsWith("ValueTuple`"))
             {
                 return type.GetGenericArguments().Length switch

@@ -351,6 +351,21 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Function_AllowsAsyncModifier()
+    {
+        var source = "async func foo() {}";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (FunctionStatementSyntax)parser.ParseStatement().CreateRed();
+
+        var modifier = Assert.Single(statement.Modifiers);
+        Assert.Equal(SyntaxKind.AsyncKeyword, modifier.Kind);
+        Assert.Equal("foo", statement.Identifier.Text);
+    }
+
+    [Fact]
     public void VariableDeclaration_MissingIdentifier_ProducesMissingToken()
     {
         var source = "let = 1";

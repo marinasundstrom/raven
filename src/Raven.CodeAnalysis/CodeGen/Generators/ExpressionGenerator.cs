@@ -870,15 +870,34 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldarga, pos);
                 break;
 
-            case IFieldSymbol field when !field.IsStatic:
-                if (field.ContainingType.IsValueType)
+            case IFieldSymbol field when field.IsStatic:
+                ILGenerator.Emit(OpCodes.Ldsflda, GetField(field));
+                break;
+
+            case IFieldSymbol field:
+                if (addressOf.Receiver is not null)
                 {
-                    throw new NotSupportedException("Taking address of a field inside struct requires more handling (like loading enclosing struct by ref).");
+                    EmitExpression(addressOf.Receiver);
+                }
+                else
+                {
+                    if (MethodSymbol.IsStatic)
+                        throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
+
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
                 }
 
-                // Assume it's on `this`
-                ILGenerator.Emit(OpCodes.Ldarg_0);
-                ILGenerator.Emit(OpCodes.Ldflda, ((PEFieldSymbol)field).GetFieldInfo());
+                ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
+                break;
+
+            case ITypeSymbol typeSymbol:
+                if (MethodSymbol.IsStatic)
+                    throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
+
+                if (typeSymbol.IsValueType)
+                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 
             default:
@@ -2650,35 +2669,7 @@ internal class ExpressionGenerator : Generator
             return substitutedMethod.GetMethodInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
         if (methodSymbol is ConstructedMethodSymbol constructedMethod)
-        {
-            var definitionInfo = GetMethodInfo(constructedMethod.Definition);
-
-            if (constructedMethod.TypeArguments.IsDefaultOrEmpty || constructedMethod.TypeArguments.Length == 0)
-                return definitionInfo;
-
-            MethodInfo genericDefinition;
-            if (definitionInfo.IsGenericMethodDefinition)
-            {
-                genericDefinition = definitionInfo;
-            }
-            else if (definitionInfo.ContainsGenericParameters)
-            {
-                genericDefinition = definitionInfo.GetGenericMethodDefinition();
-            }
-            else
-            {
-                return definitionInfo;
-            }
-
-            if (constructedMethod.TypeArguments.Any(static arg => arg is null))
-                throw new InvalidOperationException("Constructed method symbol is missing type arguments.");
-
-            var typeArguments = constructedMethod.TypeArguments
-                .Select(arg => ResolveClrType(arg!))
-                .ToArray();
-
-            return genericDefinition.MakeGenericMethod(typeArguments);
-        }
+            return constructedMethod.GetMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
 
         if (methodSymbol is SourceMethodSymbol sourceMethodSymbol)
         {

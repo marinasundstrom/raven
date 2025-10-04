@@ -14,7 +14,8 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         INamedTypeSymbol? containingType = null,
         INamespaceSymbol? containingNamespace = null,
         Location[]? locations = null,
-        SyntaxReference[]? declaringSyntaxReferences = null)
+        SyntaxReference[]? declaringSyntaxReferences = null,
+        bool isAsync = false)
         : base(
             SymbolKind.Method,
             "<lambda>",
@@ -26,6 +27,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     {
         Parameters = parameters.ToImmutableArray();
         ReturnType = returnType;
+        IsAsync = isAsync;
     }
 
     public ImmutableArray<IParameterSymbol> Parameters { get; }
@@ -47,7 +49,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public IMethodSymbol? ConstructedFrom => null;
 
     public bool IsAbstract => false;
-    public bool IsAsync => false;
+    public bool IsAsync { get; }
     public bool IsCheckedBuiltin => false;
     public bool IsDefinition => true;
     public bool IsExtensionMethod => false;

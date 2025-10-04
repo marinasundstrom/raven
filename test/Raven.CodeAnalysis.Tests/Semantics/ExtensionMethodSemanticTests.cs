@@ -1283,4 +1283,40 @@ let result = number.Apply(value => value > 0)
         Assert.Equal(2, counters.BindingSuccesses);
         Assert.Equal(0, counters.BindingFailures);
     }
+
+    [Fact]
+    public void TopLevelAwait_WithExtensionMethodInvocation_BindsExtension()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+import System.Threading.Tasks.*
+
+let value = 3
+let doubled = await value.DoubleAsync()
+
+public static class Extensions {
+    [ExtensionAttribute]
+    public static DoubleAsync(x: int) -> Task<int> {
+        return Task.FromResult(x + x)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree
+            .GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "DoubleAsync");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundInvocation.Method.Parameters[0].Type,
+            boundInvocation.ExtensionReceiver!.Type));
+    }
 }

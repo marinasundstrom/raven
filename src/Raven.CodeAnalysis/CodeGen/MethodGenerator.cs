@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -192,6 +193,8 @@ internal class MethodGenerator
 
         TypeGenerator.CodeGen.ApplyCustomAttributes(MethodSymbol.GetAttributes(), applyMethodAttribute);
 
+        ApplyAsyncStateMachineMetadata(applyMethodAttribute);
+
         if (TypeGenerator.CodeGen.Compilation.IsEntryPointCandidate(MethodSymbol))
         {
             IsEntryPointCandidate = true;
@@ -213,6 +216,34 @@ internal class MethodGenerator
             }
 
             return builder.ToArray();
+        }
+    }
+
+    private void ApplyAsyncStateMachineMetadata(Action<CustomAttributeBuilder> applyMethodAttribute)
+    {
+        if (MethodSymbol is not SourceMethodSymbol sourceMethod)
+            return;
+
+        var stateMachine = sourceMethod.AsyncStateMachine;
+        if (stateMachine is null)
+            return;
+
+        var codeGen = TypeGenerator.CodeGen;
+
+        var stateMachineCtor = typeof(AsyncStateMachineAttribute).GetConstructor(new[] { typeof(Type) });
+        if (stateMachineCtor is not null)
+        {
+            var stateMachineType = stateMachine.GetClrType(codeGen);
+            var attributeBuilder = new CustomAttributeBuilder(stateMachineCtor, new object[] { stateMachineType });
+            applyMethodAttribute(attributeBuilder);
+        }
+
+        var builderCtor = typeof(AsyncMethodBuilderAttribute).GetConstructor(new[] { typeof(Type) });
+        if (builderCtor is not null)
+        {
+            var builderType = stateMachine.BuilderField.Type.GetClrType(codeGen);
+            var attributeBuilder = new CustomAttributeBuilder(builderCtor, new object[] { builderType });
+            applyMethodAttribute(attributeBuilder);
         }
     }
 
