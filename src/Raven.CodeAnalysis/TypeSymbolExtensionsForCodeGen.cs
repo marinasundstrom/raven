@@ -56,6 +56,12 @@ public static class TypeSymbolExtensionsForCodeGen
                 : elementClrType.MakeArrayType(arrayType.Rank);
         }
 
+        if (typeSymbol is ByRefTypeSymbol byRefType)
+        {
+            var elementClrType = byRefType.ElementType.GetClrType(codeGen);
+            return elementClrType.MakeByRefType();
+        }
+
         // Handle arrays
         if (typeSymbol is ITupleTypeSymbol tupleSymbol)
         {
