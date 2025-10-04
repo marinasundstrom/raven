@@ -431,6 +431,27 @@ internal abstract class Binder
             return ApplyRefKindHint(Compilation.CreateTupleTypeSymbol(elements), refKindHint);
         }
 
+        if (typeSyntax is FunctionTypeSyntax functionTypeSyntax)
+        {
+            var parameterTypes = new List<ITypeSymbol>();
+
+            if (functionTypeSyntax.ParameterList is not null)
+            {
+                foreach (var parameter in functionTypeSyntax.ParameterList.Parameters)
+                {
+                    parameterTypes.Add(ResolveTypeInternal(parameter, refKindHint: null));
+                }
+            }
+            else if (functionTypeSyntax.Parameter is not null)
+            {
+                parameterTypes.Add(ResolveTypeInternal(functionTypeSyntax.Parameter, refKindHint: null));
+            }
+
+            var returnType = ResolveTypeInternal(functionTypeSyntax.ReturnType, refKindHint: null);
+            var delegateType = Compilation.CreateFunctionTypeSymbol(parameterTypes.ToArray(), returnType);
+            return ApplyRefKindHint(delegateType, refKindHint);
+        }
+
         if (typeSyntax is PredefinedTypeSyntax predefinedTypeSyntax)
             return ApplyRefKindHint(Compilation.ResolvePredefinedType(predefinedTypeSyntax), refKindHint);
 

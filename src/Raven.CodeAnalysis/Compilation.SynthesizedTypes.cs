@@ -39,22 +39,7 @@ public partial class Compilation
                 return namedDelegate;
         }
 
-        var signature = new DelegateSignature(parameterTypes, refKinds, returnType);
-        if (_synthesizedDelegates.TryGetValue(signature, out var existing))
-            return existing;
-
-        var delegateName = $"<>f__Delegate{_synthesizedDelegateOrdinal++}";
-        var containingNamespace = SourceGlobalNamespace;
-        var synthesized = new SynthesizedDelegateTypeSymbol(
-            this,
-            delegateName,
-            parameterTypes,
-            refKinds,
-            returnType,
-            containingNamespace);
-
-        _synthesizedDelegates[signature] = synthesized;
-        return synthesized;
+        return GetOrAddSynthesizedDelegate(parameterTypes, refKinds, returnType);
     }
 
     internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
@@ -87,6 +72,29 @@ public partial class Compilation
 
     internal IEnumerable<SynthesizedIteratorTypeSymbol> GetSynthesizedIteratorTypes()
         => _synthesizedIterators.Values;
+
+    private INamedTypeSymbol GetOrAddSynthesizedDelegate(
+        ImmutableArray<ITypeSymbol> parameterTypes,
+        ImmutableArray<RefKind> refKinds,
+        ITypeSymbol returnType)
+    {
+        var signature = new DelegateSignature(parameterTypes, refKinds, returnType);
+        if (_synthesizedDelegates.TryGetValue(signature, out var existing))
+            return existing;
+
+        var delegateName = $"<>f__Delegate{_synthesizedDelegateOrdinal++}";
+        var containingNamespace = SourceGlobalNamespace;
+        var synthesized = new SynthesizedDelegateTypeSymbol(
+            this,
+            delegateName,
+            parameterTypes,
+            refKinds,
+            returnType,
+            containingNamespace);
+
+        _synthesizedDelegates[signature] = synthesized;
+        return synthesized;
+    }
 
     private readonly struct DelegateSignature
     {

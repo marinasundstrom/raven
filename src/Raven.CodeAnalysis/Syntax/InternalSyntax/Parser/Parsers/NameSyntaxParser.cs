@@ -43,7 +43,12 @@ internal class NameSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            if (PeekToken(1).IsKind(SyntaxKind.CloseParenToken))
+            var functionType = TryParseFunctionType();
+            if (functionType is not null)
+            {
+                name = functionType;
+            }
+            else if (PeekToken(1).IsKind(SyntaxKind.CloseParenToken))
             {
                 var open = ReadToken();
                 var close = ReadToken();
@@ -64,6 +69,12 @@ internal class NameSyntaxParser : SyntaxParser
         if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
         {
             name = NullableType(name, questionToken);
+        }
+
+        if (ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
+        {
+            var returnType = new NameSyntaxParser(this).ParseTypeName();
+            name = FunctionType(name, null, arrowToken, returnType);
         }
 
         SyntaxList types = SyntaxList.Empty;
@@ -88,6 +99,54 @@ internal class NameSyntaxParser : SyntaxParser
         }
 
         return name;
+    }
+
+    private FunctionTypeSyntax? TryParseFunctionType()
+    {
+        var checkpoint = CreateCheckpoint("function-type");
+
+        var openParenToken = ReadToken();
+
+        List<GreenNode> parameters = new List<GreenNode>();
+
+        while (true)
+        {
+            var next = PeekToken();
+
+            if (next.IsKind(SyntaxKind.CloseParenToken) || next.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
+            var parameterType = new NameSyntaxParser(this).ParseTypeName();
+            if (parameterType is null)
+            {
+                checkpoint.Dispose();
+                return null;
+            }
+
+            parameters.Add(parameterType);
+
+            if (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+            {
+                parameters.Add(commaToken);
+                continue;
+            }
+
+            break;
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out var closeParenToken);
+
+        if (!ConsumeToken(SyntaxKind.ArrowToken, out var arrowToken))
+        {
+            checkpoint.Dispose();
+            return null;
+        }
+
+        var returnType = new NameSyntaxParser(this).ParseTypeName();
+
+        var parameterList = FunctionTypeParameterList(openParenToken, List(parameters.ToArray()), closeParenToken);
+
+        return FunctionType(null, parameterList, arrowToken, returnType);
     }
 
     private TypeSyntax? TryParseSignedNumericLiteralType()

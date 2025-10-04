@@ -404,10 +404,12 @@ public partial class Compilation
             .OfType<INamedTypeSymbol>()
             .FirstOrDefault(t => t.Arity == allTypes.Count);
 
-        if (delegateType is null)
-            return ErrorTypeSymbol;
+        if (delegateType is not null)
+            return delegateType.Construct(allTypes.ToArray());
 
-        return delegateType.Construct(allTypes.ToArray());
+        var parameterImmutable = parameterTypes.ToImmutableArray();
+        var refKinds = ImmutableArray.CreateRange(Enumerable.Repeat(RefKind.None, parameterTypes.Length));
+        return GetOrAddSynthesizedDelegate(parameterImmutable, refKinds, returnType);
     }
 
     public ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, ITypeSymbol type)> elements)
