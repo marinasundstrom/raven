@@ -84,6 +84,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundUnaryExpression unary:
                 VisitExpression(unary.Operand);
                 break;
+            case BoundAwaitExpression awaitExpression:
+                VisitAwaitExpression(awaitExpression);
+                break;
             case BoundTupleExpression tuple:
                 foreach (var e in tuple.Elements)
                     VisitExpression(e);
@@ -183,6 +186,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Expression);
     }
 
+    public virtual void VisitExpressionStatement(BoundExpressionStatement node)
+    {
+        VisitExpression(node.Expression);
+    }
+
     public virtual void VisitBreakStatement(BoundBreakStatement node)
     {
     }
@@ -219,6 +227,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(node.ExtensionReceiver);
         foreach (var arg in node.Arguments)
             VisitExpression(arg);
+    }
+
+    public virtual void VisitAwaitExpression(BoundAwaitExpression node)
+    {
+        VisitExpression(node.Expression);
     }
 
     public override void VisitLambdaExpression(BoundLambdaExpression node)

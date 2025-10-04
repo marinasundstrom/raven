@@ -25,6 +25,23 @@ func outer() {
     }
 
     [Fact]
+    public void AsyncFunction_WithoutReturnType_DefaultsToTask()
+    {
+        var source = """
+func outer() {
+    async func inner() { }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
+        Assert.True(symbol.IsAsync);
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task, symbol.ReturnType.SpecialType);
+    }
+
+    [Fact]
     public void DuplicateFunction_DiagnosticReported()
     {
         var source = """

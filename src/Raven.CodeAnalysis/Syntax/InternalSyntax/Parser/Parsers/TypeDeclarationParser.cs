@@ -234,6 +234,7 @@ internal class TypeDeclarationParser : SyntaxParser
                      SyntaxKind.SealedKeyword or
                      SyntaxKind.PartialKeyword or
                      SyntaxKind.VirtualKeyword or
+                     SyntaxKind.AsyncKeyword or
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.OverrideKeyword)
             {
@@ -616,13 +617,22 @@ internal class TypeDeclarationParser : SyntaxParser
                 break;
 
             var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
-            SyntaxList modifiers = SyntaxList.Empty;
+        SyntaxList modifiers = SyntaxList.Empty;
+        SyntaxToken modifier;
 
-            SyntaxToken modifier;
-            if (ConsumeToken(SyntaxKind.RefKeyword, out modifier) || ConsumeToken(SyntaxKind.OutKeyword, out modifier) || ConsumeToken(SyntaxKind.InKeyword, out modifier))
+        while (true)
+        {
+            if (ConsumeToken(SyntaxKind.AsyncKeyword, out modifier) ||
+                ConsumeToken(SyntaxKind.RefKeyword, out modifier) ||
+                ConsumeToken(SyntaxKind.OutKeyword, out modifier) ||
+                ConsumeToken(SyntaxKind.InKeyword, out modifier))
             {
                 modifiers = modifiers.Add(modifier);
+                continue;
             }
+
+            break;
+        }
 
             SyntaxToken name;
 

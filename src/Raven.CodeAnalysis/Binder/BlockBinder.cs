@@ -554,6 +554,9 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindUnaryExpression(UnaryExpressionSyntax unaryExpression)
     {
+        if (unaryExpression.Kind == SyntaxKind.AwaitExpression)
+            return BindAwaitExpression(unaryExpression);
+
         var operand = BindExpression(unaryExpression.Expression);
 
         return unaryExpression.Kind switch
@@ -566,6 +569,155 @@ partial class BlockBinder : Binder
 
             _ => throw new NotSupportedException("Unsupported unary expression")
         };
+    }
+
+    private BoundExpression BindAwaitExpression(UnaryExpressionSyntax awaitExpression)
+    {
+        if (!IsAwaitExpressionAllowed())
+        {
+            _diagnostics.ReportAwaitExpressionRequiresAsyncContext(awaitExpression.OperatorToken.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var operand = BindExpression(awaitExpression.Expression);
+
+        if (operand is BoundErrorExpression)
+            return operand;
+
+        var operandType = operand.Type;
+        if (operandType is null || operandType.TypeKind == TypeKind.Error)
+        {
+            _diagnostics.ReportExpressionIsNotAwaitable(
+                operandType?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<unknown>",
+                awaitExpression.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var getAwaiter = FindGetAwaiterMethod(operandType);
+        if (getAwaiter is null)
+        {
+            _diagnostics.ReportExpressionIsNotAwaitable(
+                operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                awaitExpression.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var awaiterType = getAwaiter.ReturnType;
+        if (awaiterType is null || awaiterType.TypeKind == TypeKind.Error)
+        {
+            _diagnostics.ReportExpressionIsNotAwaitable(
+                operandType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                awaitExpression.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var isCompleted = FindIsCompletedProperty(awaiterType);
+        if (isCompleted is null)
+        {
+            _diagnostics.ReportAwaiterMissingIsCompleted(
+                awaiterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                awaitExpression.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var getResult = FindGetResultMethod(awaiterType);
+        if (getResult is null)
+        {
+            _diagnostics.ReportAwaiterMissingGetResult(
+                awaiterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                awaitExpression.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
+        }
+
+        var resultType = getResult.ReturnType;
+        if (resultType.SpecialType == SpecialType.System_Void)
+            resultType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        return new BoundAwaitExpression(operand, resultType, awaiterType, getAwaiter, getResult, isCompleted);
+    }
+
+    private bool IsAwaitExpressionAllowed()
+    {
+        static bool IsAsyncSymbol(ISymbol? symbol)
+        {
+            return symbol switch
+            {
+                ILambdaSymbol lambda => lambda.IsAsync,
+                IMethodSymbol method => method.IsAsync,
+                _ => false,
+            };
+        }
+
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            if (IsAsyncSymbol(current.ContainingSymbol))
+                return true;
+
+            if (current is BlockBinder block && IsAsyncSymbol(block.ContainingSymbol))
+                return true;
+        }
+
+        return false;
+    }
+
+    private IMethodSymbol? FindGetAwaiterMethod(ITypeSymbol type)
+    {
+        foreach (var member in type.GetMembers("GetAwaiter").OfType<IMethodSymbol>())
+        {
+            if (member.IsStatic)
+                continue;
+
+            if (member.Parameters.Length != 0)
+                continue;
+
+            if (!IsSymbolAccessible(member))
+                continue;
+
+            if (member.ReturnType is null || member.ReturnType.TypeKind == TypeKind.Error)
+                continue;
+
+            return member;
+        }
+
+        return null;
+    }
+
+    private IPropertySymbol? FindIsCompletedProperty(ITypeSymbol awaiterType)
+    {
+        foreach (var property in awaiterType.GetMembers("IsCompleted").OfType<IPropertySymbol>())
+        {
+            if (property.IsStatic)
+                continue;
+
+            if (!IsSymbolAccessible(property))
+                continue;
+
+            if (property.Type.SpecialType != SpecialType.System_Boolean)
+                continue;
+
+            return property;
+        }
+
+        return null;
+    }
+
+    private IMethodSymbol? FindGetResultMethod(ITypeSymbol awaiterType)
+    {
+        foreach (var method in awaiterType.GetMembers("GetResult").OfType<IMethodSymbol>())
+        {
+            if (method.IsStatic)
+                continue;
+
+            if (method.Parameters.Length != 0)
+                continue;
+
+            if (!IsSymbolAccessible(method))
+                continue;
+
+            return method;
+        }
+
+        return null;
     }
 
     private BoundExpression BindAddressOfExpression(BoundExpression operand, UnaryExpressionSyntax syntax)
@@ -2123,6 +2275,20 @@ partial class BlockBinder : Binder
                     : TryConstructGeneric(namedType, typeArgs, namedType.Arity) ?? namedType;
 
                 return new BoundTypeExpression(constructed);
+            }
+
+            if (member is null && left is BoundNamespaceExpression namespaceExpression && typeArgs.IsEmpty)
+            {
+                var metadataName = namespaceExpression.Namespace.QualifyName(name);
+                if (!string.IsNullOrEmpty(metadataName))
+                {
+                    if (requestedArity > 0)
+                        metadataName = string.Concat(metadataName, "`", requestedArity);
+
+                    var metadataType = Compilation.GetTypeByMetadataName(metadataName);
+                    if (metadataType is not null && metadataType.TypeKind != TypeKind.Error)
+                        return new BoundTypeExpression(metadataType);
+                }
             }
 
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);

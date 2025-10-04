@@ -123,6 +123,10 @@ internal class TypeGenerator
 
             if (synthesizedType.TypeKind == TypeKind.Interface)
                 synthesizedAttributes |= TypeAttributes.Interface | TypeAttributes.Abstract;
+            else if (synthesizedType.TypeKind == TypeKind.Struct)
+            {
+                synthesizedAttributes |= TypeAttributes.Sealed | TypeAttributes.SequentialLayout | TypeAttributes.AnsiClass;
+            }
             else
             {
                 synthesizedAttributes |= TypeAttributes.Class;

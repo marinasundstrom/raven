@@ -1,6 +1,17 @@
-import System.*
+import System.Console.*
 import System.Threading.Tasks.*
 
-await Task.CompletedTask
+async func PrintDelayed(label: string, value: int) -> Task {
+    await Task.Delay(10)
+    WriteLine("${label}:${value}")
+    return Task.CompletedTask
+}
 
-Console.WriteLine("Hej")
+await PrintDelayed("first", 1)
+
+let second = await Task.FromResult(2)
+let third = await Task.FromResult(3)
+let total = 1 + second + third
+WriteLine("sum:${total}")
+
+WriteLine("done")

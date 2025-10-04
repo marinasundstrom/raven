@@ -28,6 +28,7 @@ internal class StatementSyntaxParser : SyntaxParser
             switch (token.Kind)
             {
                 case SyntaxKind.FuncKeyword:
+                case SyntaxKind.AsyncKeyword when PeekToken(1).Kind == SyntaxKind.FuncKeyword:
                     statement = ParseFunctionSyntax();
                     break;
 
@@ -389,7 +390,9 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private StatementSyntax? ParseFunctionSyntax()
     {
-        var funcKeyword = ReadToken();
+        var modifiers = ParseFunctionModifiers();
+
+        var funcKeyword = ExpectToken(SyntaxKind.FuncKeyword);
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
         {
@@ -408,7 +411,28 @@ internal class StatementSyntaxParser : SyntaxParser
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return FunctionStatement(funcKeyword, identifier, parameterList, returnParameterAnnotation, block, terminatorToken);
+        return FunctionStatement(modifiers, funcKeyword, identifier, parameterList, returnParameterAnnotation, block, terminatorToken);
+    }
+
+    private SyntaxList ParseFunctionModifiers()
+    {
+        SyntaxList modifiers = SyntaxList.Empty;
+
+        while (true)
+        {
+            var kind = PeekToken().Kind;
+
+            if (kind is SyntaxKind.AsyncKeyword)
+            {
+                modifiers = modifiers.Add(ReadToken());
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return modifiers;
     }
 
     public BlockStatementSyntax ParseBlockStatementSyntax()

@@ -603,6 +603,7 @@ internal class CodeGenerator
 
     private void DefineTypeBuilders()
     {
+        EnsureAsyncStateMachines();
         EnsureIteratorStateMachines();
 
         var types = Compilation.Module.GlobalNamespace
@@ -611,12 +612,18 @@ internal class CodeGenerator
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 
+        var synthesizedAsyncTypes = Compilation.GetSynthesizedAsyncStateMachineTypes().ToArray();
         var synthesizedDelegates = Compilation.GetSynthesizedDelegateTypes().ToArray();
         var synthesizedIterators = Compilation.GetSynthesizedIteratorTypes().ToArray();
 
         foreach (var typeSymbol in types)
         {
             GetOrCreateTypeGenerator(typeSymbol);
+        }
+
+        foreach (var asyncType in synthesizedAsyncTypes)
+        {
+            GetOrCreateTypeGenerator(asyncType);
         }
 
         foreach (var delegateType in synthesizedDelegates)
@@ -637,6 +644,11 @@ internal class CodeGenerator
             EnsureTypeBuilderDefined(typeSymbol, visited, visiting);
         }
 
+        foreach (var asyncType in synthesizedAsyncTypes)
+        {
+            EnsureTypeBuilderDefined(asyncType, visited, visiting);
+        }
+
         foreach (var delegateType in synthesizedDelegates)
         {
             EnsureTypeBuilderDefined(delegateType, visited, visiting);
@@ -645,6 +657,195 @@ internal class CodeGenerator
         foreach (var iteratorType in synthesizedIterators)
         {
             EnsureTypeBuilderDefined(iteratorType, visited, visiting);
+        }
+    }
+
+    private void EnsureAsyncStateMachines()
+    {
+        var processedTopLevelMethods = new HashSet<SourceMethodSymbol>(ReferenceEqualityComparer.Instance);
+
+        foreach (var tree in Compilation.SyntaxTrees)
+        {
+            var semanticModel = Compilation.GetSemanticModel(tree);
+            var root = tree.GetRoot();
+
+            foreach (var methodDeclaration in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                if (semanticModel.GetDeclaredSymbol(methodDeclaration) is not SourceMethodSymbol methodSymbol)
+                    continue;
+
+                TryRewriteAsyncMethod(
+                    semanticModel,
+                    methodSymbol,
+                    methodDeclaration.Body,
+                    methodDeclaration.ExpressionBody);
+            }
+
+            foreach (var functionStatement in root.DescendantNodes().OfType<FunctionStatementSyntax>())
+            {
+                if (semanticModel.GetDeclaredSymbol(functionStatement) is not SourceMethodSymbol functionSymbol)
+                    continue;
+
+                TryRewriteAsyncMethod(semanticModel, functionSymbol, functionStatement.Body, expressionBody: null);
+            }
+
+            foreach (var accessor in root.DescendantNodes().OfType<AccessorDeclarationSyntax>())
+            {
+                if (semanticModel.GetDeclaredSymbol(accessor) is not SourceMethodSymbol accessorSymbol)
+                    continue;
+
+                TryRewriteAsyncMethod(
+                    semanticModel,
+                    accessorSymbol,
+                    accessor.Body,
+                    accessor.ExpressionBody);
+            }
+
+            if (root is CompilationUnitSyntax compilationUnit)
+            {
+                TryRewriteTopLevelAsyncMethod(semanticModel, compilationUnit, processedTopLevelMethods);
+            }
+        }
+    }
+
+    private void TryRewriteTopLevelAsyncMethod(
+        SemanticModel semanticModel,
+        CompilationUnitSyntax compilationUnit,
+        HashSet<SourceMethodSymbol> processed)
+    {
+        var globalStatements = GetTopLevelGlobalStatements(compilationUnit).ToArray();
+        if (globalStatements.Length == 0)
+            return;
+
+        var binder = semanticModel.GetBinder(globalStatements[0]);
+        if (binder is not TopLevelBinder topLevelBinder)
+            return;
+
+        if (topLevelBinder.MainMethod is not SourceMethodSymbol mainMethod)
+            return;
+
+        if (!mainMethod.IsAsync || !processed.Add(mainMethod))
+            return;
+
+        var boundStatements = new List<BoundStatement>(globalStatements.Length);
+        foreach (var global in globalStatements)
+        {
+            if (semanticModel.GetBoundNode(global.Statement) is BoundStatement bound)
+                boundStatements.Add(bound);
+        }
+
+        if (boundStatements.Count == 0)
+            return;
+
+        var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
+        foreach (var global in globalStatements)
+        {
+            if (global.Statement is UsingDeclarationStatementSyntax usingDeclaration)
+            {
+                foreach (var declarator in usingDeclaration.Declaration.Declarators)
+                {
+                    if (semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
+                        localsToDispose.Add(local);
+                }
+            }
+        }
+
+        var body = new BoundBlockStatement(boundStatements, localsToDispose.ToImmutable());
+
+        if (!AsyncLowerer.ShouldRewrite(mainMethod, body))
+            return;
+
+        var rewritten = AsyncLowerer.Rewrite(mainMethod, body);
+        semanticModel.CacheBoundNode(compilationUnit, rewritten);
+    }
+
+    private static IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)
+    {
+        foreach (var member in compilationUnit.Members)
+        {
+            switch (member)
+            {
+                case GlobalStatementSyntax global:
+                    yield return global;
+                    break;
+                case FileScopedNamespaceDeclarationSyntax fileScoped:
+                    foreach (var nested in fileScoped.Members.OfType<GlobalStatementSyntax>())
+                        yield return nested;
+                    break;
+            }
+        }
+    }
+
+    private void TryRewriteAsyncMethod(
+        SemanticModel semanticModel,
+        SourceMethodSymbol methodSymbol,
+        BlockStatementSyntax? bodySyntax,
+        ArrowExpressionClauseSyntax? expressionBody)
+    {
+        if (!methodSymbol.IsAsync)
+            return;
+
+        var boundBody = TryGetBoundBody(semanticModel, methodSymbol, bodySyntax, expressionBody);
+        if (boundBody is null)
+            return;
+
+        if (!AsyncLowerer.ShouldRewrite(methodSymbol, boundBody))
+            return;
+
+        var rewritten = AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        if (bodySyntax is not null)
+        {
+            semanticModel.CacheBoundNode(bodySyntax, rewritten);
+        }
+        else if (expressionBody is not null)
+        {
+            semanticModel.CacheBoundNode(expressionBody, rewritten);
+        }
+    }
+
+    private static BoundBlockStatement? TryGetBoundBody(
+        SemanticModel semanticModel,
+        SourceMethodSymbol methodSymbol,
+        BlockStatementSyntax? bodySyntax,
+        ArrowExpressionClauseSyntax? expressionBody)
+    {
+        if (bodySyntax is not null)
+        {
+            return semanticModel.GetBoundNode(bodySyntax) as BoundBlockStatement;
+        }
+
+        if (expressionBody is not null)
+        {
+            var bound = semanticModel.GetBoundNode(expressionBody);
+            return ConvertToBlockStatement(methodSymbol, bound);
+        }
+
+        return null;
+    }
+
+    private static BoundBlockStatement? ConvertToBlockStatement(SourceMethodSymbol methodSymbol, BoundNode? bound)
+    {
+        switch (bound)
+        {
+            case BoundBlockStatement block:
+                return block;
+            case BoundBlockExpression blockExpression:
+                return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+            case BoundExpression expression:
+                var statements = new List<BoundStatement>();
+                if (methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit)
+                {
+                    statements.Add(new BoundExpressionStatement(expression));
+                }
+                else
+                {
+                    statements.Add(new BoundReturnStatement(expression));
+                }
+
+                return new BoundBlockStatement(statements);
+            default:
+                return null;
         }
     }
 

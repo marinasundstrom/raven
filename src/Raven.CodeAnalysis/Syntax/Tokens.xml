@@ -62,6 +62,7 @@
   <TokenKind Name="PartialKeyword" Text="partial" IsReservedWord="false" />
   <TokenKind Name="OpenKeyword" Text="open" IsReservedWord="false" />
   <TokenKind Name="VirtualKeyword" Text="virtual" IsReservedWord="false" />
+  <TokenKind Name="AsyncKeyword" Text="async" IsReservedWord="false" />
   <TokenKind Name="OverrideKeyword" Text="override" IsReservedWord="false" />
   <TokenKind Name="GetKeyword" Text="get" IsReservedWord="false" />
   <TokenKind Name="SetKeyword" Text="set" IsReservedWord="false" />
