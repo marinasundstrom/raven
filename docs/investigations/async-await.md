@@ -33,13 +33,14 @@
 ### Runtime readiness
 
 - The `SpecialType` enumeration already contains the async method builder types, `Task`, and the attribute metadata we will need, indicating the compilation layer can resolve the required framework symbols once lowering consumes them.【F:src/Raven.CodeAnalysis/SpecialType.cs†L39-L58】
+- The sample suite now includes an `async-await.rav` program that compiles through the CLI and executes via `dotnet`, asserting the emitted state machine produces the expected output when awaited operations interleave with synchronous work.【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L12-L118】
 
 ## Remaining work
 
 ### Step-by-step plan
 
 1. **Tighten await diagnostics and configurability.** Audit the binder to recognize `await` misuses (e.g., in `lock` statements or query clauses), explore `ConfigureAwait`-style customization, and expand tests to capture the resulting diagnostics.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L555-L620】【F:test/Raven.CodeAnalysis.Tests/Semantics/AwaitExpressionBindingTests.cs†L1-L120】
-2. **Harden runtime-facing validation.** Use the IL generation harness and execution-focused tests to confirm builder `SetResult`/`SetException` paths, `Task` results, and lambda/accessor rewrites behave as expected under nested awaits and exception flows.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1-L121】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1-L417】
+2. **Broaden runtime validation.** Extend execution coverage beyond the happy-path sample to stress nested awaits, exception resumption, and lambda/accessor scenarios, combining the IL harness with end-to-end runs to lock down observable behaviour.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1-L121】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1-L417】
 3. **Finalize specification and guidance.** Keep the language specification, grammar, and user guidance aligned with the completed async semantics so contributors have authoritative references for the shipped feature set.【F:docs/lang/spec/language-specification.md†L329-L344】【F:docs/lang/spec/grammar.ebnf†L13-L200】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.

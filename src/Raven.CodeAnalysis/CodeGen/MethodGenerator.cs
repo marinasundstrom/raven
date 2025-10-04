@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -228,34 +229,21 @@ internal class MethodGenerator
             return;
 
         var codeGen = TypeGenerator.CodeGen;
-        var compilation = Compilation;
 
-        var metadataTypeType = compilation.CoreAssembly.GetType("System.Type") ?? typeof(Type);
-
-        var asyncStateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute);
-        if (asyncStateMachineAttributeSymbol is INamedTypeSymbol asyncStateMachineAttribute)
+        var stateMachineCtor = typeof(AsyncStateMachineAttribute).GetConstructor(new[] { typeof(Type) });
+        if (stateMachineCtor is not null)
         {
-            var attributeType = asyncStateMachineAttribute.GetClrType(codeGen);
-            var constructor = attributeType.GetConstructor(new[] { metadataTypeType });
-            if (constructor is not null)
-            {
-                var stateMachineType = stateMachine.GetClrType(codeGen);
-                var attributeBuilder = new CustomAttributeBuilder(constructor, new object[] { stateMachineType });
-                applyMethodAttribute(attributeBuilder);
-            }
+            var stateMachineType = stateMachine.GetClrType(codeGen);
+            var attributeBuilder = new CustomAttributeBuilder(stateMachineCtor, new object[] { stateMachineType });
+            applyMethodAttribute(attributeBuilder);
         }
 
-        var builderAttributeSymbol = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncMethodBuilderAttribute");
-        if (builderAttributeSymbol is INamedTypeSymbol builderAttribute)
+        var builderCtor = typeof(AsyncMethodBuilderAttribute).GetConstructor(new[] { typeof(Type) });
+        if (builderCtor is not null)
         {
-            var attributeType = builderAttribute.GetClrType(codeGen);
-            var constructor = attributeType?.GetConstructor(new[] { metadataTypeType });
-            if (attributeType is not null && constructor is not null)
-            {
-                var builderType = stateMachine.BuilderField.Type.GetClrType(codeGen);
-                var attributeBuilder = new CustomAttributeBuilder(constructor, new object[] { builderType });
-                applyMethodAttribute(attributeBuilder);
-            }
+            var builderType = stateMachine.BuilderField.Type.GetClrType(codeGen);
+            var attributeBuilder = new CustomAttributeBuilder(builderCtor, new object[] { builderType });
+            applyMethodAttribute(attributeBuilder);
         }
     }
 
