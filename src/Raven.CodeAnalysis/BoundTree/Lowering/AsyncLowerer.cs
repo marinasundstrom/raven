@@ -1117,6 +1117,17 @@ internal static class AsyncLowerer
             return node;
         }
 
+        public override BoundNode? VisitParameterAccess(BoundParameterAccess node)
+        {
+            if (node is null)
+                return null;
+
+            if (_stateMachine.ParameterFieldMap.TryGetValue(node.Parameter, out var field))
+                return new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), field, node.Reason);
+
+            return node;
+        }
+
         public override BoundNode? VisitVariableExpression(BoundVariableExpression node)
         {
             if (node is null)

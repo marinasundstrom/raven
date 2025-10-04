@@ -792,7 +792,16 @@ internal class CodeGenerator
         if (!AsyncLowerer.ShouldRewrite(methodSymbol, boundBody))
             return;
 
-        AsyncLowerer.Rewrite(methodSymbol, boundBody);
+        var rewritten = AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        if (bodySyntax is not null)
+        {
+            semanticModel.CacheBoundNode(bodySyntax, rewritten);
+        }
+        else if (expressionBody is not null)
+        {
+            semanticModel.CacheBoundNode(expressionBody, rewritten);
+        }
     }
 
     private static BoundBlockStatement? TryGetBoundBody(
