@@ -939,7 +939,8 @@ internal class ExpressionGenerator : Generator
         if (resultType.TypeKind == TypeKind.Error)
             resultType = Compilation.GetSpecialType(SpecialType.System_Object);
 
-        var resultLocal = ILGenerator.DeclareLocal(ResolveClrType(resultType));
+        var resultClrType = ResolveClrType(resultType);
+        var resultLocal = ILGenerator.DeclareLocal(resultClrType);
         var endLabel = ILGenerator.DefineLabel();
 
         foreach (var arm in matchExpression.Arms)
@@ -960,8 +961,8 @@ internal class ExpressionGenerator : Generator
             new ExpressionGenerator(scope, arm.Expression).Emit();
 
             var armType = arm.Expression.Type;
-            if ((matchExpression.Type?.IsUnion ?? false) && (armType?.IsValueType ?? false))
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
+            if (ShouldBoxMatchArmResult(armType, resultType, matchExpression))
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType!));
 
             ILGenerator.Emit(OpCodes.Stloc, resultLocal);
             ILGenerator.Emit(OpCodes.Br, endLabel);
@@ -971,6 +972,26 @@ internal class ExpressionGenerator : Generator
 
         ILGenerator.MarkLabel(endLabel);
         ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+    }
+
+    private static bool ShouldBoxMatchArmResult(
+        ITypeSymbol? armType,
+        ITypeSymbol resultType,
+        BoundMatchExpression matchExpression)
+    {
+        if (armType is null || armType.TypeKind == TypeKind.Error || !armType.IsValueType)
+            return false;
+
+        if (matchExpression.Type?.IsUnion ?? false)
+            return true;
+
+        if (resultType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (!resultType.IsValueType)
+            return true;
+
+        return !SymbolEqualityComparer.Default.Equals(armType, resultType);
     }
 
     private void EmitPattern(BoundPattern pattern, Generator? scope = null)
