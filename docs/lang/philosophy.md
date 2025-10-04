@@ -52,7 +52,7 @@ This symmetry improves reasoning and avoids special cases. Everything flows: the
 Raven favors declarative constructs before imperative ceremony. Control flow and data shaping begin as expressions that state *what* should happen, reserving step-by-step mutation for cases where it truly clarifies intent. Pattern matching, comprehensions, and expression-bodied members keep business logic focused on outcomes, not scaffolding.
 
 ```raven
-let positives = numbers.filter { $0 > 0 }
+let positives = numbers.Where(n => n > 0)
 let summary = match (positives, negatives) {
   ([], []) -> "empty",
   (_, []) -> "gains",
@@ -61,7 +61,7 @@ let summary = match (positives, negatives) {
 }
 
 let totalRevenue = orders
-  .filter { $0.isPaid }
+  .Where(order => order.isPaid)
   .map { Invoice(from: $0) }
   .sum { $0.total }
 ```
@@ -184,7 +184,7 @@ The type system supports that flow. Types are inferred wherever intent is alread
 
 ```raven
 let items = fetchItems()
-let filtered = items.filter { $0.isActive }
+let filtered = items.Where(item => item.isActive)
 let report: Report = .from(filtered)  // Explicit only when the story needs a cast
 ```
 
