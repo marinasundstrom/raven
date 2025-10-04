@@ -188,13 +188,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var containingType = _definition.ContainingType
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
-        var containingClrType = ResolveMethodLookupType(containingType, codeGen);
+        var containingClrType = containingType.GetClrType(codeGen);
         var expectedParameterTypes = Parameters
-            .Select(parameter => ResolveMethodLookupType(parameter.Type, codeGen))
+            .Select(parameter => parameter.Type.GetClrType(codeGen))
             .ToArray();
-        var expectedReturnType = ResolveMethodLookupType(ReturnType, codeGen);
+        var expectedReturnType = ReturnType.GetClrType(codeGen);
         var runtimeTypeArguments = TypeArguments
-            .Select(argument => ResolveMethodLookupType(argument, codeGen))
+            .Select(argument => argument.GetClrType(codeGen))
             .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -247,80 +247,6 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
-    }
-
-    private static Type ResolveMethodLookupType(ITypeSymbol typeSymbol, CodeGen.CodeGenerator codeGen)
-    {
-        if (typeSymbol is null)
-            throw new ArgumentNullException(nameof(typeSymbol));
-
-        var clrType = typeSymbol.GetClrType(codeGen);
-
-        if (clrType is null)
-            throw new InvalidOperationException($"Unable to resolve CLR type for symbol '{typeSymbol}'.");
-
-        if (clrType.IsByRef)
-        {
-            var elementSymbol = typeSymbol is ByRefTypeSymbol byRef ? byRef.ElementType : typeSymbol;
-            var elementType = ResolveMethodLookupType(elementSymbol, codeGen);
-            return elementType.MakeByRefType();
-        }
-
-        if (clrType.IsPointer)
-            return clrType;
-
-        if (clrType.IsArray)
-        {
-            var rank = clrType.GetArrayRank();
-            var elementSymbol = typeSymbol is IArrayTypeSymbol array ? array.ElementType : typeSymbol;
-            var elementType = ResolveMethodLookupType(elementSymbol, codeGen);
-            return rank == 1 ? elementType.MakeArrayType() : elementType.MakeArrayType(rank);
-        }
-
-        if (clrType is System.Reflection.Emit.TypeBuilder ||
-            clrType is System.Reflection.Emit.GenericTypeParameterBuilder)
-        {
-            return clrType;
-        }
-
-        if (typeSymbol is ITypeParameterSymbol)
-            return clrType;
-
-        if (typeSymbol is NullableTypeSymbol nullable)
-        {
-            var underlying = ResolveMethodLookupType(nullable.UnderlyingType, codeGen);
-            var nullableDefinition = codeGen.Compilation.CoreAssembly.GetType("System.Nullable`1")
-                ?? throw new InvalidOperationException("System.Nullable`1 not found in metadata load context.");
-            return nullableDefinition.MakeGenericType(underlying);
-        }
-
-        if (typeSymbol is INamedTypeSymbol named)
-        {
-            if (named.IsGenericType && !named.IsUnboundGenericType && named.TypeArguments.Length > 0)
-            {
-                var definitionSymbol = named.ConstructedFrom ?? named.OriginalDefinition ?? named;
-                var definitionType = ReferenceEquals(definitionSymbol, typeSymbol)
-                    ? clrType
-                    : ResolveMethodLookupType(definitionSymbol, codeGen);
-                var arguments = named.TypeArguments
-                    .Select(argument => ResolveMethodLookupType(argument, codeGen))
-                    .ToArray();
-
-                if (definitionType.IsGenericTypeDefinition)
-                    return definitionType.MakeGenericType(arguments);
-
-                if (definitionType.ContainsGenericParameters)
-                    return definitionType.MakeGenericType(arguments);
-
-                return definitionType;
-            }
-
-            var metadataType = codeGen.Compilation.CoreAssembly.GetType(named.ToFullyQualifiedMetadataName(), throwOnError: false);
-            if (metadataType is not null)
-                return metadataType;
-        }
-
-        return clrType;
     }
 
     private static bool TypesEquivalent(Type left, Type right)
