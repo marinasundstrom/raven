@@ -230,11 +230,13 @@ internal class MethodGenerator
         var codeGen = TypeGenerator.CodeGen;
         var compilation = Compilation;
 
+        var metadataTypeType = compilation.CoreAssembly.GetType("System.Type") ?? typeof(Type);
+
         var asyncStateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute);
         if (asyncStateMachineAttributeSymbol is INamedTypeSymbol asyncStateMachineAttribute)
         {
             var attributeType = asyncStateMachineAttribute.GetClrType(codeGen);
-            var constructor = attributeType.GetConstructor(new[] { typeof(Type) });
+            var constructor = attributeType.GetConstructor(new[] { metadataTypeType });
             if (constructor is not null)
             {
                 var stateMachineType = stateMachine.GetClrType(codeGen);
@@ -247,7 +249,7 @@ internal class MethodGenerator
         if (builderAttributeSymbol is INamedTypeSymbol builderAttribute)
         {
             var attributeType = builderAttribute.GetClrType(codeGen);
-            var constructor = attributeType?.GetConstructor(new[] { typeof(Type) });
+            var constructor = attributeType?.GetConstructor(new[] { metadataTypeType });
             if (attributeType is not null && constructor is not null)
             {
                 var builderType = stateMachine.BuilderField.Type.GetClrType(codeGen);
