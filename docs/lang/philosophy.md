@@ -1,6 +1,6 @@
 # Raven Language Philosophy
 
-Raven is a modern programming language designed with clarity, expressiveness, and composability at its core. It draws inspiration from C#, F#, Swift, and Python — but is not bound by their conventions. Raven's guiding philosophy is to prioritize conceptual integrity, minimize syntactic noise, and empower developers to write code that reads like intention, not ceremony.
+Raven is a modern programming language designed with clarity, expressiveness, and composability at its core. It draws inspiration from C#, F#, Swift, and Python — but is not bound by their conventions. Raven's guiding philosophy is to prioritize conceptual integrity, minimize syntactic noise, and empower developers to write code that reads like intention, not ceremony. It values simplicity that keeps syntax honest, symmetry that aligns how constructs relate to one another, and flow that allows ideas to move through code without unnecessary friction.
 
 This document captures the non-negotiable beliefs that shape every layer of the project—from syntax and semantics to the architecture of the compiler itself. They act as a compass when making trade-offs, evaluating features, or deciding how tooling should feel.
 
@@ -12,13 +12,13 @@ Raven embraces a declarative, expression-first design where nearly every constru
 
 ### 1. **Syntactic Clarity over Tradition**
 
-Raven eliminates redundant syntax where it doesn’t add value. Familiar patterns are respected when they communicate intent, but tradition alone is never a sufficient reason to carry ceremony forward. Object construction does not require repeating type names:
+Raven eliminates redundant syntax where it doesn’t add value. Familiar patterns are respected when they communicate intent, but tradition alone is never a sufficient reason to carry ceremony forward. Object construction does not require repeating type names, and type instantiation stays low-ceremony even as APIs grow more complex:
 
 ```raven
 let user = User(name: "Anna")  // Not new User(...)
 ```
 
-Constructors are expressed through `init` blocks or named methods, making object creation feel like invoking functionality, not a compiler formality. The language defaults to the shortest spelling that still tells the truth about what the code is doing.
+Constructors are expressed through `init` blocks or named methods, making object creation feel like invoking functionality, not a compiler formality. The language defaults to the shortest spelling that still tells the truth about what the code is doing and encourages the flow of data without redundant wrappers or boilerplate.
 
 ```raven
 public init WithName(name: string) {
@@ -36,14 +36,14 @@ let user = User.WithName("Anna")
 
 ### 2. **Symmetric Design**
 
-Symmetry is a design tool, not a slogan. Raven unifies callables, indexers, and member access through a common concept: `self`-bound methods. Types are invocable if they define a `self(...)` method, indexable with `self[...]`, and internally consistent. Users learn one model of invocation and reuse it everywhere.
+Symmetry is a design tool, not a slogan. Raven unifies callables, indexers, and member access through a common concept: `self`-bound methods. Types are invocable if they define a `self(...)` method, indexable with `self[...]`, and internally consistent. Function parameter lists mirror tuple declarations, so destructuring and invocation share a single mental model. Users learn one model of invocation and reuse it everywhere.
 
 ```raven
 public self(x: int) -> string { ... }    // Callable object
 public self[x: int] : string { ... }     // Indexer
 ```
 
-This symmetry improves reasoning and avoids special cases.
+This symmetry improves reasoning and avoids special cases. Everything flows: the same conceptual pipeline moves from function invocation to indexers to member access, so the mental overhead of switching contexts vanishes. That sameness also makes tuple construction and argument passing visually mirror each other, reinforcing the idea that data moves through the system in familiar shapes.
 
 ---
 
@@ -173,6 +173,22 @@ let theme = match try loadSettings("prefs.json") {
 ```
 
 Declarative recovery paths make it clear when errors are intentionally absorbed versus rethrown, keeping control flow as legible as the happy path.
+
+---
+
+### 12. **Flow-Oriented Simplicity**
+
+Raven code should feel like it moves. "Everything flows" means APIs, control structures, and data transformations connect without abrupt ceremony. Simplicity is not shorthand for "less powerful"—it is the discipline of surfacing only the concepts that matter to the moment.
+
+The type system supports that flow. Types are inferred wherever intent is already obvious, and explicit annotations appear only when they disambiguate, document, or unlock new capabilities. Unions describe possible shapes of values succinctly, keeping branching logic declarative without drowning the reader in edge cases.
+
+```raven
+let items = fetchItems()
+let filtered = items.filter { $0.isActive }
+let report: Report = .from(filtered)  // Explicit only when the story needs a cast
+```
+
+By default, specificity waits until the developer actually needs it. That restraint keeps the language lightweight, expressive, and ready to scale from scripts to systems without drowning the reader in redundant type names.
 
 ---
 
