@@ -76,6 +76,26 @@ class C {
     }
 
     [Fact]
+    public void AsyncMethod_InvokesBuilderStartWithDynamicStateMachine()
+    {
+        var (method, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "Work" &&
+            generator.MethodSymbol.ContainingType?.Name == "C");
+
+        Assert.Equal("Work", method.Name);
+
+        var startInvocation = instructions
+            .Where(instruction => instruction.Operand.Kind == RecordedOperandKind.MethodInfo)
+            .Select(instruction => instruction.Operand.Value)
+            .OfType<MethodInfo>()
+            .Single(info => string.Equals(info.Name, "Start", StringComparison.Ordinal));
+
+        Assert.True(startInvocation.IsGenericMethod);
+        var stateMachineArgument = Assert.Single(startInvocation.GetGenericArguments());
+        Assert.True(stateMachineArgument.Assembly.IsDynamic);
+    }
+
+    [Fact]
     public void MoveNext_EmitsAwaitSchedulingPattern()
     {
         var (_, instructions) = CaptureAsyncInstructions(static generator =>

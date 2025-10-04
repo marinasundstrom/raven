@@ -198,55 +198,95 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        foreach (var method in containingClrType.GetMethods(Flags))
+
+        var requiresRuntimeReflection =
+            runtimeTypeArguments.Any(RequiresRuntimeContext) ||
+            expectedParameterTypes.Any(RequiresRuntimeContext) ||
+            RequiresRuntimeContext(expectedReturnType) ||
+            RequiresRuntimeContext(containingClrType);
+
+        if (!requiresRuntimeReflection)
         {
-            if (!string.Equals(method.Name, _definition.Name, StringComparison.Ordinal))
-                continue;
+            var metadataCandidate = TryResolve(containingClrType, runtimeTypeArguments, expectedParameterTypes, expectedReturnType);
+            if (metadataCandidate is not null)
+                return metadataCandidate;
 
-            if (method.IsGenericMethodDefinition != _definition.IsGenericMethod)
-            {
-                if (!method.IsGenericMethodDefinition)
-                    continue;
-            }
+            requiresRuntimeReflection = true;
+        }
 
-            MethodInfo candidate = method;
+        if (requiresRuntimeReflection)
+        {
+            var runtimeContainingType = EnsureRuntimeType(containingClrType);
+            var runtimeArguments = runtimeTypeArguments.Select(EnsureRuntimeType).ToArray();
+            var runtimeParameters = expectedParameterTypes.Select(EnsureRuntimeType).ToArray();
+            var runtimeReturn = EnsureRuntimeType(expectedReturnType);
 
-            if (method.IsGenericMethodDefinition)
-            {
-                if (method.GetGenericArguments().Length != runtimeTypeArguments.Length)
-                    continue;
-
-                candidate = method.MakeGenericMethod(runtimeTypeArguments);
-            }
-            else if (method.ContainsGenericParameters)
-            {
-                continue;
-            }
-
-            var candidateParameters = candidate.GetParameters();
-            if (candidateParameters.Length != expectedParameterTypes.Length)
-                continue;
-
-            var parametersMatch = true;
-            for (var i = 0; i < candidateParameters.Length; i++)
-            {
-                if (!TypesEquivalent(candidateParameters[i].ParameterType, expectedParameterTypes[i]))
-                {
-                    parametersMatch = false;
-                    break;
-                }
-            }
-
-            if (!parametersMatch)
-                continue;
-
-            if (!TypesEquivalent(candidate.ReturnType, expectedReturnType))
-                continue;
-
-            return candidate;
+            var runtimeCandidate = TryResolve(runtimeContainingType, runtimeArguments, runtimeParameters, runtimeReturn);
+            if (runtimeCandidate is not null)
+                return runtimeCandidate;
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
+
+        MethodInfo? TryResolve(Type searchType, Type[] typeArguments, Type[] expectedParameters, Type expectedReturn)
+        {
+            foreach (var method in searchType.GetMethods(Flags))
+            {
+                if (!string.Equals(method.Name, _definition.Name, StringComparison.Ordinal))
+                    continue;
+
+                if (method.IsGenericMethodDefinition != _definition.IsGenericMethod)
+                {
+                    if (!method.IsGenericMethodDefinition)
+                        continue;
+                }
+
+                MethodInfo candidate = method;
+
+                if (method.IsGenericMethodDefinition)
+                {
+                    if (method.GetGenericArguments().Length != typeArguments.Length)
+                        continue;
+
+                    try
+                    {
+                        candidate = method.MakeGenericMethod(typeArguments);
+                    }
+                    catch (ArgumentException)
+                    {
+                        continue;
+                    }
+                }
+                else if (method.ContainsGenericParameters)
+                {
+                    continue;
+                }
+
+                var candidateParameters = candidate.GetParameters();
+                if (candidateParameters.Length != expectedParameters.Length)
+                    continue;
+
+                var parametersMatch = true;
+                for (var i = 0; i < candidateParameters.Length; i++)
+                {
+                    if (!TypesEquivalent(candidateParameters[i].ParameterType, expectedParameters[i]))
+                    {
+                        parametersMatch = false;
+                        break;
+                    }
+                }
+
+                if (!parametersMatch)
+                    continue;
+
+                if (!TypesEquivalent(candidate.ReturnType, expectedReturn))
+                    continue;
+
+                return candidate;
+            }
+
+            return null;
+        }
     }
 
     private static bool TypesEquivalent(Type left, Type right)
@@ -309,5 +349,121 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         return string.Equals(left.FullName, right.FullName, StringComparison.Ordinal) &&
                string.Equals(left.Assembly.FullName, right.Assembly.FullName, StringComparison.Ordinal);
+    }
+
+    private static bool RequiresRuntimeContext(Type type)
+    {
+        if (type.IsGenericParameter)
+            return false;
+
+        if (type.Assembly.IsDynamic)
+            return true;
+
+        if (IsMetadataType(type))
+            return false;
+
+        if (type.IsArray || type.IsByRef || type.IsPointer)
+        {
+            var elementType = type.GetElementType();
+            return elementType is not null && RequiresRuntimeContext(elementType);
+        }
+
+        if (type.IsConstructedGenericType)
+            return type.GetGenericArguments().Any(RequiresRuntimeContext);
+
+        return false;
+    }
+
+    private static Type EnsureRuntimeType(Type type)
+    {
+        if (type.IsGenericParameter)
+            return type;
+
+        if (!IsMetadataType(type))
+            return type;
+
+        if (type.IsArray)
+        {
+            var elementRuntime = EnsureRuntimeType(type.GetElementType()!);
+            return type.GetArrayRank() == 1
+                ? elementRuntime.MakeArrayType()
+                : elementRuntime.MakeArrayType(type.GetArrayRank());
+        }
+
+        if (type.IsByRef)
+        {
+            var elementRuntime = EnsureRuntimeType(type.GetElementType()!);
+            return elementRuntime.MakeByRefType();
+        }
+
+        if (type.IsPointer)
+        {
+            var elementRuntime = EnsureRuntimeType(type.GetElementType()!);
+            return elementRuntime.MakePointerType();
+        }
+
+        if (type.IsGenericType)
+        {
+            if (type.IsGenericTypeDefinition)
+            {
+                return ResolveRuntimeType(type.AssemblyQualifiedName!) ?? type;
+            }
+
+            var runtimeDefinition = EnsureRuntimeType(type.GetGenericTypeDefinition());
+            var runtimeArguments = type.GetGenericArguments().Select(EnsureRuntimeType).ToArray();
+
+            if (runtimeDefinition.IsGenericTypeDefinition)
+            {
+                try
+                {
+                    return runtimeDefinition.MakeGenericType(runtimeArguments);
+                }
+                catch (ArgumentException)
+                {
+                    // fall back to assembly-qualified lookup below
+                }
+            }
+
+            return ResolveRuntimeType(type.AssemblyQualifiedName!) ?? type;
+        }
+
+        return ResolveRuntimeType(type.AssemblyQualifiedName!) ?? type;
+    }
+
+    private static bool IsMetadataType(Type type)
+    {
+        var metadataNamespace = type.GetType().Namespace;
+        return string.Equals(metadataNamespace, "System.Reflection.TypeLoading", StringComparison.Ordinal);
+    }
+
+    private static Type? ResolveRuntimeType(string? assemblyQualifiedName)
+    {
+        if (assemblyQualifiedName is null)
+            return null;
+
+        var runtimeType = Type.GetType(assemblyQualifiedName, throwOnError: false);
+        if (runtimeType is not null)
+            return runtimeType;
+
+        var separatorIndex = assemblyQualifiedName.IndexOf(',');
+        if (separatorIndex < 0)
+            return null;
+
+        var typeName = assemblyQualifiedName[..separatorIndex].Trim();
+        var assemblyName = assemblyQualifiedName[(separatorIndex + 1)..].Trim();
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            var candidateName = assembly.GetName();
+            if (string.Equals(candidateName.FullName, assemblyName, StringComparison.Ordinal) ||
+                string.Equals(candidateName.Name, assemblyName, StringComparison.Ordinal))
+            {
+                runtimeType = assembly.GetType(typeName, throwOnError: false);
+                if (runtimeType is not null)
+                    return runtimeType;
+            }
+        }
+
+        return null;
     }
 }
