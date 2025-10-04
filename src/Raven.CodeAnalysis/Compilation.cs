@@ -74,6 +74,8 @@ public partial class Compilation
 
     public Assembly CoreAssembly { get; private set; }
 
+    internal ReferenceAssemblyCatalog ReferenceCatalog => _referenceCatalog;
+
     internal BinderFactory BinderFactory { get; private set; }
 
     internal DeclarationTable DeclarationTable { get; private set; }

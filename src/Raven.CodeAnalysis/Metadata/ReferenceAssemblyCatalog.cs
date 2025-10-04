@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Reflection;
@@ -24,6 +25,7 @@ internal sealed class ReferenceAssemblyCatalog
         = new(BuildTrustedPlatformAssemblyMap);
 
     private readonly ConcurrentDictionary<string, Lazy<Assembly?>> _runtimeAssemblies = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Lazy<Assembly?>> _implementationAssemblies = new(StringComparer.Ordinal);
 
     public ReferenceAssemblyCatalog(IEnumerable<MetadataReference> references)
     {
@@ -76,7 +78,7 @@ internal sealed class ReferenceAssemblyCatalog
         if (!_referenceMap.TryGetValue(reference, out var entry))
             entry = CreateEntry(reference);
 
-        return LoadRuntimeAssembly(entry)
+        return LoadRuntimeAssembly(entry, allowReferenceFallback: true)
             ?? throw new InvalidOperationException($"Unable to load runtime assembly for reference '{reference.FilePath}'.");
     }
 
@@ -89,19 +91,51 @@ internal sealed class ReferenceAssemblyCatalog
         if (identity is null)
             throw new ArgumentNullException(nameof(identity));
 
-        if (identity.FullName is not { Length: > 0 } fullName)
+        var cacheKey = identity.FullName ?? identity.Name;
+        if (string.IsNullOrEmpty(cacheKey))
             return null;
 
-        var lazy = _runtimeAssemblies.GetOrAdd(fullName, _ => new Lazy<Assembly?>(() => LoadByIdentity(fullName, identity)));
-        return lazy.Value;
+        if (_identityMap.TryGetValue(cacheKey, out var entry))
+            return LoadRuntimeAssembly(entry, allowReferenceFallback: true);
+
+        return LoadByIdentity(cacheKey, identity, allowReferenceFallback: true);
     }
 
-    private Assembly? LoadRuntimeAssembly(ReferenceEntry entry)
+    public Assembly? TryGetImplementationAssembly(PortableExecutableReference reference)
     {
-        if (entry.Identity.FullName is not { Length: > 0 } fullName)
+        if (reference is null)
+            throw new ArgumentNullException(nameof(reference));
+
+        if (!_referenceMap.TryGetValue(reference, out var entry))
+            entry = CreateEntry(reference);
+
+        return LoadRuntimeAssembly(entry, allowReferenceFallback: false);
+    }
+
+    public Assembly? TryGetImplementationAssembly(AssemblyName identity)
+    {
+        if (identity is null)
+            throw new ArgumentNullException(nameof(identity));
+
+        var cacheKey = identity.FullName ?? identity.Name;
+        if (string.IsNullOrEmpty(cacheKey))
             return null;
 
-        var lazy = _runtimeAssemblies.GetOrAdd(fullName, _ => new Lazy<Assembly?>(() => LoadFromEntry(entry)));
+        if (_identityMap.TryGetValue(cacheKey, out var entry))
+            return LoadRuntimeAssembly(entry, allowReferenceFallback: false);
+
+        return LoadByIdentity(cacheKey, identity, allowReferenceFallback: false);
+    }
+
+    private Assembly? LoadRuntimeAssembly(ReferenceEntry entry, bool allowReferenceFallback)
+    {
+        var cacheKey = entry.Identity.FullName ?? entry.Identity.Name;
+        var cache = allowReferenceFallback ? _runtimeAssemblies : _implementationAssemblies;
+
+        if (string.IsNullOrEmpty(cacheKey))
+            return LoadFromEntry(entry, allowReferenceFallback);
+
+        var lazy = cache.GetOrAdd(cacheKey, _ => new Lazy<Assembly?>(() => LoadFromEntry(entry, allowReferenceFallback)));
         return lazy.Value;
     }
 
@@ -140,13 +174,20 @@ internal sealed class ReferenceAssemblyCatalog
         return new ReferenceEntry(reference, reference.FilePath!, assemblyName);
     }
 
-    private Assembly? LoadFromEntry(ReferenceEntry entry)
+    private Assembly? LoadFromEntry(ReferenceEntry entry, bool allowReferenceFallback)
     {
         // First attempt to bind using the assembly identity. This will pick up runtime
         // implementation assemblies when they are available on the machine.
-        var candidate = LoadByIdentity(entry.Identity.FullName!, entry.Identity);
-        if (candidate is not null)
-            return candidate;
+        var cacheKey = entry.Identity.FullName ?? entry.Identity.Name;
+        if (!string.IsNullOrEmpty(cacheKey))
+        {
+            var candidate = LoadByIdentity(cacheKey, entry.Identity, allowReferenceFallback);
+            if (candidate is not null)
+                return candidate;
+        }
+
+        if (!allowReferenceFallback)
+            return null;
 
         // Fall back to loading the metadata file directly. Reference assemblies contain metadata
         // only but the loader is capable of materializing them for inspection scenarios.
@@ -160,7 +201,7 @@ internal sealed class ReferenceAssemblyCatalog
         }
     }
 
-    private Assembly? LoadByIdentity(string cacheKey, AssemblyName identity)
+    private Assembly? LoadByIdentity(string cacheKey, AssemblyName identity, bool allowReferenceFallback)
     {
         try
         {
@@ -205,6 +246,9 @@ internal sealed class ReferenceAssemblyCatalog
                 }
             }
         }
+
+        if (!allowReferenceFallback)
+            return null;
 
         if (_identityMap.TryGetValue(cacheKey, out var entry) && File.Exists(entry.FilePath))
         {
