@@ -488,6 +488,7 @@
     <Slot Name="ColonToken" Type="Token" DefaultToken="ColonToken"/>
   </Node>
   <Node Name="SimpleLambdaExpression" Inherits="LambdaExpression">
+    <Slot Name="AsyncKeyword" Type="Token" IsNullable="true" DefaultToken="AsyncKeyword"/>
     <Slot Name="Parameter" Type="Parameter" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" IsInherited="true"  DefaultToken="ArrowToken"/>
@@ -657,12 +658,14 @@
     <Slot Name="Type" Type="Type" />
   </Node>
   <Node Name="ParenthesizedLambdaExpression" Inherits="LambdaExpression">
+    <Slot Name="AsyncKeyword" Type="Token" IsNullable="true" DefaultToken="AsyncKeyword"/>
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="ArrowToken" Type="Token" IsInherited="true"  DefaultToken="ArrowToken"/>
     <Slot Name="ExpressionBody" Type="Expression" IsInherited="true" />
   </Node>
   <Node Name="FunctionStatement" Inherits="Statement">
+    <Slot Name="Modifiers" Type="TokenList" />
     <Slot Name="FuncKeyword" Type="Token" DefaultToken="FuncKeyword"/>
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" />

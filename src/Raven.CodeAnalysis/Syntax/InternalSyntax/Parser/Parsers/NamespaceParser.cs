@@ -225,6 +225,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                      SyntaxKind.SealedKeyword or
                      SyntaxKind.PartialKeyword or
                      SyntaxKind.VirtualKeyword or
+                     SyntaxKind.AsyncKeyword or
                      SyntaxKind.OpenKeyword or
                      SyntaxKind.OverrideKeyword)
             {

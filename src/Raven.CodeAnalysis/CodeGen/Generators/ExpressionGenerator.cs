@@ -870,15 +870,34 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldarga, pos);
                 break;
 
-            case IFieldSymbol field when !field.IsStatic:
-                if (field.ContainingType.IsValueType)
+            case IFieldSymbol field when field.IsStatic:
+                ILGenerator.Emit(OpCodes.Ldsflda, GetField(field));
+                break;
+
+            case IFieldSymbol field:
+                if (addressOf.Receiver is not null)
                 {
-                    throw new NotSupportedException("Taking address of a field inside struct requires more handling (like loading enclosing struct by ref).");
+                    EmitExpression(addressOf.Receiver);
+                }
+                else
+                {
+                    if (MethodSymbol.IsStatic)
+                        throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
+
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
                 }
 
-                // Assume it's on `this`
-                ILGenerator.Emit(OpCodes.Ldarg_0);
-                ILGenerator.Emit(OpCodes.Ldflda, ((PEFieldSymbol)field).GetFieldInfo());
+                ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
+                break;
+
+            case ITypeSymbol typeSymbol:
+                if (MethodSymbol.IsStatic)
+                    throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
+
+                if (typeSymbol.IsValueType)
+                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 
             default:

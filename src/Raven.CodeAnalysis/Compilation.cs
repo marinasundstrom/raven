@@ -20,8 +20,10 @@ public class Compilation
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new Dictionary<MetadataReference, IAssemblySymbol>();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new Dictionary<Assembly, IAssemblySymbol>();
     private readonly Dictionary<DelegateSignature, SynthesizedDelegateTypeSymbol> _synthesizedDelegates = new(new DelegateSignatureComparer());
+    private readonly Dictionary<SourceMethodSymbol, SynthesizedAsyncStateMachineTypeSymbol> _synthesizedAsyncStateMachines = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<SourceMethodSymbol, SynthesizedIteratorTypeSymbol> _synthesizedIterators = new(ReferenceEqualityComparer.Instance);
     private int _synthesizedDelegateOrdinal;
+    private int _synthesizedAsyncStateMachineOrdinal;
     private int _synthesizedIteratorOrdinal;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
@@ -201,10 +203,7 @@ public class Compilation
         if (!method.TypeParameters.IsDefaultOrEmpty)
             return false;
 
-        var returnType = method.ReturnType;
-        var returnSpecialType = returnType.SpecialType;
-
-        if (returnSpecialType is not (SpecialType.System_Int32 or SpecialType.System_Void or SpecialType.System_Unit))
+        if (!IsValidEntryPointReturnType(method.ReturnType))
             return false;
 
         var parameters = method.Parameters;
@@ -225,6 +224,34 @@ public class Compilation
 
         var stringType = GetSpecialType(SpecialType.System_String);
         return SymbolEqualityComparer.Default.Equals(arrayType.ElementType, stringType);
+    }
+
+    private bool IsValidEntryPointReturnType(ITypeSymbol returnType)
+    {
+        switch (returnType.SpecialType)
+        {
+            case SpecialType.System_Int32:
+            case SpecialType.System_Void:
+            case SpecialType.System_Unit:
+                return true;
+        }
+
+        var taskType = GetTypeByMetadataName("System.Threading.Tasks.Task");
+        if (taskType is not null && SymbolEqualityComparer.Default.Equals(returnType, taskType))
+            return true;
+
+        if (returnType is INamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
+        {
+            var taskOfT = GetTypeByMetadataName("System.Threading.Tasks.Task`1");
+            if (taskOfT is INamedTypeSymbol definition && SymbolEqualityComparer.Default.Equals(named.ConstructedFrom, definition))
+            {
+                var intType = GetSpecialType(SpecialType.System_Int32);
+                if (!named.TypeArguments.IsDefaultOrEmpty && SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], intType))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private void EnsureEntryPointComputed()
@@ -328,6 +355,20 @@ public class Compilation
 
     internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
         => _synthesizedDelegates.Values;
+
+    internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(SourceMethodSymbol method)
+    {
+        if (_synthesizedAsyncStateMachines.TryGetValue(method, out var existing))
+            return existing;
+
+        var name = $"<>c__AsyncStateMachine{_synthesizedAsyncStateMachineOrdinal++}";
+        var stateMachine = new SynthesizedAsyncStateMachineTypeSymbol(this, method, name);
+        _synthesizedAsyncStateMachines[method] = stateMachine;
+        return stateMachine;
+    }
+
+    internal IEnumerable<SynthesizedAsyncStateMachineTypeSymbol> GetSynthesizedAsyncStateMachineTypes()
+        => _synthesizedAsyncStateMachines.Values;
 
     internal SynthesizedIteratorTypeSymbol CreateIteratorStateMachine(SourceMethodSymbol method, IteratorMethodKind iteratorKind, ITypeSymbol elementType)
     {
@@ -1098,107 +1139,76 @@ public class Compilation
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
     {
         if (specialType is SpecialType.System_Unit)
-        {
             return UnitTypeSymbol;
-        }
-        else if (specialType is SpecialType.System_Void)
-        {
-            return GetTypeByMetadataName("System.Void");
-        }
-        else if (specialType is SpecialType.System_Boolean)
-        {
-            return GetTypeByMetadataName("System.Boolean");
-        }
-        else if (specialType is SpecialType.System_Int32)
-        {
-            return GetTypeByMetadataName("System.Int32");
-        }
-        else if (specialType is SpecialType.System_Int64)
-        {
-            return GetTypeByMetadataName("System.Int64");
-        }
-        else if (specialType is SpecialType.System_Single)
-        {
-            return GetTypeByMetadataName("System.Single");
-        }
-        else if (specialType is SpecialType.System_Double)
-        {
-            return GetTypeByMetadataName("System.Double");
-        }
-        else if (specialType is SpecialType.System_String)
-        {
-            return GetTypeByMetadataName("System.String");
-        }
-        else if (specialType is SpecialType.System_Char)
-        {
-            return GetTypeByMetadataName("System.Char");
-        }
-        else if (specialType is SpecialType.System_Array)
-        {
-            return GetTypeByMetadataName("System.Array");
-        }
-        else if (specialType is SpecialType.System_MulticastDelegate)
-        {
-            return GetTypeByMetadataName("System.MulticastDelegate");
-        }
-        else if (specialType is SpecialType.System_Delegate)
-        {
-            return GetTypeByMetadataName("System.Delegate");
-        }
-        else if (specialType is SpecialType.System_IDisposable)
-        {
-            return GetTypeByMetadataName("System.IDisposable");
-        }
-        else if (specialType is SpecialType.System_IntPtr)
-        {
-            return GetTypeByMetadataName("System.IntPtr");
-        }
-        else if (specialType is SpecialType.System_UIntPtr)
-        {
-            return GetTypeByMetadataName("System.UIntPtr");
-        }
-        else if (specialType is SpecialType.System_Object)
-        {
-            return GetTypeByMetadataName("System.Object");
-        }
-        else if (specialType is SpecialType.System_ValueType)
-        {
-            return GetTypeByMetadataName("System.ValueType");
-        }
-        else if (specialType is SpecialType.System_Nullable_T)
-        {
-            return GetTypeByMetadataName("System.Nullable");
-        }
-        else if (specialType is SpecialType.System_Type)
-        {
-            return GetTypeByMetadataName("System.Type");
-        }
-        else if (specialType is SpecialType.System_Collections_IEnumerable)
-        {
-            return GetTypeByMetadataName("System.Collections.IEnumerable");
-        }
-        else if (specialType is SpecialType.System_Collections_Generic_IEnumerable_T)
-        {
-            return GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
-        }
-        else if (specialType is SpecialType.System_Collections_Generic_IList_T)
-        {
-            return GetTypeByMetadataName("System.Collections.Generic.IList`1");
-        }
-        else if (specialType is SpecialType.System_Collections_Generic_ICollection_T)
-        {
-            return GetTypeByMetadataName("System.Collections.Generic.ICollection`1");
-        }
-        else if (specialType is SpecialType.System_Collections_IEnumerator)
-        {
-            return GetTypeByMetadataName("System.Collections.IEnumerator");
-        }
-        else if (specialType is SpecialType.System_Collections_Generic_IEnumerator_T)
-        {
-            return GetTypeByMetadataName("System.Collections.Generic.IEnumerator`1");
-        }
 
-        throw new InvalidOperationException("Special type is not supported.");
+        var metadataName = specialType switch
+        {
+            SpecialType.System_Object => "System.Object",
+            SpecialType.System_Enum => "System.Enum",
+            SpecialType.System_MulticastDelegate => "System.MulticastDelegate",
+            SpecialType.System_Delegate => "System.Delegate",
+            SpecialType.System_ValueType => "System.ValueType",
+            SpecialType.System_Void => "System.Void",
+            SpecialType.System_Boolean => "System.Boolean",
+            SpecialType.System_Char => "System.Char",
+            SpecialType.System_SByte => "System.SByte",
+            SpecialType.System_Byte => "System.Byte",
+            SpecialType.System_Int16 => "System.Int16",
+            SpecialType.System_UInt16 => "System.UInt16",
+            SpecialType.System_Int32 => "System.Int32",
+            SpecialType.System_UInt32 => "System.UInt32",
+            SpecialType.System_Int64 => "System.Int64",
+            SpecialType.System_UInt64 => "System.UInt64",
+            SpecialType.System_Decimal => "System.Decimal",
+            SpecialType.System_Single => "System.Single",
+            SpecialType.System_Double => "System.Double",
+            SpecialType.System_String => "System.String",
+            SpecialType.System_IntPtr => "System.IntPtr",
+            SpecialType.System_UIntPtr => "System.UIntPtr",
+            SpecialType.System_Array => "System.Array",
+            SpecialType.System_Collections_IEnumerable => "System.Collections.IEnumerable",
+            SpecialType.System_Collections_Generic_IEnumerable_T => "System.Collections.Generic.IEnumerable`1",
+            SpecialType.System_Collections_Generic_IList_T => "System.Collections.Generic.IList`1",
+            SpecialType.System_Collections_Generic_ICollection_T => "System.Collections.Generic.ICollection`1",
+            SpecialType.System_Collections_IEnumerator => "System.Collections.IEnumerator",
+            SpecialType.System_Collections_Generic_IEnumerator_T => "System.Collections.Generic.IEnumerator`1",
+            SpecialType.System_Nullable_T => "System.Nullable",
+            SpecialType.System_DateTime => "System.DateTime",
+            SpecialType.System_Runtime_CompilerServices_IsVolatile => "System.Runtime.CompilerServices.IsVolatile",
+            SpecialType.System_IDisposable => "System.IDisposable",
+            SpecialType.System_TypedReference => "System.TypedReference",
+            SpecialType.System_ArgIterator => "System.ArgIterator",
+            SpecialType.System_RuntimeArgumentHandle => "System.RuntimeArgumentHandle",
+            SpecialType.System_RuntimeFieldHandle => "System.RuntimeFieldHandle",
+            SpecialType.System_RuntimeMethodHandle => "System.RuntimeMethodHandle",
+            SpecialType.System_RuntimeTypeHandle => "System.RuntimeTypeHandle",
+            SpecialType.System_IAsyncResult => "System.IAsyncResult",
+            SpecialType.System_AsyncCallback => "System.AsyncCallback",
+            SpecialType.System_Runtime_CompilerServices_AsyncVoidMethodBuilder => "System.Runtime.CompilerServices.AsyncVoidMethodBuilder",
+            SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder => "System.Runtime.CompilerServices.AsyncTaskMethodBuilder",
+            SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T => "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1",
+            SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute => "System.Runtime.CompilerServices.AsyncStateMachineAttribute",
+            SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute => "System.Runtime.CompilerServices.IteratorStateMachineAttribute",
+            SpecialType.System_Threading_Tasks_Task => "System.Threading.Tasks.Task",
+            SpecialType.System_Threading_Tasks_Task_T => "System.Threading.Tasks.Task`1",
+            SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken => "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken",
+            SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T => "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationTokenTable`1",
+            SpecialType.System_ValueTuple_T1 => "System.ValueTuple`1",
+            SpecialType.System_ValueTuple_T2 => "System.ValueTuple`2",
+            SpecialType.System_ValueTuple_T3 => "System.ValueTuple`3",
+            SpecialType.System_ValueTuple_T4 => "System.ValueTuple`4",
+            SpecialType.System_ValueTuple_T5 => "System.ValueTuple`5",
+            SpecialType.System_ValueTuple_T6 => "System.ValueTuple`6",
+            SpecialType.System_ValueTuple_T7 => "System.ValueTuple`7",
+            SpecialType.System_ValueTuple_TRest => "System.ValueTuple`8",
+            SpecialType.System_Type => "System.Type",
+            SpecialType.System_Exception => "System.Exception",
+            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => "System.Runtime.CompilerServices.IAsyncStateMachine",
+            _ => throw new InvalidOperationException("Special type is not supported."),
+        };
+
+        var type = GetTypeByMetadataName(metadataName);
+        return type ?? (INamedTypeSymbol)ErrorTypeSymbol;
     }
 
     public ITypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)

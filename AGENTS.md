@@ -6,7 +6,7 @@
 
 **Before making changes:** run the test suite once to establish a baseline.
 
-**Before building/tests** (run from repo root):
+**Before building/tests** (run from repo root; the generators must run before `dotnet build`/`dotnet test` so the projects compile):
 
 ```bash
 # Refresh generated code once before `dotnet build`

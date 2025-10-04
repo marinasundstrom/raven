@@ -5,18 +5,16 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSymbol
+sealed class SynthesizedMainAsyncMethodSymbol : SourceMethodSymbol, IMethodSymbol
 {
-
-    public SynthesizedMainMethodSymbol(
+    public SynthesizedMainAsyncMethodSymbol(
         SynthesizedProgramClassSymbol type,
         Location[] location,
         SyntaxReference[] declaringSyntaxReferences,
-        bool returnsInt,
-        SynthesizedMainAsyncMethodSymbol? asyncImplementation)
+        bool returnsInt)
         : base(
-            "Main",
-            returnType: ResolveReturnType(type, returnsInt),
+            "MainAsync",
+            ResolveReturnType(type, returnsInt),
             parameters: [],
             type,
             type,
@@ -24,10 +22,9 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
             location,
             declaringSyntaxReferences,
             isStatic: true,
-            methodKind: MethodKind.Ordinary)
+            methodKind: MethodKind.Ordinary,
+            isAsync: true)
     {
-        AsyncImplementation = asyncImplementation;
-
         SetParameters([new SourceParameterSymbol("args", CreateStringArrayType(type), this, type, type.ContainingNamespace, location, declaringSyntaxReferences)]);
     }
 
@@ -35,14 +32,23 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
 
     public override bool IsImplicitlyDeclared => true;
 
-    public SynthesizedMainAsyncMethodSymbol? AsyncImplementation { get; }
-
     private static ITypeSymbol ResolveReturnType(SynthesizedProgramClassSymbol type, bool returnsInt)
     {
         var compilation = type.Compilation;
+        var assembly = type.ContainingAssembly;
 
         if (returnsInt)
-            return compilation.GetSpecialType(SpecialType.System_Int32);
+        {
+            if (assembly.GetTypeByMetadataName("System.Threading.Tasks.Task`1") is INamedTypeSymbol taskOfT)
+            {
+                var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+                if (intType.TypeKind != TypeKind.Error)
+                    return taskOfT.Construct(intType);
+            }
+        }
+
+        if (assembly.GetTypeByMetadataName("System.Threading.Tasks.Task") is { } taskType)
+            return taskType;
 
         return compilation.GetSpecialType(SpecialType.System_Unit);
     }

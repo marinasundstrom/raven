@@ -86,6 +86,18 @@ internal class MethodBodyGenerator
 
         ILGenerator = MethodGenerator.ILBuilderFactory.Create(MethodGenerator);
 
+        if (MethodSymbol is SynthesizedMainMethodSymbol mainSymbol && mainSymbol.AsyncImplementation is { } asyncImplementation)
+        {
+            EmitTopLevelMainBridge(mainSymbol, asyncImplementation);
+            return;
+        }
+
+        if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+        {
+            EmitAsyncStateMachineMethod(asyncStateMachine);
+            return;
+        }
+
         if (MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
         {
             EmitIteratorMethod(iteratorType);
@@ -129,6 +141,14 @@ internal class MethodBodyGenerator
         switch (syntax)
         {
             case CompilationUnitSyntax compilationUnit:
+                if (MethodSymbol is SourceMethodSymbol &&
+                    semanticModel.GetBoundNode(compilationUnit) is BoundBlockStatement topLevelBody)
+                {
+                    DeclareLocals(topLevelBody);
+                    EmitMethodBlock(topLevelBody);
+                    break;
+                }
+
                 foreach (var localDeclStmt in syntax.DescendantNodes()
                     .OfType<LocalDeclarationStatementSyntax>())
                 {
@@ -273,6 +293,44 @@ internal class MethodBodyGenerator
         }
     }
 
+    private void EmitTopLevelMainBridge(SynthesizedMainMethodSymbol mainMethod, SynthesizedMainAsyncMethodSymbol asyncImplementation)
+    {
+        if (MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(asyncImplementation) is not MethodInfo asyncMethodInfo)
+            throw new NotSupportedException("Async entry point implementation is not defined.");
+
+        if (MethodSymbol.Parameters.Length == 1)
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+
+        ILGenerator.Emit(OpCodes.Call, asyncMethodInfo);
+
+        var returnType = asyncMethodInfo.ReturnType;
+        var getAwaiter = returnType.GetMethod("GetAwaiter", Type.EmptyTypes)
+            ?? throw new NotSupportedException("Async entry point does not expose GetAwaiter().");
+
+        var callAwaiterOpCode = returnType.IsValueType ? OpCodes.Call : OpCodes.Callvirt;
+        ILGenerator.Emit(callAwaiterOpCode, getAwaiter);
+
+        var awaiterType = getAwaiter.ReturnType;
+        var awaiterLocal = ILGenerator.DeclareLocal(awaiterType);
+        awaiterLocal.SetLocalSymInfo("awaiter");
+        ILGenerator.Emit(OpCodes.Stloc, awaiterLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, awaiterLocal);
+
+        var getResult = awaiterType.GetMethod("GetResult", Type.EmptyTypes)
+            ?? throw new NotSupportedException("Awaiter does not expose GetResult().");
+        ILGenerator.Emit(OpCodes.Call, getResult);
+
+        if (mainMethod.ReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            if (getResult.ReturnType != typeof(void))
+                ILGenerator.Emit(OpCodes.Pop);
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ret);
+    }
+
     private void EmitIteratorMethod(SynthesizedIteratorTypeSymbol iteratorType)
     {
         if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.Constructor))
@@ -291,6 +349,36 @@ internal class MethodBodyGenerator
 
         DeclareLocals(body);
         EmitMethodBlock(body);
+    }
+
+    private void EmitAsyncStateMachineMethod(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+    {
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.Constructor))
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var body = GetAsyncStateMachineBody(asyncStateMachine);
+        if (body is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        DeclareLocals(body);
+        EmitMethodBlock(body);
+    }
+
+    private BoundBlockStatement? GetAsyncStateMachineBody(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+    {
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.MoveNextMethod))
+            return asyncStateMachine.MoveNextBody;
+
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.SetStateMachineMethod))
+            return asyncStateMachine.SetStateMachineBody;
+
+        return null;
     }
 
     private BoundBlockStatement? GetIteratorBody(SynthesizedIteratorTypeSymbol iteratorType)

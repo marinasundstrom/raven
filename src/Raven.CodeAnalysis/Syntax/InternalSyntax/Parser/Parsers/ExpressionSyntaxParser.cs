@@ -390,16 +390,35 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var token = PeekToken();
 
+        if (token.Kind == SyntaxKind.AsyncKeyword)
+        {
+            var checkpoint = CreateCheckpoint("async-lambda");
+            var asyncKeyword = ReadToken();
+
+            if (PeekToken().Kind == SyntaxKind.OpenParenToken)
+            {
+                if (!IsParenthesizedCastAhead() && TryParseParenthesizedLambdaExpression(asyncKeyword, out lambda))
+                    return true;
+            }
+            else if (CanTokenBeIdentifier(PeekToken()) && TryParseSimpleLambdaExpression(asyncKeyword, out lambda))
+            {
+                return true;
+            }
+
+            checkpoint.Dispose();
+            return false;
+        }
+
         if (token.Kind == SyntaxKind.OpenParenToken)
         {
             if (IsParenthesizedCastAhead())
                 return false;
 
-            if (TryParseParenthesizedLambdaExpression(out lambda))
+            if (TryParseParenthesizedLambdaExpression(asyncKeyword: null, out lambda))
                 return true;
         }
 
-        if (CanTokenBeIdentifier(token) && TryParseSimpleLambdaExpression(out lambda))
+        if (CanTokenBeIdentifier(token) && TryParseSimpleLambdaExpression(asyncKeyword: null, out lambda))
             return true;
 
         return false;
@@ -429,7 +448,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return !next.IsKind(SyntaxKind.FatArrowToken);
     }
 
-    private bool TryParseParenthesizedLambdaExpression(out LambdaExpressionSyntax? lambda)
+    private bool TryParseParenthesizedLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)
     {
         lambda = null;
 
@@ -453,6 +472,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
         var body = new ExpressionSyntaxParser(this).ParseExpression();
 
         lambda = ParenthesizedLambdaExpression(
+            asyncKeyword,
             parameterList,
             returnType,
             fatArrowToken,
@@ -461,13 +481,16 @@ internal class ExpressionSyntaxParser : SyntaxParser
         return true;
     }
 
-    private bool TryParseSimpleLambdaExpression(out LambdaExpressionSyntax? lambda)
+    private bool TryParseSimpleLambdaExpression(SyntaxToken? asyncKeyword, out LambdaExpressionSyntax? lambda)
     {
         lambda = null;
 
         var checkpoint = CreateCheckpoint("simple-lambda");
 
         var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
+        if (asyncKeyword is null && ConsumeToken(SyntaxKind.AsyncKeyword, out var parsedAsync))
+            asyncKeyword = parsedAsync;
 
         SyntaxList modifiers = SyntaxList.Empty;
         if (ConsumeToken(SyntaxKind.RefKeyword, out var modifier)
@@ -505,7 +528,7 @@ internal class ExpressionSyntaxParser : SyntaxParser
 
         var parameter = Parameter(attributeLists, modifiers, identifier, typeAnnotation, defaultValue);
 
-        lambda = SimpleLambdaExpression(parameter, returnType, fatArrowToken, body);
+        lambda = SimpleLambdaExpression(asyncKeyword, parameter, returnType, fatArrowToken, body);
 
         return true;
     }

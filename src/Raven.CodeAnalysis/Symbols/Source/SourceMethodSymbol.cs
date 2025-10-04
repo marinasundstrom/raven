@@ -23,6 +23,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private ITypeSymbol? _iteratorElementType;
     private bool _isIterator;
     private SynthesizedIteratorTypeSymbol? _iteratorStateMachine;
+    private bool _containsAwait;
+    private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
 
     public SourceMethodSymbol(
         string name,
@@ -35,6 +37,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         SyntaxReference[] declaringSyntaxReferences,
         bool isStatic = true,
         MethodKind methodKind = MethodKind.Ordinary,
+        bool isAsync = false,
         bool isVirtual = false,
         bool isOverride = false,
         bool isSealed = false,
@@ -45,6 +48,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _parameters = parameters;
 
         IsStatic = isStatic;
+        IsAsync = isAsync;
 
         MethodKind = methodKind;
 
@@ -78,6 +82,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public bool IsAbstract { get; }
 
     public bool IsAsync { get; }
+
+    public bool ContainsAwait => _containsAwait;
 
     public bool IsCheckedBuiltin { get; }
 
@@ -114,6 +120,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public ITypeSymbol? IteratorElementType => _iteratorElementType;
 
     public SynthesizedIteratorTypeSymbol? IteratorStateMachine => _iteratorStateMachine;
+
+    public SynthesizedAsyncStateMachineTypeSymbol? AsyncStateMachine => _asyncStateMachine;
 
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 
@@ -156,6 +164,11 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _iteratorElementType = elementType;
     }
 
+    internal void SetContainsAwait(bool containsAwait)
+    {
+        _containsAwait = containsAwait;
+    }
+
     internal void SetIteratorStateMachine(SynthesizedIteratorTypeSymbol stateMachine)
     {
         if (stateMachine is null)
@@ -165,6 +178,17 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             throw new InvalidOperationException("Iterator state machine already assigned.");
 
         _iteratorStateMachine = stateMachine;
+    }
+
+    internal void SetAsyncStateMachine(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+    {
+        if (stateMachine is null)
+            throw new ArgumentNullException(nameof(stateMachine));
+
+        if (_asyncStateMachine is not null && !ReferenceEquals(_asyncStateMachine, stateMachine))
+            throw new InvalidOperationException("Async state machine already assigned.");
+
+        _asyncStateMachine = stateMachine;
     }
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
