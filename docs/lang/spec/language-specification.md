@@ -293,6 +293,14 @@ let makeAdder = () => a + 3
 makeAdder() // returns 45, makeAdder : System.Func<int>
 ```
 
+Async lambda expressions mirror async functions: placing `async` before the parameter
+clause permits `await` inside the body. When the lambda's return type is not annotated
+and no delegate supplies one, the compiler wraps the inferred result in
+`System.Threading.Tasks.Task<T>` (or `Task` when the body produces `unit`). A delegate
+annotation or target type may still specify a concrete `Task` shape, in which case the
+lambda body must evaluate to the awaited result type rather than the task itself.
+Annotating an async lambda with a non-`Task` return type is an error.
+
 ### Additional type inference rules (normative)
 
 The following clarifications extend the type inference model:
@@ -331,9 +339,19 @@ let s: string = pet   // error: neither member converts to string
 The `await` keyword introduces a unary expression with the grammar `await`
 *expression*. Await expressions participate in the same precedence as other
 prefix unary operators. Because `await` is reserved, the identifier form must be
-escaped as `@await` when used outside this construct. The asynchronous behaviour
-of `await` will be defined alongside coroutine semantics; the current
-specification reserves the syntax.
+escaped as `@await` when used outside this construct.
+
+`await` may only appear inside an async function or lambda. File-scope
+statements execute inside the synthesized async `Program.Main`, so top-level
+awaits are permitted without additional scaffolding. The awaited
+expression must expose an instance method `GetAwaiter()` whose return type
+provides an accessible `bool IsCompleted { get; }` property and a parameterless
+`GetResult()` method. If the awaiter’s `GetResult` returns `void`, the await
+expression’s type is `unit`; otherwise it matches the `GetResult` return type.
+
+Failing any of these requirements produces a compile-time diagnostic identifying
+the missing member. The compiler also reports an error when `await` appears
+outside an async context.
 
 ### Cast expressions
 
@@ -1012,7 +1030,8 @@ The outermost undeclared namespace is the **global namespace**.
 
 Files may start with executable statements that aren't enclosed in a function or
 type. This file-scope code forms the application's entry point and is translated
-into `Program.Main`. Only console applications may include file-scope code, and
+into an async `Program.Main` that returns `Task`. Only console applications may
+include file-scope code, and
 it may appear in at most one file per compilation. When present, these
 statements must come before any other declarations in the file or its
 file-scoped namespace.
@@ -1028,7 +1047,7 @@ that backs file-scope code. When a project does not contain file-scope
 statements, the compiler instead looks for a user-defined entry point. Any
 static method named `Main` qualifies when it meets the following requirements:
 
-* The method returns `unit`, `void`, or `int`.
+* The method returns `unit`, `void`, `int`, `Task`, or `Task<int>`.
 * It has no type parameters.
 * It declares either no parameters or a single parameter of type `string[]`
   (representing the command-line arguments).
@@ -1131,6 +1150,30 @@ func outer() {
     let y = inner(2)
 }
 ```
+
+### Async functions
+
+The `async` modifier may appear on free functions, methods, and nested
+functions. An async declaration opts the body into asynchronous control flow so
+`await` expressions can suspend and resume execution. When no return type is
+annotated, the compiler infers `System.Threading.Tasks.Task` for bodies that
+complete without a value and `System.Threading.Tasks.Task<T>` when the body
+produces a value of type `T`.
+
+Async functions with an explicit return type must annotate one of the supported
+task shapes: `System.Threading.Tasks.Task` or `System.Threading.Tasks.Task<T>`.
+Annotating any other type produces a diagnostic, and the compiler continues
+analysis as though the return type were `Task`. This rule applies uniformly to
+methods, file-scoped functions, and local functions declared inside other
+bodies. Property and indexer accessors may also carry `async`; getters must
+expose a task-shaped return type to remain valid, while setters lower through
+the `async void` builder so authors can await asynchronous work before storing
+values.
+
+Async declarations support both block bodies and expression bodies. When an
+expression-bodied member is marked `async`, the compiler lifts the expression
+into the generated state machine so `await` may appear anywhere an expression is
+permitted.
 
 ### Lambda expressions and captured variables
 

@@ -1019,4 +1019,24 @@ internal abstract class Binder
 
         return symbol;
     }
+
+    protected bool IsValidAsyncReturnType(ITypeSymbol? type)
+    {
+        if (type is null)
+            return false;
+
+        if (type.TypeKind == TypeKind.Error)
+            return true;
+
+        if (type.SpecialType == SpecialType.System_Threading_Tasks_Task)
+            return true;
+
+        if (type is INamedTypeSymbol named &&
+            named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
+        {
+            return true;
+        }
+
+        return false;
+    }
 }

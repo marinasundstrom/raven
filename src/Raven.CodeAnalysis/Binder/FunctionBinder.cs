@@ -1,3 +1,5 @@
+using System.Linq;
+
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -46,9 +48,22 @@ class FunctionBinder : Binder
             return _methodSymbol;
         }
 
+        var isAsync = _syntax.Modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
+
+        var inferredReturnType = isAsync
+            ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
+            : Compilation.GetSpecialType(SpecialType.System_Unit);
+
         var returnType = _syntax.ReturnType is null
-            ? Compilation.GetSpecialType(SpecialType.System_Unit)
+            ? inferredReturnType
             : ResolveType(_syntax.ReturnType.Type);
+
+        if (isAsync && _syntax.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
+        {
+            var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, annotatedReturn.Type.GetLocation());
+            returnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+        }
 
         _methodSymbol = new SourceMethodSymbol(
             _syntax.Identifier.ValueText,
@@ -60,6 +75,7 @@ class FunctionBinder : Binder
             [_syntax.GetLocation()],
             [_syntax.GetReference()],
             isStatic: true,
+            isAsync: isAsync,
             declaredAccessibility: Accessibility.Internal);
 
         var parameters = _syntax.ParameterList.Parameters

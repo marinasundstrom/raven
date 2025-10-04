@@ -19,6 +19,17 @@ partial class BlockBinder
             _ => throw new NotSupportedException("Unknown lambda syntax")
         };
 
+        SyntaxToken? asyncKeywordToken = syntax switch
+        {
+            SimpleLambdaExpressionSyntax simple => simple.AsyncKeyword,
+            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.AsyncKeyword,
+            _ => null
+        };
+
+        var isAsyncLambda = asyncKeywordToken.HasValue &&
+            asyncKeywordToken.Value.Kind == SyntaxKind.AsyncKeyword &&
+            !asyncKeywordToken.Value.IsMissing;
+
         var targetType = GetTargetType(syntax);
         var candidateDelegates = GetLambdaDelegateTargets(syntax);
         if (candidateDelegates.IsDefaultOrEmpty)
@@ -120,18 +131,29 @@ partial class BlockBinder
             _ => null
         };
 
-        var inferredReturnType = returnTypeSyntax is not null
+        ITypeSymbol? annotatedReturnType = returnTypeSyntax is not null
             ? ResolveType(returnTypeSyntax)
-            : Compilation.ErrorTypeSymbol;
+            : null;
+
+        if (isAsyncLambda && returnTypeSyntax is not null &&
+            annotatedReturnType is not null && !IsValidAsyncReturnType(annotatedReturnType))
+        {
+            var display = annotatedReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, returnTypeSyntax.GetLocation());
+            annotatedReturnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+        }
+
+        var initialReturnType = annotatedReturnType ?? Compilation.ErrorTypeSymbol;
 
         var lambdaSymbol = new SourceLambdaSymbol(
             parameterSymbols,
-            inferredReturnType,
+            initialReturnType,
             _containingSymbol,
             _containingSymbol.ContainingType as INamedTypeSymbol,
             _containingSymbol.ContainingNamespace,
             [syntax.GetLocation()],
-            [syntax.GetReference()]);
+            [syntax.GetReference()],
+            isAsync: isAsyncLambda);
 
         var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
 
@@ -148,6 +170,39 @@ partial class BlockBinder
             inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
         }
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        ITypeSymbol InferAsyncReturnType(ITypeSymbol? bodyType, ITypeSymbol unit)
+        {
+            var taskType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+
+            if (bodyType is null ||
+                bodyType.TypeKind == TypeKind.Error ||
+                SymbolEqualityComparer.Default.Equals(bodyType, unit) ||
+                bodyType.SpecialType == SpecialType.System_Void)
+            {
+                return taskType;
+            }
+
+            if (Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) is INamedTypeSymbol taskGeneric)
+                return taskGeneric.Construct(bodyType);
+
+            return taskType;
+        }
+
+        ITypeSymbol? ExtractAsyncResultType(ITypeSymbol asyncReturnType)
+        {
+            if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                return unitType;
+
+            if (asyncReturnType is INamedTypeSymbol named &&
+                named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+                named.TypeArguments.Length == 1)
+            {
+                return named.TypeArguments[0];
+            }
+
+            return null;
+        }
         if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
         {
             var collected = ReturnTypeCollector.Infer(bodyExpr);
@@ -155,50 +210,50 @@ partial class BlockBinder
                 inferred = collected;
         }
 
+        var targetReturn = targetSignature?.ReturnType;
+        if (targetReturn is not null && targetReturn.TypeKind == TypeKind.Error)
+            targetReturn = null;
+
         ITypeSymbol returnType;
-        if (returnTypeSyntax is not null)
+        if (annotatedReturnType is { TypeKind: not TypeKind.Error })
         {
-            returnType = inferredReturnType;
-            if (inferred is not null &&
-                inferred.TypeKind != TypeKind.Error &&
-                returnType.TypeKind != TypeKind.Error)
-            {
-                if (!IsAssignable(returnType, inferred, out var conversion))
-                {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
-                        inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        syntax.ExpressionBody.GetLocation());
-                }
-                else
-                {
-                    bodyExpr = ApplyConversion(bodyExpr, returnType, conversion, syntax.ExpressionBody);
-                }
-            }
+            returnType = annotatedReturnType;
         }
-        else if (targetSignature is { ReturnType: { } targetReturn } && targetReturn.TypeKind != TypeKind.Error)
+        else if (targetReturn is not null)
         {
             returnType = targetReturn;
-            if (inferred is not null &&
-                inferred.TypeKind != TypeKind.Error &&
-                returnType.TypeKind != TypeKind.Error)
-            {
-                if (!IsAssignable(returnType, inferred, out var conversion))
-                {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
-                        inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        syntax.ExpressionBody.GetLocation());
-                }
-                else
-                {
-                    bodyExpr = ApplyConversion(bodyExpr, returnType, conversion, syntax.ExpressionBody);
-                }
-            }
+        }
+        else if (isAsyncLambda)
+        {
+            returnType = InferAsyncReturnType(inferred, unitType);
         }
         else
         {
             returnType = inferred ?? Compilation.ErrorTypeSymbol;
+        }
+
+        ITypeSymbol? expectedBodyType = returnType;
+        if (isAsyncLambda)
+        {
+            expectedBodyType = ExtractAsyncResultType(returnType) ?? expectedBodyType;
+        }
+
+        if (expectedBodyType is not null &&
+            inferred is not null &&
+            inferred.TypeKind != TypeKind.Error &&
+            expectedBodyType.TypeKind != TypeKind.Error)
+        {
+            if (!IsAssignable(expectedBodyType, inferred, out var conversion))
+            {
+                _diagnostics.ReportCannotConvertFromTypeToType(
+                    inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    expectedBodyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.ExpressionBody.GetLocation());
+            }
+            else
+            {
+                bodyExpr = ApplyConversion(bodyExpr, expectedBodyType, conversion, syntax.ExpressionBody);
+            }
         }
 
         lambdaBinder.SetLambdaBody(bodyExpr);
@@ -655,7 +710,8 @@ partial class BlockBinder
             _containingSymbol.ContainingType as INamedTypeSymbol,
             _containingSymbol.ContainingNamespace,
             [syntax.GetLocation()],
-            [syntax.GetReference()]);
+            [syntax.GetReference()],
+            isAsync: unbound.LambdaSymbol.IsAsync);
 
         var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
 
@@ -667,18 +723,39 @@ partial class BlockBinder
         if (inferred is not null && inferred.TypeKind != TypeKind.Error)
             inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
         var returnType = invoke.ReturnType;
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        ITypeSymbol? ExtractAsyncResultTypeForReplay(ITypeSymbol asyncReturnType)
+        {
+            if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                return unitType;
+
+            if (asyncReturnType is INamedTypeSymbol named &&
+                named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+                named.TypeArguments.Length == 1)
+            {
+                return named.TypeArguments[0];
+            }
+
+            return null;
+        }
+
+        var expectedBodyType = returnType;
+        if (unbound.LambdaSymbol.IsAsync)
+            expectedBodyType = ExtractAsyncResultTypeForReplay(returnType) ?? expectedBodyType;
 
         if (inferred is not null &&
             inferred.TypeKind != TypeKind.Error &&
-            returnType.TypeKind != TypeKind.Error)
+            expectedBodyType is not null &&
+            expectedBodyType.TypeKind != TypeKind.Error)
         {
-            if (!IsAssignable(returnType, inferred, out var conversion))
+            if (!IsAssignable(expectedBodyType, inferred, out var conversion))
             {
                 instrumentation.RecordBindingFailure();
                 return null;
             }
 
-            body = ApplyConversion(body, returnType, conversion, syntax.ExpressionBody);
+            body = ApplyConversion(body, expectedBodyType, conversion, syntax.ExpressionBody);
         }
 
         lambdaBinder.SetLambdaBody(body);

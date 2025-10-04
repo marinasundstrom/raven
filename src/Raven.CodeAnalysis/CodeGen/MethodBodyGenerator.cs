@@ -86,6 +86,12 @@ internal class MethodBodyGenerator
 
         ILGenerator = MethodGenerator.ILBuilderFactory.Create(MethodGenerator);
 
+        if (MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+        {
+            EmitAsyncStateMachineMethod(asyncStateMachine);
+            return;
+        }
+
         if (MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
         {
             EmitIteratorMethod(iteratorType);
@@ -129,6 +135,14 @@ internal class MethodBodyGenerator
         switch (syntax)
         {
             case CompilationUnitSyntax compilationUnit:
+                if (MethodSymbol is SourceMethodSymbol &&
+                    semanticModel.GetBoundNode(compilationUnit) is BoundBlockStatement topLevelBody)
+                {
+                    DeclareLocals(topLevelBody);
+                    EmitMethodBlock(topLevelBody);
+                    break;
+                }
+
                 foreach (var localDeclStmt in syntax.DescendantNodes()
                     .OfType<LocalDeclarationStatementSyntax>())
                 {
@@ -291,6 +305,36 @@ internal class MethodBodyGenerator
 
         DeclareLocals(body);
         EmitMethodBlock(body);
+    }
+
+    private void EmitAsyncStateMachineMethod(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+    {
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.Constructor))
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        var body = GetAsyncStateMachineBody(asyncStateMachine);
+        if (body is null)
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
+
+        DeclareLocals(body);
+        EmitMethodBlock(body);
+    }
+
+    private BoundBlockStatement? GetAsyncStateMachineBody(SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
+    {
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.MoveNextMethod))
+            return asyncStateMachine.MoveNextBody;
+
+        if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.SetStateMachineMethod))
+            return asyncStateMachine.SetStateMachineBody;
+
+        return null;
     }
 
     private BoundBlockStatement? GetIteratorBody(SynthesizedIteratorTypeSymbol iteratorType)
