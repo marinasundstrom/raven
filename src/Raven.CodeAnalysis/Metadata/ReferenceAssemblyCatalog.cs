@@ -20,6 +20,9 @@ internal sealed class ReferenceAssemblyCatalog
 {
     private readonly ImmutableDictionary<PortableExecutableReference, ReferenceEntry> _referenceMap;
     private readonly ImmutableDictionary<string, ReferenceEntry> _identityMap;
+    private static readonly Lazy<ImmutableDictionary<string, string>> s_trustedPlatformAssemblies
+        = new(BuildTrustedPlatformAssemblyMap);
+
     private readonly ConcurrentDictionary<string, Lazy<Assembly?>> _runtimeAssemblies = new(StringComparer.Ordinal);
 
     public ReferenceAssemblyCatalog(IEnumerable<MetadataReference> references)
@@ -168,6 +171,41 @@ internal sealed class ReferenceAssemblyCatalog
             // ignored
         }
 
+        if (identity.Name is { Length: > 0 } simpleName)
+        {
+            try
+            {
+                var relaxedIdentity = new AssemblyName(simpleName)
+                {
+                    ContentType = identity.ContentType,
+                    CultureName = identity.CultureName
+                };
+
+                var publicKeyToken = identity.GetPublicKeyToken();
+                if (publicKeyToken is { Length: > 0 })
+                    relaxedIdentity.SetPublicKeyToken(publicKeyToken);
+
+                return Assembly.Load(relaxedIdentity);
+            }
+            catch
+            {
+                // ignored
+            }
+
+            var trustedAssemblies = s_trustedPlatformAssemblies.Value;
+            if (trustedAssemblies.TryGetValue(simpleName, out var trustedPath) && File.Exists(trustedPath))
+            {
+                try
+                {
+                    return AssemblyLoadContext.Default.LoadFromAssemblyPath(trustedPath);
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+        }
+
         if (_identityMap.TryGetValue(cacheKey, out var entry) && File.Exists(entry.FilePath))
         {
             try
@@ -188,6 +226,29 @@ internal sealed class ReferenceAssemblyCatalog
         return (flags & AssemblyFlags.WindowsRuntime) != 0
             ? AssemblyContentType.WindowsRuntime
             : AssemblyContentType.Default;
+    }
+
+    private static ImmutableDictionary<string, string> BuildTrustedPlatformAssemblyMap()
+    {
+        var data = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+        if (string.IsNullOrEmpty(data))
+            return ImmutableDictionary<string, string>.Empty;
+
+        var builder = ImmutableDictionary.CreateBuilder<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in data.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (string.IsNullOrEmpty(entry))
+                continue;
+
+            var simpleName = Path.GetFileNameWithoutExtension(entry);
+            if (string.IsNullOrEmpty(simpleName) || builder.ContainsKey(simpleName))
+                continue;
+
+            builder[simpleName] = entry;
+        }
+
+        return builder.ToImmutable();
     }
 
     private readonly record struct ReferenceEntry(
