@@ -1,15 +1,26 @@
 
 
-using Raven.CodeAnalysis.Syntax;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+
+using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
 class TopLevelBinder : BlockBinder
 {
-    public TopLevelBinder(Binder parent, SemanticModel semanticModel, IMethodSymbol methodSymbol) : base(methodSymbol, parent)
+    private readonly CompilationUnitSyntax _compilationUnit;
+
+    public TopLevelBinder(
+        Binder parent,
+        SemanticModel semanticModel,
+        IMethodSymbol methodSymbol,
+        CompilationUnitSyntax compilationUnit)
+        : base(methodSymbol, parent)
     {
         SemanticModel = semanticModel;
+        _compilationUnit = compilationUnit;
     }
 
     public override SemanticModel SemanticModel { get; }
@@ -18,8 +29,12 @@ class TopLevelBinder : BlockBinder
 
     public void BindGlobalStatements(IEnumerable<GlobalStatementSyntax> statements)
     {
-        // Declare all functions first so they are available to subsequent statements
+        var globalStatements = new List<GlobalStatementSyntax>();
         foreach (var stmt in statements)
+            globalStatements.Add(stmt);
+
+        // Declare all functions first so they are available to subsequent statements
+        foreach (var stmt in globalStatements)
         {
             if (stmt.Statement is FunctionStatementSyntax localFunc)
             {
@@ -36,13 +51,31 @@ class TopLevelBinder : BlockBinder
         }
 
         // Bind each statement
-        foreach (var stmt in statements)
+        var boundStatements = new List<BoundStatement>(globalStatements.Count);
+
+        foreach (var stmt in globalStatements)
         {
             if (stmt.Statement is FunctionStatementSyntax function)
-                BindStatement(function);
+                boundStatements.Add(BindStatement(function));
             else
-                BindStatement(stmt.Statement);
+                boundStatements.Add(BindStatement(stmt.Statement));
         }
+
+        var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
+        foreach (var stmt in globalStatements)
+        {
+            if (stmt.Statement is UsingDeclarationStatementSyntax usingDeclaration)
+            {
+                foreach (var declarator in usingDeclaration.Declaration.Declarators)
+                {
+                    if (SemanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
+                        localsToDispose.Add(local);
+                }
+            }
+        }
+
+        var block = new BoundBlockStatement(boundStatements, localsToDispose.ToImmutable());
+        CacheBoundNode(_compilationUnit, block);
     }
 
     public override ISymbol? LookupSymbol(string name)

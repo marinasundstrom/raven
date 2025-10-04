@@ -417,13 +417,13 @@ public partial class SemanticModel
             }
         }
 
-        CreateTopLevelBinder(cu, targetNamespace, importBinder);
+        var topLevelBinder = CreateTopLevelBinder(cu, targetNamespace, importBinder);
 
-        _binderCache[cu] = importBinder;
+        _binderCache[cu] = topLevelBinder;
         if (fileScopedNamespace != null)
             _binderCache[fileScopedNamespace] = importBinder;
 
-        return importBinder;
+        return topLevelBinder;
 
         INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
         {
@@ -574,7 +574,7 @@ public partial class SemanticModel
     {
         var programClass = new SynthesizedProgramClassSymbol(Compilation, namespaceSymbol.AsSourceNamespace(), [cu.GetLocation()], [cu.GetReference()]);
         var mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()]);
-        var topLevelBinder = new TopLevelBinder(parentBinder, this, mainMethod);
+        var topLevelBinder = new TopLevelBinder(parentBinder, this, mainMethod, cu);
 
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
 

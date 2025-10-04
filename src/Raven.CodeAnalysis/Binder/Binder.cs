@@ -735,6 +735,9 @@ internal abstract class Binder
 
     public virtual BoundNode GetOrBind(SyntaxNode node)
     {
+        if (TryGetCachedBoundNode(node) is BoundNode cached)
+            return cached;
+
         BoundNode result = node switch
         {
             ExpressionSyntax expr => BindExpression(expr),
