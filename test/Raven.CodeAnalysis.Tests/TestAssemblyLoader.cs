@@ -36,6 +36,15 @@ internal static class TestAssemblyLoader
         var alc = new AssemblyLoadContext("RavenTests", isCollectible: true);
         alc.Resolving += (context, name) =>
         {
+            try
+            {
+                return AssemblyLoadContext.Default.LoadFromAssemblyName(name);
+            }
+            catch
+            {
+                // ignored – fall back to explicit probing below.
+            }
+
             var candidate = refPaths.FirstOrDefault(p =>
                 string.Equals(Path.GetFileNameWithoutExtension(p), name.Name, StringComparison.OrdinalIgnoreCase));
             return candidate is not null ? context.LoadFromAssemblyPath(candidate) : null;

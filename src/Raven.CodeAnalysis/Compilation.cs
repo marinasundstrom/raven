@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -18,8 +19,7 @@ public partial class Compilation
     internal SyntaxTree? SyntaxTreeWithFileScopedCode;
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
-    private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
-    private MetadataLoadContext _metadataLoadContext;
+    private ReferenceAssemblyCatalog _referenceCatalog = default!;
     private GlobalBinder _globalBinder;
     private bool setup;
     private ErrorTypeSymbol _errorTypeSymbol;
@@ -136,15 +136,9 @@ public partial class Compilation
 
     private void Setup()
     {
-        List<string> paths = _references
-            .OfType<PortableExecutableReference>()
-            .Select(portableExecutableReference => portableExecutableReference.FilePath)
-            .ToList();
+        _referenceCatalog = new ReferenceAssemblyCatalog(_references);
 
-        var resolver = new PathAssemblyResolver(paths);
-        _metadataLoadContext = new MetadataLoadContext(resolver);
-
-        CoreAssembly = _metadataLoadContext.CoreAssembly!;
+        CoreAssembly = _referenceCatalog.CoreAssembly;
 
         foreach (var metadataReference in References)
         {
@@ -479,8 +473,8 @@ public partial class Compilation
             {
                 case PortableExecutableReference per:
                 {
-                    var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
-                    symbol = GetAssembly(assembly);
+                    var assembly = _referenceCatalog.GetRuntimeAssembly(per);
+                    symbol = GetOrAddAssemblySymbol(assembly);
                     break;
                 }
                 case CompilationReference cr:
@@ -518,23 +512,21 @@ public partial class Compilation
                 [],
                 refs.Select(x =>
                 {
-                    try
-                    {
-                        var loadedAssembly = _metadataLoadContext.LoadFromAssemblyName(x);
-                        if (loadedAssembly is null)
-                            return null;
-
-                        return GetAssembly(loadedAssembly);
-                    }
-                    catch
-                    {
+                    var loadedAssembly = _referenceCatalog.TryGetRuntimeAssembly(x);
+                    if (loadedAssembly is null)
                         return null;
-                    }
+
+                    return GetOrAddAssemblySymbol(loadedAssembly);
                 }).Where(x => x is not null).ToArray()));
 
         _assemblySymbols[assembly] = assemblySymbol;
 
         return assemblySymbol;
+    }
+
+    internal IAssemblySymbol GetOrAddAssemblySymbol(Assembly assembly)
+    {
+        return GetAssembly(assembly);
     }
 
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)

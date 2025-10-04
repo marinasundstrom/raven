@@ -8,6 +8,7 @@ using System.Reflection.PortableExecutable;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests.Utilities;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -56,10 +57,10 @@ class Foo {
 
         peStream.Seek(0, SeekOrigin.Begin);
 
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var mlc = new MetadataLoadContext(resolver);
+        var referencePaths = references.Select(r => ((PortableExecutableReference)r).FilePath!).ToArray();
+        using var loadContext = new ResolvingAssemblyLoadContext(referencePaths);
 
-        var assembly = mlc.LoadFromStream(peStream);
+        var assembly = loadContext.LoadFromStream(peStream);
 
         Assert.NotNull(assembly.GetType("Foo", true));
     }
@@ -97,10 +98,10 @@ class C {
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
         peStream.Seek(0, SeekOrigin.Begin);
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var metadataLoadContext = new MetadataLoadContext(resolver);
+        var referencePaths = references.Select(r => ((PortableExecutableReference)r).FilePath!).ToArray();
+        using var loadContext = new ResolvingAssemblyLoadContext(referencePaths);
 
-        var assembly = metadataLoadContext.LoadFromStream(peStream);
+        var assembly = loadContext.LoadFromStream(peStream);
         var iteratorType = assembly
             .GetTypes()
             .Single(t => t.Name.Contains("Iterator", StringComparison.Ordinal));
@@ -153,10 +154,10 @@ class Helper {
 
         peStream.Seek(0, SeekOrigin.Begin);
 
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var mlc = new MetadataLoadContext(resolver);
+        var referencePaths = references.Select(r => ((PortableExecutableReference)r).FilePath!).ToArray();
+        using var loadContext = new ResolvingAssemblyLoadContext(referencePaths);
 
-        var assembly = mlc.LoadFromStream(peStream);
+        var assembly = loadContext.LoadFromStream(peStream);
         var entryPoint = assembly.EntryPoint;
 
         Assert.NotNull(entryPoint);
@@ -265,10 +266,10 @@ class Foo : IFoo {
 
         peStream.Seek(0, SeekOrigin.Begin);
 
-        var resolver = new PathAssemblyResolver(references.Select(r => ((PortableExecutableReference)r).FilePath));
-        using var mlc = new MetadataLoadContext(resolver);
+        var referencePaths = references.Select(r => ((PortableExecutableReference)r).FilePath!).ToArray();
+        using var loadContext = new ResolvingAssemblyLoadContext(referencePaths);
 
-        var assembly = mlc.LoadFromStream(peStream);
+        var assembly = loadContext.LoadFromStream(peStream);
 
         var fooType = assembly.GetType("Foo", throwOnError: true)!;
         var interfaceType = assembly.GetType("IFoo", throwOnError: true)!;

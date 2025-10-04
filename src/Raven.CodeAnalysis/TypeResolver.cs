@@ -247,7 +247,10 @@ internal class TypeResolver(Compilation compilation)
     {
         var typeInfo = type.GetTypeInfo();
 
-        var assemblySymbol = (PEAssemblySymbol)compilation.ReferencedAssemblySymbols.First(x => x.Name == type.Assembly.GetName().Name);
+        var assemblySymbol = compilation.GetOrAddAssemblySymbol(type.Assembly) as PEAssemblySymbol;
+        if (assemblySymbol is null)
+            return null;
+
         return (ITypeSymbol?)assemblySymbol.PrimaryModule.ResolveMetadataMember(assemblySymbol.GlobalNamespace, type.FullName);
     }
 }

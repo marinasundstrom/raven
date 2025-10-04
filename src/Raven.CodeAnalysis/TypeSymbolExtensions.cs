@@ -92,7 +92,7 @@ public static class TypeSymbolExtensions
 
     private static Type GetFrameworkType(SpecialType specialType, Compilation compilation)
     {
-        // Helper to fetch type from the MetadataLoadContext CoreAssembly
+        // Helper to fetch type from the compilation's core assembly bridge
         static Type FromCoreAssembly(Compilation c, string fullName) =>
             c.CoreAssembly.GetType(fullName) ?? throw new InvalidOperationException($"Type '{fullName}' not found in CoreAssembly");
 

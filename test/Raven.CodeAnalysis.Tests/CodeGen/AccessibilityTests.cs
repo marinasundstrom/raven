@@ -1,7 +1,6 @@
 using System;
 using System.Reflection;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
+using Raven.CodeAnalysis.Tests.Utilities;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -18,7 +17,7 @@ internal class InternalType { }
 public class PublicType { }
 """;
 
-        using var metadataContext = Emit(code, out var assembly);
+        using var loadContext = Emit(code, out var assembly);
 
         var internalType = assembly.GetType("InternalType", throwOnError: true)!;
         var publicType = assembly.GetType("PublicType", throwOnError: true)!;
@@ -41,7 +40,7 @@ public class Container {
 }
 """;
 
-        using var metadataContext = Emit(code, out var assembly);
+        using var loadContext = Emit(code, out var assembly);
 
         var container = assembly.GetType("Container", throwOnError: true)!;
         var bindingFlags = BindingFlags.NonPublic | BindingFlags.Public;
@@ -68,7 +67,7 @@ public class MethodContainer {
 }
 """;
 
-        using var metadataContext = Emit(code, out var assembly);
+        using var loadContext = Emit(code, out var assembly);
 
         var container = assembly.GetType("MethodContainer", throwOnError: true)!;
         var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
@@ -96,7 +95,7 @@ public class CtorContainer {
 }
 """;
 
-        using var metadataContext = Emit(code, out var assembly);
+        using var loadContext = Emit(code, out var assembly);
 
         var container = assembly.GetType("CtorContainer", throwOnError: true)!;
         var flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -126,7 +125,7 @@ public class Person {
 }
 """;
 
-        using var metadataContext = Emit(code, out var assembly);
+        using var loadContext = Emit(code, out var assembly);
 
         var person = assembly.GetType("Person", throwOnError: true)!;
 
@@ -202,7 +201,7 @@ internal class Sample {
         return compilation;
     }
 
-    private static MetadataLoadContext Emit(string code, out Assembly assembly)
+    private static ResolvingAssemblyLoadContext Emit(string code, out Assembly assembly)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
         var compilation = CreateCompilation(syntaxTree);
@@ -212,13 +211,13 @@ internal class Sample {
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
         peStream.Seek(0, SeekOrigin.Begin);
-        var resolver = new PathAssemblyResolver(compilation.References
+        var referencePaths = compilation.References
             .OfType<PortableExecutableReference>()
-            .Select(r => r.FilePath)
-            .Where(p => p is not null)!);
+            .Select(r => r.FilePath!)
+            .ToArray();
 
-        var metadataContext = new MetadataLoadContext(resolver);
-        assembly = metadataContext.LoadFromStream(peStream);
-        return metadataContext;
+        var loadContext = new ResolvingAssemblyLoadContext(referencePaths);
+        assembly = loadContext.LoadFromStream(peStream);
+        return loadContext;
     }
 }

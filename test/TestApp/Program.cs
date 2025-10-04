@@ -34,9 +34,7 @@ class Program
             foreach (var m in writeLineMembers) Console.WriteLine(m.ToDisplayString());
         }
 
-        var resolver = new System.Reflection.PathAssemblyResolver(references.Select(r => r.FilePath));
-        using var mlc = new System.Reflection.MetadataLoadContext(resolver);
-        var asm = mlc.LoadFromAssemblyPath(Path.Combine(refDir!, "System.Console.dll"));
+        var asm = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(refDir!, "System.Console.dll"));
         var consoleType2 = asm.GetType("System.Console", true);
         Console.WriteLine($"Reflection Console type null? {consoleType2 == null}");
         Console.WriteLine($"Declared methods via reflection: {consoleType2?.GetMethods().Length}");
