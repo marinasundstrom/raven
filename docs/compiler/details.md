@@ -10,7 +10,11 @@ In order to to target different runtimes, you compile against the reference asse
 
 ### Loading metadata assemblies
 
-The reference assemblies are pure metadata assemblies, so no IL, and therefore must be loaded in a special way. Using the `MetadataLoadContext` class you can load that metadata to query it for references.
+Reference assemblies are pure metadata images. Raven now uses `System.Reflection.Metadata`
+readers to inspect them instead of relying on `MetadataLoadContext`. The
+[metadata migration strategy](../design/metadata-migration-strategy.md) describes how we load
+reference packs, cache their metadata, and optionally project them into runtime types when
+Reflection.Emit is still required.
 
 ## API
 

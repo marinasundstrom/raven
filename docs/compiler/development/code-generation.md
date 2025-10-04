@@ -1,10 +1,21 @@
 # Code generation notes
 
-When emitting IL we must resolve CLR metadata types through the same `MetadataLoadContext` used by the compiler.
+Raven is moving toward a metadata-only emission pipeline built on
+`System.Reflection.Metadata` (SRM). The code generator must never mix handles from
+`System.Reflection.Emit` with those produced by `MetadataLoadContext`. Instead, resolve
+framework helpers and reference metadata through the shared SRM-based catalog so the
+compiler remains agnostic of the host runtime.
 
-- Always obtain runtime type symbols via the symbols API or the `CoreAssembly` helpers so they originate from the metadata context hosting the reference assemblies.
-- Avoid using `typeof(...)` when you need a `Type` handle in the emitter. `typeof` binds against the compiler host's runtime and the resulting symbol will not match the metadata context.
-- If you start from an `ITypeSymbol`, use `GetClrType()` to map the symbol into the `MetadataLoadContext` before passing it to the IL generator.
-- Every type, method, and field reference emitted into IL must ultimately resolve through the `MetadataLoadContext`; mixing contexts will produce invalid handles or missing members at runtime.
+- Obtain framework types via the runtime type resolver exposed by `CodeGenerator`. It sources
+  definitions from SRM metadata and, when necessary, projects them into runtime handles using
+  the bridge outlined in [the metadata migration strategy](../../design/metadata-migration-strategy.md).
+- Avoid `typeof(...)` inside the emitter. If you need a CLR handle during the transition
+  period, request it through the runtime resolver so tests and the CLI use the same pathway.
+- Prefer translating `ITypeSymbol` instances into SRM `EntityHandle`s or symbol descriptors.
+  Only fall back to reflection types in legacy helpers that have not yet been ported.
+- When adding new emitters, shape their inputs around SRM handles and let the adapter layer
+  convert them for Reflection.Emit until the Roslyn-like backend is complete.
 
-Following these rules keeps the code generator consistent with the metadata snapshot supplied to `MetadataLoadContext` and ensures we emit IL using the correct reference assemblies.
+Following these rules keeps the code generator aligned with the SRM catalog while we retire
+`MetadataLoadContext`, enabling interchangeable back ends that work with reference
+assemblies.
