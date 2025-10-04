@@ -62,8 +62,8 @@ let summary = match (positives, negatives) {
 
 let totalRevenue = orders
   .Where(order => order.isPaid)
-  .map { Invoice(from: $0) }
-  .sum { $0.total }
+  .Select(x => Invoice(x)))
+  .Sum(x => x.Total)
 ```
 
 Declarative-first does not forbid imperative code; it simply makes the declarative path the straightest line to clarity.
