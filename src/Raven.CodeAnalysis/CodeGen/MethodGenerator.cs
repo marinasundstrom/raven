@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -229,21 +228,38 @@ internal class MethodGenerator
             return;
 
         var codeGen = TypeGenerator.CodeGen;
+        var compilation = Compilation;
 
-        var stateMachineCtor = typeof(AsyncStateMachineAttribute).GetConstructor(new[] { typeof(Type) });
-        if (stateMachineCtor is not null)
+        var systemTypeSymbol = compilation.GetSpecialType(SpecialType.System_Type);
+        if (systemTypeSymbol is IErrorTypeSymbol)
+            return;
+
+        var systemType = systemTypeSymbol.GetClrType(codeGen);
+
+        var stateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute);
+        if (stateMachineAttributeSymbol is not IErrorTypeSymbol)
         {
-            var stateMachineType = stateMachine.GetClrType(codeGen);
-            var attributeBuilder = new CustomAttributeBuilder(stateMachineCtor, new object[] { stateMachineType });
-            applyMethodAttribute(attributeBuilder);
+            var attributeType = stateMachineAttributeSymbol.GetClrType(codeGen);
+            var stateMachineCtor = attributeType.GetConstructor(new[] { systemType });
+            if (stateMachineCtor is not null)
+            {
+                var stateMachineType = stateMachine.GetClrType(codeGen);
+                var attributeBuilder = new CustomAttributeBuilder(stateMachineCtor, new object[] { stateMachineType });
+                applyMethodAttribute(attributeBuilder);
+            }
         }
 
-        var builderCtor = typeof(AsyncMethodBuilderAttribute).GetConstructor(new[] { typeof(Type) });
-        if (builderCtor is not null)
+        var builderAttributeSymbol = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncMethodBuilderAttribute");
+        if (builderAttributeSymbol is not null && builderAttributeSymbol.TypeKind != TypeKind.Error)
         {
-            var builderType = stateMachine.BuilderField.Type.GetClrType(codeGen);
-            var attributeBuilder = new CustomAttributeBuilder(builderCtor, new object[] { builderType });
-            applyMethodAttribute(attributeBuilder);
+            var attributeType = builderAttributeSymbol.GetClrType(codeGen);
+            var builderCtor = attributeType.GetConstructor(new[] { systemType });
+            if (builderCtor is not null)
+            {
+                var builderType = stateMachine.BuilderField.Type.GetClrType(codeGen);
+                var attributeBuilder = new CustomAttributeBuilder(builderCtor, new object[] { builderType });
+                applyMethodAttribute(attributeBuilder);
+            }
         }
     }
 
