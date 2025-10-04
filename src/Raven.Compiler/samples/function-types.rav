@@ -1,0 +1,21 @@
+/*
+ * Function type annotations
+ * * * */
+
+import System.Console.*
+
+func apply(value: int, transform: int -> int) -> int {
+    transform(value)
+}
+
+let doubled: int -> int = x => x * 2
+let increment: int -> int = x => x + 1
+let reducer: (int, int) -> int = (a: int, b: int) -> int => a + b
+
+let result = apply(5, doubled)
+let chained = apply(result, increment)
+let combined = reducer(result, chained)
+
+WriteLine("result = " + result.ToString())
+WriteLine("chained = " + chained.ToString())
+WriteLine("combined = " + combined.ToString())

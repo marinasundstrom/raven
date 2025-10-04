@@ -308,6 +308,7 @@ public static class PrettySyntaxTreePrinter
             IdentifierNameSyntax ine => $"{ine.Identifier.Text} ",
             PredefinedTypeSyntax pt => $"{pt.Keyword.Text} ",
             UnitTypeSyntax _ => "() ",
+            FunctionTypeSyntax ft => $"{ft} ",
             TypeOfExpressionSyntax typeOf => $"typeof({typeOf.Type}) ",
             _ => string.Empty
         };

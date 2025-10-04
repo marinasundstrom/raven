@@ -91,6 +91,33 @@ let inferred = 1        // inferred int, literal type is widened
 
 `(T1, T2, ...)` map to `System.ValueTuple<T1, T2, ...>`.
 
+### Function types
+
+Function types provide a delegate-like type literal. The syntax mirrors a lambda
+signature: write the parameter types inside parentheses, then `->`, then the
+return type. A single parameter may omit its parentheses, while zero parameters
+use the empty tuple `()`.
+
+```raven
+let logger: string -> unit
+let reducer: (int, int) -> int
+let factory: () -> Task<string>
+```
+
+The compiler resolves a function type to an existing delegate declaration when a
+matching signature is available. This includes the .NET `Func<>`/`Action<>`
+families as well as user-defined delegates. When no suitable delegate exists,
+the compiler synthesizes an internal delegate whose parameter and return types
+match the function type literal. These synthesized delegates participate in
+metadata emission so that consumers written in C# or other .NET languages can
+invoke them normally.
+
+Nested arrows associate to the right: `int -> string -> bool` means a delegate
+that accepts an `int` and returns another delegate of type `string -> bool`.
+Return types may be any Raven type, including unions. Function types themselves
+may appear anywhere a normal type is expected—alias declarations, parameter
+annotations, local bindings, generics, and so on.
+
 ### Nullable values
 
 Appending `?` creates a nullable type. Value types are emitted as `System.Nullable<T>` while reference types use C#'s nullable metadata.

@@ -232,6 +232,17 @@
     <Slot Name="Elements" Type="SeparatedList" ElementType="TupleElement" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken"/>
   </Node>
+  <Node Name="FunctionType" Inherits="Type">
+    <Slot Name="Parameter" Type="Type" IsNullable="true" />
+    <Slot Name="ParameterList" Type="FunctionTypeParameterList" IsNullable="true" />
+    <Slot Name="ArrowToken" Type="Token" DefaultToken="ArrowToken"/>
+    <Slot Name="ReturnType" Type="Type" />
+  </Node>
+  <Node Name="FunctionTypeParameterList" Inherits="Node">
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken"/>
+    <Slot Name="Parameters" Type="SeparatedList" ElementType="Type" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken"/>
+  </Node>
   <Node Name="ArrayRankSpecifier" Inherits="Node">
     <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken"/>
     <Slot Name="CommaTokens" Type="TokenList" />

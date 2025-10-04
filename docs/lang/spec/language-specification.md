@@ -1426,6 +1426,37 @@ element is validated against the corresponding element type. Elements are
 accessed positionally (e.g. `Item1`, `Item2`). Tuple types may nest or
 participate in other type constructs such as unions or nullability.
 
+### Function types
+
+Function types describe callable delegates directly in a type annotation. The
+syntax mirrors a lambda signature: a comma-separated parameter list enclosed in
+parentheses followed by `->` and the return type.
+
+```raven
+let applyTwice: (int -> int, int) -> int
+let thunk: () -> unit
+let comparer: (string, string) -> bool
+```
+
+Single-parameter functions may omit the surrounding parentheses:
+
+```raven
+let increment: int -> int
+```
+
+The return portion may itself be any Raven type, including unions. For example
+`string -> int | null` represents a delegate that returns either an `int` or
+`null`. Nested arrows associate to the right, so `int -> string -> bool` is
+parsed as `int -> (string -> bool)`.
+
+Function annotations are sugar over delegates. When the parameter and return
+types match an existing declaration (including the built-in `Func`/`Action`
+families), the compiler binds to that delegate. Otherwise it synthesizes an
+internal delegate with the appropriate signature so interop with .NET remains
+transparent. Parameter modifiers and names are not permitted inside a function
+type; specify only the types that flow into and out of the delegate. A `unit`
+return represents `void`.
+
 ### Union types
 
 Unions express multiple possible types (e.g., `int | string`). A union’s members are **normalized**: nested unions flatten, duplicates are removed, and order is irrelevant. For example, `int | (string | int)` simplifies to `int | string`.
