@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Text;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -243,9 +245,8 @@ internal class MethodGenerator
             var stateMachineCtor = attributeType.GetConstructor(new[] { systemType });
             if (stateMachineCtor is not null)
             {
-                var stateMachineType = stateMachine.GetClrType(codeGen);
-                var attributeBuilder = new CustomAttributeBuilder(stateMachineCtor, new object[] { stateMachineType });
-                applyMethodAttribute(attributeBuilder);
+                var stateMachineTypeName = GetAssemblyQualifiedMetadataName(stateMachine);
+                ApplyMethodCustomAttribute(stateMachineCtor, stateMachineTypeName);
             }
         }
 
@@ -256,10 +257,88 @@ internal class MethodGenerator
             var builderCtor = attributeType.GetConstructor(new[] { systemType });
             if (builderCtor is not null)
             {
-                var builderType = stateMachine.BuilderField.Type.GetClrType(codeGen);
-                var attributeBuilder = new CustomAttributeBuilder(builderCtor, new object[] { builderType });
-                applyMethodAttribute(attributeBuilder);
+                var builderTypeName = GetAssemblyQualifiedMetadataName(stateMachine.BuilderField.Type);
+                ApplyMethodCustomAttribute(builderCtor, builderTypeName);
             }
+        }
+    }
+
+    private void ApplyMethodCustomAttribute(ConstructorInfo constructor, string assemblyQualifiedTypeName)
+    {
+        var blob = CreateTypeArgumentAttributeBlob(assemblyQualifiedTypeName);
+
+        switch (MethodBase)
+        {
+            case MethodBuilder methodBuilder:
+                methodBuilder.SetCustomAttribute(constructor, blob);
+                break;
+            case ConstructorBuilder constructorBuilder:
+                constructorBuilder.SetCustomAttribute(constructor, blob);
+                break;
+            default:
+                throw new InvalidOperationException("Unexpected method base type for attribute emission.");
+        }
+    }
+
+    private string GetAssemblyQualifiedMetadataName(ITypeSymbol typeSymbol)
+    {
+        var metadataName = typeSymbol.ToFullyQualifiedMetadataName();
+        var assemblyName = typeSymbol.ContainingAssembly?.Name;
+
+        return string.IsNullOrEmpty(assemblyName)
+            ? metadataName
+            : $"{metadataName}, {assemblyName}";
+    }
+
+    private static byte[] CreateTypeArgumentAttributeBlob(string assemblyQualifiedTypeName)
+    {
+        using var stream = new MemoryStream();
+
+        stream.WriteByte(0x01); // Prolog
+        stream.WriteByte(0x00);
+
+        WriteSerString(stream, assemblyQualifiedTypeName);
+
+        stream.WriteByte(0x00); // Named argument count (0)
+        stream.WriteByte(0x00);
+
+        return stream.ToArray();
+    }
+
+    private static void WriteSerString(Stream stream, string value)
+    {
+        if (value is null)
+        {
+            stream.WriteByte(0xFF);
+            return;
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(value);
+        WriteCompressedUInt(stream, (uint)bytes.Length);
+        stream.Write(bytes, 0, bytes.Length);
+    }
+
+    private static void WriteCompressedUInt(Stream stream, uint value)
+    {
+        if (value <= 0x7F)
+        {
+            stream.WriteByte((byte)value);
+        }
+        else if (value <= 0x3FFF)
+        {
+            stream.WriteByte((byte)((value >> 8) | 0x80));
+            stream.WriteByte((byte)(value & 0xFF));
+        }
+        else if (value <= 0x1FFFFFFF)
+        {
+            stream.WriteByte((byte)((value >> 24) | 0xC0));
+            stream.WriteByte((byte)((value >> 16) & 0xFF));
+            stream.WriteByte((byte)((value >> 8) & 0xFF));
+            stream.WriteByte((byte)(value & 0xFF));
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "Value is too large to be represented as a compressed unsigned integer.");
         }
     }
 

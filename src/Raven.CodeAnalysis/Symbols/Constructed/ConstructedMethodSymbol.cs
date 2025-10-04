@@ -188,13 +188,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var containingType = _definition.ContainingType
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
-        var containingClrType = containingType.GetClrType(codeGen);
+        var containingClrType = EnsureRuntimeType(containingType.GetClrType(codeGen));
         var expectedParameterTypes = Parameters
-            .Select(parameter => parameter.Type.GetClrType(codeGen))
+            .Select(parameter => EnsureRuntimeType(parameter.Type.GetClrType(codeGen)))
             .ToArray();
-        var expectedReturnType = ReturnType.GetClrType(codeGen);
+        var expectedReturnType = EnsureRuntimeType(ReturnType.GetClrType(codeGen));
         var runtimeTypeArguments = TypeArguments
-            .Select(argument => argument.GetClrType(codeGen))
+            .Select(argument => EnsureRuntimeType(argument.GetClrType(codeGen)))
             .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -247,6 +247,39 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
+    }
+
+    private static Type EnsureRuntimeType(Type type)
+    {
+        if (type is null)
+            return type;
+
+        if (type.IsByRef)
+            return EnsureRuntimeType(type.GetElementType()!).MakeByRefType();
+
+        if (type.IsPointer)
+            return EnsureRuntimeType(type.GetElementType()!).MakePointerType();
+
+        if (type.IsArray)
+        {
+            var element = EnsureRuntimeType(type.GetElementType()!);
+            return type.GetArrayRank() == 1 ? element.MakeArrayType() : element.MakeArrayType(type.GetArrayRank());
+        }
+
+        string? assemblyQualifiedName;
+        try
+        {
+            assemblyQualifiedName = type.AssemblyQualifiedName;
+        }
+        catch (NotSupportedException)
+        {
+            assemblyQualifiedName = null;
+        }
+        if (assemblyQualifiedName is null)
+            return type;
+
+        var runtimeType = Type.GetType(assemblyQualifiedName, throwOnError: false);
+        return runtimeType ?? type;
     }
 
     private static bool TypesEquivalent(Type left, Type right)
