@@ -351,9 +351,7 @@ internal class ExpressionGenerator : Generator
         EmitExpression(value);
 
         if (symbol is ILocalSymbol localSymbol &&
-            value.Type is { IsValueType: true } &&
-            localSymbol.Type is not null &&
-            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            ShouldBoxForStorage(localSymbol.Type, value.Type))
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(value.Type));
         }
@@ -999,6 +997,22 @@ internal class ExpressionGenerator : Generator
         return !SymbolEqualityComparer.Default.Equals(armType, resultType);
     }
 
+    private bool ShouldBoxForStorage(ITypeSymbol? storageType, ITypeSymbol? valueType)
+    {
+        if (storageType is null || valueType is null)
+            return false;
+
+        if (storageType.TypeKind == TypeKind.Error || valueType.TypeKind == TypeKind.Error)
+            return false;
+
+        var valueClrType = ResolveClrType(valueType);
+        if (!valueClrType.IsValueType)
+            return false;
+
+        var storageClrType = ResolveClrType(storageType);
+        return !storageClrType.IsValueType;
+    }
+
     private void EmitPattern(BoundPattern pattern, Generator? scope = null)
     {
         scope ??= this;
@@ -1621,7 +1635,7 @@ internal class ExpressionGenerator : Generator
 
                 EmitExpression(localAssignmentExpression.Right);
 
-                if (localAssignmentExpression.Right.Type.IsValueType && localAssignmentExpression.Type.SpecialType is SpecialType.System_Object)
+                if (ShouldBoxForStorage(localAssignmentExpression.Local.Type, localAssignmentExpression.Right.Type))
                 {
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(localAssignmentExpression.Right.Type));
                 }
@@ -1847,9 +1861,7 @@ internal class ExpressionGenerator : Generator
             MethodBodyGenerator.EmitLoadClosure();
             var storedType = LoadValueWithConversion(valueLocal, normalizedSource, normalizedTarget);
 
-            if (storedType is not null && storedType.IsValueType &&
-                localSymbol.Type is not null &&
-                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            if (ShouldBoxForStorage(localSymbol.Type, storedType))
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(storedType));
             }
@@ -1864,9 +1876,7 @@ internal class ExpressionGenerator : Generator
 
         var finalType = LoadValueWithConversion(valueLocal, normalizedSource, normalizedTarget);
 
-        if (finalType is not null && finalType.IsValueType &&
-            localSymbol.Type is not null &&
-            (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+        if (ShouldBoxForStorage(localSymbol.Type, finalType))
         {
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(finalType));
         }
