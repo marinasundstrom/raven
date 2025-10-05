@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
+using Raven.CodeAnalysis.CodeGen.Metadata;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen;
@@ -23,6 +25,8 @@ internal class TypeGenerator
     public ITypeSymbol TypeSymbol { get; }
     public TypeBuilder? TypeBuilder { get; private set; }
 
+    public MetadataTypeDefinition MetadataType { get; }
+
     public IEnumerable<MethodGenerator> MethodGenerators => _methodGenerators.Values;
 
     public Type? Type { get; private set; }
@@ -31,10 +35,27 @@ internal class TypeGenerator
     {
         CodeGen = codeGen;
         TypeSymbol = typeSymbol;
+        MetadataType = codeGen.MetadataModule.GetOrAddTypeDefinition(typeSymbol);
     }
 
     public void DefineTypeBuilder()
     {
+        var metadataType = MetadataType;
+        metadataType.SetKind(GetMetadataTypeKind(TypeSymbol));
+
+        if (TypeSymbol is INamedTypeSymbol metadataNamed)
+        {
+            metadataType.SetBaseType(metadataNamed.BaseType);
+            metadataType.SetInterfaces(metadataNamed.Interfaces);
+        }
+        else
+        {
+            metadataType.SetBaseType(null);
+            metadataType.SetInterfaces(ImmutableArray<ITypeSymbol>.Empty);
+        }
+
+        metadataType.SetCustomAttributes(TypeSymbol.GetAttributes());
+
         TypeAttributes typeAttributes = TypeAttributes.Public;
 
         if (TypeSymbol is INamedTypeSymbol named)
@@ -48,12 +69,14 @@ internal class TypeGenerator
                     ResolveClrType(named.BaseType));
                 DefineTypeGenericParameters(named);
                 CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+                metadataType.SetAttributes(accessibilityAttributes | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.AutoClass | TypeAttributes.AnsiClass);
                 return;
             }
 
             if (named.TypeKind == TypeKind.Interface)
             {
                 typeAttributes = GetTypeAccessibilityAttributes(named) | TypeAttributes.Interface | TypeAttributes.Abstract;
+                metadataType.SetInterfaces(named.Interfaces);
             }
             else
             {
@@ -83,6 +106,7 @@ internal class TypeGenerator
             );
 
             CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+            metadataType.SetAttributes(accessibilityAttributes | TypeAttributes.Sealed | TypeAttributes.Serializable);
             return;
         }
 
@@ -103,12 +127,14 @@ internal class TypeGenerator
                 }
 
                 CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+                metadataType.SetAttributes(typeAttributes);
                 return;
             }
 
             TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                 TypeSymbol.MetadataName,
                 typeAttributes);
+            metadataType.SetAttributes(typeAttributes);
 
             if (TypeSymbol is INamedTypeSymbol namedType)
                 DefineTypeGenericParameters(namedType);
@@ -158,12 +184,14 @@ internal class TypeGenerator
                     synthesizedType.MetadataName,
                     synthesizedAttributes,
                     baseClrType);
+                metadataType.SetAttributes(synthesizedAttributes);
             }
             else
             {
                 TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                     synthesizedType.MetadataName,
                     synthesizedAttributes);
+                metadataType.SetAttributes(synthesizedAttributes);
 
                 if (baseClrType is not null)
                     TypeBuilder.SetParent(baseClrType);
@@ -174,9 +202,26 @@ internal class TypeGenerator
         {
             foreach (var iface in nt2.Interfaces)
                 TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
+            metadataType.SetInterfaces(nt2.Interfaces);
         }
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+    }
+
+    private static MetadataTypeKind GetMetadataTypeKind(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is not INamedTypeSymbol namedType)
+            return MetadataTypeKind.Unknown;
+
+        return namedType.TypeKind switch
+        {
+            TypeKind.Class => MetadataTypeKind.Class,
+            TypeKind.Struct => MetadataTypeKind.Struct,
+            TypeKind.Interface => MetadataTypeKind.Interface,
+            TypeKind.Delegate => MetadataTypeKind.Delegate,
+            TypeKind.Enum => MetadataTypeKind.Enum,
+            _ => MetadataTypeKind.Unknown
+        };
     }
 
     private void DefineTypeGenericParameters(INamedTypeSymbol namedType)
@@ -233,6 +278,65 @@ internal class TypeGenerator
         };
     }
 
+    internal static ParameterAttributes GetParameterAttributes(IParameterSymbol parameterSymbol)
+    {
+        ParameterAttributes attrs = ParameterAttributes.None;
+
+        if (parameterSymbol.RefKind == RefKind.Out)
+            attrs |= ParameterAttributes.Out;
+        else if (parameterSymbol.RefKind == RefKind.In)
+            attrs |= ParameterAttributes.In;
+
+        return attrs;
+    }
+
+    internal static ImmutableArray<MetadataParameterDefinition> BuildParameterMetadata(ImmutableArray<IParameterSymbol> parameters)
+    {
+        if (parameters.IsDefaultOrEmpty)
+            return ImmutableArray<MetadataParameterDefinition>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<MetadataParameterDefinition>(parameters.Length);
+
+        foreach (var parameter in parameters)
+        {
+            var metadataParameter = new MetadataParameterDefinition(parameter);
+            metadataParameter.SetAttributes(GetParameterAttributes(parameter));
+            metadataParameter.SetRequiresNullableAttribute(MetadataNullability.RequiresNullableAttribute(parameter.Type));
+            metadataParameter.SetCustomAttributes(parameter.GetAttributes());
+            builder.Add(metadataParameter);
+        }
+
+        return builder.MoveToImmutable();
+    }
+
+    private static ImmutableArray<IParameterSymbol> GetPropertyIndexParameters(IPropertySymbol propertySymbol)
+    {
+        if (propertySymbol.GetMethod is IMethodSymbol getter)
+            return getter.Parameters;
+
+        if (propertySymbol.SetMethod is IMethodSymbol setter)
+        {
+            var parameters = setter.Parameters;
+            if (parameters.IsDefaultOrEmpty)
+                return ImmutableArray<IParameterSymbol>.Empty;
+
+            var length = setter.MethodKind == MethodKind.PropertySet && parameters.Length > 0
+                ? parameters.Length - 1
+                : parameters.Length;
+
+            if (length <= 0)
+                return ImmutableArray<IParameterSymbol>.Empty;
+
+            var builder = ImmutableArray.CreateBuilder<IParameterSymbol>(length);
+            for (var i = 0; i < length; i++)
+                builder.Add(parameters[i]);
+
+            return builder.MoveToImmutable();
+        }
+
+        return ImmutableArray<IParameterSymbol>.Empty;
+    }
+
     public void DefineMemberBuilders()
     {
         if (TypeSymbol is SynthesizedDelegateTypeSymbol synthesizedDelegate)
@@ -270,7 +374,8 @@ internal class TypeGenerator
                         if (methodSymbol.MethodKind == MethodKind.LambdaMethod)
                             break;
 
-                        var methodGenerator = new MethodGenerator(this, methodSymbol, CodeGen.ILBuilderFactory);
+                        var metadataMethod = MetadataType.GetOrAddMethodDefinition(methodSymbol);
+                        var methodGenerator = new MethodGenerator(this, methodSymbol, metadataMethod, CodeGen.ILBuilderFactory);
 
                         if (methodSymbol is SourceLambdaSymbol sourceLambda && sourceLambda.HasCaptures)
                         {
@@ -300,9 +405,22 @@ internal class TypeGenerator
                             attr |= FieldAttributes.Static;
                         }
 
+                        var metadataField = MetadataType.GetOrAddFieldDefinition(fieldSymbol);
+                        metadataField.SetAttributes(attr);
+                        metadataField.SetFieldType(fieldSymbol.Type);
+                        metadataField.SetRequiresNullableAttribute(MetadataNullability.RequiresNullableAttribute(fieldSymbol.Type));
+                        metadataField.SetCustomAttributes(fieldSymbol.GetAttributes());
+
                         var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, type, attr);
                         if (fieldSymbol.IsLiteral)
+                        {
                             fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
+                            metadataField.SetConstantValue(fieldSymbol.GetConstantValue());
+                        }
+                        else
+                        {
+                            metadataField.SetConstantValue(null);
+                        }
                         var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
                         if (nullableAttr is not null)
                             fieldBuilder.SetCustomAttribute(nullableAttr);
@@ -320,49 +438,52 @@ internal class TypeGenerator
                         MethodGenerator? getGen = null;
                         MethodGenerator? setGen = null;
 
+                        var metadataProperty = MetadataType.GetOrAddPropertyDefinition(propertySymbol);
+                        metadataProperty.SetAttributes(PropertyAttributes.None);
+                        metadataProperty.SetPropertyType(propertySymbol.Type);
+                        metadataProperty.SetRequiresNullableAttribute(MetadataNullability.RequiresNullableAttribute(propertySymbol.Type));
+                        metadataProperty.SetCustomAttributes(propertySymbol.GetAttributes());
+
+                        var indexParameters = GetPropertyIndexParameters(propertySymbol);
+                        metadataProperty.SetParameters(BuildParameterMetadata(indexParameters));
+
                         if (getterSymbol is not null)
                         {
-                            getGen = new MethodGenerator(this, getterSymbol, CodeGen.ILBuilderFactory);
+                            var getterMetadata = MetadataType.GetOrAddMethodDefinition(getterSymbol);
+                            getGen = new MethodGenerator(this, getterSymbol, getterMetadata, CodeGen.ILBuilderFactory);
                             _methodGenerators[getterSymbol] = getGen;
                             getGen.DefineMethodBuilder();
                             CodeGen.AddMemberBuilder((SourceSymbol)getterSymbol, getGen.MethodBase);
+                            metadataProperty.SetGetAccessor(getGen.MetadataMethod);
                         }
 
                         if (setterSymbol is not null)
                         {
-                            setGen = new MethodGenerator(this, setterSymbol, CodeGen.ILBuilderFactory);
+                            var setterMetadata = MetadataType.GetOrAddMethodDefinition(setterSymbol);
+                            setGen = new MethodGenerator(this, setterSymbol, setterMetadata, CodeGen.ILBuilderFactory);
                             _methodGenerators[setterSymbol] = setGen;
                             setGen.DefineMethodBuilder();
                             CodeGen.AddMemberBuilder((SourceSymbol)setterSymbol, setGen.MethodBase);
+                            metadataProperty.SetSetAccessor(setGen.MetadataMethod);
                         }
 
                         var propertyType = ResolveClrType(propertySymbol.Type);
 
                         Type[]? paramTypes = null;
-                        if (getterSymbol is not null)
+                        if (!indexParameters.IsDefaultOrEmpty)
                         {
-                            var getterParams = getterSymbol.Parameters
-                                .Select(p => ResolveClrType(p.Type))
-                                .ToArray();
-
-                            if (getterParams.Length > 0)
-                                paramTypes = getterParams;
-                        }
-                        else if (setterSymbol is not null)
-                        {
-                            var setterParams = setterSymbol.Parameters;
-                            var paramCount = setterSymbol.MethodKind == MethodKind.PropertySet
-                                ? setterParams.Length - 1
-                                : setterParams.Length;
-
-                            if (paramCount > 0)
+                            var builder = new Type[indexParameters.Length];
+                            for (var i = 0; i < indexParameters.Length; i++)
                             {
-                                var builder = new Type[paramCount];
-                                for (var i = 0; i < paramCount; i++)
-                                    builder[i] = ResolveClrType(setterParams[i].Type);
+                                var parameter = indexParameters[i];
+                                var clrType = ResolveClrType(parameter.Type);
+                                if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+                                    clrType = clrType.MakeByRefType();
 
-                                paramTypes = builder;
+                                builder[i] = clrType;
                             }
+
+                            paramTypes = builder;
                         }
 
                         var propBuilder = TypeBuilder.DefineProperty(propertySymbol.MetadataName, PropertyAttributes.None, propertyType, paramTypes);
@@ -395,6 +516,15 @@ internal class TypeGenerator
             .Select(p => ResolveClrType(p.Type))
             .ToArray();
 
+        var ctorMetadata = MetadataType.GetOrAddMethodDefinition(delegateType.Constructor);
+        ctorMetadata.SetAttributes(MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.SpecialName);
+        ctorMetadata.SetImplementationAttributes(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+        ctorMetadata.SetReturnType(delegateType.Constructor.ReturnType);
+        ctorMetadata.SetRequiresNullableAttributeOnReturn(MetadataNullability.RequiresNullableAttribute(delegateType.Constructor.ReturnType));
+        ctorMetadata.SetParameters(BuildParameterMetadata(delegateType.Constructor.Parameters));
+        ctorMetadata.SetCustomAttributes(delegateType.Constructor.GetAttributes());
+        ctorMetadata.SetReturnAttributes(delegateType.Constructor.GetReturnTypeAttributes());
+
         var ctorBuilder = TypeBuilder.DefineConstructor(
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.SpecialName,
             CallingConventions.Standard,
@@ -405,6 +535,15 @@ internal class TypeGenerator
         var invokeParameters = delegateType.InvokeMethod.Parameters
             .Select(p => ResolveClrType(p.Type))
             .ToArray();
+
+        var invokeMetadata = MetadataType.GetOrAddMethodDefinition(delegateType.InvokeMethod);
+        invokeMetadata.SetAttributes(MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual);
+        invokeMetadata.SetImplementationAttributes(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+        invokeMetadata.SetReturnType(delegateType.InvokeMethod.ReturnType);
+        invokeMetadata.SetRequiresNullableAttributeOnReturn(MetadataNullability.RequiresNullableAttribute(delegateType.InvokeMethod.ReturnType));
+        invokeMetadata.SetParameters(BuildParameterMetadata(delegateType.InvokeMethod.Parameters));
+        invokeMetadata.SetCustomAttributes(delegateType.InvokeMethod.GetAttributes());
+        invokeMetadata.SetReturnAttributes(delegateType.InvokeMethod.GetReturnTypeAttributes());
 
         var invokeBuilder = TypeBuilder.DefineMethod(
             delegateType.InvokeMethod.Name,

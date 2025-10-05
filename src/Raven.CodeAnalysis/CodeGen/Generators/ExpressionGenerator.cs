@@ -374,7 +374,8 @@ internal class ExpressionGenerator : Generator
 
         if (lambdaGenerator is null)
         {
-            lambdaGenerator = new MethodGenerator(typeGenerator, lambdaSymbol, typeGenerator.CodeGen.ILBuilderFactory);
+            var metadataMethod = typeGenerator.MetadataType.GetOrAddMethodDefinition(lambdaSymbol);
+            lambdaGenerator = new MethodGenerator(typeGenerator, lambdaSymbol, metadataMethod, typeGenerator.CodeGen.ILBuilderFactory);
 
             if (hasCaptures && lambdaSymbol is SourceLambdaSymbol sourceLambda)
             {

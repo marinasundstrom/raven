@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 
+using Raven.CodeAnalysis.CodeGen.Metadata;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -17,10 +18,11 @@ internal class MethodGenerator
     private Compilation _compilation;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
 
-    public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol, IILBuilderFactory? ilBuilderFactory = null)
+    public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol, MetadataMethodDefinition metadataMethod, IILBuilderFactory? ilBuilderFactory = null)
     {
         TypeGenerator = typeGenerator;
         MethodSymbol = methodSymbol;
+        MetadataMethod = metadataMethod ?? throw new ArgumentNullException(nameof(metadataMethod));
         ILBuilderFactory = ilBuilderFactory ?? typeGenerator.CodeGen.ILBuilderFactory;
     }
 
@@ -34,6 +36,7 @@ internal class MethodGenerator
     public Compilation Compilation => _compilation ??= TypeGenerator.Compilation;
     public TypeGenerator TypeGenerator { get; }
     public IMethodSymbol MethodSymbol { get; }
+    public MetadataMethodDefinition MetadataMethod { get; }
     public MethodBase MethodBase { get; private set; }
     internal TypeGenerator.LambdaClosure? LambdaClosure => _lambdaClosure;
     public bool IsEntryPointCandidate { get; private set; }
@@ -97,6 +100,15 @@ internal class MethodGenerator
         if (MethodSymbol.IsStatic)
             attributes |= MethodAttributes.Static;
 
+        var metadataMethod = MetadataMethod;
+        metadataMethod.SetAttributes(attributes);
+        metadataMethod.SetImplementationAttributes(MethodImplAttributes.IL);
+        metadataMethod.SetReturnType(MethodSymbol.ReturnType);
+        metadataMethod.SetRequiresNullableAttributeOnReturn(MetadataNullability.RequiresNullableAttribute(MethodSymbol.ReturnType));
+        metadataMethod.SetCustomAttributes(MethodSymbol.GetAttributes());
+        metadataMethod.SetReturnAttributes(MethodSymbol.GetReturnTypeAttributes());
+        metadataMethod.SetParameters(TypeGenerator.BuildParameterMetadata(MethodSymbol.Parameters));
+
         var parameterTypes = Array.Empty<Type>();
 
         if (MethodSymbol.IsConstructor && !MethodSymbol.IsNamedConstructor)
@@ -156,11 +168,7 @@ internal class MethodGenerator
 
         foreach (var parameterSymbol in MethodSymbol.Parameters)
         {
-            ParameterAttributes attrs = ParameterAttributes.None;
-            if (parameterSymbol.RefKind == RefKind.Out)
-                attrs |= ParameterAttributes.Out;
-            else if (parameterSymbol.RefKind == RefKind.In)
-                attrs |= ParameterAttributes.In;
+            var attrs = TypeGenerator.GetParameterAttributes(parameterSymbol);
 
             ParameterBuilder parameterBuilder;
             if (MethodBase is MethodBuilder mb)
@@ -199,6 +207,7 @@ internal class MethodGenerator
         if (TypeGenerator.CodeGen.Compilation.IsEntryPointCandidate(MethodSymbol))
         {
             IsEntryPointCandidate = true;
+            metadataMethod.SetIsEntryPointCandidate(true);
         }
 
         Type[] BuildParameterTypes()

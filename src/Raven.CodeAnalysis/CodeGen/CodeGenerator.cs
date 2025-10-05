@@ -9,6 +9,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.CodeGen.Metadata;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -21,6 +22,8 @@ internal class CodeGenerator
     readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new Dictionary<ITypeParameterSymbol, Type>(SymbolEqualityComparer.Default);
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
+
+    public MetadataModuleBuilder MetadataModule { get; }
 
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
 
@@ -307,6 +310,7 @@ internal class CodeGenerator
     public CodeGenerator(Compilation compilation)
     {
         _compilation = compilation;
+        MetadataModule = new MetadataModuleBuilder();
     }
 
     public Type? GetTypeBuilder(INamedTypeSymbol namedTypeSymbol)

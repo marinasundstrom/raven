@@ -563,7 +563,8 @@ internal class MethodBodyGenerator
         if (MethodGenerator.TypeGenerator.HasMethodGenerator(methodSymbol))
             return;
 
-        var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol, MethodGenerator.ILBuilderFactory);
+        var metadataMethod = MethodGenerator.TypeGenerator.MetadataType.GetOrAddMethodDefinition(methodSymbol);
+        var methodGenerator = new MethodGenerator(MethodGenerator.TypeGenerator, methodSymbol, metadataMethod, MethodGenerator.ILBuilderFactory);
         MethodGenerator.TypeGenerator.Add(methodSymbol, methodGenerator);
         methodGenerator.DefineMethodBuilder();
     }
