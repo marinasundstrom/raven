@@ -23,6 +23,7 @@ public sealed class MetadataType : TypeInfo
     private readonly Lazy<Type?> _baseType;
     private readonly Lazy<IReadOnlyList<Type>> _interfaces;
     private readonly Lazy<IReadOnlyList<MetadataFieldInfo>> _fields;
+    private readonly Lazy<IReadOnlyList<MetadataPropertyInfo>> _properties;
     private readonly Lazy<MethodCollection> _methodCollection;
     private readonly Lazy<IReadOnlyList<Type>> _genericArguments;
     private readonly Type[]? _instantiatedTypeArguments;
@@ -47,6 +48,7 @@ public sealed class MetadataType : TypeInfo
         _interfaces = new Lazy<IReadOnlyList<Type>>(ResolveInterfaces);
         _fields = new Lazy<IReadOnlyList<MetadataFieldInfo>>(ResolveFields);
         _methodCollection = new Lazy<MethodCollection>(ResolveMethodCollection);
+        _properties = new Lazy<IReadOnlyList<MetadataPropertyInfo>>(ResolveProperties);
         _genericArguments = new Lazy<IReadOnlyList<Type>>(ResolveGenericArguments);
     }
 
@@ -187,7 +189,8 @@ public sealed class MetadataType : TypeInfo
         return list.ToArray();
     }
 
-    public override PropertyInfo[] GetProperties(BindingFlags bindingAttr) => Array.Empty<PropertyInfo>();
+    public override PropertyInfo[] GetProperties(BindingFlags bindingAttr)
+        => FilterMembers(_properties.Value, bindingAttr).Cast<PropertyInfo>().ToArray();
 
     public override object? InvokeMember(string name, BindingFlags invokeAttr, Binder? binder, object? target, object?[]? args, ParameterModifier[]? modifiers, CultureInfo? culture, string[]? namedParameters)
         => throw new NotSupportedException("Invocation is not supported in metadata-only context.");
@@ -330,7 +333,29 @@ public sealed class MetadataType : TypeInfo
     }
 
     protected override PropertyInfo? GetPropertyImpl(string name, BindingFlags bindingAttr, Binder? binder, Type? returnType, Type[]? types, ParameterModifier[]? modifiers)
-        => null;
+    {
+        var candidates = FilterMembers(_properties.Value, name, bindingAttr).ToArray();
+        foreach (var property in candidates)
+        {
+            if (returnType is not null && !Equals(property.PropertyType, returnType))
+            {
+                continue;
+            }
+
+            if (types is not null && types.Length > 0)
+            {
+                var parameters = property.GetIndexParameters();
+                if (!ParametersMatch(parameters, types))
+                {
+                    continue;
+                }
+            }
+
+            return property;
+        }
+
+        return null;
+    }
 
     protected override TypeAttributes GetAttributeFlagsImpl() => _definition.Attributes;
 
@@ -393,8 +418,9 @@ public sealed class MetadataType : TypeInfo
 
     private MethodCollection ResolveMethodCollection()
     {
-        var methods = new List<MethodInfo>();
+        var methods = new List<MetadataMethodInfo>();
         var constructors = new List<ConstructorInfo>();
+        var methodMap = new Dictionary<MethodDefinitionHandle, MetadataMethodInfo>();
         foreach (var handle in _definition.GetMethods())
         {
             var definition = _reader.GetMethodDefinition(handle);
@@ -405,11 +431,24 @@ public sealed class MetadataType : TypeInfo
             }
             else
             {
-                methods.Add(new MetadataMethodInfo(this, handle));
+                var method = new MetadataMethodInfo(this, handle);
+                methods.Add(method);
+                methodMap[handle] = method;
             }
         }
 
-        return new MethodCollection(methods, constructors);
+        return new MethodCollection(methods, constructors, methodMap);
+    }
+
+    private IReadOnlyList<MetadataPropertyInfo> ResolveProperties()
+    {
+        var list = new List<MetadataPropertyInfo>();
+        foreach (var handle in _definition.GetProperties())
+        {
+            list.Add(new MetadataPropertyInfo(this, handle));
+        }
+
+        return list;
     }
 
     private IReadOnlyList<Type> ResolveGenericArguments()
@@ -470,6 +509,14 @@ public sealed class MetadataType : TypeInfo
                 yield return field;
             }
         }
+
+        foreach (var property in _properties.Value)
+        {
+            if (BindingFlagsMatch(bindingAttr, property))
+            {
+                yield return property;
+            }
+        }
     }
 
     private static IEnumerable<TMember> FilterMembers<TMember>(IEnumerable<TMember> source, BindingFlags bindingAttr)
@@ -496,19 +543,38 @@ public sealed class MetadataType : TypeInfo
 
     internal static bool BindingFlagsMatch(BindingFlags bindingAttr, MemberInfo member)
     {
-        var isStatic = member switch
-        {
-            MethodBase method => method.IsStatic,
-            FieldInfo field => field.IsStatic,
-            _ => false,
-        };
+        bool isStatic;
+        bool hasPublicVisibility;
+        bool hasNonPublicVisibility;
 
-        var isPublic = member switch
+        switch (member)
         {
-            MethodBase method => method.IsPublic,
-            FieldInfo field => field.IsPublic,
-            _ => false,
-        };
+            case MethodBase method:
+                isStatic = method.IsStatic;
+                hasPublicVisibility = method.IsPublic;
+                hasNonPublicVisibility = !method.IsPublic;
+                break;
+            case FieldInfo field:
+                isStatic = field.IsStatic;
+                hasPublicVisibility = field.IsPublic;
+                hasNonPublicVisibility = !field.IsPublic;
+                break;
+            case PropertyInfo property:
+                var getter = property.GetMethod;
+                var setter = property.SetMethod;
+                var accessor = getter ?? setter;
+                if (accessor is null)
+                {
+                    return false;
+                }
+
+                isStatic = accessor.IsStatic;
+                hasPublicVisibility = (getter?.IsPublic ?? false) || (setter?.IsPublic ?? false);
+                hasNonPublicVisibility = (getter is not null && !getter.IsPublic) || (setter is not null && !setter.IsPublic);
+                break;
+            default:
+                return false;
+        }
 
         if (isStatic && !bindingAttr.HasFlag(BindingFlags.Static))
         {
@@ -520,17 +586,10 @@ public sealed class MetadataType : TypeInfo
             return false;
         }
 
-        if (isPublic && !bindingAttr.HasFlag(BindingFlags.Public))
-        {
-            return false;
-        }
+        var visibilityMatch = (hasPublicVisibility && bindingAttr.HasFlag(BindingFlags.Public))
+            || (hasNonPublicVisibility && bindingAttr.HasFlag(BindingFlags.NonPublic));
 
-        if (!isPublic && !bindingAttr.HasFlag(BindingFlags.NonPublic))
-        {
-            return false;
-        }
-
-        return true;
+        return visibilityMatch;
     }
 
     private static bool BindingFlagsMatch(BindingFlags bindingAttr, Type type)
@@ -568,5 +627,27 @@ public sealed class MetadataType : TypeInfo
         return true;
     }
 
-    private sealed record MethodCollection(IReadOnlyList<MethodInfo> Methods, IReadOnlyList<ConstructorInfo> Constructors);
+    internal MethodInfo? ResolveMethod(MethodDefinitionHandle handle)
+        => MethodsAndConstructors.TryGetMethod(handle);
+
+    private sealed class MethodCollection
+    {
+        private readonly IReadOnlyList<MetadataMethodInfo> _methods;
+        private readonly IReadOnlyList<ConstructorInfo> _constructors;
+        private readonly Dictionary<MethodDefinitionHandle, MetadataMethodInfo> _methodMap;
+
+        public MethodCollection(IReadOnlyList<MetadataMethodInfo> methods, IReadOnlyList<ConstructorInfo> constructors, Dictionary<MethodDefinitionHandle, MetadataMethodInfo> methodMap)
+        {
+            _methods = methods;
+            _constructors = constructors;
+            _methodMap = methodMap;
+        }
+
+        public IReadOnlyList<MetadataMethodInfo> Methods => _methods;
+
+        public IReadOnlyList<ConstructorInfo> Constructors => _constructors;
+
+        public MetadataMethodInfo? TryGetMethod(MethodDefinitionHandle handle)
+            => _methodMap.TryGetValue(handle, out var method) ? method : null;
+    }
 }

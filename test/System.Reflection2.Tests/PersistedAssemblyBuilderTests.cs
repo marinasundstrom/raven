@@ -27,6 +27,21 @@ public static class PersistedAssemblyBuilderTests
         il.Emit(OpCodes.Ldsfld, fieldBuilder);
         il.Emit(OpCodes.Ret);
 
+        var propertyBuilder = typeBuilder.DefineProperty("Value", PropertyAttributes.None, typeof(int), Type.EmptyTypes);
+        var getProperty = typeBuilder.DefineMethod("get_Value", MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.SpecialName, typeof(int), Type.EmptyTypes);
+        var getIl = getProperty.GetILGenerator();
+        getIl.Emit(OpCodes.Ldsfld, fieldBuilder);
+        getIl.Emit(OpCodes.Ret);
+
+        var setProperty = typeBuilder.DefineMethod("set_Value", MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.SpecialName, typeof(void), new[] { typeof(int) });
+        var setIl = setProperty.GetILGenerator();
+        setIl.Emit(OpCodes.Ldarg_0);
+        setIl.Emit(OpCodes.Stsfld, fieldBuilder);
+        setIl.Emit(OpCodes.Ret);
+
+        propertyBuilder.SetGetMethod(getProperty);
+        propertyBuilder.SetSetMethod(setProperty);
+
         typeBuilder.CreateType();
 
         var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
@@ -42,6 +57,20 @@ public static class PersistedAssemblyBuilderTests
 
         var methods = metadataType.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
         Assert.Contains(methods, m => m.Name == "GetValue" && m.ReturnType == typeof(int) && m.GetParameters().Length == 0);
+
+        var getterMethod = metadataType.GetMethod("get_Value", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        var setterMethod = metadataType.GetMethod("set_Value", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly, binder: null, types: new[] { typeof(int) }, modifiers: null);
+
+        var properties = metadataType.GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.Single(properties);
+        var property = properties[0];
+        Assert.Equal("Value", property.Name);
+        Assert.Equal(typeof(int), property.PropertyType);
+        Assert.True(property.CanRead);
+        Assert.True(property.CanWrite);
+        Assert.Same(getterMethod, property.GetMethod);
+        Assert.Same(setterMethod, property.SetMethod);
+        Assert.Empty(property.GetIndexParameters());
     }
 
     [Fact]
@@ -113,6 +142,55 @@ public static class PersistedAssemblyBuilderTests
         Assert.False(constructedFactory.ContainsGenericParameters);
         Assert.Single(constructedFactory.GetGenericArguments(), payloadType);
         Assert.Equal(payloadType, constructedFactory.ReturnType);
+    }
+
+    [Fact]
+    public static void MetadataTypes_SupportArrayAndByRefConstruction()
+    {
+        var assemblyName = new AssemblyName("Reflection2.Arrays");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+
+        var payloadBuilder = moduleBuilder.DefineType("Payload", TypeAttributes.Public | TypeAttributes.Class);
+        payloadBuilder.DefineDefaultConstructor(MethodAttributes.Public);
+
+        var consumerBuilder = moduleBuilder.DefineType("Consumer", TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.Abstract);
+
+        var arrayMethod = consumerBuilder.DefineMethod("ProcessArray", MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig, typeof(void), new[] { payloadBuilder.MakeArrayType() });
+        arrayMethod.GetILGenerator().Emit(OpCodes.Ret);
+
+        var refMethod = consumerBuilder.DefineMethod("ProcessRef", MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig, typeof(void), new[] { payloadBuilder.MakeByRefType() });
+        refMethod.DefineParameter(1, ParameterAttributes.None, "value");
+        refMethod.GetILGenerator().Emit(OpCodes.Ret);
+
+        payloadBuilder.CreateType();
+        consumerBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+
+        var payloadType = metadataAssembly.GetType("Payload", throwOnError: true, ignoreCase: false)!;
+        var consumerType = metadataAssembly.GetType("Consumer", throwOnError: true, ignoreCase: false)!;
+
+        var arrayType = payloadType.MakeArrayType();
+        Assert.True(arrayType.IsArray);
+        Assert.Equal(payloadType, arrayType.GetElementType());
+        Assert.Same(arrayType, payloadType.MakeArrayType());
+
+        var arrayMethodInfo = consumerType.GetMethod("ProcessArray", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.NotNull(arrayMethodInfo);
+        Assert.Equal(arrayType, arrayMethodInfo!.GetParameters()[0].ParameterType);
+
+        var multidimensional = payloadType.MakeArrayType(2);
+        Assert.Equal(2, multidimensional.GetArrayRank());
+
+        var byRefType = payloadType.MakeByRefType();
+        Assert.True(byRefType.IsByRef);
+        Assert.Same(byRefType, payloadType.MakeByRefType());
+
+        var refMethodInfo = consumerType.GetMethod("ProcessRef", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly, binder: null, types: new[] { byRefType }, modifiers: null);
+        Assert.NotNull(refMethodInfo);
+        Assert.Equal(byRefType, refMethodInfo!.GetParameters()[0].ParameterType);
     }
 
     private static MetadataLoadContext CreateLoadContext()
