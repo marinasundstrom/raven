@@ -20,10 +20,10 @@ internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Typ
     }
 
     public Type GetArrayType(Type elementType, ArrayShape shape)
-        => elementType.MakeArrayType(shape.Rank);
+        => _module.GetArrayType(elementType, shape.Rank);
 
     public Type GetByReferenceType(Type elementType)
-        => elementType.MakeByRefType();
+        => _module.GetByRefType(elementType);
 
     public Type GetFunctionPointerType(MethodSignature<Type> signature)
         => throw new NotSupportedException("Function pointer signatures are not supported in metadata-only context.");
@@ -58,7 +58,7 @@ internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Typ
         => elementType;
 
     public Type GetPointerType(Type elementType)
-        => elementType.MakePointerType();
+        => _module.GetPointerType(elementType);
 
     public Type GetPrimitiveType(PrimitiveTypeCode typeCode)
         => typeCode switch
@@ -84,13 +84,13 @@ internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Typ
         };
 
     public Type GetSZArrayType(Type elementType)
-        => elementType.MakeArrayType();
+        => _module.GetArrayType(elementType, 1);
 
     public Type GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind)
-        => _module.ResolveType(handle);
+        => _module.ResolveType(handle, null);
 
     public Type GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind)
-        => _module.ResolveType(handle);
+        => _module.ResolveType(handle, null);
 
     public Type GetTypeFromSpecification(MetadataReader reader, MetadataType? genericContext, TypeSpecificationHandle handle, byte rawTypeKind)
     {

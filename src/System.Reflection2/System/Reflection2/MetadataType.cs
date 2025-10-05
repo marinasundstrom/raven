@@ -24,13 +24,21 @@ public sealed class MetadataType : TypeInfo
     private readonly Lazy<IReadOnlyList<Type>> _interfaces;
     private readonly Lazy<IReadOnlyList<MetadataFieldInfo>> _fields;
     private readonly Lazy<MethodCollection> _methodCollection;
+    private readonly Lazy<IReadOnlyList<Type>> _genericArguments;
+    private readonly Type[]? _instantiatedTypeArguments;
 
     internal MetadataType(MetadataModule module, TypeDefinitionHandle handle)
+        : this(module, handle, null)
+    {
+    }
+
+    internal MetadataType(MetadataModule module, TypeDefinitionHandle handle, Type[]? typeArguments)
     {
         _module = module;
         _reader = module.Reader;
         _handle = handle;
         _definition = _reader.GetTypeDefinition(handle);
+        _instantiatedTypeArguments = typeArguments;
 
         _namespace = new Lazy<string?>(() => _definition.Namespace.IsNil ? null : _reader.GetString(_definition.Namespace));
         _name = new Lazy<string>(() => _reader.GetString(_definition.Name));
@@ -39,11 +47,16 @@ public sealed class MetadataType : TypeInfo
         _interfaces = new Lazy<IReadOnlyList<Type>>(ResolveInterfaces);
         _fields = new Lazy<IReadOnlyList<MetadataFieldInfo>>(ResolveFields);
         _methodCollection = new Lazy<MethodCollection>(ResolveMethodCollection);
+        _genericArguments = new Lazy<IReadOnlyList<Type>>(ResolveGenericArguments);
     }
 
     public MetadataReader Reader => _reader;
 
     internal MetadataModule MetadataModule => _module;
+
+    internal TypeDefinitionHandle Handle => _handle;
+
+    private bool IsConstructedGeneric => _instantiatedTypeArguments is not null;
 
     private MethodCollection MethodsAndConstructors => _methodCollection.Value;
 
@@ -53,9 +66,34 @@ public sealed class MetadataType : TypeInfo
 
     public override string Name => _name.Value;
 
-    public override string? FullName => _fullName.Value;
+    public override string? FullName
+    {
+        get
+        {
+            if (!IsConstructedGeneric)
+            {
+                return _fullName.Value;
+            }
 
-    public override string? AssemblyQualifiedName => FullName is null ? null : $"{FullName}, {Assembly.FullName}";
+            var definitionName = _fullName.Value;
+            if (definitionName is null)
+            {
+                return null;
+            }
+
+            var arguments = string.Join(",", GetGenericArguments().Select(a => a.AssemblyQualifiedName ?? a.FullName ?? a.Name));
+            return $"{definitionName}[{arguments}]";
+        }
+    }
+
+    public override string? AssemblyQualifiedName
+    {
+        get
+        {
+            var fullName = FullName;
+            return fullName is null ? null : $"{fullName}, {Assembly.FullName}";
+        }
+    }
 
     public override Module Module => _module;
 
@@ -68,7 +106,7 @@ public sealed class MetadataType : TypeInfo
         get
         {
             var declaring = _definition.GetDeclaringType();
-            return declaring.IsNil ? null : _module.ResolveType(declaring);
+            return declaring.IsNil ? null : _module.ResolveType(declaring, null);
         }
     }
 
@@ -76,7 +114,22 @@ public sealed class MetadataType : TypeInfo
 
     public override int MetadataToken => MetadataTokens.GetToken(_handle);
 
-    public override bool ContainsGenericParameters => _definition.GetGenericParameters().Any();
+    public override bool ContainsGenericParameters
+    {
+        get
+        {
+            if (!IsConstructedGeneric)
+            {
+                return _definition.GetGenericParameters().Any();
+            }
+
+            return _instantiatedTypeArguments!.Any(t => t.ContainsGenericParameters);
+        }
+    }
+
+    public override bool IsGenericType => _definition.GetGenericParameters().Any() || IsConstructedGeneric;
+
+    public override bool IsGenericTypeDefinition => !IsConstructedGeneric && _definition.GetGenericParameters().Any();
 
     public override IEnumerable<CustomAttributeData> CustomAttributes => GetCustomAttributesData();
 
@@ -124,7 +177,7 @@ public sealed class MetadataType : TypeInfo
         var list = new List<Type>();
         foreach (var handle in _definition.GetNestedTypes())
         {
-            var nested = _module.ResolveType(handle);
+            var nested = _module.ResolveType(handle, null);
             if (BindingFlagsMatch(bindingAttr, nested))
             {
                 list.Add(nested);
@@ -190,11 +243,49 @@ public sealed class MetadataType : TypeInfo
 
     public override Type GetElementType() => throw new NotSupportedException();
 
-    public override Type[] GetGenericArguments() => Array.Empty<Type>();
+    public override Type[] GetGenericArguments() => _genericArguments.Value.ToArray();
 
-    public override Type GetGenericTypeDefinition() => throw new NotSupportedException();
+    public override Type GetGenericTypeDefinition()
+    {
+        if (!IsGenericType)
+        {
+            throw new InvalidOperationException("Type is not generic.");
+        }
 
-    public override Type MakeGenericType(params Type[] typeArguments) => throw new NotSupportedException();
+        return _module.GetOrAddType(_handle);
+    }
+
+    public override Type MakeGenericType(params Type[] typeArguments)
+    {
+        if (typeArguments is null)
+        {
+            throw new ArgumentNullException(nameof(typeArguments));
+        }
+
+        if (!IsGenericTypeDefinition)
+        {
+            throw new InvalidOperationException($"Type '{FullName}' is not a generic type definition.");
+        }
+
+        if (_definition.GetGenericParameters().Count != typeArguments.Length)
+        {
+            throw new ArgumentException($"Type '{FullName}' expects {_definition.GetGenericParameters().Count} arguments.", nameof(typeArguments));
+        }
+
+        return _module.ConstructGenericType(this, typeArguments);
+    }
+
+    public override Type MakeArrayType()
+        => _module.GetArrayType(this, 1);
+
+    public override Type MakeArrayType(int rank)
+        => _module.GetArrayType(this, rank);
+
+    public override Type MakeByRefType()
+        => _module.GetByRefType(this);
+
+    public override Type MakePointerType()
+        => _module.GetPointerType(this);
 
     public override int GetArrayRank() => throw new NotSupportedException();
 
@@ -274,7 +365,7 @@ public sealed class MetadataType : TypeInfo
             return null;
         }
 
-        return _module.ResolveType(_definition.BaseType);
+        return _module.ResolveType(_definition.BaseType, this);
     }
 
     private IReadOnlyList<Type> ResolveInterfaces()
@@ -282,7 +373,7 @@ public sealed class MetadataType : TypeInfo
         var list = new List<Type>();
         foreach (var implementation in _definition.GetInterfaceImplementations())
         {
-            var interfaceType = _module.ResolveType(_reader.GetInterfaceImplementation(implementation).Interface);
+            var interfaceType = _module.ResolveType(_reader.GetInterfaceImplementation(implementation).Interface, this);
             list.Add(interfaceType);
         }
 
@@ -319,6 +410,28 @@ public sealed class MetadataType : TypeInfo
         }
 
         return new MethodCollection(methods, constructors);
+    }
+
+    private IReadOnlyList<Type> ResolveGenericArguments()
+    {
+        if (_instantiatedTypeArguments is not null)
+        {
+            return _instantiatedTypeArguments;
+        }
+
+        var handles = _definition.GetGenericParameters().ToArray();
+        if (handles.Length == 0)
+        {
+            return Array.Empty<Type>();
+        }
+
+        var parameters = new Type[handles.Length];
+        for (var i = 0; i < handles.Length; i++)
+        {
+            parameters[i] = new MetadataGenericParameterType(_module, this, null, handles[i]);
+        }
+
+        return parameters;
     }
 
     private IEnumerable<ConstructorInfo> FilterConstructors(BindingFlags bindingAttr)

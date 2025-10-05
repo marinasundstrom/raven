@@ -55,9 +55,7 @@ public sealed class MetadataAssembly : Assembly
     public override AssemblyName GetName(bool copiedName) => _name;
 
     internal Type Resolve(EntityHandle handle)
-    {
-        return _manifestModule.ResolveType(handle);
-    }
+        => _manifestModule.ResolveType(handle, null);
 
     internal MetadataAssembly? ResolveAssembly(AssemblyReferenceHandle handle)
     {

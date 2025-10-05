@@ -1,6 +1,8 @@
 namespace System.Reflection2;
 
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Linq;
@@ -13,6 +15,10 @@ public sealed class MetadataModule : Module
     private readonly MetadataAssembly _assembly;
     private readonly MetadataReader _reader;
     private readonly ConcurrentDictionary<TypeDefinitionHandle, MetadataType> _types = new();
+    private readonly ConcurrentDictionary<string, MetadataType> _constructedTypes = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<(Type elementType, int rank), MetadataArrayType> _arrayTypes = new();
+    private readonly ConcurrentDictionary<Type, MetadataByRefType> _byRefTypes = new();
+    private readonly ConcurrentDictionary<Type, MetadataPointerType> _pointerTypes = new();
 
     internal MetadataModule(MetadataAssembly assembly, MetadataReader reader)
     {
@@ -71,7 +77,13 @@ public sealed class MetadataModule : Module
     internal MetadataType GetOrAddType(TypeDefinitionHandle handle)
         => _types.GetOrAdd(handle, h => new MetadataType(this, h));
 
-    internal Type ResolveType(EntityHandle handle)
+    internal MetadataType ConstructGenericType(MetadataType definition, IReadOnlyList<Type> typeArguments)
+    {
+        var key = CreateGenericCacheKey(definition.Handle, typeArguments);
+        return _constructedTypes.GetOrAdd(key, _ => new MetadataType(this, definition.Handle, typeArguments.ToArray()));
+    }
+
+    internal Type ResolveType(EntityHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments = null)
     {
         if (handle.IsNil)
         {
@@ -82,7 +94,7 @@ public sealed class MetadataModule : Module
         {
             HandleKind.TypeDefinition => GetOrAddType((TypeDefinitionHandle)handle),
             HandleKind.TypeReference => ResolveTypeReference((TypeReferenceHandle)handle),
-            HandleKind.TypeSpecification => ResolveTypeSpecification((TypeSpecificationHandle)handle),
+            HandleKind.TypeSpecification => ResolveTypeSpecification((TypeSpecificationHandle)handle, genericContext, genericMethodArguments),
             _ => throw new NotSupportedException($"Unsupported handle kind '{handle.Kind}'."),
         };
     }
@@ -115,11 +127,20 @@ public sealed class MetadataModule : Module
         throw new NotSupportedException($"Resolution scope '{reference.ResolutionScope.Kind}' is not supported.");
     }
 
-    private Type ResolveTypeSpecification(TypeSpecificationHandle handle)
+    internal Type GetArrayType(Type elementType, int rank)
+        => _arrayTypes.GetOrAdd((elementType, rank), key => new MetadataArrayType(key.elementType, rank));
+
+    internal Type GetByRefType(Type elementType)
+        => _byRefTypes.GetOrAdd(elementType, type => new MetadataByRefType(type));
+
+    internal Type GetPointerType(Type elementType)
+        => _pointerTypes.GetOrAdd(elementType, type => new MetadataPointerType(type));
+
+    private Type ResolveTypeSpecification(TypeSpecificationHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments)
     {
-        var provider = new MetadataSignatureTypeProvider(this);
+        var provider = new MetadataSignatureTypeProvider(this, genericContext?.GetGenericArguments(), genericMethodArguments);
         var specification = _reader.GetTypeSpecification(handle);
-        return specification.DecodeSignature(provider, default);
+        return specification.DecodeSignature(provider, genericContext);
     }
 
     private string GetFullTypeName(TypeReference reference)
@@ -127,5 +148,11 @@ public sealed class MetadataModule : Module
         var ns = reference.Namespace.IsNil ? null : _reader.GetString(reference.Namespace);
         var name = _reader.GetString(reference.Name);
         return string.IsNullOrEmpty(ns) ? name : ns + "." + name;
+    }
+
+    private static string CreateGenericCacheKey(TypeDefinitionHandle handle, IReadOnlyList<Type> typeArguments)
+    {
+        var argumentNames = string.Join(";", typeArguments.Select(argument => argument.AssemblyQualifiedName ?? argument.FullName ?? argument.Name));
+        return $"{handle.GetHashCode()}[{argumentNames}]";
     }
 }
