@@ -586,11 +586,9 @@ internal class StatementGenerator : Generator
                 return;
             }
 
-            if (localSymbol.Type is not null &&
-                ShouldBoxForStorage(localSymbol.Type, declarator.Initializer!, out var initializerType) &&
-                initializerType is not null)
+            if (localSymbol.Type is not null)
             {
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(initializerType));
+                TryEmitBoxForStorage(localSymbol.Type, declarator.Initializer!);
             }
 
             ILGenerator.Emit(OpCodes.Stloc, localBuilder);

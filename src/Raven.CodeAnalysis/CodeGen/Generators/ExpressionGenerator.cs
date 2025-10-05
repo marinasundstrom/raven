@@ -350,11 +350,9 @@ internal class ExpressionGenerator : Generator
         MethodBodyGenerator.EmitLoadClosure();
         EmitExpression(value);
 
-        if (symbol is ILocalSymbol localSymbol &&
-            ShouldBoxForStorage(localSymbol.Type, value, out var boxedType) &&
-            boxedType is not null)
+        if (symbol is ILocalSymbol localSymbol)
         {
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(boxedType));
+            TryEmitBoxForStorage(localSymbol.Type, value);
         }
 
         ILGenerator.Emit(OpCodes.Stfld, fieldBuilder);
@@ -928,14 +926,30 @@ internal class ExpressionGenerator : Generator
 
         EmitExpression(matchExpression.Expression);
 
-        var scrutineeClrType = ResolveClrType(scrutineeType);
-        if (scrutineeType.IsValueType)
+        var runtimeScrutineeType = GetRuntimeValueType(matchExpression.Expression) ?? scrutineeType;
+        Type? scrutineeBoxType = null;
+
+        if (runtimeScrutineeType is not null && runtimeScrutineeType.TypeKind != TypeKind.Error)
         {
-            ILGenerator.Emit(OpCodes.Box, scrutineeClrType);
-            scrutineeType = Compilation.GetSpecialType(SpecialType.System_Object);
-            scrutineeClrType = ResolveClrType(scrutineeType);
+            var runtimeClrType = ResolveClrType(runtimeScrutineeType);
+            if (runtimeClrType.IsValueType)
+                scrutineeBoxType = runtimeClrType;
         }
 
+        if (scrutineeBoxType is null &&
+            scrutineeType.TypeKind != TypeKind.Error &&
+            scrutineeType.IsValueType)
+        {
+            scrutineeBoxType = ResolveClrType(scrutineeType);
+        }
+
+        if (scrutineeBoxType is not null)
+        {
+            ILGenerator.Emit(OpCodes.Box, scrutineeBoxType);
+            scrutineeType = Compilation.GetSpecialType(SpecialType.System_Object);
+        }
+
+        var scrutineeClrType = ResolveClrType(scrutineeType);
         var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClrType);
         ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
 
@@ -1620,11 +1634,7 @@ internal class ExpressionGenerator : Generator
 
                 EmitExpression(localAssignmentExpression.Right);
 
-                if (ShouldBoxForStorage(localAssignmentExpression.Local.Type, localAssignmentExpression.Right, out var assignmentType) &&
-                    assignmentType is not null)
-                {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(assignmentType));
-                }
+                TryEmitBoxForStorage(localAssignmentExpression.Local.Type, localAssignmentExpression.Right);
 
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);
                 break;

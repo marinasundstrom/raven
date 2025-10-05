@@ -150,6 +150,29 @@ internal abstract class Generator
     protected bool ShouldBoxForStorage(ITypeSymbol? storageType, BoundExpression valueExpression)
         => ShouldBoxForStorage(storageType, valueExpression, out _);
 
+    protected bool TryEmitBoxForStorage(ITypeSymbol? storageType, BoundExpression valueExpression)
+    {
+        if (storageType is null)
+            return false;
+
+        if (ShouldBoxForStorage(storageType, valueExpression, out var runtimeValueType) &&
+            runtimeValueType is not null)
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(runtimeValueType));
+            return true;
+        }
+
+        var fallbackType = valueExpression.Type;
+        if (ShouldBoxForStorage(storageType, fallbackType) &&
+            fallbackType is not null)
+        {
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(fallbackType));
+            return true;
+        }
+
+        return false;
+    }
+
     protected bool ShouldBoxForStorage(ITypeSymbol? storageType, ITypeSymbol? valueType)
     {
         if (storageType is null || valueType is null)
