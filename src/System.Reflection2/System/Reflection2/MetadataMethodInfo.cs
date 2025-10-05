@@ -23,6 +23,7 @@ public sealed class MetadataMethodInfo : MethodInfo
     private readonly Lazy<IReadOnlyList<Type>> _genericArguments;
     private readonly Type[]? _instantiatedMethodArguments;
     private readonly MetadataMethodInfo? _genericMethodDefinition;
+    private readonly Lazy<IList<CustomAttributeData>> _customAttributes;
 
     internal MetadataMethodInfo(MetadataType declaringTypeDefinition, MethodDefinitionHandle handle)
         : this(declaringTypeDefinition, declaringTypeDefinition, handle, null, null)
@@ -41,6 +42,7 @@ public sealed class MetadataMethodInfo : MethodInfo
         _signature = new Lazy<MethodSignature<Type>>(DecodeSignature);
         _parameters = new Lazy<IReadOnlyList<MetadataParameterInfo>>(DecodeParameters);
         _genericArguments = new Lazy<IReadOnlyList<Type>>(ResolveGenericArguments);
+        _customAttributes = new Lazy<IList<CustomAttributeData>>(() => MetadataCustomAttributeDecoder.Decode(_declaringTypeDefinition.MetadataModule, _definition.GetCustomAttributes(), _declaringTypeDefinition, GetGenericArguments()));
     }
 
     public MethodDefinitionHandle Handle => _handle;
@@ -78,13 +80,19 @@ public sealed class MetadataMethodInfo : MethodInfo
 
     public override Type? ReflectedType => DeclaringType;
 
+    public override IList<CustomAttributeData> GetCustomAttributesData()
+        => _customAttributes.Value;
+
+    public override object[] GetCustomAttributes(bool inherit)
+        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+
+    public override object[] GetCustomAttributes(Type attributeType, bool inherit)
+        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+
+    public override bool IsDefined(Type attributeType, bool inherit)
+        => _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+
     public override MethodInfo GetBaseDefinition() => this;
-
-    public override object[] GetCustomAttributes(bool inherit) => Array.Empty<object>();
-
-    public override object[] GetCustomAttributes(Type attributeType, bool inherit) => Array.Empty<object>();
-
-    public override bool IsDefined(Type attributeType, bool inherit) => false;
 
     public override MethodInfo MakeGenericMethod(params Type[] typeArguments)
     {
@@ -131,13 +139,21 @@ public sealed class MetadataMethodInfo : MethodInfo
     public override ParameterInfo[] GetParameters() => _parameters.Value.Cast<ParameterInfo>().ToArray();
 
     public override object? Invoke(object? obj, BindingFlags invokeAttr, Binder? binder, object?[]? parameters, CultureInfo? culture)
-        => throw new NotSupportedException("Invocation is not supported in metadata-only context.");
+    {
+        var bridge = _declaringTypeDefinition.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Invocation is not supported in metadata-only context. Configure MetadataLoadContext.RuntimeBridge to enable invocation.");
+        }
+
+        return bridge.Invoke(this, obj, invokeAttr, binder, parameters, culture);
+    }
 
     internal bool IsConstructorDefinition => Name is ".ctor" or ".cctor";
 
     private MethodSignature<Type> DecodeSignature()
     {
-        var provider = new MetadataSignatureTypeProvider(_declaringTypeDefinition.MetadataModule, _declaringTypeInstance.GetGenericArguments(), GetGenericArguments());
+        var provider = new MetadataSignatureTypeProvider(_declaringTypeDefinition.MetadataModule, _declaringTypeInstance.GetGenericArguments(), GetGenericArguments(), _declaringTypeDefinition);
         return _definition.DecodeSignature(provider, _declaringTypeDefinition);
     }
 
@@ -146,19 +162,30 @@ public sealed class MetadataMethodInfo : MethodInfo
         var signature = _signature.Value;
         var parameters = new List<MetadataParameterInfo>();
         var parameterHandles = _definition.GetParameters().ToArray();
+        var parameterMap = new Dictionary<int, (ParameterHandle Handle, Parameter Parameter)>();
+        foreach (var handle in parameterHandles)
+        {
+            var parameter = _reader.GetParameter(handle);
+            if (parameter.SequenceNumber > 0)
+            {
+                parameterMap[parameter.SequenceNumber] = (handle, parameter);
+            }
+        }
+
         for (var i = 0; i < signature.ParameterTypes.Length; i++)
         {
             var parameterType = signature.ParameterTypes[i];
             string? name = null;
             ParameterAttributes attributes = ParameterAttributes.None;
-            if (i < parameterHandles.Length)
+            ParameterHandle parameterHandle = default;
+            if (parameterMap.TryGetValue(i + 1, out var entry))
             {
-                var parameter = _reader.GetParameter(parameterHandles[i]);
-                name = parameter.Name.IsNil ? null : _reader.GetString(parameter.Name);
-                attributes = parameter.Attributes;
+                name = entry.Parameter.Name.IsNil ? null : _reader.GetString(entry.Parameter.Name);
+                attributes = entry.Parameter.Attributes;
+                parameterHandle = entry.Handle;
             }
 
-            parameters.Add(new MetadataParameterInfo(parameterType, name, i, attributes));
+            parameters.Add(new MetadataParameterInfo(parameterType, name, i, attributes, _declaringTypeDefinition.MetadataModule, parameterHandle, _declaringTypeDefinition, GetGenericArguments()));
         }
 
         return parameters;

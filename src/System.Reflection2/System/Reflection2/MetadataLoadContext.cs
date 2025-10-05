@@ -13,11 +13,30 @@ public sealed class MetadataLoadContext : IDisposable
     private readonly ConcurrentDictionary<string, MetadataAssembly> _assemblies = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<IDisposable> _disposables = new();
     private readonly IMetadataAssemblyResolver _resolver;
+    private IMetadataRuntimeBridge? _runtimeBridge;
     private bool _disposed;
 
-    public MetadataLoadContext(IMetadataAssemblyResolver resolver)
+    public MetadataLoadContext(IMetadataAssemblyResolver resolver, IMetadataRuntimeBridge? runtimeBridge = null)
     {
         _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+        _runtimeBridge = runtimeBridge;
+    }
+
+    /// <summary>
+    /// Optional bridge that enables invocation against metadata-backed members.
+    /// </summary>
+    public IMetadataRuntimeBridge? RuntimeBridge
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _runtimeBridge;
+        }
+        set
+        {
+            ThrowIfDisposed();
+            _runtimeBridge = value;
+        }
     }
 
     /// <summary>

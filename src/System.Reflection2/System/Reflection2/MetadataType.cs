@@ -24,8 +24,10 @@ public sealed class MetadataType : TypeInfo
     private readonly Lazy<IReadOnlyList<Type>> _interfaces;
     private readonly Lazy<IReadOnlyList<MetadataFieldInfo>> _fields;
     private readonly Lazy<IReadOnlyList<MetadataPropertyInfo>> _properties;
+    private readonly Lazy<IReadOnlyList<MetadataEventInfo>> _events;
     private readonly Lazy<MethodCollection> _methodCollection;
     private readonly Lazy<IReadOnlyList<Type>> _genericArguments;
+    private readonly Lazy<IList<CustomAttributeData>> _customAttributes;
     private readonly Type[]? _instantiatedTypeArguments;
 
     internal MetadataType(MetadataModule module, TypeDefinitionHandle handle)
@@ -49,7 +51,9 @@ public sealed class MetadataType : TypeInfo
         _fields = new Lazy<IReadOnlyList<MetadataFieldInfo>>(ResolveFields);
         _methodCollection = new Lazy<MethodCollection>(ResolveMethodCollection);
         _properties = new Lazy<IReadOnlyList<MetadataPropertyInfo>>(ResolveProperties);
+        _events = new Lazy<IReadOnlyList<MetadataEventInfo>>(ResolveEvents);
         _genericArguments = new Lazy<IReadOnlyList<Type>>(ResolveGenericArguments);
+        _customAttributes = new Lazy<IList<CustomAttributeData>>(() => MetadataCustomAttributeDecoder.Decode(_module, _definition.GetCustomAttributes(), this, null));
     }
 
     public MetadataReader Reader => _reader;
@@ -133,23 +137,28 @@ public sealed class MetadataType : TypeInfo
 
     public override bool IsGenericTypeDefinition => !IsConstructedGeneric && _definition.GetGenericParameters().Any();
 
-    public override IEnumerable<CustomAttributeData> CustomAttributes => GetCustomAttributesData();
+    public override IEnumerable<CustomAttributeData> CustomAttributes => _customAttributes.Value;
 
     public override IList<CustomAttributeData> GetCustomAttributesData()
-        => Array.Empty<CustomAttributeData>();
+        => _customAttributes.Value;
 
-    public override object[] GetCustomAttributes(bool inherit) => Array.Empty<object>();
+    public override object[] GetCustomAttributes(bool inherit)
+        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
 
-    public override object[] GetCustomAttributes(Type attributeType, bool inherit) => Array.Empty<object>();
+    public override object[] GetCustomAttributes(Type attributeType, bool inherit)
+        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
 
-    public override bool IsDefined(Type attributeType, bool inherit) => false;
+    public override bool IsDefined(Type attributeType, bool inherit)
+        => _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
 
     public override ConstructorInfo[] GetConstructors(BindingFlags bindingAttr)
         => FilterConstructors(bindingAttr).ToArray();
 
-    public override EventInfo? GetEvent(string name, BindingFlags bindingAttr) => null;
+    public override EventInfo? GetEvent(string name, BindingFlags bindingAttr)
+        => FilterMembers(_events.Value, name, bindingAttr).FirstOrDefault();
 
-    public override EventInfo[] GetEvents(BindingFlags bindingAttr) => Array.Empty<EventInfo>();
+    public override EventInfo[] GetEvents(BindingFlags bindingAttr)
+        => FilterMembers(_events.Value, bindingAttr).Cast<EventInfo>().ToArray();
 
     public override FieldInfo? GetField(string name, BindingFlags bindingAttr)
         => FilterMembers(_fields.Value, name, bindingAttr).FirstOrDefault();
@@ -193,7 +202,15 @@ public sealed class MetadataType : TypeInfo
         => FilterMembers(_properties.Value, bindingAttr).Cast<PropertyInfo>().ToArray();
 
     public override object? InvokeMember(string name, BindingFlags invokeAttr, Binder? binder, object? target, object?[]? args, ParameterModifier[]? modifiers, CultureInfo? culture, string[]? namedParameters)
-        => throw new NotSupportedException("Invocation is not supported in metadata-only context.");
+    {
+        var bridge = _module.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Invocation is not supported in metadata-only context. Configure MetadataLoadContext.RuntimeBridge to enable invocation.");
+        }
+
+        return bridge.InvokeMember(this, name, invokeAttr, binder, target, args, modifiers, culture, namedParameters);
+    }
 
     public override bool IsAssignableFrom(Type? c)
     {
@@ -242,9 +259,59 @@ public sealed class MetadataType : TypeInfo
     }
 
     public override InterfaceMapping GetInterfaceMap(Type interfaceType)
-        => throw new NotSupportedException("Interface mapping is not supported in metadata-only context.");
+    {
+        if (interfaceType is null)
+        {
+            throw new ArgumentNullException(nameof(interfaceType));
+        }
 
-    public override Type GetElementType() => throw new NotSupportedException();
+        if (!interfaceType.IsInterface)
+        {
+            throw new ArgumentException($"Type '{interfaceType}' is not an interface.", nameof(interfaceType));
+        }
+
+        if (!_interfaces.Value.Contains(interfaceType))
+        {
+            var baseType = BaseType;
+            if (baseType is not null)
+            {
+                return baseType.GetInterfaceMap(interfaceType);
+            }
+
+            throw new ArgumentException($"Type '{FullName}' does not implement interface '{interfaceType}'.", nameof(interfaceType));
+        }
+
+        var interfaceMethods = interfaceType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        var targetMethods = new MethodInfo[interfaceMethods.Length];
+
+        var implementations = BuildInterfaceImplementationMap(interfaceType);
+
+        for (var i = 0; i < interfaceMethods.Length; i++)
+        {
+            var interfaceMethod = interfaceMethods[i];
+            if (!implementations.TryGetValue(interfaceMethod, out var target))
+            {
+                target = FindImplicitInterfaceImplementation(interfaceType, interfaceMethod);
+            }
+
+            if (target is null)
+            {
+                throw new TypeLoadException($"Type '{FullName}' does not implement interface method '{interfaceMethod.Name}' from '{interfaceType}'.");
+            }
+
+            targetMethods[i] = target;
+        }
+
+        return new InterfaceMapping
+        {
+            InterfaceType = interfaceType,
+            TargetType = this,
+            InterfaceMethods = interfaceMethods,
+            TargetMethods = targetMethods,
+        };
+    }
+
+    public override Type? GetElementType() => null;
 
     public override Type[] GetGenericArguments() => _genericArguments.Value.ToArray();
 
@@ -290,7 +357,8 @@ public sealed class MetadataType : TypeInfo
     public override Type MakePointerType()
         => _module.GetPointerType(this);
 
-    public override int GetArrayRank() => throw new NotSupportedException();
+    public override int GetArrayRank()
+        => throw new ArgumentException("Type is not an array.");
 
     protected override ConstructorInfo? GetConstructorImpl(BindingFlags bindingAttr, Binder? binder, CallingConventions callConvention, Type[]? types, ParameterModifier[]? modifiers)
     {
@@ -374,11 +442,28 @@ public sealed class MetadataType : TypeInfo
     protected override bool IsValueTypeImpl()
     {
         var baseType = BaseType;
-        return baseType is not null && baseType.FullName == "System.ValueType";
+        if (baseType is null)
+        {
+            return false;
+        }
+
+        return baseType.FullName is "System.ValueType" or "System.Enum";
     }
 
     private string? CreateFullName()
     {
+        var declaringType = DeclaringType;
+        if (declaringType is not null)
+        {
+            var declaringName = declaringType.FullName;
+            if (declaringName is null)
+            {
+                return null;
+            }
+
+            return declaringName + "+" + Name;
+        }
+
         var ns = Namespace;
         return string.IsNullOrEmpty(ns) ? Name : ns + "." + Name;
     }
@@ -451,6 +536,17 @@ public sealed class MetadataType : TypeInfo
         return list;
     }
 
+    private IReadOnlyList<MetadataEventInfo> ResolveEvents()
+    {
+        var list = new List<MetadataEventInfo>();
+        foreach (var handle in _definition.GetEvents())
+        {
+            list.Add(new MetadataEventInfo(this, handle));
+        }
+
+        return list;
+    }
+
     private IReadOnlyList<Type> ResolveGenericArguments()
     {
         if (_instantiatedTypeArguments is not null)
@@ -517,6 +613,14 @@ public sealed class MetadataType : TypeInfo
                 yield return property;
             }
         }
+
+        foreach (var @event in _events.Value)
+        {
+            if (BindingFlagsMatch(bindingAttr, @event))
+            {
+                yield return @event;
+            }
+        }
     }
 
     private static IEnumerable<TMember> FilterMembers<TMember>(IEnumerable<TMember> source, BindingFlags bindingAttr)
@@ -571,6 +675,22 @@ public sealed class MetadataType : TypeInfo
                 isStatic = accessor.IsStatic;
                 hasPublicVisibility = (getter?.IsPublic ?? false) || (setter?.IsPublic ?? false);
                 hasNonPublicVisibility = (getter is not null && !getter.IsPublic) || (setter is not null && !setter.IsPublic);
+                break;
+            case EventInfo @event:
+                var addMethod = @event.AddMethod;
+                var removeMethod = @event.RemoveMethod;
+                var raiseMethod = @event.RaiseMethod;
+                var eventAccessor = addMethod ?? removeMethod ?? raiseMethod;
+                if (eventAccessor is null)
+                {
+                    return false;
+                }
+
+                isStatic = eventAccessor.IsStatic;
+                hasPublicVisibility = (addMethod?.IsPublic ?? false) || (removeMethod?.IsPublic ?? false) || (raiseMethod?.IsPublic ?? false);
+                hasNonPublicVisibility = (addMethod is not null && !addMethod.IsPublic)
+                    || (removeMethod is not null && !removeMethod.IsPublic)
+                    || (raiseMethod is not null && !raiseMethod.IsPublic);
                 break;
             default:
                 return false;
@@ -629,6 +749,117 @@ public sealed class MetadataType : TypeInfo
 
     internal MethodInfo? ResolveMethod(MethodDefinitionHandle handle)
         => MethodsAndConstructors.TryGetMethod(handle);
+
+    private Dictionary<MethodInfo, MethodInfo> BuildInterfaceImplementationMap(Type interfaceType)
+    {
+        var map = new Dictionary<MethodInfo, MethodInfo>();
+        foreach (var implementationHandle in _definition.GetMethodImplementations())
+        {
+            var implementation = _reader.GetMethodImplementation(implementationHandle);
+            if (_module.ResolveMethod(implementation.MethodDeclaration, this) is not MethodInfo declaration)
+            {
+                continue;
+            }
+
+            if (!Equals(declaration.DeclaringType, interfaceType))
+            {
+                continue;
+            }
+
+            if (_module.ResolveMethod(implementation.MethodBody, this) is MethodInfo body)
+            {
+                map[declaration] = body;
+            }
+        }
+
+        return map;
+    }
+
+    private MethodInfo? FindImplicitInterfaceImplementation(Type interfaceType, MethodInfo interfaceMethod)
+    {
+        const BindingFlags candidateFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        foreach (var candidate in GetMethods(candidateFlags))
+        {
+            if (candidate.IsStatic)
+            {
+                continue;
+            }
+
+            if (!candidate.IsPublic)
+            {
+                continue;
+            }
+
+            if (!SignatureMatches(interfaceMethod, candidate))
+            {
+                continue;
+            }
+
+            return candidate;
+        }
+
+        var baseType = BaseType;
+        while (baseType is not null)
+        {
+            var baseMap = baseType.GetInterfaceMap(interfaceType);
+            for (var i = 0; i < baseMap.InterfaceMethods.Length; i++)
+            {
+                if (Equals(baseMap.InterfaceMethods[i], interfaceMethod))
+                {
+                    return baseMap.TargetMethods[i];
+                }
+            }
+
+            baseType = baseType.BaseType;
+        }
+
+        return null;
+    }
+
+    private static bool SignatureMatches(MethodInfo interfaceMethod, MethodInfo candidate)
+    {
+        if (!string.Equals(interfaceMethod.Name, candidate.Name, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!Equals(interfaceMethod.ReturnType, candidate.ReturnType))
+        {
+            return false;
+        }
+
+        if (interfaceMethod.IsGenericMethod != candidate.IsGenericMethod)
+        {
+            return false;
+        }
+
+        if (interfaceMethod.IsGenericMethod)
+        {
+            var interfaceArgs = interfaceMethod.GetGenericArguments();
+            var candidateArgs = candidate.GetGenericArguments();
+            if (interfaceArgs.Length != candidateArgs.Length)
+            {
+                return false;
+            }
+        }
+
+        var interfaceParameters = interfaceMethod.GetParameters();
+        var candidateParameters = candidate.GetParameters();
+        if (interfaceParameters.Length != candidateParameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < interfaceParameters.Length; i++)
+        {
+            if (!Equals(interfaceParameters[i].ParameterType, candidateParameters[i].ParameterType))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private sealed class MethodCollection
     {
