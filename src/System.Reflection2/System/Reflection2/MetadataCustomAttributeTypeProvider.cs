@@ -4,28 +4,26 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 
-internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Type, MetadataType?>
+/// <summary>
+/// Provides type resolution for custom attribute decoding.
+/// </summary>
+internal sealed class MetadataCustomAttributeTypeProvider : ICustomAttributeTypeProvider<Type>
 {
     private readonly MetadataModule _module;
     private readonly IReadOnlyList<Type>? _genericTypeParameters;
     private readonly IReadOnlyList<Type>? _genericMethodParameters;
-    private readonly MetadataType? _declaringTypeContext;
     private Dictionary<int, MetadataSignatureGenericParameterType>? _typeParameterFallbacks;
     private Dictionary<int, MetadataSignatureGenericParameterType>? _methodParameterFallbacks;
 
-    public MetadataSignatureTypeProvider(
-        MetadataModule module,
-        IReadOnlyList<Type>? genericTypeParameters = null,
-        IReadOnlyList<Type>? genericMethodParameters = null,
-        MetadataType? declaringTypeContext = null)
+    public MetadataCustomAttributeTypeProvider(MetadataModule module, IReadOnlyList<Type>? genericTypeParameters, IReadOnlyList<Type>? genericMethodParameters)
     {
-        _module = module;
+        _module = module ?? throw new ArgumentNullException(nameof(module));
         _genericTypeParameters = genericTypeParameters;
         _genericMethodParameters = genericMethodParameters;
-        _declaringTypeContext = declaringTypeContext;
     }
 
     public Type GetArrayType(Type elementType, ArrayShape shape)
@@ -40,24 +38,24 @@ internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Typ
     public Type GetGenericInstantiation(Type genericType, ImmutableArray<Type> typeArguments)
         => genericType.MakeGenericType(typeArguments.ToArray());
 
-    public Type GetGenericMethodParameter(MetadataType? genericContext, int index)
+    public Type GetGenericMethodParameter(int index)
     {
         if (_genericMethodParameters is not null && index < _genericMethodParameters.Count)
         {
             return _genericMethodParameters[index];
         }
 
-        return GetOrCreateFallbackParameter(ref _methodParameterFallbacks, index, isMethodParameter: true);
+        return GetOrCreateFallback(ref _methodParameterFallbacks, index, isMethodParameter: true);
     }
 
-    public Type GetGenericTypeParameter(MetadataType? genericContext, int index)
+    public Type GetGenericTypeParameter(int index)
     {
         if (_genericTypeParameters is not null && index < _genericTypeParameters.Count)
         {
             return _genericTypeParameters[index];
         }
 
-        return GetOrCreateFallbackParameter(ref _typeParameterFallbacks, index, isMethodParameter: false);
+        return GetOrCreateFallback(ref _typeParameterFallbacks, index, isMethodParameter: false);
     }
 
     public Type GetModifiedType(Type modifier, Type unmodifiedType, bool isRequired)
@@ -92,6 +90,12 @@ internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Typ
             _ => throw new NotSupportedException($"Primitive type '{typeCode}' is not supported."),
         };
 
+    public Type GetSystemType()
+        => typeof(Type);
+
+    public bool IsSystemType(Type type)
+        => type == typeof(Type);
+
     public Type GetSZArrayType(Type elementType)
         => _module.GetArrayType(elementType, 1);
 
@@ -113,22 +117,87 @@ internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Typ
         }
     }
 
+    public Type GetTypeFromSerializedName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentNullException(nameof(name));
+        }
+
+        var assemblyNameSeparator = name.IndexOf(',');
+        MetadataAssembly assembly;
+        string typeName;
+
+        var metadataAssembly = _module.Assembly as MetadataAssembly
+            ?? throw new InvalidOperationException("Module is not backed by metadata assembly.");
+
+        if (assemblyNameSeparator < 0)
+        {
+            assembly = metadataAssembly;
+            typeName = name.Trim();
+        }
+        else
+        {
+            typeName = name.Substring(0, assemblyNameSeparator).Trim();
+            var assemblyDescriptor = name.Substring(assemblyNameSeparator + 1).Trim();
+            var simpleName = new AssemblyName(assemblyDescriptor).Name ?? assemblyDescriptor;
+            assembly = metadataAssembly.LoadContext.Resolve(simpleName)
+                ?? throw new TypeLoadException($"Unable to resolve assembly '{assemblyDescriptor}' for serialized type '{name}'.");
+        }
+
+        return assembly.GetType(typeName, throwOnError: true, ignoreCase: false)!;
+    }
+
     public Type GetTypeFromSpecification(MetadataReader reader, MetadataType? genericContext, TypeSpecificationHandle handle, byte rawTypeKind)
     {
         var specification = reader.GetTypeSpecification(handle);
-        var provider = new MetadataSignatureTypeProvider(_module, _genericTypeParameters, _genericMethodParameters, _declaringTypeContext);
+        var provider = new MetadataSignatureTypeProvider(_module, _genericTypeParameters, _genericMethodParameters, genericContext);
         return specification.DecodeSignature(provider, genericContext);
     }
 
-    private MetadataSignatureGenericParameterType GetOrCreateFallbackParameter(ref Dictionary<int, MetadataSignatureGenericParameterType>? cache, int index, bool isMethodParameter)
+    public PrimitiveTypeCode GetUnderlyingEnumType(Type type)
     {
-        cache ??= new Dictionary<int, MetadataSignatureGenericParameterType>();
-        if (!cache.TryGetValue(index, out var placeholder))
+        if (type is MetadataType metadataType)
         {
-            placeholder = new MetadataSignatureGenericParameterType(_module, _declaringTypeContext, isMethodParameter, index);
-            cache[index] = placeholder;
+            var valueField = metadataType.GetField("value__", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                ?? throw new NotSupportedException($"Enum type '{metadataType.FullName}' does not define a backing field.");
+
+            return GetPrimitiveTypeCode(valueField.FieldType);
         }
 
-        return placeholder;
+        if (!type.IsEnum)
+        {
+            throw new ArgumentException("Type is not an enum.", nameof(type));
+        }
+
+        return GetPrimitiveTypeCode(Enum.GetUnderlyingType(type));
     }
+
+    private MetadataSignatureGenericParameterType GetOrCreateFallback(ref Dictionary<int, MetadataSignatureGenericParameterType>? cache, int index, bool isMethodParameter)
+    {
+        cache ??= new Dictionary<int, MetadataSignatureGenericParameterType>();
+        if (!cache.TryGetValue(index, out var parameter))
+        {
+            parameter = new MetadataSignatureGenericParameterType(_module, null, isMethodParameter, index);
+            cache[index] = parameter;
+        }
+
+        return parameter;
+    }
+
+    private static PrimitiveTypeCode GetPrimitiveTypeCode(Type type)
+        => Type.GetTypeCode(type) switch
+        {
+            TypeCode.Boolean => PrimitiveTypeCode.Boolean,
+            TypeCode.SByte => PrimitiveTypeCode.SByte,
+            TypeCode.Byte => PrimitiveTypeCode.Byte,
+            TypeCode.Int16 => PrimitiveTypeCode.Int16,
+            TypeCode.UInt16 => PrimitiveTypeCode.UInt16,
+            TypeCode.Int32 => PrimitiveTypeCode.Int32,
+            TypeCode.UInt32 => PrimitiveTypeCode.UInt32,
+            TypeCode.Int64 => PrimitiveTypeCode.Int64,
+            TypeCode.UInt64 => PrimitiveTypeCode.UInt64,
+            TypeCode.Char => PrimitiveTypeCode.Char,
+            _ => throw new NotSupportedException($"Enum underlying type '{type}' is not supported."),
+        };
 }

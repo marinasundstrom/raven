@@ -1,10 +1,12 @@
 namespace System.Reflection2;
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
+using System.Linq;
 
 /// <summary>
 /// Reflection-only <see cref="PropertyInfo"/> implementation backed by metadata.
@@ -18,6 +20,7 @@ public sealed class MetadataPropertyInfo : PropertyInfo
     private readonly Lazy<ParameterInfo[]> _indexParameters;
     private readonly Lazy<MethodInfo?> _getter;
     private readonly Lazy<MethodInfo?> _setter;
+    private readonly Lazy<IList<CustomAttributeData>> _customAttributes;
 
     internal MetadataPropertyInfo(MetadataType declaringType, PropertyDefinitionHandle handle)
     {
@@ -28,6 +31,7 @@ public sealed class MetadataPropertyInfo : PropertyInfo
         _indexParameters = new Lazy<ParameterInfo[]>(ResolveIndexParameters);
         _getter = new Lazy<MethodInfo?>(() => ResolveAccessor(_definition.GetAccessors().Getter));
         _setter = new Lazy<MethodInfo?>(() => ResolveAccessor(_definition.GetAccessors().Setter));
+        _customAttributes = new Lazy<IList<CustomAttributeData>>(() => MetadataCustomAttributeDecoder.Decode(_declaringType.MetadataModule, _definition.GetCustomAttributes(), _declaringType, null));
     }
 
     public override PropertyAttributes Attributes => _definition.Attributes;
@@ -50,11 +54,17 @@ public sealed class MetadataPropertyInfo : PropertyInfo
 
     public override int MetadataToken => MetadataTokens.GetToken(_handle);
 
-    public override object[] GetCustomAttributes(bool inherit) => Array.Empty<object>();
+    public override IList<CustomAttributeData> GetCustomAttributesData()
+        => _customAttributes.Value;
 
-    public override object[] GetCustomAttributes(Type attributeType, bool inherit) => Array.Empty<object>();
+    public override object[] GetCustomAttributes(bool inherit)
+        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
 
-    public override bool IsDefined(Type attributeType, bool inherit) => false;
+    public override object[] GetCustomAttributes(Type attributeType, bool inherit)
+        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+
+    public override bool IsDefined(Type attributeType, bool inherit)
+        => _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
 
     public override MethodInfo[] GetAccessors(bool nonPublic)
     {
@@ -76,10 +86,26 @@ public sealed class MetadataPropertyInfo : PropertyInfo
         => (ParameterInfo[])_indexParameters.Value.Clone();
 
     public override object? GetValue(object? obj, BindingFlags invokeAttr, Binder? binder, object?[]? index, CultureInfo? culture)
-        => throw new NotSupportedException("Invocation is not supported in metadata-only context.");
+    {
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Invocation is not supported in metadata-only context. Configure MetadataLoadContext.RuntimeBridge to enable invocation.");
+        }
+
+        return bridge.GetValue(this, obj, invokeAttr, binder, index, culture);
+    }
 
     public override void SetValue(object? obj, object? value, BindingFlags invokeAttr, Binder? binder, object?[]? index, CultureInfo? culture)
-        => throw new NotSupportedException("Invocation is not supported in metadata-only context.");
+    {
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Invocation is not supported in metadata-only context. Configure MetadataLoadContext.RuntimeBridge to enable invocation.");
+        }
+
+        bridge.SetValue(this, obj, value, invokeAttr, binder, index, culture);
+    }
 
     public override Type[] GetOptionalCustomModifiers() => Type.EmptyTypes;
 
