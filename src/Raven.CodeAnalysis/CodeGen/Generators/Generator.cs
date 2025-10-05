@@ -7,6 +7,7 @@ using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
@@ -133,6 +134,98 @@ internal abstract class Generator
     public Type ResolveClrType(ITypeSymbol typeSymbol)
     {
         return typeSymbol.GetClrType(MethodGenerator.TypeGenerator.CodeGen);
+    }
+
+    protected bool ShouldBoxForStorage(ITypeSymbol? storageType, BoundExpression valueExpression, out ITypeSymbol? runtimeValueType)
+    {
+        runtimeValueType = null;
+
+        if (storageType is null || valueExpression is null)
+            return false;
+
+        runtimeValueType = GetRuntimeValueType(valueExpression);
+        return ShouldBoxForStorage(storageType, runtimeValueType);
+    }
+
+    protected bool ShouldBoxForStorage(ITypeSymbol? storageType, BoundExpression valueExpression)
+        => ShouldBoxForStorage(storageType, valueExpression, out _);
+
+    protected bool ShouldBoxForStorage(ITypeSymbol? storageType, ITypeSymbol? valueType)
+    {
+        if (storageType is null || valueType is null)
+            return false;
+
+        if (storageType.TypeKind == TypeKind.Error || valueType.TypeKind == TypeKind.Error)
+            return false;
+
+        var valueClrType = ResolveClrType(valueType);
+        if (!valueClrType.IsValueType)
+            return false;
+
+        var storageClrType = ResolveClrType(storageType);
+        return !storageClrType.IsValueType;
+    }
+
+    protected ITypeSymbol? GetRuntimeValueType(BoundExpression expression)
+    {
+        var current = expression;
+
+        while (true)
+        {
+            switch (current)
+            {
+                case BoundParenthesizedExpression parenthesized:
+                    current = parenthesized.Expression;
+                    continue;
+
+                case BoundCastExpression cast:
+                    if (cast.Conversion.IsIdentity || cast.Conversion.IsAlias)
+                    {
+                        current = cast.Expression;
+                        continue;
+                    }
+
+                    if (cast.Conversion.IsBoxing)
+                        return cast.Type;
+
+                    if (TryGetUnionOperandValueType(cast) is { } unionOperand)
+                        return unionOperand;
+
+                    return cast.Type;
+
+                case BoundAsExpression asExpression:
+                    if (asExpression.Conversion.IsIdentity || asExpression.Conversion.IsAlias)
+                    {
+                        current = asExpression.Expression;
+                        continue;
+                    }
+
+                    return asExpression.Type;
+
+                default:
+                    return current.Type;
+            }
+        }
+    }
+
+    private ITypeSymbol? TryGetUnionOperandValueType(BoundCastExpression cast)
+    {
+        if (cast.Type is not IUnionTypeSymbol)
+            return null;
+
+        var operandType = cast.Expression.Type;
+        if (operandType is null || operandType.TypeKind == TypeKind.Error)
+            return null;
+
+        var operandClr = ResolveClrType(operandType);
+        if (!operandClr.IsValueType)
+            return null;
+
+        var targetClr = ResolveClrType(cast.Type);
+        if (targetClr.IsValueType)
+            return null;
+
+        return operandType;
     }
 
     public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);

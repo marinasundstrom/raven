@@ -351,9 +351,10 @@ internal class ExpressionGenerator : Generator
         EmitExpression(value);
 
         if (symbol is ILocalSymbol localSymbol &&
-            ShouldBoxForStorage(localSymbol.Type, value.Type))
+            ShouldBoxForStorage(localSymbol.Type, value, out var boxedType) &&
+            boxedType is not null)
         {
-            ILGenerator.Emit(OpCodes.Box, ResolveClrType(value.Type));
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(boxedType));
         }
 
         ILGenerator.Emit(OpCodes.Stfld, fieldBuilder);
@@ -997,22 +998,6 @@ internal class ExpressionGenerator : Generator
         return !SymbolEqualityComparer.Default.Equals(armType, resultType);
     }
 
-    private bool ShouldBoxForStorage(ITypeSymbol? storageType, ITypeSymbol? valueType)
-    {
-        if (storageType is null || valueType is null)
-            return false;
-
-        if (storageType.TypeKind == TypeKind.Error || valueType.TypeKind == TypeKind.Error)
-            return false;
-
-        var valueClrType = ResolveClrType(valueType);
-        if (!valueClrType.IsValueType)
-            return false;
-
-        var storageClrType = ResolveClrType(storageType);
-        return !storageClrType.IsValueType;
-    }
-
     private void EmitPattern(BoundPattern pattern, Generator? scope = null)
     {
         scope ??= this;
@@ -1635,9 +1620,10 @@ internal class ExpressionGenerator : Generator
 
                 EmitExpression(localAssignmentExpression.Right);
 
-                if (ShouldBoxForStorage(localAssignmentExpression.Local.Type, localAssignmentExpression.Right.Type))
+                if (ShouldBoxForStorage(localAssignmentExpression.Local.Type, localAssignmentExpression.Right, out var assignmentType) &&
+                    assignmentType is not null)
                 {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(localAssignmentExpression.Right.Type));
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(assignmentType));
                 }
 
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);

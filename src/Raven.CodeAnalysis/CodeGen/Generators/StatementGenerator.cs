@@ -586,12 +586,11 @@ internal class StatementGenerator : Generator
                 return;
             }
 
-            if (expressionType is not null &&
-                localSymbol.Type is not null &&
-                expressionType.IsValueType &&
-                (localSymbol.Type.SpecialType is SpecialType.System_Object || localSymbol.Type is IUnionTypeSymbol))
+            if (localSymbol.Type is not null &&
+                ShouldBoxForStorage(localSymbol.Type, declarator.Initializer!, out var initializerType) &&
+                initializerType is not null)
             {
-                ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(initializerType));
             }
 
             ILGenerator.Emit(OpCodes.Stloc, localBuilder);
