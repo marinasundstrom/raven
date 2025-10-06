@@ -190,12 +190,12 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
         var expectedParameterTypes = Parameters
-            .Select(parameter => parameter.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
+            .Select(parameter => GetProjectedRuntimeType(parameter.Type, codeGen, treatUnitAsVoid: true))
             .ToArray();
         var returnTypeSymbol = ReturnType;
-        var expectedReturnType = returnTypeSymbol.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var expectedReturnType = GetProjectedRuntimeType(returnTypeSymbol, codeGen, treatUnitAsVoid: true);
         var runtimeTypeArguments = TypeArguments
-            .Select(argument => argument.GetClrType(codeGen))
+            .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -248,6 +248,87 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
+    }
+
+    private Type GetProjectedRuntimeType(
+        ITypeSymbol symbol,
+        CodeGen.CodeGenerator codeGen,
+        bool treatUnitAsVoid,
+        bool isTopLevel = true)
+    {
+        if (symbol is null)
+            throw new ArgumentNullException(nameof(symbol));
+        if (codeGen is null)
+            throw new ArgumentNullException(nameof(codeGen));
+
+        if (symbol is ITypeParameterSymbol typeParameter)
+        {
+            if (_substitutionMap.TryGetValue(typeParameter, out var substitution))
+                return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel);
+
+            if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameter, out var runtimeType))
+                return runtimeType;
+
+            throw new InvalidOperationException($"Unable to resolve runtime type for type parameter '{typeParameter.Name}'.");
+        }
+
+        if (symbol is ByRefTypeSymbol byRef)
+        {
+            var elementType = GetProjectedRuntimeType(byRef.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            return elementType.MakeByRefType();
+        }
+
+        if (symbol is IArrayTypeSymbol array)
+        {
+            var elementType = GetProjectedRuntimeType(array.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            return array.Rank == 1
+                ? elementType.MakeArrayType()
+                : elementType.MakeArrayType(array.Rank);
+        }
+
+        if (symbol is NullableTypeSymbol nullable)
+        {
+            var underlying = GetProjectedRuntimeType(nullable.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            return typeof(Nullable<>).MakeGenericType(underlying);
+        }
+
+        if (symbol is LiteralTypeSymbol literal)
+            return GetProjectedRuntimeType(literal.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
+
+        if (symbol is ITupleTypeSymbol tuple)
+        {
+            return GetProjectedRuntimeType(tuple.UnderlyingTupleType, codeGen, treatUnitAsVoid, isTopLevel: false);
+        }
+
+        if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+        {
+            var definition = named.ConstructedFrom as INamedTypeSymbol;
+            Type runtimeDefinition;
+
+            if (definition is not null && !SymbolEqualityComparer.Default.Equals(definition, named))
+            {
+                runtimeDefinition = GetProjectedRuntimeType(definition, codeGen, treatUnitAsVoid, isTopLevel: false);
+            }
+            else
+            {
+                runtimeDefinition = treatUnitAsVoid && isTopLevel
+                    ? named.GetClrTypeTreatingUnitAsVoid(codeGen)
+                    : named.GetClrType(codeGen);
+            }
+
+            if (!runtimeDefinition.IsGenericTypeDefinition && !runtimeDefinition.ContainsGenericParameters)
+                return runtimeDefinition;
+
+            var runtimeArguments = named.TypeArguments
+                .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid, isTopLevel: false))
+                .ToArray();
+
+            return runtimeDefinition.MakeGenericType(runtimeArguments);
+        }
+
+        return treatUnitAsVoid && isTopLevel
+            ? symbol.GetClrTypeTreatingUnitAsVoid(codeGen)
+            : symbol.GetClrType(codeGen);
     }
 
     private static bool ReturnTypesEquivalent(Type runtimeReturnType, Type expectedReturnType, ITypeSymbol returnTypeSymbol, CodeGen.CodeGenerator codeGen)
