@@ -196,6 +196,17 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (symbolReturnType.SpecialType == SpecialType.System_Void)
             return runtimeReturnType == typeof(void);
 
+        if (symbolReturnType.SpecialType == SpecialType.System_Unit)
+        {
+            if (runtimeReturnType == typeof(void))
+                return true;
+
+            if (codeGen.UnitType is not null)
+                return TypesEquivalentCore(runtimeReturnType, codeGen.UnitType);
+
+            return false;
+        }
+
         return TypesEquivalent(runtimeReturnType, symbolReturnType, codeGen);
     }
 
@@ -203,6 +214,17 @@ internal static class MethodSymbolExtensionsForCodeGen
     {
         if (symbolType is ITypeParameterSymbol typeParameter)
             return RuntimeTypeMatchesTypeParameter(runtimeType, typeParameter);
+
+        if (symbolType.SpecialType == SpecialType.System_Unit)
+        {
+            if (runtimeType == typeof(void))
+                return true;
+
+            if (codeGen.UnitType is not null)
+                return TypesEquivalentCore(runtimeType, codeGen.UnitType);
+
+            return false;
+        }
 
         var expectedType = symbolType.GetClrType(codeGen);
         return TypesEquivalentCore(runtimeType, expectedType);
