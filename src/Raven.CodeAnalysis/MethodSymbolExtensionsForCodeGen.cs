@@ -19,17 +19,20 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        if (codeGen.TryGetRuntimeMethod(methodSymbol, out var cached))
+            return cached;
+
         return methodSymbol switch
         {
             IAliasSymbol aliasSymbol when aliasSymbol.UnderlyingSymbol is IMethodSymbol underlyingMethod
-                => underlyingMethod.GetClrMethodInfo(codeGen),
+                => codeGen.CacheRuntimeMethod(methodSymbol, underlyingMethod.GetClrMethodInfo(codeGen)),
             SourceMethodSymbol sourceMethod
-                => (MethodInfo)codeGen.GetMemberBuilder(sourceMethod),
+                => codeGen.CacheRuntimeMethod(methodSymbol, (MethodInfo)codeGen.GetMemberBuilder(sourceMethod)),
             SubstitutedMethodSymbol substitutedMethod
-                => substitutedMethod.GetMethodInfo(codeGen),
+                => codeGen.CacheRuntimeMethod(methodSymbol, substitutedMethod.GetMethodInfo(codeGen)),
             ConstructedMethodSymbol constructedMethod
-                => constructedMethod.GetMethodInfo(codeGen),
-            PEMethodSymbol peMethod => ResolveRuntimeMethodInfo(peMethod, codeGen),
+                => codeGen.CacheRuntimeMethod(methodSymbol, constructedMethod.GetMethodInfo(codeGen)),
+            PEMethodSymbol peMethod => codeGen.CacheRuntimeMethod(methodSymbol, ResolveRuntimeMethodInfo(peMethod, codeGen)),
             _ => throw new InvalidOperationException($"Unsupported method symbol type '{methodSymbol.GetType()}'.")
         };
     }
@@ -41,17 +44,20 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        if (codeGen.TryGetRuntimeConstructor(constructorSymbol, out var cached))
+            return cached;
+
         return constructorSymbol switch
         {
             IAliasSymbol aliasSymbol when aliasSymbol.UnderlyingSymbol is IMethodSymbol underlying
-                => underlying.GetClrConstructorInfo(codeGen),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, underlying.GetClrConstructorInfo(codeGen)),
             SourceMethodSymbol sourceConstructor
-                => (ConstructorInfo)codeGen.GetMemberBuilder(sourceConstructor),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, (ConstructorInfo)codeGen.GetMemberBuilder(sourceConstructor)),
             SubstitutedMethodSymbol substitutedConstructor
-                => substitutedConstructor.GetConstructorInfo(codeGen),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, substitutedConstructor.GetConstructorInfo(codeGen)),
             ConstructedMethodSymbol constructedConstructor
-                => ResolveConstructedConstructorInfo(constructedConstructor, codeGen),
-            PEMethodSymbol peConstructor => ResolveRuntimeConstructorInfo(peConstructor, codeGen),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveConstructedConstructorInfo(constructedConstructor, codeGen)),
+            PEMethodSymbol peConstructor => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveRuntimeConstructorInfo(peConstructor, codeGen)),
             _ => throw new InvalidOperationException($"Unsupported constructor symbol type '{constructorSymbol.GetType()}'.")
         };
     }
@@ -111,7 +117,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (methodSymbol.ContainingType is null)
             throw new InvalidOperationException($"Method symbol '{methodSymbol}' is missing a containing type.");
 
-        return methodSymbol.ContainingType.GetClrType(codeGen);
+        return methodSymbol.ContainingType.GetClrTypeTreatingUnitAsVoid(codeGen);
     }
 
     private static BindingFlags GetBindingFlags(IMethodSymbol methodSymbol)
@@ -128,9 +134,6 @@ internal static class MethodSymbolExtensionsForCodeGen
             return false;
 
         if (!RuntimeTypeMatches(candidate.DeclaringType, methodSymbol.ContainingType, codeGen))
-            return false;
-
-        if (!candidate.IsGenericMethodDefinition && candidate.ContainsGenericParameters)
             return false;
 
         if (candidate.IsGenericMethodDefinition)
@@ -182,7 +185,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return false;
     }
 
-    private static bool ParametersMatch(ParameterInfo[] runtimeParameters, ImmutableArray<IParameterSymbol> parameterSymbols, CodeGenerator codeGen)
+    internal static bool ParametersMatch(ParameterInfo[] runtimeParameters, ImmutableArray<IParameterSymbol> parameterSymbols, CodeGenerator codeGen)
     {
         if (runtimeParameters.Length != parameterSymbols.Length)
             return false;
@@ -210,7 +213,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return TypesEquivalent(runtimeParameter.ParameterType, symbolParameter.Type, codeGen);
     }
 
-    private static bool ReturnTypesMatch(Type runtimeReturnType, ITypeSymbol symbolReturnType, CodeGenerator codeGen)
+    internal static bool ReturnTypesMatch(Type runtimeReturnType, ITypeSymbol symbolReturnType, CodeGenerator codeGen)
     {
         if (symbolReturnType.SpecialType == SpecialType.System_Void)
             return runtimeReturnType == typeof(void);
@@ -229,7 +232,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return TypesEquivalent(runtimeReturnType, symbolReturnType, codeGen);
     }
 
-    private static bool TypesEquivalent(Type runtimeType, ITypeSymbol symbolType, CodeGenerator codeGen)
+    internal static bool TypesEquivalent(Type runtimeType, ITypeSymbol symbolType, CodeGenerator codeGen)
     {
         if (symbolType is ITypeParameterSymbol typeParameter)
             return RuntimeTypeMatchesTypeParameter(runtimeType, typeParameter);
@@ -304,7 +307,7 @@ internal static class MethodSymbolExtensionsForCodeGen
                 ?? throw new InvalidOperationException($"Unable to map constructed constructor '{constructedConstructor}' to runtime info.");
 
         var parameterTypes = constructedConstructor.Parameters
-            .Select(p => p.Type.GetClrType(codeGen))
+            .Select(p => p.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
             .ToArray();
 
         var resolved = constructedRuntimeType.GetConstructor(

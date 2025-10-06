@@ -1585,12 +1585,22 @@ internal class ExpressionGenerator : Generator
                 if (localBuilder is null)
                     throw new InvalidOperationException($"Missing local builder for '{localAssignmentExpression.Local.Name}'");
 
-                EmitExpression(localAssignmentExpression.Right);
+                var rightExpression = localAssignmentExpression.Right;
+                EmitExpression(rightExpression);
 
-                if (localAssignmentExpression.Right.Type.IsValueType && localAssignmentExpression.Type.SpecialType is SpecialType.System_Object)
-                {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(localAssignmentExpression.Right.Type));
-                }
+                var resultType = node.Type;
+                var needsResult = resultType is not null
+                    && resultType.SpecialType is not SpecialType.System_Unit
+                    and not SpecialType.System_Void;
+
+                var needsBox = rightExpression.Type is { IsValueType: true }
+                    && resultType?.SpecialType == SpecialType.System_Object;
+
+                if (needsBox)
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(rightExpression.Type));
+
+                if (needsResult)
+                    ILGenerator.Emit(OpCodes.Dup);
 
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);
                 break;
@@ -1708,6 +1718,9 @@ internal class ExpressionGenerator : Generator
             default:
                 throw new NotSupportedException($"Unknown BoundAssignmentExpression: {node.GetType().Name}");
         }
+
+        if (node.Type?.SpecialType == SpecialType.System_Unit)
+            EmitUnitValue();
     }
 
     private void EmitPatternAssignmentExpression(BoundPatternAssignmentExpression node)

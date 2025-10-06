@@ -52,9 +52,6 @@ public static class TypeSymbolExtensionsForCodeGen
             if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameterSymbol, out var parameterType))
                 return parameterType;
 
-            if (typeParameterSymbol is PETypeParameterSymbol peTypeParameter)
-                return peTypeParameter.GetTypeInfo();
-
             throw new InvalidOperationException($"Unable to resolve runtime type for type parameter: {typeParameterSymbol.Name}");
         }
 

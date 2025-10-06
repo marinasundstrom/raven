@@ -110,14 +110,28 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public override SymbolKind Kind => SymbolKind.Method;
     public override string Name => _methodInfo.Name;
+
+    public override string MetadataName => _methodInfo.Name;
     public ITypeSymbol ReturnType
     {
         get
         {
             if (_returnType == null)
             {
-                var returnParam = ((MethodInfo)_methodInfo).ReturnParameter;
-                _returnType = _typeResolver.ResolveType(returnParam.ParameterType, _methodInfo)!;
+                if (_methodInfo is MethodInfo methodInfo)
+                {
+                    var returnParam = methodInfo.ReturnParameter;
+                    _returnType = _typeResolver.ResolveType(returnParam.ParameterType, _methodInfo)!;
+                }
+                else if (MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
+                {
+                    var declaringType = _methodInfo.DeclaringType ?? throw new InvalidOperationException($"Constructor '{_methodInfo}' is missing a declaring type.");
+                    _returnType = _typeResolver.ResolveType(declaringType, _methodInfo)!;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Unsupported method base type '{_methodInfo.GetType()}'.");
+                }
             }
             return _returnType;
         }
@@ -235,10 +249,6 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             : TypeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
 
     public IMethodSymbol? ConstructedFrom => this;
-
-    public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
-
-    public ConstructorInfo GetConstructorInfo() => (ConstructorInfo)_methodInfo;
 
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
     {

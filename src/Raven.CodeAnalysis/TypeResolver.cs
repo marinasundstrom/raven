@@ -9,7 +9,7 @@ internal class TypeResolver(Compilation compilation)
     private readonly Dictionary<Type, ITypeSymbol> _cache = new();
     private readonly NullabilityInfoContext _nullabilityContext = new();
     private readonly Dictionary<MethodBase, PEMethodSymbol> _methodSymbols = new();
-    private readonly Dictionary<(MethodBase method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
+    private readonly Dictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
 
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
@@ -195,7 +195,7 @@ internal class TypeResolver(Compilation compilation)
 
     internal ITypeParameterSymbol ResolveMethodTypeParameter(Type type, PEMethodSymbol methodSymbol)
     {
-        var key = (methodSymbol.GetMethodInfo(), type);
+        var key = (methodSymbol, type);
 
         if (_methodTypeParameters.TryGetValue(key, out var existing))
             return existing;
