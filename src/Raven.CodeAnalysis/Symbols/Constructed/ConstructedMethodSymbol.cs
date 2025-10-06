@@ -192,7 +192,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var expectedParameterTypes = Parameters
             .Select(parameter => parameter.Type.GetClrType(codeGen))
             .ToArray();
-        var expectedReturnType = ReturnType.GetClrType(codeGen);
+        var returnTypeSymbol = ReturnType;
+        var expectedReturnType = returnTypeSymbol.GetClrType(codeGen);
         var runtimeTypeArguments = TypeArguments
             .Select(argument => argument.GetClrType(codeGen))
             .ToArray();
@@ -240,13 +241,29 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             if (!parametersMatch)
                 continue;
 
-            if (!TypesEquivalent(candidate.ReturnType, expectedReturnType))
+            if (!ReturnTypesEquivalent(candidate.ReturnType, expectedReturnType, returnTypeSymbol, codeGen))
                 continue;
 
             return candidate;
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
+    }
+
+    private static bool ReturnTypesEquivalent(Type runtimeReturnType, Type expectedReturnType, ITypeSymbol returnTypeSymbol, CodeGen.CodeGenerator codeGen)
+    {
+        if (returnTypeSymbol.SpecialType == SpecialType.System_Unit)
+        {
+            if (runtimeReturnType == typeof(void))
+                return true;
+
+            if (codeGen.UnitType is not null)
+                return TypesEquivalent(runtimeReturnType, codeGen.UnitType);
+
+            return false;
+        }
+
+        return TypesEquivalent(runtimeReturnType, expectedReturnType);
     }
 
     private static bool TypesEquivalent(Type left, Type right)
