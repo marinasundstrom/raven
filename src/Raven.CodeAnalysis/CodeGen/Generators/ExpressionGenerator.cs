@@ -526,14 +526,14 @@ internal class ExpressionGenerator : Generator
 
     private ConstructorInfo? TryGetConstructorInfo(IMethodSymbol constructor)
     {
-        return constructor switch
+        try
         {
-            SourceMethodSymbol source when GetMemberBuilder(source) is ConstructorInfo sourceCtor => sourceCtor,
-            PEMethodSymbol pe => pe.GetConstructorInfo(),
-            SubstitutedMethodSymbol substituted => substituted.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-            ConstructedMethodSymbol constructed => TryGetConstructedConstructorInfo(constructed),
-            _ => null
-        };
+            return constructor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private ConstructorInfo? TryGetConstructedConstructorInfo(ConstructedMethodSymbol constructed)
@@ -1261,13 +1261,7 @@ internal class ExpressionGenerator : Generator
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
 
-            ConstructorInfo ctorInfo = ctor switch
-            {
-                SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
-                PEMethodSymbol pem => pem.GetConstructorInfo(),
-                SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-                _ => throw new NotSupportedException()
-            };
+            var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
             var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(namedType));
@@ -1315,13 +1309,7 @@ internal class ExpressionGenerator : Generator
         var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
 
         var ctor = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
-        ConstructorInfo ctorInfo = ctor switch
-        {
-            PEMethodSymbol pem => pem.GetConstructorInfo(),
-            SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-            SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
-            _ => throw new NotSupportedException()
-        };
+        var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
@@ -1360,8 +1348,11 @@ internal class ExpressionGenerator : Generator
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
-        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var getEnumerator = enumerable
+            .GetMembers(nameof(IEnumerable.GetEnumerator))
+            .OfType<IMethodSymbol>()
+            .First();
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
         ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
@@ -1370,15 +1361,19 @@ internal class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        var currentProp = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
         var clrElement = ResolveClrType(elementType);
         if (elementType.IsValueType)
@@ -1407,8 +1402,11 @@ internal class ExpressionGenerator : Generator
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
-        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var getEnumerator = enumerable
+            .GetMembers(nameof(IEnumerable.GetEnumerator))
+            .OfType<IMethodSymbol>()
+            .First();
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
         ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
@@ -1417,15 +1415,19 @@ internal class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        var currentProp = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
         var clrElement = ResolveClrType(elementType);
         if (elementType.IsValueType)
@@ -1456,13 +1458,7 @@ internal class ExpressionGenerator : Generator
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
 
-            ConstructorInfo ctorInfo = ctor switch
-            {
-                SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
-                PEMethodSymbol pem => pem.GetConstructorInfo(),
-                SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-                _ => throw new NotSupportedException()
-            };
+            var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         }
@@ -1565,13 +1561,7 @@ internal class ExpressionGenerator : Generator
             }
         }
 
-        ConstructorInfo constructorInfo = symbol switch
-        {
-            SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
-            PEMethodSymbol a => a.GetConstructorInfo(),
-            SubstitutedMethodSymbol m => m.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-            _ => throw new Exception()
-        };
+        var constructorInfo = constructorSymbol.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
         if (objectCreationExpression.Receiver is not null)
         {
@@ -2662,25 +2652,7 @@ internal class ExpressionGenerator : Generator
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
     {
-        if (methodSymbol.IsAlias && methodSymbol is IAliasSymbol alias)
-            return GetMethodInfo((IMethodSymbol)alias.UnderlyingSymbol);
-
-        if (methodSymbol is PEMethodSymbol pEMethodSymbol)
-            return pEMethodSymbol.GetMethodInfo();
-
-        if (methodSymbol is SubstitutedMethodSymbol substitutedMethod)
-            return substitutedMethod.GetMethodInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
-
-        if (methodSymbol is ConstructedMethodSymbol constructedMethod)
-            return constructedMethod.GetMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
-
-        if (methodSymbol is SourceMethodSymbol sourceMethodSymbol)
-        {
-            var m = MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceMethodSymbol);
-            return (MethodInfo)m;
-        }
-
-        throw new InvalidOperationException();
+        return methodSymbol.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
     }
 
     private readonly struct DelegateConstructorCacheKey

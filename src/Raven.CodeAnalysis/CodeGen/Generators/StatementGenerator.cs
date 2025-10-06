@@ -375,8 +375,11 @@ internal class StatementGenerator : Generator
         var enumerableClrType = ResolveClrType(enumerable);
         ILGenerator.Emit(OpCodes.Castclass, enumerableClrType);
 
-        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var getEnumerator = enumerable
+            .GetMembers(nameof(IEnumerable.GetEnumerator))
+            .OfType<IMethodSymbol>()
+            .First();
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorClrType = ResolveClrType(enumeratorType);
@@ -388,14 +391,18 @@ internal class StatementGenerator : Generator
 
         ILGenerator.MarkLabel(beginLabel);
 
-        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         ILGenerator.Emit(OpCodes.Brfalse, endLabel);
 
-        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        var currentProp = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
         var localClr = ResolveClrType(forStatement.Local.Type);
         if (localClr.IsValueType)
