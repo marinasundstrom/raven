@@ -164,6 +164,14 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             if (type.FullName == "System.Object")
                 return SpecialType.System_Object;
+            if (type.FullName == "System.ValueType")
+                return SpecialType.System_ValueType;
+            if (type.FullName == "System.Enum")
+                return SpecialType.System_Enum;
+            if (type.FullName == "System.MulticastDelegate")
+                return SpecialType.System_MulticastDelegate;
+            if (type.FullName == "System.Delegate")
+                return SpecialType.System_Delegate;
             if (type.FullName == "System.String")
                 return SpecialType.System_String;
             if (type.FullName == "System.Boolean")

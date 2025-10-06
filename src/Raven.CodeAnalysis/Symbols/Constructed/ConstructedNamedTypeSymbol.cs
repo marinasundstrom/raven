@@ -309,7 +309,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     {
         if (_original is PEMethodSymbol peMethod)
         {
-            var baseCtor = peMethod.GetConstructorInfo();
+            var baseCtor = peMethod.GetClrConstructorInfo(codeGen);
 
             if (baseCtor.DeclaringType.IsGenericType)
             {
@@ -339,7 +339,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     {
         if (_original is PEMethodSymbol peMethod)
         {
-            var baseMethod = peMethod.GetMethodInfo();
+            var baseMethod = peMethod.GetClrMethodInfo(codeGen);
 
             // Resolve the constructed runtime type
             var constructedType = _constructed.GetTypeInfo(codeGen).AsType();

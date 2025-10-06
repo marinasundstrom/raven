@@ -748,7 +748,7 @@ internal class TypeGenerator
                     break;
                 }
             case PEMethodSymbol peMethod:
-                methodInfo = peMethod.GetMethodInfo();
+                methodInfo = peMethod.GetClrMethodInfo(CodeGen);
                 return true;
             case SubstitutedMethodSymbol substitutedMethod:
                 methodInfo = substitutedMethod.GetMethodInfo(CodeGen);

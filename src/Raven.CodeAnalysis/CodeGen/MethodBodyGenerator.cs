@@ -785,13 +785,7 @@ internal class MethodBodyGenerator
         var ctorSymbol = baseType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0)
             ?? throw new NotSupportedException("Base type requires a parameterless constructor");
 
-        return ctorSymbol switch
-        {
-            SourceMethodSymbol sm => (ConstructorInfo)MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sm)!,
-            PEMethodSymbol pem => pem.GetConstructorInfo(),
-            SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodGenerator.TypeGenerator.CodeGen),
-            _ => ResolveClrType(baseType).GetConstructor(Type.EmptyTypes)!
-        };
+        return ctorSymbol.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)
