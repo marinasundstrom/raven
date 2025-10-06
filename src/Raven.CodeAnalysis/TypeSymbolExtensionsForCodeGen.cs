@@ -9,10 +9,13 @@ namespace Raven.CodeAnalysis;
 
 public static class TypeSymbolExtensionsForCodeGen
 {
-    /// <summary>
-    /// Resolves the CLR Type from an ITypeSymbol in the context of CodeGen (which handles both metadata and emitted types).
-    /// </summary>
     internal static Type GetClrType(this ITypeSymbol typeSymbol, CodeGenerator codeGen)
+        => GetClrTypeInternal(typeSymbol, codeGen, treatUnitAsVoid: false, isTopLevel: true);
+
+    internal static Type GetClrTypeTreatingUnitAsVoid(this ITypeSymbol typeSymbol, CodeGenerator codeGen)
+        => GetClrTypeInternal(typeSymbol, codeGen, treatUnitAsVoid: true, isTopLevel: true);
+
+    private static Type GetClrTypeInternal(ITypeSymbol typeSymbol, CodeGenerator codeGen, bool treatUnitAsVoid, bool isTopLevel)
     {
         if (typeSymbol == null)
             throw new ArgumentNullException(nameof(typeSymbol));
@@ -23,7 +26,7 @@ public static class TypeSymbolExtensionsForCodeGen
 
         if (typeSymbol is NullableTypeSymbol nullableType)
         {
-            var underlying = nullableType.UnderlyingType.GetClrType(codeGen);
+            var underlying = GetClrTypeInternal(nullableType.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
             if (!nullableType.UnderlyingType.IsValueType)
                 return underlying;
 
@@ -55,10 +58,9 @@ public static class TypeSymbolExtensionsForCodeGen
             throw new InvalidOperationException($"Unable to resolve runtime type for type parameter: {typeParameterSymbol.Name}");
         }
 
-        // Handle arrays
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
-            var elementClrType = arrayType.ElementType.GetClrType(codeGen);
+            var elementClrType = GetClrTypeInternal(arrayType.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false);
             return arrayType.Rank == 1
                 ? elementClrType.MakeArrayType()
                 : elementClrType.MakeArrayType(arrayType.Rank);
@@ -66,15 +68,16 @@ public static class TypeSymbolExtensionsForCodeGen
 
         if (typeSymbol is ByRefTypeSymbol byRefType)
         {
-            var elementClrType = byRefType.ElementType.GetClrType(codeGen);
+            var elementClrType = GetClrTypeInternal(byRefType.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false);
             return elementClrType.MakeByRefType();
         }
 
-        // Handle arrays
         if (typeSymbol is ITupleTypeSymbol tupleSymbol)
         {
-            var tupleClrType = tupleSymbol.UnderlyingTupleType.GetClrType(codeGen);
-            return tupleClrType.MakeGenericType(tupleSymbol.TupleElements.Select(e => e.Type.GetClrType(codeGen)).ToArray());
+            var tupleClrType = GetClrTypeInternal(tupleSymbol.UnderlyingTupleType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            return tupleClrType.MakeGenericType(tupleSymbol.TupleElements
+                .Select(e => GetClrTypeInternal(e.Type, codeGen, treatUnitAsVoid, isTopLevel: false))
+                .ToArray());
         }
 
         if (typeSymbol is NullTypeSymbol)
@@ -86,6 +89,9 @@ public static class TypeSymbolExtensionsForCodeGen
 
         if (typeSymbol.SpecialType == SpecialType.System_Unit)
         {
+            if (treatUnitAsVoid && isTopLevel)
+                return GetSpecialClrType(SpecialType.System_Void, compilation);
+
             if (codeGen.UnitType is null)
                 throw new InvalidOperationException("Unit type was not emitted.");
             return codeGen.UnitType;
@@ -93,36 +99,26 @@ public static class TypeSymbolExtensionsForCodeGen
 
         if (typeSymbol is LiteralTypeSymbol literalType)
         {
-            return literalType.UnderlyingType.GetClrType(codeGen);
+            return GetClrTypeInternal(literalType.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
         }
 
-        /*
-        // Handle pointer types
-        if (typeSymbol is IPointerTypeSymbol pointerType)
-        {
-            var pointedType = pointerType.PointedAtType.GetClrType(codeGen);
-            return pointedType.MakePointerType();
-        }
-        */
-
-        // Handle special types like int, string, etc.
         if (typeSymbol.SpecialType != SpecialType.None)
         {
             return GetSpecialClrType(typeSymbol.SpecialType, compilation);
         }
 
-        // Handle constructed generic types (from metadata or emitted)
         if (typeSymbol is ConstructedNamedTypeSymbol constructedNamed)
         {
             var definition = constructedNamed.ConstructedFrom as INamedTypeSymbol
                 ?? throw new InvalidOperationException("Constructed type without named definition.");
 
-            var genericDef = definition.GetClrType(codeGen);
-            var args = constructedNamed.TypeArguments.Select(arg => arg.GetClrType(codeGen)).ToArray();
+            var genericDef = GetClrTypeInternal(definition, codeGen, treatUnitAsVoid, isTopLevel: false);
+            var args = constructedNamed.TypeArguments
+                .Select(arg => GetClrTypeInternal(arg, codeGen, treatUnitAsVoid, isTopLevel: false))
+                .ToArray();
 
             if (!genericDef.IsGenericTypeDefinition && !genericDef.ContainsGenericParameters)
             {
-                // The definition is already fully constructed (e.g. metadata bug). Just return it.
                 return genericDef;
             }
 
@@ -136,8 +132,10 @@ public static class TypeSymbolExtensionsForCodeGen
             if (named.ConstructedFrom is INamedTypeSymbol definition &&
                 !ReferenceEquals(named, definition))
             {
-                var genericDef = definition.GetClrType(codeGen);
-                var args = named.TypeArguments.Select(arg => arg.GetClrType(codeGen)).ToArray();
+                var genericDef = GetClrTypeInternal(definition, codeGen, treatUnitAsVoid, isTopLevel: false);
+                var args = named.TypeArguments
+                    .Select(arg => GetClrTypeInternal(arg, codeGen, treatUnitAsVoid, isTopLevel: false))
+                    .ToArray();
 
                 if (!genericDef.IsGenericTypeDefinition && !genericDef.ContainsGenericParameters)
                 {
@@ -148,14 +146,11 @@ public static class TypeSymbolExtensionsForCodeGen
             }
         }
 
-        // Handle regular named types
         if (typeSymbol is INamedTypeSymbol namedType)
         {
-            // Check if CodeGen knows this symbol (i.e., it's being emitted by us)
             if (codeGen.TryGetRuntimeTypeForSymbol(namedType, out var builtType))
                 return builtType;
 
-            // Otherwise, attempt to resolve from metadata (reference assemblies)
             var metadataName = namedType.ToFullyQualifiedMetadataName();
             var runtimeType = compilation.ResolveRuntimeType(metadataName);
             if (runtimeType is not null)
@@ -164,11 +159,10 @@ public static class TypeSymbolExtensionsForCodeGen
             throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {metadataName}");
         }
 
-        // Handle union types
         if (typeSymbol is IUnionTypeSymbol union)
         {
             var emission = union.GetUnionEmissionInfo(compilation);
-            var underlyingClr = emission.UnderlyingTypeSymbol.GetClrType(codeGen);
+            var underlyingClr = GetClrTypeInternal(emission.UnderlyingTypeSymbol, codeGen, treatUnitAsVoid, isTopLevel: false);
 
             if (emission.WrapInNullable)
             {

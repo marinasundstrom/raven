@@ -193,7 +193,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             .Select(parameter => parameter.Type.GetClrType(codeGen))
             .ToArray();
         var returnTypeSymbol = ReturnType;
-        var expectedReturnType = returnTypeSymbol.GetClrType(codeGen);
+        var expectedReturnType = returnTypeSymbol.GetClrTypeTreatingUnitAsVoid(codeGen);
         var runtimeTypeArguments = TypeArguments
             .Select(argument => argument.GetClrType(codeGen))
             .ToArray();

@@ -149,7 +149,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (runtimeType is null || symbolType is null)
             return false;
 
-        var expected = symbolType.GetClrType(codeGen);
+        var expected = symbolType.GetClrTypeTreatingUnitAsVoid(codeGen);
 
         if (runtimeType == expected)
             return true;
