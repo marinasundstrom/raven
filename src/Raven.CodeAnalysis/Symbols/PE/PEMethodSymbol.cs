@@ -250,10 +250,6 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
     public IMethodSymbol? ConstructedFrom => this;
 
-    public MethodInfo GetMethodInfo() => (MethodInfo)_methodInfo;
-
-    public ConstructorInfo GetConstructorInfo() => (ConstructorInfo)_methodInfo;
-
     public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
     {
         if (typeArguments is null)

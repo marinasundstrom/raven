@@ -19,17 +19,20 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        if (codeGen.TryGetRuntimeMethod(methodSymbol, out var cached))
+            return cached;
+
         return methodSymbol switch
         {
             IAliasSymbol aliasSymbol when aliasSymbol.UnderlyingSymbol is IMethodSymbol underlyingMethod
-                => underlyingMethod.GetClrMethodInfo(codeGen),
+                => codeGen.CacheRuntimeMethod(methodSymbol, underlyingMethod.GetClrMethodInfo(codeGen)),
             SourceMethodSymbol sourceMethod
-                => (MethodInfo)codeGen.GetMemberBuilder(sourceMethod),
+                => codeGen.CacheRuntimeMethod(methodSymbol, (MethodInfo)codeGen.GetMemberBuilder(sourceMethod)),
             SubstitutedMethodSymbol substitutedMethod
-                => substitutedMethod.GetMethodInfo(codeGen),
+                => codeGen.CacheRuntimeMethod(methodSymbol, substitutedMethod.GetMethodInfo(codeGen)),
             ConstructedMethodSymbol constructedMethod
-                => constructedMethod.GetMethodInfo(codeGen),
-            PEMethodSymbol peMethod => ResolveRuntimeMethodInfo(peMethod, codeGen),
+                => codeGen.CacheRuntimeMethod(methodSymbol, constructedMethod.GetMethodInfo(codeGen)),
+            PEMethodSymbol peMethod => codeGen.CacheRuntimeMethod(methodSymbol, ResolveRuntimeMethodInfo(peMethod, codeGen)),
             _ => throw new InvalidOperationException($"Unsupported method symbol type '{methodSymbol.GetType()}'.")
         };
     }
@@ -41,17 +44,20 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        if (codeGen.TryGetRuntimeConstructor(constructorSymbol, out var cached))
+            return cached;
+
         return constructorSymbol switch
         {
             IAliasSymbol aliasSymbol when aliasSymbol.UnderlyingSymbol is IMethodSymbol underlying
-                => underlying.GetClrConstructorInfo(codeGen),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, underlying.GetClrConstructorInfo(codeGen)),
             SourceMethodSymbol sourceConstructor
-                => (ConstructorInfo)codeGen.GetMemberBuilder(sourceConstructor),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, (ConstructorInfo)codeGen.GetMemberBuilder(sourceConstructor)),
             SubstitutedMethodSymbol substitutedConstructor
-                => substitutedConstructor.GetConstructorInfo(codeGen),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, substitutedConstructor.GetConstructorInfo(codeGen)),
             ConstructedMethodSymbol constructedConstructor
-                => ResolveConstructedConstructorInfo(constructedConstructor, codeGen),
-            PEMethodSymbol peConstructor => ResolveRuntimeConstructorInfo(peConstructor, codeGen),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveConstructedConstructorInfo(constructedConstructor, codeGen)),
+            PEMethodSymbol peConstructor => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveRuntimeConstructorInfo(peConstructor, codeGen)),
             _ => throw new InvalidOperationException($"Unsupported constructor symbol type '{constructorSymbol.GetType()}'.")
         };
     }
