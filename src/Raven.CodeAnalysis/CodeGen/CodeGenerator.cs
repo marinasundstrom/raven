@@ -323,7 +323,7 @@ internal class CodeGenerator
             Version = new Version(1, 0, 0, 0)
         };
 
-        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly);
+        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.RuntimeCoreAssembly);
         ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
         DetermineShimTypeRequirements();

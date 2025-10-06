@@ -1094,7 +1094,8 @@ internal class ExpressionGenerator : Generator
         }
         else if (pattern is BoundTuplePattern tuplePattern)
         {
-            var tupleInterfaceType = Compilation.CoreAssembly.GetType("System.Runtime.CompilerServices.ITuple");
+            var tupleInterfaceType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ITuple")
+                ?? throw new InvalidOperationException("Unable to resolve runtime type for System.Runtime.CompilerServices.ITuple.");
             var lengthGetter = tupleInterfaceType.GetProperty("Length")?.GetMethod;
             var itemGetter = tupleInterfaceType.GetProperty("Item")?.GetMethod;
 
@@ -1167,7 +1168,9 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
         EmitConstantAsObject(literal, value);
 
-        var equalsMethod = Compilation.CoreAssembly.GetType("System.Object").GetMethod(nameof(object.Equals), [Compilation.CoreAssembly.GetType("System.Object")])
+        var runtimeObjectType = Compilation.ResolveRuntimeType("System.Object")
+            ?? throw new InvalidOperationException("Unable to resolve runtime type for System.Object.");
+        var equalsMethod = runtimeObjectType.GetMethod(nameof(object.Equals), new[] { runtimeObjectType })
             ?? throw new InvalidOperationException("object.Equals(object) not found.");
 
         ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);

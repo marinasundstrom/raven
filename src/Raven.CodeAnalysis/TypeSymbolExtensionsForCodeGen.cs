@@ -19,6 +19,8 @@ public static class TypeSymbolExtensionsForCodeGen
         if (codeGen == null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        var compilation = codeGen.Compilation;
+
         if (typeSymbol is NullableTypeSymbol nullableType)
         {
             var underlying = nullableType.UnderlyingType.GetClrType(codeGen);
@@ -31,7 +33,12 @@ public static class TypeSymbolExtensionsForCodeGen
 
         if (typeSymbol is PENamedTypeSymbol namedTypeSymbol)
         {
-            return namedTypeSymbol.GetTypeInfo();
+            var runtimeType = compilation.ResolveRuntimeType(namedTypeSymbol);
+            if (runtimeType is not null)
+                return runtimeType;
+
+            var metadataName = ((INamedTypeSymbol)namedTypeSymbol).ToFullyQualifiedMetadataName();
+            throw new InvalidOperationException($"Unable to resolve runtime type for metadata symbol: {metadataName}");
         }
 
         if (typeSymbol is ITypeParameterSymbol typeParameterSymbol)
@@ -44,8 +51,6 @@ public static class TypeSymbolExtensionsForCodeGen
 
             throw new InvalidOperationException($"Unable to resolve runtime type for type parameter: {typeParameterSymbol.Name}");
         }
-
-        var compilation = codeGen.Compilation;
 
         // Handle arrays
         if (typeSymbol is IArrayTypeSymbol arrayType)
@@ -149,9 +154,9 @@ public static class TypeSymbolExtensionsForCodeGen
 
             // Otherwise, attempt to resolve from metadata (reference assemblies)
             var metadataName = namedType.ToFullyQualifiedMetadataName();
-            var metadataType = compilation.CoreAssembly.GetType(metadataName, throwOnError: false);
-            if (metadataType != null)
-                return metadataType;
+            var runtimeType = compilation.ResolveRuntimeType(metadataName);
+            if (runtimeType is not null)
+                return runtimeType;
 
             throw new InvalidOperationException($"Unable to resolve runtime type for symbol: {metadataName}");
         }
