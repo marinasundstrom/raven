@@ -37,6 +37,9 @@ public static class TypeSymbolExtensionsForCodeGen
             if (runtimeType is not null)
                 return runtimeType;
 
+            if (namedTypeSymbol.SpecialType is not SpecialType.None)
+                return GetSpecialClrType(namedTypeSymbol.SpecialType, compilation);
+
             var metadataName = ((INamedTypeSymbol)namedTypeSymbol).ToFullyQualifiedMetadataName();
             throw new InvalidOperationException($"Unable to resolve runtime type for metadata symbol: {metadataName}");
         }
