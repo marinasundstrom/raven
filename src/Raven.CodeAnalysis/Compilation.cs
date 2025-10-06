@@ -669,6 +669,9 @@ public partial class Compilation
         if (runtimeAssembly is not null && metadataType.FullName is { } fullName)
             runtimeType = runtimeAssembly.GetType(fullName, throwOnError: false, ignoreCase: false);
 
+        if (runtimeType is null && metadataType.FullName is { } metadataName)
+            runtimeType = ResolveRuntimeType(metadataName);
+
         if (runtimeType is null && metadataType.AssemblyQualifiedName is { } qualifiedName)
             runtimeType = Type.GetType(qualifiedName, throwOnError: false);
 
