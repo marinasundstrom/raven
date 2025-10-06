@@ -179,7 +179,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return false;
     }
 
-    private static bool ParametersMatch(ParameterInfo[] runtimeParameters, ImmutableArray<IParameterSymbol> parameterSymbols, CodeGenerator codeGen)
+    internal static bool ParametersMatch(ParameterInfo[] runtimeParameters, ImmutableArray<IParameterSymbol> parameterSymbols, CodeGenerator codeGen)
     {
         if (runtimeParameters.Length != parameterSymbols.Length)
             return false;
@@ -207,7 +207,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return TypesEquivalent(runtimeParameter.ParameterType, symbolParameter.Type, codeGen);
     }
 
-    private static bool ReturnTypesMatch(Type runtimeReturnType, ITypeSymbol symbolReturnType, CodeGenerator codeGen)
+    internal static bool ReturnTypesMatch(Type runtimeReturnType, ITypeSymbol symbolReturnType, CodeGenerator codeGen)
     {
         if (symbolReturnType.SpecialType == SpecialType.System_Void)
             return runtimeReturnType == typeof(void);
@@ -226,7 +226,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         return TypesEquivalent(runtimeReturnType, symbolReturnType, codeGen);
     }
 
-    private static bool TypesEquivalent(Type runtimeType, ITypeSymbol symbolType, CodeGenerator codeGen)
+    internal static bool TypesEquivalent(Type runtimeType, ITypeSymbol symbolType, CodeGenerator codeGen)
     {
         if (symbolType is ITypeParameterSymbol typeParameter)
             return RuntimeTypeMatchesTypeParameter(runtimeType, typeParameter);

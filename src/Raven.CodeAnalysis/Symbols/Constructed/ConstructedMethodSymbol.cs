@@ -4,6 +4,8 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class ConstructedMethodSymbol : IMethodSymbol
@@ -120,6 +122,16 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (type is ITypeParameterSymbol tp && _substitutionMap.TryGetValue(tp, out var replacement))
             return replacement;
 
+        if (type is ByRefTypeSymbol byRef)
+        {
+            var substitutedElement = Substitute(byRef.ElementType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
+                return new ByRefTypeSymbol(substitutedElement, byRef.RefKind);
+
+            return type;
+        }
+
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
             var substitutedArgs = named.TypeArguments.Select(Substitute).ToArray();
@@ -189,11 +201,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
         var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
-        var expectedParameterTypes = Parameters
-            .Select(parameter => GetProjectedRuntimeType(parameter.Type, codeGen, treatUnitAsVoid: true))
-            .ToArray();
+        var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
-        var expectedReturnType = GetProjectedRuntimeType(returnTypeSymbol, codeGen, treatUnitAsVoid: true);
         var runtimeTypeArguments = TypeArguments
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
@@ -216,7 +225,6 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             {
                 if (method.GetGenericArguments().Length != runtimeTypeArguments.Length)
                     continue;
-
                 candidate = method.MakeGenericMethod(runtimeTypeArguments);
             }
             else if (method.ContainsGenericParameters)
@@ -225,23 +233,18 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             }
 
             var candidateParameters = candidate.GetParameters();
-            if (candidateParameters.Length != expectedParameterTypes.Length)
+            var methodRuntimeArguments = candidate.IsGenericMethod
+                ? candidate.GetGenericArguments()
+                : Array.Empty<Type>();
+            var typeRuntimeArguments = candidate.DeclaringType is not null && candidate.DeclaringType.IsGenericType
+                ? candidate.DeclaringType.GetGenericArguments()
+                : Array.Empty<Type>();
+
+            if (!ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen))
                 continue;
 
-            var parametersMatch = true;
-            for (var i = 0; i < candidateParameters.Length; i++)
-            {
-                if (!TypesEquivalent(candidateParameters[i].ParameterType, expectedParameterTypes[i]))
-                {
-                    parametersMatch = false;
-                    break;
-                }
-            }
-
-            if (!parametersMatch)
-                continue;
-
-            if (!ReturnTypesEquivalent(candidate.ReturnType, expectedReturnType, returnTypeSymbol, codeGen))
+            var normalizedReturnType = SubstituteRuntimeType(candidate.ReturnType, methodRuntimeArguments, typeRuntimeArguments);
+            if (!MethodSymbolExtensionsForCodeGen.ReturnTypesMatch(normalizedReturnType, returnTypeSymbol, codeGen))
                 continue;
 
             return candidate;
@@ -249,6 +252,132 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
     }
+
+    private bool ParametersMatch(
+        ParameterInfo[] runtimeParameters,
+        ImmutableArray<IParameterSymbol> parameterSymbols,
+        Type[] methodRuntimeArguments,
+        Type[]? typeRuntimeArguments,
+        CodeGen.CodeGenerator codeGen)
+    {
+        if (runtimeParameters.Length != parameterSymbols.Length)
+            return false;
+
+        for (var i = 0; i < runtimeParameters.Length; i++)
+        {
+            if (!ParameterMatches(runtimeParameters[i], parameterSymbols[i], methodRuntimeArguments, typeRuntimeArguments, codeGen))
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool ParameterMatches(
+        ParameterInfo runtimeParameter,
+        IParameterSymbol symbolParameter,
+        Type[] methodRuntimeArguments,
+        Type[]? typeRuntimeArguments,
+        CodeGen.CodeGenerator codeGen)
+    {
+        if (symbolParameter.RefKind == RefKind.Out && !runtimeParameter.IsOut)
+            return false;
+
+        if (symbolParameter.RefKind == RefKind.Ref && !runtimeParameter.ParameterType.IsByRef)
+            return false;
+
+        if (symbolParameter.RefKind == RefKind.In && !(runtimeParameter.IsIn || runtimeParameter.ParameterType.IsByRef))
+            return false;
+
+        var normalizedRuntimeType = SubstituteRuntimeType(runtimeParameter.ParameterType, methodRuntimeArguments, typeRuntimeArguments);
+        return MethodSymbolExtensionsForCodeGen.TypesEquivalent(normalizedRuntimeType, symbolParameter.Type, codeGen);
+    }
+
+    private static Type SubstituteRuntimeType(Type runtimeType, Type[] methodRuntimeArguments, Type[]? typeRuntimeArguments)
+    {
+        if (runtimeType.IsByRef)
+        {
+            var element = SubstituteRuntimeType(runtimeType.GetElementType()!, methodRuntimeArguments, typeRuntimeArguments);
+            return element.MakeByRefType();
+        }
+
+        if (runtimeType.IsPointer)
+        {
+            var element = SubstituteRuntimeType(runtimeType.GetElementType()!, methodRuntimeArguments, typeRuntimeArguments);
+            return element.MakePointerType();
+        }
+
+        if (runtimeType.IsArray)
+        {
+            var element = SubstituteRuntimeType(runtimeType.GetElementType()!, methodRuntimeArguments, typeRuntimeArguments);
+            return runtimeType.GetArrayRank() == 1
+                ? element.MakeArrayType()
+                : element.MakeArrayType(runtimeType.GetArrayRank());
+        }
+
+        if (runtimeType.IsGenericParameter)
+        {
+            if (runtimeType.DeclaringMethod is not null)
+            {
+                var position = runtimeType.GenericParameterPosition;
+                if (position >= 0 && position < methodRuntimeArguments.Length)
+                    return methodRuntimeArguments[position];
+            }
+            else if (runtimeType.DeclaringType is not null && typeRuntimeArguments is { Length: > 0 })
+            {
+                var mapped = SubstituteTypeParameterFromDeclaringType(runtimeType, runtimeType.DeclaringType, typeRuntimeArguments, methodRuntimeArguments);
+                if (mapped is not null)
+                    return mapped;
+            }
+
+            return runtimeType;
+        }
+
+        if (runtimeType.IsGenericType)
+        {
+            var substitutedArguments = runtimeType.GetGenericArguments()
+                .Select(argument => SubstituteRuntimeType(argument, methodRuntimeArguments, typeRuntimeArguments))
+                .ToArray();
+
+            var definition = runtimeType.IsGenericTypeDefinition
+                ? runtimeType
+                : runtimeType.GetGenericTypeDefinition();
+
+            return MakeGenericTypePreservingBuilders(definition, substitutedArguments);
+        }
+
+        return runtimeType;
+    }
+
+    private static Type? SubstituteTypeParameterFromDeclaringType(Type genericParameter, Type declaringType, Type[] typeRuntimeArguments, Type[] methodRuntimeArguments)
+    {
+        var definition = declaringType.IsGenericTypeDefinition
+            ? declaringType
+            : declaringType.GetGenericTypeDefinition();
+
+        var definitionParameters = definition.GetGenericArguments();
+        var index = Array.IndexOf(definitionParameters, genericParameter);
+        if (index >= 0 && index < typeRuntimeArguments.Length)
+        {
+            var mapped = typeRuntimeArguments[index];
+            if (!ReferenceEquals(mapped, genericParameter))
+                return SubstituteRuntimeType(mapped, methodRuntimeArguments, typeRuntimeArguments);
+        }
+
+        // Some runtimes reuse declaring-type parameters for nested generic parameter builders where GenericParameterPosition
+        // refers to the overall argument list instead of the declaring definition. Fall back to positional lookup if available.
+        var position = genericParameter.GenericParameterPosition;
+        if (position >= 0 && position < typeRuntimeArguments.Length)
+        {
+            var mapped = typeRuntimeArguments[position];
+            if (!ReferenceEquals(mapped, genericParameter))
+                return SubstituteRuntimeType(mapped, methodRuntimeArguments, typeRuntimeArguments);
+        }
+
+        return null;
+    }
+
+    private static Type MakeGenericTypePreservingBuilders(Type definition, Type[] arguments)
+        => definition.MakeGenericType(arguments);
 
     private Type GetProjectedRuntimeType(
         ITypeSymbol symbol,
@@ -329,83 +458,5 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return treatUnitAsVoid && isTopLevel
             ? symbol.GetClrTypeTreatingUnitAsVoid(codeGen)
             : symbol.GetClrType(codeGen);
-    }
-
-    private static bool ReturnTypesEquivalent(Type runtimeReturnType, Type expectedReturnType, ITypeSymbol returnTypeSymbol, CodeGen.CodeGenerator codeGen)
-    {
-        if (returnTypeSymbol.SpecialType == SpecialType.System_Unit)
-        {
-            if (runtimeReturnType == typeof(void))
-                return true;
-
-            if (codeGen.UnitType is not null)
-                return TypesEquivalent(runtimeReturnType, codeGen.UnitType);
-
-            return false;
-        }
-
-        return TypesEquivalent(runtimeReturnType, expectedReturnType);
-    }
-
-    private static bool TypesEquivalent(Type left, Type right)
-    {
-        if (left == right)
-            return true;
-
-        if (left.IsByRef || right.IsByRef)
-        {
-            if (left.IsByRef != right.IsByRef)
-                return false;
-
-            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
-        }
-
-        if (left.IsPointer || right.IsPointer)
-        {
-            if (left.IsPointer != right.IsPointer)
-                return false;
-
-            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
-        }
-
-        if (left.IsArray || right.IsArray)
-        {
-            if (left.IsArray != right.IsArray || left.GetArrayRank() != right.GetArrayRank())
-                return false;
-
-            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
-        }
-
-        if (left.IsGenericType || right.IsGenericType)
-        {
-            if (left.IsGenericType != right.IsGenericType)
-                return false;
-
-            var leftDefinition = left.IsGenericTypeDefinition ? left : left.GetGenericTypeDefinition();
-            var rightDefinition = right.IsGenericTypeDefinition ? right : right.GetGenericTypeDefinition();
-
-            if (!TypesEquivalent(leftDefinition, rightDefinition))
-                return false;
-
-            if (!left.IsGenericTypeDefinition)
-            {
-                var leftArguments = left.GetGenericArguments();
-                var rightArguments = right.GetGenericArguments();
-
-                if (leftArguments.Length != rightArguments.Length)
-                    return false;
-
-                for (var i = 0; i < leftArguments.Length; i++)
-                {
-                    if (!TypesEquivalent(leftArguments[i], rightArguments[i]))
-                        return false;
-                }
-            }
-
-            return true;
-        }
-
-        return string.Equals(left.FullName, right.FullName, StringComparison.Ordinal) &&
-               string.Equals(left.Assembly.FullName, right.Assembly.FullName, StringComparison.Ordinal);
     }
 }
