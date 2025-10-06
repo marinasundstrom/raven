@@ -23,3 +23,13 @@ System.Reflection2 intentionally omits several runtime-only behaviors:
 - Advanced signature features such as custom modifiers and unmanaged calling conventions are decoded only at the metadata level today. Future work can extend the signature provider if consumers require parity with runtime reflection.
 
 If your scenario requires any of these capabilities, plan to supply a runtime bridge or extend the metadata layer accordingly.
+
+## Feature parity gap analysis
+
+Bringing System.Reflection2 to full parity with runtime reflection requires additional work in a few focused areas:
+
+- **Runtime handles and invocation paths** – Surfaces such as `MetadataMethodInfo.MethodHandle`, `MetadataFieldInfo.FieldHandle`, and the property getter/setter helpers throw `NotSupportedException` until a runtime bridge is configured, so callers cannot observe handles or invoke members without opting into `MetadataLoadContext.RuntimeBridge`.【F:src/System.Reflection2/System/Reflection2/MetadataMethodInfo.cs†L73-L116】【F:src/System.Reflection2/System/Reflection2/MetadataFieldInfo.cs†L37-L77】【F:src/System.Reflection2/System/Reflection2/MetadataPropertyInfo.cs†L122-L146】
+- **Member-level modifiers and marshalling** – Parameter metadata already flows custom modifiers, but properties always return `Type.EmptyTypes` for the modifier queries and fields only decode constant values, so signature-level modifiers and marshalling descriptors (`MarshalAs`, `[In]`, `[Out]`, etc.) are still unavailable to consumers. Filling this gap will require decoding the field/property signatures alongside the existing constant logic.【F:src/System.Reflection2/System/Reflection2/MetadataPropertyInfo.cs†L119-L146】【F:src/System.Reflection2/System/Reflection2/MetadataFieldInfo.cs†L23-L103】【F:src/System.Reflection2/System/Reflection2/MetadataParameterInfo.cs†L70-L116】
+- **Type identity helpers** – `MetadataType.GUID` currently returns `Guid.Empty`, and the implementation surfaces raw `TypeAttributes` without translating layout or COM metadata into the richer helpers that `System.Type` offers (for example, `Type.GUID`, `Type.GetDefaultMembers`, or `StructLayoutAttribute` projections). Additional decoding is needed to match runtime reflection in these scenarios.【F:src/System.Reflection2/System/Reflection2/MetadataType.cs†L108-L121】【F:src/System.Reflection2/System/Reflection2/MetadataType.cs†L500-L510】
+
+Tracking these gaps clarifies where future engineering effort should focus to make System.Reflection2 a drop-in replacement for `System.Reflection` in the Raven compiler’s metadata stack.
