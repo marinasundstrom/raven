@@ -7,7 +7,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 
-internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Type, MetadataType?>
+internal class MetadataSignatureTypeProvider : ISignatureTypeProvider<Type, MetadataType?>
 {
     private readonly MetadataModule _module;
     private readonly IReadOnlyList<Type>? _genericTypeParameters;
@@ -60,10 +60,10 @@ internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Typ
         return GetOrCreateFallbackParameter(ref _typeParameterFallbacks, index, isMethodParameter: false);
     }
 
-    public Type GetModifiedType(Type modifier, Type unmodifiedType, bool isRequired)
+    public virtual Type GetModifiedType(Type modifier, Type unmodifiedType, bool isRequired)
         => unmodifiedType;
 
-    public Type GetPinnedType(Type elementType)
+    public virtual Type GetPinnedType(Type elementType)
         => elementType;
 
     public Type GetPointerType(Type elementType)
@@ -130,5 +130,67 @@ internal sealed class MetadataSignatureTypeProvider : ISignatureTypeProvider<Typ
         }
 
         return placeholder;
+    }
+}
+
+internal sealed class MetadataCustomModifierRecordingTypeProvider : MetadataSignatureTypeProvider
+{
+    private bool _captureActive;
+    private List<Type>? _required;
+    private List<Type>? _optional;
+
+    public MetadataCustomModifierRecordingTypeProvider(
+        MetadataModule module,
+        IReadOnlyList<Type>? genericTypeParameters = null,
+        IReadOnlyList<Type>? genericMethodParameters = null,
+        MetadataType? declaringTypeContext = null)
+        : base(module, genericTypeParameters, genericMethodParameters, declaringTypeContext)
+    {
+    }
+
+    public void BeginCapture()
+    {
+        if (_captureActive)
+        {
+            throw new InvalidOperationException("A custom modifier capture is already active.");
+        }
+
+        _captureActive = true;
+        _required = null;
+        _optional = null;
+    }
+
+    public MetadataCustomModifiers EndCapture()
+    {
+        if (!_captureActive)
+        {
+            throw new InvalidOperationException("No active custom modifier capture to complete.");
+        }
+
+        _captureActive = false;
+        var required = _required is null ? Type.EmptyTypes : _required.ToArray();
+        var optional = _optional is null ? Type.EmptyTypes : _optional.ToArray();
+        _required = null;
+        _optional = null;
+        return required.Length == 0 && optional.Length == 0
+            ? MetadataCustomModifiers.Empty
+            : new MetadataCustomModifiers(required, optional);
+    }
+
+    public override Type GetModifiedType(Type modifier, Type unmodifiedType, bool isRequired)
+    {
+        if (_captureActive)
+        {
+            if (isRequired)
+            {
+                (_required ??= new List<Type>()).Add(modifier);
+            }
+            else
+            {
+                (_optional ??= new List<Type>()).Add(modifier);
+            }
+        }
+
+        return base.GetModifiedType(modifier, unmodifiedType, isRequired);
     }
 }

@@ -30,6 +30,8 @@ public sealed class MetadataFieldInfo : FieldInfo
         _customAttributes = new Lazy<IList<CustomAttributeData>>(() => MetadataCustomAttributeDecoder.Decode(_declaringType.MetadataModule, _definition.GetCustomAttributes(), _declaringType, null));
     }
 
+    internal FieldDefinitionHandle Handle => _handle;
+
     public override FieldAttributes Attributes => _definition.Attributes;
 
     public override RuntimeFieldHandle FieldHandle => throw new NotSupportedException();
@@ -42,27 +44,98 @@ public sealed class MetadataFieldInfo : FieldInfo
 
     public override Type? ReflectedType => DeclaringType;
 
+    public override int MetadataToken => MetadataTokens.GetToken(_handle);
+
     public override IList<CustomAttributeData> GetCustomAttributesData()
         => _customAttributes.Value;
 
     public override object[] GetCustomAttributes(bool inherit)
-        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+    {
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+        }
+
+        return bridge.GetCustomAttributes(this, attributeType: null, inherit);
+    }
 
     public override object[] GetCustomAttributes(Type attributeType, bool inherit)
-        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+        }
+
+        return bridge.GetCustomAttributes(this, attributeType, inherit);
+    }
 
     public override bool IsDefined(Type attributeType, bool inherit)
-        => _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is not null)
+        {
+            return bridge.IsDefined(this, attributeType, inherit);
+        }
+
+        return _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    }
 
     public override object? GetRawConstantValue()
     {
-        if (_definition.GetDefaultValue().IsNil)
+        var defaultValueHandle = _definition.GetDefaultValue();
+        if (!defaultValueHandle.IsNil)
         {
-            return null;
+            var constant = _reader.GetConstant(defaultValueHandle);
+            var blobReader = _reader.GetBlobReader(constant.Value);
+            var rawValue = blobReader.ReadConstant(constant.TypeCode);
+
+            if (rawValue is null)
+            {
+                return null;
+            }
+
+            var fieldType = FieldType;
+
+            if (MetadataConstantDecoder.IsEnumLike(fieldType))
+            {
+                var runtimeEnumType = MetadataConstantDecoder.TryResolveRuntimeEnumType(fieldType);
+                if (runtimeEnumType is not null)
+                {
+                    return Enum.ToObject(runtimeEnumType, rawValue);
+                }
+            }
+            else if (fieldType == typeof(decimal) && rawValue is double doubleValue)
+            {
+                return Convert.ToDecimal(doubleValue);
+            }
+
+            return rawValue;
         }
 
-        var constant = _reader.GetConstant(_definition.GetDefaultValue());
-        return constant.Value;
+        var attributes = _customAttributes.Value;
+        if (MetadataConstantDecoder.TryDecodeDecimalConstant(attributes, out var decimalValue))
+        {
+            return decimalValue;
+        }
+
+        if (MetadataConstantDecoder.TryDecodeDateTimeConstant(attributes, out var dateTimeValue))
+        {
+            return dateTimeValue;
+        }
+
+        throw new InvalidOperationException($"Field '{Name}' does not have a default value.");
     }
 
     public override object? GetValue(object? obj)

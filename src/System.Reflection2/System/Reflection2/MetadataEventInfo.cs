@@ -59,13 +59,47 @@ public sealed class MetadataEventInfo : EventInfo
         => _customAttributes.Value;
 
     public override object[] GetCustomAttributes(bool inherit)
-        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+    {
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+        }
+
+        return bridge.GetCustomAttributes(this, attributeType: null, inherit);
+    }
 
     public override object[] GetCustomAttributes(Type attributeType, bool inherit)
-        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+        }
+
+        return bridge.GetCustomAttributes(this, attributeType, inherit);
+    }
 
     public override bool IsDefined(Type attributeType, bool inherit)
-        => _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is not null)
+        {
+            return bridge.IsDefined(this, attributeType, inherit);
+        }
+
+        return _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    }
 
     public override void AddEventHandler(object? target, Delegate? handler)
     {

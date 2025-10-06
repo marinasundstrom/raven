@@ -26,4 +26,12 @@ public interface IMetadataRuntimeBridge
     void RemoveEventHandler(EventInfo eventInfo, object? target, Delegate? handler);
 
     object? InvokeMember(Type type, string name, BindingFlags invokeAttr, Binder? binder, object? target, object?[]? args, ParameterModifier[]? modifiers, CultureInfo? culture, string[]? namedParameters);
+
+    object[] GetCustomAttributes(MemberInfo member, Type? attributeType, bool inherit);
+
+    bool IsDefined(MemberInfo member, Type attributeType, bool inherit);
+
+    object[] GetCustomAttributes(ParameterInfo parameter, Type? attributeType, bool inherit);
+
+    bool IsDefined(ParameterInfo parameter, Type attributeType, bool inherit);
 }

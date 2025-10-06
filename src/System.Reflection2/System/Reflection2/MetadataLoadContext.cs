@@ -48,7 +48,7 @@ public sealed class MetadataLoadContext : IDisposable
     public MetadataAssembly RegisterAssembly(MetadataReader reader, string? location = null)
     {
         ThrowIfDisposed();
-        var assembly = new MetadataAssembly(this, reader, location);
+        var assembly = new MetadataAssembly(this, reader, location, provider: null, methodBodyProvider: null);
         _assemblies[GetCacheKey(assembly)] = assembly;
         return assembly;
     }
@@ -71,7 +71,7 @@ public sealed class MetadataLoadContext : IDisposable
     {
         ThrowIfDisposed();
         var reader = result.Provider.GetMetadataReader();
-        var assembly = new MetadataAssembly(this, reader, result.Location);
+        var assembly = new MetadataAssembly(this, reader, result.Location, result.Provider, result.MethodBodyProvider);
         _disposables.Add(result);
         _assemblies[GetCacheKey(assembly)] = assembly;
         return assembly;

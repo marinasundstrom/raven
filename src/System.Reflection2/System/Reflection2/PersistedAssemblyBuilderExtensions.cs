@@ -1,9 +1,11 @@
 namespace System.Reflection2;
 
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 
 /// <summary>
 /// Extensions that bridge <see cref="PersistedAssemblyBuilder"/> into the metadata-based reflection model.
@@ -31,11 +33,20 @@ public static class PersistedAssemblyBuilderExtensions
         var ilStream = new BlobBuilder();
         var mappedFieldData = new BlobBuilder();
         var metadataBuilder = assemblyBuilder.GenerateMetadata(out ilStream, out mappedFieldData);
-        var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);
-        var metadataBlob = new BlobBuilder();
-        metadataRootBuilder.Serialize(metadataBlob, methodBodyStreamRva: 0, mappedFieldDataStreamRva: 0);
-        var metadataBytes = metadataBlob.ToImmutableArray();
-        var provider = MetadataReaderProvider.FromMetadataImage(metadataBytes);
-        return context.RegisterAssembly(new MetadataResolutionResult(provider));
+        var entryPointHandle = assemblyBuilder.EntryPoint is MethodInfo entryPoint
+            ? MetadataTokens.MethodDefinitionHandle(entryPoint.MetadataToken)
+            : default;
+        var peBuilder = new ManagedPEBuilder(
+            new PEHeaderBuilder(imageCharacteristics: Characteristics.Dll),
+            new MetadataRootBuilder(metadataBuilder),
+            ilStream: ilStream,
+            mappedFieldData: mappedFieldData,
+            entryPoint: entryPointHandle);
+        var peBlob = new BlobBuilder();
+        peBuilder.Serialize(peBlob);
+        var peImage = peBlob.ToImmutableArray();
+        var peReader = new PEReader(peImage);
+        var provider = MetadataReaderProvider.FromMetadataImage(peReader.GetMetadata().GetContent());
+        return context.RegisterAssembly(new MetadataResolutionResult(provider, location: null, peReader));
     }
 }

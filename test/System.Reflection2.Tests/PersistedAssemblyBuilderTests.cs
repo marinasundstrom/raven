@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -8,7 +9,11 @@ using System.Reflection.Emit;
 using System.Reflection2;
 using System.IO;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 using System.Runtime.Serialization;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 public static class PersistedAssemblyBuilderTests
 {
@@ -196,6 +201,429 @@ public static class PersistedAssemblyBuilderTests
     }
 
     [Fact]
+    public static void MetadataAssembly_ExposesAssemblyAndModuleMetadata()
+    {
+        var assemblyName = new AssemblyName("Reflection2.AssemblyMetadata");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+
+        var assemblyAttributeCtor = typeof(AssemblyCompanyAttribute).GetConstructor(new[] { typeof(string) })!;
+        persistedBuilder.SetCustomAttribute(new CustomAttributeBuilder(assemblyAttributeCtor, new object[] { "Raven" }));
+
+        var moduleAttributeCtor = typeof(CLSCompliantAttribute).GetConstructor(new[] { typeof(bool) })!;
+        moduleBuilder.SetCustomAttribute(new CustomAttributeBuilder(moduleAttributeCtor, new object[] { true }));
+
+        var typeBuilder = moduleBuilder.DefineType("TokenOwner", TypeAttributes.Public | TypeAttributes.Class);
+        var fieldBuilder = typeBuilder.DefineField("Value", typeof(int), FieldAttributes.Public | FieldAttributes.Static);
+        var methodBuilder = typeBuilder.DefineMethod("GetValue", MethodAttributes.Public | MethodAttributes.Static, typeof(int), Type.EmptyTypes);
+        var il = methodBuilder.GetILGenerator();
+        il.Emit(OpCodes.Ldsfld, fieldBuilder);
+        il.Emit(OpCodes.Ret);
+        typeBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+        var metadataModule = (MetadataModule)metadataAssembly.ManifestModule;
+
+        Assert.Contains(metadataAssembly.CustomAttributes, data => data.AttributeType.FullName == typeof(AssemblyCompanyAttribute).FullName);
+        Assert.Contains(metadataModule.CustomAttributes, data => data.AttributeType.FullName == typeof(CLSCompliantAttribute).FullName);
+
+        Assert.Empty(metadataAssembly.GetManifestResourceNames());
+        Assert.Null(metadataAssembly.GetManifestResourceInfo("missing"));
+
+        var metadataType = Assert.IsType<MetadataType>(metadataModule.GetType("TokenOwner", throwOnError: true, ignoreCase: false)!);
+        var metadataField = Assert.IsType<MetadataFieldInfo>(metadataType.GetField("Value", BindingFlags.Public | BindingFlags.Static)!);
+        var metadataMethod = Assert.IsType<MetadataMethodInfo>(metadataType.GetMethod("GetValue", BindingFlags.Public | BindingFlags.Static)!);
+
+        var readerProperty = typeof(MetadataModule).GetProperty("Reader", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(readerProperty);
+        var reader = (MetadataReader)readerProperty!.GetValue(metadataModule)!;
+        var typeHandle = reader.TypeDefinitions.Single(handle => reader.GetString(reader.GetTypeDefinition(handle).Name) == "TokenOwner");
+        var fieldHandle = reader.GetTypeDefinition(typeHandle).GetFields().Single(handle => reader.GetString(reader.GetFieldDefinition(handle).Name) == "Value");
+        var methodHandle = reader.GetTypeDefinition(typeHandle).GetMethods().Single(handle => reader.GetString(reader.GetMethodDefinition(handle).Name) == "GetValue");
+
+        var typeToken = MetadataTokens.GetToken(typeHandle);
+        var fieldToken = MetadataTokens.GetToken(fieldHandle);
+        var methodToken = MetadataTokens.GetToken(methodHandle);
+
+        Assert.Same(metadataType, metadataModule.ResolveType(typeToken, null, null));
+        Assert.Same(metadataField, metadataModule.ResolveField(fieldToken, null, null));
+        Assert.Same(metadataMethod, metadataModule.ResolveMethod(methodToken, null, null));
+
+        Assert.Same(metadataMethod, metadataModule.ResolveMember(methodToken, null, null));
+        Assert.Same(metadataType, metadataModule.ResolveMember(typeToken, null, null));
+
+        Assert.Null(metadataAssembly.GetManifestResourceStream("missing"));
+    }
+
+    [Fact]
+    public static void MetadataParameterInfo_ExposesCustomModifiers()
+    {
+        var assemblyName = new AssemblyName("Reflection2.CustomModifiers");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+        var typeBuilder = moduleBuilder.DefineType("CustomModifierHolder", TypeAttributes.Public | TypeAttributes.Class);
+
+        var methodBuilder = typeBuilder.DefineMethod(
+            "RefReadonly",
+            MethodAttributes.Public | MethodAttributes.Static);
+
+        methodBuilder.SetSignature(
+            returnType: typeof(int),
+            returnTypeRequiredCustomModifiers: new[] { typeof(IsReadOnlyAttribute) },
+            returnTypeOptionalCustomModifiers: new[] { typeof(CallConvCdecl) },
+            parameterTypes: new[] { typeof(int).MakeByRefType(), typeof(int) },
+            parameterTypeRequiredCustomModifiers: new[]
+            {
+                new[] { typeof(IsReadOnlyAttribute) },
+                Type.EmptyTypes,
+            },
+            parameterTypeOptionalCustomModifiers: new[]
+            {
+                new[] { typeof(CallConvStdcall) },
+                new[] { typeof(CallConvThiscall) },
+            });
+
+        var il = methodBuilder.GetILGenerator();
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Ldind_I4);
+        il.Emit(OpCodes.Ret);
+
+        typeBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+        var metadataType = metadataAssembly.GetType("CustomModifierHolder", throwOnError: true, ignoreCase: false)!;
+        var method = metadataType.GetMethod("RefReadonly", BindingFlags.Public | BindingFlags.Static)!;
+
+        var returnRequired = method.ReturnParameter.GetRequiredCustomModifiers();
+        Assert.Contains(typeof(IsReadOnlyAttribute).FullName, returnRequired.Select(t => t.FullName));
+
+        var returnOptional = method.ReturnParameter.GetOptionalCustomModifiers();
+        Assert.Contains(typeof(CallConvCdecl).FullName, returnOptional.Select(t => t.FullName));
+
+        var parameters = method.GetParameters();
+        Assert.Equal(2, parameters.Length);
+
+        var firstRequired = parameters[0].GetRequiredCustomModifiers();
+        Assert.Contains(typeof(IsReadOnlyAttribute).FullName, firstRequired.Select(t => t.FullName));
+
+        var firstOptional = parameters[0].GetOptionalCustomModifiers();
+        Assert.Contains(typeof(CallConvStdcall).FullName, firstOptional.Select(t => t.FullName));
+
+        var secondOptional = parameters[1].GetOptionalCustomModifiers();
+        Assert.Contains(typeof(CallConvThiscall).FullName, secondOptional.Select(t => t.FullName));
+    }
+
+    [Fact]
+    public static void MetadataParameterInfo_DecodesDefaultValues()
+    {
+        var assemblyName = new AssemblyName("Reflection2.DefaultValues");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+        var typeBuilder = moduleBuilder.DefineType("DefaultValueHolder", TypeAttributes.Public | TypeAttributes.Class);
+
+        var methodBuilder = typeBuilder.DefineMethod(
+            "Defaults",
+            MethodAttributes.Public | MethodAttributes.Static,
+            typeof(void),
+            new[] { typeof(int), typeof(decimal), typeof(DateTime), typeof(object), typeof(object), typeof(object) });
+
+        methodBuilder.GetILGenerator().Emit(OpCodes.Ret);
+
+        var constantParameter = methodBuilder.DefineParameter(1, ParameterAttributes.HasDefault, "constant");
+        constantParameter.SetConstant(42);
+
+        var decimalParameter = methodBuilder.DefineParameter(2, ParameterAttributes.HasDefault, "decimalValue");
+        var decimalBits = decimal.GetBits(12.34m);
+        var decimalCtor = typeof(DecimalConstantAttribute).GetConstructor(new[] { typeof(byte), typeof(byte), typeof(int), typeof(int), typeof(int) })
+            ?? throw new InvalidOperationException("DecimalConstantAttribute constructor not found.");
+        decimalParameter.SetCustomAttribute(new CustomAttributeBuilder(decimalCtor, new object[]
+        {
+            (byte)((decimalBits[3] >> 16) & 0x7F),
+            (byte)((decimalBits[3] >> 31) & 0x1),
+            decimalBits[2],
+            decimalBits[1],
+            decimalBits[0],
+        }));
+
+        var dateParameter = methodBuilder.DefineParameter(3, ParameterAttributes.HasDefault, "dateTimeValue");
+        var date = new DateTime(2001, 2, 3, 4, 5, 6, DateTimeKind.Unspecified);
+        var dateCtor = typeof(DateTimeConstantAttribute).GetConstructor(new[] { typeof(long) })
+            ?? throw new InvalidOperationException("DateTimeConstantAttribute constructor not found.");
+        dateParameter.SetCustomAttribute(new CustomAttributeBuilder(dateCtor, new object[] { date.Ticks }));
+
+        var defaultValueParameter = methodBuilder.DefineParameter(4, ParameterAttributes.HasDefault, "attributeDefault");
+        var defaultCtor = typeof(DefaultParameterValueAttribute).GetConstructor(new[] { typeof(object) })
+            ?? throw new InvalidOperationException("DefaultParameterValueAttribute constructor not found.");
+        defaultValueParameter.SetCustomAttribute(new CustomAttributeBuilder(defaultCtor, new object?[] { "attribute" }));
+
+        var missingParameter = methodBuilder.DefineParameter(5, ParameterAttributes.Optional, "missing");
+        var optionalCtor = typeof(OptionalAttribute).GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException("OptionalAttribute constructor not found.");
+        missingParameter.SetCustomAttribute(new CustomAttributeBuilder(optionalCtor, Array.Empty<object>()));
+
+        var nullParameter = methodBuilder.DefineParameter(6, ParameterAttributes.HasDefault, "nullable");
+        nullParameter.SetConstant(null);
+
+        typeBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+        var metadataType = metadataAssembly.GetType("DefaultValueHolder", throwOnError: true, ignoreCase: false)!;
+        var method = metadataType.GetMethod("Defaults", BindingFlags.Public | BindingFlags.Static)!;
+        var parameters = method.GetParameters();
+        Assert.Equal(6, parameters.Length);
+
+        Assert.True(parameters[0].HasDefaultValue);
+        Assert.Equal(42, parameters[0].DefaultValue);
+
+        Assert.True(parameters[1].HasDefaultValue);
+        Assert.Equal(12.34m, parameters[1].DefaultValue);
+
+        Assert.True(parameters[2].HasDefaultValue);
+        Assert.Equal(date, parameters[2].DefaultValue);
+
+        Assert.True(parameters[3].HasDefaultValue);
+        Assert.Equal("attribute", parameters[3].DefaultValue);
+
+        Assert.False(parameters[4].HasDefaultValue);
+        Assert.Same(Missing.Value, parameters[4].DefaultValue);
+
+        Assert.True(parameters[5].HasDefaultValue);
+        Assert.Null(parameters[5].DefaultValue);
+    }
+
+    [Fact]
+    public static void MetadataRuntimeBridge_MaterializesAttributeInstances()
+    {
+        var assemblyName = new AssemblyName("Reflection2.AttributeBridge");
+
+        var runtimeAssemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+        var runtimeModuleBuilder = runtimeAssemblyBuilder.DefineDynamicModule("RuntimeModule");
+        var runtimeBaseBuilder = runtimeModuleBuilder.DefineType("AttributedBase", TypeAttributes.Public | TypeAttributes.Class);
+        runtimeBaseBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(DescriptionAttribute).GetConstructor(new[] { typeof(string) })!, new object[] { "base" }));
+        var runtimeDerivedBuilder = runtimeModuleBuilder.DefineType("AttributedDerived", TypeAttributes.Public | TypeAttributes.Class, runtimeBaseBuilder);
+        var runtimeVariadic = runtimeDerivedBuilder.DefineMethod("Variadic", MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig, typeof(void), new[] { typeof(int[]) });
+        runtimeVariadic.GetILGenerator().Emit(OpCodes.Ret);
+        runtimeVariadic
+            .DefineParameter(1, ParameterAttributes.None, "values")
+            .SetCustomAttribute(new CustomAttributeBuilder(typeof(ParamArrayAttribute).GetConstructor(Type.EmptyTypes)!, Array.Empty<object>()));
+        var runtimeBaseType = runtimeBaseBuilder.CreateType() ?? throw new InvalidOperationException();
+        var runtimeDerivedType = runtimeDerivedBuilder.CreateType() ?? throw new InvalidOperationException();
+
+        Assert.True(runtimeDerivedType.IsDefined(typeof(DescriptionAttribute), inherit: true));
+
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var metadataModuleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+        var metadataBaseBuilder = metadataModuleBuilder.DefineType("AttributedBase", TypeAttributes.Public | TypeAttributes.Class);
+        metadataBaseBuilder.SetCustomAttribute(new CustomAttributeBuilder(typeof(DescriptionAttribute).GetConstructor(new[] { typeof(string) })!, new object[] { "base" }));
+        var metadataDerivedBuilder = metadataModuleBuilder.DefineType("AttributedDerived", TypeAttributes.Public | TypeAttributes.Class, metadataBaseBuilder);
+        var metadataVariadic = metadataDerivedBuilder.DefineMethod("Variadic", MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig, typeof(void), new[] { typeof(int[]) });
+        metadataVariadic.GetILGenerator().Emit(OpCodes.Ret);
+        metadataVariadic
+            .DefineParameter(1, ParameterAttributes.None, "values")
+            .SetCustomAttribute(new CustomAttributeBuilder(typeof(ParamArrayAttribute).GetConstructor(Type.EmptyTypes)!, Array.Empty<object>()));
+        metadataBaseBuilder.CreateType();
+        metadataDerivedBuilder.CreateType();
+
+        var runtimeTypes = new Dictionary<string, Type>(StringComparer.Ordinal);
+        var bridge = new RuntimeReflectionBridge(metadataType =>
+        {
+            if (metadataType.FullName is { } fullName && runtimeTypes.TryGetValue(fullName, out var mapped))
+            {
+                return mapped;
+            }
+
+            var qualifiedName = metadataType.AssemblyQualifiedName ?? metadataType.FullName ?? metadataType.Name;
+            return qualifiedName is null ? null : Type.GetType(qualifiedName, throwOnError: false);
+        });
+
+        using var loadContext = CreateLoadContext(bridge);
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+        var metadataBaseType = metadataAssembly.GetType("AttributedBase", throwOnError: true, ignoreCase: false)
+            ?? throw new InvalidOperationException("Metadata base type missing.");
+        var metadataDerivedType = metadataAssembly.GetType("AttributedDerived", throwOnError: true, ignoreCase: false)
+            ?? throw new InvalidOperationException("Metadata derived type missing.");
+
+        runtimeTypes[metadataBaseType.FullName ?? throw new InvalidOperationException()] = runtimeBaseType;
+        runtimeTypes[metadataDerivedType.FullName ?? throw new InvalidOperationException()] = runtimeDerivedType;
+
+        var metadataParameter = metadataDerivedType
+            .GetMethod("Variadic", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)!
+            .GetParameters()
+            .Single();
+
+        var allParameterAttributes = metadataParameter.GetCustomAttributes(inherit: false);
+        Assert.Single(allParameterAttributes);
+        Assert.IsType<ParamArrayAttribute>(allParameterAttributes[0]);
+
+        var filteredParameterAttributes = metadataParameter.GetCustomAttributes(typeof(ParamArrayAttribute), inherit: false);
+        Assert.Single(filteredParameterAttributes);
+        Assert.IsType<ParamArrayAttribute>(filteredParameterAttributes[0]);
+
+        Assert.True(metadataParameter.IsDefined(typeof(ParamArrayAttribute), inherit: false));
+
+        Assert.False(metadataDerivedType.IsDefined(typeof(DescriptionAttribute), inherit: false));
+        Assert.True(metadataDerivedType.IsDefined(typeof(DescriptionAttribute), inherit: true));
+
+        var inheritedAttributes = metadataDerivedType.GetCustomAttributes(typeof(DescriptionAttribute), inherit: true);
+        Assert.Single(inheritedAttributes);
+        Assert.IsType<DescriptionAttribute>(inheritedAttributes[0]);
+        Assert.Equal("base", ((DescriptionAttribute)inheritedAttributes[0]).Description);
+    }
+
+    [Fact]
+    public static void MetadataMethodInfo_GetBaseDefinition_FollowsInheritanceChain()
+    {
+        var assemblyName = new AssemblyName("Reflection2.BaseDefinition");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+
+        var baseBuilder = moduleBuilder.DefineType("Base", TypeAttributes.Public | TypeAttributes.Class);
+        var baseVirtual = baseBuilder.DefineMethod(
+            "Virtual",
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.NewSlot,
+            typeof(int),
+            new[] { typeof(int) });
+        var baseIl = baseVirtual.GetILGenerator();
+        baseIl.Emit(OpCodes.Ldarg_1);
+        baseIl.Emit(OpCodes.Ret);
+
+        var midBuilder = moduleBuilder.DefineType("Mid", TypeAttributes.Public | TypeAttributes.Class, baseBuilder);
+        var midVirtual = midBuilder.DefineMethod(
+            "Virtual",
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.ReuseSlot,
+            typeof(int),
+            new[] { typeof(int) });
+        midBuilder.DefineMethodOverride(midVirtual, baseVirtual);
+        var midIl = midVirtual.GetILGenerator();
+        midIl.Emit(OpCodes.Ldarg_1);
+        midIl.Emit(OpCodes.Ret);
+
+        var leafBuilder = moduleBuilder.DefineType("Leaf", TypeAttributes.Public | TypeAttributes.Class, midBuilder);
+        var leafVirtual = leafBuilder.DefineMethod(
+            "Virtual",
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.ReuseSlot,
+            typeof(int),
+            new[] { typeof(int) });
+        leafBuilder.DefineMethodOverride(leafVirtual, baseVirtual);
+        var leafIl = leafVirtual.GetILGenerator();
+        leafIl.Emit(OpCodes.Ldarg_1);
+        leafIl.Emit(OpCodes.Ret);
+
+        var newSlotBuilder = moduleBuilder.DefineType("NewSlot", TypeAttributes.Public | TypeAttributes.Class, baseBuilder);
+        var newSlot = newSlotBuilder.DefineMethod(
+            "Virtual",
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.NewSlot,
+            typeof(int),
+            new[] { typeof(int) });
+        var newSlotIl = newSlot.GetILGenerator();
+        newSlotIl.Emit(OpCodes.Ldarg_1);
+        newSlotIl.Emit(OpCodes.Ret);
+
+        baseBuilder.CreateType();
+        midBuilder.CreateType();
+        leafBuilder.CreateType();
+        newSlotBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+
+        var baseType = metadataAssembly.GetType("Base", throwOnError: true, ignoreCase: false)!.GetTypeInfo();
+        var baseMethod = baseType.GetMethod("Virtual", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)!;
+
+        var midType = metadataAssembly.GetType("Mid", throwOnError: true, ignoreCase: false)!.GetTypeInfo();
+        var midMethod = midType.GetMethod("Virtual", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)!;
+        Assert.Same(baseMethod, midMethod.GetBaseDefinition());
+
+        var leafType = metadataAssembly.GetType("Leaf", throwOnError: true, ignoreCase: false)!.GetTypeInfo();
+        var leafMethod = leafType.GetMethod("Virtual", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)!;
+        Assert.Same(baseMethod, leafMethod.GetBaseDefinition());
+
+        var newSlotType = metadataAssembly.GetType("NewSlot", throwOnError: true, ignoreCase: false)!.GetTypeInfo();
+        var newSlotMethod = newSlotType.GetMethod("Virtual", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)!;
+        Assert.Same(newSlotMethod, newSlotMethod.GetBaseDefinition());
+    }
+
+    [Fact]
+    public static void MetadataType_GetInterfaceMap_ProjectsDefaultImplementations()
+    {
+        var assemblyName = new AssemblyName("Reflection2.InterfaceMap");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+
+        var interfaceBuilder = moduleBuilder.DefineType(
+            "IHasDefaults",
+            TypeAttributes.Interface | TypeAttributes.Public | TypeAttributes.Abstract);
+
+        var requiredMethod = interfaceBuilder.DefineMethod(
+            "Required",
+            MethodAttributes.Public | MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.NewSlot,
+            typeof(void),
+            Type.EmptyTypes);
+
+        var providedMethod = interfaceBuilder.DefineMethod(
+            "Provided",
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.NewSlot,
+            typeof(void),
+            Type.EmptyTypes);
+        providedMethod.SetImplementationFlags(MethodImplAttributes.Managed | MethodImplAttributes.IL);
+        providedMethod.GetILGenerator().Emit(OpCodes.Ret);
+
+        var implicitBuilder = moduleBuilder.DefineType(
+            "ImplicitDefaultConsumer",
+            TypeAttributes.Public | TypeAttributes.Class,
+            typeof(object),
+            new[] { interfaceBuilder });
+        var implicitRequired = implicitBuilder.DefineMethod(
+            "Required",
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot,
+            typeof(void),
+            Type.EmptyTypes);
+        implicitRequired.GetILGenerator().Emit(OpCodes.Ret);
+
+        var explicitBuilder = moduleBuilder.DefineType(
+            "ExplicitDefaultConsumer",
+            TypeAttributes.Public | TypeAttributes.Class,
+            typeof(object),
+            new[] { interfaceBuilder });
+        var explicitRequired = explicitBuilder.DefineMethod(
+            "ExplicitRequired",
+            MethodAttributes.Private | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot,
+            typeof(void),
+            Type.EmptyTypes);
+        explicitRequired.GetILGenerator().Emit(OpCodes.Ret);
+        explicitBuilder.DefineMethodOverride(explicitRequired, requiredMethod);
+
+        interfaceBuilder.CreateType();
+        implicitBuilder.CreateType();
+        explicitBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+        var interfaceType = metadataAssembly.GetType("IHasDefaults", throwOnError: true, ignoreCase: false)!;
+
+        var implicitType = metadataAssembly.GetType("ImplicitDefaultConsumer", throwOnError: true, ignoreCase: false)!;
+        var implicitMap = implicitType.GetInterfaceMap(interfaceType);
+        var implicitRequiredIndex = Array.FindIndex(implicitMap.InterfaceMethods, method => method.Name == "Required");
+        Assert.NotEqual(-1, implicitRequiredIndex);
+        Assert.Equal("ImplicitDefaultConsumer", implicitMap.TargetMethods[implicitRequiredIndex].DeclaringType!.Name);
+        var implicitProvidedIndex = Array.FindIndex(implicitMap.InterfaceMethods, method => method.Name == "Provided");
+        Assert.NotEqual(-1, implicitProvidedIndex);
+        Assert.Same(implicitMap.InterfaceMethods[implicitProvidedIndex], implicitMap.TargetMethods[implicitProvidedIndex]);
+
+        var explicitType = metadataAssembly.GetType("ExplicitDefaultConsumer", throwOnError: true, ignoreCase: false)!;
+        var explicitMap = explicitType.GetInterfaceMap(interfaceType);
+        var explicitRequiredIndex = Array.FindIndex(explicitMap.InterfaceMethods, method => method.Name == "Required");
+        Assert.NotEqual(-1, explicitRequiredIndex);
+        Assert.Equal("ExplicitDefaultConsumer", explicitMap.TargetMethods[explicitRequiredIndex].DeclaringType!.Name);
+        var explicitProvidedIndex = Array.FindIndex(explicitMap.InterfaceMethods, method => method.Name == "Provided");
+        Assert.NotEqual(-1, explicitProvidedIndex);
+        Assert.Same(explicitMap.InterfaceMethods[explicitProvidedIndex], explicitMap.TargetMethods[explicitProvidedIndex]);
+    }
+
+    [Fact]
     public static void MetadataTypes_SupportGenericConstruction()
     {
         var assemblyName = new AssemblyName("Reflection2.Generic");
@@ -264,6 +692,154 @@ public static class PersistedAssemblyBuilderTests
         Assert.False(constructedFactory.ContainsGenericParameters);
         Assert.Single(constructedFactory.GetGenericArguments(), payloadType);
         Assert.Equal(payloadType, constructedFactory.ReturnType);
+    }
+
+    [Fact]
+    public static void MetadataMethods_SupportMakeGenericMethodAcrossContexts()
+    {
+        var assemblyName = new AssemblyName("Reflection2.Async");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+
+        var stateMachineBuilder = moduleBuilder.DefineType(
+            "SimpleStateMachine",
+            TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout | TypeAttributes.AnsiClass | TypeAttributes.BeforeFieldInit,
+            typeof(ValueType),
+            new[] { typeof(IAsyncStateMachine) });
+
+        var moveNext = stateMachineBuilder.DefineMethod(
+            nameof(IAsyncStateMachine.MoveNext),
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot,
+            typeof(void),
+            Type.EmptyTypes);
+        moveNext.GetILGenerator().Emit(OpCodes.Ret);
+
+        var setStateMachine = stateMachineBuilder.DefineMethod(
+            nameof(IAsyncStateMachine.SetStateMachine),
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot,
+            typeof(void),
+            new[] { typeof(IAsyncStateMachine) });
+        setStateMachine.GetILGenerator().Emit(OpCodes.Ret);
+
+        stateMachineBuilder.DefineMethodOverride(moveNext, typeof(IAsyncStateMachine).GetMethod(nameof(IAsyncStateMachine.MoveNext))!);
+        stateMachineBuilder.DefineMethodOverride(setStateMachine, typeof(IAsyncStateMachine).GetMethod(nameof(IAsyncStateMachine.SetStateMachine))!);
+        stateMachineBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+        var stateMachineType = metadataAssembly.GetType("SimpleStateMachine", throwOnError: true, ignoreCase: false)!;
+
+        var runtimeAssemblyPath = typeof(AsyncTaskMethodBuilder).Assembly.Location;
+        Assert.False(string.IsNullOrEmpty(runtimeAssemblyPath));
+
+        using var runtimeStream = File.OpenRead(runtimeAssemblyPath);
+        using var peReader = new PEReader(runtimeStream);
+        var metadataBytes = ImmutableArray.CreateRange(peReader.GetMetadata().GetContent().ToArray());
+        var runtimeAssembly = loadContext.RegisterAssembly(new MetadataResolutionResult(MetadataReaderProvider.FromMetadataImage(metadataBytes), runtimeAssemblyPath));
+
+        var builderType = runtimeAssembly.GetType("System.Runtime.CompilerServices.AsyncTaskMethodBuilder", throwOnError: true, ignoreCase: false)!;
+        var startMethodDefinition = builderType
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Single(method => method.Name == "Start" && method.IsGenericMethodDefinition);
+
+        var constructedStart = startMethodDefinition.MakeGenericMethod(stateMachineType);
+
+        Assert.False(constructedStart.ContainsGenericParameters);
+        Assert.Single(constructedStart.GetGenericArguments(), stateMachineType);
+
+        var parameter = constructedStart.GetParameters().Single();
+        Assert.True(parameter.ParameterType.IsByRef);
+        Assert.Same(stateMachineType, parameter.ParameterType.GetElementType());
+    }
+
+    [Fact]
+    public static void MetadataMethods_ExposeTokensAndMethodBodies()
+    {
+        var assemblyName = new AssemblyName("Reflection2.MethodBodies");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+
+        var hostBuilder = moduleBuilder.DefineType("BodyHost", TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed);
+        var valueField = hostBuilder.DefineField("_value", typeof(int), FieldAttributes.Private);
+
+        var ctorBuilder = hostBuilder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, new[] { typeof(int) });
+        var ctorIl = ctorBuilder.GetILGenerator();
+        ctorIl.Emit(OpCodes.Ldarg_0);
+        ctorIl.Emit(OpCodes.Call, typeof(object).GetConstructor(Type.EmptyTypes)!);
+        ctorIl.Emit(OpCodes.Ldarg_0);
+        ctorIl.Emit(OpCodes.Ldarg_1);
+        ctorIl.Emit(OpCodes.Stfld, valueField);
+        ctorIl.Emit(OpCodes.Ret);
+
+        var methodBuilder = hostBuilder.DefineMethod(
+            "Compute",
+            MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
+            typeof(int),
+            new[] { typeof(int) });
+        var il = methodBuilder.GetILGenerator();
+        il.DeclareLocal(typeof(int));
+        il.DeclareLocal(typeof(int), pinned: true);
+        var exitLabel = il.DefineLabel();
+
+        il.BeginExceptionBlock();
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Stloc_0);
+        il.Emit(OpCodes.Leave_S, exitLabel);
+
+        il.BeginCatchBlock(typeof(Exception));
+        il.Emit(OpCodes.Pop);
+        il.Emit(OpCodes.Ldc_I4_1);
+        il.Emit(OpCodes.Stloc_0);
+        il.Emit(OpCodes.Leave_S, exitLabel);
+
+        il.BeginFinallyBlock();
+        il.Emit(OpCodes.Ldloc_0);
+        il.Emit(OpCodes.Ldc_I4_S, 5);
+        il.Emit(OpCodes.Add);
+        il.Emit(OpCodes.Stloc_0);
+        il.EndExceptionBlock();
+
+        il.MarkLabel(exitLabel);
+        il.Emit(OpCodes.Ldloc_0);
+        il.Emit(OpCodes.Ret);
+
+        hostBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+        var hostType = metadataAssembly.GetType("BodyHost", throwOnError: true, ignoreCase: false)!;
+
+        var constructor = Assert.Single(hostType.GetConstructors(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly));
+        Assert.NotEqual(0, constructor.MetadataToken);
+        var ctorBody = constructor.GetMethodBody();
+        Assert.NotNull(ctorBody);
+        Assert.NotEmpty(ctorBody!.GetILAsByteArray());
+
+        var compute = hostType.GetMethod("Compute", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.NotNull(compute);
+        Assert.NotEqual(0, compute!.MetadataToken);
+
+        var body = compute.GetMethodBody();
+        Assert.NotNull(body);
+        Assert.True(body!.InitLocals);
+        Assert.NotEqual(0, body.LocalSignatureMetadataToken);
+        Assert.True(body.MaxStackSize >= 2);
+
+        Assert.Equal(2, body.LocalVariables.Count);
+        Assert.Equal(typeof(int), body.LocalVariables[0].LocalType);
+        Assert.False(body.LocalVariables[0].IsPinned);
+        Assert.Equal(typeof(int), body.LocalVariables[1].LocalType);
+        Assert.True(body.LocalVariables[1].IsPinned);
+
+        var clauses = body.ExceptionHandlingClauses;
+        Assert.Equal(2, clauses.Count);
+        var catchClause = Assert.Single(clauses.Where(clause => clause.Flags == ExceptionHandlingClauseOptions.Clause));
+        Assert.Equal(typeof(Exception).FullName, catchClause.CatchType?.FullName);
+        Assert.Single(clauses.Where(clause => clause.Flags == ExceptionHandlingClauseOptions.Finally));
+
+        var ilBytes = body.GetILAsByteArray();
+        Assert.NotEmpty(ilBytes);
+        Assert.Contains((byte)OpCodes.Leave_S.Value, ilBytes);
     }
 
     [Fact]
@@ -383,6 +959,95 @@ public static class PersistedAssemblyBuilderTests
         Assert.True(parameters[3].HasDefaultValue);
         Assert.Null(parameters[3].DefaultValue);
         Assert.Null(parameters[3].RawDefaultValue);
+    }
+
+    [Fact]
+    public static void MetadataFields_ExposeRawConstantValues()
+    {
+        var assemblyName = new AssemblyName("Reflection2.FieldConstants");
+        using var loadContext = CreateLoadContext();
+        var persistedBuilder = new PersistedAssemblyBuilder(assemblyName, typeof(object).Assembly, Array.Empty<CustomAttributeBuilder>());
+        var moduleBuilder = persistedBuilder.DefineDynamicModule("MainModule");
+
+        var hostBuilder = moduleBuilder.DefineType(
+            "Constants",
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.Abstract);
+
+        var numberField = hostBuilder.DefineField(
+            "Number",
+            typeof(int),
+            FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal);
+        numberField.SetConstant(123);
+
+        var textField = hostBuilder.DefineField(
+            "Text",
+            typeof(string),
+            FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal);
+        textField.SetConstant("hello");
+
+        var enumField = hostBuilder.DefineField(
+            "Day",
+            typeof(DayOfWeek),
+            FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal);
+        enumField.SetConstant(DayOfWeek.Friday);
+
+        var nullField = hostBuilder.DefineField(
+            "Missing",
+            typeof(string),
+            FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal);
+        nullField.SetConstant(null);
+
+        var decimalField = hostBuilder.DefineField(
+            "Price",
+            typeof(decimal),
+            FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal);
+        var decimalBits = decimal.GetBits(19.95m);
+        var decimalCtor = typeof(DecimalConstantAttribute).GetConstructor(new[] { typeof(byte), typeof(byte), typeof(int), typeof(int), typeof(int) })
+            ?? throw new InvalidOperationException("DecimalConstantAttribute constructor not found.");
+        decimalField.SetCustomAttribute(new CustomAttributeBuilder(decimalCtor, new object[]
+        {
+            (byte)((decimalBits[3] >> 16) & 0x7F),
+            (byte)((decimalBits[3] >> 31) & 0x1),
+            decimalBits[2],
+            decimalBits[1],
+            decimalBits[0],
+        }));
+
+        hostBuilder.DefineField(
+            "NonLiteral",
+            typeof(int),
+            FieldAttributes.Public | FieldAttributes.Static);
+
+        hostBuilder.CreateType();
+
+        var metadataAssembly = persistedBuilder.ToMetadataAssembly(loadContext);
+        var constantsType = metadataAssembly.GetType("Constants", throwOnError: true, ignoreCase: false)!;
+
+        var number = constantsType.GetField("Number", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.NotNull(number);
+        Assert.Equal(123, number!.GetRawConstantValue());
+
+        var text = constantsType.GetField("Text", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.NotNull(text);
+        Assert.Equal("hello", text!.GetRawConstantValue());
+
+        var day = constantsType.GetField("Day", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.NotNull(day);
+        Assert.Equal(DayOfWeek.Friday, day!.GetRawConstantValue());
+
+        var missing = constantsType.GetField("Missing", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.NotNull(missing);
+        Assert.Null(missing!.GetRawConstantValue());
+
+        var price = constantsType.GetField("Price", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.NotNull(price);
+        var rawPrice = price!.GetRawConstantValue();
+        Assert.IsType<decimal>(rawPrice);
+        Assert.Equal(19.95m, rawPrice);
+
+        var nonLiteral = constantsType.GetField("NonLiteral", BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        Assert.NotNull(nonLiteral);
+        Assert.Throws<InvalidOperationException>(() => nonLiteral!.GetRawConstantValue());
     }
 
     [Fact]

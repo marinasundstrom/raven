@@ -75,6 +75,34 @@ public sealed class RuntimeReflectionBridge : IMetadataRuntimeBridge
         return runtimeType.InvokeMember(name, invokeAttr, binder, target, args, modifiers, culture, namedParameters);
     }
 
+    public object[] GetCustomAttributes(MemberInfo member, Type? attributeType, bool inherit)
+    {
+        var runtimeMember = ResolveRuntimeMember(member);
+        return attributeType is null
+            ? runtimeMember.GetCustomAttributes(inherit)
+            : runtimeMember.GetCustomAttributes(attributeType, inherit);
+    }
+
+    public bool IsDefined(MemberInfo member, Type attributeType, bool inherit)
+    {
+        var runtimeMember = ResolveRuntimeMember(member);
+        return runtimeMember.IsDefined(attributeType, inherit);
+    }
+
+    public object[] GetCustomAttributes(ParameterInfo parameter, Type? attributeType, bool inherit)
+    {
+        var runtimeParameter = ResolveRuntimeParameter(parameter);
+        return attributeType is null
+            ? runtimeParameter.GetCustomAttributes(inherit)
+            : runtimeParameter.GetCustomAttributes(attributeType, inherit);
+    }
+
+    public bool IsDefined(ParameterInfo parameter, Type attributeType, bool inherit)
+    {
+        var runtimeParameter = ResolveRuntimeParameter(parameter);
+        return runtimeParameter.IsDefined(attributeType, inherit);
+    }
+
     private MethodInfo ResolveRuntimeMethod(MethodInfo method)
     {
         if (method.DeclaringType is not MetadataType metadataType)
@@ -179,6 +207,59 @@ public sealed class RuntimeReflectionBridge : IMetadataRuntimeBridge
         var runtimeType = ResolveRuntimeType(metadataType);
         var events = runtimeType.GetEvents(AllMembers);
         return events.FirstOrDefault(e => e.Name == eventInfo.Name) ?? throw new MissingMemberException(runtimeType.FullName, eventInfo.Name);
+    }
+
+    private MemberInfo ResolveRuntimeMember(MemberInfo member)
+    {
+        return member switch
+        {
+            MetadataType metadataType => ResolveRuntimeType(metadataType),
+            MetadataMethodInfo metadataMethod => ResolveRuntimeMethod(metadataMethod),
+            MetadataConstructorInfo metadataConstructor => ResolveRuntimeConstructor(metadataConstructor),
+            MetadataPropertyInfo metadataProperty => ResolveRuntimeProperty(metadataProperty),
+            MetadataFieldInfo metadataField => ResolveRuntimeField(metadataField),
+            MetadataEventInfo metadataEvent => ResolveRuntimeEvent(metadataEvent),
+            _ => member,
+        };
+    }
+
+    private ParameterInfo ResolveRuntimeParameter(ParameterInfo parameter)
+    {
+        if (parameter is not MetadataParameterInfo metadataParameter)
+        {
+            return parameter;
+        }
+
+        if (metadataParameter.DeclaringMember is MethodInfo method)
+        {
+            var runtimeMethod = ResolveRuntimeMethod(method);
+            if (metadataParameter.IsReturnParameter)
+            {
+                return runtimeMethod.ReturnParameter;
+            }
+
+            var parameters = runtimeMethod.GetParameters();
+            if ((uint)metadataParameter.Position >= (uint)parameters.Length)
+            {
+                throw new InvalidOperationException($"Unable to resolve runtime parameter at position {metadataParameter.Position} for method '{method.Name}'.");
+            }
+
+            return parameters[metadataParameter.Position];
+        }
+
+        if (metadataParameter.DeclaringMember is ConstructorInfo constructor)
+        {
+            var runtimeConstructor = ResolveRuntimeConstructor(constructor);
+            var parameters = runtimeConstructor.GetParameters();
+            if ((uint)metadataParameter.Position >= (uint)parameters.Length)
+            {
+                throw new InvalidOperationException($"Unable to resolve runtime parameter at position {metadataParameter.Position} for constructor '{constructor.Name}'.");
+            }
+
+            return parameters[metadataParameter.Position];
+        }
+
+        throw new InvalidOperationException("Metadata parameter does not have a declaring member to resolve against.");
     }
 
     private Type ResolveRuntimeType(Type type)

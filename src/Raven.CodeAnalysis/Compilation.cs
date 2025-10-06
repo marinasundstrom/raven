@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
+using System.IO;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -18,8 +19,7 @@ public partial class Compilation
     internal SyntaxTree? SyntaxTreeWithFileScopedCode;
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
-    private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
-    private MetadataLoadContext _metadataLoadContext;
+    private IMetadataReferenceHost _metadataReferenceHost;
     private GlobalBinder _globalBinder;
     private bool setup;
     private ErrorTypeSymbol _errorTypeSymbol;
@@ -139,12 +139,15 @@ public partial class Compilation
         List<string> paths = _references
             .OfType<PortableExecutableReference>()
             .Select(portableExecutableReference => portableExecutableReference.FilePath)
+            .Where(path => !string.IsNullOrEmpty(path))
+            .Cast<string>()
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var resolver = new PathAssemblyResolver(paths);
-        _metadataLoadContext = new MetadataLoadContext(resolver);
+        _metadataReferenceHost = MetadataReferenceHost.Create(Options.MetadataReferenceHostKind, paths);
 
-        CoreAssembly = _metadataLoadContext.CoreAssembly!;
+        CoreAssembly = _metadataReferenceHost.CoreAssembly;
 
         foreach (var metadataReference in References)
         {
@@ -479,7 +482,12 @@ public partial class Compilation
             {
                 case PortableExecutableReference per:
                 {
-                    var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
+                    if (string.IsNullOrEmpty(per.FilePath))
+                    {
+                        throw new FileNotFoundException("Metadata reference does not provide a file path.");
+                    }
+
+                    var assembly = _metadataReferenceHost.LoadFromAssemblyPath(per.FilePath);
                     symbol = GetAssembly(assembly);
                     break;
                 }
@@ -520,7 +528,7 @@ public partial class Compilation
                 {
                     try
                     {
-                        var loadedAssembly = _metadataLoadContext.LoadFromAssemblyName(x);
+                        var loadedAssembly = _metadataReferenceHost.LoadFromAssemblyName(x);
                         if (loadedAssembly is null)
                             return null;
 

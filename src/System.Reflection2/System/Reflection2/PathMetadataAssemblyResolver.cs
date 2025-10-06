@@ -85,15 +85,23 @@ public sealed class PathMetadataAssemblyResolver : IMetadataAssemblyResolver
 
     private static MetadataResolutionResult CreateResult(string path)
     {
-        using var stream = File.OpenRead(path);
-        using var peReader = new PEReader(stream);
-        if (!peReader.HasMetadata)
+        var stream = File.OpenRead(path);
+        try
         {
-            throw new BadImageFormatException($"Assembly '{path}' does not contain metadata.");
-        }
+            var peReader = new PEReader(stream);
+            if (!peReader.HasMetadata)
+            {
+                throw new BadImageFormatException($"Assembly '{path}' does not contain metadata.");
+            }
 
-        var metadata = peReader.GetMetadata().GetContent();
-        var provider = MetadataReaderProvider.FromMetadataImage(metadata);
-        return new MetadataResolutionResult(provider, path);
+            var metadata = peReader.GetMetadata().GetContent();
+            var provider = MetadataReaderProvider.FromMetadataImage(metadata);
+            return new MetadataResolutionResult(provider, path, peReader);
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
     }
 }

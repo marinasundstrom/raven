@@ -14,7 +14,7 @@ internal sealed class MetadataConstructorInfo : ConstructorInfo
     private readonly MetadataReader _reader;
     private readonly MethodDefinitionHandle _handle;
     private readonly MethodDefinition _definition;
-    private readonly Lazy<MethodSignature<Type>> _signature;
+    private readonly Lazy<MetadataDecodedSignature> _signature;
     private readonly Lazy<IReadOnlyList<MetadataParameterInfo>> _parameters;
     private readonly Lazy<IList<CustomAttributeData>> _customAttributes;
 
@@ -24,7 +24,7 @@ internal sealed class MetadataConstructorInfo : ConstructorInfo
         _reader = declaringType.Reader;
         _handle = handle;
         _definition = _reader.GetMethodDefinition(handle);
-        _signature = new Lazy<MethodSignature<Type>>(DecodeSignature);
+        _signature = new Lazy<MetadataDecodedSignature>(DecodeSignature);
         _parameters = new Lazy<IReadOnlyList<MetadataParameterInfo>>(DecodeParameters);
         _customAttributes = new Lazy<IList<CustomAttributeData>>(() => MetadataCustomAttributeDecoder.Decode(_declaringType.MetadataModule, _definition.GetCustomAttributes(), _declaringType, null));
     }
@@ -33,7 +33,9 @@ internal sealed class MetadataConstructorInfo : ConstructorInfo
 
     public override MethodAttributes Attributes => _definition.Attributes;
 
-    public override CallingConventions CallingConvention => (CallingConventions)_signature.Value.Header.CallingConvention;
+    public override CallingConventions CallingConvention => (CallingConventions)_signature.Value.Signature.Header.CallingConvention;
+
+    public override int MetadataToken => MetadataTokens.GetToken(_handle);
 
     public override bool ContainsGenericParameters => _definition.GetGenericParameters().Any();
 
@@ -43,17 +45,68 @@ internal sealed class MetadataConstructorInfo : ConstructorInfo
 
     public override ParameterInfo[] GetParameters() => _parameters.Value.Cast<ParameterInfo>().ToArray();
 
+    public override MethodBody? GetMethodBody()
+    {
+        var bodyBlock = _declaringType.MetadataModule.TryGetMethodBody(_definition.RelativeVirtualAddress);
+        if (bodyBlock is null)
+        {
+            return null;
+        }
+
+        var declaringArguments = _declaringType.GetGenericArguments();
+        return new MetadataMethodBody(
+            _declaringType.MetadataModule,
+            bodyBlock,
+            _declaringType,
+            declaringArguments,
+            methodTypeArguments: null);
+    }
+
     public override IList<CustomAttributeData> GetCustomAttributesData()
         => _customAttributes.Value;
 
     public override object[] GetCustomAttributes(bool inherit)
-        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+    {
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+        }
+
+        return bridge.GetCustomAttributes(this, attributeType: null, inherit);
+    }
 
     public override object[] GetCustomAttributes(Type attributeType, bool inherit)
-        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+        }
+
+        return bridge.GetCustomAttributes(this, attributeType, inherit);
+    }
 
     public override bool IsDefined(Type attributeType, bool inherit)
-        => _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        var bridge = _declaringType.MetadataModule.RuntimeBridge;
+        if (bridge is not null)
+        {
+            return bridge.IsDefined(this, attributeType, inherit);
+        }
+
+        return _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    }
 
     public override string Name => _reader.GetString(_definition.Name);
 
@@ -91,15 +144,24 @@ internal sealed class MetadataConstructorInfo : ConstructorInfo
 
     public override bool IsGenericMethodDefinition => false;
 
-    private MethodSignature<Type> DecodeSignature()
+    private MetadataDecodedSignature DecodeSignature()
     {
         var provider = new MetadataSignatureTypeProvider(_declaringType.MetadataModule, _declaringType.GetGenericArguments(), null, _declaringType);
-        return _definition.DecodeSignature(provider, _declaringType);
+        var signature = _definition.DecodeSignature(provider, _declaringType);
+        var (returnModifiers, parameterModifiers) = MetadataSignatureDecoder.DecodeMethodCustomModifiers(
+            _declaringType.MetadataModule,
+            _definition,
+            _declaringType,
+            _declaringType.GetGenericArguments(),
+            genericMethodParameters: null);
+
+        return new MetadataDecodedSignature(signature, returnModifiers, parameterModifiers);
     }
 
     private IReadOnlyList<MetadataParameterInfo> DecodeParameters()
     {
-        var signature = _signature.Value;
+        var signatureInfo = _signature.Value;
+        var signature = signatureInfo.Signature;
         var parameters = new List<MetadataParameterInfo>();
         var parameterHandles = _definition.GetParameters().ToArray();
         var parameterMap = new Dictionary<int, (ParameterHandle Handle, Parameter Parameter)>();
@@ -125,7 +187,11 @@ internal sealed class MetadataConstructorInfo : ConstructorInfo
                 parameterHandle = entry.Handle;
             }
 
-            parameters.Add(new MetadataParameterInfo(parameterType, name, i, attributes, _declaringType.MetadataModule, parameterHandle, _declaringType, null));
+            var modifiers = i < signatureInfo.ParameterCustomModifiers.Length
+                ? signatureInfo.ParameterCustomModifiers[i]
+                : MetadataCustomModifiers.Empty;
+
+            parameters.Add(new MetadataParameterInfo(parameterType, name, i, attributes, _declaringType.MetadataModule, parameterHandle, _declaringType, null, this, requiredCustomModifiers: modifiers.Required, optionalCustomModifiers: modifiers.Optional));
         }
 
         return parameters;
