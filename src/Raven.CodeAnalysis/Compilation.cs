@@ -653,8 +653,17 @@ public partial class Compilation
         if (symbol is null)
             throw new ArgumentNullException(nameof(symbol));
 
-        var metadataType = symbol.GetTypeInfo();
-        return ResolveRuntimeType(metadataType);
+        EnsureSetup();
+
+        if (symbol.ContainingAssembly is PEAssemblySymbol peAssembly)
+            RegisterRuntimeAssembly(peAssembly.GetAssemblyInfo());
+
+        var metadataName = ((INamedTypeSymbol)symbol).ToFullyQualifiedMetadataName();
+
+        if (string.IsNullOrEmpty(metadataName))
+            return null;
+
+        return ResolveRuntimeType(metadataName);
     }
 
     internal Type? ResolveRuntimeType(System.Reflection.TypeInfo metadataType)
@@ -662,20 +671,21 @@ public partial class Compilation
         if (metadataType is null)
             throw new ArgumentNullException(nameof(metadataType));
 
-        var runtimeAssembly = RegisterRuntimeAssembly(metadataType.Assembly);
+        EnsureSetup();
 
-        Type? runtimeType = null;
+        RegisterRuntimeAssembly(metadataType.Assembly);
 
-        if (runtimeAssembly is not null && metadataType.FullName is { } fullName)
-            runtimeType = runtimeAssembly.GetType(fullName, throwOnError: false, ignoreCase: false);
+        if (metadataType.FullName is { Length: > 0 } fullName)
+        {
+            var resolved = ResolveRuntimeType(fullName);
+            if (resolved is not null)
+                return resolved;
+        }
 
-        if (runtimeType is null && metadataType.FullName is { } metadataName)
-            runtimeType = ResolveRuntimeType(metadataName);
+        if (metadataType.AssemblyQualifiedName is { Length: > 0 } qualifiedName)
+            return Type.GetType(qualifiedName, throwOnError: false);
 
-        if (runtimeType is null && metadataType.AssemblyQualifiedName is { } qualifiedName)
-            runtimeType = Type.GetType(qualifiedName, throwOnError: false);
-
-        return runtimeType;
+        return null;
     }
 
     internal Type? ResolveRuntimeType(string metadataName)
