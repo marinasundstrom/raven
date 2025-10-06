@@ -249,6 +249,7 @@ public static class TypeSymbolExtensionsForCodeGen
             SpecialType.System_ValueTuple_T6 => FromRuntime(compilation, "System.ValueTuple`6"),
             SpecialType.System_ValueTuple_T7 => FromRuntime(compilation, "System.ValueTuple`7"),
             SpecialType.System_ValueTuple_TRest => FromRuntime(compilation, "System.ValueTuple`8"),
+            SpecialType.System_Unit => FromRuntime(compilation, "System.Void"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
     }
