@@ -143,13 +143,47 @@ public sealed class MetadataType : TypeInfo
         => _customAttributes.Value;
 
     public override object[] GetCustomAttributes(bool inherit)
-        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+    {
+        var bridge = _module.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+        }
+
+        return bridge.GetCustomAttributes(this, attributeType: null, inherit);
+    }
 
     public override object[] GetCustomAttributes(Type attributeType, bool inherit)
-        => throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        var bridge = _module.RuntimeBridge;
+        if (bridge is null)
+        {
+            throw new NotSupportedException("Materializing attribute instances is not supported in metadata-only context.");
+        }
+
+        return bridge.GetCustomAttributes(this, attributeType, inherit);
+    }
 
     public override bool IsDefined(Type attributeType, bool inherit)
-        => _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        var bridge = _module.RuntimeBridge;
+        if (bridge is not null)
+        {
+            return bridge.IsDefined(this, attributeType, inherit);
+        }
+
+        return _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    }
 
     public override ConstructorInfo[] GetConstructors(BindingFlags bindingAttr)
         => FilterConstructors(bindingAttr).ToArray();
@@ -270,16 +304,35 @@ public sealed class MetadataType : TypeInfo
             throw new ArgumentException($"Type '{interfaceType}' is not an interface.", nameof(interfaceType));
         }
 
-        if (!_interfaces.Value.Contains(interfaceType))
+        var implementedInterfaces = GetInterfaces();
+        Type? resolvedInterface = null;
+        foreach (var candidate in implementedInterfaces)
+        {
+            if (InterfaceMatches(candidate, interfaceType))
+            {
+                resolvedInterface = candidate;
+                break;
+            }
+        }
+
+        if (resolvedInterface is null)
         {
             var baseType = BaseType;
             if (baseType is not null)
             {
-                return baseType.GetInterfaceMap(interfaceType);
+                try
+                {
+                    return baseType.GetInterfaceMap(interfaceType);
+                }
+                catch (ArgumentException)
+                {
+                }
             }
 
-            throw new ArgumentException($"Type '{FullName}' does not implement interface '{interfaceType}'.", nameof(interfaceType));
+            resolvedInterface = interfaceType;
         }
+
+        interfaceType = resolvedInterface;
 
         var interfaceMethods = interfaceType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
         var targetMethods = new MethodInfo[interfaceMethods.Length];
@@ -296,7 +349,14 @@ public sealed class MetadataType : TypeInfo
 
             if (target is null)
             {
-                throw new TypeLoadException($"Type '{FullName}' does not implement interface method '{interfaceMethod.Name}' from '{interfaceType}'.");
+                if (!interfaceMethod.IsAbstract)
+                {
+                    target = interfaceMethod;
+                }
+                else
+                {
+                    throw new TypeLoadException($"Type '{FullName}' does not implement interface method '{interfaceMethod.Name}' from '{interfaceType}'.");
+                }
             }
 
             targetMethods[i] = target;
@@ -309,6 +369,28 @@ public sealed class MetadataType : TypeInfo
             InterfaceMethods = interfaceMethods,
             TargetMethods = targetMethods,
         };
+    }
+
+    private static bool InterfaceMatches(Type candidate, Type target)
+    {
+        if (ReferenceEquals(candidate, target))
+        {
+            return true;
+        }
+
+        if (candidate.MetadataToken == target.MetadataToken && Equals(candidate.Module, target.Module))
+        {
+            return true;
+        }
+
+        var candidateName = candidate.FullName;
+        var targetName = target.FullName;
+        if (candidateName is not null && targetName is not null && string.Equals(candidateName, targetName, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     public override Type? GetElementType() => null;
@@ -750,6 +832,19 @@ public sealed class MetadataType : TypeInfo
     internal MethodInfo? ResolveMethod(MethodDefinitionHandle handle)
         => MethodsAndConstructors.TryGetMethod(handle);
 
+    internal FieldInfo? ResolveField(FieldDefinitionHandle handle)
+    {
+        foreach (var field in _fields.Value)
+        {
+            if (field.Handle == handle)
+            {
+                return field;
+            }
+        }
+
+        return null;
+    }
+
     private Dictionary<MethodInfo, MethodInfo> BuildInterfaceImplementationMap(Type interfaceType)
     {
         var map = new Dictionary<MethodInfo, MethodInfo>();
@@ -801,7 +896,22 @@ public sealed class MetadataType : TypeInfo
         var baseType = BaseType;
         while (baseType is not null)
         {
-            var baseMap = baseType.GetInterfaceMap(interfaceType);
+            InterfaceMapping baseMap;
+            try
+            {
+                baseMap = baseType.GetInterfaceMap(interfaceType);
+            }
+            catch (ArgumentException)
+            {
+                baseType = baseType.BaseType;
+                continue;
+            }
+            catch (TypeLoadException)
+            {
+                baseType = baseType.BaseType;
+                continue;
+            }
+
             for (var i = 0; i < baseMap.InterfaceMethods.Length; i++)
             {
                 if (Equals(baseMap.InterfaceMethods[i], interfaceMethod))

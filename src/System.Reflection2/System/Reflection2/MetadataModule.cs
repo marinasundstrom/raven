@@ -22,15 +22,20 @@ public sealed class MetadataModule : Module
     private readonly ConcurrentDictionary<Type, MetadataByRefType> _byRefTypes = new();
     private readonly ConcurrentDictionary<Type, MetadataPointerType> _pointerTypes = new();
     private readonly ConcurrentDictionary<FunctionPointerSignatureKey, MetadataFunctionPointerType> _functionPointerTypes = new();
+    private readonly Lazy<IList<CustomAttributeData>> _customAttributes;
+    private readonly Func<int, MethodBodyBlock?>? _methodBodyProvider;
 
-    internal MetadataModule(MetadataAssembly assembly, MetadataReader reader)
+    internal MetadataModule(MetadataAssembly assembly, MetadataReader reader, Func<int, MethodBodyBlock?>? methodBodyProvider)
     {
         _assembly = assembly ?? throw new ArgumentNullException(nameof(assembly));
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
+        _methodBodyProvider = methodBodyProvider;
         Name = reader.GetString(reader.GetModuleDefinition().Name);
         ScopeName = Name;
         FullyQualifiedName = assembly.Location ?? Name;
         Mvid = reader.GetGuid(reader.GetModuleDefinition().Mvid);
+        _customAttributes = new Lazy<IList<CustomAttributeData>>(()
+            => MetadataCustomAttributeDecoder.Decode(this, reader.GetModuleDefinition().GetCustomAttributes(), null, null));
     }
 
     internal MetadataReader Reader => _reader;
@@ -49,7 +54,87 @@ public sealed class MetadataModule : Module
 
     internal Guid Mvid { get; }
 
-    public override bool IsResource() => false;
+    public override bool IsResource()
+    {
+        var hasUserTypes = false;
+        foreach (var handle in _reader.TypeDefinitions)
+        {
+            var definition = _reader.GetTypeDefinition(handle);
+            if (IsModuleType(definition))
+            {
+                continue;
+            }
+
+            hasUserTypes = true;
+            break;
+        }
+
+        if (hasUserTypes)
+        {
+            return false;
+        }
+
+        return _reader.ManifestResources.Count > 0;
+    }
+
+    public override Type ResolveType(int metadataToken, Type[]? genericTypeArguments, Type[]? genericMethodArguments)
+    {
+        var handle = MetadataTokens.EntityHandle(metadataToken);
+        return ResolveType(handle, genericContext: null, genericMethodArguments, genericTypeArguments);
+    }
+
+    public override MethodBase ResolveMethod(int metadataToken, Type[]? genericTypeArguments, Type[]? genericMethodArguments)
+    {
+        var handle = MetadataTokens.EntityHandle(metadataToken);
+        return ResolveMethod(handle, genericContext: null, genericMethodArguments, genericTypeArguments);
+    }
+
+    public override FieldInfo ResolveField(int metadataToken, Type[]? genericTypeArguments, Type[]? genericMethodArguments)
+    {
+        var handle = MetadataTokens.EntityHandle(metadataToken);
+        return ResolveField(handle, genericContext: null, genericMethodArguments, genericTypeArguments);
+    }
+
+    public override MemberInfo ResolveMember(int metadataToken, Type[]? genericTypeArguments, Type[]? genericMethodArguments)
+    {
+        var handle = MetadataTokens.EntityHandle(metadataToken);
+        return handle.Kind switch
+        {
+            HandleKind.TypeDefinition or HandleKind.TypeReference or HandleKind.TypeSpecification
+                => ResolveType(handle, genericContext: null, genericMethodArguments, genericTypeArguments),
+            HandleKind.MethodDefinition or HandleKind.MethodSpecification
+                => ResolveMethod(handle, genericContext: null, genericMethodArguments, genericTypeArguments),
+            HandleKind.FieldDefinition
+                => ResolveField(handle, genericContext: null, genericMethodArguments, genericTypeArguments),
+            HandleKind.MemberReference => GetMemberReferenceSignatureKind((MemberReferenceHandle)handle) == SignatureKind.Field
+                ? ResolveField(handle, genericContext: null, genericMethodArguments, genericTypeArguments)
+                : ResolveMethod(handle, genericContext: null, genericMethodArguments, genericTypeArguments),
+            _ => throw new NotSupportedException($"Unsupported metadata token kind '{handle.Kind}'."),
+        };
+    }
+
+    public override byte[] ResolveSignature(int metadataToken)
+    {
+        var handle = MetadataTokens.Handle(metadataToken);
+        if (handle.Kind != HandleKind.Blob)
+        {
+            throw new ArgumentException($"Token '{metadataToken:X8}' does not reference a signature blob.", nameof(metadataToken));
+        }
+
+        return _reader.GetBlobBytes((BlobHandle)handle);
+    }
+
+    public override string ResolveString(int metadataToken)
+    {
+        var handle = MetadataTokens.Handle(metadataToken);
+        if (handle.Kind != HandleKind.UserString)
+        {
+            throw new ArgumentException($"Token '{metadataToken:X8}' does not reference a user string.", nameof(metadataToken));
+        }
+
+        return _reader.GetUserString((UserStringHandle)handle);
+    }
+
 
     public override Type[] GetTypes()
         => _reader.TypeDefinitions.Select(handle => (Type)GetOrAddType(handle)).ToArray();
@@ -79,6 +164,26 @@ public sealed class MetadataModule : Module
         return null;
     }
 
+    public override IEnumerable<CustomAttributeData> CustomAttributes => _customAttributes.Value;
+
+    public override IList<CustomAttributeData> GetCustomAttributesData() => _customAttributes.Value;
+
+    public override object[] GetCustomAttributes(bool inherit)
+        => throw new NotSupportedException("Materializing module attributes is not supported in metadata-only context.");
+
+    public override object[] GetCustomAttributes(Type attributeType, bool inherit)
+        => throw new NotSupportedException("Materializing module attributes is not supported in metadata-only context.");
+
+    public override bool IsDefined(Type attributeType, bool inherit)
+    {
+        if (attributeType is null)
+        {
+            throw new ArgumentNullException(nameof(attributeType));
+        }
+
+        return _customAttributes.Value.Any(a => attributeType.IsAssignableFrom(a.AttributeType));
+    }
+
     internal MetadataType GetOrAddType(TypeDefinitionHandle handle)
         => _types.GetOrAdd(handle, h => new MetadataType(this, h));
 
@@ -88,7 +193,7 @@ public sealed class MetadataModule : Module
         return _constructedTypes.GetOrAdd(key, _ => new MetadataType(this, definition.Handle, typeArguments.ToArray()));
     }
 
-    internal Type ResolveType(EntityHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments = null)
+    internal Type ResolveType(EntityHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments = null, IReadOnlyList<Type>? genericTypeArguments = null)
     {
         if (handle.IsNil)
         {
@@ -99,18 +204,26 @@ public sealed class MetadataModule : Module
         {
             HandleKind.TypeDefinition => GetOrAddType((TypeDefinitionHandle)handle),
             HandleKind.TypeReference => ResolveTypeReference((TypeReferenceHandle)handle),
-            HandleKind.TypeSpecification => ResolveTypeSpecification((TypeSpecificationHandle)handle, genericContext, genericMethodArguments),
+            HandleKind.TypeSpecification => ResolveTypeSpecification((TypeSpecificationHandle)handle, genericContext, genericMethodArguments, genericTypeArguments ?? genericContext?.GetGenericArguments()),
             _ => throw new NotSupportedException($"Unsupported handle kind '{handle.Kind}'."),
         };
     }
 
-    internal MethodBase ResolveMethod(EntityHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments = null)
+    internal MethodBase ResolveMethod(EntityHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments = null, IReadOnlyList<Type>? genericTypeArguments = null)
         => handle.Kind switch
         {
             HandleKind.MethodDefinition => ResolveMethodDefinition((MethodDefinitionHandle)handle),
-            HandleKind.MemberReference => ResolveMemberReference((MemberReferenceHandle)handle, genericContext, genericMethodArguments),
-            HandleKind.MethodSpecification => ResolveMethodSpecification((MethodSpecificationHandle)handle, genericContext, genericMethodArguments),
+            HandleKind.MemberReference => ResolveMemberReferenceMethod((MemberReferenceHandle)handle, genericContext, genericMethodArguments, genericTypeArguments),
+            HandleKind.MethodSpecification => ResolveMethodSpecification((MethodSpecificationHandle)handle, genericContext, genericMethodArguments, genericTypeArguments),
             _ => throw new NotSupportedException($"Unsupported method handle kind '{handle.Kind}'."),
+        };
+
+    internal FieldInfo ResolveField(EntityHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments = null, IReadOnlyList<Type>? genericTypeArguments = null)
+        => handle.Kind switch
+        {
+            HandleKind.FieldDefinition => ResolveFieldDefinition((FieldDefinitionHandle)handle),
+            HandleKind.MemberReference => ResolveFieldReference((MemberReferenceHandle)handle, genericContext, genericMethodArguments, genericTypeArguments),
+            _ => throw new NotSupportedException($"Unsupported field handle kind '{handle.Kind}'."),
         };
 
     private Type ResolveTypeReference(TypeReferenceHandle handle)
@@ -153,11 +266,54 @@ public sealed class MetadataModule : Module
     internal Type GetFunctionPointerType(MethodSignature<Type> signature)
         => _functionPointerTypes.GetOrAdd(new FunctionPointerSignatureKey(signature), _ => new MetadataFunctionPointerType(this, signature));
 
-    private Type ResolveTypeSpecification(TypeSpecificationHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments)
+    internal MethodBodyBlock? TryGetMethodBody(int relativeVirtualAddress)
     {
-        var provider = new MetadataSignatureTypeProvider(this, genericContext?.GetGenericArguments(), genericMethodArguments, genericContext);
+        if (relativeVirtualAddress == 0)
+        {
+            return null;
+        }
+
+        if (_methodBodyProvider is null)
+        {
+            return null;
+        }
+
+        return _methodBodyProvider(relativeVirtualAddress);
+    }
+
+    private Type ResolveTypeSpecification(TypeSpecificationHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments, IReadOnlyList<Type>? genericTypeArguments)
+    {
+        var provider = new MetadataSignatureTypeProvider(this, genericTypeArguments ?? genericContext?.GetGenericArguments(), genericMethodArguments, genericContext);
         var specification = _reader.GetTypeSpecification(handle);
         return specification.DecodeSignature(provider, genericContext);
+    }
+
+    private FieldInfo ResolveFieldDefinition(FieldDefinitionHandle handle)
+    {
+        var definition = _reader.GetFieldDefinition(handle);
+        var declaringType = GetOrAddType(definition.GetDeclaringType());
+        return declaringType.ResolveField(handle)
+            ?? throw new MissingFieldException(declaringType.FullName, _reader.GetString(definition.Name));
+    }
+
+    private FieldInfo ResolveFieldReference(MemberReferenceHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments, IReadOnlyList<Type>? genericTypeArguments)
+    {
+        var reference = _reader.GetMemberReference(handle);
+        if (GetMemberReferenceSignatureKind(handle) != SignatureKind.Field)
+        {
+            throw new MissingFieldException(_reader.GetString(reference.Name));
+        }
+
+        var parentType = ResolveType(reference.Parent, genericContext, genericMethodArguments, genericTypeArguments);
+        var fieldName = _reader.GetString(reference.Name);
+        const BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        var field = parentType.GetField(fieldName, bindingFlags);
+        if (field is null)
+        {
+            throw new MissingFieldException(parentType.FullName, fieldName);
+        }
+
+        return field;
     }
 
     private MethodBase ResolveMethodDefinition(MethodDefinitionHandle handle)
@@ -173,13 +329,17 @@ public sealed class MetadataModule : Module
         return declaringType.ResolveMethod(handle) ?? new MetadataMethodInfo(declaringType, handle);
     }
 
-    private MethodBase ResolveMemberReference(MemberReferenceHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments)
+    private MethodBase ResolveMemberReferenceMethod(MemberReferenceHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments, IReadOnlyList<Type>? genericTypeArguments)
     {
         var reference = _reader.GetMemberReference(handle);
-        var parentType = ResolveType(reference.Parent, genericContext, genericMethodArguments);
+        if (GetMemberReferenceSignatureKind(handle) == SignatureKind.Field)
+        {
+            throw new MissingMethodException(_reader.GetString(reference.Name));
+        }
+        var parentType = ResolveType(reference.Parent, genericContext, genericMethodArguments, genericTypeArguments);
         var name = _reader.GetString(reference.Name);
         var parentMetadataType = parentType as MetadataType;
-        var provider = new MetadataSignatureTypeProvider(this, parentMetadataType?.GetGenericArguments(), genericMethodArguments, parentMetadataType);
+        var provider = new MetadataSignatureTypeProvider(this, genericTypeArguments ?? parentMetadataType?.GetGenericArguments(), genericMethodArguments, parentMetadataType);
         var signature = reference.DecodeMethodSignature(provider, parentMetadataType);
         var parameterTypes = signature.ParameterTypes.ToArray();
         var bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -208,16 +368,16 @@ public sealed class MetadataModule : Module
         throw new MissingMethodException(parentType.FullName, name);
     }
 
-    private MethodBase ResolveMethodSpecification(MethodSpecificationHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments)
+    private MethodBase ResolveMethodSpecification(MethodSpecificationHandle handle, MetadataType? genericContext, IReadOnlyList<Type>? genericMethodArguments, IReadOnlyList<Type>? genericTypeArguments)
     {
         var specification = _reader.GetMethodSpecification(handle);
-        var unconstructed = ResolveMethod(specification.Method, genericContext, genericMethodArguments);
+        var unconstructed = ResolveMethod(specification.Method, genericContext, genericMethodArguments, genericTypeArguments);
         if (unconstructed is not MethodInfo method)
         {
             return unconstructed;
         }
 
-        var provider = new MetadataSignatureTypeProvider(this, genericContext?.GetGenericArguments(), genericMethodArguments, genericContext);
+        var provider = new MetadataSignatureTypeProvider(this, genericTypeArguments ?? genericContext?.GetGenericArguments(), genericMethodArguments, genericContext);
         var genericArguments = specification.DecodeSignature(provider, genericContext);
         if (genericArguments.Length == 0)
         {
@@ -256,6 +416,31 @@ public sealed class MetadataModule : Module
     {
         var argumentNames = string.Join(";", typeArguments.Select(argument => argument.AssemblyQualifiedName ?? argument.FullName ?? argument.Name));
         return $"{handle.GetHashCode()}[{argumentNames}]";
+    }
+
+    private SignatureKind GetMemberReferenceSignatureKind(MemberReferenceHandle handle)
+    {
+        var reference = _reader.GetMemberReference(handle);
+        var reader = _reader.GetBlobReader(reference.Signature);
+        var header = reader.ReadSignatureHeader();
+        return header.Kind;
+    }
+
+    private bool IsModuleType(TypeDefinition definition)
+    {
+        if (!definition.GetDeclaringType().IsNil)
+        {
+            return false;
+        }
+
+        var name = _reader.GetString(definition.Name);
+        if (!string.Equals(name, "<Module>", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var ns = definition.Namespace.IsNil ? null : _reader.GetString(definition.Namespace);
+        return string.IsNullOrEmpty(ns);
     }
 
     private readonly struct FunctionPointerSignatureKey : IEquatable<FunctionPointerSignatureKey>
