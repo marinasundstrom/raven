@@ -576,6 +576,7 @@ public partial class Compilation
             runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, explicitPath);
 
         runtimeAssembly ??= LoadRuntimeAssemblyByName(identity);
+        runtimeAssembly ??= MapToRuntimeImplementation(identity);
 
         if (runtimeAssembly is not null)
         {
@@ -591,6 +592,25 @@ public partial class Compilation
         }
 
         return runtimeAssembly;
+    }
+
+    private Assembly? MapToRuntimeImplementation(AssemblyName identity)
+    {
+        if (identity.Name is null)
+            return null;
+
+        var runtimeCoreIdentity = RuntimeCoreAssembly.GetName();
+
+        if (string.Equals(identity.Name, runtimeCoreIdentity.Name, StringComparison.OrdinalIgnoreCase))
+            return RuntimeCoreAssembly;
+
+        if (string.Equals(identity.Name, "System.Runtime", StringComparison.OrdinalIgnoreCase))
+            return RuntimeCoreAssembly;
+
+        if (string.Equals(identity.Name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
+            return RuntimeCoreAssembly;
+
+        return null;
     }
 
     private static Assembly? LoadRuntimeAssemblyFromPath(AssemblyName identity, string? path)
@@ -661,6 +681,9 @@ public partial class Compilation
             throw new ArgumentNullException(nameof(metadataName));
 
         EnsureSetup();
+
+        if (RuntimeCoreAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false) is { } coreType)
+            return coreType;
 
         foreach (var runtimeAssembly in _runtimeAssemblyCache.Values)
         {
