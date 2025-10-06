@@ -111,7 +111,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (methodSymbol.ContainingType is null)
             throw new InvalidOperationException($"Method symbol '{methodSymbol}' is missing a containing type.");
 
-        return methodSymbol.ContainingType.GetClrType(codeGen);
+        return methodSymbol.ContainingType.GetClrTypeTreatingUnitAsVoid(codeGen);
     }
 
     private static BindingFlags GetBindingFlags(IMethodSymbol methodSymbol)
@@ -128,9 +128,6 @@ internal static class MethodSymbolExtensionsForCodeGen
             return false;
 
         if (!RuntimeTypeMatches(candidate.DeclaringType, methodSymbol.ContainingType, codeGen))
-            return false;
-
-        if (!candidate.IsGenericMethodDefinition && candidate.ContainsGenericParameters)
             return false;
 
         if (candidate.IsGenericMethodDefinition)
@@ -304,7 +301,7 @@ internal static class MethodSymbolExtensionsForCodeGen
                 ?? throw new InvalidOperationException($"Unable to map constructed constructor '{constructedConstructor}' to runtime info.");
 
         var parameterTypes = constructedConstructor.Parameters
-            .Select(p => p.Type.GetClrType(codeGen))
+            .Select(p => p.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
             .ToArray();
 
         var resolved = constructedRuntimeType.GetConstructor(

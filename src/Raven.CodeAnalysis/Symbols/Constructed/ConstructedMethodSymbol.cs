@@ -188,9 +188,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var containingType = _definition.ContainingType
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
-        var containingClrType = containingType.GetClrType(codeGen);
+        var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
         var expectedParameterTypes = Parameters
-            .Select(parameter => parameter.Type.GetClrType(codeGen))
+            .Select(parameter => parameter.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
             .ToArray();
         var returnTypeSymbol = ReturnType;
         var expectedReturnType = returnTypeSymbol.GetClrTypeTreatingUnitAsVoid(codeGen);
