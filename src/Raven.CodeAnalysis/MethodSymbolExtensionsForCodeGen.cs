@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -60,10 +61,7 @@ internal static class MethodSymbolExtensionsForCodeGen
         var runtimeType = GetContainingRuntimeType(methodSymbol, codeGen);
         var bindingFlags = GetBindingFlags(methodSymbol);
 
-        var candidates = runtimeType.GetMethods(bindingFlags)
-            .Where(m => string.Equals(m.Name, methodSymbol.Name, StringComparison.Ordinal));
-
-        foreach (var candidate in candidates)
+        foreach (var candidate in GetCandidateRuntimeMethods(runtimeType, methodSymbol, bindingFlags))
         {
             if (!RuntimeMethodMatchesSymbol(candidate, methodSymbol, codeGen))
                 continue;
@@ -72,6 +70,21 @@ internal static class MethodSymbolExtensionsForCodeGen
         }
 
         throw new InvalidOperationException($"Unable to resolve runtime MethodInfo for '{methodSymbol}' on '{runtimeType}'.");
+    }
+
+    private static IEnumerable<MethodInfo> GetCandidateRuntimeMethods(Type runtimeType, PEMethodSymbol methodSymbol, BindingFlags bindingFlags)
+    {
+        var metadataName = methodSymbol.MetadataName;
+
+        var directMatches = runtimeType.GetMember(metadataName, MemberTypes.Method, bindingFlags)
+            .OfType<MethodInfo>()
+            .ToArray();
+
+        if (directMatches.Length > 0)
+            return directMatches;
+
+        return runtimeType.GetMethods(bindingFlags)
+            .Where(m => string.Equals(m.Name, metadataName, StringComparison.Ordinal));
     }
 
     private static ConstructorInfo ResolveRuntimeConstructorInfo(PEMethodSymbol constructorSymbol, CodeGenerator codeGen)
@@ -111,6 +124,9 @@ internal static class MethodSymbolExtensionsForCodeGen
 
     private static bool RuntimeMethodMatchesSymbol(MethodInfo candidate, PEMethodSymbol methodSymbol, CodeGenerator codeGen)
     {
+        if (!string.Equals(candidate.Name, methodSymbol.MetadataName, StringComparison.Ordinal))
+            return false;
+
         if (!RuntimeTypeMatches(candidate.DeclaringType, methodSymbol.ContainingType, codeGen))
             return false;
 
@@ -138,6 +154,9 @@ internal static class MethodSymbolExtensionsForCodeGen
 
     private static bool RuntimeConstructorMatchesSymbol(ConstructorInfo candidate, PEMethodSymbol constructorSymbol, CodeGenerator codeGen)
     {
+        if (!string.Equals(candidate.Name, constructorSymbol.MetadataName, StringComparison.Ordinal))
+            return false;
+
         if (!RuntimeTypeMatches(candidate.DeclaringType, constructorSymbol.ContainingType, codeGen))
             return false;
 
