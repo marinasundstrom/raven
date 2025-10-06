@@ -88,14 +88,7 @@ public static class TypeSymbolExtensionsForCodeGen
         }
 
         if (typeSymbol.SpecialType == SpecialType.System_Unit)
-        {
-            if (treatUnitAsVoid && isTopLevel)
-                return GetSpecialClrType(SpecialType.System_Void, compilation);
-
-            if (codeGen.UnitType is null)
-                throw new InvalidOperationException("Unit type was not emitted.");
-            return codeGen.UnitType;
-        }
+            return ResolveUnitRuntimeType(typeSymbol, compilation, codeGen, treatUnitAsVoid, isTopLevel);
 
         if (typeSymbol is LiteralTypeSymbol literalType)
         {
@@ -258,6 +251,45 @@ public static class TypeSymbolExtensionsForCodeGen
     {
         return compilation.ResolveRuntimeType(metadataName)
             ?? throw new InvalidOperationException($"Type '{metadataName}' not found in runtime assemblies.");
+    }
+
+    private static Type ResolveUnitRuntimeType(
+        ITypeSymbol unitSymbol,
+        Compilation compilation,
+        CodeGenerator codeGen,
+        bool treatUnitAsVoid,
+        bool isTopLevel)
+    {
+        if (treatUnitAsVoid && isTopLevel)
+            return GetSpecialClrType(SpecialType.System_Void, compilation);
+
+        if (IsCompilationUnitType(unitSymbol, compilation))
+        {
+            if (codeGen.UnitType is null)
+                throw new InvalidOperationException("Unit type was not emitted.");
+
+            return codeGen.UnitType;
+        }
+
+        return GetSpecialClrType(SpecialType.System_Void, compilation);
+    }
+
+    private static bool IsCompilationUnitType(ITypeSymbol unitSymbol, Compilation compilation)
+    {
+        if (unitSymbol is UnitTypeSymbol)
+            return true;
+
+        if (SymbolEqualityComparer.Default.Equals(unitSymbol, compilation.UnitTypeSymbol))
+            return true;
+
+        if (unitSymbol is INamedTypeSymbol named)
+        {
+            var original = named.OriginalDefinition;
+            if (original is not null && SymbolEqualityComparer.Default.Equals(original, compilation.UnitTypeSymbol))
+                return true;
+        }
+
+        return false;
     }
 
     internal static UnionEmissionInfo GetUnionEmissionInfo(this IUnionTypeSymbol union, Compilation compilation)
