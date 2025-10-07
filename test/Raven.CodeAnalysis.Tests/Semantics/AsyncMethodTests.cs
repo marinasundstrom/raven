@@ -151,9 +151,11 @@ class C {
 """;
 
         var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
-        Assert.Contains("Int32", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+        var asyncDiagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
+        Assert.Contains("Int32", asyncDiagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -171,5 +173,43 @@ class C {
 
         var (compilation, _) = CreateCompilation(source);
         Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void AsyncPropertyGetter_WithUnresolvedType_ReportsAsyncDiagnostic()
+    {
+        const string source = """
+class C {
+    public Value: MissingTask {
+        async get { return }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+        var asyncDiagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
+        Assert.Contains("MissingTask", asyncDiagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AsyncIndexerGetter_WithUnresolvedType_ReportsAsyncDiagnostic()
+    {
+        const string source = """
+class C {
+    public this[i: int]: MissingTask {
+        async get { return }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+        var asyncDiagnostic = Assert.Single(diagnostics.Where(d => d.Descriptor == CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike));
+        Assert.Contains("MissingTask", asyncDiagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
     }
 }

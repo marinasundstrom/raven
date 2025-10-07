@@ -215,7 +215,12 @@ class MethodBodyBinder : BlockBinder
                     : (BoundExpression?)Visit(node.ExtensionReceiver);
             }
 
-            return new BoundInvocationExpression(node.Method, args, receiver, extensionReceiver);
+            return new BoundInvocationExpression(
+                node.Method,
+                args,
+                receiver,
+                extensionReceiver,
+                node.RequiresReceiverAddress);
         }
 
         public override BoundNode? VisitFieldAccess(BoundFieldAccess node)

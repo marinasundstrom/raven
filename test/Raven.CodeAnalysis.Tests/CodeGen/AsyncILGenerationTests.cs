@@ -16,6 +16,7 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public sealed class AsyncILGenerationTests
 {
+
     private const string AsyncCode = """
 import System.Threading.Tasks.*
 
@@ -60,7 +61,9 @@ class C {
         var typeSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
         var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
 
-        var generatedType = Assert.IsAssignableFrom<Type>(codeGenerator.GetTypeBuilder(typeSymbol)!);
+        peStream.Position = 0;
+        var assembly = Assembly.Load(peStream.ToArray());
+        var generatedType = Assert.Single(assembly.GetTypes(), type => type.Name == typeSymbol.Name);
         var methodInfo = generatedType.GetMethod(methodSymbol.Name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(methodInfo);
 
@@ -82,13 +85,115 @@ class C {
             generator.MethodSymbol.Name == "MoveNext" &&
             generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
 
-        Assert.Contains(instructions, instruction =>
-            instruction.Operand.Kind == RecordedOperandKind.MethodInfo &&
-            instruction.Operand.Value is MethodInfo method && method.Name.Contains("Await", StringComparison.Ordinal));
+        Assert.True(
+            instructions.Any(instruction =>
+                instruction.Operand.Value is MethodInfo method &&
+                method.Name.Contains("Await", StringComparison.Ordinal)),
+            "Await scheduling invocation not emitted.");
 
         Assert.Contains(instructions, instruction =>
-            instruction.Operand.Kind == RecordedOperandKind.FieldBuilder &&
-            instruction.Operand.Value is FieldBuilder field && field.Name == "_state");
+            instruction.Opcode == OpCodes.Ldflda && FormatOperand(instruction.Operand) == "_state" ||
+            instruction.Opcode == OpCodes.Ldfld && FormatOperand(instruction.Operand) == "_state");
+    }
+
+    [Fact]
+    public void AsyncMethod_StoresBuilderThroughLocalAddress()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "Work" &&
+            generator.MethodSymbol.ContainingType is SourceNamedTypeSymbol);
+
+        var builderStoreIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Stfld &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderStoreIndex >= 0, "Builder field store not found in Work method body.");
+        Assert.Contains(instructions.Take(builderStoreIndex), instruction => instruction.Opcode == OpCodes.Ldloca);
+    }
+
+    [Fact]
+    public void AsyncMethod_InvokesBuilderStartByReference()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "Work" &&
+            generator.MethodSymbol.ContainingType is SourceNamedTypeSymbol);
+
+        var startCallIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("Start", StringComparison.Ordinal));
+
+        Assert.True(startCallIndex >= 0, "Builder.Start call not found in Work method body.");
+
+        Assert.Contains(instructions.Take(startCallIndex), instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+    }
+
+    [Fact]
+    public void MoveNext_CallsBuilderSetResultByReference()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultCallIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("SetResult", StringComparison.Ordinal));
+
+        Assert.True(setResultCallIndex >= 0, "Builder.SetResult call not found in MoveNext body.");
+
+        Assert.Contains(instructions.Take(setResultCallIndex), instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+    }
+
+    [Fact]
+    public void AsyncLambda_EmitsStateMachineMetadata()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    public async Run() -> Task {
+        let handler = async () -> Task {
+            await Task.CompletedTask
+        }
+
+        await handler()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        var lambdaStateMachine = compilation.GetSynthesizedAsyncStateMachineTypes()
+            .Single(stateMachine => stateMachine.AsyncMethod.MethodKind == MethodKind.LambdaMethod);
+
+        Assert.NotNull(lambdaStateMachine.MoveNextBody);
     }
 
     private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(Func<MethodGenerator, bool> predicate)
@@ -122,5 +227,22 @@ class C {
         var instructions = recordingFactory.CapturedInstructions ?? throw new InvalidOperationException("Failed to capture IL.");
 
         return (method, instructions.ToArray());
+    }
+
+    private static string FormatOperand(RecordedOperand operand)
+    {
+        return operand.Kind switch
+        {
+            RecordedOperandKind.None => string.Empty,
+            RecordedOperandKind.Local => $"local:{operand.Value}",
+            RecordedOperandKind.Label => $"label:{operand.Value}",
+            RecordedOperandKind.FieldInfo when operand.Value is FieldInfo field => field.Name,
+            RecordedOperandKind.FieldBuilder when operand.Value is FieldBuilder fieldBuilder => fieldBuilder.Name,
+            RecordedOperandKind.MethodInfo when operand.Value is MethodInfo method => method.Name,
+            RecordedOperandKind.ConstructorInfo when operand.Value is ConstructorInfo ctor => ctor.Name,
+            RecordedOperandKind.Type when operand.Value is Type type => type.Name,
+            RecordedOperandKind.Int32 or RecordedOperandKind.Int64 or RecordedOperandKind.Single or RecordedOperandKind.Double or RecordedOperandKind.String => operand.Value?.ToString() ?? string.Empty,
+            _ => operand.Value?.ToString() ?? string.Empty
+        };
     }
 }

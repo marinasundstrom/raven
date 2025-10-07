@@ -14,7 +14,7 @@
 
 - Local `func` binders and type member binders respect the parsed modifier, set `SourceMethodSymbol.IsAsync`, and default unspecified return types to `System.Threading.Tasks.Task`. The method symbol now tracks whether its body contains awaits so later passes can trigger lowering.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L50-L103】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L200-L353】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L28-L167】
 - `await` expressions bind through a dedicated `BoundAwaitExpression` that validates the `GetAwaiter`/`IsCompleted`/`GetResult` pattern and enforces async-context requirements before capturing the awaiter/result types for downstream phases.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L555-L620】【F:src/Raven.CodeAnalysis/BoundTree/BoundAwaitExpression.cs†L7-L33】
-- Accessor binders propagate `async` onto synthesized getter/setter methods, validate that async getters expose task-shaped property/indexer types, and allow async setters to lower through the runtime `AsyncVoidMethodBuilder`. Violations report `AsyncReturnTypeMustBeTaskLike` with the accessor's declared type highlighted for quick remediation.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L888-L944】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L954-L1023】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L1-L120】
+- Accessor binders propagate `async` onto synthesized getter/setter methods, validate that async getters expose task-shaped property/indexer types, and allow async setters to lower through the runtime `AsyncVoidMethodBuilder`. Violations report `AsyncReturnTypeMustBeTaskLike` even when the declared type binds to `ErrorTypeSymbol`, keeping the guidance visible when imports are missing.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L888-L1002】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L1046-L1210】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L1-L120】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L139-L206】
 
 ### Lowering and code generation
 
@@ -49,29 +49,19 @@
   errors. Regression tests now assert only the primary async diagnostic surfaces for
   both expression-bodied and block-bodied returns.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L25-L205】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceLambdaSymbol.cs†L6-L98】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
 
-### Newly identified gaps
-
-- **Accessor diagnostics lost when the property type fails early.** Async getters
-  rely on the resolved property type to validate the builder shape. When that
-  type binding fails (for example, unresolved `Int32` without an implicit
-  import), the accessor reports the generic `RAV0103` lookup error and never
-  surfaces `AsyncReturnTypeMustBeTaskLike`. We should still attach the async
-  diagnostic when the declared type ultimately maps to `ErrorTypeSymbol`, or
-  otherwise guarantee the framework primitives are available so the async check
-  can run.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L878-L939】【a29752†L1-L4】
-
 ### Step-by-step plan
 
 #### Completed steps
 
 1. **Surface synthesized `Program` members during setup.** `Compilation.Setup` now pre-creates the implicit `Program` shell and async entry points so tests that only call `EnsureSetup()` can discover the synthesized symbols.【F:src/Raven.CodeAnalysis/Compilation.cs†L129-L284】【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L65-L109】
 2. **Short-circuit async return diagnostics.** Async symbol binders flag invalid return annotations and the return binder honours the flag, preventing cascading conversion diagnostics while keeping builder synthesis intact. Regression tests cover both method and lambda scenarios.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
+3. **Restore accessor diagnostics on error types.** Async property/indexer binders now keep the declared type syntax when resolution falls back to `ErrorTypeSymbol`, preserving `AsyncReturnTypeMustBeTaskLike` so authors still receive guidance when imports are missing. Regression coverage locks in the getter diagnostics for both properties and indexers.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L888-L1002】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L1046-L1210】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L139-L206】
+4. **Audit value-type receiver handling.** State-machine setup now marks every builder mutation that operates on the synthesized struct with `RequiresReceiverAddress`, letting emission load addresses instead of copying value-type receivers. New IL-focused tests assert the generated code stores the builder and invokes `Start`/`SetResult` through field addresses so mutations land on the real state-machine instance.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L120-L214】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L928-L999】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L67-L151】
+5. **Rebuild integration coverage.** Additional regression tests now check that multi-await methods hoist each awaiter, thrown exceptions flow through `SetException`, async accessors emit `SetResult`, and async lambdas synthesize their own state machines.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L375-L508】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L153-L197】
 
 #### Upcoming steps
 
-3. **Restore accessor diagnostics on error types.** Update `TypeMemberBinder` so async property/indexer accessors still report `AsyncReturnTypeMustBeTaskLike` even when the declared property type binds to `ErrorTypeSymbol`, preventing missing guidance when imports are absent. Add tests that simulate unresolved framework types and confirm the async diagnostic is preserved.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L878-L947】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L125-L159】
-4. **Audit value-type receiver handling.** Ensure every builder interaction that mutates the synthesized struct marks `RequiresReceiverAddress` so `ExpressionGenerator` can load addresses instead of copying value-type receivers during field assignments and builder invocations.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L317-L1616】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1580-L1661】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2275-L2359】 Follow up with focused IL assertions that prove the builder and hoisted locals are mutated in place.
-5. **Rebuild integration coverage.** Once the structural fixes land, expand async lowering and execution tests (including nested awaits, exception paths, and lambda/accessor scenarios) to verify that diagnostics, hoisting, and runtime behaviour align with the documented design.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1-L417】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1-L121】
+- Additional milestones will be captured as new gaps emerge from the expanded integration suite.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L375-L508】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L153-L197】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 
