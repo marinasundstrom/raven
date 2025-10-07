@@ -38,6 +38,31 @@
 
 ## Remaining work
 
+### Newly identified gaps
+
+- **Synthesized `Program`/`MainAsync` exposure.** Calling `Compilation.EnsureSetup()` is
+  not enough to register the synthesized `Program` container or its async
+  forwarding members. The symbols are only materialized when we build the top-level
+  binder, so tests that inspect `Compilation.SourceGlobalNamespace` after
+  `EnsureSetup()` fail to find `Program` or `MainAsync`. We should eagerly
+  materialize the program shell (or force binder creation) during setup so the
+  compiler surface matches expectations for async top-level code.【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【794a82†L1-L49】
+- **Duplicate diagnostics for invalid async returns.** When an async method or
+  function explicitly returns a non-`Task` type, we correctly report
+  `AsyncReturnTypeMustBeTaskLike` but continue binding the body against the
+  substituted `Task` return type. That flow still tries to convert the user's
+  `return` expression and produces secondary conversion errors (`RAV1503`),
+  obscuring the primary diagnostic. We need to short-circuit the conversion or
+  suppress follow-up diagnostics once we know the async return type is invalid.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L51-L111】【996d75†L1-L6】
+- **Accessor diagnostics lost when the property type fails early.** Async getters
+  rely on the resolved property type to validate the builder shape. When that
+  type binding fails (for example, unresolved `Int32` without an implicit
+  import), the accessor reports the generic `RAV0103` lookup error and never
+  surfaces `AsyncReturnTypeMustBeTaskLike`. We should still attach the async
+  diagnostic when the declared type ultimately maps to `ErrorTypeSymbol`, or
+  otherwise guarantee the framework primitives are available so the async check
+  can run.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L878-L939】【a29752†L1-L4】
+
 ### Step-by-step plan
 
 1. **Tighten await diagnostics and configurability.** Audit the binder to recognize `await` misuses (e.g., in `lock` statements or query clauses), explore `ConfigureAwait`-style customization, and expand tests to capture the resulting diagnostics.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L555-L620】【F:test/Raven.CodeAnalysis.Tests/Semantics/AwaitExpressionBindingTests.cs†L1-L120】
