@@ -136,7 +136,7 @@ internal static class AsyncLowerer
         {
             var receiver = new BoundLocalAccess(asyncLocal);
             var value = new BoundSelfExpression(stateMachine.ThisField.Type);
-            var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.ThisField, value);
+            var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.ThisField, value, requiresReceiverAddress: true);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
@@ -147,7 +147,7 @@ internal static class AsyncLowerer
 
             var receiver = new BoundLocalAccess(asyncLocal);
             var value = new BoundParameterAccess(parameter);
-            var assignment = new BoundFieldAssignmentExpression(receiver, field, value);
+            var assignment = new BoundFieldAssignmentExpression(receiver, field, value, requiresReceiverAddress: true);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
@@ -156,7 +156,7 @@ internal static class AsyncLowerer
             BoundLiteralExpressionKind.NumericLiteral,
             -1,
             stateMachine.StateField.Type);
-        var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateMachine.StateField, initialState);
+        var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateMachine.StateField, initialState, requiresReceiverAddress: true);
         statements.Add(new BoundAssignmentStatement(stateAssignment));
 
         var builderInitialization = CreateBuilderInitializationStatement(asyncLocal, stateMachine);
@@ -173,7 +173,8 @@ internal static class AsyncLowerer
             var moveNextInvocation = new BoundInvocationExpression(
                 stateMachine.MoveNextMethod,
                 Array.Empty<BoundExpression>(),
-                receiver: new BoundLocalAccess(asyncLocal));
+                receiver: new BoundLocalAccess(asyncLocal),
+                requiresReceiverAddress: true);
             statements.Add(new BoundExpressionStatement(moveNextInvocation));
         }
 
@@ -961,7 +962,12 @@ internal static class AsyncLowerer
                     }
 
                     if (changed)
-                        return new BoundInvocationExpression(invocationExpression.Method, rewrittenArguments, receiver, extensionReceiver);
+                        return new BoundInvocationExpression(
+                            invocationExpression.Method,
+                            rewrittenArguments,
+                            receiver,
+                            extensionReceiver,
+                            invocationExpression.RequiresReceiverAddress);
 
                     return invocationExpression;
                 }

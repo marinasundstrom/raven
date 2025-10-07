@@ -373,6 +373,141 @@ class C {
     }
 
     [Fact]
+    public void Rewrite_AsyncMethodWithMultipleAwaits_HoistsAwaiterFields()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async Work() -> Task {
+        let first = await Task.FromResult(1)
+        let second = await Task.FromResult(first + 2)
+        let third = await Task.FromResult(second + 3)
+        backing = third
+    }
+
+    private var backing: Int32
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Work");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+        var awaiterFields = stateMachine.HoistedLocals
+            .Where(field => field.Name.StartsWith("<>awaiter", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Equal(3, awaiterFields.Length);
+    }
+
+    [Fact]
+    public void Rewrite_AsyncMethodWithThrow_AddsSetException()
+    {
+        const string source = """
+import System.*
+import System.Threading.Tasks.*
+
+class C {
+    async Work() -> Task {
+        await Task.CompletedTask
+        throw InvalidOperationException("boom")
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+
+        AsyncLowerer.Rewrite(methodSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(methodSymbol.AsyncStateMachine);
+        var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
+        var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(moveNextBody.Statements));
+        var catchClause = Assert.Single(tryStatement.CatchClauses);
+
+        var setExceptionInvocation = catchClause.Block.Statements
+            .OfType<BoundExpressionStatement>()
+            .Select(statement => statement.Expression)
+            .OfType<BoundInvocationExpression>()
+            .First(invocation => invocation.Method.Name == "SetException");
+
+        var receiver = Assert.IsType<BoundMemberAccessExpression>(setExceptionInvocation.Receiver);
+        Assert.Same(stateMachine.BuilderField, Assert.IsAssignableFrom<IFieldSymbol>(receiver.Member));
+    }
+
+    [Fact]
+    public void Rewrite_AsyncAccessor_EmitsSetResult()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    private var backing: Int32
+
+    public Value: Task {
+        async get {
+            await Task.CompletedTask
+            backing = backing + 1
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var accessorSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AccessorDeclarationSyntax>()
+            .Single();
+
+        var accessorSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(accessorSyntax));
+        var bound = accessorSyntax.Body is not null
+            ? model.GetBoundNode(accessorSyntax.Body)
+            : model.GetBoundNode(accessorSyntax.ExpressionBody!);
+        var boundBody = ToBlock(accessorSymbol, bound);
+
+        AsyncLowerer.Rewrite(accessorSymbol, boundBody);
+
+        var stateMachine = Assert.IsType<SynthesizedAsyncStateMachineTypeSymbol>(accessorSymbol.AsyncStateMachine);
+        var moveNextBody = Assert.IsType<BoundBlockStatement>(stateMachine.MoveNextBody);
+        var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(moveNextBody.Statements));
+        var entryLabel = Assert.IsType<BoundLabeledStatement>(tryStatement.TryBlock.Statements.Last());
+        var entryBlock = Assert.IsType<BoundBlockStatement>(entryLabel.Statement);
+
+        var setResultInvocation = entryBlock.Statements
+            .OfType<BoundExpressionStatement>()
+            .Select(statement => statement.Expression)
+            .OfType<BoundInvocationExpression>()
+            .First(invocation => invocation.Method.Name == "SetResult");
+
+        var receiver = Assert.IsType<BoundMemberAccessExpression>(setResultInvocation.Receiver);
+        Assert.Same(stateMachine.BuilderField, Assert.IsAssignableFrom<IFieldSymbol>(receiver.Member));
+    }
+
+    [Fact]
     public void Rewrite_AwaitInWhileLoop_RemovesAwaitNodes()
     {
         const string source = """
