@@ -38,11 +38,40 @@
 
 ## Remaining work
 
+### Resolved gaps
+
+- **Synthesized `Program`/`MainAsync` exposure.** `Compilation.EnsureSetup()` now seeds
+  the implicit `Program` container and its entry points so semantic queries after
+  setup can see the async surface without forcing binder creation.【F:src/Raven.CodeAnalysis/Compilation.cs†L129-L284】【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L65-L109】
+- **Duplicate diagnostics for invalid async returns.** Async methods, functions, and
+  lambdas mark their symbols when a non-`Task` annotation is rejected, allowing the
+  return binder to skip conversions that previously emitted cascading `RAV1503`
+  errors. Regression tests now assert only the primary async diagnostic surfaces for
+  both expression-bodied and block-bodied returns.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L25-L205】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceLambdaSymbol.cs†L6-L98】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
+
+### Newly identified gaps
+
+- **Accessor diagnostics lost when the property type fails early.** Async getters
+  rely on the resolved property type to validate the builder shape. When that
+  type binding fails (for example, unresolved `Int32` without an implicit
+  import), the accessor reports the generic `RAV0103` lookup error and never
+  surfaces `AsyncReturnTypeMustBeTaskLike`. We should still attach the async
+  diagnostic when the declared type ultimately maps to `ErrorTypeSymbol`, or
+  otherwise guarantee the framework primitives are available so the async check
+  can run.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L878-L939】【a29752†L1-L4】
+
 ### Step-by-step plan
 
-1. **Tighten await diagnostics and configurability.** Audit the binder to recognize `await` misuses (e.g., in `lock` statements or query clauses), explore `ConfigureAwait`-style customization, and expand tests to capture the resulting diagnostics.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L555-L620】【F:test/Raven.CodeAnalysis.Tests/Semantics/AwaitExpressionBindingTests.cs†L1-L120】
-2. **Broaden runtime validation.** Extend execution coverage beyond the happy-path sample to stress nested awaits, exception resumption, and lambda/accessor scenarios, combining the IL harness with end-to-end runs to lock down observable behaviour.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1-L121】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1-L417】
-3. **Finalize specification and guidance.** Keep the language specification, grammar, and user guidance aligned with the completed async semantics so contributors have authoritative references for the shipped feature set.【F:docs/lang/spec/language-specification.md†L329-L344】【F:docs/lang/spec/grammar.ebnf†L13-L200】
+#### Completed steps
+
+1. **Surface synthesized `Program` members during setup.** `Compilation.Setup` now pre-creates the implicit `Program` shell and async entry points so tests that only call `EnsureSetup()` can discover the synthesized symbols.【F:src/Raven.CodeAnalysis/Compilation.cs†L129-L284】【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L65-L109】
+2. **Short-circuit async return diagnostics.** Async symbol binders flag invalid return annotations and the return binder honours the flag, preventing cascading conversion diagnostics while keeping builder synthesis intact. Regression tests cover both method and lambda scenarios.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
+
+#### Upcoming steps
+
+3. **Restore accessor diagnostics on error types.** Update `TypeMemberBinder` so async property/indexer accessors still report `AsyncReturnTypeMustBeTaskLike` even when the declared property type binds to `ErrorTypeSymbol`, preventing missing guidance when imports are absent. Add tests that simulate unresolved framework types and confirm the async diagnostic is preserved.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L878-L947】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L125-L159】
+4. **Audit value-type receiver handling.** Ensure every builder interaction that mutates the synthesized struct marks `RequiresReceiverAddress` so `ExpressionGenerator` can load addresses instead of copying value-type receivers during field assignments and builder invocations.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L317-L1616】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1580-L1661】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2275-L2359】 Follow up with focused IL assertions that prove the builder and hoisted locals are mutated in place.
+5. **Rebuild integration coverage.** Once the structural fixes land, expand async lowering and execution tests (including nested awaits, exception paths, and lambda/accessor scenarios) to verify that diagnostics, hoisting, and runtime behaviour align with the documented design.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1-L417】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1-L121】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 

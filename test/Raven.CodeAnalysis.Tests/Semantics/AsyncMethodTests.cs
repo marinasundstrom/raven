@@ -43,6 +43,21 @@ class C {
     }
 
     [Fact]
+    public void AsyncMethod_WithExplicitNonTaskReturnTypeAndBareReturn_ReportsSingleDiagnostic()
+    {
+        const string source = """
+class C {
+    async f() -> int {
+        return;
+    }
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
+    }
+
+    [Fact]
     public void TopLevelAwait_PromotesSynthesizedMainToAsyncTask()
     {
         const string source = """
@@ -54,17 +69,17 @@ await Task.CompletedTask
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        Assert.Empty(compilation.GetDiagnostics());
-
-        var program = Assert.IsType<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsType<IMethodSymbol>(program.GetMembers("Main").Single());
-        var asyncMain = Assert.IsType<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
+        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
+        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
 
         Assert.False(main.IsAsync);
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
 
         Assert.True(asyncMain.IsAsync);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, asyncMain.ReturnType.SpecialType);
+
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
@@ -75,8 +90,8 @@ await Task.CompletedTask
         var (compilation, _) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var program = Assert.IsType<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsType<IMethodSymbol>(program.GetMembers("Main").Single());
+        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
+        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
 
         Assert.False(main.IsAsync);
         Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
@@ -95,12 +110,12 @@ return await Task.FromResult(1)
         var (compilation, _) = CreateCompilation(source);
         compilation.EnsureSetup();
 
-        var program = Assert.IsType<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
-        var main = Assert.IsType<IMethodSymbol>(program.GetMembers("Main").Single());
-        var asyncMain = Assert.IsType<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
+        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
+        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
 
         Assert.Equal(SpecialType.System_Int32, main.ReturnType.SpecialType);
-        var asyncReturn = Assert.IsType<INamedTypeSymbol>(asyncMain.ReturnType);
+        var asyncReturn = Assert.IsAssignableFrom<INamedTypeSymbol>(asyncMain.ReturnType);
         Assert.Equal("Task`1", asyncReturn.MetadataName);
         var containingNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(asyncReturn.ContainingNamespace);
         Assert.Equal("System.Threading.Tasks", containingNamespace.ToDisplayString());

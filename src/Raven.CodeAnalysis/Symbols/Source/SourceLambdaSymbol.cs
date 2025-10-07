@@ -6,6 +6,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 {
     private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
+    private bool _hasAsyncReturnTypeError;
 
     public SourceLambdaSymbol(
         IReadOnlyList<IParameterSymbol> parameters,
@@ -40,6 +41,8 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public MethodKind MethodKind => MethodKind.LambdaMethod;
 
+    internal bool HasAsyncReturnTypeError => _hasAsyncReturnTypeError;
+
     public IMethodSymbol? OriginalDefinition => null;
 
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => ImmutableArray<ITypeParameterSymbol>.Empty;
@@ -70,6 +73,11 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public void SetReturnType(ITypeSymbol returnType)
     {
         ReturnType = returnType;
+    }
+
+    internal void MarkAsyncReturnTypeError()
+    {
+        _hasAsyncReturnTypeError = true;
     }
 
     public ITypeSymbol? DelegateType { get; private set; }

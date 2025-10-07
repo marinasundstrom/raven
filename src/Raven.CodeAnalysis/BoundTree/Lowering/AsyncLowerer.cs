@@ -315,7 +315,7 @@ internal static class AsyncLowerer
             return null;
 
         var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), builderField);
-        var invocation = new BoundInvocationExpression(setResultMethod, arguments, receiver);
+        var invocation = new BoundInvocationExpression(setResultMethod, arguments, receiver, requiresReceiverAddress: true);
         return new BoundExpressionStatement(invocation);
     }
 
@@ -424,7 +424,8 @@ internal static class AsyncLowerer
         var invocation = new BoundInvocationExpression(
             setExceptionMethod,
             new BoundExpression[] { exceptionAccess },
-            builderAccess);
+            builderAccess,
+            requiresReceiverAddress: true);
 
         return new BoundExpressionStatement(invocation);
     }
@@ -1291,7 +1292,8 @@ internal static class AsyncLowerer
             var invocation = new BoundInvocationExpression(
                 awaitMethod,
                 new BoundExpression[] { awaiterAddress, thisAddress },
-                builderAccess);
+                builderAccess,
+                requiresReceiverAddress: true);
 
             return new BoundExpressionStatement(invocation);
         }
@@ -1559,7 +1561,7 @@ internal static class AsyncLowerer
 
         var invocation = new BoundInvocationExpression(createMethod, Array.Empty<BoundExpression>());
         var receiver = new BoundLocalAccess(asyncLocal);
-        var assignment = new BoundFieldAssignmentExpression(receiver, builderField, invocation);
+        var assignment = new BoundFieldAssignmentExpression(receiver, builderField, invocation, requiresReceiverAddress: true);
         return new BoundAssignmentStatement(assignment);
     }
 
@@ -1583,7 +1585,8 @@ internal static class AsyncLowerer
         var invocation = new BoundInvocationExpression(
             constructedStart,
             new BoundExpression[] { stateMachineReference },
-            builderAccess);
+            builderAccess,
+            requiresReceiverAddress: true);
 
         return new BoundExpressionStatement(invocation);
     }
@@ -1609,7 +1612,8 @@ internal static class AsyncLowerer
         var invocation = new BoundInvocationExpression(
             setStateMachineMethod,
             new BoundExpression[] { new BoundParameterAccess(parameter) },
-            builderAccess);
+            builderAccess,
+            requiresReceiverAddress: true);
 
         var statement = new BoundExpressionStatement(invocation);
         return new BoundBlockStatement(new BoundStatement[] { statement });

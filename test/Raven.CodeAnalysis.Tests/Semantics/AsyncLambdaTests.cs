@@ -109,6 +109,23 @@ class C
     }
 
     [Fact]
+    public void AsyncLambda_WithExplicitNonTaskReturnTypeAndBlockBody_ReportsSingleDiagnostic()
+    {
+        const string source = """
+import System.*
+import System.Threading.Tasks.*
+
+let projector = async () -> int => {
+    return 1
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
+    }
+
+    [Fact]
     public void AsyncLambda_InTopLevelAwaitContext_BindsAndInfersTaskResult()
     {
         const string source = """

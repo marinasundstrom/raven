@@ -1610,21 +1610,42 @@ internal class ExpressionGenerator : Generator
                     var fieldSymbol = fieldAssignmentExpression.Field;
                     var right = fieldAssignmentExpression.Right;
                     var receiver = fieldAssignmentExpression.Receiver;
+                    var requiresAddress = fieldAssignmentExpression.RequiresReceiverAddress;
 
-                    // Load receiver (unless static)
-                    if (!fieldSymbol.IsStatic && receiver is not null)
+                    if (!fieldSymbol.IsStatic)
                     {
-                        EmitExpression(receiver);
-
-                        if (fieldSymbol.ContainingType!.IsValueType)
+                        if (requiresAddress)
                         {
-                            EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
-                        }
-                    }
+                            if (!TryEmitInvocationReceiverAddress(receiver))
+                            {
+                                if (receiver is null)
+                                {
+                                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                                }
+                                else
+                                {
+                                    EmitExpression(receiver);
 
-                    if (!fieldSymbol.IsStatic && receiver is null)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldarg_0);
+                                    if (fieldSymbol.ContainingType!.IsValueType)
+                                    {
+                                        EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
+                                    }
+                                }
+                            }
+                        }
+                        else if (receiver is not null)
+                        {
+                            EmitExpression(receiver);
+
+                            if (fieldSymbol.ContainingType!.IsValueType)
+                            {
+                                EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
+                            }
+                        }
+                        else if (receiver is null)
+                        {
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                        }
                     }
 
                     // Emit RHS value
@@ -2109,6 +2130,83 @@ internal class ExpressionGenerator : Generator
             EmitExpression(receiver);
     }
 
+    private bool TryEmitInvocationReceiverAddress(BoundExpression? receiver)
+    {
+        switch (receiver)
+        {
+            case null:
+                if (MethodSymbol.IsStatic)
+                    return false;
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                return true;
+
+            case BoundSelfExpression selfExpression:
+                if (MethodSymbol.IsStatic)
+                    return false;
+
+                if (MethodSymbol.ContainingType?.IsValueType == true)
+                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                return true;
+
+            case BoundAddressOfExpression addressOf:
+                EmitAddressOfExpression(addressOf);
+                return true;
+
+            case BoundLocalAccess localAccess:
+                {
+                    if (MethodBodyGenerator.TryGetCapturedField(localAccess.Local, out var capturedField))
+                    {
+                        MethodBodyGenerator.EmitLoadClosure();
+                        ILGenerator.Emit(OpCodes.Ldflda, capturedField);
+                        return true;
+                    }
+
+                    var local = GetLocal(localAccess.Local);
+                    if (local is null)
+                        return false;
+
+                    ILGenerator.Emit(OpCodes.Ldloca, local);
+                    return true;
+                }
+
+            case BoundParameterAccess parameterAccess:
+                {
+                    if (MethodBodyGenerator.TryGetCapturedField(parameterAccess.Parameter, out var capturedField))
+                    {
+                        MethodBodyGenerator.EmitLoadClosure();
+                        ILGenerator.Emit(OpCodes.Ldflda, capturedField);
+                        return true;
+                    }
+
+                    var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter);
+                    var position = parameterBuilder.Position;
+                    if (!MethodSymbol.IsStatic)
+                        position -= 1;
+                    ILGenerator.Emit(OpCodes.Ldarga, position);
+                    return true;
+                }
+
+            case BoundMemberAccessExpression memberAccess when memberAccess.Member is IFieldSymbol fieldSymbol:
+                {
+                    if (fieldSymbol.IsStatic)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
+                        return true;
+                    }
+
+                    if (!TryEmitInvocationReceiverAddress(memberAccess.Receiver))
+                        return false;
+
+                    ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+                    return true;
+                }
+        }
+
+        return false;
+    }
+
     private void EmitBoxIfNeeded(ITypeSymbol type, MethodInfo method)
     {
         if (type.IsValueType && method.DeclaringType == typeof(object))
@@ -2182,8 +2280,25 @@ internal class ExpressionGenerator : Generator
         // Emit receiver (for instance methods)
         if (!target.IsStatic)
         {
+            var requiresAddress = invocationExpression.RequiresReceiverAddress;
+            var receiverAddressLoaded = false;
+
             if (!receiverAlreadyLoaded)
-                EmitExpression(receiver);
+            {
+                if (requiresAddress && TryEmitInvocationReceiverAddress(receiver))
+                {
+                    receiverAlreadyLoaded = true;
+                    receiverAddressLoaded = true;
+                }
+                else
+                {
+                    EmitExpression(receiver);
+                }
+            }
+            else if (requiresAddress)
+            {
+                receiverAddressLoaded = true;
+            }
 
             var receiverType = receiver?.Type;
             var effectiveReceiverType = receiverType;
@@ -2208,14 +2323,14 @@ internal class ExpressionGenerator : Generator
                 }
                 else if (!SymbolEqualityComparer.Default.Equals(effectiveReceiverType, methodDeclaringType))
                 {
-                    // Defensive fallback: method is on a different type, box to be safe
                     ILGenerator.Emit(OpCodes.Box, clrType);
                 }
-                else
+                else if (!receiverAddressLoaded)
                 {
                     var tmp = ILGenerator.DeclareLocal(clrType);
                     ILGenerator.Emit(OpCodes.Stloc, tmp);
                     ILGenerator.Emit(OpCodes.Ldloca, tmp);
+                    receiverAddressLoaded = true;
                 }
             }
         }

@@ -135,12 +135,15 @@ partial class BlockBinder
             ? ResolveType(returnTypeSyntax)
             : null;
 
+        var hasInvalidAsyncReturnType = false;
+
         if (isAsyncLambda && returnTypeSyntax is not null &&
             annotatedReturnType is not null && !IsValidAsyncReturnType(annotatedReturnType))
         {
             var display = annotatedReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
             _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, returnTypeSyntax.GetLocation());
             annotatedReturnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+            hasInvalidAsyncReturnType = true;
         }
 
         var initialReturnType = annotatedReturnType ?? Compilation.ErrorTypeSymbol;
@@ -154,6 +157,9 @@ partial class BlockBinder
             [syntax.GetLocation()],
             [syntax.GetReference()],
             isAsync: isAsyncLambda);
+
+        if (hasInvalidAsyncReturnType)
+            lambdaSymbol.MarkAsyncReturnTypeError();
 
         var lambdaBinder = new LambdaBinder(lambdaSymbol, this);
 

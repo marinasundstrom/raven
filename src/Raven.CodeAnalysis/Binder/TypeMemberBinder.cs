@@ -289,6 +289,8 @@ internal class TypeMemberBinder : Binder
             methodSymbol.SetTypeParameters(typeParametersBuilder);
         }
 
+        var hasInvalidAsyncReturnType = false;
+
         var methodBinder = new MethodBinder(methodSymbol, this);
         methodBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
@@ -301,6 +303,7 @@ internal class TypeMemberBinder : Binder
             var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
             _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, annotatedReturn.Type.GetLocation());
             returnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+            hasInvalidAsyncReturnType = true;
         }
 
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
@@ -386,6 +389,9 @@ internal class TypeMemberBinder : Binder
 
         methodSymbol.SetReturnType(returnType);
         methodSymbol.SetParameters(parameters);
+
+        if (hasInvalidAsyncReturnType)
+            methodSymbol.MarkAsyncReturnTypeError();
         return methodBinder;
     }
 
