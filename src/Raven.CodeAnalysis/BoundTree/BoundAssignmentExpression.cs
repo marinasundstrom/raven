@@ -39,12 +39,14 @@ internal partial class BoundFieldAssignmentExpression : BoundAssignmentExpressio
 {
     public BoundExpression? Receiver { get; }
     public IFieldSymbol Field { get; }
+    public bool RequiresReceiverAddress { get; }
 
-    public BoundFieldAssignmentExpression(BoundExpression? receiver, IFieldSymbol field, BoundExpression right)
+    public BoundFieldAssignmentExpression(BoundExpression? receiver, IFieldSymbol field, BoundExpression right, bool requiresReceiverAddress = false)
         : base(field.Type, right)
     {
         Receiver = receiver;
         Field = field;
+        RequiresReceiverAddress = requiresReceiverAddress;
     }
 }
 

@@ -8,18 +8,21 @@ internal partial class BoundInvocationExpression : BoundExpression
     public IEnumerable<BoundExpression> Arguments { get; }
     public BoundExpression? Receiver { get; }
     public BoundExpression? ExtensionReceiver { get; }
+    public bool RequiresReceiverAddress { get; }
 
     public BoundInvocationExpression(
         IMethodSymbol method,
         IEnumerable<BoundExpression> arguments,
         BoundExpression? receiver = null,
-        BoundExpression? extensionReceiver = null)
+        BoundExpression? extensionReceiver = null,
+        bool requiresReceiverAddress = false)
            : base(method.ReturnType, method, BoundExpressionReason.None)
     {
         Method = method;
         Arguments = arguments;
         Receiver = receiver;
         ExtensionReceiver = extensionReceiver;
+        RequiresReceiverAddress = requiresReceiverAddress;
     }
 
     public override string ToString()
