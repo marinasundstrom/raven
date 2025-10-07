@@ -357,7 +357,7 @@ public partial class Compilation
             currentSourceNamespace = next;
         }
 
-        return this.GetNamespaceSymbol(ns) ?? currentSourceNamespace;
+        return currentSourceNamespace;
     }
 
     private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
