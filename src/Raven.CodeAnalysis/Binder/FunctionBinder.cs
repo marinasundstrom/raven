@@ -54,6 +54,8 @@ class FunctionBinder : Binder
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
 
+        var hasInvalidAsyncReturnType = false;
+
         var returnType = _syntax.ReturnType is null
             ? inferredReturnType
             : ResolveType(_syntax.ReturnType.Type);
@@ -63,6 +65,7 @@ class FunctionBinder : Binder
             var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
             _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, annotatedReturn.Type.GetLocation());
             returnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+            hasInvalidAsyncReturnType = true;
         }
 
         _methodSymbol = new SourceMethodSymbol(
@@ -77,6 +80,9 @@ class FunctionBinder : Binder
             isStatic: true,
             isAsync: isAsync,
             declaredAccessibility: Accessibility.Internal);
+
+        if (hasInvalidAsyncReturnType)
+            _methodSymbol.MarkAsyncReturnTypeError();
 
         var parameters = _syntax.ParameterList.Parameters
             .Select(p =>

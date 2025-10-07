@@ -43,6 +43,21 @@ class C {
     }
 
     [Fact]
+    public void AsyncMethod_WithExplicitNonTaskReturnTypeAndBareReturn_ReportsSingleDiagnostic()
+    {
+        const string source = """
+class C {
+    async f() -> int {
+        return;
+    }
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike, diagnostic.Descriptor);
+    }
+
+    [Fact]
     public void TopLevelAwait_PromotesSynthesizedMainToAsyncTask()
     {
         const string source = """

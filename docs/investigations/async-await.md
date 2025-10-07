@@ -38,22 +38,19 @@
 
 ## Remaining work
 
+### Resolved gaps
+
+- **Synthesized `Program`/`MainAsync` exposure.** `Compilation.EnsureSetup()` now seeds
+  the implicit `Program` container and its entry points so semantic queries after
+  setup can see the async surface without forcing binder creation.【F:src/Raven.CodeAnalysis/Compilation.cs†L129-L284】【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L65-L109】
+- **Duplicate diagnostics for invalid async returns.** Async methods, functions, and
+  lambdas mark their symbols when a non-`Task` annotation is rejected, allowing the
+  return binder to skip conversions that previously emitted cascading `RAV1503`
+  errors. Regression tests now assert only the primary async diagnostic surfaces for
+  both expression-bodied and block-bodied returns.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L25-L205】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceLambdaSymbol.cs†L6-L98】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
+
 ### Newly identified gaps
 
-- **Synthesized `Program`/`MainAsync` exposure.** Calling `Compilation.EnsureSetup()` is
-  not enough to register the synthesized `Program` container or its async
-  forwarding members. The symbols are only materialized when we build the top-level
-  binder, so tests that inspect `Compilation.SourceGlobalNamespace` after
-  `EnsureSetup()` fail to find `Program` or `MainAsync`. We should eagerly
-  materialize the program shell (or force binder creation) during setup so the
-  compiler surface matches expectations for async top-level code.【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【794a82†L1-L49】
-- **Duplicate diagnostics for invalid async returns.** When an async method or
-  function explicitly returns a non-`Task` type, we correctly report
-  `AsyncReturnTypeMustBeTaskLike` but continue binding the body against the
-  substituted `Task` return type. That flow still tries to convert the user's
-  `return` expression and produces secondary conversion errors (`RAV1503`),
-  obscuring the primary diagnostic. We need to short-circuit the conversion or
-  suppress follow-up diagnostics once we know the async return type is invalid.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L51-L111】【996d75†L1-L6】
 - **Accessor diagnostics lost when the property type fails early.** Async getters
   rely on the resolved property type to validate the builder shape. When that
   type binding fails (for example, unresolved `Int32` without an implicit
@@ -65,8 +62,13 @@
 
 ### Step-by-step plan
 
-1. **Surface synthesized `Program` members during setup.** Teach `Compilation.Setup`/`EnsureSetup` to pre-create the implicit `Program` container and associated `Main`/`MainAsync` methods so test harnesses that only invoke `EnsureSetup()` can still find the async entry points without touching the binder cache.【F:src/Raven.CodeAnalysis/Compilation.cs†L128-L170】【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】 Validate the behaviour by extending the top-level async tests to assert symbol availability immediately after setup.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L45-L109】
-2. **Short-circuit async return diagnostics.** When `FunctionBinder` detects an explicit non-task return type, stop binding return expressions against the substituted task shape to avoid cascading `RAV1503` conversion errors, and cover the scenario with regression tests that assert only the primary diagnostic is produced.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L36-L111】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L29-L123】
+#### Completed steps
+
+1. **Surface synthesized `Program` members during setup.** `Compilation.Setup` now pre-creates the implicit `Program` shell and async entry points so tests that only call `EnsureSetup()` can discover the synthesized symbols.【F:src/Raven.CodeAnalysis/Compilation.cs†L129-L284】【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L65-L109】
+2. **Short-circuit async return diagnostics.** Async symbol binders flag invalid return annotations and the return binder honours the flag, preventing cascading conversion diagnostics while keeping builder synthesis intact. Regression tests cover both method and lambda scenarios.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
+
+#### Upcoming steps
+
 3. **Restore accessor diagnostics on error types.** Update `TypeMemberBinder` so async property/indexer accessors still report `AsyncReturnTypeMustBeTaskLike` even when the declared property type binds to `ErrorTypeSymbol`, preventing missing guidance when imports are absent. Add tests that simulate unresolved framework types and confirm the async diagnostic is preserved.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L878-L947】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L125-L159】
 4. **Audit value-type receiver handling.** Ensure every builder interaction that mutates the synthesized struct marks `RequiresReceiverAddress` so `ExpressionGenerator` can load addresses instead of copying value-type receivers during field assignments and builder invocations.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L317-L1616】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1580-L1661】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2275-L2359】 Follow up with focused IL assertions that prove the builder and hoisted locals are mutated in place.
 5. **Rebuild integration coverage.** Once the structural fixes land, expand async lowering and execution tests (including nested awaits, exception paths, and lambda/accessor scenarios) to verify that diagnostics, hoisting, and runtime behaviour align with the documented design.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1-L417】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1-L121】

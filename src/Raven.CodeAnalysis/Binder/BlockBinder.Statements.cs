@@ -456,29 +456,37 @@ partial class BlockBinder
 
         if (_containingSymbol is IMethodSymbol method)
         {
-            if (expr is null)
+            var skipReturnConversions = method switch
             {
-                var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
-                if (!IsAssignable(method.ReturnType, unit, out _))
-                    _diagnostics.ReportCannotConvertFromTypeToType(
-                        unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        returnStatement.GetLocation());
-            }
-            else if (expr is not null &&
-                     ShouldAttemptConversion(expr) &&
-                     method.ReturnType.TypeKind != TypeKind.Error)
+                SourceMethodSymbol { HasAsyncReturnTypeError: true } => true,
+                SourceLambdaSymbol { HasAsyncReturnTypeError: true } => true,
+                _ => false,
+            };
+
+            if (!skipReturnConversions)
             {
-                if (!IsAssignable(method.ReturnType, expr.Type, out var conversion))
+                if (expr is null)
                 {
-                    _diagnostics.ReportCannotConvertFromTypeToType(
-                        expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        returnStatement.Expression!.GetLocation());
+                    var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
+                    if (!IsAssignable(method.ReturnType, unit, out _))
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            returnStatement.GetLocation());
                 }
-                else
+                else if (ShouldAttemptConversion(expr) && method.ReturnType.TypeKind != TypeKind.Error)
                 {
-                    expr = ApplyConversion(expr, method.ReturnType, conversion, returnStatement.Expression!);
+                    if (!IsAssignable(method.ReturnType, expr.Type, out var conversion))
+                    {
+                        _diagnostics.ReportCannotConvertFromTypeToType(
+                            expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            returnStatement.Expression!.GetLocation());
+                    }
+                    else
+                    {
+                        expr = ApplyConversion(expr, method.ReturnType, conversion, returnStatement.Expression!);
+                    }
                 }
             }
         }
