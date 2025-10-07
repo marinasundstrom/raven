@@ -33,6 +33,7 @@ public partial class Compilation
     private TypeResolver _typeResolver;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
+    private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -167,9 +168,145 @@ public partial class Compilation
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
+
+        InitializeTopLevelPrograms();
     }
 
     internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
+
+    private void InitializeTopLevelPrograms()
+    {
+        foreach (var tree in SyntaxTrees)
+        {
+            if (tree is null)
+                continue;
+
+            if (tree.GetRoot() is not CompilationUnitSyntax compilationUnit)
+                continue;
+
+            var bindableGlobals = CollectBindableGlobalStatements(compilationUnit);
+            if (bindableGlobals.Count == 0)
+                continue;
+
+            if (SyntaxTreeWithFileScopedCode is null)
+                SyntaxTreeWithFileScopedCode = tree;
+
+            var fileScopedNamespace = compilationUnit.Members
+                .OfType<FileScopedNamespaceDeclarationSyntax>()
+                .FirstOrDefault();
+
+            SourceNamespaceSymbol targetNamespace = fileScopedNamespace is null
+                ? SourceGlobalNamespace
+                : GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToString())?.AsSourceNamespace()
+                    ?? SourceGlobalNamespace;
+
+            GetOrCreateTopLevelProgram(compilationUnit, targetNamespace, bindableGlobals);
+        }
+    }
+
+    internal (SynthesizedProgramClassSymbol Program, SynthesizedMainMethodSymbol Main, SynthesizedMainAsyncMethodSymbol? Async)
+        GetOrCreateTopLevelProgram(
+            CompilationUnitSyntax compilationUnit,
+            SourceNamespaceSymbol targetNamespace,
+            IReadOnlyList<GlobalStatementSyntax> bindableGlobals)
+    {
+        if (_topLevelProgramMembers.TryGetValue(compilationUnit.SyntaxTree, out var existing))
+            return (existing.ProgramClass, existing.MainMethod, existing.AsyncMainMethod);
+
+        var returnsInt = bindableGlobals.Any(static g => ContainsReturnWithExpressionOutsideNestedFunctions(g.Statement));
+        var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpressionOutsideNestedFunctions(g.Statement));
+
+        var programClass = new SynthesizedProgramClassSymbol(this, targetNamespace, [compilationUnit.GetLocation()], [compilationUnit.GetReference()]);
+
+        SynthesizedMainAsyncMethodSymbol? asyncImplementation = null;
+        if (requiresAsync)
+        {
+            asyncImplementation = new SynthesizedMainAsyncMethodSymbol(
+                programClass,
+                [compilationUnit.GetLocation()],
+                [compilationUnit.GetReference()],
+                returnsInt);
+        }
+
+        var mainMethod = new SynthesizedMainMethodSymbol(
+            programClass,
+            [compilationUnit.GetLocation()],
+            [compilationUnit.GetReference()],
+            returnsInt,
+            asyncImplementation);
+
+        _topLevelProgramMembers[compilationUnit.SyntaxTree] = new TopLevelProgramMembers(programClass, mainMethod, asyncImplementation);
+
+        return (programClass, mainMethod, asyncImplementation);
+    }
+
+    internal static List<GlobalStatementSyntax> CollectBindableGlobalStatements(CompilationUnitSyntax compilationUnit)
+    {
+        var bindableGlobals = new List<GlobalStatementSyntax>();
+
+        foreach (var global in compilationUnit.DescendantNodes().OfType<GlobalStatementSyntax>())
+        {
+            if (global.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax)
+                bindableGlobals.Add(global);
+        }
+
+        return bindableGlobals;
+    }
+
+    internal static bool ContainsAwaitExpressionOutsideNestedFunctions(StatementSyntax statement)
+    {
+        return ContainsAwaitExpressionOutsideNestedFunctions((SyntaxNode)statement);
+
+        static bool ContainsAwaitExpressionOutsideNestedFunctions(SyntaxNode node)
+        {
+            if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
+                return false;
+
+            if (node.Kind == SyntaxKind.AwaitExpression)
+                return true;
+
+            foreach (var child in node.ChildNodes())
+            {
+                if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
+                    continue;
+
+                if (ContainsAwaitExpressionOutsideNestedFunctions(child))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    internal static bool ContainsReturnWithExpressionOutsideNestedFunctions(StatementSyntax statement)
+    {
+        return ContainsReturnWithExpressionOutsideNestedFunctions((SyntaxNode)statement);
+
+        static bool ContainsReturnWithExpressionOutsideNestedFunctions(SyntaxNode node)
+        {
+            if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
+                return false;
+
+            if (node is ReturnStatementSyntax { Expression: not null })
+                return true;
+
+            foreach (var child in node.ChildNodes())
+            {
+                if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
+                    continue;
+
+                if (ContainsReturnWithExpressionOutsideNestedFunctions(child))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    private sealed record TopLevelProgramMembers(
+        SynthesizedProgramClassSymbol ProgramClass,
+        SynthesizedMainMethodSymbol MainMethod,
+        SynthesizedMainAsyncMethodSymbol? AsyncMainMethod);
 
     private UnitTypeSymbol CreateUnitTypeSymbol()
     {
