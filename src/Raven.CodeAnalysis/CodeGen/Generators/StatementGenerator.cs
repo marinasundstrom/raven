@@ -231,7 +231,16 @@ internal class StatementGenerator : Generator
 
     private void EmitAssignmentStatement(BoundAssignmentStatement assignmentStatement)
     {
-        new ExpressionGenerator(this, assignmentStatement.Expression).Emit();
+        var expression = assignmentStatement.Expression;
+        new ExpressionGenerator(this, expression).Emit();
+
+        var resultType = expression.Type;
+        if (resultType is not null
+            && resultType.SpecialType is not SpecialType.System_Unit
+            && resultType.SpecialType is not SpecialType.System_Void)
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+        }
     }
 
     private void EmitForStatement(BoundForStatement forStatement)

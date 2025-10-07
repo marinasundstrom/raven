@@ -935,12 +935,9 @@ internal class ExpressionGenerator : Generator
         var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClrType);
         ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
 
-        var resultType = matchExpression.Type ?? Compilation.GetSpecialType(SpecialType.System_Object);
-        if (resultType.TypeKind == TypeKind.Error)
-            resultType = Compilation.GetSpecialType(SpecialType.System_Object);
-
-        var resultLocal = ILGenerator.DeclareLocal(ResolveClrType(resultType));
         var endLabel = ILGenerator.DefineLabel();
+        var fallthroughLabel = ILGenerator.DefineLabel();
+        var exitLabel = ILGenerator.DefineLabel();
 
         foreach (var arm in matchExpression.Arms)
         {
@@ -963,14 +960,25 @@ internal class ExpressionGenerator : Generator
             if ((matchExpression.Type?.IsUnion ?? false) && (armType?.IsValueType ?? false))
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
 
-            ILGenerator.Emit(OpCodes.Stloc, resultLocal);
             ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(nextArmLabel);
         }
 
+        ILGenerator.Emit(OpCodes.Br, fallthroughLabel);
+
         ILGenerator.MarkLabel(endLabel);
-        ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+        ILGenerator.Emit(OpCodes.Br, exitLabel);
+
+        ILGenerator.MarkLabel(fallthroughLabel);
+
+        var exceptionCtor = typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })
+            ?? throw new InvalidOperationException("Failed to resolve InvalidOperationException(string) constructor.");
+        ILGenerator.Emit(OpCodes.Ldstr, "Match expression was not exhaustive.");
+        ILGenerator.Emit(OpCodes.Newobj, exceptionCtor);
+        ILGenerator.Emit(OpCodes.Throw);
+
+        ILGenerator.MarkLabel(exitLabel);
     }
 
     private void EmitPattern(BoundPattern pattern, Generator? scope = null)
