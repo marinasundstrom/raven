@@ -1608,26 +1608,20 @@ internal class ExpressionGenerator : Generator
                     var right = fieldAssignmentExpression.Right;
                     var receiver = fieldAssignmentExpression.Receiver;
 
-                    // Load receiver (unless static)
-                    if (!fieldSymbol.IsStatic && receiver is not null)
+                    if (!fieldSymbol.IsStatic)
+                    {
+                        var containingType = fieldSymbol.ContainingType
+                            ?? throw new InvalidOperationException($"Field '{fieldSymbol.Name}' does not have a containing type.");
+
+                        EmitInstanceReceiver(receiver, containingType);
+                    }
+                    else if (receiver is not null)
                     {
                         EmitExpression(receiver);
-
-                        if (fieldSymbol.ContainingType!.IsValueType)
-                        {
-                            EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
-                        }
                     }
 
-                    if (!fieldSymbol.IsStatic && receiver is null)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldarg_0);
-                    }
-
-                    // Emit RHS value
                     EmitExpression(right);
 
-                    // Box if assigning value type to reference type
                     if (right.Type is { IsValueType: true } && !fieldSymbol.Type.IsValueType)
                     {
                         ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
@@ -1643,34 +1637,25 @@ internal class ExpressionGenerator : Generator
                     var right = propertyAssignmentExpression.Right;
                     var receiver = propertyAssignmentExpression.Receiver;
 
-                    // Load receiver (unless static)
                     if (!propertySymbol.IsStatic)
                     {
-                        if (receiver is not null)
-                        {
-                            EmitExpression(receiver);
+                        var containingType = propertySymbol.ContainingType
+                            ?? throw new InvalidOperationException($"Property '{propertySymbol.Name}' does not have a containing type.");
 
-                            if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
-                        }
-                        else
-                        {
-                            ILGenerator.Emit(OpCodes.Ldarg_0);
-                            if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
-                        }
+                        EmitInstanceReceiver(receiver, containingType);
+                    }
+                    else if (receiver is not null)
+                    {
+                        EmitExpression(receiver);
                     }
 
-                    // Emit RHS value
                     EmitExpression(right);
 
-                    // Box if assigning value type to reference type
                     if (right.Type is { IsValueType: true } && !propertySymbol.Type.IsValueType)
                     {
                         ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
                     }
 
-                    // Resolve setter
                     if (propertySymbol.SetMethod is null)
                         throw new InvalidOperationException($"Property {propertySymbol.Name} does not have a setter");
 
@@ -1987,8 +1972,6 @@ internal class ExpressionGenerator : Generator
 
                 if (!propertySymbol.IsStatic)
                 {
-                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType!);
-
                     EmitBoxIfNeeded(propertySymbol.ContainingType!, getter);
                 }
 
@@ -1997,9 +1980,6 @@ internal class ExpressionGenerator : Generator
 
             case IFieldSymbol fieldSymbol:
                 EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
-
-                if (!fieldSymbol.IsStatic)
-                    EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType!);
 
                 if (fieldSymbol.IsLiteral)
                 {
@@ -2097,10 +2077,18 @@ internal class ExpressionGenerator : Generator
 
     private void EmitReceiverIfNeeded(BoundExpression? receiver, ISymbol symbol, bool receiverAlreadyLoaded)
     {
-        if (receiverAlreadyLoaded)
+        if (receiverAlreadyLoaded || symbol.IsStatic)
             return;
-        if (receiver is not null && !symbol.IsStatic)
-            EmitExpression(receiver);
+
+        var containingType = GetContainingType(symbol);
+        if (containingType is null)
+        {
+            if (receiver is not null)
+                EmitExpression(receiver);
+            return;
+        }
+
+        EmitInstanceReceiver(receiver, containingType);
     }
 
     private void EmitBoxIfNeeded(ITypeSymbol type, MethodInfo method)
@@ -2111,15 +2099,132 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitValueTypeAddressIfNeeded(ITypeSymbol type)
+    private void EmitTemporaryAddress(ITypeSymbol type)
     {
-        if (type.IsValueType)
+        var clrType = ResolveClrType(type);
+        var tmp = ILGenerator.DeclareLocal(clrType);
+        ILGenerator.Emit(OpCodes.Stloc, tmp);
+        ILGenerator.Emit(OpCodes.Ldloca, tmp);
+    }
+
+    private bool EmitInstanceReceiver(BoundExpression? receiver, ITypeSymbol containingType)
+    {
+        if (receiver is null)
         {
-            var clrType = ResolveClrType(type);
-            var tmp = ILGenerator.DeclareLocal(clrType);
-            ILGenerator.Emit(OpCodes.Stloc, tmp);
-            ILGenerator.Emit(OpCodes.Ldloca, tmp);
+            if (MethodSymbol.IsStatic)
+                throw new NotSupportedException("Cannot access instance member from a static context.");
+
+            if (containingType.IsValueType)
+            {
+                ILGenerator.Emit(OpCodes.Ldarga, 0);
+                return true;
+            }
+
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            return false;
         }
+
+        if (containingType.IsValueType)
+        {
+            if (TryEmitAddress(receiver))
+                return true;
+
+            EmitExpression(receiver);
+            EmitTemporaryAddress(containingType);
+            return true;
+        }
+
+        EmitExpression(receiver);
+        return false;
+    }
+
+    private bool TryEmitAddress(BoundExpression expression)
+    {
+        switch (expression)
+        {
+            case BoundLocalAccess { Symbol: ILocalSymbol local }:
+                ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                return true;
+
+            case BoundParameterAccess { Parameter: IParameterSymbol parameter }:
+                {
+                    var builder = MethodGenerator.GetParameterBuilder(parameter);
+                    var position = builder.Position;
+
+                    if (MethodSymbol.IsStatic)
+                        position -= 1;
+
+                    ILGenerator.Emit(OpCodes.Ldarga, position);
+                    return true;
+                }
+
+            case BoundSelfExpression self:
+                if (MethodSymbol.IsStatic)
+                    throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
+
+                if (!self.Type.IsValueType)
+                    return false;
+
+                ILGenerator.Emit(OpCodes.Ldarga, 0);
+                return true;
+
+            case BoundAddressOfExpression addressOf:
+                EmitAddressOfExpression(addressOf);
+                return true;
+
+            case BoundMemberAccessExpression { Member: IFieldSymbol field } memberAccess:
+                {
+                    if (field.IsStatic)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldsflda, GetField(field));
+                        return true;
+                    }
+
+                    if (memberAccess.Receiver is null)
+                    {
+                        if (MethodSymbol.IsStatic)
+                            throw new NotSupportedException("Cannot access instance field without a receiver in a static context.");
+
+                        if (field.ContainingType?.IsValueType == true)
+                        {
+                            ILGenerator.Emit(OpCodes.Ldarga, 0);
+                        }
+                        else
+                        {
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                        }
+                    }
+                    else
+                    {
+                        if (field.ContainingType?.IsValueType == true)
+                        {
+                            if (!TryEmitAddress(memberAccess.Receiver))
+                                return false;
+                        }
+                        else
+                        {
+                            EmitExpression(memberAccess.Receiver);
+                        }
+                    }
+
+                    ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
+                    return true;
+                }
+
+            default:
+                return false;
+        }
+    }
+
+    private static ITypeSymbol? GetContainingType(ISymbol symbol)
+    {
+        return symbol switch
+        {
+            IPropertySymbol property => property.ContainingType,
+            IFieldSymbol field => field.ContainingType,
+            IMethodSymbol method => method.ContainingType,
+            _ => null,
+        };
     }
 
     private void EmitLiteral(object? constant)
@@ -2176,8 +2281,24 @@ internal class ExpressionGenerator : Generator
         // Emit receiver (for instance methods)
         if (!target.IsStatic)
         {
+            var containingType = target.ContainingType;
+            var receiverIsAddress = false;
+
             if (!receiverAlreadyLoaded)
-                EmitExpression(receiver);
+            {
+                if (containingType is not null)
+                {
+                    receiverIsAddress = EmitInstanceReceiver(receiver, containingType);
+                }
+                else if (receiver is not null)
+                {
+                    EmitExpression(receiver);
+                }
+            }
+            else if (containingType?.IsValueType == true)
+            {
+                receiverIsAddress = true;
+            }
 
             var receiverType = receiver?.Type;
             var effectiveReceiverType = receiverType;
@@ -2190,7 +2311,7 @@ internal class ExpressionGenerator : Generator
                     effectiveReceiverType = nullable.UnderlyingType;
             }
 
-            if (effectiveReceiverType?.IsValueType == true)
+            if (!receiverIsAddress && effectiveReceiverType?.IsValueType == true)
             {
                 var clrType = ResolveClrType(effectiveReceiverType);
                 var methodDeclaringType = target.ContainingType;
@@ -2207,9 +2328,8 @@ internal class ExpressionGenerator : Generator
                 }
                 else
                 {
-                    var tmp = ILGenerator.DeclareLocal(clrType);
-                    ILGenerator.Emit(OpCodes.Stloc, tmp);
-                    ILGenerator.Emit(OpCodes.Ldloca, tmp);
+                    EmitTemporaryAddress(effectiveReceiverType);
+                    receiverIsAddress = true;
                 }
             }
         }
@@ -2352,9 +2472,10 @@ internal class ExpressionGenerator : Generator
         {
             if (!propertySymbol.IsStatic)
             {
-                ILGenerator.Emit(OpCodes.Ldarg_0);
-                if (propertySymbol.ContainingType.IsValueType)
-                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                var containingType = propertySymbol.ContainingType
+                    ?? throw new InvalidOperationException($"Property '{propertySymbol.Name}' does not have a containing type.");
+
+                EmitInstanceReceiver(null, containingType);
             }
 
             if (propertySymbol.GetMethod is null)
