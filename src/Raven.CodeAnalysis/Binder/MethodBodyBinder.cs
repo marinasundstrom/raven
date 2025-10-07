@@ -8,6 +8,7 @@ namespace Raven.CodeAnalysis;
 class MethodBodyBinder : BlockBinder
 {
     private readonly IMethodSymbol _methodSymbol;
+    private bool _namedConstructorRewritten;
 
     public MethodBodyBinder(IMethodSymbol methodSymbol, Binder parent)
         : base(methodSymbol, parent)
@@ -19,7 +20,7 @@ class MethodBodyBinder : BlockBinder
     {
         var bound = base.BindBlockStatement(block);
 
-        if (_methodSymbol.IsNamedConstructor)
+        if (_methodSymbol.IsNamedConstructor && !_namedConstructorRewritten)
         {
             var selfLocal = new SourceLocalSymbol(
                 "__self",
@@ -33,6 +34,7 @@ class MethodBodyBinder : BlockBinder
 
             var rewriter = new NamedConstructorRewriter(_methodSymbol, selfLocal);
             bound = rewriter.Rewrite(bound);
+            _namedConstructorRewritten = true;
         }
 
         var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
