@@ -49,6 +49,9 @@ public partial class Compilation
             return conversion.WithAlias(aliasInvolved);
         }
 
+        if (source.ContainsErrorType() || destination.ContainsErrorType())
+            return Finalize(new Conversion(isImplicit: true, isIdentity: true));
+
         if (source is LiteralTypeSymbol litSrc && destination is LiteralTypeSymbol litDest)
             return Equals(litSrc.ConstantValue, litDest.ConstantValue)
                 ? Finalize(new Conversion(isImplicit: true, isIdentity: true))

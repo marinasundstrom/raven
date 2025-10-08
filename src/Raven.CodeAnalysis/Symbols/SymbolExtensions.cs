@@ -74,6 +74,78 @@ public static partial class SymbolExtensions
         return typeSymbol.ToDisplayStringKeywordAware(format);
     }
 
+    public static bool ContainsErrorType(this ITypeSymbol? typeSymbol)
+    {
+        if (typeSymbol is null)
+            return false;
+
+        if (typeSymbol is IErrorTypeSymbol)
+            return true;
+
+        if (typeSymbol is LiteralTypeSymbol literal)
+            return literal.UnderlyingType.ContainsErrorType();
+
+        if (typeSymbol is NullableTypeSymbol nullable)
+            return nullable.UnderlyingType.ContainsErrorType();
+
+        switch (typeSymbol)
+        {
+            case IArrayTypeSymbol array:
+                return array.ElementType.ContainsErrorType();
+
+            case ByRefTypeSymbol byRef:
+                return byRef.ElementType.ContainsErrorType();
+
+            case IUnionTypeSymbol union:
+                foreach (var member in union.Types)
+                {
+                    if (member.ContainsErrorType())
+                        return true;
+                }
+
+                return false;
+
+            case INamedTypeSymbol named:
+                if (!named.TypeArguments.IsDefaultOrEmpty)
+                {
+                    foreach (var argument in named.TypeArguments)
+                    {
+                        if (argument.ContainsErrorType())
+                            return true;
+                    }
+                }
+
+                if (named.TypeKind == TypeKind.Delegate &&
+                    named.GetDelegateInvokeMethod() is { } invoke)
+                {
+                    if (invoke.ReturnType.ContainsErrorType())
+                        return true;
+
+                    foreach (var parameter in invoke.Parameters)
+                    {
+                        if (parameter.Type.ContainsErrorType())
+                            return true;
+                    }
+                }
+
+                return false;
+
+            case ITypeParameterSymbol typeParameter:
+                if (!typeParameter.ConstraintTypes.IsDefaultOrEmpty)
+                {
+                    foreach (var constraint in typeParameter.ConstraintTypes)
+                    {
+                        if (constraint.ContainsErrorType())
+                            return true;
+                    }
+                }
+
+                return false;
+        }
+
+        return false;
+    }
+
     public static string ToDisplayStringForTypeMismatchDiagnostic(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         var display = typeSymbol.ToDisplayStringKeywordAware(format);
