@@ -8,7 +8,7 @@ func apply(value: int, transform: int -> int) -> int {
     transform(value)
 }
 
-let doubled: int -> int = x => x * 2
+let doubled = (x: int) => x * 2
 let increment: int -> int = x => x + 1
 let reducer: (int, int) -> int = (a: int, b: int) -> int => a + b
 
