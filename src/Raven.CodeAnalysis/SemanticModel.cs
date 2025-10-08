@@ -632,18 +632,22 @@ public partial class SemanticModel
 
         var topLevelBinder = new TopLevelBinder(parentBinder, this, scriptMethod, mainMethod, cu);
 
-        // Cache the compilation unit and its global statements before binding.
-        //
-        // Binding the statements will request declared symbols, which rely on binder
-        // lookup through SemanticModel.GetBinder. Without priming the cache, any
-        // attempt to resolve the compilation unit binder re-enters
-        // BindCompilationUnit, causing unbounded recursion (see stack trace in bug
-        // report). By caching eagerly we guarantee re-entrant lookups retrieve the
-        // partially constructed top-level binder instead of rebuilding it.
-        _binderCache[cu] = topLevelBinder;
+        if (bindableGlobals.Count > 0)
+        {
+            // Cache the compilation unit and its global statements before binding.
+            //
+            // Binding the statements will request declared symbols, which rely on
+            // binder lookup through SemanticModel.GetBinder. Without priming the
+            // cache, any attempt to resolve the compilation unit binder re-enters
+            // BindCompilationUnit, causing unbounded recursion (see stack trace in
+            // bug report). By caching eagerly we guarantee re-entrant lookups
+            // retrieve the partially constructed top-level binder instead of
+            // rebuilding it.
+            _binderCache[cu] = topLevelBinder;
 
-        foreach (var stmt in bindableGlobals)
-            _binderCache[stmt] = topLevelBinder;
+            foreach (var stmt in bindableGlobals)
+                _binderCache[stmt] = topLevelBinder;
+        }
 
         topLevelBinder.BindGlobalStatements(bindableGlobals);
 
