@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -62,10 +63,30 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (x is IParameterSymbol px && y is IParameterSymbol py)
         {
+            if (ReferenceEquals(px, py))
+                return true;
+
             if (px.RefKind != py.RefKind)
                 return false;
 
-            return EqualsCore(px.Type, py.Type, visited);
+            if (!EqualsCore(px.Type, py.Type, visited))
+                return false;
+
+            var hasOrdinalX = TryGetParameterOrdinal(px, out var ordinalX);
+            var hasOrdinalY = TryGetParameterOrdinal(py, out var ordinalY);
+
+            if (hasOrdinalX && hasOrdinalY)
+            {
+                if (ordinalX != ordinalY)
+                    return false;
+
+                return EqualsCore(px.ContainingSymbol, py.ContainingSymbol, visited);
+            }
+
+            if (!EqualsCore(px.ContainingSymbol, py.ContainingSymbol, visited))
+                return false;
+
+            return string.Equals(px.Name, py.Name, StringComparison.Ordinal);
         }
 
         if (!string.Equals(x.Name, y.Name, StringComparison.Ordinal))
@@ -190,6 +211,25 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             or SpecialType.System_Single
             or SpecialType.System_String
             or SpecialType.System_Unit;
+    }
+
+    private static bool TryGetParameterOrdinal(IParameterSymbol parameter, out int ordinal)
+    {
+        if (parameter.ContainingSymbol is IMethodSymbol method)
+        {
+            var parameters = method.Parameters;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (ReferenceEquals(parameters[i], parameter))
+                {
+                    ordinal = i;
+                    return true;
+                }
+            }
+        }
+
+        ordinal = -1;
+        return false;
     }
 
     public int GetHashCode(ISymbol obj)

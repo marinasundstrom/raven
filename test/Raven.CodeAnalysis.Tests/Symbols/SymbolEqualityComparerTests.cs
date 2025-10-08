@@ -143,6 +143,22 @@ public class SymbolEqualityComparerTests
     }
 
     [Fact]
+    public void Comparer_DistinguishesParametersWithSameType()
+    {
+        var comparer = SymbolEqualityComparer.Default;
+        var containing = new StubSymbol(SymbolKind.Method, "Invoke", "Invoke");
+        var parameterType = new StubTypeSymbol(TypeKind.Struct);
+
+        var first = new StubParameterSymbol("a", containing, parameterType);
+        var second = new StubParameterSymbol("b", containing, parameterType);
+
+        Assert.False(comparer.Equals(first, second));
+
+        var set = new HashSet<ISymbol>(comparer) { first };
+        Assert.DoesNotContain(second, set);
+    }
+
+    [Fact]
     public void Comparer_PreservesEqualityAcrossCompilations()
     {
         const string source = """
@@ -575,6 +591,26 @@ class Sample {{
         public void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+    }
+
+    private sealed class StubParameterSymbol : StubSymbol, IParameterSymbol
+    {
+        public StubParameterSymbol(string name, ISymbol containingSymbol, ITypeSymbol type, RefKind refKind = RefKind.None)
+            : base(SymbolKind.Parameter, name, name, containingSymbol)
+        {
+            Type = type;
+            RefKind = refKind;
+        }
+
+        public ITypeSymbol Type { get; }
+
+        public bool IsParams => false;
+
+        public RefKind RefKind { get; }
+
+        public bool HasExplicitDefaultValue => false;
+
+        public object? ExplicitDefaultValue => null;
     }
 
     private sealed class StubTypeSymbol : StubSymbol, ITypeSymbol
