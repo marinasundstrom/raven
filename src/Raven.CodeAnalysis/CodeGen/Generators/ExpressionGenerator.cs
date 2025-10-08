@@ -578,7 +578,8 @@ internal class ExpressionGenerator : Generator
 
     private void EmitUnitExpression(BoundUnitExpression unitExpression)
     {
-        EmitUnitValue();
+        if (_preserveResult)
+            EmitUnitValue();
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
@@ -2277,7 +2278,7 @@ internal class ExpressionGenerator : Generator
     {
         EmitInvocationExpressionBase(invocationExpression, receiverAlreadyLoaded);
 
-        if (invocationExpression.Type.SpecialType == SpecialType.System_Unit)
+        if (_preserveResult && invocationExpression.Type.SpecialType == SpecialType.System_Unit)
         {
             EmitUnitValue();
         }

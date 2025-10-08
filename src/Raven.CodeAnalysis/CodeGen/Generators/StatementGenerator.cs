@@ -113,11 +113,14 @@ internal class StatementGenerator : Generator
         ITypeSymbol? expressionType = expression?.Type;
         IILocal? resultTemp = null;
 
+        var isVoidLikeReturn = returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
+
         if (expression is not null)
         {
-            new ExpressionGenerator(this, expression).Emit();
+            var preserveResult = !isVoidLikeReturn;
+            new ExpressionGenerator(this, expression, preserveResult).Emit();
 
-            if (localsToDispose.Length > 0 && expressionType is not null)
+            if (preserveResult && localsToDispose.Length > 0 && expressionType is not null)
             {
                 var clrType = ResolveClrType(expressionType);
                 resultTemp = ILGenerator.DeclareLocal(clrType);
@@ -127,7 +130,7 @@ internal class StatementGenerator : Generator
 
         EmitDispose(localsToDispose);
 
-        if (expression is not null)
+        if (expression is not null && !isVoidLikeReturn)
         {
             if (resultTemp is not null)
                 ILGenerator.Emit(OpCodes.Ldloc, resultTemp);

@@ -630,7 +630,7 @@ internal class MethodBodyGenerator
             // expression, while still emitting any required boxing.
             if (treatAsMethodBody && includeImplicitReturn &&
                 i == statements.Count - 1 &&
-                MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void &&
+                MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
                 statement is BoundExpressionStatement exprStmt)
             {
                 var returnStatement = new BoundReturnStatement(exprStmt.Expression);
