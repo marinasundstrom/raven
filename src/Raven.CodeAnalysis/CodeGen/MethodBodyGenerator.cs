@@ -591,6 +591,17 @@ internal class MethodBodyGenerator
             if (localSymbol.Type is null)
                 continue;
 
+            // Locals are declared once at the method scope. When the block is emitted
+            // we may revisit the same locals to populate nested scopes with the
+            // existing builders. Ensure we reuse the builder instead of declaring a
+            // duplicate slot.
+            var existingBuilder = targetScope.GetLocal(localSymbol);
+            if (existingBuilder is not null)
+            {
+                targetScope.AddLocal(localSymbol, existingBuilder);
+                continue;
+            }
+
             var clrType = ResolveClrType(localSymbol.Type);
             var builder = ILGenerator.DeclareLocal(clrType);
             builder.SetLocalSymInfo(localSymbol.Name);
