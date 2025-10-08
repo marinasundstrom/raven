@@ -14,22 +14,21 @@ internal class TypeResolver(Compilation compilation)
 
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
-        var unionAttribute = parameterInfo.GetCustomAttributesData()
-            .FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
-
-        if (unionAttribute is not null)
-        {
-            return CreateUnionTypeSymbol(unionAttribute);
-        }
-
         var methodContext = parameterInfo.Member as MethodBase;
         var parameterType = parameterInfo.ParameterType;
+
+        var attributes = parameterInfo.GetCustomAttributesData();
+        var unionAttribute = attributes
+            .FirstOrDefault(x => x.AttributeType.Name == "TypeUnionAttribute");
 
         if (parameterType.IsByRef)
         {
             var elementType = ResolveType(parameterType.GetElementType()!, methodContext);
             if (elementType is null)
                 return null;
+
+            if (unionAttribute is not null)
+                return CreateUnionTypeSymbol(unionAttribute, elementType);
 
             var nullInfo = _nullabilityContext.Create(parameterInfo);
             if (nullInfo.ElementType is not null)
@@ -42,7 +41,14 @@ internal class TypeResolver(Compilation compilation)
             return new ByRefTypeSymbol(elementType, refKind);
         }
 
-        var type = ResolveType(parameterType, methodContext);
+        var declaredType = ResolveType(parameterType, methodContext);
+
+        if (unionAttribute is not null)
+        {
+            return CreateUnionTypeSymbol(unionAttribute, declaredType);
+        }
+
+        var type = declaredType;
 
         if (type is ITypeParameterSymbol typeParameterSymbol)
             return type;
@@ -110,12 +116,20 @@ internal class TypeResolver(Compilation compilation)
 
         if (unionAttribute is not null)
         {
-            unionType = CreateUnionTypeSymbol(unionAttribute);
+            ITypeSymbol? declaredType = memberInfo switch
+            {
+                PropertyInfo propertyInfo => ResolveType(propertyInfo.PropertyType),
+                FieldInfo fieldInfo => ResolveType(fieldInfo.FieldType),
+                MethodInfo methodInfo => ResolveType(methodInfo.ReturnType, methodInfo),
+                _ => null
+            };
+
+            unionType = CreateUnionTypeSymbol(unionAttribute, declaredType);
         }
         return unionType is not null;
     }
 
-    private IUnionTypeSymbol CreateUnionTypeSymbol(CustomAttributeData unionAttribute)
+    private IUnionTypeSymbol CreateUnionTypeSymbol(CustomAttributeData unionAttribute, ITypeSymbol? declaredUnderlyingType)
     {
         var args = (IEnumerable<CustomAttributeTypedArgument>)unionAttribute
             .ConstructorArguments.First().Value!;
@@ -134,7 +148,7 @@ internal class TypeResolver(Compilation compilation)
             }
         }
 
-        return new UnionTypeSymbol(types.ToArray(), null, null, null, []);
+        return new UnionTypeSymbol(types.ToArray(), null, null, null, [], declaredUnderlyingType);
     }
 
     public void RegisterMethodSymbol(MethodBase method, PEMethodSymbol symbol)

@@ -189,6 +189,8 @@ internal sealed class AliasUnionTypeSymbol : AliasSymbol, IUnionTypeSymbol
 
     public IEnumerable<ITypeSymbol> Types => _type.Types;
 
+    public ITypeSymbol? DeclaredUnderlyingType => _type.DeclaredUnderlyingType;
+
     public ImmutableArray<INamedTypeSymbol> Interfaces => _type.Interfaces;
 
     public ImmutableArray<INamedTypeSymbol> AllInterfaces => _type.AllInterfaces;

@@ -478,6 +478,14 @@ public interface ITupleTypeSymbol : INamedTypeSymbol
 public interface IUnionTypeSymbol : ITypeSymbol
 {
     IEnumerable<ITypeSymbol> Types { get; }
+
+    /// <summary>
+    /// Gets the CLR type that originally declared the union, if any.
+    /// This is used when reading metadata from external assemblies so that
+    /// the runtime representation can remain compatible with the original
+    /// signature (e.g. object vs ValueType).
+    /// </summary>
+    ITypeSymbol? DeclaredUnderlyingType { get; }
 }
 
 public interface ITypeParameterSymbol : ITypeSymbol

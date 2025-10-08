@@ -304,14 +304,35 @@ public static class TypeSymbolExtensionsForCodeGen
             .Distinct<ITypeSymbol>(SymbolEqualityComparer.Default)
             .ToImmutableArray();
 
-        var common = FindCommonDenominator(nonNull);
-        ITypeSymbol underlying = common ?? compilation.GetSpecialType(SpecialType.System_Object);
+        var declaredUnderlying = union.DeclaredUnderlyingType;
         var wrapInNullable = false;
+        ITypeSymbol underlying;
 
-        if (includesNull && distinctNonNull.Length == 1 && distinctNonNull[0].IsValueType)
+        if (declaredUnderlying is NullableTypeSymbol nullableDeclared)
         {
-            underlying = distinctNonNull[0];
+            underlying = nullableDeclared.UnderlyingType;
             wrapInNullable = true;
+        }
+        else if (declaredUnderlying is not null)
+        {
+            underlying = declaredUnderlying;
+            if (includesNull && declaredUnderlying.IsValueType)
+            {
+                // Value types cannot represent null unless explicitly nullable.
+                // Fall back to wrapping in Nullable so that metadata signatures remain valid.
+                wrapInNullable = true;
+            }
+        }
+        else
+        {
+            var common = FindCommonDenominator(nonNull);
+            underlying = common ?? compilation.GetSpecialType(SpecialType.System_Object);
+
+            if (includesNull && distinctNonNull.Length == 1 && distinctNonNull[0].IsValueType)
+            {
+                underlying = distinctNonNull[0];
+                wrapInNullable = true;
+            }
         }
 
         return new UnionEmissionInfo(
