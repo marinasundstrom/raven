@@ -2502,16 +2502,25 @@ partial class BlockBinder : Binder
                 continue;
             }
 
+            if (result is BoundErrorExpression)
+                continue;
+
+            if (expr is BoundErrorExpression)
+            {
+                result = expr;
+                continue;
+            }
+
             if (IsErrorOrNull(result) || IsErrorOrNull(expr))
             {
-                result = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                result = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
                 continue;
             }
 
             var concatMethod = ResolveStringConcatMethod(result, expr);
             if (concatMethod is null)
             {
-                result = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                result = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
                 continue;
             }
 
@@ -2650,13 +2659,11 @@ partial class BlockBinder : Binder
             if (leftIsString || rightIsString)
             {
                 if (IsErrorOrNull(left) || IsErrorOrNull(right))
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
                 var concatMethod = ResolveStringConcatMethod(left, right);
-                if (concatMethod is null)
-                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
-
-                return new BoundInvocationExpression(concatMethod, [left, right]);
+                if (concatMethod is not null)
+                    return new BoundInvocationExpression(concatMethod, [left, right]);
             }
         }
 
