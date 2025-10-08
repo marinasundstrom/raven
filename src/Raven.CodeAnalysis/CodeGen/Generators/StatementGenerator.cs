@@ -117,13 +117,7 @@ internal class StatementGenerator : Generator
         {
             new ExpressionGenerator(this, expression).Emit();
 
-            if (returnType.SpecialType == SpecialType.System_Unit)
-            {
-                ILGenerator.Emit(OpCodes.Pop);
-                expression = null;
-                expressionType = null;
-            }
-            else if (localsToDispose.Length > 0 && expressionType is not null)
+            if (localsToDispose.Length > 0 && expressionType is not null)
             {
                 var clrType = ResolveClrType(expressionType);
                 resultTemp = ILGenerator.DeclareLocal(clrType);
@@ -231,16 +225,7 @@ internal class StatementGenerator : Generator
 
     private void EmitAssignmentStatement(BoundAssignmentStatement assignmentStatement)
     {
-        var expression = assignmentStatement.Expression;
-        new ExpressionGenerator(this, expression).Emit();
-
-        var resultType = expression.Type;
-        if (resultType is not null
-            && resultType.SpecialType is not SpecialType.System_Unit
-            && resultType.SpecialType is not SpecialType.System_Void)
-        {
-            ILGenerator.Emit(OpCodes.Pop);
-        }
+        new ExpressionGenerator(this, assignmentStatement.Expression, preserveResult: false).Emit();
     }
 
     private void EmitForStatement(BoundForStatement forStatement)
