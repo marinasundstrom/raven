@@ -8,12 +8,20 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
 {
     private readonly ImmutableArray<ITypeSymbol> _types;
 
-    public UnionTypeSymbol(IEnumerable<ITypeSymbol> types, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public UnionTypeSymbol(
+        IEnumerable<ITypeSymbol> types,
+        ISymbol containingSymbol,
+        INamedTypeSymbol? containingType,
+        INamespaceSymbol? containingNamespace,
+        Location[] locations,
+        ITypeSymbol? declaredUnderlyingType = null)
         : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
     {
         _types = types is ImmutableArray<ITypeSymbol> array ? array : ImmutableArray.CreateRange(types);
 
-        BaseType = ComputeBaseType(_types);
+        DeclaredUnderlyingType = declaredUnderlyingType;
+
+        BaseType = declaredUnderlyingType as INamedTypeSymbol ?? ComputeBaseType(_types);
 
         TypeKind = TypeKind.Union;
     }
@@ -21,6 +29,8 @@ internal partial class UnionTypeSymbol : SourceSymbol, IUnionTypeSymbol
     public override string Name => string.Join(" | ", Types.Select(x => x.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat)));
 
     public IEnumerable<ITypeSymbol> Types => _types;
+
+    public ITypeSymbol? DeclaredUnderlyingType { get; }
 
     public SpecialType SpecialType => SpecialType.None;
 
