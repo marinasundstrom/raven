@@ -17,6 +17,7 @@ internal class ExpressionGenerator : Generator
     private static readonly DelegateConstructorCacheKeyComparer s_delegateConstructorComparer = new();
 
     private readonly BoundExpression _expression;
+    private readonly bool _preserveResult;
     private readonly Dictionary<DelegateConstructorCacheKey, ConstructorInfo> _delegateConstructorCache = new(s_delegateConstructorComparer);
     private Type[]? _delegateConstructorSignature;
 
@@ -24,13 +25,20 @@ internal class ExpressionGenerator : Generator
         .GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(RuntimeTypeHandle) }, modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Type.GetTypeFromHandle(RuntimeTypeHandle).");
 
-    public ExpressionGenerator(Generator parent, BoundExpression expression) : base(parent)
+    public ExpressionGenerator(Generator parent, BoundExpression expression, bool preserveResult = true) : base(parent)
     {
         _expression = expression;
+        _preserveResult = preserveResult;
     }
 
     public override void Emit()
     {
+        if (!_preserveResult && _expression is BoundAssignmentExpression assignmentExpression)
+        {
+            EmitAssignmentExpression(assignmentExpression, preserveResult: false);
+            return;
+        }
+
         EmitExpression(_expression);
     }
 
@@ -570,7 +578,8 @@ internal class ExpressionGenerator : Generator
 
     private void EmitUnitExpression(BoundUnitExpression unitExpression)
     {
-        EmitUnitValue();
+        if (_preserveResult)
+            EmitUnitValue();
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
@@ -935,12 +944,9 @@ internal class ExpressionGenerator : Generator
         var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClrType);
         ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
 
-        var resultType = matchExpression.Type ?? Compilation.GetSpecialType(SpecialType.System_Object);
-        if (resultType.TypeKind == TypeKind.Error)
-            resultType = Compilation.GetSpecialType(SpecialType.System_Object);
-
-        var resultLocal = ILGenerator.DeclareLocal(ResolveClrType(resultType));
         var endLabel = ILGenerator.DefineLabel();
+        var fallthroughLabel = ILGenerator.DefineLabel();
+        var exitLabel = ILGenerator.DefineLabel();
 
         foreach (var arm in matchExpression.Arms)
         {
@@ -963,14 +969,25 @@ internal class ExpressionGenerator : Generator
             if ((matchExpression.Type?.IsUnion ?? false) && (armType?.IsValueType ?? false))
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
 
-            ILGenerator.Emit(OpCodes.Stloc, resultLocal);
             ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(nextArmLabel);
         }
 
+        ILGenerator.Emit(OpCodes.Br, fallthroughLabel);
+
         ILGenerator.MarkLabel(endLabel);
-        ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+        ILGenerator.Emit(OpCodes.Br, exitLabel);
+
+        ILGenerator.MarkLabel(fallthroughLabel);
+
+        var exceptionCtor = typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })
+            ?? throw new InvalidOperationException("Failed to resolve InvalidOperationException(string) constructor.");
+        ILGenerator.Emit(OpCodes.Ldstr, "Match expression was not exhaustive.");
+        ILGenerator.Emit(OpCodes.Newobj, exceptionCtor);
+        ILGenerator.Emit(OpCodes.Throw);
+
+        ILGenerator.MarkLabel(exitLabel);
     }
 
     private void EmitPattern(BoundPattern pattern, Generator? scope = null)
@@ -1574,6 +1591,9 @@ internal class ExpressionGenerator : Generator
     }
 
     private void EmitAssignmentExpression(BoundAssignmentExpression node)
+        => EmitAssignmentExpression(node, preserveResult: true);
+
+    private void EmitAssignmentExpression(BoundAssignmentExpression node, bool preserveResult)
     {
         switch (node)
         {
@@ -1589,7 +1609,8 @@ internal class ExpressionGenerator : Generator
                 EmitExpression(rightExpression);
 
                 var resultType = node.Type;
-                var needsResult = resultType is not null
+                var needsResult = preserveResult
+                    && resultType is not null
                     && resultType.SpecialType is not SpecialType.System_Unit
                     and not SpecialType.System_Void;
 
@@ -1740,7 +1761,7 @@ internal class ExpressionGenerator : Generator
                 throw new NotSupportedException($"Unknown BoundAssignmentExpression: {node.GetType().Name}");
         }
 
-        if (node.Type?.SpecialType == SpecialType.System_Unit)
+        if (preserveResult && node.Type?.SpecialType == SpecialType.System_Unit)
             EmitUnitValue();
     }
 
@@ -2257,7 +2278,7 @@ internal class ExpressionGenerator : Generator
     {
         EmitInvocationExpressionBase(invocationExpression, receiverAlreadyLoaded);
 
-        if (invocationExpression.Type.SpecialType == SpecialType.System_Unit)
+        if (_preserveResult && invocationExpression.Type.SpecialType == SpecialType.System_Unit)
         {
             EmitUnitValue();
         }
