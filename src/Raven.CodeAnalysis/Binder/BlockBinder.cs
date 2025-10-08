@@ -4091,7 +4091,7 @@ partial class BlockBinder : Binder
 
     protected bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType, out Conversion conversion)
     {
-        if (targetType.TypeKind == TypeKind.Error || sourceType.TypeKind == TypeKind.Error)
+        if (targetType.ContainsErrorType() || sourceType.ContainsErrorType())
         {
             conversion = new Conversion(isImplicit: true, isIdentity: true);
             return true;
@@ -4103,7 +4103,8 @@ partial class BlockBinder : Binder
 
     private static bool ShouldAttemptConversion(BoundExpression expression)
     {
-        return expression is BoundMethodGroupExpression || expression.Type is { TypeKind: not TypeKind.Error };
+        return expression is BoundMethodGroupExpression ||
+            expression.Type is { } type && !type.ContainsErrorType();
     }
 
     private BoundExpression ApplyConversion(BoundExpression expression, ITypeSymbol targetType, Conversion conversion, SyntaxNode? syntax = null)

@@ -312,4 +312,26 @@ class Container {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void Lambda_WithErrorTypeArgument_DoesNotReportConversionError()
+    {
+        const string code = """
+func apply(value: int, transform: int -> int) -> int {
+    transform(value)
+}
+
+let doubled = x => x * 2
+
+let result = apply(5, doubled)
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult("RAV2200").WithSpan(5, 15, 5, 16).WithArguments("x"),
+            ]);
+
+        verifier.Verify();
+    }
 }
