@@ -34,16 +34,33 @@ let user = User.WithName("Anna")
 
 ---
 
-### 2. **Symmetric Design**
+### 2. **Syntactic Symmetry**
 
-Symmetry is a design tool, not a slogan. Raven unifies callables, indexers, and member access through a common concept: `self`-bound methods. Types are invocable if they define a `self(...)` method, indexable with `self[...]`, and internally consistent. Function parameter lists mirror tuple declarations, so destructuring and invocation share a single mental model. Users learn one model of invocation and reuse it everywhere.
+Symmetry is a design tool, not a slogan, and Raven applies it directly to syntax. Callables, indexers, and member access unify through the shared `self` surface: types are invocable if they define a `self(...)` method, indexable with `self[...]`, and internally consistent. Because the syntax lines up, destructuring and invocation share a single mental model that users learn once and reuse everywhere.
+
+That syntactic sameness extends to the shapes we use for values and functions. The unit value `()` is the empty tuple, the simplest list of values. Annotated tuples use the same parentheses as expressions: `(a: int, b: int)` declares the shape; `(2, 3)` realizes it. Parameter lists reuse the same surface syntax — `(a: int, b: int) -> int` reads just like a tuple that happens to feed a return value — and function type signatures follow the same rule: `(int, int) -> int` is the tuple of inputs flowing into an output. Even an empty parameter list stays honest: `() -> int` makes it explicit that nothing flows in and a value flows out. The language deliberately avoids inventing new sigils for these closely-related concepts so that every set of parentheses tells the same structural truth.
 
 ```raven
 public self(x: int) -> string { ... }    // Callable object
 public self[x: int] : string { ... }     // Indexer
 ```
 
-This symmetry improves reasoning and avoids special cases. Everything flows: the same conceptual pipeline moves from function invocation to indexers to member access, so the mental overhead of switching contexts vanishes. That sameness also makes tuple construction and argument passing visually mirror each other, reinforcing the idea that data moves through the system in familiar shapes.
+This symmetry improves reasoning and avoids special cases. Everything flows: the same conceptual pipeline moves from function invocation to indexers to member access, so the mental overhead of switching contexts vanishes. That sameness also makes tuple construction and argument passing visually mirror each other, reinforcing the idea that data moves through the system in familiar shapes. A full function signature keeps the correspondence visible end to end:
+
+```raven
+func Foo(a: int, b: int) -> (x: int, z: string) {
+  let inputs = (a, b)
+  return (x: inputs.0 + 1, z: inputs.1.ToString())
+}
+```
+
+The tuple that enters `Foo`, the tuple it returns, and the signature that frames both all share the same surface form, so reading and writing code feels consistent regardless of whether you are looking at data, parameters, or types. Even when values flow through a standalone type annotation, the shapes line up:
+
+```raven
+let add: (int, int) -> int = (x, y) => x + y
+```
+
+The type annotation, the lambda parameters, and the tuple literal all share the same syntax, reinforcing the idea that symmetry is not abstract philosophy but a concrete rule the language follows.
 
 ---
 
