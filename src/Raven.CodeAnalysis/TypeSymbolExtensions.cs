@@ -93,31 +93,38 @@ public static class TypeSymbolExtensions
     private static Type GetFrameworkType(SpecialType specialType, Compilation compilation)
     {
         // Helper to fetch type from the MetadataLoadContext CoreAssembly
-        static Type FromCoreAssembly(Compilation c, string fullName) =>
-            c.CoreAssembly.GetType(fullName) ?? throw new InvalidOperationException($"Type '{fullName}' not found in CoreAssembly");
+        static Type Resolve(Compilation c, string fullName)
+        {
+            var runtimeType = c.ResolveRuntimeType(fullName);
+            if (runtimeType is not null)
+                return runtimeType;
+
+            return c.CoreAssembly.GetType(fullName)
+                ?? throw new InvalidOperationException($"Type '{fullName}' not found in referenced assemblies.");
+        }
 
         return specialType switch
         {
-            SpecialType.System_Int32 => FromCoreAssembly(compilation, "System.Int32"),
-            SpecialType.System_String => FromCoreAssembly(compilation, "System.String"),
-            SpecialType.System_Boolean => FromCoreAssembly(compilation, "System.Boolean"),
-            SpecialType.System_Object => FromCoreAssembly(compilation, "System.Object"),
-            SpecialType.System_Void => FromCoreAssembly(compilation, "System.Void"),
-            SpecialType.System_Unit => FromCoreAssembly(compilation, "System.Void"),
-            SpecialType.System_Double => FromCoreAssembly(compilation, "System.Double"),
-            SpecialType.System_Char => FromCoreAssembly(compilation, "System.Char"),
-            SpecialType.System_Int64 => FromCoreAssembly(compilation, "System.Int64"),
-            SpecialType.System_Single => FromCoreAssembly(compilation, "System.Single"),
-            SpecialType.System_Byte => FromCoreAssembly(compilation, "System.Byte"),
-            SpecialType.System_Decimal => FromCoreAssembly(compilation, "System.Decimal"),
-            SpecialType.System_Int16 => FromCoreAssembly(compilation, "System.Int16"),
-            SpecialType.System_UInt32 => FromCoreAssembly(compilation, "System.UInt32"),
-            SpecialType.System_UInt64 => FromCoreAssembly(compilation, "System.UInt64"),
-            SpecialType.System_UInt16 => FromCoreAssembly(compilation, "System.UInt16"),
-            SpecialType.System_SByte => FromCoreAssembly(compilation, "System.SByte"),
-            SpecialType.System_DateTime => FromCoreAssembly(compilation, "System.DateTime"),
-            SpecialType.System_Array => FromCoreAssembly(compilation, "System.Array"),
-            SpecialType.System_Type => FromCoreAssembly(compilation, "System.Type"),
+            SpecialType.System_Int32 => Resolve(compilation, "System.Int32"),
+            SpecialType.System_String => Resolve(compilation, "System.String"),
+            SpecialType.System_Boolean => Resolve(compilation, "System.Boolean"),
+            SpecialType.System_Object => Resolve(compilation, "System.Object"),
+            SpecialType.System_Void => Resolve(compilation, "System.Void"),
+            SpecialType.System_Unit => Resolve(compilation, "System.Void"),
+            SpecialType.System_Double => Resolve(compilation, "System.Double"),
+            SpecialType.System_Char => Resolve(compilation, "System.Char"),
+            SpecialType.System_Int64 => Resolve(compilation, "System.Int64"),
+            SpecialType.System_Single => Resolve(compilation, "System.Single"),
+            SpecialType.System_Byte => Resolve(compilation, "System.Byte"),
+            SpecialType.System_Decimal => Resolve(compilation, "System.Decimal"),
+            SpecialType.System_Int16 => Resolve(compilation, "System.Int16"),
+            SpecialType.System_UInt32 => Resolve(compilation, "System.UInt32"),
+            SpecialType.System_UInt64 => Resolve(compilation, "System.UInt64"),
+            SpecialType.System_UInt16 => Resolve(compilation, "System.UInt16"),
+            SpecialType.System_SByte => Resolve(compilation, "System.SByte"),
+            SpecialType.System_DateTime => Resolve(compilation, "System.DateTime"),
+            SpecialType.System_Array => Resolve(compilation, "System.Array"),
+            SpecialType.System_Type => Resolve(compilation, "System.Type"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
     }

@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Symbols;
@@ -80,6 +81,25 @@ internal class TypeResolver(Compilation compilation)
 
         var nullInfo = _nullabilityContext.Create(propertyInfo);
         return ApplyNullability(type!, nullInfo);
+    }
+
+    public FieldInfo? ResolveRuntimeField(FieldInfo fieldInfo)
+    {
+        if (fieldInfo is null)
+            throw new ArgumentNullException(nameof(fieldInfo));
+
+        var declaringType = fieldInfo.DeclaringType?.GetTypeInfo();
+        if (declaringType is null)
+            return null;
+
+        var runtimeType = compilation.ResolveRuntimeType(declaringType);
+        if (runtimeType is null)
+            return null;
+
+        var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic |
+                           (fieldInfo.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
+
+        return runtimeType.GetField(fieldInfo.Name, bindingFlags);
     }
 
     private bool TryGetUnion(MemberInfo memberInfo, out IUnionTypeSymbol? unionType)
