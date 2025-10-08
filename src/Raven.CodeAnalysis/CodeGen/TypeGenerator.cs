@@ -76,9 +76,15 @@ internal class TypeGenerator
             );
 
             // Lägg till value__ direkt här
+            // Raven enums currently default to an Int32 underlying type. If the language adds support
+            // for explicit enum bases we should thread that information through the symbol model and
+            // resolve it here instead of hard-coding Int32.
+            var enumUnderlyingType = Compilation.GetSpecialType(SpecialType.System_Int32);
+            var runtimeUnderlyingType = ResolveClrType(enumUnderlyingType);
+
             TypeBuilder.DefineField(
                 "value__",
-                Compilation.GetTypeByMetadataName("System.Int32").GetClrType(Compilation),
+                runtimeUnderlyingType,
                 FieldAttributes.Public | FieldAttributes.SpecialName | FieldAttributes.RTSpecialName
             );
 
