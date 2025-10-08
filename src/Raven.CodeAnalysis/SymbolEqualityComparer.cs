@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -19,6 +20,11 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
     }
 
     public bool Equals(ISymbol? x, ISymbol? y)
+    {
+        return EqualsCore(x, y, visited: null);
+    }
+
+    private bool EqualsCore(ISymbol? x, ISymbol? y, HashSet<SymbolPair>? visited)
     {
         if (ReferenceEquals(x, y))
             return true;
@@ -48,12 +54,18 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             }
         }
 
+        visited ??= new HashSet<SymbolPair>();
+        var pair = new SymbolPair(x, y);
+        if (!visited.Add(pair))
+            return true;
+        visited.Add(new SymbolPair(y, x));
+
         if (x is IParameterSymbol px && y is IParameterSymbol py)
         {
             if (px.RefKind != py.RefKind)
                 return false;
 
-            return Equals(px.Type, py.Type);
+            return EqualsCore(px.Type, py.Type, visited);
         }
 
         if (!string.Equals(x.Name, y.Name, StringComparison.Ordinal))
@@ -67,7 +79,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (!string.Equals(namespaceX, namespaceY, StringComparison.Ordinal))
             return false;
 
-        if (!Equals(x.ContainingSymbol, y.ContainingSymbol))
+        if (!EqualsCore(x.ContainingSymbol, y.ContainingSymbol, visited))
             return false;
 
         if (x is INamedTypeSymbol namedTypeX && y is INamedTypeSymbol namedTypeY)
@@ -79,7 +91,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
                 if (!ReferenceEquals(namedTypeX, definitionX) || !ReferenceEquals(namedTypeY, definitionY))
                 {
-                    if (!Equals(definitionX, definitionY))
+                    if (!EqualsCore(definitionX, definitionY, visited))
                         return false;
                 }
 
@@ -91,7 +103,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
                 for (var i = 0; i < typeArgumentsX.Length; i++)
                 {
-                    if (!Equals(typeArgumentsX[i], typeArgumentsY[i]))
+                    if (!EqualsCore(typeArgumentsX[i], typeArgumentsY[i], visited))
                         return false;
                 }
             }
@@ -102,13 +114,13 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             if (arrayX.Rank != arrayY.Rank)
                 return false;
 
-            if (!Equals(arrayX.ElementType, arrayY.ElementType))
+            if (!EqualsCore(arrayX.ElementType, arrayY.ElementType, visited))
                 return false;
         }
 
         if (x is IFieldSymbol fieldX && y is IFieldSymbol fieldY)
         {
-            if (!Equals(fieldX.Type, fieldY.Type))
+            if (!EqualsCore(fieldX.Type, fieldY.Type, visited))
                 return false;
 
             if (fieldX.IsLiteral != fieldY.IsLiteral)
@@ -117,7 +129,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (x is IPropertySymbol propertyX && y is IPropertySymbol propertyY)
         {
-            if (!Equals(propertyX.Type, propertyY.Type))
+            if (!EqualsCore(propertyX.Type, propertyY.Type, visited))
                 return false;
 
             if (propertyX.IsIndexer != propertyY.IsIndexer)
@@ -132,7 +144,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (x is IMethodSymbol methodX && y is IMethodSymbol methodY)
         {
-            if (!Equals(methodX.ReturnType, methodY.ReturnType))
+            if (!EqualsCore(methodX.ReturnType, methodY.ReturnType, visited))
                 return false;
 
             if (methodX.Parameters.Length != methodY.Parameters.Length)
@@ -140,7 +152,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
             for (int i = 0; i < methodX.Parameters.Length; i++)
             {
-                if (!Equals(methodX.Parameters[i], methodY.Parameters[i]))
+                if (!EqualsCore(methodX.Parameters[i], methodY.Parameters[i], visited))
                     return false;
             }
 
@@ -158,7 +170,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
             for (var i = 0; i < typeArgumentsX.Length; i++)
             {
-                if (!Equals(typeArgumentsX[i], typeArgumentsY[i]))
+                if (!EqualsCore(typeArgumentsX[i], typeArgumentsY[i], visited))
                     return false;
             }
         }
@@ -185,7 +197,16 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (obj is null)
             return 0;
 
+        return GetHashCodeCore(obj, visited: null);
+    }
+
+    private int GetHashCodeCore(ISymbol obj, HashSet<ISymbol>? visited)
+    {
         obj = Normalize(obj);
+
+        visited ??= new HashSet<ISymbol>(SymbolReferenceComparer.Instance);
+        if (!visited.Add(obj))
+            return 0;
 
         var hash = new HashCode();
         hash.Add(obj.Kind);
@@ -212,19 +233,19 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (obj is IParameterSymbol parameterSymbol)
         {
             hash.Add(parameterSymbol.RefKind);
-            hash.Add(GetHashCode(parameterSymbol.Type));
+            hash.Add(GetHashCodeCore(parameterSymbol.Type, visited));
             return hash.ToHashCode();
         }
 
         if (obj is IMethodSymbol method)
         {
-            hash.Add(GetHashCode(method.ReturnType));
+            hash.Add(GetHashCodeCore(method.ReturnType, visited));
             hash.Add(method.Parameters.Length);
 
             foreach (var param in method.Parameters)
             {
                 hash.Add(param.RefKind);
-                hash.Add(GetHashCode(param.Type));
+                hash.Add(GetHashCodeCore(param.Type, visited));
             }
 
             var typeArguments = method.TypeArguments;
@@ -233,7 +254,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
             hash.Add(typeArguments.Length);
             foreach (var typeArgument in typeArguments)
-                hash.Add(GetHashCode(typeArgument));
+                hash.Add(GetHashCodeCore(typeArgument, visited));
         }
 
         if (obj is INamedTypeSymbol namedType)
@@ -241,24 +262,24 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             var typeArguments = GetTypeArgumentsOrParameters(namedType);
             hash.Add(typeArguments.Length);
             foreach (var typeArgument in typeArguments)
-                hash.Add(GetHashCode(typeArgument));
+                hash.Add(GetHashCodeCore(typeArgument, visited));
         }
 
         if (obj is IArrayTypeSymbol arrayType)
         {
             hash.Add(arrayType.Rank);
-            hash.Add(GetHashCode(arrayType.ElementType));
+            hash.Add(GetHashCodeCore(arrayType.ElementType, visited));
         }
 
         if (obj is IFieldSymbol field)
         {
-            hash.Add(GetHashCode(field.Type));
+            hash.Add(GetHashCodeCore(field.Type, visited));
             hash.Add(field.IsLiteral);
         }
 
         if (obj is IPropertySymbol property)
         {
-            hash.Add(GetHashCode(property.Type));
+            hash.Add(GetHashCodeCore(property.Type, visited));
             hash.Add(property.IsIndexer);
             hash.Add(property.GetMethod is not null);
             hash.Add(property.SetMethod is not null);
@@ -266,7 +287,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (obj.ContainingSymbol is { } containingSymbol && obj is not ITypeParameterSymbol)
         {
-            hash.Add(GetHashCode(containingSymbol));
+            hash.Add(GetHashCodeCore(containingSymbol, visited));
         }
 
         return hash.ToHashCode();
@@ -309,5 +330,49 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return symbol.TypeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
 
         return ImmutableArray<ITypeSymbol>.Empty;
+    }
+
+    private readonly struct SymbolPair : IEquatable<SymbolPair>
+    {
+        public SymbolPair(ISymbol first, ISymbol second)
+        {
+            First = first;
+            Second = second;
+        }
+
+        public ISymbol First { get; }
+
+        public ISymbol Second { get; }
+
+        public bool Equals(SymbolPair other)
+        {
+            return ReferenceEquals(First, other.First) && ReferenceEquals(Second, other.Second);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is SymbolPair other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(RuntimeHelpers.GetHashCode(First));
+            hash.Add(RuntimeHelpers.GetHashCode(Second));
+            return hash.ToHashCode();
+        }
+    }
+
+    private sealed class SymbolReferenceComparer : IEqualityComparer<ISymbol>
+    {
+        public static SymbolReferenceComparer Instance { get; } = new();
+
+        private SymbolReferenceComparer()
+        {
+        }
+
+        public bool Equals(ISymbol? x, ISymbol? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(ISymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 }

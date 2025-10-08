@@ -423,6 +423,38 @@ class Sample {{
         Assert.DoesNotContain(classSymbol, set);
     }
 
+    [Fact]
+    public void Comparer_HandlesCyclicContainingSymbols()
+    {
+        var comparer = SymbolEqualityComparer.Default;
+
+        var first = new CyclicSymbol(SymbolKind.Method, "Evaluate", "Evaluate");
+        first.SetContainingSymbol(first);
+
+        var second = new CyclicSymbol(SymbolKind.Method, "Evaluate", "Evaluate");
+        second.SetContainingSymbol(second);
+
+        Assert.True(comparer.Equals(first, second));
+
+        var set = new HashSet<ISymbol>(comparer) { first };
+        Assert.Contains(second, set);
+
+        var firstOuter = new CyclicSymbol(SymbolKind.Method, "Outer", "Outer");
+        var firstInner = new CyclicSymbol(SymbolKind.Method, "Inner", "Inner");
+        firstOuter.SetContainingSymbol(firstInner);
+        firstInner.SetContainingSymbol(firstOuter);
+
+        var secondOuter = new CyclicSymbol(SymbolKind.Method, "Outer", "Outer");
+        var secondInner = new CyclicSymbol(SymbolKind.Method, "Inner", "Inner");
+        secondOuter.SetContainingSymbol(secondInner);
+        secondInner.SetContainingSymbol(secondOuter);
+
+        Assert.True(comparer.Equals(firstOuter, secondOuter));
+
+        set.Add(firstOuter);
+        Assert.Contains(secondOuter, set);
+    }
+
     private class StubSymbol : ISymbol
     {
         public StubSymbol(
@@ -470,6 +502,65 @@ class Sample {{
         public ISymbol UnderlyingSymbol => this;
 
         public bool IsAlias => false;
+
+        public ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
+
+        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => ReferenceEquals(this, other);
+
+        public bool Equals(ISymbol? other) => ReferenceEquals(this, other);
+
+        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => HashCode.Combine(Kind, Name, MetadataName);
+
+        public void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
+
+        public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+    }
+
+    private sealed class CyclicSymbol : ISymbol
+    {
+        public CyclicSymbol(SymbolKind kind, string name, string metadataName)
+        {
+            Kind = kind;
+            Name = name;
+            MetadataName = metadataName;
+        }
+
+        public SymbolKind Kind { get; }
+
+        public string Name { get; }
+
+        public string MetadataName { get; }
+
+        public ISymbol? ContainingSymbol { get; private set; }
+
+        public IAssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+
+        public IModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
+
+        public INamedTypeSymbol? ContainingType => null;
+
+        public INamespaceSymbol? ContainingNamespace => null;
+
+        public ImmutableArray<Location> Locations { get; } = ImmutableArray<Location>.Empty;
+
+        public Accessibility DeclaredAccessibility => Accessibility.Public;
+
+        public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences { get; } = ImmutableArray<SyntaxReference>.Empty;
+
+        public bool IsImplicitlyDeclared => true;
+
+        public bool IsStatic => false;
+
+        public bool IsAlias => false;
+
+        public ISymbol UnderlyingSymbol => this;
+
+        public void SetContainingSymbol(ISymbol symbol)
+        {
+            ContainingSymbol = symbol;
+        }
 
         public ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
 

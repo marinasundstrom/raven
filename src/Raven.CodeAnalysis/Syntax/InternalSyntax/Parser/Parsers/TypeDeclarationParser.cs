@@ -549,7 +549,8 @@ internal class TypeDeclarationParser : SyntaxParser
     {
         var (explicitInterfaceSpecifier, identifier) = ParseMemberNameWithExplicitInterface();
 
-        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
+            ?? CreateMissingTypeAnnotationClause();
 
         var token = PeekToken();
 
@@ -567,9 +568,22 @@ internal class TypeDeclarationParser : SyntaxParser
             //typeAnnotation = (ArrowTypeClauseSyntax)typeAnnotation.ReplaceNode(lastToken, newToken);
         }
 
+        EqualsValueClauseSyntax? initializer = null;
+        if (IsNextToken(SyntaxKind.EqualsToken, out _))
+        {
+            initializer = new EqualsValueClauseSyntaxParser(this).Parse();
+        }
+
         TryConsumeTerminator(out var terminatorToken);
 
-        return PropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, null, terminatorToken);
+        return PropertyDeclaration(attributeLists, modifiers, explicitInterfaceSpecifier, identifier, typeAnnotation, accessorList, initializer, terminatorToken);
+    }
+
+    private TypeAnnotationClauseSyntax CreateMissingTypeAnnotationClause()
+    {
+        var colonToken = MissingToken(SyntaxKind.ColonToken);
+        var missingType = IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
+        return TypeAnnotationClause(colonToken, missingType);
     }
 
     private IndexerDeclarationSyntax ParseIndexerDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
@@ -578,7 +592,8 @@ internal class TypeDeclarationParser : SyntaxParser
 
         var parameterList = ParseBracketedParameterList();
 
-        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
+            ?? CreateMissingTypeAnnotationClause();
 
         var token = PeekToken();
 
