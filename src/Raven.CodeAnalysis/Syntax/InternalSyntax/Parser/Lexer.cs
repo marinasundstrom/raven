@@ -701,7 +701,11 @@ internal class Lexer : ILexer
 
     private TextSpan GetEndPositionSpan(int offset = 0) => new TextSpan(_currentPosition + offset, 0);
 
-    private char ReadChar() => (char)ReadCore();
+    private char ReadChar()
+    {
+        var value = ReadCore();
+        return value == -1 ? '\0' : (char)value;
+    }
 
     private int ReadCore()
     {
@@ -746,5 +750,5 @@ internal class Lexer : ILexer
         return false;
     }
 
-    public bool IsEndOfFile => _textSource.Peek() == 0;
+    public bool IsEndOfFile => _textSource.Peek() == -1;
 }
