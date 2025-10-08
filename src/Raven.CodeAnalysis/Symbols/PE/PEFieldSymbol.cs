@@ -8,6 +8,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
     private readonly FieldInfo _fieldInfo;
     private ITypeSymbol? _type;
     private Accessibility? _accessibility;
+    private FieldInfo? _runtimeFieldInfo;
 
     public PEFieldSymbol(TypeResolver typeResolver, FieldInfo fieldInfo, INamedTypeSymbol? containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
@@ -34,5 +35,18 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
 
     public object? GetConstantValue() => _fieldInfo.GetRawConstantValue();
 
-    public virtual FieldInfo GetFieldInfo() => _fieldInfo;
+    public virtual FieldInfo GetFieldInfo()
+    {
+        if (_runtimeFieldInfo is not null)
+            return _runtimeFieldInfo;
+
+        var runtimeField = _typeResolver.ResolveRuntimeField(_fieldInfo);
+        if (runtimeField is not null)
+        {
+            _runtimeFieldInfo = runtimeField;
+            return runtimeField;
+        }
+
+        return _fieldInfo;
+    }
 }
