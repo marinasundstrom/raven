@@ -2499,18 +2499,34 @@ partial class BlockBinder : Binder
             if (result is null)
             {
                 result = expr;
+                continue;
             }
-            else
+
+            if (IsErrorOrNull(result) || IsErrorOrNull(expr))
             {
-                var concatMethod = ResolveStringConcatMethod(result, expr);
-                result = new BoundInvocationExpression(concatMethod, [result, expr]);
+                result = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                continue;
             }
+
+            var concatMethod = ResolveStringConcatMethod(result, expr);
+            if (concatMethod is null)
+            {
+                result = new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+                continue;
+            }
+
+            result = new BoundInvocationExpression(concatMethod, [result, expr]);
         }
 
         return result ?? new BoundLiteralExpression(
             BoundLiteralExpressionKind.StringLiteral,
             string.Empty,
             Compilation.GetSpecialType(SpecialType.System_String));
+    }
+
+    private static bool IsErrorOrNull(BoundExpression expression)
+    {
+        return expression.Type is null || expression.Type.TypeKind == TypeKind.Error;
     }
 
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax)
@@ -2633,7 +2649,13 @@ partial class BlockBinder : Binder
 
             if (leftIsString || rightIsString)
             {
+                if (IsErrorOrNull(left) || IsErrorOrNull(right))
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+
                 var concatMethod = ResolveStringConcatMethod(left, right);
+                if (concatMethod is null)
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+
                 return new BoundInvocationExpression(concatMethod, [left, right]);
             }
         }
@@ -2661,17 +2683,17 @@ partial class BlockBinder : Binder
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
-    private IMethodSymbol ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
+    private IMethodSymbol? ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
     {
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
 
         var resolution = OverloadResolver.ResolveOverload(candidates, [left, right], Compilation, canBindLambda: EnsureLambdaCompatible);
 
-        if (!resolution.Success)
-            throw new InvalidOperationException("No matching Concat method found.");
+        if (!resolution.Success || resolution.Method is null)
+            return null;
 
-        return resolution.Method!;
+        return resolution.Method;
     }
 
     private IMethodSymbol? ResolveUserDefinedOperator(SyntaxKind opKind, ITypeSymbol leftType, ITypeSymbol rightType)
