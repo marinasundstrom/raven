@@ -104,6 +104,14 @@ let reducer: (int, int) -> int
 let factory: () -> Task<string>
 ```
 
+In a function parameter:
+
+```raven
+func do(op: (int, int) -> int) -> int {
+  return op(2, 3)
+}
+```
+
 The compiler resolves a function type to an existing delegate declaration when a
 matching signature is available. This includes the .NET `Func<>`/`Action<>`
 families as well as user-defined delegates. When no suitable delegate exists,
