@@ -289,6 +289,8 @@ internal class TypeMemberBinder : Binder
             methodSymbol.SetTypeParameters(typeParametersBuilder);
         }
 
+        var hasInvalidAsyncReturnType = false;
+
         var methodBinder = new MethodBinder(methodSymbol, this);
         methodBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
@@ -301,6 +303,7 @@ internal class TypeMemberBinder : Binder
             var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
             _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, annotatedReturn.Type.GetLocation());
             returnType = Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+            hasInvalidAsyncReturnType = true;
         }
 
         var resolvedParamInfos = new List<(string name, ITypeSymbol type, RefKind refKind, ParameterSyntax syntax)>();
@@ -386,6 +389,9 @@ internal class TypeMemberBinder : Binder
 
         methodSymbol.SetReturnType(returnType);
         methodSymbol.SetParameters(parameters);
+
+        if (hasInvalidAsyncReturnType)
+            methodSymbol.MarkAsyncReturnTypeError();
         return methodBinder;
     }
 
@@ -869,10 +875,16 @@ internal class TypeMemberBinder : Binder
 
                 var isAsync = accessor.Modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
 
-                if (isGet && isAsync && !IsValidAsyncReturnType(propertyType))
+                var propertyTypeSyntax = propertyDecl.Type?.Type;
+                var requiresAsyncReturnTypeDiagnostic = isGet && isAsync && propertyTypeSyntax is not null &&
+                    (!IsValidAsyncReturnType(propertyType) || propertyType.TypeKind == TypeKind.Error);
+
+                if (requiresAsyncReturnTypeDiagnostic)
                 {
-                    var display = propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, propertyDecl.Type.Type.GetLocation());
+                    var display = propertyType.TypeKind == TypeKind.Error
+                        ? propertyTypeSyntax.ToString()
+                        : propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, propertyTypeSyntax.GetLocation());
                 }
 
                 var methodSymbol = new SourceMethodSymbol(
@@ -1158,10 +1170,16 @@ internal class TypeMemberBinder : Binder
 
                 var isAsync = accessor.Modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
 
-                if (isGet && isAsync && !IsValidAsyncReturnType(propertyType))
+                var propertyTypeSyntax = indexerDecl.Type?.Type;
+                var requiresAsyncReturnTypeDiagnostic = isGet && isAsync && propertyTypeSyntax is not null &&
+                    (!IsValidAsyncReturnType(propertyType) || propertyType.TypeKind == TypeKind.Error);
+
+                if (requiresAsyncReturnTypeDiagnostic)
                 {
-                    var display = propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, indexerDecl.Type.Type.GetLocation());
+                    var display = propertyType.TypeKind == TypeKind.Error
+                        ? propertyTypeSyntax.ToString()
+                        : propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    _diagnostics.ReportAsyncReturnTypeMustBeTaskLike(display, propertyTypeSyntax.GetLocation());
                 }
 
                 var methodSymbol = new SourceMethodSymbol(

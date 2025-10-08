@@ -630,7 +630,7 @@ internal class MethodBodyGenerator
             // expression, while still emitting any required boxing.
             if (treatAsMethodBody && includeImplicitReturn &&
                 i == statements.Count - 1 &&
-                MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void &&
+                MethodSymbol.ReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
                 statement is BoundExpressionStatement exprStmt)
             {
                 var returnStatement = new BoundReturnStatement(exprStmt.Expression);
@@ -785,13 +785,7 @@ internal class MethodBodyGenerator
         var ctorSymbol = baseType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0)
             ?? throw new NotSupportedException("Base type requires a parameterless constructor");
 
-        return ctorSymbol switch
-        {
-            SourceMethodSymbol sm => (ConstructorInfo)MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sm)!,
-            PEMethodSymbol pem => pem.GetConstructorInfo(),
-            SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodGenerator.TypeGenerator.CodeGen),
-            _ => ResolveClrType(baseType).GetConstructor(Type.EmptyTypes)!
-        };
+        return ctorSymbol.GetClrConstructorInfo(MethodGenerator.TypeGenerator.CodeGen);
     }
 
     public Type ResolveClrType(ITypeSymbol typeSymbol)

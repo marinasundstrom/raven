@@ -14,7 +14,7 @@
 
 - Local `func` binders and type member binders respect the parsed modifier, set `SourceMethodSymbol.IsAsync`, and default unspecified return types to `System.Threading.Tasks.Task`. The method symbol now tracks whether its body contains awaits so later passes can trigger lowering.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L50-L103】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L200-L353】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L28-L167】
 - `await` expressions bind through a dedicated `BoundAwaitExpression` that validates the `GetAwaiter`/`IsCompleted`/`GetResult` pattern and enforces async-context requirements before capturing the awaiter/result types for downstream phases.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L555-L620】【F:src/Raven.CodeAnalysis/BoundTree/BoundAwaitExpression.cs†L7-L33】
-- Accessor binders propagate `async` onto synthesized getter/setter methods, validate that async getters expose task-shaped property/indexer types, and allow async setters to lower through the runtime `AsyncVoidMethodBuilder`. Violations report `AsyncReturnTypeMustBeTaskLike` with the accessor's declared type highlighted for quick remediation.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L888-L944】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L954-L1023】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L1-L120】
+- Accessor binders propagate `async` onto synthesized getter/setter methods, validate that async getters expose task-shaped property/indexer types, and allow async setters to lower through the runtime `AsyncVoidMethodBuilder`. Violations report `AsyncReturnTypeMustBeTaskLike` even when the declared type binds to `ErrorTypeSymbol`, keeping the guidance visible when imports are missing.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L888-L1002】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L1046-L1210】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L1-L120】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L139-L206】
 
 ### Lowering and code generation
 
@@ -39,12 +39,30 @@
 
 ## Remaining work
 
+### Resolved gaps
+
+- **Synthesized `Program`/`MainAsync` exposure.** `Compilation.EnsureSetup()` now seeds
+  the implicit `Program` container and its entry points so semantic queries after
+  setup can see the async surface without forcing binder creation.【F:src/Raven.CodeAnalysis/Compilation.cs†L129-L284】【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L65-L109】
+- **Duplicate diagnostics for invalid async returns.** Async methods, functions, and
+  lambdas mark their symbols when a non-`Task` annotation is rejected, allowing the
+  return binder to skip conversions that previously emitted cascading `RAV1503`
+  errors. Regression tests now assert only the primary async diagnostic surfaces for
+  both expression-bodied and block-bodied returns.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L25-L205】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceLambdaSymbol.cs†L6-L98】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
+
 ### Step-by-step plan
 
-1. **Tighten await diagnostics and configurability.** Audit the binder to recognize `await` misuses (e.g., in `lock` statements or query clauses), explore `ConfigureAwait`-style customization, and expand tests to capture the resulting diagnostics.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L555-L620】【F:test/Raven.CodeAnalysis.Tests/Semantics/AwaitExpressionBindingTests.cs†L1-L120】
-2. **Fix builder byref emission.** Teach lowering/emission to load the async builder by address when invoking `Start`, `SetResult`, `SetException`, and `SetStateMachine` so the state machine mutates the actual `_builder` field instead of a temporary copy, resolving the bad-IL failure when the generated method runs.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1550-L1615】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1965-L2213】
-3. **Broaden runtime validation.** Extend execution coverage beyond the happy-path sample to stress nested awaits, exception resumption, and lambda/accessor scenarios, combining the IL harness with end-to-end runs to lock down observable behaviour.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1-L121】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L1-L417】
-4. **Finalize specification and guidance.** Keep the language specification, grammar, and user guidance aligned with the completed async semantics so contributors have authoritative references for the shipped feature set.【F:docs/lang/spec/language-specification.md†L329-L344】【F:docs/lang/spec/grammar.ebnf†L13-L200】
+#### Completed steps
+
+1. **Surface synthesized `Program` members during setup.** `Compilation.Setup` now pre-creates the implicit `Program` shell and async entry points so tests that only call `EnsureSetup()` can discover the synthesized symbols.【F:src/Raven.CodeAnalysis/Compilation.cs†L129-L284】【F:src/Raven.CodeAnalysis/SemanticModel.cs†L573-L657】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L65-L109】
+2. **Short-circuit async return diagnostics.** Async symbol binders flag invalid return annotations and the return binder honours the flag, preventing cascading conversion diagnostics while keeping builder synthesis intact. Regression tests cover both method and lambda scenarios.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
+3. **Restore accessor diagnostics on error types.** Async property/indexer binders now keep the declared type syntax when resolution falls back to `ErrorTypeSymbol`, preserving `AsyncReturnTypeMustBeTaskLike` so authors still receive guidance when imports are missing. Regression coverage locks in the getter diagnostics for both properties and indexers.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L888-L1002】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L1046-L1210】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L139-L206】
+4. **Audit value-type receiver handling.** State-machine setup now marks every builder mutation that operates on the synthesized struct with `RequiresReceiverAddress`, letting emission load addresses instead of copying value-type receivers. New IL-focused tests assert the generated code stores the builder and invokes `Start`/`SetResult` through field addresses so mutations land on the real state-machine instance.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L120-L214】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L928-L999】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L67-L151】
+5. **Rebuild integration coverage.** Additional regression tests now check that multi-await methods hoist each awaiter, thrown exceptions flow through `SetException`, async accessors emit `SetResult`, and async lambdas synthesize their own state machines.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L375-L508】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L153-L197】
+
+#### Upcoming steps
+
+- Additional milestones will be captured as new gaps emerge from the expanded integration suite.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L375-L508】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L153-L197】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 

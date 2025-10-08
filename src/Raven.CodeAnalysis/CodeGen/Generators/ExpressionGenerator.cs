@@ -17,6 +17,7 @@ internal class ExpressionGenerator : Generator
     private static readonly DelegateConstructorCacheKeyComparer s_delegateConstructorComparer = new();
 
     private readonly BoundExpression _expression;
+    private readonly bool _preserveResult;
     private readonly Dictionary<DelegateConstructorCacheKey, ConstructorInfo> _delegateConstructorCache = new(s_delegateConstructorComparer);
     private Type[]? _delegateConstructorSignature;
 
@@ -24,13 +25,20 @@ internal class ExpressionGenerator : Generator
         .GetMethod(nameof(Type.GetTypeFromHandle), BindingFlags.Public | BindingFlags.Static, binder: null, new[] { typeof(RuntimeTypeHandle) }, modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Type.GetTypeFromHandle(RuntimeTypeHandle).");
 
-    public ExpressionGenerator(Generator parent, BoundExpression expression) : base(parent)
+    public ExpressionGenerator(Generator parent, BoundExpression expression, bool preserveResult = true) : base(parent)
     {
         _expression = expression;
+        _preserveResult = preserveResult;
     }
 
     public override void Emit()
     {
+        if (!_preserveResult && _expression is BoundAssignmentExpression assignmentExpression)
+        {
+            EmitAssignmentExpression(assignmentExpression, preserveResult: false);
+            return;
+        }
+
         EmitExpression(_expression);
     }
 
@@ -526,14 +534,14 @@ internal class ExpressionGenerator : Generator
 
     private ConstructorInfo? TryGetConstructorInfo(IMethodSymbol constructor)
     {
-        return constructor switch
+        try
         {
-            SourceMethodSymbol source when GetMemberBuilder(source) is ConstructorInfo sourceCtor => sourceCtor,
-            PEMethodSymbol pe => pe.GetConstructorInfo(),
-            SubstitutedMethodSymbol substituted => substituted.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-            ConstructedMethodSymbol constructed => TryGetConstructedConstructorInfo(constructed),
-            _ => null
-        };
+            return constructor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private ConstructorInfo? TryGetConstructedConstructorInfo(ConstructedMethodSymbol constructed)
@@ -570,7 +578,8 @@ internal class ExpressionGenerator : Generator
 
     private void EmitUnitExpression(BoundUnitExpression unitExpression)
     {
-        EmitUnitValue();
+        if (_preserveResult)
+            EmitUnitValue();
     }
 
     private void EmitTupleExpression(BoundTupleExpression tupleExpression)
@@ -935,12 +944,9 @@ internal class ExpressionGenerator : Generator
         var scrutineeLocal = ILGenerator.DeclareLocal(scrutineeClrType);
         ILGenerator.Emit(OpCodes.Stloc, scrutineeLocal);
 
-        var resultType = matchExpression.Type ?? Compilation.GetSpecialType(SpecialType.System_Object);
-        if (resultType.TypeKind == TypeKind.Error)
-            resultType = Compilation.GetSpecialType(SpecialType.System_Object);
-
-        var resultLocal = ILGenerator.DeclareLocal(ResolveClrType(resultType));
         var endLabel = ILGenerator.DefineLabel();
+        var fallthroughLabel = ILGenerator.DefineLabel();
+        var exitLabel = ILGenerator.DefineLabel();
 
         foreach (var arm in matchExpression.Arms)
         {
@@ -963,14 +969,25 @@ internal class ExpressionGenerator : Generator
             if ((matchExpression.Type?.IsUnion ?? false) && (armType?.IsValueType ?? false))
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(armType));
 
-            ILGenerator.Emit(OpCodes.Stloc, resultLocal);
             ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(nextArmLabel);
         }
 
+        ILGenerator.Emit(OpCodes.Br, fallthroughLabel);
+
         ILGenerator.MarkLabel(endLabel);
-        ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+        ILGenerator.Emit(OpCodes.Br, exitLabel);
+
+        ILGenerator.MarkLabel(fallthroughLabel);
+
+        var exceptionCtor = typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })
+            ?? throw new InvalidOperationException("Failed to resolve InvalidOperationException(string) constructor.");
+        ILGenerator.Emit(OpCodes.Ldstr, "Match expression was not exhaustive.");
+        ILGenerator.Emit(OpCodes.Newobj, exceptionCtor);
+        ILGenerator.Emit(OpCodes.Throw);
+
+        ILGenerator.MarkLabel(exitLabel);
     }
 
     private void EmitPattern(BoundPattern pattern, Generator? scope = null)
@@ -1094,7 +1111,8 @@ internal class ExpressionGenerator : Generator
         }
         else if (pattern is BoundTuplePattern tuplePattern)
         {
-            var tupleInterfaceType = Compilation.CoreAssembly.GetType("System.Runtime.CompilerServices.ITuple");
+            var tupleInterfaceType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ITuple")
+                ?? throw new InvalidOperationException("Unable to resolve runtime type for System.Runtime.CompilerServices.ITuple.");
             var lengthGetter = tupleInterfaceType.GetProperty("Length")?.GetMethod;
             var itemGetter = tupleInterfaceType.GetProperty("Item")?.GetMethod;
 
@@ -1167,7 +1185,9 @@ internal class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, scrutineeLocal);
         EmitConstantAsObject(literal, value);
 
-        var equalsMethod = Compilation.CoreAssembly.GetType("System.Object").GetMethod(nameof(object.Equals), [Compilation.CoreAssembly.GetType("System.Object")])
+        var runtimeObjectType = Compilation.ResolveRuntimeType("System.Object")
+            ?? throw new InvalidOperationException("Unable to resolve runtime type for System.Object.");
+        var equalsMethod = runtimeObjectType.GetMethod(nameof(object.Equals), new[] { runtimeObjectType })
             ?? throw new InvalidOperationException("object.Equals(object) not found.");
 
         ILGenerator.Emit(OpCodes.Callvirt, equalsMethod);
@@ -1258,13 +1278,7 @@ internal class ExpressionGenerator : Generator
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
 
-            ConstructorInfo ctorInfo = ctor switch
-            {
-                SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
-                PEMethodSymbol pem => pem.GetConstructorInfo(),
-                SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-                _ => throw new NotSupportedException()
-            };
+            var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
             var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(namedType));
@@ -1312,13 +1326,7 @@ internal class ExpressionGenerator : Generator
         var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
 
         var ctor = listType.Constructors.First(c => !c.IsStatic && c.Parameters.Length == 0);
-        ConstructorInfo ctorInfo = ctor switch
-        {
-            PEMethodSymbol pem => pem.GetConstructorInfo(),
-            SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-            SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
-            _ => throw new NotSupportedException()
-        };
+        var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
         ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
@@ -1357,8 +1365,11 @@ internal class ExpressionGenerator : Generator
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
-        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var getEnumerator = enumerable
+            .GetMembers(nameof(IEnumerable.GetEnumerator))
+            .OfType<IMethodSymbol>()
+            .First();
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
         ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
@@ -1367,15 +1378,19 @@ internal class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        var currentProp = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
         var clrElement = ResolveClrType(elementType);
         if (elementType.IsValueType)
@@ -1404,8 +1419,11 @@ internal class ExpressionGenerator : Generator
 
         var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
-        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var getEnumerator = enumerable
+            .GetMembers(nameof(IEnumerable.GetEnumerator))
+            .OfType<IMethodSymbol>()
+            .First();
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorLocal = ILGenerator.DeclareLocal(ResolveClrType(enumeratorType));
         ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
@@ -1414,15 +1432,19 @@ internal class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        var currentProp = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
         var clrElement = ResolveClrType(elementType);
         if (elementType.IsValueType)
@@ -1453,13 +1475,7 @@ internal class ExpressionGenerator : Generator
             if (ctor is null)
                 throw new NotSupportedException("Collection type requires a parameterless constructor");
 
-            ConstructorInfo ctorInfo = ctor switch
-            {
-                SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
-                PEMethodSymbol pem => pem.GetConstructorInfo(),
-                SubstitutedMethodSymbol sub => sub.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-                _ => throw new NotSupportedException()
-            };
+            var ctorInfo = ctor.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         }
@@ -1562,13 +1578,7 @@ internal class ExpressionGenerator : Generator
             }
         }
 
-        ConstructorInfo constructorInfo = symbol switch
-        {
-            SourceMethodSymbol sm => (ConstructorInfo)GetMemberBuilder(sm),
-            PEMethodSymbol a => a.GetConstructorInfo(),
-            SubstitutedMethodSymbol m => m.GetConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen),
-            _ => throw new Exception()
-        };
+        var constructorInfo = constructorSymbol.GetClrConstructorInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
 
         if (objectCreationExpression.Receiver is not null)
         {
@@ -1581,6 +1591,9 @@ internal class ExpressionGenerator : Generator
     }
 
     private void EmitAssignmentExpression(BoundAssignmentExpression node)
+        => EmitAssignmentExpression(node, preserveResult: true);
+
+    private void EmitAssignmentExpression(BoundAssignmentExpression node, bool preserveResult)
     {
         switch (node)
         {
@@ -1592,12 +1605,23 @@ internal class ExpressionGenerator : Generator
                 if (localBuilder is null)
                     throw new InvalidOperationException($"Missing local builder for '{localAssignmentExpression.Local.Name}'");
 
-                EmitExpression(localAssignmentExpression.Right);
+                var rightExpression = localAssignmentExpression.Right;
+                EmitExpression(rightExpression);
 
-                if (localAssignmentExpression.Right.Type.IsValueType && localAssignmentExpression.Type.SpecialType is SpecialType.System_Object)
-                {
-                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(localAssignmentExpression.Right.Type));
-                }
+                var resultType = node.Type;
+                var needsResult = preserveResult
+                    && resultType is not null
+                    && resultType.SpecialType is not SpecialType.System_Unit
+                    and not SpecialType.System_Void;
+
+                var needsBox = rightExpression.Type is { IsValueType: true }
+                    && resultType?.SpecialType == SpecialType.System_Object;
+
+                if (needsBox)
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(rightExpression.Type));
+
+                if (needsResult)
+                    ILGenerator.Emit(OpCodes.Dup);
 
                 ILGenerator.Emit(OpCodes.Stloc, localBuilder);
                 break;
@@ -1607,21 +1631,42 @@ internal class ExpressionGenerator : Generator
                     var fieldSymbol = fieldAssignmentExpression.Field;
                     var right = fieldAssignmentExpression.Right;
                     var receiver = fieldAssignmentExpression.Receiver;
+                    var requiresAddress = fieldAssignmentExpression.RequiresReceiverAddress;
 
-                    // Load receiver (unless static)
-                    if (!fieldSymbol.IsStatic && receiver is not null)
+                    if (!fieldSymbol.IsStatic)
                     {
-                        EmitExpression(receiver);
-
-                        if (fieldSymbol.ContainingType!.IsValueType)
+                        if (requiresAddress)
                         {
-                            EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
-                        }
-                    }
+                            if (!TryEmitInvocationReceiverAddress(receiver))
+                            {
+                                if (receiver is null)
+                                {
+                                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                                }
+                                else
+                                {
+                                    EmitExpression(receiver);
 
-                    if (!fieldSymbol.IsStatic && receiver is null)
-                    {
-                        ILGenerator.Emit(OpCodes.Ldarg_0);
+                                    if (fieldSymbol.ContainingType!.IsValueType)
+                                    {
+                                        EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
+                                    }
+                                }
+                            }
+                        }
+                        else if (receiver is not null)
+                        {
+                            EmitExpression(receiver);
+
+                            if (fieldSymbol.ContainingType!.IsValueType)
+                            {
+                                EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
+                            }
+                        }
+                        else if (receiver is null)
+                        {
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                        }
                     }
 
                     // Emit RHS value
@@ -1715,6 +1760,9 @@ internal class ExpressionGenerator : Generator
             default:
                 throw new NotSupportedException($"Unknown BoundAssignmentExpression: {node.GetType().Name}");
         }
+
+        if (preserveResult && node.Type?.SpecialType == SpecialType.System_Unit)
+            EmitUnitValue();
     }
 
     private void EmitPatternAssignmentExpression(BoundPatternAssignmentExpression node)
@@ -2103,6 +2151,83 @@ internal class ExpressionGenerator : Generator
             EmitExpression(receiver);
     }
 
+    private bool TryEmitInvocationReceiverAddress(BoundExpression? receiver)
+    {
+        switch (receiver)
+        {
+            case null:
+                if (MethodSymbol.IsStatic)
+                    return false;
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                return true;
+
+            case BoundSelfExpression selfExpression:
+                if (MethodSymbol.IsStatic)
+                    return false;
+
+                if (MethodSymbol.ContainingType?.IsValueType == true)
+                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                return true;
+
+            case BoundAddressOfExpression addressOf:
+                EmitAddressOfExpression(addressOf);
+                return true;
+
+            case BoundLocalAccess localAccess:
+                {
+                    if (MethodBodyGenerator.TryGetCapturedField(localAccess.Local, out var capturedField))
+                    {
+                        MethodBodyGenerator.EmitLoadClosure();
+                        ILGenerator.Emit(OpCodes.Ldflda, capturedField);
+                        return true;
+                    }
+
+                    var local = GetLocal(localAccess.Local);
+                    if (local is null)
+                        return false;
+
+                    ILGenerator.Emit(OpCodes.Ldloca, local);
+                    return true;
+                }
+
+            case BoundParameterAccess parameterAccess:
+                {
+                    if (MethodBodyGenerator.TryGetCapturedField(parameterAccess.Parameter, out var capturedField))
+                    {
+                        MethodBodyGenerator.EmitLoadClosure();
+                        ILGenerator.Emit(OpCodes.Ldflda, capturedField);
+                        return true;
+                    }
+
+                    var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter);
+                    var position = parameterBuilder.Position;
+                    if (!MethodSymbol.IsStatic)
+                        position -= 1;
+                    ILGenerator.Emit(OpCodes.Ldarga, position);
+                    return true;
+                }
+
+            case BoundMemberAccessExpression memberAccess when memberAccess.Member is IFieldSymbol fieldSymbol:
+                {
+                    if (fieldSymbol.IsStatic)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
+                        return true;
+                    }
+
+                    if (!TryEmitInvocationReceiverAddress(memberAccess.Receiver))
+                        return false;
+
+                    ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+                    return true;
+                }
+        }
+
+        return false;
+    }
+
     private void EmitBoxIfNeeded(ITypeSymbol type, MethodInfo method)
     {
         if (type.IsValueType && method.DeclaringType == typeof(object))
@@ -2153,7 +2278,7 @@ internal class ExpressionGenerator : Generator
     {
         EmitInvocationExpressionBase(invocationExpression, receiverAlreadyLoaded);
 
-        if (invocationExpression.Type.SpecialType == SpecialType.System_Unit)
+        if (_preserveResult && invocationExpression.Type.SpecialType == SpecialType.System_Unit)
         {
             EmitUnitValue();
         }
@@ -2176,8 +2301,25 @@ internal class ExpressionGenerator : Generator
         // Emit receiver (for instance methods)
         if (!target.IsStatic)
         {
+            var requiresAddress = invocationExpression.RequiresReceiverAddress;
+            var receiverAddressLoaded = false;
+
             if (!receiverAlreadyLoaded)
-                EmitExpression(receiver);
+            {
+                if (requiresAddress && TryEmitInvocationReceiverAddress(receiver))
+                {
+                    receiverAlreadyLoaded = true;
+                    receiverAddressLoaded = true;
+                }
+                else
+                {
+                    EmitExpression(receiver);
+                }
+            }
+            else if (requiresAddress)
+            {
+                receiverAddressLoaded = true;
+            }
 
             var receiverType = receiver?.Type;
             var effectiveReceiverType = receiverType;
@@ -2202,14 +2344,14 @@ internal class ExpressionGenerator : Generator
                 }
                 else if (!SymbolEqualityComparer.Default.Equals(effectiveReceiverType, methodDeclaringType))
                 {
-                    // Defensive fallback: method is on a different type, box to be safe
                     ILGenerator.Emit(OpCodes.Box, clrType);
                 }
-                else
+                else if (!receiverAddressLoaded)
                 {
                     var tmp = ILGenerator.DeclareLocal(clrType);
                     ILGenerator.Emit(OpCodes.Stloc, tmp);
                     ILGenerator.Emit(OpCodes.Ldloca, tmp);
+                    receiverAddressLoaded = true;
                 }
             }
         }
@@ -2659,25 +2801,7 @@ internal class ExpressionGenerator : Generator
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
     {
-        if (methodSymbol.IsAlias && methodSymbol is IAliasSymbol alias)
-            return GetMethodInfo((IMethodSymbol)alias.UnderlyingSymbol);
-
-        if (methodSymbol is PEMethodSymbol pEMethodSymbol)
-            return pEMethodSymbol.GetMethodInfo();
-
-        if (methodSymbol is SubstitutedMethodSymbol substitutedMethod)
-            return substitutedMethod.GetMethodInfo(MethodBodyGenerator.MethodGenerator.TypeGenerator.CodeGen);
-
-        if (methodSymbol is ConstructedMethodSymbol constructedMethod)
-            return constructedMethod.GetMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
-
-        if (methodSymbol is SourceMethodSymbol sourceMethodSymbol)
-        {
-            var m = MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceMethodSymbol);
-            return (MethodInfo)m;
-        }
-
-        throw new InvalidOperationException();
+        return methodSymbol.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen);
     }
 
     private readonly struct DelegateConstructorCacheKey

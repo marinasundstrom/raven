@@ -77,4 +77,50 @@ public class PropertyDeclarationSyntaxTest : DiagnosticTestBase
         Assert.Equal("Getter", name.Identifier.Text);
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void PropertyWithoutType_ProducesMissingTypeAnnotation()
+    {
+        const string code =
+            """
+            class Foo {
+                public Value {
+                    get => 0
+                }
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var property = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyDeclarationSyntax>()
+            .Single();
+
+        Assert.True(property.Type.ColonToken.IsMissing);
+        var typeSyntax = Assert.IsType<IdentifierNameSyntax>(property.Type.Type);
+        Assert.True(typeSyntax.Identifier.IsMissing);
+    }
+
+    [Fact]
+    public void PropertyWithInitializer_ParsesEqualsClause()
+    {
+        const string code =
+            """
+            struct Token {
+                public Kind: SyntaxKind { get } = kind
+            }
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var property = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyDeclarationSyntax>()
+            .Single();
+
+        var initializer = Assert.IsType<EqualsValueClauseSyntax>(property.Initializer);
+        Assert.Equal(SyntaxKind.EqualsToken, initializer.EqualsToken.Kind);
+        var valueExpression = Assert.IsType<IdentifierNameSyntax>(initializer.Value);
+        Assert.Equal("kind", valueExpression.Identifier.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

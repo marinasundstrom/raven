@@ -25,6 +25,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private SynthesizedIteratorTypeSymbol? _iteratorStateMachine;
     private bool _containsAwait;
     private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
+    private bool _hasAsyncReturnTypeError;
 
     public SourceMethodSymbol(
         string name,
@@ -84,6 +85,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public bool IsAsync { get; }
 
     public bool ContainsAwait => _containsAwait;
+
+    internal bool HasAsyncReturnTypeError => _hasAsyncReturnTypeError;
 
     public bool IsCheckedBuiltin { get; }
 
@@ -167,6 +170,11 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     internal void SetContainsAwait(bool containsAwait)
     {
         _containsAwait = containsAwait;
+    }
+
+    internal void MarkAsyncReturnTypeError()
+    {
+        _hasAsyncReturnTypeError = true;
     }
 
     internal void SetIteratorStateMachine(SynthesizedIteratorTypeSymbol stateMachine)

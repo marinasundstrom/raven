@@ -1,5 +1,6 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -134,10 +135,40 @@ internal class SyntaxParser : ParseContext
     /// <param name="start">The start fullwidth</param>
     /// <param name="node">The given node</param>
     /// <returns>The actual text span</returns>
-    protected TextSpan GetActualTextSpan(int start, SyntaxNode node)
+    protected TextSpan GetActualTextSpan(int start, SyntaxNode? node)
     {
+        if (node is null)
+        {
+            return new TextSpan(Math.Max(0, start), 0);
+        }
+
         var firstToken = node.GetFirstToken();
-        return new TextSpan(start + firstToken.LeadingTrivia.Width, node.Width);
+        var lastToken = node.GetLastToken();
+
+        var leadingWidth = firstToken?.LeadingTrivia.Width ?? 0;
+        var trailingWidth = lastToken?.TrailingTrivia.Width ?? 0;
+
+        var fullWidth = node.FullWidth;
+        var length = fullWidth - leadingWidth - trailingWidth;
+
+        if (length < 0)
+        {
+            length = Math.Max(0, node.Width);
+        }
+
+        var spanStart = start + leadingWidth;
+
+        if (spanStart < 0)
+        {
+            spanStart = 0;
+        }
+
+        if (length < 0)
+        {
+            length = 0;
+        }
+
+        return new TextSpan(spanStart, length);
     }
 
     internal bool TryConsumeTerminator(out SyntaxToken token)

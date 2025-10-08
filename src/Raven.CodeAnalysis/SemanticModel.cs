@@ -572,18 +572,9 @@ public partial class SemanticModel
 
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, INamespaceSymbol namespaceSymbol, Binder parentBinder)
     {
-        var programClass = new SynthesizedProgramClassSymbol(Compilation, namespaceSymbol.AsSourceNamespace(), [cu.GetLocation()], [cu.GetReference()]);
-
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
 
-        var allGlobals = cu.DescendantNodes().OfType<GlobalStatementSyntax>().ToList();
-        var bindableGlobals = new List<GlobalStatementSyntax>();
-
-        foreach (var global in allGlobals)
-        {
-            if (global.Parent is CompilationUnitSyntax || global.Parent is FileScopedNamespaceDeclarationSyntax)
-                bindableGlobals.Add(global);
-        }
+        var bindableGlobals = Compilation.CollectBindableGlobalStatements(cu);
 
         void CheckOrder(SyntaxList<MemberDeclarationSyntax> members)
         {
@@ -630,81 +621,38 @@ public partial class SemanticModel
                 parentBinder.Diagnostics.ReportFileScopedCodeMultipleFiles(bindableGlobals[0].GetLocation());
         }
 
-        var returnsInt = bindableGlobals.Any(static g => ContainsReturnWithExpression(g.Statement));
-        var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpression(g.Statement));
+        var (programClass, mainMethod, asyncImplementation) = Compilation.GetOrCreateTopLevelProgram(
+            cu,
+            namespaceSymbol.AsSourceNamespace()!,
+            bindableGlobals);
 
-        SynthesizedMainAsyncMethodSymbol? asyncImplementation = null;
-        SynthesizedMainMethodSymbol mainMethod;
-        TopLevelBinder topLevelBinder;
+        var scriptMethod = asyncImplementation is { } asyncMain
+            ? (SourceMethodSymbol)asyncMain
+            : mainMethod;
 
-        if (requiresAsync)
+        var topLevelBinder = new TopLevelBinder(parentBinder, this, scriptMethod, mainMethod, cu);
+
+        if (bindableGlobals.Count > 0)
         {
-            asyncImplementation = new SynthesizedMainAsyncMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()], returnsInt);
-            mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()], returnsInt, asyncImplementation);
-            topLevelBinder = new TopLevelBinder(parentBinder, this, asyncImplementation, mainMethod, cu);
-        }
-        else
-        {
-            mainMethod = new SynthesizedMainMethodSymbol(programClass, [cu.GetLocation()], [cu.GetReference()], returnsInt, asyncImplementation);
-            topLevelBinder = new TopLevelBinder(parentBinder, this, mainMethod, mainMethod, cu);
+            // Cache the compilation unit and its global statements before binding.
+            //
+            // Binding the statements will request declared symbols, which rely on
+            // binder lookup through SemanticModel.GetBinder. Without priming the
+            // cache, any attempt to resolve the compilation unit binder re-enters
+            // BindCompilationUnit, causing unbounded recursion (see stack trace in
+            // bug report). By caching eagerly we guarantee re-entrant lookups
+            // retrieve the partially constructed top-level binder instead of
+            // rebuilding it.
+            _binderCache[cu] = topLevelBinder;
+
+            foreach (var stmt in bindableGlobals)
+                _binderCache[stmt] = topLevelBinder;
         }
 
         topLevelBinder.BindGlobalStatements(bindableGlobals);
 
-        foreach (var stmt in bindableGlobals)
-            _binderCache[stmt] = topLevelBinder;
-
         return topLevelBinder;
 
-        static bool ContainsAwaitExpression(StatementSyntax statement)
-        {
-            return ContainsAwaitExpression((SyntaxNode)statement);
-
-            static bool ContainsAwaitExpression(SyntaxNode node)
-            {
-                if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
-                    return false;
-
-                if (node.Kind == SyntaxKind.AwaitExpression)
-                    return true;
-
-                foreach (var child in node.ChildNodes())
-                {
-                    if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
-                        continue;
-
-                    if (ContainsAwaitExpression(child))
-                        return true;
-                }
-
-                return false;
-            }
-        }
-
-        static bool ContainsReturnWithExpression(StatementSyntax statement)
-        {
-            return ContainsReturnWithExpression((SyntaxNode)statement);
-
-            static bool ContainsReturnWithExpression(SyntaxNode node)
-            {
-                if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
-                    return false;
-
-                if (node is ReturnStatementSyntax { Expression: not null })
-                    return true;
-
-                foreach (var child in node.ChildNodes())
-                {
-                    if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
-                        continue;
-
-                    if (ContainsReturnWithExpression(child))
-                        return true;
-                }
-
-                return false;
-            }
-        }
     }
 
     private void RegisterNamespaceMembers(SyntaxNode containerNode, Binder parentBinder, INamespaceSymbol parentNamespace)

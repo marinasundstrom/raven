@@ -113,17 +113,14 @@ internal class StatementGenerator : Generator
         ITypeSymbol? expressionType = expression?.Type;
         IILocal? resultTemp = null;
 
+        var isVoidLikeReturn = returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
+
         if (expression is not null)
         {
-            new ExpressionGenerator(this, expression).Emit();
+            var preserveResult = !isVoidLikeReturn;
+            new ExpressionGenerator(this, expression, preserveResult).Emit();
 
-            if (returnType.SpecialType == SpecialType.System_Unit)
-            {
-                ILGenerator.Emit(OpCodes.Pop);
-                expression = null;
-                expressionType = null;
-            }
-            else if (localsToDispose.Length > 0 && expressionType is not null)
+            if (preserveResult && localsToDispose.Length > 0 && expressionType is not null)
             {
                 var clrType = ResolveClrType(expressionType);
                 resultTemp = ILGenerator.DeclareLocal(clrType);
@@ -133,7 +130,7 @@ internal class StatementGenerator : Generator
 
         EmitDispose(localsToDispose);
 
-        if (expression is not null)
+        if (expression is not null && !isVoidLikeReturn)
         {
             if (resultTemp is not null)
                 ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
@@ -231,7 +228,7 @@ internal class StatementGenerator : Generator
 
     private void EmitAssignmentStatement(BoundAssignmentStatement assignmentStatement)
     {
-        new ExpressionGenerator(this, assignmentStatement.Expression).Emit();
+        new ExpressionGenerator(this, assignmentStatement.Expression, preserveResult: false).Emit();
     }
 
     private void EmitForStatement(BoundForStatement forStatement)
@@ -341,7 +338,9 @@ internal class StatementGenerator : Generator
 
         ILGenerator.MarkLabel(beginLabel);
 
-        var moveNext = Compilation.CoreAssembly.GetType("System.Collections.IEnumerator").GetMethod(nameof(IEnumerator.MoveNext), Type.EmptyTypes)
+        var runtimeEnumeratorType = Compilation.ResolveRuntimeType("System.Collections.IEnumerator")
+            ?? throw new InvalidOperationException("Unable to resolve runtime type for System.Collections.IEnumerator.");
+        var moveNext = runtimeEnumeratorType.GetMethod(nameof(IEnumerator.MoveNext), Type.EmptyTypes)
             ?? throw new InvalidOperationException("Missing IEnumerator.MoveNext method.");
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, moveNext);
@@ -373,8 +372,11 @@ internal class StatementGenerator : Generator
         var enumerableClrType = ResolveClrType(enumerable);
         ILGenerator.Emit(OpCodes.Castclass, enumerableClrType);
 
-        var getEnumerator = (PEMethodSymbol)enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).First()!;
-        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetMethodInfo());
+        var getEnumerator = enumerable
+            .GetMembers(nameof(IEnumerable.GetEnumerator))
+            .OfType<IMethodSymbol>()
+            .First();
+        ILGenerator.Emit(OpCodes.Callvirt, getEnumerator.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
         var enumeratorType = getEnumerator.ReturnType;
         var enumeratorClrType = ResolveClrType(enumeratorType);
@@ -386,14 +388,18 @@ internal class StatementGenerator : Generator
 
         ILGenerator.MarkLabel(beginLabel);
 
-        var moveNext = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, moveNext.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
         ILGenerator.Emit(OpCodes.Brfalse, endLabel);
 
-        var currentProp = (PEMethodSymbol)enumeratorType.GetMembers(nameof(IEnumerator.Current)).OfType<PEPropertySymbol>().First()!.GetMethod!;
+        var currentProp = enumeratorType
+            .GetMembers(nameof(IEnumerator.Current))
+            .OfType<IPropertySymbol>()
+            .First()
+            .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetMethodInfo());
+        ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
         var localClr = ResolveClrType(forStatement.Local.Type);
         if (localClr.IsValueType)

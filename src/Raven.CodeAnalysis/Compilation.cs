@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -19,6 +21,9 @@ public partial class Compilation
     private readonly Dictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new();
     private readonly Dictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
     private readonly Dictionary<string, Assembly> _lazyMetadataAssemblies = new();
+    private readonly Dictionary<string, string> _assemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
+    private readonly Dictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
     private MetadataLoadContext _metadataLoadContext;
     private GlobalBinder _globalBinder;
     private bool setup;
@@ -28,6 +33,7 @@ public partial class Compilation
     private TypeResolver _typeResolver;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
+    private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
@@ -73,6 +79,7 @@ public partial class Compilation
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
     public Assembly CoreAssembly { get; private set; }
+    public Assembly RuntimeCoreAssembly { get; private set; }
 
     internal BinderFactory BinderFactory { get; private set; }
 
@@ -145,6 +152,8 @@ public partial class Compilation
         _metadataLoadContext = new MetadataLoadContext(resolver);
 
         CoreAssembly = _metadataLoadContext.CoreAssembly!;
+        RuntimeCoreAssembly = typeof(object).Assembly;
+        RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
 
         foreach (var metadataReference in References)
         {
@@ -159,9 +168,145 @@ public partial class Compilation
         Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
+
+        InitializeTopLevelPrograms();
     }
 
     internal TypeResolver TypeResolver => _typeResolver ??= new TypeResolver(this);
+
+    private void InitializeTopLevelPrograms()
+    {
+        foreach (var tree in SyntaxTrees)
+        {
+            if (tree is null)
+                continue;
+
+            if (tree.GetRoot() is not CompilationUnitSyntax compilationUnit)
+                continue;
+
+            var bindableGlobals = CollectBindableGlobalStatements(compilationUnit);
+            if (bindableGlobals.Count == 0)
+                continue;
+
+            if (SyntaxTreeWithFileScopedCode is null)
+                SyntaxTreeWithFileScopedCode = tree;
+
+            var fileScopedNamespace = compilationUnit.Members
+                .OfType<FileScopedNamespaceDeclarationSyntax>()
+                .FirstOrDefault();
+
+            SourceNamespaceSymbol targetNamespace = fileScopedNamespace is null
+                ? SourceGlobalNamespace
+                : GetOrCreateNamespaceSymbol(fileScopedNamespace.Name.ToString())?.AsSourceNamespace()
+                    ?? SourceGlobalNamespace;
+
+            GetOrCreateTopLevelProgram(compilationUnit, targetNamespace, bindableGlobals);
+        }
+    }
+
+    internal (SynthesizedProgramClassSymbol Program, SynthesizedMainMethodSymbol Main, SynthesizedMainAsyncMethodSymbol? Async)
+        GetOrCreateTopLevelProgram(
+            CompilationUnitSyntax compilationUnit,
+            SourceNamespaceSymbol targetNamespace,
+            IReadOnlyList<GlobalStatementSyntax> bindableGlobals)
+    {
+        if (_topLevelProgramMembers.TryGetValue(compilationUnit.SyntaxTree, out var existing))
+            return (existing.ProgramClass, existing.MainMethod, existing.AsyncMainMethod);
+
+        var returnsInt = bindableGlobals.Any(static g => ContainsReturnWithExpressionOutsideNestedFunctions(g.Statement));
+        var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpressionOutsideNestedFunctions(g.Statement));
+
+        var programClass = new SynthesizedProgramClassSymbol(this, targetNamespace, [compilationUnit.GetLocation()], [compilationUnit.GetReference()]);
+
+        SynthesizedMainAsyncMethodSymbol? asyncImplementation = null;
+        if (requiresAsync)
+        {
+            asyncImplementation = new SynthesizedMainAsyncMethodSymbol(
+                programClass,
+                [compilationUnit.GetLocation()],
+                [compilationUnit.GetReference()],
+                returnsInt);
+        }
+
+        var mainMethod = new SynthesizedMainMethodSymbol(
+            programClass,
+            [compilationUnit.GetLocation()],
+            [compilationUnit.GetReference()],
+            returnsInt,
+            asyncImplementation);
+
+        _topLevelProgramMembers[compilationUnit.SyntaxTree] = new TopLevelProgramMembers(programClass, mainMethod, asyncImplementation);
+
+        return (programClass, mainMethod, asyncImplementation);
+    }
+
+    internal static List<GlobalStatementSyntax> CollectBindableGlobalStatements(CompilationUnitSyntax compilationUnit)
+    {
+        var bindableGlobals = new List<GlobalStatementSyntax>();
+
+        foreach (var global in compilationUnit.DescendantNodes().OfType<GlobalStatementSyntax>())
+        {
+            if (global.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax)
+                bindableGlobals.Add(global);
+        }
+
+        return bindableGlobals;
+    }
+
+    internal static bool ContainsAwaitExpressionOutsideNestedFunctions(StatementSyntax statement)
+    {
+        return ContainsAwaitExpressionOutsideNestedFunctions((SyntaxNode)statement);
+
+        static bool ContainsAwaitExpressionOutsideNestedFunctions(SyntaxNode node)
+        {
+            if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
+                return false;
+
+            if (node.Kind == SyntaxKind.AwaitExpression)
+                return true;
+
+            foreach (var child in node.ChildNodes())
+            {
+                if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
+                    continue;
+
+                if (ContainsAwaitExpressionOutsideNestedFunctions(child))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    internal static bool ContainsReturnWithExpressionOutsideNestedFunctions(StatementSyntax statement)
+    {
+        return ContainsReturnWithExpressionOutsideNestedFunctions((SyntaxNode)statement);
+
+        static bool ContainsReturnWithExpressionOutsideNestedFunctions(SyntaxNode node)
+        {
+            if (node is FunctionStatementSyntax or LambdaExpressionSyntax)
+                return false;
+
+            if (node is ReturnStatementSyntax { Expression: not null })
+                return true;
+
+            foreach (var child in node.ChildNodes())
+            {
+                if (child is FunctionStatementSyntax or LambdaExpressionSyntax)
+                    continue;
+
+                if (ContainsReturnWithExpressionOutsideNestedFunctions(child))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    private sealed record TopLevelProgramMembers(
+        SynthesizedProgramClassSymbol ProgramClass,
+        SynthesizedMainMethodSymbol MainMethod,
+        SynthesizedMainAsyncMethodSymbol? AsyncMainMethod);
 
     private UnitTypeSymbol CreateUnitTypeSymbol()
     {
@@ -212,7 +357,7 @@ public partial class Compilation
             currentSourceNamespace = next;
         }
 
-        return this.GetNamespaceSymbol(ns) ?? currentSourceNamespace;
+        return currentSourceNamespace;
     }
 
     private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
@@ -480,6 +625,7 @@ public partial class Compilation
                 case PortableExecutableReference per:
                 {
                     var assembly = _metadataLoadContext.LoadFromAssemblyPath(per.FilePath);
+                    RegisterRuntimeAssembly(assembly, per.FilePath);
                     symbol = GetAssembly(assembly);
                     break;
                 }
@@ -501,6 +647,8 @@ public partial class Compilation
 
     private IAssemblySymbol GetAssembly(Assembly assembly)
     {
+        RegisterRuntimeAssembly(assembly);
+
         if (_assemblySymbols.TryGetValue(assembly, out var asss))
         {
             return asss;
@@ -524,6 +672,7 @@ public partial class Compilation
                         if (loadedAssembly is null)
                             return null;
 
+                        RegisterRuntimeAssembly(loadedAssembly);
                         return GetAssembly(loadedAssembly);
                     }
                     catch
@@ -535,6 +684,165 @@ public partial class Compilation
         _assemblySymbols[assembly] = assemblySymbol;
 
         return assemblySymbol;
+    }
+
+    private Assembly? RegisterRuntimeAssembly(Assembly metadataAssembly, string? explicitPath = null)
+    {
+        if (metadataAssembly is null)
+            return null;
+
+        var identity = metadataAssembly.GetName();
+        if (!string.IsNullOrEmpty(explicitPath) && identity.Name is not null)
+            _assemblyPathMap[identity.Name] = explicitPath;
+
+        if (_metadataToRuntimeAssemblyMap.TryGetValue(metadataAssembly, out var cached))
+            return cached;
+
+        Assembly? runtimeAssembly = null;
+
+        if (identity.Name is not null && _runtimeAssemblyCache.TryGetValue(identity.Name, out var fromCache))
+        {
+            runtimeAssembly = fromCache;
+        }
+        else if (identity.Name is not null && _assemblyPathMap.TryGetValue(identity.Name, out var knownPath))
+        {
+            runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, knownPath);
+        }
+
+        if (runtimeAssembly is null && !string.IsNullOrEmpty(explicitPath))
+            runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, explicitPath);
+
+        runtimeAssembly ??= LoadRuntimeAssemblyByName(identity);
+        runtimeAssembly ??= MapToRuntimeImplementation(identity);
+
+        if (runtimeAssembly is not null)
+        {
+            if (identity.Name is not null)
+            {
+                _runtimeAssemblyCache[identity.Name] = runtimeAssembly;
+
+                if (!string.IsNullOrEmpty(runtimeAssembly.Location))
+                    _assemblyPathMap[identity.Name] = runtimeAssembly.Location;
+            }
+
+            _metadataToRuntimeAssemblyMap[metadataAssembly] = runtimeAssembly;
+        }
+
+        return runtimeAssembly;
+    }
+
+    private Assembly? MapToRuntimeImplementation(AssemblyName identity)
+    {
+        if (identity.Name is null)
+            return null;
+
+        var runtimeCoreIdentity = RuntimeCoreAssembly.GetName();
+
+        if (string.Equals(identity.Name, runtimeCoreIdentity.Name, StringComparison.OrdinalIgnoreCase))
+            return RuntimeCoreAssembly;
+
+        if (string.Equals(identity.Name, "System.Runtime", StringComparison.OrdinalIgnoreCase))
+            return RuntimeCoreAssembly;
+
+        if (string.Equals(identity.Name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
+            return RuntimeCoreAssembly;
+
+        return null;
+    }
+
+    private static Assembly? LoadRuntimeAssemblyFromPath(AssemblyName identity, string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return null;
+
+        try
+        {
+            return AssemblyLoadContext.Default.LoadFromAssemblyPath(path);
+        }
+        catch (FileLoadException)
+        {
+            return LoadRuntimeAssemblyByName(identity);
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
+        catch (FileNotFoundException)
+        {
+            return LoadRuntimeAssemblyByName(identity);
+        }
+    }
+
+    private static Assembly? LoadRuntimeAssemblyByName(AssemblyName identity)
+    {
+        try
+        {
+            return System.Reflection.Assembly.Load(identity);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    internal Type? ResolveRuntimeType(PENamedTypeSymbol symbol)
+    {
+        if (symbol is null)
+            throw new ArgumentNullException(nameof(symbol));
+
+        EnsureSetup();
+
+        if (symbol.ContainingAssembly is PEAssemblySymbol peAssembly)
+            RegisterRuntimeAssembly(peAssembly.GetAssemblyInfo());
+
+        var metadataName = ((INamedTypeSymbol)symbol).ToFullyQualifiedMetadataName();
+
+        if (string.IsNullOrEmpty(metadataName))
+            return null;
+
+        return ResolveRuntimeType(metadataName);
+    }
+
+    internal Type? ResolveRuntimeType(System.Reflection.TypeInfo metadataType)
+    {
+        if (metadataType is null)
+            throw new ArgumentNullException(nameof(metadataType));
+
+        EnsureSetup();
+
+        RegisterRuntimeAssembly(metadataType.Assembly);
+
+        if (metadataType.FullName is { Length: > 0 } fullName)
+        {
+            var resolved = ResolveRuntimeType(fullName);
+            if (resolved is not null)
+                return resolved;
+        }
+
+        if (metadataType.AssemblyQualifiedName is { Length: > 0 } qualifiedName)
+            return Type.GetType(qualifiedName, throwOnError: false);
+
+        return null;
+    }
+
+    internal Type? ResolveRuntimeType(string metadataName)
+    {
+        if (metadataName is null)
+            throw new ArgumentNullException(nameof(metadataName));
+
+        EnsureSetup();
+
+        if (RuntimeCoreAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false) is { } coreType)
+            return coreType;
+
+        foreach (var runtimeAssembly in _runtimeAssemblyCache.Values)
+        {
+            var candidate = runtimeAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
+            if (candidate is not null)
+                return candidate;
+        }
+
+        return Type.GetType(metadataName, throwOnError: false);
     }
 
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)

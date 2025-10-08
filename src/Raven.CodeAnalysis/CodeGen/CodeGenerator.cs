@@ -19,12 +19,38 @@ internal class CodeGenerator
     readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<ITypeParameterSymbol, Type> _genericParameterMap = new Dictionary<ITypeParameterSymbol, Type>(SymbolEqualityComparer.Default);
+    readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(SymbolEqualityComparer.Default);
+    readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(SymbolEqualityComparer.Default);
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
 
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
 
     public MemberInfo? GetMemberBuilder(SourceSymbol symbol) => _mappings[symbol];
+
+    internal bool TryGetRuntimeMethod(IMethodSymbol symbol, out MethodInfo methodInfo)
+        => _runtimeMethodCache.TryGetValue(symbol, out methodInfo);
+
+    internal MethodInfo CacheRuntimeMethod(IMethodSymbol symbol, MethodInfo methodInfo)
+    {
+        _runtimeMethodCache[symbol] = methodInfo;
+        return methodInfo;
+    }
+
+    internal bool TryGetRuntimeConstructor(IMethodSymbol symbol, out ConstructorInfo constructorInfo)
+        => _runtimeConstructorCache.TryGetValue(symbol, out constructorInfo);
+
+    internal ConstructorInfo CacheRuntimeConstructor(IMethodSymbol symbol, ConstructorInfo constructorInfo)
+    {
+        _runtimeConstructorCache[symbol] = constructorInfo;
+        return constructorInfo;
+    }
+
+    internal Type CacheRuntimeTypeParameter(ITypeParameterSymbol symbol, Type type)
+    {
+        _genericParameterMap[symbol] = type;
+        return type;
+    }
 
     internal void RegisterGenericParameters(ImmutableArray<ITypeParameterSymbol> parameters, GenericTypeParameterBuilder[] builders)
     {
@@ -323,7 +349,7 @@ internal class CodeGenerator
             Version = new Version(1, 0, 0, 0)
         };
 
-        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.CoreAssembly);
+        AssemblyBuilder = new PersistedAssemblyBuilder(assemblyName, _compilation.RuntimeCoreAssembly);
         ModuleBuilder = AssemblyBuilder.DefineDynamicModule(_compilation.AssemblyName);
 
         DetermineShimTypeRequirements();
@@ -998,7 +1024,54 @@ internal class CodeGenerator
 
     internal bool TryGetRuntimeTypeForTypeParameter(ITypeParameterSymbol symbol, out Type type)
     {
-        return _genericParameterMap.TryGetValue(symbol, out type!);
+        if (_genericParameterMap.TryGetValue(symbol, out type!))
+            return true;
+
+        if (symbol is PETypeParameterSymbol peTypeParameter && TryResolveMetadataTypeParameter(peTypeParameter, out var resolved))
+        {
+            type = CacheRuntimeTypeParameter(symbol, resolved);
+            return true;
+        }
+
+        type = null!;
+        return false;
+    }
+
+    private bool TryResolveMetadataTypeParameter(PETypeParameterSymbol symbol, out Type type)
+    {
+        if (symbol.ContainingSymbol is INamedTypeSymbol containingType)
+        {
+            var runtimeType = containingType.GetClrTypeTreatingUnitAsVoid(this);
+            var parameters = runtimeType.IsGenericTypeDefinition
+                ? runtimeType.GetTypeInfo().GenericTypeParameters
+                : runtimeType.GetGenericTypeDefinition().GetTypeInfo().GenericTypeParameters;
+
+            var ordinal = symbol.Ordinal;
+            if ((uint)ordinal < (uint)parameters.Length)
+            {
+                type = parameters[ordinal];
+                return true;
+            }
+        }
+        else if (symbol.ContainingSymbol is IMethodSymbol containingMethod)
+        {
+            if (TryGetRuntimeMethod(containingMethod, out var methodInfo))
+            {
+                var parameters = methodInfo.IsGenericMethodDefinition
+                    ? methodInfo.GetGenericArguments()
+                    : methodInfo.GetGenericMethodDefinition().GetGenericArguments();
+
+                var ordinal = symbol.Ordinal;
+                if ((uint)ordinal < (uint)parameters.Length)
+                {
+                    type = parameters[ordinal];
+                    return true;
+                }
+            }
+        }
+
+        type = null!;
+        return false;
     }
 
 }

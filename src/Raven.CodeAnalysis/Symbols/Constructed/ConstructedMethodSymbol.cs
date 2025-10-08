@@ -4,6 +4,8 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class ConstructedMethodSymbol : IMethodSymbol
@@ -120,6 +122,16 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (type is ITypeParameterSymbol tp && _substitutionMap.TryGetValue(tp, out var replacement))
             return replacement;
 
+        if (type is ByRefTypeSymbol byRef)
+        {
+            var substitutedElement = Substitute(byRef.ElementType);
+
+            if (!SymbolEqualityComparer.Default.Equals(substitutedElement, byRef.ElementType))
+                return new ByRefTypeSymbol(substitutedElement, byRef.RefKind);
+
+            return type;
+        }
+
         if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
             var substitutedArgs = named.TypeArguments.Select(Substitute).ToArray();
@@ -188,13 +200,11 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         var containingType = _definition.ContainingType
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
-        var containingClrType = containingType.GetClrType(codeGen);
-        var expectedParameterTypes = Parameters
-            .Select(parameter => parameter.Type.GetClrType(codeGen))
-            .ToArray();
-        var expectedReturnType = ReturnType.GetClrType(codeGen);
+        var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var parameterSymbols = Parameters;
+        var returnTypeSymbol = ReturnType;
         var runtimeTypeArguments = TypeArguments
-            .Select(argument => argument.GetClrType(codeGen))
+            .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -215,7 +225,6 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             {
                 if (method.GetGenericArguments().Length != runtimeTypeArguments.Length)
                     continue;
-
                 candidate = method.MakeGenericMethod(runtimeTypeArguments);
             }
             else if (method.ContainsGenericParameters)
@@ -224,23 +233,18 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             }
 
             var candidateParameters = candidate.GetParameters();
-            if (candidateParameters.Length != expectedParameterTypes.Length)
+            var methodRuntimeArguments = candidate.IsGenericMethod
+                ? candidate.GetGenericArguments()
+                : Array.Empty<Type>();
+            var typeRuntimeArguments = candidate.DeclaringType is not null && candidate.DeclaringType.IsGenericType
+                ? candidate.DeclaringType.GetGenericArguments()
+                : Array.Empty<Type>();
+
+            if (!ParametersMatch(candidateParameters, parameterSymbols, methodRuntimeArguments, typeRuntimeArguments, codeGen))
                 continue;
 
-            var parametersMatch = true;
-            for (var i = 0; i < candidateParameters.Length; i++)
-            {
-                if (!TypesEquivalent(candidateParameters[i].ParameterType, expectedParameterTypes[i]))
-                {
-                    parametersMatch = false;
-                    break;
-                }
-            }
-
-            if (!parametersMatch)
-                continue;
-
-            if (!TypesEquivalent(candidate.ReturnType, expectedReturnType))
+            var normalizedReturnType = SubstituteRuntimeType(candidate.ReturnType, methodRuntimeArguments, typeRuntimeArguments);
+            if (!MethodSymbolExtensionsForCodeGen.ReturnTypesMatch(normalizedReturnType, returnTypeSymbol, codeGen))
                 continue;
 
             return candidate;
@@ -249,65 +253,210 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
     }
 
-    private static bool TypesEquivalent(Type left, Type right)
+    private bool ParametersMatch(
+        ParameterInfo[] runtimeParameters,
+        ImmutableArray<IParameterSymbol> parameterSymbols,
+        Type[] methodRuntimeArguments,
+        Type[]? typeRuntimeArguments,
+        CodeGen.CodeGenerator codeGen)
     {
-        if (left == right)
-            return true;
+        if (runtimeParameters.Length != parameterSymbols.Length)
+            return false;
 
-        if (left.IsByRef || right.IsByRef)
+        for (var i = 0; i < runtimeParameters.Length; i++)
         {
-            if (left.IsByRef != right.IsByRef)
+            if (!ParameterMatches(runtimeParameters[i], parameterSymbols[i], methodRuntimeArguments, typeRuntimeArguments, codeGen))
                 return false;
-
-            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
         }
 
-        if (left.IsPointer || right.IsPointer)
-        {
-            if (left.IsPointer != right.IsPointer)
-                return false;
+        return true;
+    }
 
-            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
+    private bool ParameterMatches(
+        ParameterInfo runtimeParameter,
+        IParameterSymbol symbolParameter,
+        Type[] methodRuntimeArguments,
+        Type[]? typeRuntimeArguments,
+        CodeGen.CodeGenerator codeGen)
+    {
+        if (symbolParameter.RefKind == RefKind.Out && !runtimeParameter.IsOut)
+            return false;
+
+        if (symbolParameter.RefKind == RefKind.Ref && !runtimeParameter.ParameterType.IsByRef)
+            return false;
+
+        if (symbolParameter.RefKind == RefKind.In && !(runtimeParameter.IsIn || runtimeParameter.ParameterType.IsByRef))
+            return false;
+
+        var normalizedRuntimeType = SubstituteRuntimeType(runtimeParameter.ParameterType, methodRuntimeArguments, typeRuntimeArguments);
+        return MethodSymbolExtensionsForCodeGen.TypesEquivalent(normalizedRuntimeType, symbolParameter.Type, codeGen);
+    }
+
+    private static Type SubstituteRuntimeType(Type runtimeType, Type[] methodRuntimeArguments, Type[]? typeRuntimeArguments)
+    {
+        if (runtimeType.IsByRef)
+        {
+            var element = SubstituteRuntimeType(runtimeType.GetElementType()!, methodRuntimeArguments, typeRuntimeArguments);
+            return element.MakeByRefType();
         }
 
-        if (left.IsArray || right.IsArray)
+        if (runtimeType.IsPointer)
         {
-            if (left.IsArray != right.IsArray || left.GetArrayRank() != right.GetArrayRank())
-                return false;
-
-            return TypesEquivalent(left.GetElementType()!, right.GetElementType()!);
+            var element = SubstituteRuntimeType(runtimeType.GetElementType()!, methodRuntimeArguments, typeRuntimeArguments);
+            return element.MakePointerType();
         }
 
-        if (left.IsGenericType || right.IsGenericType)
+        if (runtimeType.IsArray)
         {
-            if (left.IsGenericType != right.IsGenericType)
-                return false;
+            var element = SubstituteRuntimeType(runtimeType.GetElementType()!, methodRuntimeArguments, typeRuntimeArguments);
+            return runtimeType.GetArrayRank() == 1
+                ? element.MakeArrayType()
+                : element.MakeArrayType(runtimeType.GetArrayRank());
+        }
 
-            var leftDefinition = left.IsGenericTypeDefinition ? left : left.GetGenericTypeDefinition();
-            var rightDefinition = right.IsGenericTypeDefinition ? right : right.GetGenericTypeDefinition();
-
-            if (!TypesEquivalent(leftDefinition, rightDefinition))
-                return false;
-
-            if (!left.IsGenericTypeDefinition)
+        if (runtimeType.IsGenericParameter)
+        {
+            if (runtimeType.DeclaringMethod is not null)
             {
-                var leftArguments = left.GetGenericArguments();
-                var rightArguments = right.GetGenericArguments();
-
-                if (leftArguments.Length != rightArguments.Length)
-                    return false;
-
-                for (var i = 0; i < leftArguments.Length; i++)
-                {
-                    if (!TypesEquivalent(leftArguments[i], rightArguments[i]))
-                        return false;
-                }
+                var position = runtimeType.GenericParameterPosition;
+                if (position >= 0 && position < methodRuntimeArguments.Length)
+                    return methodRuntimeArguments[position];
+            }
+            else if (runtimeType.DeclaringType is not null && typeRuntimeArguments is { Length: > 0 })
+            {
+                var mapped = SubstituteTypeParameterFromDeclaringType(runtimeType, runtimeType.DeclaringType, typeRuntimeArguments, methodRuntimeArguments);
+                if (mapped is not null)
+                    return mapped;
             }
 
-            return true;
+            return runtimeType;
         }
 
-        return string.Equals(left.FullName, right.FullName, StringComparison.Ordinal) &&
-               string.Equals(left.Assembly.FullName, right.Assembly.FullName, StringComparison.Ordinal);
+        if (runtimeType.IsGenericType)
+        {
+            var substitutedArguments = runtimeType.GetGenericArguments()
+                .Select(argument => SubstituteRuntimeType(argument, methodRuntimeArguments, typeRuntimeArguments))
+                .ToArray();
+
+            var definition = runtimeType.IsGenericTypeDefinition
+                ? runtimeType
+                : runtimeType.GetGenericTypeDefinition();
+
+            return MakeGenericTypePreservingBuilders(definition, substitutedArguments);
+        }
+
+        return runtimeType;
+    }
+
+    private static Type? SubstituteTypeParameterFromDeclaringType(Type genericParameter, Type declaringType, Type[] typeRuntimeArguments, Type[] methodRuntimeArguments)
+    {
+        var definition = declaringType.IsGenericTypeDefinition
+            ? declaringType
+            : declaringType.GetGenericTypeDefinition();
+
+        var definitionParameters = definition.GetGenericArguments();
+        var index = Array.IndexOf(definitionParameters, genericParameter);
+        if (index >= 0 && index < typeRuntimeArguments.Length)
+        {
+            var mapped = typeRuntimeArguments[index];
+            if (!ReferenceEquals(mapped, genericParameter))
+                return SubstituteRuntimeType(mapped, methodRuntimeArguments, typeRuntimeArguments);
+        }
+
+        // Some runtimes reuse declaring-type parameters for nested generic parameter builders where GenericParameterPosition
+        // refers to the overall argument list instead of the declaring definition. Fall back to positional lookup if available.
+        var position = genericParameter.GenericParameterPosition;
+        if (position >= 0 && position < typeRuntimeArguments.Length)
+        {
+            var mapped = typeRuntimeArguments[position];
+            if (!ReferenceEquals(mapped, genericParameter))
+                return SubstituteRuntimeType(mapped, methodRuntimeArguments, typeRuntimeArguments);
+        }
+
+        return null;
+    }
+
+    private static Type MakeGenericTypePreservingBuilders(Type definition, Type[] arguments)
+        => definition.MakeGenericType(arguments);
+
+    private Type GetProjectedRuntimeType(
+        ITypeSymbol symbol,
+        CodeGen.CodeGenerator codeGen,
+        bool treatUnitAsVoid,
+        bool isTopLevel = true)
+    {
+        if (symbol is null)
+            throw new ArgumentNullException(nameof(symbol));
+        if (codeGen is null)
+            throw new ArgumentNullException(nameof(codeGen));
+
+        if (symbol is ITypeParameterSymbol typeParameter)
+        {
+            if (_substitutionMap.TryGetValue(typeParameter, out var substitution))
+                return GetProjectedRuntimeType(substitution, codeGen, treatUnitAsVoid, isTopLevel);
+
+            if (codeGen.TryGetRuntimeTypeForTypeParameter(typeParameter, out var runtimeType))
+                return runtimeType;
+
+            throw new InvalidOperationException($"Unable to resolve runtime type for type parameter '{typeParameter.Name}'.");
+        }
+
+        if (symbol is ByRefTypeSymbol byRef)
+        {
+            var elementType = GetProjectedRuntimeType(byRef.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            return elementType.MakeByRefType();
+        }
+
+        if (symbol is IArrayTypeSymbol array)
+        {
+            var elementType = GetProjectedRuntimeType(array.ElementType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            return array.Rank == 1
+                ? elementType.MakeArrayType()
+                : elementType.MakeArrayType(array.Rank);
+        }
+
+        if (symbol is NullableTypeSymbol nullable)
+        {
+            var underlying = GetProjectedRuntimeType(nullable.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
+            return typeof(Nullable<>).MakeGenericType(underlying);
+        }
+
+        if (symbol is LiteralTypeSymbol literal)
+            return GetProjectedRuntimeType(literal.UnderlyingType, codeGen, treatUnitAsVoid, isTopLevel: false);
+
+        if (symbol is ITupleTypeSymbol tuple)
+        {
+            return GetProjectedRuntimeType(tuple.UnderlyingTupleType, codeGen, treatUnitAsVoid, isTopLevel: false);
+        }
+
+        if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+        {
+            var definition = named.ConstructedFrom as INamedTypeSymbol;
+            Type runtimeDefinition;
+
+            if (definition is not null && !SymbolEqualityComparer.Default.Equals(definition, named))
+            {
+                runtimeDefinition = GetProjectedRuntimeType(definition, codeGen, treatUnitAsVoid, isTopLevel: false);
+            }
+            else
+            {
+                runtimeDefinition = treatUnitAsVoid && isTopLevel
+                    ? named.GetClrTypeTreatingUnitAsVoid(codeGen)
+                    : named.GetClrType(codeGen);
+            }
+
+            if (!runtimeDefinition.IsGenericTypeDefinition && !runtimeDefinition.ContainsGenericParameters)
+                return runtimeDefinition;
+
+            var runtimeArguments = named.TypeArguments
+                .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid, isTopLevel: false))
+                .ToArray();
+
+            return runtimeDefinition.MakeGenericType(runtimeArguments);
+        }
+
+        return treatUnitAsVoid && isTopLevel
+            ? symbol.GetClrTypeTreatingUnitAsVoid(codeGen)
+            : symbol.GetClrType(codeGen);
     }
 }

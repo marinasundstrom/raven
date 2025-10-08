@@ -74,16 +74,24 @@ internal sealed class SeekableTextSource
         return _savedPositions.Pop();
     }
 
-    public char Peek()
+    public int Peek()
     {
         EnsureBuffered(_position);
-        return InBufferRange(_position) ? GetFromBuffer(_position) : '\0';
+        return InBufferRange(_position) ? GetFromBuffer(_position) : -1;
     }
 
-    public char Read()
+    public int Read()
     {
         EnsureBuffered(_position);
-        return InBufferRange(_position) ? GetFromBuffer(_position++) : '\0';
+
+        if (!InBufferRange(_position))
+        {
+            return -1;
+        }
+
+        var value = GetFromBuffer(_position);
+        _position++;
+        return value;
     }
 
     private void EnsureBuffered(int position)
@@ -106,14 +114,14 @@ internal sealed class SeekableTextSource
         }
     }
 
-    private char GetFromBuffer(int position)
+    private int GetFromBuffer(int position)
     {
         var node = _buffer.First;
         int offset = position - _absoluteStart;
         for (int i = 0; i < offset && node != null; i++)
             node = node.Next;
 
-        return node?.Value ?? '\0';
+        return node?.Value ?? -1;
     }
 
     private bool InBufferRange(int position) =>

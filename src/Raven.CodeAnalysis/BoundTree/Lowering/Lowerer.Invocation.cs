@@ -49,10 +49,19 @@ internal sealed partial class Lowerer
 
                 _loweringTrace.RecordExtensionInvocation(traceEntry);
             }
-            return new BoundInvocationExpression(node.Method, loweredArguments, receiver: null);
+            return new BoundInvocationExpression(
+                node.Method,
+                loweredArguments,
+                receiver: null,
+                requiresReceiverAddress: node.RequiresReceiverAddress);
         }
 
-        return new BoundInvocationExpression(node.Method, arguments, receiver, extensionReceiver);
+        return new BoundInvocationExpression(
+            node.Method,
+            arguments,
+            receiver,
+            extensionReceiver,
+            node.RequiresReceiverAddress);
     }
 }
 
