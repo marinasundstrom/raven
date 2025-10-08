@@ -99,31 +99,39 @@ partial class BlockBinder : Binder
     private BoundLocalDeclarationStatement BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
     {
         var name = variableDeclarator.Identifier.ValueText;
+        var decl = (VariableDeclarationSyntax)variableDeclarator.Parent!;
+        var isUsingDeclaration = decl.Parent is UsingDeclarationStatementSyntax;
+        var initializer = variableDeclarator.Initializer;
 
         if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
         {
-            _diagnostics.ReportVariableAlreadyDefined(name, variableDeclarator.Identifier.GetLocation());
+            var isSameDeclarator = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
+                reference.SyntaxTree == variableDeclarator.SyntaxTree &&
+                reference.Span == variableDeclarator.Span);
 
             BoundExpression? existingInitializer = null;
-            if (variableDeclarator.Initializer is { } init)
-                existingInitializer = BindExpression(init.Value, allowReturn: false);
 
-            return new BoundLocalDeclarationStatement([new BoundVariableDeclarator(existing.Symbol, existingInitializer)]);
+            if (!isSameDeclarator)
+            {
+                _diagnostics.ReportVariableAlreadyDefined(name, variableDeclarator.Identifier.GetLocation());
+
+                if (initializer is { } init)
+                    existingInitializer = BindExpression(init.Value, allowReturn: false);
+            }
+
+            return new BoundLocalDeclarationStatement(
+                [new BoundVariableDeclarator(existing.Symbol, existingInitializer)],
+                isUsingDeclaration);
         }
 
         if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
             _diagnostics.ReportVariableShadowsOuterScope(name, variableDeclarator.Identifier.GetLocation());
-
-        var decl = variableDeclarator.Parent as VariableDeclarationSyntax;
-        var isMutable = decl!.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
-        var isUsingDeclaration = decl.Parent is UsingDeclarationStatementSyntax;
+        var isMutable = decl.LetOrVarKeyword.IsKind(SyntaxKind.VarKeyword);
         var shouldDispose = isUsingDeclaration;
 
         ITypeSymbol type = Compilation.ErrorTypeSymbol;
         BoundExpression? boundInitializer = null;
         ITypeSymbol? initializerValueType = null;
-
-        var initializer = variableDeclarator.Initializer;
         var typeLocation = variableDeclarator.TypeAnnotation?.Type.GetLocation()
             ?? decl.LetOrVarKeyword.GetLocation();
         if (initializer is not null)
@@ -2695,12 +2703,64 @@ partial class BlockBinder : Binder
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
 
-        var resolution = OverloadResolver.ResolveOverload(candidates, [left, right], Compilation, canBindLambda: EnsureLambdaCompatible);
+        var resolution = OverloadResolver.ResolveOverload(candidates.ToArray(), [left, right], Compilation, canBindLambda: EnsureLambdaCompatible);
 
-        if (!resolution.Success || resolution.Method is null)
-            return null;
+        if (resolution.Success && resolution.Method is not null)
+            return resolution.Method;
 
-        return resolution.Method;
+        IMethodSymbol? fallback = null;
+        var bestScore = int.MaxValue;
+
+        foreach (var candidate in candidates)
+        {
+            if (candidate.Parameters.Length != 2)
+                continue;
+
+            if (left.Type is null || right.Type is null)
+                continue;
+
+            var leftConversion = Compilation.ClassifyConversion(left.Type, candidate.Parameters[0].Type);
+            var rightConversion = Compilation.ClassifyConversion(right.Type, candidate.Parameters[1].Type);
+
+            if (!leftConversion.IsImplicit || !rightConversion.IsImplicit)
+                continue;
+
+            var score = GetConversionScore(leftConversion) + GetConversionScore(rightConversion);
+
+            if (score >= bestScore)
+                continue;
+
+            fallback = candidate;
+            bestScore = score;
+        }
+
+        return fallback;
+
+        static int GetConversionScore(Conversion conversion)
+        {
+            if (!conversion.Exists)
+                return int.MaxValue;
+
+            if (conversion.IsIdentity)
+                return 0;
+
+            if (conversion.IsReference)
+                return 1;
+
+            if (conversion.IsBoxing)
+                return 2;
+
+            if (conversion.IsNumeric)
+                return 3;
+
+            if (conversion.IsUserDefined)
+                return 4;
+
+            if (conversion.IsUnboxing)
+                return 5;
+
+            return 10;
+        }
     }
 
     private IMethodSymbol? ResolveUserDefinedOperator(SyntaxKind opKind, ITypeSymbol leftType, ITypeSymbol rightType)
