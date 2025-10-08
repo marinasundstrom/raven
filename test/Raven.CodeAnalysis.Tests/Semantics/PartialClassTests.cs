@@ -164,4 +164,50 @@ partial class Sample {};
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("RAV0601", diagnostic.Descriptor.Id);
     }
+
+    [Fact]
+    public void PartialClassDeclarations_WithGlobalStatementsAcrossSyntaxTrees_MergeMembers()
+    {
+        const string sourceA = """
+partial class Container {
+    public static GetX() -> int => 1;
+};
+
+let value = Container.GetY();
+""";
+
+        const string sourceB = """
+partial class Container {
+    public static GetY() -> int => 2;
+};
+""";
+
+        var treeA = SyntaxTree.ParseText(sourceA);
+        var treeB = SyntaxTree.ParseText(sourceB);
+
+        var compilation = CreateCompilation(new[] { treeA, treeB }, assemblyName: "app");
+
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success);
+
+        var modelA = compilation.GetSemanticModel(treeA);
+        var modelB = compilation.GetSemanticModel(treeB);
+
+        var declarationA = treeA.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var declarationB = treeB.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+
+        var symbolA = Assert.IsAssignableFrom<INamedTypeSymbol>(modelA.GetDeclaredSymbol(declarationA));
+        var symbolB = Assert.IsAssignableFrom<INamedTypeSymbol>(modelB.GetDeclaredSymbol(declarationB));
+
+        Assert.Same(symbolA, symbolB);
+        Assert.Single(symbolA.GetMembers("GetX"));
+        Assert.Single(symbolA.GetMembers("GetY"));
+
+        var invocation = treeA.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var invokedSymbol = Assert.IsAssignableFrom<IMethodSymbol>(modelA.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("GetY", invokedSymbol.Name);
+        Assert.Same(symbolA, invokedSymbol.ContainingType);
+    }
 }
