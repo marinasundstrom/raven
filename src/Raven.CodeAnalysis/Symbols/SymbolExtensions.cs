@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 
@@ -31,6 +32,9 @@ public static partial class SymbolExtensions
 
     public static string ToDisplayStringKeywordAware(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
+        if (TryFormatFunctionType(typeSymbol, format, out var functionDisplay))
+            return functionDisplay;
+
         if (typeSymbol is IArrayTypeSymbol arrayType)
         {
             var elementType = arrayType.ElementType;
@@ -195,6 +199,99 @@ public static partial class SymbolExtensions
         }
 
         return result.ToString();
+    }
+
+    private static bool TryFormatFunctionType(ITypeSymbol typeSymbol, SymbolDisplayFormat format, out string display)
+    {
+        if (typeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Delegate)
+        {
+            if (named is SynthesizedDelegateTypeSymbol synthesized)
+            {
+                display = FormatFunctionSignature(
+                    synthesized.ParameterTypes,
+                    synthesized.ParameterRefKinds,
+                    synthesized.ReturnType,
+                    format);
+                return true;
+            }
+
+            if (IsSystemFuncOrAction(named))
+            {
+                var invoke = named.GetDelegateInvokeMethod();
+                if (invoke is null)
+                {
+                    display = null!;
+                    return false;
+                }
+
+                var parameterTypes = invoke.Parameters.Select(p => p.Type).ToImmutableArray();
+                var refKinds = invoke.Parameters.Select(p => p.RefKind).ToImmutableArray();
+
+                display = FormatFunctionSignature(parameterTypes, refKinds, invoke.ReturnType, format);
+                return true;
+            }
+        }
+
+        display = null!;
+        return false;
+    }
+
+    private static string FormatFunctionSignature(
+        ImmutableArray<ITypeSymbol> parameterTypes,
+        ImmutableArray<RefKind> refKinds,
+        ITypeSymbol returnType,
+        SymbolDisplayFormat format)
+    {
+        var parameterDisplays = ImmutableArray.CreateBuilder<string>(parameterTypes.IsDefault ? 0 : parameterTypes.Length);
+
+        if (!parameterTypes.IsDefaultOrEmpty)
+        {
+            for (var i = 0; i < parameterTypes.Length; i++)
+            {
+                var parameterType = parameterTypes[i];
+                var refKind = !refKinds.IsDefaultOrEmpty && i < refKinds.Length
+                    ? refKinds[i]
+                    : RefKind.None;
+
+                parameterDisplays.Add(FormatFunctionParameter(parameterType, refKind, format));
+            }
+        }
+
+        string parameterText = parameterDisplays.Count switch
+        {
+            0 => "()",
+            1 => parameterDisplays[0],
+            _ => $"({string.Join(", ", parameterDisplays)})"
+        };
+
+        var returnDisplay = returnType.ToDisplayStringKeywordAware(format);
+        return $"{parameterText} -> {returnDisplay}";
+    }
+
+    private static string FormatFunctionParameter(ITypeSymbol type, RefKind refKind, SymbolDisplayFormat format)
+    {
+        var typeDisplay = type.ToDisplayStringKeywordAware(format);
+
+        return refKind switch
+        {
+            RefKind.In => $"in {typeDisplay}",
+            RefKind.Ref => $"ref {typeDisplay}",
+            RefKind.Out => $"out {typeDisplay}",
+            RefKind.RefReadOnly => $"ref readonly {typeDisplay}",
+            _ => typeDisplay
+        };
+    }
+
+    private static bool IsSystemFuncOrAction(INamedTypeSymbol named)
+    {
+        if (named.Name is not ("Func" or "Action"))
+            return false;
+
+        var ns = named.ContainingNamespace;
+        if (ns is null || ns.IsGlobalNamespace)
+            return false;
+
+        return ns.Name == "System" && (ns.ContainingNamespace is null || ns.ContainingNamespace.IsGlobalNamespace);
     }
 
     private static SymbolDisplayFormat WithoutTypeAccessibility(SymbolDisplayFormat format)
