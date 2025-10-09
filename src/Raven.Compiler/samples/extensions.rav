@@ -10,6 +10,11 @@ let sum = items.SumNumbers()
 WriteLine("Count: ${count}");
 WriteLine("Sum: ${sum}");
 
+items.CountPlusOne = 5
+let value = items.CountPlusOne
+
+WriteLine("Value: ${value}");
+
 extension MyEnumerableExt<T> for IEnumerable<T> {
     CountItems() -> int {
         var total: int = 0
@@ -27,5 +32,12 @@ extension MyIntEnumerableExt for IEnumerable<int> {
             sum = sum + x
         }
         return sum
+    }
+}
+
+extension ListExt for List<int> {
+    CountPlusOne: int {
+        get => self.Count + 1
+        set => self.Add(value)
     }
 }
