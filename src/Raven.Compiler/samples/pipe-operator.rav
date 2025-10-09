@@ -1,6 +1,7 @@
 import System.Console.*
+import MathHelpers.*
 
-let result = 5 |> MathHelpers.Increment(2)
+let result = 5 |> Increment(2)
 
 WriteLine("Result: ${result}");
 
