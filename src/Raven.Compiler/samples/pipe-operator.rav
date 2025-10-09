@@ -1,4 +1,8 @@
+import System.Console.*
+
 let result = 5 |> MathHelpers.Increment(2)
+
+WriteLine("Result: ${result}");
 
 public static class MathHelpers {
     public static Increment(x: int, amount: int) -> int {
