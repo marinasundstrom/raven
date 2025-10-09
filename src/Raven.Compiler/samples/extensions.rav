@@ -1,0 +1,16 @@
+import System.Collections.Generic.*
+
+let items = List<int>()
+items.Add(1)
+items.Add(2)
+let count = items.CountItems()
+
+extension MyEnumerableExt<T> for IEnumerable<T> {
+    CountItems() -> int {
+        var total: int = 0
+        for each in self {
+            total = total + 1
+        }
+        return total
+    }
+}
