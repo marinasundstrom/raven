@@ -1388,8 +1388,117 @@ public static class MathHelpers {
 
         var arguments = boundPipeline.Arguments.ToArray();
         Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithStaticImport_ResolvesImportedMember()
+    {
+        const string source = """
+import System.Math.*
+
+let value = -5
+let result = value |> Abs()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+        Assert.Equal("Abs", boundPipeline.Method.Name);
+        Assert.Equal("Math", boundPipeline.Method.ContainingType?.Name);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Single(arguments);
         Assert.Equal(SpecialType.System_Int32, arguments[0].Type.SpecialType);
-        Assert.Equal(SpecialType.System_Int32, arguments[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithFunction_ResolvesTopLevelFunction()
+    {
+        const string source = """
+let start = 5
+let result = start |> Increment(2)
+
+func Increment(x: int, amount: int) -> int {
+    return x + amount
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+        Assert.Equal("Increment", boundPipeline.Method.Name);
+        Assert.True(boundPipeline.Method.IsStatic);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithGenericStaticMethod_InfersTypeArgumentFromPipeline()
+    {
+        const string source = """
+let result = 5 |> MathHelpers.Increment(2)
+
+public static class MathHelpers {
+    public static Increment<T>(x: T, amount: int) -> int {
+        return 42 + amount
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+        Assert.Equal("Increment", boundPipeline.Method.Name);
+
+        var typeArguments = boundPipeline.Method.TypeArguments;
+        Assert.Single(typeArguments);
+        Assert.Equal(SpecialType.System_Int32, typeArguments[0].SpecialType);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
     }
 
     [Fact]

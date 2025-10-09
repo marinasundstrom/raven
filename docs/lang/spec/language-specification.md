@@ -589,6 +589,12 @@ compiler prepends the piped value as the first argument before overload
 resolution runs, so ordinary static helpers that expect a leading value parameter
 remain callable through pipelines.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2698-L2768】
 
+Pipeline targets participate in normal name lookup, so the operator can call
+members brought into scope by `import` directives (including static imports) as
+well as top-level `func` declarations. Because overload resolution still sees
+the piped value as the first argument, generic methods can infer type arguments
+from that value without any additional annotations.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2724-L2768】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L1396-L1507】
+
 ### Object creation
 
 Objects are created by **calling the type name** directly, just like any
