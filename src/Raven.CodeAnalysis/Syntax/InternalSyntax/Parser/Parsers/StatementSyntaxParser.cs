@@ -416,11 +416,33 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
-        var block = ParseBlockStatementSyntax();
+        BlockStatementSyntax? block = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+
+        if (IsNextToken(SyntaxKind.OpenBraceToken, out _))
+        {
+            block = ParseBlockStatementSyntax();
+        }
+        else if (IsNextToken(SyntaxKind.FatArrowToken, out _))
+        {
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+        }
+        else
+        {
+            block = ParseBlockStatementSyntax();
+        }
 
         TryConsumeTerminator(out var terminatorToken);
 
-        return FunctionStatement(modifiers, funcKeyword, identifier, parameterList, returnParameterAnnotation, block, terminatorToken);
+        return FunctionStatement(
+            modifiers,
+            funcKeyword,
+            identifier,
+            parameterList,
+            returnParameterAnnotation,
+            block,
+            expressionBody,
+            terminatorToken);
     }
 
     private SyntaxList ParseFunctionModifiers()

@@ -5180,10 +5180,53 @@ partial class BlockBinder : Binder
         // Register the symbol in the current scope
         var symbol = functionBinder.GetMethodSymbol();
 
-        // Bind the body with method binder
         var methodBinder = functionBinder.GetMethodBodyBinder();
-        var blockBinder = (BlockBinder)SemanticModel.GetBinder(function.Body, methodBinder);
-        blockBinder.BindBlockStatement(function.Body);
+
+        if (function.Body is not null)
+        {
+            var blockBinder = (BlockBinder)SemanticModel.GetBinder(function.Body, methodBinder);
+            blockBinder.BindBlockStatement(function.Body);
+        }
+        else if (function.ExpressionBody is not null)
+        {
+            var expressionBinder = (BlockBinder)SemanticModel.GetBinder(function.ExpressionBody, methodBinder);
+            var expression = expressionBinder.BindExpression(function.ExpressionBody.Expression, allowReturn: true);
+            var returnType = symbol.ReturnType;
+            var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+            var statements = new List<BoundStatement>(capacity: 1);
+
+            if (SymbolEqualityComparer.Default.Equals(returnType, unitType) || returnType.SpecialType == SpecialType.System_Void)
+            {
+                var statement = expressionBinder.ExpressionToStatement(expression);
+                statements.Add(statement);
+            }
+            else
+            {
+                var converted = expression;
+                var skipReturnConversions = symbol is SourceMethodSymbol { HasAsyncReturnTypeError: true };
+
+                if (!skipReturnConversions && converted.Type is not null && ShouldAttemptConversion(converted) &&
+                    returnType.TypeKind != TypeKind.Error)
+                {
+                    if (!expressionBinder.IsAssignable(returnType, converted.Type, out var conversion))
+                    {
+                        expressionBinder.Diagnostics.ReportCannotConvertFromTypeToType(
+                            converted.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            function.ExpressionBody.Expression.GetLocation());
+                    }
+                    else
+                    {
+                        converted = expressionBinder.ApplyConversion(converted, returnType, conversion, function.ExpressionBody.Expression);
+                    }
+                }
+
+                statements.Add(new BoundReturnStatement(converted));
+            }
+
+            var boundBlock = new BoundBlockStatement(statements);
+            SemanticModel.CacheBoundNode(function.ExpressionBody, boundBlock);
+        }
 
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
     }
