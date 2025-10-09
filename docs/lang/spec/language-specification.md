@@ -524,18 +524,31 @@ The container name participates in imports just like a static class. Importing
 `StringExt` (for example, `import MyApp.StringExt.*`) makes the declared
 extensions available to lookup in that scope.
 
-Each member inside the body is implicitly an extension method for the type
-spelled in the `for` clause. The compiler synthesizes a `self` parameter whose
-type matches the receiver and passes it as the first argument whenever the
-extension is invoked. The `self` parameter behaves like a `let` binding: it
-cannot be reassigned but may be used to access members or forwarded to other
-calls. Extension members default to `public` accessibility and may be marked
-`internal` to restrict their visibility; other modifiers are rejected. As a
-result, extensions cannot declare `protected`, `private`, or `static` members.
+Each member inside the body is implicitly an extension member for the type
+spelled in the `for` clause. Members may be function declarations or computed
+properties. The compiler synthesizes a `self` parameter whose type matches the
+receiver and passes it as the first argument whenever the member is invoked.
+The `self` parameter behaves like a `let` binding: it cannot be reassigned but
+may be used to access members or forwarded to other calls. Extension members
+default to `public` accessibility and may be marked `internal` to restrict
+their visibility; other modifiers are rejected. As a result, extensions cannot
+declare `protected`, `private`, or `static` members.
 
-> Future work: allowing `static` members and properties inside an `extension`
-> declaration would enable helper factories and cached data. Those forms are
-> currently rejected but reserved for evolution.
+```raven
+extension ListExt for List<int>
+{
+    CountPlusOne: int
+    {
+        get => self.Count + 1
+        set => self.Add(value)
+    }
+}
+```
+
+Extension properties must provide accessor bodies because the declaration has
+no state of its own—auto-properties are rejected. Both accessors observe the
+receiver through the synthesized `self` parameter, and setters receive a
+trailing `value` parameter that represents the assigned expression.
 
 #### Extension methods
 
@@ -598,6 +611,19 @@ extensions produce the same `RAV1xxx` diagnostics emitted for ordinary method
 lookups. Lambdas supplied to extension method parameters participate in the same
 delegate inference as other calls; Raven replays the lambda for each candidate
 signature until one succeeds.
+
+#### Extension properties
+
+Extension properties participate in member lookup alongside methods. When a
+property access such as `expr.Member` fails to bind to an instance property,
+Raven considers imported extension properties whose synthesized `self`
+parameter can accept the receiver. Successful binding rewrites the access to
+call the accessor extension method (for example, `get_Member(self)`), and
+assignments translate to setter invocations that pass both `self` and the
+assigned value. Overload resolution prefers instance properties over
+extensions, mirroring the method rules. Extension properties are accessor-only:
+they cannot declare backing storage, and both accessors must be implemented
+with bodies or expression clauses.
 
 #### Pipe operator
 
