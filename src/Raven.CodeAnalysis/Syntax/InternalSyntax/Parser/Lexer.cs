@@ -264,6 +264,12 @@ internal class Lexer : ILexer
                         return new Token(SyntaxKind.EqualsToken, chStr);
 
                     case '|':
+                        if (PeekChar(out ch2) && ch2 == '>')
+                        {
+                            ReadChar();
+                            return new Token(SyntaxKind.PipeToken, "|>");
+                        }
+
                         return new Token(SyntaxKind.BarToken, chStr);
 
                     case '!':

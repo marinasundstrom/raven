@@ -563,6 +563,32 @@ lookups. Lambdas supplied to extension method parameters participate in the same
 delegate inference as other calls; Raven replays the lambda for each candidate
 signature until one succeeds.
 
+#### Pipe operator
+
+Raven also supports a pipeline form that feeds the left-hand value into a call
+on the right. The operator has the lowest precedence among binary operators and
+associates left-to-right, so a chain such as `source |> First() |> Second()`
+evaluates `source`, passes it to `First`, then pipes the result into `Second`.
+
+```raven
+let result = 5 |> MathHelpers.Increment(2)
+
+public static class MathHelpers {
+    public static Increment(x: int, amount: int) -> int {
+        return x + amount
+    }
+}
+```
+
+The pipe operator requires the right-hand side to be an invocation expression.
+If the syntax does not form a call, diagnostic `RAV2800` is issued.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2687-L2696】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L19-L23】
+
+When the invocation resolves to an extension method, the left expression becomes
+the extension receiver, mirroring `value.Extension()` syntax. Otherwise the
+compiler prepends the piped value as the first argument before overload
+resolution runs, so ordinary static helpers that expect a leading value parameter
+remain callable through pipelines.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2698-L2768】
+
 ### Object creation
 
 Objects are created by **calling the type name** directly, just like any

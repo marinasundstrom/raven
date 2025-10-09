@@ -95,6 +95,9 @@ internal class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.PercentToken:
                 return SyntaxKind.ModuloExpression;
 
+            case SyntaxKind.PipeToken:
+                return SyntaxKind.PipeExpression;
+
             case SyntaxKind.EqualsEqualsToken:
                 return SyntaxKind.EqualsExpression;
 

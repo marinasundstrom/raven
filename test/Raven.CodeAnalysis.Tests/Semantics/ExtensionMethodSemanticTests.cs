@@ -31,6 +31,7 @@ namespace Sample.Extensions {
             return x + x
         }
     }
+
 }
 """;
 
@@ -1318,5 +1319,92 @@ public static class Extensions {
         Assert.True(SymbolEqualityComparer.Default.Equals(
             boundInvocation.Method.Parameters[0].Type,
             boundInvocation.ExtensionReceiver!.Type));
+    }
+
+    [Fact]
+    public void PipeOperator_WithExtensionMethod_BindsInvocation()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let value = 10
+let doubled = value |> Double()
+
+public static class NumberExtensions {
+    [ExtensionAttribute]
+    public static Double(x: int) -> int {
+        return x * 2
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.True(boundPipeline.Method.IsExtensionMethod);
+        Assert.NotNull(boundPipeline.ExtensionReceiver);
+        Assert.Empty(boundPipeline.Arguments);
+    }
+
+    [Fact]
+    public void PipeOperator_WithStaticMethod_PrependsArgument()
+    {
+        const string source = """
+let start = 3
+let result = start |> MathHelpers.Increment(2)
+
+public static class MathHelpers {
+    public static Increment(x: int, amount: int) -> int {
+        return x + amount
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, arguments[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, arguments[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithNonInvocationTarget_ReportsDiagnostic()
+    {
+        const string source = """
+let value = 10
+let result = value |> 5
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("RAV2800", diagnostic.Descriptor.Id);
     }
 }
