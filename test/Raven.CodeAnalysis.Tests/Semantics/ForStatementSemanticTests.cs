@@ -3,6 +3,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Testing;
 
 using Shouldly;
@@ -46,9 +47,65 @@ for each member in members.Where(x => x.Name.Equals("Equals")) {
         boundFor.Iteration.ElementType.ContainingNamespace!.Name.ShouldBe("Reflection");
         boundFor.Iteration.ElementType.ContainingNamespace!.ContainingNamespace?.Name.ShouldBe("System");
 
-        boundFor.Local.Type.Name.ShouldBe("MemberInfo");
-        boundFor.Local.Type.ContainingNamespace.ShouldNotBeNull();
-        boundFor.Local.Type.ContainingNamespace!.Name.ShouldBe("Reflection");
-        boundFor.Local.Type.ContainingNamespace!.ContainingNamespace?.Name.ShouldBe("System");
+        boundFor.Local.ShouldNotBeNull();
+        var loopVariable = boundFor.Local!;
+        loopVariable.Type.Name.ShouldBe("MemberInfo");
+        loopVariable.Type.ContainingNamespace.ShouldNotBeNull();
+        loopVariable.Type.ContainingNamespace!.Name.ShouldBe("Reflection");
+        loopVariable.Type.ContainingNamespace!.ContainingNamespace?.Name.ShouldBe("System");
+    }
+
+    [Fact]
+    public void ForEach_WithDiscardIdentifier_DoesNotCreateLocal()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+let numbers = List<System.Int32>()
+
+for each _ in numbers {
+    let value = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        boundFor.Local.ShouldBeNull();
+        boundFor.Iteration.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
+    }
+
+    [Fact]
+    public void ForEach_WithoutIdentifier_DoesNotCreateLocal()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+let numbers = List<System.Int32>()
+
+for each in numbers {
+    let value = 0
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        boundFor.Local.ShouldBeNull();
+        boundFor.Iteration.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
     }
 }

@@ -4,13 +4,13 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundForStatement : BoundStatement
 {
-    public ILocalSymbol Local { get; }
+    public ILocalSymbol? Local { get; }
     public ForIterationInfo Iteration { get; }
     public BoundExpression Collection { get; }
     public BoundStatement Body { get; }
 
     public BoundForStatement(
-        ILocalSymbol local,
+        ILocalSymbol? local,
         ForIterationInfo iteration,
         BoundExpression collection,
         BoundStatement body)

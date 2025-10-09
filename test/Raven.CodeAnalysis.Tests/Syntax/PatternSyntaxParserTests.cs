@@ -142,9 +142,10 @@ let result = value match {
         var tree = SyntaxTree.ParseText(code);
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var sourceText = tree.GetText() ?? throw new InvalidOperationException("Missing source text for syntax tree.");
-        var pattern = match.Arms
-            .Select(arm => arm.Pattern)
-            .Single(p => sourceText.ToString(p.Span) == patternText);
+        var pattern = match.Arms.First().Pattern;
+        if (sourceText.ToString(pattern.Span) != patternText)
+            throw new InvalidOperationException($"Unable to locate pattern '{patternText}'.");
+
         return (pattern, tree);
     }
 

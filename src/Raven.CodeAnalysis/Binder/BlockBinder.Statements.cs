@@ -211,7 +211,11 @@ partial class BlockBinder
 
         var iteration = ClassifyForIteration(collection);
 
-        var local = loopBinder.CreateLocalSymbol(forStmt, forStmt.Identifier.ValueText, isMutable: false, iteration.ElementType);
+        ILocalSymbol? local = null;
+        if (forStmt.Identifier.Kind is not SyntaxKind.None and not SyntaxKind.UnderscoreToken)
+        {
+            local = loopBinder.CreateLocalSymbol(forStmt, forStmt.Identifier.ValueText, isMutable: false, iteration.ElementType);
+        }
 
         var body = loopBinder.BindStatementInLoop(forStmt.Body);
 

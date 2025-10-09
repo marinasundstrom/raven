@@ -112,4 +112,40 @@ public class LanguageParserTest(ITestOutputHelper testOutputHelper)
         forStmt!.Identifier.Text.ShouldBe("x");
         forStmt.EachKeyword.Kind.ShouldBe(SyntaxKind.EachKeyword);
     }
+
+    [Fact]
+    public void ParseForEachWithDiscardIdentifier()
+    {
+        var code = """
+                   let arr = [1, 2, 3];
+                   for each _ in arr {
+                       0
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.Identifier.Kind.ShouldBe(SyntaxKind.UnderscoreToken);
+    }
+
+    [Fact]
+    public void ParseForEachWithoutIdentifier()
+    {
+        var code = """
+                   let arr = [1, 2, 3];
+                   for each in arr {
+                       0
+                   }
+                   """;
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var root = syntaxTree.GetRoot();
+
+        var forStmt = root.DescendantNodes().OfType<ForStatementSyntax>().FirstOrDefault();
+        forStmt.ShouldNotBeNull();
+        forStmt!.Identifier.Kind.ShouldBe(SyntaxKind.None);
+    }
 }

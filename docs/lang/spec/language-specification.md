@@ -722,8 +722,21 @@ for item in items {
 `for` evaluates the collection once, then executes the body for every element.
 When iterating over arrays, the element type comes from the array's element
 type. Other collections are currently treated as `System.Collections.IEnumerable`
-and default the iteration variable to `object`. Like other looping constructs, a
-`for` expression evaluates to `()`.
+and default the iteration variable to `object`. If the element value is unused, the
+iteration variable may be written as `_` or omitted entirely:
+
+```raven
+for each _ in items {
+    log("processing")
+}
+
+for each in items {
+    log("processing")
+}
+```
+
+Both forms still enumerate the collection but do not introduce a new binding.
+Like other looping constructs, a `for` expression evaluates to `()`.
 
 ### `break` and `continue`
 

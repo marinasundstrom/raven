@@ -195,7 +195,7 @@
   <Node Name="ForStatement" Inherits="Statement">
     <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword"/>
     <Slot Name="EachKeyword" Type="Token" DefaultToken="EachKeyword" IsOptionalToken="true"/>
-    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" />
     <Slot Name="InKeyword" Type="Token" DefaultToken="InKeyword"/>
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="Body" Type="Statement" />

@@ -368,7 +368,16 @@ internal class StatementSyntaxParser : SyntaxParser
             eachKeyword = Token(SyntaxKind.None);
 
         SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
+        var current = PeekToken();
+        if (current.Kind is SyntaxKind.InKeyword)
+        {
+            identifier = Token(SyntaxKind.None);
+        }
+        else if (current.Kind is SyntaxKind.UnderscoreToken)
+        {
+            identifier = ReadToken();
+        }
+        else if (CanTokenBeIdentifier(current))
         {
             identifier = ReadIdentifierToken();
         }
