@@ -5,7 +5,7 @@ import System.Linq.*
 let r = typeof(System.Object)
 WriteLine(r)
 
-let members = r.GetMembers()
+let members = r.GetMembers(.Public)
 
 for member in members.Where(x => x.Name.Equals("Equals")) {
     WriteLine(member.Name)
