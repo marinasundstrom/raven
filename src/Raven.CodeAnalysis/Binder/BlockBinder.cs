@@ -2641,9 +2641,12 @@ partial class BlockBinder : Binder
     private BoundExpression BindBinaryExpression(BinaryExpressionSyntax syntax)
     {
         var left = BindExpression(syntax.Left);
-        var right = BindExpression(syntax.Right);
-
         var opKind = syntax.OperatorToken.Kind;
+
+        if (opKind == SyntaxKind.PipeToken)
+            return BindPipeExpression(left, syntax);
+
+        var right = BindExpression(syntax.Right);
 
         // 1. Specialfall: string + any → string-konkatenering
         if (opKind == SyntaxKind.PlusToken)
@@ -2696,6 +2699,263 @@ partial class BlockBinder : Binder
             syntax.OperatorToken.GetLocation());
 
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindPipeExpression(BoundExpression left, BinaryExpressionSyntax syntax)
+    {
+        if (left is BoundErrorExpression)
+            return left;
+
+        if (syntax.Right is InvocationExpressionSyntax invocation)
+        {
+            var boundArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out var hasErrors);
+            if (hasErrors)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+
+            var target = BindPipelineTargetExpression(invocation.Expression);
+
+            if (target is BoundErrorExpression error)
+                return error;
+
+            if (target is BoundMethodGroupExpression methodGroup)
+                return BindPipelineInvocationOnMethodGroup(methodGroup, invocation, syntax.Left, left, boundArguments);
+
+            if (target is BoundMemberAccessExpression { Member: IMethodSymbol } memberExpr)
+                return BindPipelineInvocationOnBoundMethod(memberExpr, invocation, syntax.Left, left, boundArguments);
+
+            _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
+        var propertyTarget = BindPipelineTargetExpression(syntax.Right);
+
+        if (propertyTarget is BoundErrorExpression propertyError)
+            return propertyError;
+
+        if (propertyTarget is BoundMemberAccessExpression { Member: IPropertySymbol } or BoundPropertyAccess)
+            return BindPipelinePropertyAssignment(propertyTarget, syntax.Left, left, syntax.Right);
+
+        _diagnostics.ReportPipeRequiresInvocation(syntax.OperatorToken.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindPipelineTargetExpression(ExpressionSyntax expression)
+        => expression switch
+        {
+            MemberAccessExpressionSyntax memberAccess => BindMemberAccessExpression(memberAccess),
+            MemberBindingExpressionSyntax memberBinding => BindMemberBindingExpression(memberBinding),
+            GenericNameSyntax generic => BindGenericInvocationTarget(generic),
+            IdentifierNameSyntax identifier => BindIdentifierName(identifier),
+            _ => BindExpression(expression),
+        };
+
+    private BoundExpression BindPipelinePropertyAssignment(
+        BoundExpression target,
+        ExpressionSyntax pipelineSyntax,
+        BoundExpression pipelineValue,
+        ExpressionSyntax propertySyntax)
+    {
+        IPropertySymbol? propertySymbol = target switch
+        {
+            BoundMemberAccessExpression { Member: IPropertySymbol property } => property,
+            BoundPropertyAccess propertyAccess => propertyAccess.Property,
+            _ => null,
+        };
+
+        if (propertySymbol is null)
+        {
+            _diagnostics.ReportPipeRequiresInvocation(propertySyntax.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
+        SourceFieldSymbol? backingField = null;
+
+        if (propertySymbol.SetMethod is null &&
+            !TryGetWritableAutoPropertyBackingField(propertySymbol, target, out backingField))
+        {
+            _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, propertySyntax.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
+        if (pipelineValue.Type is { } pipelineType &&
+            propertySymbol.Type.TypeKind != TypeKind.Error &&
+            ShouldAttemptConversion(pipelineValue))
+        {
+            if (!IsAssignable(propertySymbol.Type, pipelineType, out var conversion))
+            {
+                _diagnostics.ReportCannotAssignFromTypeToType(
+                    pipelineType.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    propertySymbol.Type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    pipelineSyntax.GetLocation());
+                return new BoundErrorExpression(propertySymbol.Type, null, BoundExpressionReason.TypeMismatch);
+            }
+
+            pipelineValue = ApplyConversion(pipelineValue, propertySymbol.Type, conversion, pipelineSyntax);
+        }
+
+        var receiver = GetReceiver(target);
+
+        if (backingField is not null)
+            return new BoundFieldAssignmentExpression(receiver, backingField, pipelineValue);
+
+        return new BoundPropertyAssignmentExpression(receiver, propertySymbol, pipelineValue);
+    }
+
+    private BoundExpression BindGenericInvocationTarget(GenericNameSyntax generic)
+    {
+        var boundTypeArguments = TryBindTypeArguments(generic);
+        if (boundTypeArguments is null)
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+        var symbolCandidates = LookupSymbols(generic.Identifier.ValueText)
+            .OfType<IMethodSymbol>()
+            .ToImmutableArray();
+
+        if (!symbolCandidates.IsDefaultOrEmpty)
+        {
+            var instantiated = InstantiateMethodCandidates(symbolCandidates, boundTypeArguments.Value, generic, generic.GetLocation());
+            if (!instantiated.IsDefaultOrEmpty)
+                return CreateMethodGroup(null, instantiated);
+        }
+
+        return BindTypeSyntax(generic);
+    }
+
+    private BoundExpression BindPipelineInvocationOnMethodGroup(
+        BoundMethodGroupExpression methodGroup,
+        InvocationExpressionSyntax invocation,
+        ExpressionSyntax pipelineSyntax,
+        BoundExpression pipelineValue,
+        BoundExpression[] boundArguments)
+    {
+        var methodName = methodGroup.Methods[0].Name;
+        var extensionCandidates = methodGroup.Methods
+            .Where(static m => m.IsExtensionMethod)
+            .ToImmutableArray();
+        var staticCandidates = methodGroup.Methods
+            .Where(static m => m.IsStatic && !m.IsExtensionMethod)
+            .ToImmutableArray();
+
+        if (!extensionCandidates.IsDefaultOrEmpty && IsExtensionReceiver(pipelineValue))
+        {
+            var resolution = OverloadResolver.ResolveOverload(extensionCandidates, boundArguments, Compilation, pipelineValue, EnsureLambdaCompatible);
+            if (resolution.Success)
+            {
+                var method = resolution.Method!;
+                var converted = ConvertInvocationArguments(
+                    method,
+                    boundArguments,
+                    invocation.ArgumentList.Arguments,
+                    pipelineValue,
+                    pipelineSyntax,
+                    out var convertedExtensionReceiver);
+                return new BoundInvocationExpression(method, converted, methodGroup.Receiver, convertedExtensionReceiver);
+            }
+
+            if (resolution.IsAmbiguous)
+            {
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, invocation.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+            }
+        }
+
+        if (!staticCandidates.IsDefaultOrEmpty)
+        {
+            var totalArguments = new BoundExpression[boundArguments.Length + 1];
+            totalArguments[0] = pipelineValue;
+            Array.Copy(boundArguments, 0, totalArguments, 1, boundArguments.Length);
+
+            var resolution = OverloadResolver.ResolveOverload(staticCandidates, totalArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
+            if (resolution.Success)
+            {
+                var method = resolution.Method!;
+                var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, invocation);
+                return new BoundInvocationExpression(method, convertedArguments, methodGroup.Receiver);
+            }
+
+            if (resolution.IsAmbiguous)
+            {
+                _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, invocation.GetLocation());
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+            }
+
+            ReportSuppressedLambdaDiagnostics(totalArguments);
+            _diagnostics.ReportNoOverloadForMethod(methodName, totalArguments.Length, invocation.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+        }
+
+        ReportSuppressedLambdaDiagnostics(new[] { pipelineValue }.Concat(boundArguments));
+        _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length + 1, invocation.GetLocation());
+        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    private BoundExpression BindPipelineInvocationOnBoundMethod(
+        BoundMemberAccessExpression memberExpr,
+        InvocationExpressionSyntax invocation,
+        ExpressionSyntax pipelineSyntax,
+        BoundExpression pipelineValue,
+        BoundExpression[] boundArguments)
+    {
+        if (memberExpr.Member is not IMethodSymbol method)
+        {
+            _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
+        if (method.IsExtensionMethod && IsExtensionReceiver(pipelineValue))
+        {
+            var converted = ConvertInvocationArguments(
+                method,
+                boundArguments,
+                invocation.ArgumentList.Arguments,
+                pipelineValue,
+                pipelineSyntax,
+                out var convertedExtensionReceiver);
+            return new BoundInvocationExpression(method, converted, memberExpr.Receiver, convertedExtensionReceiver);
+        }
+
+        if (!method.IsStatic)
+        {
+            _diagnostics.ReportInvalidInvocation(invocation.Expression.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
+        }
+
+        var totalCount = boundArguments.Length + 1;
+        if (!SupportsArgumentCount(method.Parameters, totalCount))
+        {
+            ReportSuppressedLambdaDiagnostics(new[] { pipelineValue }.Concat(boundArguments));
+            _diagnostics.ReportNoOverloadForMethod(method.Name, totalCount, invocation.GetLocation());
+            return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+        }
+
+        var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, invocation);
+        return new BoundInvocationExpression(method, convertedArguments, memberExpr.Receiver);
+    }
+
+    private BoundExpression[] ConvertPipelineStaticInvocationArguments(
+        IMethodSymbol method,
+        BoundExpression pipelineValue,
+        ExpressionSyntax pipelineSyntax,
+        BoundExpression[] remainingArguments,
+        InvocationExpressionSyntax invocation)
+    {
+        var parameters = method.Parameters;
+        var converted = new BoundExpression[parameters.Length];
+
+        if (parameters.Length == 0)
+            return converted;
+
+        converted[0] = ConvertSingleArgument(pipelineValue, parameters[0], pipelineSyntax);
+
+        if (parameters.Length == 1)
+            return converted;
+
+        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments, invocation.ArgumentList.Arguments);
+        Array.Copy(rest, 0, converted, 1, rest.Length);
+        for (int i = 1 + rest.Length; i < converted.Length; i++)
+            converted[i] = CreateOptionalArgument(parameters[i]);
+
+        return converted;
     }
 
     private IMethodSymbol? ResolveStringConcatMethod(BoundExpression left, BoundExpression right)

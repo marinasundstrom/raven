@@ -563,6 +563,58 @@ lookups. Lambdas supplied to extension method parameters participate in the same
 delegate inference as other calls; Raven replays the lambda for each candidate
 signature until one succeeds.
 
+#### Pipe operator
+
+Raven also supports a pipeline form that feeds the left-hand value into a call
+on the right. The operator has the lowest precedence among binary operators and
+associates left-to-right, so a chain such as `source |> First() |> Second()`
+evaluates `source`, passes it to `First`, then pipes the result into `Second`.
+
+```raven
+let result = 5 |> Square() |> AddOne()
+
+let result = AddOne(Square(5))
+```
+
+When the pipeline targets an invocation, the syntax mirrors a regular call:
+
+```raven
+let result = 5 |> MathHelpers.Increment(2)
+
+public static class MathHelpers {
+    public static Increment(x: int, amount: int) -> int {
+        return x + amount
+    }
+}
+```
+
+The pipe operator accepts either an invocation or a property access with a setter on the right-hand side. If the syntax does not form either shape, diagnostic `RAV2800` is issued.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2690-L2766】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L19-L23】
+
+If the pipeline targets a property, Raven assigns the left expression to that property through its setter before producing the property's type as the result of the pipe expression. Both instance and static properties are supported:
+
+```raven
+let container = Container()
+let _ = 42 |> container.Value
+let _ = 42 |> Container.Count
+
+public class Container {
+    public Value: int { get; set; }
+    public static Count: int { get; set; }
+}
+```
+
+When the invocation resolves to an extension method, the left expression becomes
+the extension receiver, mirroring `value.Extension()` syntax. Otherwise the
+compiler prepends the piped value as the first argument before overload
+resolution runs, so ordinary static helpers that expect a leading value parameter
+remain callable through pipelines.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2698-L2768】
+
+Pipeline targets participate in normal name lookup, so the operator can call
+members brought into scope by `import` directives (including static imports) as
+well as top-level `func` declarations. Because overload resolution still sees
+the piped value as the first argument, generic methods can infer type arguments
+from that value without any additional annotations.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2724-L2768】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExtensionMethodSemanticTests.cs†L1396-L1507】
+
 ### Object creation
 
 Objects are created by **calling the type name** directly, just like any

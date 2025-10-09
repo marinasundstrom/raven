@@ -18,6 +18,9 @@
   <Descriptor Id="RAV0030" Identifier="InvalidInvocation" Title="Invalid invocation"
     Message="Invalid invocation expression." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2800" Identifier="PipeRequiresInvocation" Title="Pipe target must be invocable"
+    Message="The pipe operator requires an invocation or settable property access on the right-hand side" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0103" Identifier="TheNameDoesNotExistInTheCurrentContext"
     Title="The name does not exist in the current context"
     Message="The name '{name}' does not exist in the current context" Category="compiler"

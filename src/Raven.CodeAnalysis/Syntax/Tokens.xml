@@ -86,6 +86,7 @@
   <TokenKind Name="CaretToken" Text="^" />
   <TokenKind Name="AmpersandToken" Text="&amp;" IsUnaryOperator="true" />
   <TokenKind Name="BarToken" Text="|" />
+  <TokenKind Name="PipeToken" Text="|>" IsBinaryOperator="true" Precedence="0" />
   <TokenKind Name="UnderscoreToken" Text="_" />
   <TokenKind Name="ExclamationToken" Text="!" IsUnaryOperator="true" />
   <TokenKind Name="QuestionToken" Text="?" />

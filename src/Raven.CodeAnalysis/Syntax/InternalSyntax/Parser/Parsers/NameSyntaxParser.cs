@@ -284,8 +284,20 @@ internal class NameSyntaxParser : SyntaxParser
 
         while (PeekToken().IsKind(SyntaxKind.OpenBracketToken))
         {
-            rankSpecifiers.Add(ParseArrayRankSpecifier());
+            var checkpoint = CreateCheckpoint("array-rank-specifier");
+            var rankSpecifier = ParseArrayRankSpecifier();
+
+            if (rankSpecifier.CloseBracketToken.IsMissing)
+            {
+                checkpoint.Dispose();
+                break;
+            }
+
+            rankSpecifiers.Add(rankSpecifier);
         }
+
+        if (rankSpecifiers.Count == 0)
+            return elementType;
 
         return ArrayType(elementType, List(rankSpecifiers.ToArray()));
     }

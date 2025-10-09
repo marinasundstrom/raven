@@ -31,6 +31,7 @@ namespace Sample.Extensions {
             return x + x
         }
     }
+
 }
 """;
 
@@ -1318,5 +1319,266 @@ public static class Extensions {
         Assert.True(SymbolEqualityComparer.Default.Equals(
             boundInvocation.Method.Parameters[0].Type,
             boundInvocation.ExtensionReceiver!.Type));
+    }
+
+    [Fact]
+    public void PipeOperator_WithExtensionMethod_BindsInvocation()
+    {
+        const string source = """
+import System.Runtime.CompilerServices.*
+
+let value = 10
+let doubled = value |> Double()
+
+public static class NumberExtensions {
+    [ExtensionAttribute]
+    public static Double(x: int) -> int {
+        return x * 2
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.True(boundPipeline.Method.IsExtensionMethod);
+        Assert.NotNull(boundPipeline.ExtensionReceiver);
+        Assert.Empty(boundPipeline.Arguments);
+    }
+
+    [Fact]
+    public void PipeOperator_WithStaticMethod_PrependsArgument()
+    {
+        const string source = """
+let start = 3
+let result = start |> MathHelpers.Increment(2)
+
+public static class MathHelpers {
+    public static Increment(x: int, amount: int) -> int {
+        return x + amount
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithStaticImport_ResolvesImportedMember()
+    {
+        const string source = """
+import System.Math.*
+
+let value = -5
+let result = value |> Abs()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+        Assert.Equal("Abs", boundPipeline.Method.Name);
+        Assert.Equal("Math", boundPipeline.Method.ContainingType?.Name);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Single(arguments);
+        Assert.Equal(SpecialType.System_Int32, arguments[0].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithFunction_ResolvesTopLevelFunction()
+    {
+        const string source = """
+let start = 5
+let result = start |> Increment(2)
+
+func Increment(x: int, amount: int) -> int {
+    return x + amount
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+        Assert.Equal("Increment", boundPipeline.Method.Name);
+        Assert.True(boundPipeline.Method.IsStatic);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithGenericStaticMethod_InfersTypeArgumentFromPipeline()
+    {
+        const string source = """
+let result = 5 |> MathHelpers.Increment(2)
+
+public static class MathHelpers {
+    public static Increment<T>(x: T, amount: int) -> int {
+        return 42 + amount
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+        Assert.Equal("Increment", boundPipeline.Method.Name);
+
+        var typeArguments = boundPipeline.Method.TypeArguments;
+        Assert.Single(typeArguments);
+        Assert.Equal(SpecialType.System_Int32, typeArguments[0].SpecialType);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithInstanceProperty_AssignsThroughSetter()
+    {
+        const string source = """
+let holder = Container()
+let assigned = 5 |> holder.Value
+
+public class Container {
+    public Value: int { get; set; }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundPropertyAssignmentExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Property.IsStatic);
+        Assert.Equal("Value", boundPipeline.Property.Name);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Property.Type, intType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Type, intType));
+        Assert.IsType<BoundLiteralExpression>(boundPipeline.Right);
+    }
+
+    [Fact]
+    public void PipeOperator_WithStaticProperty_AssignsThroughSetter()
+    {
+        const string source = """
+let assigned = 5 |> Container.Count
+
+public class Container {
+    public static Count: int { get; set; }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundPropertyAssignmentExpression>(model.GetBoundNode(pipeline));
+        Assert.True(boundPipeline.Property.IsStatic);
+        Assert.Equal("Count", boundPipeline.Property.Name);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Property.Type, intType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Type, intType));
+        Assert.IsType<BoundLiteralExpression>(boundPipeline.Right);
+    }
+
+    [Fact]
+    public void PipeOperator_WithNonInvocationTarget_ReportsDiagnostic()
+    {
+        const string source = """
+let value = 10
+let result = value |> 5
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("RAV2800", diagnostic.Descriptor.Id);
     }
 }
