@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -31,7 +33,7 @@ internal sealed partial class Lowerer
                 localsBuilder.Add(local);
         }
 
-        return new BoundBlockStatement(rewritten, localsBuilder.MoveToImmutable());
+        return new BoundBlockStatement(rewritten, localsBuilder.ToImmutable());
     }
 
     private ImmutableArray<BoundStatement> RewriteUsingDeclarations(
@@ -41,7 +43,7 @@ internal sealed partial class Lowerer
         if (statements.IsDefaultOrEmpty)
             return statements;
 
-        var builder = ImmutableArray.CreateBuilder<BoundStatement>(statements.Length);
+        var builder = ImmutableArray.CreateBuilder<BoundStatement>();
 
         for (var i = 0; i < statements.Length; i++)
         {
@@ -60,23 +62,87 @@ internal sealed partial class Lowerer
                 var tryBlockStatements = RewriteUsingDeclarations(remaining, handledUsingLocals);
                 var tryBlock = new BoundBlockStatement(tryBlockStatements, ImmutableArray<ILocalSymbol>.Empty);
 
-                var finallyLocalsBuilder = ImmutableArray.CreateBuilder<ILocalSymbol>(declarators.Length);
-                foreach (var declarator in declarators)
-                    finallyLocalsBuilder.Add(declarator.Local);
-
-                var finallyBlock = new BoundBlockStatement(ImmutableArray<BoundStatement>.Empty, finallyLocalsBuilder.MoveToImmutable());
+                var finallyStatements = CreateDisposeStatements(declarators);
+                var finallyBlock = new BoundBlockStatement(finallyStatements, ImmutableArray<ILocalSymbol>.Empty);
                 var tryStatement = new BoundTryStatement(tryBlock, ImmutableArray<BoundCatchClause>.Empty, finallyBlock);
 
                 builder.Add(loweredUsing);
                 builder.Add(tryStatement);
 
-                return builder.MoveToImmutable();
+                return builder.ToImmutable();
             }
 
             builder.Add(statement);
         }
 
-        return builder.MoveToImmutable();
+        return builder.ToImmutable();
+    }
+
+    private ImmutableArray<BoundStatement> CreateDisposeStatements(BoundVariableDeclarator[] declarators)
+    {
+        if (declarators.Length == 0)
+            return ImmutableArray<BoundStatement>.Empty;
+
+        var compilation = GetCompilation();
+        var disposableType = compilation.GetSpecialType(SpecialType.System_IDisposable);
+        if (disposableType.TypeKind == TypeKind.Error)
+            return ImmutableArray<BoundStatement>.Empty;
+
+        var disposeMethod = disposableType
+            .GetMembers(nameof(IDisposable.Dispose))
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m => m.Parameters.Length == 0);
+
+        if (disposeMethod is null)
+            return ImmutableArray<BoundStatement>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<BoundStatement>(declarators.Length);
+
+        for (var i = declarators.Length - 1; i >= 0; i--)
+        {
+            var local = declarators[i].Local;
+            if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
+                continue;
+
+            var disposeStatement = CreateDisposeStatement(local, disposeMethod, compilation);
+            if (disposeStatement is not null)
+                builder.Add(disposeStatement);
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private BoundStatement? CreateDisposeStatement(ILocalSymbol local, IMethodSymbol disposeMethod, Compilation compilation)
+    {
+        if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
+            return null;
+
+        var disposeCall = new BoundExpressionStatement(
+            new BoundInvocationExpression(disposeMethod, Array.Empty<BoundExpression>(), new BoundLocalAccess(local)));
+
+        if (local.Type.IsReferenceType || local.Type.TypeKind == TypeKind.Null)
+        {
+            var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, local.Type);
+
+            if (BoundBinaryOperator.TryLookup(compilation, SyntaxKind.NotEqualsToken, local.Type, local.Type, out var notEquals))
+            {
+                var condition = new BoundBinaryExpression(new BoundLocalAccess(local), notEquals, nullLiteral);
+                return new BoundIfStatement(condition, new BoundBlockStatement(new[] { disposeCall }));
+            }
+
+            var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
+            var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+            if (booleanType.TypeKind == TypeKind.Error || objectType.TypeKind == TypeKind.Error)
+                return disposeCall;
+
+            var nullLiteralType = new LiteralTypeSymbol(objectType, constantValue: null!, compilation);
+            var nullPattern = new BoundConstantPattern(nullLiteralType);
+            var notNullPattern = new BoundNotPattern(nullPattern);
+            var condition = new BoundIsPatternExpression(new BoundLocalAccess(local), notNullPattern, booleanType);
+            return new BoundIfStatement(condition, new BoundBlockStatement(new[] { disposeCall }));
+        }
+
+        return disposeCall;
     }
 
     public override BoundNode? VisitIfStatement(BoundIfStatement node)
