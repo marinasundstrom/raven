@@ -8,8 +8,8 @@ When interacting with .NET, methods that return `void` are projected as returnin
 ## Return statements
 A `return` without an expression in a method that returns `unit` emits IL with no value. If the underlying method returns `void`, `Unit.Value` is loaded to produce a `unit` result before the `ret` instruction.
 
-## Extension methods
-Raven both declares and consumes extension methods using the CLR's
+## Extension members
+Raven both declares and consumes extension members using the CLR's
 `ExtensionAttribute`. Source extensions arise from two forms:
 
 * An `extension` declaration emits a `static` class named after the container.
@@ -20,10 +20,17 @@ Raven both declares and consumes extension methods using the CLR's
 * Existing static methods annotated with `[Extension]` continue to be recognised
   as extensions.
 
+Computed properties declared inside an `extension` body lower to accessor
+methods that follow the same pattern. The compiler synthesizes `get_` and
+`set_` methods, inserts the receiver as the leading parameter, and marks each
+accessor with `ExtensionAttribute`. Property metadata is emitted alongside the
+accessors so reflection reports a property with the expected accessor pair even
+though the backing logic is implemented by static methods.
+
 In both cases the attribute ensures the metadata matches C#'s expectations.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】 When binding a
 member-style invocation, Raven merges instance methods with any imported
 extensions that can accept the receiver, then rewrites the call to pass the
-receiver as the leading static argument during lowering and IL emission.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】
+receiver as the leading static argument during lowering and IL emission.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】 The same rewrite applies to extension-property access: getters become static calls that receive the target as their first argument, and setters pass both the target and assigned value to the synthesized method.
 
 The CLI ships with regression coverage that compiles and runs extension-heavy
 programs, including LINQ-style pipelines that rely on lambda arguments, to
