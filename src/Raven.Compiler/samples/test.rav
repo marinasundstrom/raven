@@ -3,6 +3,13 @@ import System.Console.*
 
 let z = 2;
 
-let makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a + z
+let a = (x: int) => x + z
+let b = (x: int) -> int => x + z
+
+let makeAdder = (x: int) -> int -> int => (a: int) => x + a + z
+//let makeAdder = (x: int) -> Func<int, int> => (a: int) => x + a + z
 
 WriteLine(makeAdder(2)(3))
+
+WriteLine(a(3))
+WriteLine(b(3))
