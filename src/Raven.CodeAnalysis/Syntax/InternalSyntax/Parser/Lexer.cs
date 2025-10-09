@@ -409,8 +409,10 @@ internal class Lexer : ILexer
                                 diagnostics: diagnostics);
                         }
 
-                    case '\"':
+                    case '"':
                         _stringBuilder.Append(ch); // Append opening quote
+
+                        var interpolationDepth = 0;
 
                         while (true)
                         {
@@ -425,7 +427,7 @@ internal class Lexer : ILexer
 
                             ReadChar();
 
-                            if (ch2 == '\"') // Found closing quote
+                            if (ch2 == '"' && interpolationDepth == 0) // Found closing quote
                             {
                                 _stringBuilder.Append(ch2);
                                 break;
@@ -466,6 +468,37 @@ internal class Lexer : ILexer
 
                                 _stringBuilder.Append(escaped);
                                 continue;
+                            }
+
+                            if (interpolationDepth == 0 && ch2 == '$')
+                            {
+                                _stringBuilder.Append(ch2);
+
+                                if (PeekChar(out var next) && next == '{')
+                                {
+                                    ReadChar();
+                                    _stringBuilder.Append(next);
+                                    interpolationDepth = 1;
+                                }
+
+                                continue;
+                            }
+
+                            if (interpolationDepth > 0)
+                            {
+                                if (ch2 == '{')
+                                {
+                                    _stringBuilder.Append(ch2);
+                                    interpolationDepth++;
+                                    continue;
+                                }
+
+                                if (ch2 == '}')
+                                {
+                                    _stringBuilder.Append(ch2);
+                                    interpolationDepth--;
+                                    continue;
+                                }
                             }
 
                             _stringBuilder.Append(ch2);
