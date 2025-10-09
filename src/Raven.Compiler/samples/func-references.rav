@@ -1,0 +1,9 @@
+import System.Console.*
+
+let foo = Foo
+
+WriteLine("Test")
+
+func Foo(x: int) -> int {
+    return x + 1
+}
