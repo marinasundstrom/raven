@@ -285,8 +285,15 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldc_I4_0);
         ILGenerator.Emit(OpCodes.Stloc, indexLocal);
 
-        var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
-        scope.AddLocal(forStatement.Local, elementLocal);
+        var loopLocal = forStatement.Local;
+        var elementType = loopLocal?.Type ?? forStatement.Iteration.ElementType;
+
+        IILocal? elementLocal = null;
+        if (loopLocal is not null)
+        {
+            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementType));
+            scope.AddLocal(loopLocal, elementLocal);
+        }
 
         ILGenerator.MarkLabel(beginLabel);
 
@@ -298,8 +305,11 @@ internal class StatementGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        EmitLoadElement(forStatement.Local.Type);
-        ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        EmitLoadElement(elementType);
+        if (elementLocal is not null)
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        else
+            ILGenerator.Emit(OpCodes.Pop);
 
         new StatementGenerator(scope, forStatement.Body).Emit();
 
@@ -333,8 +343,14 @@ internal class StatementGenerator : Generator
         var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorClrType);
         ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
 
-        var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
-        scope.AddLocal(forStatement.Local, elementLocal);
+        var loopLocal = forStatement.Local;
+        var elementType = loopLocal?.Type ?? forStatement.Iteration.ElementType;
+        IILocal? elementLocal = null;
+        if (loopLocal is not null)
+        {
+            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementType));
+            scope.AddLocal(loopLocal, elementLocal);
+        }
 
         ILGenerator.MarkLabel(beginLabel);
 
@@ -352,7 +368,10 @@ internal class StatementGenerator : Generator
             ?? throw new InvalidOperationException("Missing IEnumerator<T>.Current getter.");
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, currentGetter);
-        ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        if (elementLocal is not null)
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        else
+            ILGenerator.Emit(OpCodes.Pop);
 
         new StatementGenerator(scope, forStatement.Body).Emit();
 
@@ -383,8 +402,14 @@ internal class StatementGenerator : Generator
         var enumeratorLocal = ILGenerator.DeclareLocal(enumeratorClrType);
         ILGenerator.Emit(OpCodes.Stloc, enumeratorLocal);
 
-        var elementLocal = ILGenerator.DeclareLocal(ResolveClrType(forStatement.Local.Type));
-        scope.AddLocal(forStatement.Local, elementLocal);
+        var loopLocal = forStatement.Local;
+        var elementType = loopLocal?.Type ?? forStatement.Iteration.ElementType;
+        IILocal? elementLocal = null;
+        if (loopLocal is not null)
+        {
+            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementType));
+            scope.AddLocal(loopLocal, elementLocal);
+        }
 
         ILGenerator.MarkLabel(beginLabel);
 
@@ -401,12 +426,15 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, currentProp.GetClrMethodInfo(MethodGenerator.TypeGenerator.CodeGen));
 
-        var localClr = ResolveClrType(forStatement.Local.Type);
+        var localClr = ResolveClrType(elementType);
         if (localClr.IsValueType)
             ILGenerator.Emit(OpCodes.Unbox_Any, localClr);
         else
             ILGenerator.Emit(OpCodes.Castclass, localClr);
-        ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        if (elementLocal is not null)
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        else
+            ILGenerator.Emit(OpCodes.Pop);
 
         new StatementGenerator(scope, forStatement.Body).Emit();
 

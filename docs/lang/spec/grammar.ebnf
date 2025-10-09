@@ -140,7 +140,8 @@ ExpressionStatement      ::= Expression ;
 
 IfStatement              ::= 'if' Expression Statement ['else' Statement] ;
 WhileStatement           ::= 'while' Expression Statement ;
-ForStatement             ::= 'for' 'each'? Identifier 'in' Expression Statement ;
+ForStatement             ::= 'for' 'each'? ForIterationVariable? 'in' Expression Statement ;
+ForIterationVariable     ::= Identifier | '_' ;
 
 TryStatement             ::= 'try' Block (CatchClauseList [FinallyClause] | FinallyClause) ;
 CatchClauseList          ::= CatchClause {CatchClause} ;

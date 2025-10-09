@@ -1404,7 +1404,8 @@ internal static class AsyncLowerer
             VisitExpression(node.Collection);
 
             _scopes.Push(new Scope(ImmutableArray<ILocalSymbol>.Empty));
-            DeclareLocal(node.Local, isUsing: false);
+            if (node.Local is not null)
+                DeclareLocal(node.Local, isUsing: false);
             VisitStatement(node.Body);
             _scopes.Pop();
         }
