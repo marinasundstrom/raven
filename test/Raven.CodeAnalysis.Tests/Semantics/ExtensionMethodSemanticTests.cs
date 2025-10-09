@@ -1502,6 +1502,71 @@ public static class MathHelpers {
     }
 
     [Fact]
+    public void PipeOperator_WithInstanceProperty_AssignsThroughSetter()
+    {
+        const string source = """
+let holder = Container()
+let assigned = 5 |> holder.Value
+
+public class Container {
+    public Value: int { get; set; }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundPropertyAssignmentExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Property.IsStatic);
+        Assert.Equal("Value", boundPipeline.Property.Name);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Property.Type, intType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Type, intType));
+        Assert.IsType<BoundLiteralExpression>(boundPipeline.Right);
+    }
+
+    [Fact]
+    public void PipeOperator_WithStaticProperty_AssignsThroughSetter()
+    {
+        const string source = """
+let assigned = 5 |> Container.Count
+
+public class Container {
+    public static Count: int { get; set; }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundPropertyAssignmentExpression>(model.GetBoundNode(pipeline));
+        Assert.True(boundPipeline.Property.IsStatic);
+        Assert.Equal("Count", boundPipeline.Property.Name);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Property.Type, intType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Type, intType));
+        Assert.IsType<BoundLiteralExpression>(boundPipeline.Right);
+    }
+
+    [Fact]
     public void PipeOperator_WithNonInvocationTarget_ReportsDiagnostic()
     {
         const string source = """

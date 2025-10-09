@@ -571,6 +571,14 @@ associates left-to-right, so a chain such as `source |> First() |> Second()`
 evaluates `source`, passes it to `First`, then pipes the result into `Second`.
 
 ```raven
+let result = 5 |> Square() |> AddOne()
+
+let result = AddOne(Square(5))
+```
+
+When the pipeline targets an invocation, the syntax mirrors a regular call:
+
+```raven
 let result = 5 |> MathHelpers.Increment(2)
 
 public static class MathHelpers {
@@ -580,8 +588,20 @@ public static class MathHelpers {
 }
 ```
 
-The pipe operator requires the right-hand side to be an invocation expression.
-If the syntax does not form a call, diagnostic `RAV2800` is issued.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2687-L2696】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L19-L23】
+The pipe operator accepts either an invocation or a property access with a setter on the right-hand side. If the syntax does not form either shape, diagnostic `RAV2800` is issued.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L2690-L2766】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L19-L23】
+
+If the pipeline targets a property, Raven assigns the left expression to that property through its setter before producing the property's type as the result of the pipe expression. Both instance and static properties are supported:
+
+```raven
+let container = Container()
+let _ = 42 |> container.Value
+let _ = 42 |> Container.Count
+
+public class Container {
+    public Value: int { get; set; }
+    public static Count: int { get; set; }
+}
+```
 
 When the invocation resolves to an extension method, the left expression becomes
 the extension receiver, mirroring `value.Extension()` syntax. Otherwise the
