@@ -195,6 +195,17 @@ internal abstract class Binder
         return ParentBinder?.LookupExtensionMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
     }
 
+    public virtual IEnumerable<IPropertySymbol> LookupExtensionProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null)
+            return Enumerable.Empty<IPropertySymbol>();
+
+        if (receiverType.TypeKind == TypeKind.Error)
+            return Enumerable.Empty<IPropertySymbol>();
+
+        return ParentBinder?.LookupExtensionProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IPropertySymbol>();
+    }
+
     protected IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(
         INamespaceOrTypeSymbol scope,
         string? name,
@@ -209,8 +220,317 @@ internal abstract class Binder
             if (!IsSymbolAccessible(method))
                 continue;
 
-            yield return method;
+            yield return AdjustExtensionForReceiver(method, receiverType);
         }
+    }
+
+    protected IEnumerable<IPropertySymbol> GetExtensionPropertiesFromScope(
+        INamespaceOrTypeSymbol scope,
+        string? name,
+        ITypeSymbol receiverType,
+        bool includePartialMatches)
+    {
+        foreach (var property in EnumerateExtensionProperties(scope, name, includePartialMatches))
+        {
+            if (!IsExtensionPropertyCandidateForReceiver(property, receiverType, includePartialMatches))
+                continue;
+
+            if (!IsSymbolAccessible(property))
+                continue;
+
+            yield return AdjustExtensionPropertyForReceiver(property, receiverType);
+        }
+    }
+
+    private IMethodSymbol AdjustExtensionForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
+    {
+        if (!method.IsExtensionMethod || receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return method;
+
+        if (!TryCreateConstructedExtension(method, receiverType, out var constructed))
+            return method;
+
+        return constructed;
+    }
+
+    private IPropertySymbol AdjustExtensionPropertyForReceiver(IPropertySymbol property, ITypeSymbol receiverType)
+    {
+        if (!property.IsExtensionProperty() || receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return property;
+
+        var accessor = property.GetMethod ?? property.SetMethod;
+        if (accessor is null)
+            return property;
+
+        if (!TryCreateConstructedExtension(accessor, receiverType, out var constructedAccessor))
+            return property;
+
+        if (constructedAccessor.ContainingSymbol is IPropertySymbol constructedProperty)
+            return constructedProperty;
+
+        return property;
+    }
+
+    private bool TryCreateConstructedExtension(IMethodSymbol method, ITypeSymbol receiverType, out IMethodSymbol constructed)
+    {
+        constructed = method;
+
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+            return false;
+
+        var container = method.ContainingType as INamedTypeSymbol;
+        if (container is null || !container.IsGenericType || container.TypeParameters.IsDefaultOrEmpty || container.TypeParameters.Length == 0)
+            return false;
+
+        var receiverParameterType = method.Parameters[0].Type;
+        if (receiverParameterType is null || receiverParameterType.TypeKind == TypeKind.Error)
+            return false;
+
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (!TryUnifyExtensionReceiver(receiverParameterType, receiverType, substitutions))
+            return false;
+
+        var typeArguments = new ITypeSymbol[container.TypeParameters.Length];
+
+        for (int i = 0; i < container.TypeParameters.Length; i++)
+        {
+            var typeParameter = container.TypeParameters[i];
+            if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                return false;
+
+            typeArguments[i] = typeArgument;
+        }
+
+        var constructedContainer = container.Construct(typeArguments);
+        if (constructedContainer is not INamedTypeSymbol namedContainer)
+            return false;
+
+        var originalDefinition = method.OriginalDefinition ?? method;
+
+        foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
+        {
+            var candidateOriginal = candidate.OriginalDefinition ?? candidate;
+            if (SymbolEqualityComparer.Default.Equals(candidateOriginal, originalDefinition))
+            {
+                constructed = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsExtensionPropertyCandidateForReceiver(
+        IPropertySymbol property,
+        ITypeSymbol receiverType,
+        bool includePartialMatches)
+    {
+        var accessor = property.GetMethod ?? property.SetMethod;
+        if (accessor is null || !accessor.IsExtensionMethod)
+            return false;
+
+        if (includePartialMatches)
+            return true;
+
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (accessor.Parameters.IsDefaultOrEmpty || accessor.Parameters.Length == 0)
+            return false;
+
+        var parameterType = accessor.Parameters[0].Type;
+        if (parameterType is null || parameterType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (ContainsTypeParameters(parameterType))
+            return true;
+
+        if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
+            return true;
+
+        var conversion = Compilation.ClassifyConversion(receiverType, parameterType);
+        return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private bool TryUnifyExtensionReceiver(
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        parameterType = NormalizeTypeForExtensionInference(parameterType);
+        argumentType = NormalizeTypeForExtensionInference(argumentType);
+
+        if (parameterType is ITypeParameterSymbol parameter)
+            return TryRecordExtensionSubstitution(parameter, argumentType, substitutions);
+
+        if (parameterType is INamedTypeSymbol paramNamed)
+        {
+            if (argumentType is INamedTypeSymbol argNamed)
+            {
+                if (TryUnifyNamedType(paramNamed, argNamed, substitutions))
+                    return true;
+
+                foreach (var iface in argNamed.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                for (var baseType = argNamed.BaseType; baseType is not null; baseType = baseType.BaseType)
+                {
+                    if (TryUnifyNamedType(paramNamed, baseType, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+
+            if (argumentType is IArrayTypeSymbol arrayArgument)
+            {
+                if (TryUnifyArrayLike(paramNamed, arrayArgument, substitutions))
+                    return true;
+
+                foreach (var iface in arrayArgument.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+
+            if (argumentType is NullableTypeSymbol nullableArgument)
+            {
+                if (TryUnifyNamedType(paramNamed, nullableArgument.UnderlyingType as INamedTypeSymbol, substitutions))
+                    return true;
+
+                foreach (var iface in nullableArgument.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
+        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+            return TryUnifyExtensionReceiver(paramArray.ElementType, argArray.ElementType, substitutions);
+
+        if (parameterType is NullableTypeSymbol paramNullable)
+        {
+            if (argumentType is NullableTypeSymbol argNullable)
+                return TryUnifyExtensionReceiver(paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions);
+
+            if (!argumentType.IsValueType)
+                return TryUnifyExtensionReceiver(paramNullable.UnderlyingType, argumentType, substitutions);
+
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(parameterType, argumentType);
+
+        bool TryUnifyNamedType(
+            INamedTypeSymbol parameterNamed,
+            INamedTypeSymbol? argumentNamed,
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+        {
+            if (argumentNamed is null)
+                return false;
+
+            var parameterDefinition = parameterNamed.OriginalDefinition ?? parameterNamed;
+            var argumentDefinition = argumentNamed.OriginalDefinition ?? argumentNamed;
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
+                return false;
+
+            var parameterArguments = parameterNamed.TypeArguments;
+            var argumentArguments = argumentNamed.TypeArguments;
+
+            if (parameterArguments.Length != argumentArguments.Length)
+                return false;
+
+            for (int i = 0; i < parameterArguments.Length; i++)
+            {
+                if (!TryUnifyExtensionReceiver(parameterArguments[i], argumentArguments[i], map))
+                    return false;
+            }
+
+            return true;
+        }
+
+        bool TryUnifyArrayLike(
+            INamedTypeSymbol parameterNamed,
+            IArrayTypeSymbol argumentArray,
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+        {
+            var constructedFrom = parameterNamed.ConstructedFrom ?? parameterNamed;
+
+            if (constructedFrom.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T or
+                SpecialType.System_Collections_Generic_ICollection_T or
+                SpecialType.System_Collections_Generic_IList_T ||
+                IsGenericCollectionInterface(parameterNamed, "IReadOnlyCollection") ||
+                IsGenericCollectionInterface(parameterNamed, "IReadOnlyList"))
+            {
+                return TryUnifyExtensionReceiver(parameterNamed.TypeArguments[0], argumentArray.ElementType, map);
+            }
+
+            return false;
+        }
+    }
+
+    private bool TryRecordExtensionSubstitution(
+        ITypeParameterSymbol typeParameter,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        argumentType = NormalizeTypeForExtensionInference(argumentType);
+
+        if (substitutions.TryGetValue(typeParameter, out var existing))
+        {
+            existing = NormalizeTypeForExtensionInference(existing);
+
+            if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
+                return true;
+
+            if (Compilation.ClassifyConversion(argumentType, existing).IsImplicit)
+                return true;
+
+            if (Compilation.ClassifyConversion(existing, argumentType).IsImplicit)
+            {
+                substitutions[typeParameter] = argumentType;
+                return true;
+            }
+
+            return false;
+        }
+
+        substitutions[typeParameter] = argumentType;
+        return true;
+    }
+
+    private static ITypeSymbol NormalizeTypeForExtensionInference(ITypeSymbol type)
+    {
+        return type switch
+        {
+            LiteralTypeSymbol literal => literal.UnderlyingType,
+            _ => type
+        };
+    }
+
+    private static bool IsGenericCollectionInterface(INamedTypeSymbol parameterNamed, string interfaceName)
+    {
+        var definition = parameterNamed.ConstructedFrom ?? parameterNamed;
+
+        if (!string.Equals(definition.Name, interfaceName, StringComparison.Ordinal))
+            return false;
+
+        var ns = definition.ContainingNamespace?.ToDisplayString();
+        return string.Equals(ns, "System.Collections.Generic", StringComparison.Ordinal);
     }
 
     private static IEnumerable<IMethodSymbol> EnumerateExtensionMethods(
@@ -259,6 +579,55 @@ internal abstract class Binder
         {
             foreach (var method in EnumerateExtensionMethods(nested, name, includePartialMatches))
                 yield return method;
+        }
+    }
+
+    private static IEnumerable<IPropertySymbol> EnumerateExtensionProperties(
+        INamespaceOrTypeSymbol scope,
+        string? name,
+        bool includePartialMatches)
+    {
+        if (scope is INamespaceSymbol ns)
+        {
+            foreach (var member in ns.GetMembers())
+            {
+                if (member is INamedTypeSymbol typeMember)
+                {
+                    foreach (var property in EnumerateExtensionProperties(typeMember, name, includePartialMatches))
+                        yield return property;
+                }
+                else if (member is INamespaceSymbol nestedNs)
+                {
+                    foreach (var property in EnumerateExtensionProperties(nestedNs, name, includePartialMatches))
+                        yield return property;
+                }
+            }
+
+            yield break;
+        }
+
+        if (scope is not INamedTypeSymbol type)
+            yield break;
+
+        var members = includePartialMatches || string.IsNullOrEmpty(name)
+            ? type.GetMembers().OfType<IPropertySymbol>()
+            : type.GetMembers(name!).OfType<IPropertySymbol>();
+
+        foreach (var property in members)
+        {
+            if (!property.IsExtensionProperty())
+                continue;
+
+            if (!includePartialMatches && name is not null && property.Name != name)
+                continue;
+
+            yield return property;
+        }
+
+        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        {
+            foreach (var property in EnumerateExtensionProperties(nested, name, includePartialMatches))
+                yield return property;
         }
     }
 

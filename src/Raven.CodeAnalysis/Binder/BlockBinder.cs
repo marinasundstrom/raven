@@ -295,6 +295,28 @@ partial class BlockBinder : Binder
         return ImmutableArray<IMethodSymbol>.Empty;
     }
 
+    private ImmutableArray<IPropertySymbol> GetAccessibleProperties(
+        ImmutableArray<IPropertySymbol> properties,
+        Location location)
+    {
+        if (properties.IsDefaultOrEmpty)
+            return properties;
+
+        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+
+        foreach (var property in properties)
+        {
+            if (IsSymbolAccessible(property))
+                builder.Add(property);
+        }
+
+        if (builder.Count > 0)
+            return builder.ToImmutable();
+
+        EnsureMemberAccessible(properties[0], location, "property");
+        return ImmutableArray<IPropertySymbol>.Empty;
+    }
+
     private BoundExpression BindMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods, Location location)
     {
         var accessibleMethods = GetAccessibleMethods(methods, location);
@@ -492,10 +514,19 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindSelfExpression(SelfExpressionSyntax selfExpression)
     {
-        if (_containingSymbol is IMethodSymbol method && (!method.IsStatic || method.IsNamedConstructor))
+        if (_containingSymbol is IMethodSymbol method)
         {
-            var containingType = method.ContainingType;
-            return new BoundSelfExpression(containingType);
+            if (!method.IsStatic || method.IsNamedConstructor)
+            {
+                var containingType = method.ContainingType;
+                return new BoundSelfExpression(containingType);
+            }
+
+            if (method.IsExtensionMethod && method.Parameters.Length > 0)
+            {
+                var receiver = method.Parameters[0];
+                return new BoundParameterAccess(receiver);
+            }
         }
 
         //_diagnostics.ReportSelfNotAllowed(selfExpression.GetLocation());
@@ -1867,6 +1898,36 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
 
                 return new BoundMemberAccessExpression(receiver, instanceMember);
+            }
+
+            if (IsExtensionReceiver(receiver))
+            {
+                var extensionProperties = LookupExtensionProperties(name, receiverType).ToImmutableArray();
+
+                if (!extensionProperties.IsDefaultOrEmpty)
+                {
+                    var accessibleProperties = GetAccessibleProperties(extensionProperties, nameLocation);
+
+                    if (!accessibleProperties.IsDefaultOrEmpty)
+                    {
+                        if (accessibleProperties.Length == 1)
+                            return new BoundMemberAccessExpression(receiver, accessibleProperties[0]);
+
+                        var ambiguousMethods = accessibleProperties
+                            .Select(p => p.GetMethod ?? p.SetMethod)
+                            .Where(m => m is not null)
+                            .Cast<IMethodSymbol>()
+                            .ToImmutableArray();
+
+                        if (!ambiguousMethods.IsDefaultOrEmpty)
+                            _diagnostics.ReportCallIsAmbiguous(name, ambiguousMethods, nameLocation);
+
+                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                    }
+
+                    EnsureMemberAccessible(extensionProperties[0], nameLocation, GetSymbolKindForDiagnostic(extensionProperties[0]));
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                }
             }
         }
 

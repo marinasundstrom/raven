@@ -103,6 +103,19 @@
   <Node Name="SelfExpression" Inherits="Expression">
     <Slot Name="SelfKeyword" Type="Token" DefaultToken="SelfKeyword"/>
   </Node>
+  <Node Name="ExtensionDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="ExtensionKeyword" Type="Token" DefaultToken="ExtensionKeyword"/>
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="ForKeyword" Type="Token" DefaultToken="ForKeyword"/>
+    <Slot Name="ReceiverType" Type="Type" />
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken"/>
+    <Slot Name="Members" Type="List" ElementType="MemberDeclaration" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken"/>
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
+  </Node>
   <Node Name="ClassDeclaration" Inherits="TypeDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />

@@ -824,6 +824,38 @@ public partial class SemanticModel
                         break;
                     }
 
+                case ExtensionDeclarationSyntax extensionDecl:
+                    {
+                        var baseType = Compilation.GetTypeByMetadataName("System.Object");
+                        var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                            extensionDecl.Modifiers,
+                            AccessibilityUtilities.GetDefaultTypeAccessibility(parentNamespace.AsSourceNamespace()));
+
+                        var extensionSymbol = new SourceNamedTypeSymbol(
+                            extensionDecl.Identifier.ValueText,
+                            baseType!,
+                            TypeKind.Class,
+                            parentNamespace.AsSourceNamespace(),
+                            null,
+                            parentNamespace.AsSourceNamespace(),
+                            [extensionDecl.GetLocation()],
+                            [extensionDecl.GetReference()],
+                            isSealed: true,
+                            isAbstract: true,
+                            declaredAccessibility: extensionAccessibility);
+
+                        extensionSymbol.MarkAsExtensionContainer();
+
+                        InitializeTypeParameters(extensionSymbol, extensionDecl.TypeParameterList);
+
+                        var extensionBinder = new ExtensionDeclarationBinder(parentBinder, extensionSymbol, extensionDecl);
+                        extensionBinder.EnsureTypeParameterConstraintTypesResolved(extensionSymbol.TypeParameters);
+                        _binderCache[extensionDecl] = extensionBinder;
+
+                        RegisterExtensionMembers(extensionDecl, extensionBinder);
+                        break;
+                    }
+
                 case EnumDeclarationSyntax enumDecl:
                     {
                         var enumAccessibility = AccessibilityUtilities.DetermineAccessibility(
@@ -1177,6 +1209,33 @@ public partial class SemanticModel
                         nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
                         _binderCache[nestedInterface] = nestedInterfaceBinder;
                         RegisterInterfaceMembers(nestedInterface, nestedInterfaceBinder);
+                        break;
+                    }
+            }
+        }
+    }
+
+    private void RegisterExtensionMembers(ExtensionDeclarationSyntax extensionDecl, ExtensionDeclarationBinder extensionBinder)
+    {
+        foreach (var member in extensionDecl.Members)
+        {
+            switch (member)
+            {
+                case MethodDeclarationSyntax methodDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
+                        _binderCache[methodDecl] = methodBinder;
+                        break;
+                    }
+
+                case PropertyDeclarationSyntax propertyDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var accessorBinders = memberBinder.BindPropertyDeclaration(propertyDecl);
+                        _binderCache[propertyDecl] = memberBinder;
+                        foreach (var kv in accessorBinders)
+                            _binderCache[kv.Key] = kv.Value;
                         break;
                     }
             }

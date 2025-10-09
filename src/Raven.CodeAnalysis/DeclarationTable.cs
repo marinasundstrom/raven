@@ -37,6 +37,9 @@ internal sealed class DeclarationTable
             case ClassDeclarationSyntax cls:
                 key = CreateKey(SymbolKind.Type, cls.Identifier.ValueText, 0, cls);
                 return true;
+            case ExtensionDeclarationSyntax extension:
+                key = CreateKey(SymbolKind.Type, extension.Identifier.ValueText, 0, extension);
+                return true;
             case MethodDeclarationSyntax method:
                 key = CreateKey(SymbolKind.Method, method.Identifier.ValueText, 0, method);
                 return true;

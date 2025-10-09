@@ -24,6 +24,7 @@ public partial class Compilation
     private readonly Dictionary<string, string> _assemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
     private readonly Dictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
+    private bool _trustedPlatformAssembliesCached;
     private MetadataLoadContext _metadataLoadContext;
     private GlobalBinder _globalBinder;
     private bool setup;
@@ -492,6 +493,48 @@ public partial class Compilation
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
             }
         }
+        else if (memberDeclaration is ExtensionDeclarationSyntax extensionDeclaration)
+        {
+            Location[] locations = [syntaxTree.GetLocation(extensionDeclaration.EffectiveSpan)];
+
+            SyntaxReference[] references = [extensionDeclaration.GetReference()];
+
+            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingNamespace = declaringSymbol switch
+            {
+                INamespaceSymbol ns => ns,
+                INamedTypeSymbol type => type.ContainingNamespace,
+                _ => null
+            };
+
+            var baseTypeSymbol = GetSpecialType(SpecialType.System_Object);
+
+            var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                extensionDeclaration.Modifiers,
+                AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
+
+            var symbol = new SourceNamedTypeSymbol(
+                extensionDeclaration.Identifier.ValueText,
+                baseTypeSymbol!,
+                TypeKind.Class,
+                declaringSymbol,
+                containingType,
+                containingNamespace,
+                locations,
+                references,
+                isSealed: true,
+                isAbstract: true,
+                declaredAccessibility: extensionAccessibility);
+
+            symbol.MarkAsExtensionContainer();
+
+            InitializeTypeParameters(symbol, extensionDeclaration.TypeParameterList, syntaxTree);
+
+            foreach (var memberDeclaration2 in extensionDeclaration.Members)
+            {
+                AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
+            }
+        }
         else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
             Location[] locations = [syntaxTree.GetLocation(methodDeclaration.EffectiveSpan)];
@@ -508,6 +551,9 @@ public partial class Compilation
 
             var returnType = GetSpecialType(SpecialType.System_Unit);
             var isStatic = methodDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+            var declaredInExtension = declaringSymbol is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
+            if (declaredInExtension)
+                isStatic = true;
             var defaultAccessibility = containingType is not null
                 ? AccessibilityUtilities.GetDefaultMemberAccessibility(containingType)
                 : AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol);
@@ -515,7 +561,7 @@ public partial class Compilation
                 methodDeclaration.Modifiers,
                 defaultAccessibility);
 
-            _ = new SourceMethodSymbol(
+            var methodSymbol = new SourceMethodSymbol(
                 methodDeclaration.Identifier.ValueText, returnType,
                 ImmutableArray<SourceParameterSymbol>.Empty,
                 declaringSymbol,
@@ -524,6 +570,9 @@ public partial class Compilation
                 locations, references,
                 isStatic: isStatic,
                 declaredAccessibility: methodAccessibility);
+
+            if (declaredInExtension)
+                methodSymbol.MarkDeclaredInExtension();
         }
     }
 
@@ -691,29 +740,100 @@ public partial class Compilation
         if (metadataAssembly is null)
             return null;
 
+        EnsureTrustedPlatformAssembliesCached();
+
         var identity = metadataAssembly.GetName();
         if (!string.IsNullOrEmpty(explicitPath) && identity.Name is not null)
             _assemblyPathMap[identity.Name] = explicitPath;
+        else if (identity.Name is { } identityName)
+        {
+            try
+            {
+                var metadataLocation = metadataAssembly.Location;
+                if (!string.IsNullOrEmpty(metadataLocation) && !_assemblyPathMap.ContainsKey(identityName))
+                {
+                    _assemblyPathMap[identityName] = metadataLocation;
+                }
+            }
+            catch (NotSupportedException)
+            {
+                // Dynamic assemblies can throw when querying Location.
+            }
+        }
 
         if (_metadataToRuntimeAssemblyMap.TryGetValue(metadataAssembly, out var cached))
             return cached;
 
         Assembly? runtimeAssembly = null;
+        string? resolvedPath = null;
+
+        if (identity.Name is not null)
+        {
+            var alreadyLoaded = AppDomain.CurrentDomain
+                .GetAssemblies()
+                .FirstOrDefault(a => string.Equals(a.GetName().Name, identity.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (alreadyLoaded is not null)
+            {
+                runtimeAssembly = alreadyLoaded;
+                if (!string.IsNullOrEmpty(alreadyLoaded.Location))
+                    resolvedPath = alreadyLoaded.Location;
+            }
+        }
 
         if (identity.Name is not null && _runtimeAssemblyCache.TryGetValue(identity.Name, out var fromCache))
         {
             runtimeAssembly = fromCache;
+            if (!string.IsNullOrEmpty(runtimeAssembly.Location))
+                resolvedPath = runtimeAssembly.Location;
         }
         else if (identity.Name is not null && _assemblyPathMap.TryGetValue(identity.Name, out var knownPath))
         {
             runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, knownPath);
+            if (runtimeAssembly is not null)
+            {
+                resolvedPath = !string.IsNullOrEmpty(runtimeAssembly.Location)
+                    ? runtimeAssembly.Location
+                    : knownPath;
+            }
+            else if (TryMapReferenceAssemblyToRuntimePath(knownPath) is { } mappedKnownPath)
+            {
+                runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, mappedKnownPath);
+                if (runtimeAssembly is not null)
+                    resolvedPath = mappedKnownPath;
+            }
         }
 
         if (runtimeAssembly is null && !string.IsNullOrEmpty(explicitPath))
+        {
             runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, explicitPath);
+            if (runtimeAssembly is not null)
+            {
+                resolvedPath = !string.IsNullOrEmpty(runtimeAssembly.Location)
+                    ? runtimeAssembly.Location
+                    : explicitPath;
+            }
+            else if (TryMapReferenceAssemblyToRuntimePath(explicitPath) is { } mappedExplicitPath)
+            {
+                runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, mappedExplicitPath);
+                if (runtimeAssembly is not null)
+                    resolvedPath = mappedExplicitPath;
+            }
+        }
 
-        runtimeAssembly ??= LoadRuntimeAssemblyByName(identity);
-        runtimeAssembly ??= MapToRuntimeImplementation(identity);
+        if (runtimeAssembly is null)
+        {
+            runtimeAssembly = LoadRuntimeAssemblyByName(identity);
+            if (runtimeAssembly is not null && !string.IsNullOrEmpty(runtimeAssembly.Location))
+                resolvedPath = runtimeAssembly.Location;
+        }
+
+        if (runtimeAssembly is null)
+        {
+            runtimeAssembly = MapToRuntimeImplementation(identity);
+            if (runtimeAssembly is not null && !string.IsNullOrEmpty(runtimeAssembly.Location))
+                resolvedPath = runtimeAssembly.Location;
+        }
 
         if (runtimeAssembly is not null)
         {
@@ -721,14 +841,127 @@ public partial class Compilation
             {
                 _runtimeAssemblyCache[identity.Name] = runtimeAssembly;
 
-                if (!string.IsNullOrEmpty(runtimeAssembly.Location))
+                if (!string.IsNullOrEmpty(resolvedPath))
+                {
+                    _assemblyPathMap[identity.Name] = resolvedPath;
+                }
+                else if (!string.IsNullOrEmpty(runtimeAssembly.Location))
+                {
                     _assemblyPathMap[identity.Name] = runtimeAssembly.Location;
+                }
             }
 
             _metadataToRuntimeAssemblyMap[metadataAssembly] = runtimeAssembly;
         }
 
         return runtimeAssembly;
+    }
+
+    private void EnsureTrustedPlatformAssembliesCached()
+    {
+        if (_trustedPlatformAssembliesCached)
+            return;
+
+        _trustedPlatformAssembliesCached = true;
+
+        if (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") is not string platformAssemblies)
+            return;
+
+        var candidates = platformAssemblies.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate) || !File.Exists(candidate))
+                continue;
+
+            System.Reflection.AssemblyName? candidateIdentity;
+            try
+            {
+                candidateIdentity = System.Reflection.AssemblyName.GetAssemblyName(candidate);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (candidateIdentity.Name is not { Length: > 0 } candidateName)
+                continue;
+
+            if (!_assemblyPathMap.ContainsKey(candidateName))
+                _assemblyPathMap[candidateName] = candidate;
+
+            if (_runtimeAssemblyCache.ContainsKey(candidateName))
+                continue;
+
+            var alreadyLoaded = AppDomain.CurrentDomain
+                .GetAssemblies()
+                .FirstOrDefault(a => string.Equals(a.GetName().Name, candidateName, StringComparison.OrdinalIgnoreCase));
+
+            if (alreadyLoaded is not null)
+                _runtimeAssemblyCache[candidateName] = alreadyLoaded;
+        }
+    }
+
+    private static string? TryMapReferenceAssemblyToRuntimePath(string? metadataAssemblyPath)
+    {
+        if (string.IsNullOrEmpty(metadataAssemblyPath))
+            return null;
+
+        try
+        {
+            var assemblyFileName = Path.GetFileName(metadataAssemblyPath);
+            if (string.IsNullOrEmpty(assemblyFileName))
+                return null;
+
+            var cursor = Path.GetDirectoryName(metadataAssemblyPath);
+            if (cursor is null)
+                return null;
+
+            while (cursor is not null && !string.Equals(Path.GetFileName(cursor), "ref", StringComparison.OrdinalIgnoreCase))
+            {
+                cursor = Path.GetDirectoryName(cursor);
+            }
+
+            if (cursor is null)
+                return null;
+
+            var versionDirectory = Path.GetDirectoryName(cursor);
+            if (versionDirectory is null)
+                return null;
+
+            var version = Path.GetFileName(versionDirectory);
+            if (string.IsNullOrEmpty(version))
+                return null;
+
+            var packDirectory = Path.GetDirectoryName(versionDirectory);
+            if (packDirectory is null)
+                return null;
+
+            var packId = Path.GetFileName(packDirectory);
+            if (string.IsNullOrEmpty(packId))
+                return null;
+
+            var packsRoot = Path.GetDirectoryName(packDirectory);
+            if (packsRoot is null || !string.Equals(Path.GetFileName(packsRoot), "packs", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var dotnetRoot = Path.GetDirectoryName(packsRoot);
+            if (string.IsNullOrEmpty(dotnetRoot))
+                return null;
+
+            var runtimePackId = packId.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase)
+                ? packId[..^4]
+                : packId;
+
+            var runtimeDirectory = Path.Combine(dotnetRoot, "shared", runtimePackId, version);
+            var candidatePath = Path.Combine(runtimeDirectory, assemblyFileName);
+
+            return File.Exists(candidatePath) ? candidatePath : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private Assembly? MapToRuntimeImplementation(AssemblyName identity)

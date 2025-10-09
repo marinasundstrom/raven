@@ -11,11 +11,15 @@ namespace Raven.CodeAnalysis;
 internal class TypeMemberBinder : Binder
 {
     private readonly INamedTypeSymbol _containingType;
+    private readonly TypeSyntax? _extensionReceiverTypeSyntax;
+    private ITypeSymbol? _extensionReceiverType;
+    private bool _extensionReceiverTypeComputed;
 
-    public TypeMemberBinder(Binder parent, INamedTypeSymbol containingType)
+    public TypeMemberBinder(Binder parent, INamedTypeSymbol containingType, TypeSyntax? extensionReceiverTypeSyntax = null)
         : base(parent, parent.Diagnostics)
     {
         _containingType = containingType;
+        _extensionReceiverTypeSyntax = extensionReceiverTypeSyntax;
     }
 
     public new INamedTypeSymbol ContainingSymbol => _containingType;
@@ -36,6 +40,21 @@ internal class TypeMemberBinder : Binder
             return typeParameter;
 
         return base.LookupType(name);
+    }
+
+    private bool IsExtensionContainer => _extensionReceiverTypeSyntax is not null && _containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
+
+    private ITypeSymbol GetExtensionReceiverType()
+    {
+        if (!_extensionReceiverTypeComputed)
+        {
+            _extensionReceiverType = _extensionReceiverTypeSyntax is null
+                ? null
+                : ResolveType(_extensionReceiverTypeSyntax);
+            _extensionReceiverTypeComputed = true;
+        }
+
+        return _extensionReceiverType ?? Compilation.ErrorTypeSymbol;
     }
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
@@ -160,6 +179,7 @@ internal class TypeMemberBinder : Binder
 
         var metadataName = name;
         var displayName = name;
+        var isExtensionContainer = IsExtensionContainer;
 
         if (explicitInterfaceSpecifier is not null)
         {
@@ -204,6 +224,17 @@ internal class TypeMemberBinder : Binder
         var isSealed = modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
         var defaultAccessibility = AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
         var methodAccessibility = AccessibilityUtilities.DetermineAccessibility(modifiers, defaultAccessibility);
+
+        if (isExtensionContainer)
+        {
+            isStatic = true;
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+            methodAccessibility = modifiers.Any(m => m.Kind == SyntaxKind.InternalKeyword)
+                ? Accessibility.Internal
+                : Accessibility.Public;
+        }
 
         if (explicitInterfaceType is not null)
         {
@@ -263,6 +294,9 @@ internal class TypeMemberBinder : Binder
             isSealed: isSealed,
             declaredAccessibility: methodAccessibility);
 
+        if (isExtensionContainer)
+            methodSymbol.MarkDeclaredInExtension();
+
         if (methodDecl.TypeParameterList is not null)
         {
             var typeParametersBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(methodDecl.TypeParameterList.Parameters.Count);
@@ -316,13 +350,22 @@ internal class TypeMemberBinder : Binder
             resolvedParamInfos.Add((paramName, resolvedType, refKind, syntax));
         }
 
+        ITypeSymbol? receiverType = null;
+        if (isExtensionContainer)
+            receiverType = GetExtensionReceiverType();
+
+        var signatureParameters = resolvedParamInfos.Select(p => (p.type, p.refKind)).ToList();
+        if (receiverType is not null)
+            signatureParameters.Insert(0, (receiverType, RefKind.None));
+        var signatureArray = signatureParameters.ToArray();
+
         if (explicitInterfaceType is not null)
         {
             explicitInterfaceMember = FindExplicitInterfaceImplementation(
                 explicitInterfaceType,
                 name,
                 returnType,
-                resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray());
+                signatureArray);
 
             if (explicitInterfaceMember is null)
             {
@@ -335,7 +378,7 @@ internal class TypeMemberBinder : Binder
 
         if (explicitInterfaceType is null && isOverride)
         {
-            var candidate = FindOverrideCandidate(name, resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray());
+            var candidate = FindOverrideCandidate(name, signatureArray);
 
             if (candidate is null || !candidate.IsVirtual)
             {
@@ -360,7 +403,7 @@ internal class TypeMemberBinder : Binder
 
         methodSymbol.UpdateModifiers(isVirtual, isOverride, isSealed);
 
-        CheckForDuplicateSignature(metadataName, displayName, resolvedParamInfos.Select(p => (p.type, p.refKind)).ToArray(), identifierToken.GetLocation(), methodDecl);
+        CheckForDuplicateSignature(metadataName, displayName, signatureArray, identifierToken.GetLocation(), methodDecl);
 
         if (overriddenMethod is not null)
             methodSymbol.SetOverriddenMethod(overriddenMethod);
@@ -369,6 +412,21 @@ internal class TypeMemberBinder : Binder
             methodSymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(explicitInterfaceMember));
 
         var parameters = new List<SourceParameterSymbol>();
+
+        if (isExtensionContainer && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+        {
+            var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+            var selfParameter = new SourceParameterSymbol(
+                "self",
+                receiverType,
+                methodSymbol,
+                _containingType,
+                receiverNamespace,
+                [_extensionReceiverTypeSyntax.GetLocation()],
+                [_extensionReceiverTypeSyntax.GetReference()]);
+            parameters.Add(selfParameter);
+        }
+
         foreach (var (paramName, paramType, refKind, syntax) in resolvedParamInfos)
         {
             var hasDefaultValue = TryEvaluateParameterDefaultValue(syntax, paramType, out var defaultValue);
@@ -682,6 +740,19 @@ internal class TypeMemberBinder : Binder
         string? explicitInterfaceMetadataName = null;
         IPropertySymbol? explicitInterfaceProperty = null;
 
+        var isExtensionContainer = IsExtensionContainer;
+
+        if (isExtensionContainer)
+        {
+            isStatic = false;
+            isVirtual = false;
+            isOverride = false;
+            isSealed = false;
+            propertyAccessibility = modifiers.Any(m => m.Kind == SyntaxKind.InternalKeyword)
+                ? Accessibility.Internal
+                : Accessibility.Public;
+        }
+
         if (explicitInterfaceSpecifier is not null)
         {
             var resolved = ResolveType(explicitInterfaceSpecifier.Name);
@@ -754,6 +825,10 @@ internal class TypeMemberBinder : Binder
             isVirtual = false;
         }
 
+        ITypeSymbol? receiverType = null;
+        if (isExtensionContainer)
+            receiverType = GetExtensionReceiverType();
+
         var propertySymbol = new SourcePropertySymbol(
             propertyName,
             propertyType,
@@ -766,7 +841,11 @@ internal class TypeMemberBinder : Binder
             metadataName: metadataName,
             declaredAccessibility: propertyAccessibility);
 
-        if (_containingType.TypeKind != TypeKind.Interface &&
+        if (isExtensionContainer)
+            propertySymbol.MarkDeclaredInExtension(receiverType);
+
+        if (!isExtensionContainer &&
+            _containingType.TypeKind != TypeKind.Interface &&
             propertyDecl.AccessorList is { } accessorList &&
             accessorList.Accessors.All(a => a.Body is null && a.ExpressionBody is null))
         {
@@ -896,7 +975,7 @@ internal class TypeMemberBinder : Binder
                     CurrentNamespace!.AsSourceNamespace(),
                     [accessor.GetLocation()],
                     [accessor.GetReference()],
-                    isStatic: isStatic,
+                    isStatic: isStatic || isExtensionContainer,
                     methodKind: isGet ? MethodKind.PropertyGet : MethodKind.PropertySet,
                     isAsync: isAsync,
                     isVirtual: accessorVirtual,
@@ -904,7 +983,24 @@ internal class TypeMemberBinder : Binder
                     isSealed: accessorSealed,
                     declaredAccessibility: propertyAccessibility);
 
+                if (isExtensionContainer)
+                    methodSymbol.MarkDeclaredInExtension();
+
                 var parameters = new List<SourceParameterSymbol>();
+                if (isExtensionContainer && receiverType is not null && _extensionReceiverTypeSyntax is not null)
+                {
+                    var receiverNamespace = CurrentNamespace!.AsSourceNamespace();
+                    var selfParameter = new SourceParameterSymbol(
+                        "self",
+                        receiverType,
+                        methodSymbol,
+                        _containingType,
+                        receiverNamespace,
+                        [_extensionReceiverTypeSyntax.GetLocation()],
+                        [_extensionReceiverTypeSyntax.GetReference()]);
+                    parameters.Add(selfParameter);
+                }
+
                 if (!isGet)
                 {
                     parameters.Add(new SourceParameterSymbol(

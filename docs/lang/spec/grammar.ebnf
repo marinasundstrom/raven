@@ -29,6 +29,7 @@ FunctionModifier         ::= AccessModifier | 'async' | 'extern' | 'static' ;
 
 Declaration              ::= NamespaceDeclaration
                            | FunctionDeclaration
+                           | ExtensionDeclaration
                            | EnumDeclaration
                            | ClassDeclaration
                            | StructDeclaration
@@ -40,6 +41,16 @@ FunctionDeclaration      ::= FunctionModifiers?
                              'func' Identifier '(' ParameterList? ')'
                              ReturnTypeClause?
                              ( Block | '=>' Expression ) ;
+
+ExtensionDeclaration     ::= 'extension' Identifier 'for' Type ExtensionBody ;
+ExtensionBody            ::= '{' {ExtensionMember} '}' ;
+ExtensionMember          ::= ExtensionMethodDeclaration ;
+ExtensionMethodDeclaration
+                           ::= ExtensionMethodModifiers?
+                               Identifier '(' ParameterList? ')'
+                               ReturnTypeClause?
+                               ( Block | '=>' Expression ) ;
+ExtensionMethodModifiers ::= AccessModifier ;
 
 ReturnTypeClause         ::= '->' Type ;
 

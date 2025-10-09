@@ -146,7 +146,7 @@ if (showHelp || hasInvalidOption)
 }
 
 if (sourceFiles.Count == 0)
-    sourceFiles.Add($"../../../samples/async-await{RavenFileExtensions.Raven}");
+    sourceFiles.Add($"../../../samples/reflection{RavenFileExtensions.Raven}");
 
 for (int i = 0; i < sourceFiles.Count; i++)
 {

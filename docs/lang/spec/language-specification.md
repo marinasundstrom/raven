@@ -501,17 +501,53 @@ When the target has optional parameters, omitted trailing arguments are filled
 in using the defaults declared on the parameter list. The supplied arguments are
 matched positionally before defaults are considered.
 
+#### Extension declarations
+
+An `extension` declaration groups helpers for a specific receiver type and is
+the canonical way to author extension methods in Raven. It appears at namespace
+scope alongside other declarations and begins with the `extension` keyword,
+followed by the name of the container and the `for` clause that identifies the
+receiver type:
+
+```raven
+extension StringExt for string
+{
+    ToSlug() -> string
+    {
+        // inside the body, `self` is a synthesized parameter of type string
+        return self.Trim().ToLowerInvariant().Replace(" ", "-")
+    }
+}
+```
+
+The container name participates in imports just like a static class. Importing
+`StringExt` (for example, `import MyApp.StringExt.*`) makes the declared
+extensions available to lookup in that scope.
+
+Each member inside the body is implicitly an extension method for the type
+spelled in the `for` clause. The compiler synthesizes a `self` parameter whose
+type matches the receiver and passes it as the first argument whenever the
+extension is invoked. The `self` parameter behaves like a `let` binding: it
+cannot be reassigned but may be used to access members or forwarded to other
+calls. Extension members default to `public` accessibility and may be marked
+`internal` to restrict their visibility; other modifiers are rejected. As a
+result, extensions cannot declare `protected`, `private`, or `static` members.
+
+> Future work: allowing `static` members and properties inside an `extension`
+> declaration would enable helper factories and cached data. Those forms are
+> currently rejected but reserved for evolution.
+
 #### Extension methods
 
 Raven follows the CLR extension model so source and metadata helpers behave the
 same way. An extension method is a `static` method whose first parameter is
 treated as the **receiver**. Raven considers a declaration an extension when it
-appears on a `static` method inside a module or static class that can be
-imported like any other type and the method carries the .NET
-`ExtensionAttribute`. The attribute may be spelled either `[Extension]` or
-`[ExtensionAttribute]`; both forms produce the required metadata. Raven emits the
-same attribute when compiling the method so C# and other CLR languages recognize
-it as an extension.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】
+is produced from an `extension` declaration or when a `static` method inside a
+module or static class carries the .NET `ExtensionAttribute`. The attribute may
+be spelled either `[Extension]` or `[ExtensionAttribute]`; both forms produce the
+required metadata. Raven emits the same attribute when compiling the method so
+C# and other CLR languages recognize it as an
+extension.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】
 
 The receiver parameter determines which expressions may invoke the extension.
 Additional parameters follow the ordinary parameter rules: they may be generic,

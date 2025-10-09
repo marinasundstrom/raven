@@ -5,6 +5,8 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     private readonly bool _isStatic;
     private readonly string _metadataName;
     private SourceFieldSymbol? _backingField;
+    private bool _declaredInExtension;
+    private ITypeSymbol? _extensionReceiverType;
 
     public SourcePropertySymbol(
         string name,
@@ -42,6 +44,10 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 
     public SourceFieldSymbol? BackingField => _backingField;
 
+    internal bool IsDeclaredInExtension => _declaredInExtension;
+
+    internal ITypeSymbol? ExtensionReceiverType => _extensionReceiverType;
+
     internal void SetAccessors(IMethodSymbol? getMethod, IMethodSymbol? setMethod)
     {
         GetMethod = getMethod;
@@ -51,5 +57,11 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     internal void SetBackingField(SourceFieldSymbol backingField)
     {
         _backingField = backingField;
+    }
+
+    internal void MarkDeclaredInExtension(ITypeSymbol? receiverType)
+    {
+        _declaredInExtension = true;
+        _extensionReceiverType = receiverType;
     }
 }

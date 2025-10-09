@@ -1,0 +1,7 @@
+import System.Console.*
+
+let increment = (x: int, amount: int) -> int => x + amount
+
+let result = 5 |> increment(2)
+
+WriteLine("Result: ${result}");

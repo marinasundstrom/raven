@@ -125,7 +125,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             order = MemberOrder.Members;
         }
         else if (nextToken.IsKind(SyntaxKind.EnumKeyword) ||
-                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) ||
+                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) ||
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
@@ -160,6 +160,17 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 var enumDeclaration = new EnumDeclarationParser(this).Parse();
 
                 memberDeclarations.Add(enumDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            if (typeKeywordKind == SyntaxKind.ExtensionKeyword)
+            {
+                checkpoint.Dispose();
+
+                var extensionDeclaration = new ExtensionDeclarationParser(this).Parse(attributeLists, modifiers);
+
+                memberDeclarations.Add(extensionDeclaration);
                 order = MemberOrder.Members;
                 return;
             }
