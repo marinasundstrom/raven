@@ -66,13 +66,37 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool HasNonPartialDeclaration { get; private set; }
 
+    public bool IsExtensionDeclaration { get; private set; }
+
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
         _allInterfaces ??= ComputeAllInterfaces();
 
     public bool IsValueType => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum;
 
-    public override string MetadataName => !ContainingNamespace!.IsGlobalNamespace ? ContainingNamespace.MetadataName + "." + Name : Name;
+    public override string MetadataName
+    {
+        get
+        {
+            var name = Name;
+
+            if (IsGenericType)
+                name = $"{name}`{Arity}";
+
+            if (ContainingType is INamedTypeSymbol containingType)
+                return $"{containingType.MetadataName}+{name}";
+
+            if (ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
+            {
+                var namespaceMetadata = containingNamespace.MetadataName;
+                return string.IsNullOrEmpty(namespaceMetadata)
+                    ? name
+                    : $"{namespaceMetadata}.{name}";
+            }
+
+            return name;
+        }
+    }
 
     public bool IsReferenceType =>
         TypeKind == TypeKind.Class ||
@@ -140,6 +164,12 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
         if (!hasPartialModifier)
             HasNonPartialDeclaration = true;
+    }
+
+    internal void MarkAsExtensionContainer()
+    {
+        IsExtensionDeclaration = true;
+        IsSealed = true;
     }
 
     internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)

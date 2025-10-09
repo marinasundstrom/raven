@@ -492,6 +492,48 @@ public partial class Compilation
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
             }
         }
+        else if (memberDeclaration is ExtensionDeclarationSyntax extensionDeclaration)
+        {
+            Location[] locations = [syntaxTree.GetLocation(extensionDeclaration.EffectiveSpan)];
+
+            SyntaxReference[] references = [extensionDeclaration.GetReference()];
+
+            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingNamespace = declaringSymbol switch
+            {
+                INamespaceSymbol ns => ns,
+                INamedTypeSymbol type => type.ContainingNamespace,
+                _ => null
+            };
+
+            var baseTypeSymbol = GetSpecialType(SpecialType.System_Object);
+
+            var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
+                extensionDeclaration.Modifiers,
+                AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol));
+
+            var symbol = new SourceNamedTypeSymbol(
+                extensionDeclaration.Identifier.ValueText,
+                baseTypeSymbol!,
+                TypeKind.Class,
+                declaringSymbol,
+                containingType,
+                containingNamespace,
+                locations,
+                references,
+                isSealed: true,
+                isAbstract: true,
+                declaredAccessibility: extensionAccessibility);
+
+            symbol.MarkAsExtensionContainer();
+
+            InitializeTypeParameters(symbol, extensionDeclaration.TypeParameterList, syntaxTree);
+
+            foreach (var memberDeclaration2 in extensionDeclaration.Members)
+            {
+                AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
+            }
+        }
         else if (memberDeclaration is MethodDeclarationSyntax methodDeclaration)
         {
             Location[] locations = [syntaxTree.GetLocation(methodDeclaration.EffectiveSpan)];
@@ -508,6 +550,9 @@ public partial class Compilation
 
             var returnType = GetSpecialType(SpecialType.System_Unit);
             var isStatic = methodDeclaration.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
+            var declaredInExtension = declaringSymbol is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
+            if (declaredInExtension)
+                isStatic = true;
             var defaultAccessibility = containingType is not null
                 ? AccessibilityUtilities.GetDefaultMemberAccessibility(containingType)
                 : AccessibilityUtilities.GetDefaultTypeAccessibility(declaringSymbol);
@@ -515,7 +560,7 @@ public partial class Compilation
                 methodDeclaration.Modifiers,
                 defaultAccessibility);
 
-            _ = new SourceMethodSymbol(
+            var methodSymbol = new SourceMethodSymbol(
                 methodDeclaration.Identifier.ValueText, returnType,
                 ImmutableArray<SourceParameterSymbol>.Empty,
                 declaringSymbol,
@@ -524,6 +569,9 @@ public partial class Compilation
                 locations, references,
                 isStatic: isStatic,
                 declaredAccessibility: methodAccessibility);
+
+            if (declaredInExtension)
+                methodSymbol.MarkDeclaredInExtension();
         }
     }
 

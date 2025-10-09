@@ -10,9 +10,17 @@ A `return` without an expression in a method that returns `unit` emits IL with n
 
 ## Extension methods
 Raven both declares and consumes extension methods using the CLR's
-`ExtensionAttribute`. Source extensions are `static` methods whose first
-parameter is marked as the receiver, and the compiler emits the attribute so the
-metadata matches C#'s expectations.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】 When binding a
+`ExtensionAttribute`. Source extensions arise from two forms:
+
+* An `extension` declaration emits a `static` class named after the container.
+  Each member inside the declaration becomes a `static` method whose first
+  parameter represents the `self` receiver. The compiler synthesizes that
+  parameter, applies the `ExtensionAttribute`, and copies any explicit
+  parameters written in source onto the emitted method signature.
+* Existing static methods annotated with `[Extension]` continue to be recognised
+  as extensions.
+
+In both cases the attribute ensures the metadata matches C#'s expectations.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L197-L233】 When binding a
 member-style invocation, Raven merges instance methods with any imported
 extensions that can accept the receiver, then rewrites the call to pass the
 receiver as the leading static argument during lowering and IL emission.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1946-L2001】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/Lowerer.Invocation.cs†L8-L29】

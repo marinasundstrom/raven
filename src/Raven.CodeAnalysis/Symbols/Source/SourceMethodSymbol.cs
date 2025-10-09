@@ -17,8 +17,10 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _isOverride;
     private bool _isVirtual;
     private bool _isSealed;
+    private bool _declaredInExtension;
     private ImmutableArray<AttributeData> _lazyReturnTypeAttributes;
     private bool? _lazyIsExtensionMethod;
+    private ImmutableArray<AttributeData> _lazyAttributesWithExtension;
     private IteratorMethodKind _iteratorKind;
     private ITypeSymbol? _iteratorElementType;
     private bool _isIterator;
@@ -172,6 +174,29 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _containsAwait = containsAwait;
     }
 
+    internal void MarkDeclaredInExtension()
+    {
+        _declaredInExtension = true;
+        _lazyIsExtensionMethod = true;
+    }
+
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        if (!_declaredInExtension)
+            return base.GetAttributes();
+
+        if (_lazyAttributesWithExtension.IsDefault)
+        {
+            var baseAttributes = base.GetAttributes();
+            var extensionAttribute = CreateExtensionAttributeData();
+            _lazyAttributesWithExtension = extensionAttribute is null
+                ? baseAttributes
+                : baseAttributes.Add(extensionAttribute);
+        }
+
+        return _lazyAttributesWithExtension;
+    }
+
     internal void MarkAsyncReturnTypeError()
     {
         _hasAsyncReturnTypeError = true;
@@ -261,6 +286,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     private bool ComputeIsExtensionMethod()
     {
+        if (_declaredInExtension)
+            return true;
+
         if (!IsStatic)
             return false;
 
@@ -295,5 +323,31 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
         static bool IsExtensionIdentifier(string identifier)
             => identifier is "Extension" or "ExtensionAttribute";
+    }
+
+    private AttributeData? CreateExtensionAttributeData()
+    {
+        var compilation = GetDeclaringCompilation();
+        if (compilation is null)
+            return null;
+
+        var attributeType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.ExtensionAttribute");
+        if (attributeType is null)
+            return null;
+
+        var constructor = attributeType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
+        if (constructor is null)
+            return null;
+
+        var syntaxReference = DeclaringSyntaxReferences.FirstOrDefault();
+        if (syntaxReference is null)
+            return null;
+
+        return new AttributeData(
+            attributeType,
+            constructor,
+            ImmutableArray<TypedConstant>.Empty,
+            ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
+            syntaxReference);
     }
 }

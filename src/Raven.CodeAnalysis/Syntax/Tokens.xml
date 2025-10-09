@@ -20,6 +20,7 @@
   <TokenKind Name="StructKeyword" Text="struct" IsReservedWord="true" />
   <TokenKind Name="ClassKeyword" Text="class" IsReservedWord="true" />
   <TokenKind Name="InterfaceKeyword" Text="interface" IsReservedWord="true" />
+  <TokenKind Name="ExtensionKeyword" Text="extension" IsReservedWord="false" />
   <TokenKind Name="InitKeyword" Text="init" IsReservedWord="false" />
   <TokenKind Name="BaseKeyword" Text="base" IsReservedWord="true" />
   <TokenKind Name="SelfKeyword" Text="self" IsReservedWord="true" />
