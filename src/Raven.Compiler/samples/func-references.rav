@@ -2,7 +2,7 @@ import System.Console.*
 
 let foo = Foo
 
-WriteLine("Test")
+WriteLine("Foo ${foo(2)}")
 
 func Foo(x: int) -> int {
     return x + 1
