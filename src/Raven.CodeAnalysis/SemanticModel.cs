@@ -349,35 +349,6 @@ public partial class SemanticModel
             }
         }
 
-        foreach (var alias in cu.Aliases)
-        {
-            IReadOnlyList<ISymbol> symbols;
-            if (alias.Target is NameSyntax name)
-            {
-                symbols = ResolveAlias(targetNamespace, name);
-            }
-            else
-            {
-                var typeSymbol = provisionalImportBinder.ResolveType(alias.Target);
-                symbols = typeSymbol == Compilation.ErrorTypeSymbol
-                    ? Array.Empty<ISymbol>()
-                    : new ISymbol[] { typeSymbol };
-            }
-
-            if (symbols.Count > 0)
-            {
-                var aliasName = alias.Identifier.ValueText;
-                var aliasSymbols = symbols
-                    .Select(s => AliasSymbolFactory.Create(aliasName, s))
-                    .ToArray();
-                aliases[aliasName] = aliasSymbols;
-            }
-            else
-            {
-                namespaceBinder.Diagnostics.ReportInvalidAliasType(alias.Target.GetLocation());
-            }
-        }
-
         var importBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);
 
         parentBinder = importBinder;
@@ -401,15 +372,30 @@ public partial class SemanticModel
             }
         }
 
+        BindAliases(cu.Aliases);
+
+        if (fileScopedNamespace is not null)
+        {
+            BindAliases(fileScopedNamespace.Aliases);
+        }
+
         foreach (var diagnostic in namespaceBinder.Diagnostics.AsEnumerable())
             importBinder.Diagnostics.Report(diagnostic);
 
         foreach (var diagnostic in compilationUnitBinder.Diagnostics.AsEnumerable())
             importBinder.Diagnostics.Report(diagnostic);
 
-        if (fileScopedNamespace is not null)
+        var topLevelBinder = CreateTopLevelBinder(cu, targetNamespace, importBinder);
+
+        _binderCache[cu] = topLevelBinder;
+        if (fileScopedNamespace != null)
+            _binderCache[fileScopedNamespace] = importBinder;
+
+        return topLevelBinder;
+
+        void BindAliases(SyntaxList<AliasDirectiveSyntax> aliasList)
         {
-            foreach (var alias in fileScopedNamespace.Aliases)
+            foreach (var alias in aliasList)
             {
                 IReadOnlyList<ISymbol> symbols;
                 if (alias.Target is NameSyntax name)
@@ -438,14 +424,6 @@ public partial class SemanticModel
                 }
             }
         }
-
-        var topLevelBinder = CreateTopLevelBinder(cu, targetNamespace, importBinder);
-
-        _binderCache[cu] = topLevelBinder;
-        if (fileScopedNamespace != null)
-            _binderCache[fileScopedNamespace] = importBinder;
-
-        return topLevelBinder;
 
         INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
         {
