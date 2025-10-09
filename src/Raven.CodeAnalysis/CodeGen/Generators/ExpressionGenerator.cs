@@ -176,6 +176,10 @@ internal class ExpressionGenerator : Generator
                 EmitMethodGroupExpression(methodGroupExpression);
                 break;
 
+            case BoundErrorExpression errorExpression:
+                EmitErrorExpression(errorExpression);
+                break;
+
             default:
                 throw new NotSupportedException($"Unsupported expression type: {expression.GetType()}");
         }
@@ -222,6 +226,17 @@ internal class ExpressionGenerator : Generator
         }
 
         EmitDelegateCreation(methodGroup.Receiver, method, delegateTypeSymbol);
+    }
+
+    private void EmitErrorExpression(BoundErrorExpression errorExpression)
+    {
+        if (!_preserveResult)
+            return;
+
+        if (errorExpression.Type.SpecialType == SpecialType.System_Void)
+            return;
+
+        EmitDefaultValue(errorExpression.Type);
     }
 
     private void EmitDelegateCreation(BoundExpression? receiver, IMethodSymbol method, INamedTypeSymbol delegateType)

@@ -344,6 +344,13 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
             // Resolve the constructed runtime type
             var constructedType = _constructed.GetTypeInfo(codeGen).AsType();
 
+            if (constructedType is TypeBuilder || constructedType.GetType().FullName == "System.Reflection.Emit.TypeBuilderInstantiation")
+            {
+                var instantiated = TypeBuilder.GetMethod(constructedType, baseMethod);
+                if (instantiated is not null)
+                    return instantiated;
+            }
+
             // Use metadata name and parameter types to resolve the method on the constructed type
             var parameterTypes = Parameters
                 .Select(x => x.Type.GetClrTypeTreatingUnitAsVoid(codeGen))
