@@ -1702,9 +1702,17 @@ internal class ExpressionGenerator : Generator
                     var propertySymbol = (IPropertySymbol)propertyAssignmentExpression.Property;
                     var right = propertyAssignmentExpression.Right;
                     var receiver = propertyAssignmentExpression.Receiver;
+                    var isExtensionProperty = propertySymbol.IsExtensionProperty();
 
                     // Load receiver (unless static)
-                    if (!propertySymbol.IsStatic)
+                    if (isExtensionProperty)
+                    {
+                        if (receiver is null)
+                            throw new InvalidOperationException($"Extension property '{propertySymbol.Name}' requires a receiver.");
+
+                        EmitExpression(receiver);
+                    }
+                    else if (!propertySymbol.IsStatic)
                     {
                         if (receiver is not null)
                         {
@@ -1736,7 +1744,10 @@ internal class ExpressionGenerator : Generator
 
                     var setter = GetMethodInfo(propertySymbol.SetMethod);
 
-                    ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, setter);
+                    if (isExtensionProperty)
+                        ILGenerator.Emit(OpCodes.Call, setter);
+                    else
+                        ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, setter);
                     break;
                 }
 
@@ -2033,6 +2044,12 @@ internal class ExpressionGenerator : Generator
         switch (symbol)
         {
             case IPropertySymbol propertySymbol:
+                if (propertySymbol.IsExtensionProperty())
+                {
+                    EmitExtensionPropertyAccess(propertySymbol, receiver, receiverAlreadyLoaded);
+                    break;
+                }
+
                 EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
 
                 if (propertySymbol.ContainingType?.SpecialType == SpecialType.System_Array &&
@@ -2156,6 +2173,22 @@ internal class ExpressionGenerator : Generator
         {
             ILGenerator.Emit(OpCodes.Ldnull);
         }
+    }
+
+    private void EmitExtensionPropertyAccess(IPropertySymbol propertySymbol, BoundExpression? receiver, bool receiverAlreadyLoaded)
+    {
+        if (propertySymbol.GetMethod is null)
+            throw new InvalidOperationException($"Property '{propertySymbol.Name}' does not have a getter.");
+
+        if (!receiverAlreadyLoaded)
+        {
+            if (receiver is null)
+                throw new InvalidOperationException($"Extension property '{propertySymbol.Name}' requires a receiver.");
+
+            EmitExpression(receiver);
+        }
+
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
     }
 
     private void EmitReceiverIfNeeded(BoundExpression? receiver, ISymbol symbol, bool receiverAlreadyLoaded)
@@ -2496,6 +2529,9 @@ internal class ExpressionGenerator : Generator
     private void EmitPropertyAccess(BoundPropertyAccess propertyAccess)
     {
         var propertySymbol = propertyAccess.Property;
+
+        if (propertySymbol.IsExtensionProperty())
+            throw new InvalidOperationException($"Extension property '{propertySymbol.Name}' requires an explicit receiver.");
 
         if (propertySymbol.ContainingType!.Name == "Array") //.SpecialType is SpecialType.System_Array)
         {

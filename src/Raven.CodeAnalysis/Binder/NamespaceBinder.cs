@@ -57,4 +57,27 @@ class NamespaceBinder : Binder
             if (seen.Add(method))
                 yield return method;
     }
+
+    public override IEnumerable<IPropertySymbol> LookupExtensionProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            yield break;
+
+        var seen = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var property in GetExtensionPropertiesFromScope(_namespaceSymbol, name, receiverType, includePartialMatches))
+            if (seen.Add(property))
+                yield return property;
+
+        foreach (var declaredType in _declaredTypes)
+        {
+            foreach (var property in GetExtensionPropertiesFromScope(declaredType, name, receiverType, includePartialMatches))
+                if (seen.Add(property))
+                    yield return property;
+        }
+
+        foreach (var property in base.LookupExtensionProperties(name, receiverType, includePartialMatches))
+            if (seen.Add(property))
+                yield return property;
+    }
 }
