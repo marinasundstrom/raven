@@ -366,6 +366,22 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Function_WithExpressionBody_ParsesArrowExpression()
+    {
+        var source = "func foo() -> int => 42";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (FunctionStatementSyntax)parser.ParseStatement().CreateRed();
+
+        Assert.Null(statement.Body);
+        var expressionBody = Assert.IsType<ArrowExpressionClauseSyntax>(statement.ExpressionBody);
+        Assert.Equal(SyntaxKind.FatArrowToken, expressionBody.ArrowToken.Kind);
+        Assert.Equal("42", expressionBody.Expression.ToString());
+    }
+
+    [Fact]
     public void VariableDeclaration_MissingIdentifier_ProducesMissingToken()
     {
         var source = "let = 1";

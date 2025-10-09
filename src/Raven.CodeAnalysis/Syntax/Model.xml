@@ -695,6 +695,7 @@
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
+    <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true"/>
   </Node>
   <Node Name="ObjectCreationExpression" Inherits="Expression">

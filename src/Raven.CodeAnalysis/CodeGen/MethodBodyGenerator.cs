@@ -132,6 +132,8 @@ internal class MethodBodyGenerator
                 => semanticModel.GetBoundNode(c.ExpressionBody.Expression) as BoundExpression,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null
                 => semanticModel.GetBoundNode(a.ExpressionBody.Expression) as BoundExpression,
+            FunctionStatementSyntax l when l.ExpressionBody is not null
+                => semanticModel.GetBoundNode(l.ExpressionBody.Expression) as BoundExpression,
             _ => null
         };
 
@@ -204,9 +206,17 @@ internal class MethodBodyGenerator
 
             case FunctionStatementSyntax functionStatement:
                 if (boundBody != null)
+                {
                     EmitMethodBlock(boundBody);
+                }
+                else if (expressionBody is not null)
+                {
+                    EmitExpressionBody(expressionBody);
+                }
                 else
+                {
                     ILGenerator.Emit(OpCodes.Ret);
+                }
                 break;
 
             case MethodDeclarationSyntax methodDeclaration:

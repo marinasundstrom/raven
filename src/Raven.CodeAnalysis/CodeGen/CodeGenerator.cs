@@ -712,7 +712,11 @@ internal class CodeGenerator
                 if (semanticModel.GetDeclaredSymbol(functionStatement) is not SourceMethodSymbol functionSymbol)
                     continue;
 
-                TryRewriteAsyncMethod(semanticModel, functionSymbol, functionStatement.Body, expressionBody: null);
+                TryRewriteAsyncMethod(
+                    semanticModel,
+                    functionSymbol,
+                    functionStatement.Body,
+                    functionStatement.ExpressionBody);
             }
 
             foreach (var accessor in root.DescendantNodes().OfType<AccessorDeclarationSyntax>())

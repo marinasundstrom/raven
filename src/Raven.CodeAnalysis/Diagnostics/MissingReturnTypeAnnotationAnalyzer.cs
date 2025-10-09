@@ -71,10 +71,10 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
         }
 
         foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
-            AnalyzeNode(method, method.Identifier, method.ReturnType, method.Body);
+            AnalyzeNode(method, method.Identifier, method.ReturnType, method.Body ?? (SyntaxNode?)method.ExpressionBody);
 
         foreach (var function in root.DescendantNodes().OfType<FunctionStatementSyntax>())
-            AnalyzeNode(function, function.Identifier, function.ReturnType, function.Body);
+            AnalyzeNode(function, function.Identifier, function.ReturnType, function.Body ?? (SyntaxNode?)function.ExpressionBody);
     }
 
     private static string FormatType(ITypeSymbol type)
