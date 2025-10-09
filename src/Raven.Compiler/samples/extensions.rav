@@ -1,9 +1,14 @@
+import System.Console.*
 import System.Collections.Generic.*
 
 let items = List<int>()
 items.Add(1)
 items.Add(2)
 let count = items.CountItems()
+let sum = items.SumNumbers()
+
+WriteLine("Count: ${count}");
+WriteLine("Sum: ${sum}");
 
 extension MyEnumerableExt<T> for IEnumerable<T> {
     CountItems() -> int {
@@ -12,5 +17,15 @@ extension MyEnumerableExt<T> for IEnumerable<T> {
             total = total + 1
         }
         return total
+    }
+}
+
+extension MyIntEnumerableExt for IEnumerable<int> {
+    SumNumbers() -> int {
+        var sum: int = 0
+        for each x in self {
+            sum = sum + x
+        }
+        return sum
     }
 }
