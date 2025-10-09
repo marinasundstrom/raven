@@ -146,4 +146,30 @@ class ImportBinder : Binder
             if (seen.Add(method))
                 yield return method;
     }
+
+    public override IEnumerable<IPropertySymbol> LookupExtensionProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            yield break;
+
+        var seen = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var scope in _namespaceOrTypeScopeImports)
+        {
+            foreach (var property in GetExtensionPropertiesFromScope(scope, name, receiverType, includePartialMatches))
+                if (seen.Add(property))
+                    yield return property;
+        }
+
+        foreach (var type in _typeImports)
+        {
+            foreach (var property in GetExtensionPropertiesFromScope(type, name, receiverType, includePartialMatches))
+                if (seen.Add(property))
+                    yield return property;
+        }
+
+        foreach (var property in base.LookupExtensionProperties(name, receiverType, includePartialMatches))
+            if (seen.Add(property))
+                yield return property;
+    }
 }

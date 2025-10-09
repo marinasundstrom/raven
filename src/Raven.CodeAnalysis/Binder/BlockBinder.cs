@@ -295,6 +295,28 @@ partial class BlockBinder : Binder
         return ImmutableArray<IMethodSymbol>.Empty;
     }
 
+    private ImmutableArray<IPropertySymbol> GetAccessibleProperties(
+        ImmutableArray<IPropertySymbol> properties,
+        Location location)
+    {
+        if (properties.IsDefaultOrEmpty)
+            return properties;
+
+        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+
+        foreach (var property in properties)
+        {
+            if (IsSymbolAccessible(property))
+                builder.Add(property);
+        }
+
+        if (builder.Count > 0)
+            return builder.ToImmutable();
+
+        EnsureMemberAccessible(properties[0], location, "property");
+        return ImmutableArray<IPropertySymbol>.Empty;
+    }
+
     private BoundExpression BindMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods, Location location)
     {
         var accessibleMethods = GetAccessibleMethods(methods, location);
@@ -1876,6 +1898,36 @@ partial class BlockBinder : Binder
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
 
                 return new BoundMemberAccessExpression(receiver, instanceMember);
+            }
+
+            if (IsExtensionReceiver(receiver))
+            {
+                var extensionProperties = LookupExtensionProperties(name, receiverType).ToImmutableArray();
+
+                if (!extensionProperties.IsDefaultOrEmpty)
+                {
+                    var accessibleProperties = GetAccessibleProperties(extensionProperties, nameLocation);
+
+                    if (!accessibleProperties.IsDefaultOrEmpty)
+                    {
+                        if (accessibleProperties.Length == 1)
+                            return new BoundMemberAccessExpression(receiver, accessibleProperties[0]);
+
+                        var ambiguousMethods = accessibleProperties
+                            .Select(p => p.GetMethod ?? p.SetMethod)
+                            .Where(m => m is not null)
+                            .Cast<IMethodSymbol>()
+                            .ToImmutableArray();
+
+                        if (!ambiguousMethods.IsDefaultOrEmpty)
+                            _diagnostics.ReportCallIsAmbiguous(name, ambiguousMethods, nameLocation);
+
+                        return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Ambiguous);
+                    }
+
+                    EnsureMemberAccessible(extensionProperties[0], nameLocation, GetSymbolKindForDiagnostic(extensionProperties[0]));
+                    return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
+                }
             }
         }
 

@@ -94,6 +94,18 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.LessThanToken))
             typeParameterList = ParseTypeParameterList();
 
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+            return ParseMethodMember(attributeLists, modifiers, identifier, typeParameterList);
+
+        return ParsePropertyMember(attributeLists, modifiers, identifier);
+    }
+
+    private MemberDeclarationSyntax ParseMethodMember(
+        SyntaxList attributeLists,
+        SyntaxList modifiers,
+        SyntaxToken identifier,
+        TypeParameterListSyntax? typeParameterList)
+    {
         var parameterList = new StatementSyntaxParser(this).ParseParameterList();
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
@@ -122,6 +134,122 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             body,
             expressionBody,
             terminatorToken);
+    }
+
+    private MemberDeclarationSyntax ParsePropertyMember(
+        SyntaxList attributeLists,
+        SyntaxList modifiers,
+        SyntaxToken identifier)
+    {
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
+            ?? CreateMissingTypeAnnotationClause();
+
+        AccessorListSyntax? accessorList = null;
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+            accessorList = ParseAccessorList();
+
+        EqualsValueClauseSyntax? initializer = null;
+        if (IsNextToken(SyntaxKind.EqualsToken, out _))
+            initializer = new EqualsValueClauseSyntaxParser(this).Parse();
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return PropertyDeclaration(
+            attributeLists,
+            modifiers,
+            explicitInterfaceSpecifier: null,
+            identifier,
+            typeAnnotation,
+            accessorList,
+            initializer,
+            terminatorToken);
+    }
+
+    private TypeAnnotationClauseSyntax CreateMissingTypeAnnotationClause()
+    {
+        var colonToken = MissingToken(SyntaxKind.ColonToken);
+        var missingType = IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
+        return TypeAnnotationClause(colonToken, missingType);
+    }
+
+    private AccessorListSyntax ParseAccessorList()
+    {
+        var openBraceToken = ReadToken();
+        var accessors = new List<GreenNode>();
+
+        SetTreatNewlinesAsTokens(false);
+
+        while (true)
+        {
+            var token = PeekToken();
+            if (token.IsKind(SyntaxKind.CloseBraceToken))
+                break;
+
+            var accessor = ParseAccessorDeclaration();
+            accessors.Add(accessor);
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+        SetTreatNewlinesAsTokens(false);
+
+        return AccessorList(openBraceToken, List(accessors), closeBraceToken);
+    }
+
+    private AccessorDeclarationSyntax ParseAccessorDeclaration()
+    {
+        var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+        var modifiers = ParseAccessorModifiers();
+
+        if (!ConsumeToken(SyntaxKind.GetKeyword, out var keyword) &&
+            !ConsumeToken(SyntaxKind.SetKeyword, out keyword))
+        {
+            keyword = MissingToken(SyntaxKind.GetKeyword);
+        }
+
+        BlockStatementSyntax? body = null;
+        ArrowExpressionClauseSyntax? expressionBody = null;
+        var token = PeekToken();
+
+        if (token.IsKind(SyntaxKind.OpenBraceToken))
+        {
+            body = new StatementSyntaxParser(this).ParseBlockStatementSyntax();
+        }
+        else if (token.IsKind(SyntaxKind.FatArrowToken))
+        {
+            expressionBody = new ExpressionSyntaxParser(this).ParseArrowExpressionClause();
+        }
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+        SetTreatNewlinesAsTokens(false);
+
+        var accessorKind = keyword.IsKind(SyntaxKind.GetKeyword)
+            ? SyntaxKind.GetAccessorDeclaration
+            : SyntaxKind.SetAccessorDeclaration;
+
+        return AccessorDeclaration(accessorKind, attributeLists, modifiers, keyword, body, expressionBody, terminatorToken);
+    }
+
+    private SyntaxList ParseAccessorModifiers()
+    {
+        SyntaxList modifiers = SyntaxList.Empty;
+        SyntaxToken modifier;
+
+        while (true)
+        {
+            if (ConsumeToken(SyntaxKind.AsyncKeyword, out modifier) ||
+                ConsumeToken(SyntaxKind.RefKeyword, out modifier) ||
+                ConsumeToken(SyntaxKind.OutKeyword, out modifier) ||
+                ConsumeToken(SyntaxKind.InKeyword, out modifier))
+            {
+                modifiers = modifiers.Add(modifier);
+                continue;
+            }
+
+            break;
+        }
+
+        return modifiers;
     }
 
     private TypeParameterListSyntax ParseTypeParameterList()

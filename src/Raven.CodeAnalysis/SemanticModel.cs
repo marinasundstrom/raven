@@ -1219,12 +1219,26 @@ public partial class SemanticModel
     {
         foreach (var member in extensionDecl.Members)
         {
-            if (member is not MethodDeclarationSyntax methodDecl)
-                continue;
+            switch (member)
+            {
+                case MethodDeclarationSyntax methodDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
+                        _binderCache[methodDecl] = methodBinder;
+                        break;
+                    }
 
-            var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
-            var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
-            _binderCache[methodDecl] = methodBinder;
+                case PropertyDeclarationSyntax propertyDecl:
+                    {
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var accessorBinders = memberBinder.BindPropertyDeclaration(propertyDecl);
+                        _binderCache[propertyDecl] = memberBinder;
+                        foreach (var kv in accessorBinders)
+                            _binderCache[kv.Key] = kv.Value;
+                        break;
+                    }
+            }
         }
     }
 

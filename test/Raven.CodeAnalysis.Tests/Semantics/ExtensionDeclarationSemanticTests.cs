@@ -159,4 +159,60 @@ extension MyEnumerableExt<T> for IEnumerable<T> {
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
     }
+
+    [Fact]
+    public void ExtensionDeclaration_AllowsProperty()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+extension ListExt for List<int> {
+    CountPlusOne: int {
+        get => self.Count + 1
+        set => self.Add(value)
+    }
+}
+
+func main() {
+    let items = List<int>()
+    items.CountPlusOne = 5
+    let value = items.CountPlusOne
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var extensionDecl = tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single();
+        var propertyDecl = extensionDecl.Members.OfType<PropertyDeclarationSyntax>().Single();
+        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertyDecl));
+
+        Assert.True(propertySymbol.IsExtensionProperty());
+        Assert.Equal("CountPlusOne", propertySymbol.Name);
+
+        var getter = Assert.IsAssignableFrom<IMethodSymbol>(propertySymbol.GetMethod);
+        Assert.True(getter.IsExtensionMethod);
+        Assert.Equal("self", getter.Parameters[0].Name);
+
+        var setter = Assert.IsAssignableFrom<IMethodSymbol>(propertySymbol.SetMethod);
+        Assert.True(setter.IsExtensionMethod);
+        Assert.Equal("self", setter.Parameters[0].Name);
+        Assert.Equal("value", setter.Parameters[1].Name);
+
+        var assignmentSyntax = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignmentSyntax));
+        var boundPropertyAssignment = Assert.IsType<BoundPropertyAssignmentExpression>(boundAssignment.Expression);
+        Assert.True(SymbolEqualityComparer.Default.Equals(propertySymbol, boundPropertyAssignment.Property));
+
+        var getterAccess = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .First(ma => ma.Name.Identifier.ValueText == "CountPlusOne" && ma.Parent is not AssignmentExpressionSyntax);
+        var boundMemberAccess = Assert.IsType<BoundMemberAccessExpression>(model.GetBoundNode(getterAccess));
+        Assert.True(SymbolEqualityComparer.Default.Equals(propertySymbol, (IPropertySymbol)boundMemberAccess.Member));
+    }
 }

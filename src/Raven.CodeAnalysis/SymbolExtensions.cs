@@ -73,4 +73,22 @@ public static partial class SymbolExtensions
 
     public static ITypeSymbol? UnwrapLiteralType(this ITypeSymbol? type)
         => type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
+
+    public static bool IsExtensionProperty(this IPropertySymbol property)
+    {
+        return property switch
+        {
+            SourcePropertySymbol sourceProperty => sourceProperty.IsDeclaredInExtension,
+            _ => false
+        };
+    }
+
+    public static ITypeSymbol? GetExtensionReceiverType(this IPropertySymbol property)
+    {
+        return property switch
+        {
+            SourcePropertySymbol sourceProperty when sourceProperty.IsDeclaredInExtension => sourceProperty.ExtensionReceiverType,
+            _ => null
+        };
+    }
 }
