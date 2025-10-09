@@ -241,6 +241,27 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void WildcardTypeImport_FromSourceType_MakesStaticMembersAvailable()
+    {
+        string testCode =
+            """
+            import MathHelpers.*
+
+            let value = Increment(1, 2)
+
+            public static class MathHelpers {
+                public static Increment(x: int, amount: int) -> int {
+                    return x + amount
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ImportNonNamespaceOrType_Should_ProduceDiagnostic()
     {
         string testCode =
