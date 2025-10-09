@@ -130,4 +130,33 @@ func main() {
         Assert.NotNull(boundInvocation.ExtensionReceiver);
         Assert.True(SymbolEqualityComparer.Default.Equals(selfParameter.Type, boundInvocation.ExtensionReceiver!.Type));
     }
+
+    [Fact]
+    public void ExtensionDeclaration_OpenGenericReceiver_AllowsTopLevelInvocation()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+let items = List<int>()
+items.Add(1)
+items.Add(2)
+let count = items.CountItems()
+
+extension MyEnumerableExt<T> for IEnumerable<T> {
+    CountItems() -> int {
+        var total: int = 0
+        for each x in self {
+            total = total + 1
+        }
+        return total
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
 }

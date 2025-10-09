@@ -209,8 +209,249 @@ internal abstract class Binder
             if (!IsSymbolAccessible(method))
                 continue;
 
-            yield return method;
+            yield return AdjustExtensionForReceiver(method, receiverType);
         }
+    }
+
+    private IMethodSymbol AdjustExtensionForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
+    {
+        if (!method.IsExtensionMethod || receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return method;
+
+        if (!TryCreateConstructedExtension(method, receiverType, out var constructed))
+            return method;
+
+        return constructed;
+    }
+
+    private bool TryCreateConstructedExtension(IMethodSymbol method, ITypeSymbol receiverType, out IMethodSymbol constructed)
+    {
+        constructed = method;
+
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+            return false;
+
+        var container = method.ContainingType as INamedTypeSymbol;
+        if (container is null || !container.IsGenericType || container.TypeParameters.IsDefaultOrEmpty || container.TypeParameters.Length == 0)
+            return false;
+
+        var receiverParameterType = method.Parameters[0].Type;
+        if (receiverParameterType is null || receiverParameterType.TypeKind == TypeKind.Error)
+            return false;
+
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (!TryUnifyExtensionReceiver(receiverParameterType, receiverType, substitutions))
+            return false;
+
+        var typeArguments = new ITypeSymbol[container.TypeParameters.Length];
+
+        for (int i = 0; i < container.TypeParameters.Length; i++)
+        {
+            var typeParameter = container.TypeParameters[i];
+            if (!substitutions.TryGetValue(typeParameter, out var typeArgument))
+                return false;
+
+            typeArguments[i] = typeArgument;
+        }
+
+        var constructedContainer = container.Construct(typeArguments);
+        if (constructedContainer is not INamedTypeSymbol namedContainer)
+            return false;
+
+        var originalDefinition = method.OriginalDefinition ?? method;
+
+        foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
+        {
+            var candidateOriginal = candidate.OriginalDefinition ?? candidate;
+            if (SymbolEqualityComparer.Default.Equals(candidateOriginal, originalDefinition))
+            {
+                constructed = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryUnifyExtensionReceiver(
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        parameterType = NormalizeTypeForExtensionInference(parameterType);
+        argumentType = NormalizeTypeForExtensionInference(argumentType);
+
+        if (parameterType is ITypeParameterSymbol parameter)
+            return TryRecordExtensionSubstitution(parameter, argumentType, substitutions);
+
+        if (parameterType is INamedTypeSymbol paramNamed)
+        {
+            if (argumentType is INamedTypeSymbol argNamed)
+            {
+                if (TryUnifyNamedType(paramNamed, argNamed, substitutions))
+                    return true;
+
+                foreach (var iface in argNamed.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                for (var baseType = argNamed.BaseType; baseType is not null; baseType = baseType.BaseType)
+                {
+                    if (TryUnifyNamedType(paramNamed, baseType, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+
+            if (argumentType is IArrayTypeSymbol arrayArgument)
+            {
+                if (TryUnifyArrayLike(paramNamed, arrayArgument, substitutions))
+                    return true;
+
+                foreach (var iface in arrayArgument.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+
+            if (argumentType is NullableTypeSymbol nullableArgument)
+            {
+                if (TryUnifyNamedType(paramNamed, nullableArgument.UnderlyingType as INamedTypeSymbol, substitutions))
+                    return true;
+
+                foreach (var iface in nullableArgument.AllInterfaces)
+                {
+                    if (TryUnifyNamedType(paramNamed, iface, substitutions))
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
+        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+            return TryUnifyExtensionReceiver(paramArray.ElementType, argArray.ElementType, substitutions);
+
+        if (parameterType is NullableTypeSymbol paramNullable)
+        {
+            if (argumentType is NullableTypeSymbol argNullable)
+                return TryUnifyExtensionReceiver(paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions);
+
+            if (!argumentType.IsValueType)
+                return TryUnifyExtensionReceiver(paramNullable.UnderlyingType, argumentType, substitutions);
+
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(parameterType, argumentType);
+
+        bool TryUnifyNamedType(
+            INamedTypeSymbol parameterNamed,
+            INamedTypeSymbol? argumentNamed,
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+        {
+            if (argumentNamed is null)
+                return false;
+
+            var parameterDefinition = parameterNamed.OriginalDefinition ?? parameterNamed;
+            var argumentDefinition = argumentNamed.OriginalDefinition ?? argumentNamed;
+
+            if (!SymbolEqualityComparer.Default.Equals(parameterDefinition, argumentDefinition))
+                return false;
+
+            var parameterArguments = parameterNamed.TypeArguments;
+            var argumentArguments = argumentNamed.TypeArguments;
+
+            if (parameterArguments.Length != argumentArguments.Length)
+                return false;
+
+            for (int i = 0; i < parameterArguments.Length; i++)
+            {
+                if (!TryUnifyExtensionReceiver(parameterArguments[i], argumentArguments[i], map))
+                    return false;
+            }
+
+            return true;
+        }
+
+        bool TryUnifyArrayLike(
+            INamedTypeSymbol parameterNamed,
+            IArrayTypeSymbol argumentArray,
+            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+        {
+            var constructedFrom = parameterNamed.ConstructedFrom ?? parameterNamed;
+
+            if (constructedFrom.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T or
+                SpecialType.System_Collections_Generic_ICollection_T or
+                SpecialType.System_Collections_Generic_IList_T ||
+                IsGenericCollectionInterface(parameterNamed, "IReadOnlyCollection") ||
+                IsGenericCollectionInterface(parameterNamed, "IReadOnlyList"))
+            {
+                return TryUnifyExtensionReceiver(parameterNamed.TypeArguments[0], argumentArray.ElementType, map);
+            }
+
+            return false;
+        }
+    }
+
+    private bool TryRecordExtensionSubstitution(
+        ITypeParameterSymbol typeParameter,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        argumentType = NormalizeTypeForExtensionInference(argumentType);
+
+        if (substitutions.TryGetValue(typeParameter, out var existing))
+        {
+            existing = NormalizeTypeForExtensionInference(existing);
+
+            if (SymbolEqualityComparer.Default.Equals(existing, argumentType))
+                return true;
+
+            if (Compilation.ClassifyConversion(argumentType, existing).IsImplicit)
+                return true;
+
+            if (Compilation.ClassifyConversion(existing, argumentType).IsImplicit)
+            {
+                substitutions[typeParameter] = argumentType;
+                return true;
+            }
+
+            return false;
+        }
+
+        substitutions[typeParameter] = argumentType;
+        return true;
+    }
+
+    private static ITypeSymbol NormalizeTypeForExtensionInference(ITypeSymbol type)
+    {
+        return type switch
+        {
+            LiteralTypeSymbol literal => literal.UnderlyingType,
+            _ => type
+        };
+    }
+
+    private static bool IsGenericCollectionInterface(INamedTypeSymbol parameterNamed, string interfaceName)
+    {
+        var definition = parameterNamed.ConstructedFrom ?? parameterNamed;
+
+        if (!string.Equals(definition.Name, interfaceName, StringComparison.Ordinal))
+            return false;
+
+        var ns = definition.ContainingNamespace?.ToDisplayString();
+        return string.Equals(ns, "System.Collections.Generic", StringComparison.Ordinal);
     }
 
     private static IEnumerable<IMethodSymbol> EnumerateExtensionMethods(
