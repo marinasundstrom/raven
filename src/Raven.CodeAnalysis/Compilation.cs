@@ -593,10 +593,15 @@ public partial class Compilation
             allTypes.Add(returnType);
 
         string delegateName = isAction ? "Action" : "Func";
-
-        var delegateType = systemNamespace?.GetMembers(delegateName)
+        INamedTypeSymbol? delegateType = systemNamespace?.GetMembers(delegateName)
             .OfType<INamedTypeSymbol>()
             .FirstOrDefault(t => t.Arity == allTypes.Count);
+
+        if (delegateType is null)
+        {
+            var metadataName = $"System.{delegateName}`{allTypes.Count}";
+            delegateType = GetTypeByMetadataName(metadataName);
+        }
 
         if (delegateType is not null)
             return delegateType.Construct(allTypes.ToArray());
