@@ -108,6 +108,34 @@ public class InterpolatedStringTests
     }
 
     [Fact]
+    public void InterpolatedStringText_AllowsQuotesInsideExpressionsWithOperators()
+    {
+        var source = "let s = \"Foo: ${\"Hej\" + \" Bob\"}\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var text = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("Foo: ", text.Token.ValueText);
+            },
+            second =>
+            {
+                var interpolation = Assert.IsType<InterpolationSyntax>(second);
+                var binary = Assert.IsType<BinaryExpressionSyntax>(interpolation.Expression);
+
+                var leftLiteral = Assert.IsType<LiteralExpressionSyntax>(binary.Left);
+                Assert.Equal("Hej", leftLiteral.Token.ValueText);
+
+                var rightLiteral = Assert.IsType<LiteralExpressionSyntax>(binary.Right);
+                Assert.Equal(" Bob", rightLiteral.Token.ValueText);
+            });
+    }
+
+    [Fact]
     public void InterpolatedStringText_AllowsEscapedSingleQuotesAndTabs()
     {
         var source = "let s = \"It\\'s ${text}\\'\\t\";";
