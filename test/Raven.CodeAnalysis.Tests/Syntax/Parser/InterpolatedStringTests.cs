@@ -85,6 +85,109 @@ public class InterpolatedStringTests
     }
 
     [Fact]
+    public void InterpolatedStringText_AllowsQuotesInsideExpressions()
+    {
+        var source = "let s = \"Foo: ${\"Hej\"}\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var text = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("Foo: ", text.Token.ValueText);
+            },
+            second =>
+            {
+                var interpolation = Assert.IsType<InterpolationSyntax>(second);
+                var literal = Assert.IsType<LiteralExpressionSyntax>(interpolation.Expression);
+                Assert.Equal("Hej", literal.Token.ValueText);
+            });
+    }
+
+    [Fact]
+    public void InterpolatedStringText_AllowsQuotesInsideExpressionsWithOperators()
+    {
+        var source = "let s = \"Foo: ${\"Hej\" + \" Bob\"}\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var text = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("Foo: ", text.Token.ValueText);
+            },
+            second =>
+            {
+                var interpolation = Assert.IsType<InterpolationSyntax>(second);
+                var binary = Assert.IsType<BinaryExpressionSyntax>(interpolation.Expression);
+
+                var leftLiteral = Assert.IsType<LiteralExpressionSyntax>(binary.Left);
+                Assert.Equal("Hej", leftLiteral.Token.ValueText);
+
+                var rightLiteral = Assert.IsType<LiteralExpressionSyntax>(binary.Right);
+                Assert.Equal(" Bob", rightLiteral.Token.ValueText);
+            });
+    }
+
+    [Fact]
+    public void InterpolatedStringText_AllowsNestedInterpolatedStringsInsideExpressions()
+    {
+        var source = "let s = \"Foo: ${\"Hej\" + \" ${firstName} ${lastName}\"}\";";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+        var interpolated = root
+            .DescendantNodes()
+            .OfType<InterpolatedStringExpressionSyntax>()
+            .First(s => s.Contents.OfType<InterpolatedStringTextSyntax>().Any(t => t.Token.ValueText == "Foo: "));
+
+        Assert.Collection(
+            interpolated.Contents,
+            first =>
+            {
+                var text = Assert.IsType<InterpolatedStringTextSyntax>(first);
+                Assert.Equal("Foo: ", text.Token.ValueText);
+            },
+            second =>
+            {
+                var interpolation = Assert.IsType<InterpolationSyntax>(second);
+                var binary = Assert.IsType<BinaryExpressionSyntax>(interpolation.Expression);
+
+                var leftLiteral = Assert.IsType<LiteralExpressionSyntax>(binary.Left);
+                Assert.Equal("Hej", leftLiteral.Token.ValueText);
+
+                var nestedInterpolated = Assert.IsType<InterpolatedStringExpressionSyntax>(binary.Right);
+                Assert.Collection(
+                    nestedInterpolated.Contents,
+                    nestedFirst =>
+                    {
+                        var leading = Assert.IsType<InterpolatedStringTextSyntax>(nestedFirst);
+                        Assert.Equal(" ", leading.Token.ValueText);
+                    },
+                    nestedSecond =>
+                    {
+                        var firstNameInterpolation = Assert.IsType<InterpolationSyntax>(nestedSecond);
+                        Assert.Equal("firstName", firstNameInterpolation.Expression.ToString());
+                    },
+                    nestedThird =>
+                    {
+                        var middle = Assert.IsType<InterpolatedStringTextSyntax>(nestedThird);
+                        Assert.Equal(" ", middle.Token.ValueText);
+                    },
+                    nestedFourth =>
+                    {
+                        var lastNameInterpolation = Assert.IsType<InterpolationSyntax>(nestedFourth);
+                        Assert.Equal("lastName", lastNameInterpolation.Expression.ToString());
+                    });
+            });
+    }
+
+    [Fact]
     public void InterpolatedStringText_AllowsEscapedSingleQuotesAndTabs()
     {
         var source = "let s = \"It\\'s ${text}\\'\\t\";";
