@@ -492,10 +492,19 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindSelfExpression(SelfExpressionSyntax selfExpression)
     {
-        if (_containingSymbol is IMethodSymbol method && (!method.IsStatic || method.IsNamedConstructor))
+        if (_containingSymbol is IMethodSymbol method)
         {
-            var containingType = method.ContainingType;
-            return new BoundSelfExpression(containingType);
+            if (!method.IsStatic || method.IsNamedConstructor)
+            {
+                var containingType = method.ContainingType;
+                return new BoundSelfExpression(containingType);
+            }
+
+            if (method.IsExtensionMethod && method.Parameters.Length > 0)
+            {
+                var receiver = method.Parameters[0];
+                return new BoundParameterAccess(receiver);
+            }
         }
 
         //_diagnostics.ReportSelfNotAllowed(selfExpression.GetLocation());
