@@ -126,8 +126,8 @@ internal sealed partial class Lowerer
 
             if (BoundBinaryOperator.TryLookup(compilation, SyntaxKind.NotEqualsToken, local.Type, local.Type, out var notEquals))
             {
-                var condition = new BoundBinaryExpression(new BoundLocalAccess(local), notEquals, nullLiteral);
-                return new BoundIfStatement(condition, new BoundBlockStatement(new[] { disposeCall }));
+                var condition2 = new BoundBinaryExpression(new BoundLocalAccess(local), notEquals, nullLiteral);
+                return new BoundIfStatement(condition2, new BoundBlockStatement(new[] { disposeCall }));
             }
 
             var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
