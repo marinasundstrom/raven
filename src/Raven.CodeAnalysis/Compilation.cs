@@ -742,26 +742,81 @@ public partial class Compilation
         var identity = metadataAssembly.GetName();
         if (!string.IsNullOrEmpty(explicitPath) && identity.Name is not null)
             _assemblyPathMap[identity.Name] = explicitPath;
+        else if (identity.Name is { } identityName)
+        {
+            try
+            {
+                var metadataLocation = metadataAssembly.Location;
+                if (!string.IsNullOrEmpty(metadataLocation) && !_assemblyPathMap.ContainsKey(identityName))
+                {
+                    _assemblyPathMap[identityName] = metadataLocation;
+                }
+            }
+            catch (NotSupportedException)
+            {
+                // Dynamic assemblies can throw when querying Location.
+            }
+        }
 
         if (_metadataToRuntimeAssemblyMap.TryGetValue(metadataAssembly, out var cached))
             return cached;
 
         Assembly? runtimeAssembly = null;
+        string? resolvedPath = null;
 
         if (identity.Name is not null && _runtimeAssemblyCache.TryGetValue(identity.Name, out var fromCache))
         {
             runtimeAssembly = fromCache;
+            if (!string.IsNullOrEmpty(runtimeAssembly.Location))
+                resolvedPath = runtimeAssembly.Location;
         }
         else if (identity.Name is not null && _assemblyPathMap.TryGetValue(identity.Name, out var knownPath))
         {
             runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, knownPath);
+            if (runtimeAssembly is not null)
+            {
+                resolvedPath = !string.IsNullOrEmpty(runtimeAssembly.Location)
+                    ? runtimeAssembly.Location
+                    : knownPath;
+            }
+            else if (TryMapReferenceAssemblyToRuntimePath(knownPath) is { } mappedKnownPath)
+            {
+                runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, mappedKnownPath);
+                if (runtimeAssembly is not null)
+                    resolvedPath = mappedKnownPath;
+            }
         }
 
         if (runtimeAssembly is null && !string.IsNullOrEmpty(explicitPath))
+        {
             runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, explicitPath);
+            if (runtimeAssembly is not null)
+            {
+                resolvedPath = !string.IsNullOrEmpty(runtimeAssembly.Location)
+                    ? runtimeAssembly.Location
+                    : explicitPath;
+            }
+            else if (TryMapReferenceAssemblyToRuntimePath(explicitPath) is { } mappedExplicitPath)
+            {
+                runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, mappedExplicitPath);
+                if (runtimeAssembly is not null)
+                    resolvedPath = mappedExplicitPath;
+            }
+        }
 
-        runtimeAssembly ??= LoadRuntimeAssemblyByName(identity);
-        runtimeAssembly ??= MapToRuntimeImplementation(identity);
+        if (runtimeAssembly is null)
+        {
+            runtimeAssembly = LoadRuntimeAssemblyByName(identity);
+            if (runtimeAssembly is not null && !string.IsNullOrEmpty(runtimeAssembly.Location))
+                resolvedPath = runtimeAssembly.Location;
+        }
+
+        if (runtimeAssembly is null)
+        {
+            runtimeAssembly = MapToRuntimeImplementation(identity);
+            if (runtimeAssembly is not null && !string.IsNullOrEmpty(runtimeAssembly.Location))
+                resolvedPath = runtimeAssembly.Location;
+        }
 
         if (runtimeAssembly is not null)
         {
@@ -769,14 +824,82 @@ public partial class Compilation
             {
                 _runtimeAssemblyCache[identity.Name] = runtimeAssembly;
 
-                if (!string.IsNullOrEmpty(runtimeAssembly.Location))
+                if (!string.IsNullOrEmpty(resolvedPath))
+                {
+                    _assemblyPathMap[identity.Name] = resolvedPath;
+                }
+                else if (!string.IsNullOrEmpty(runtimeAssembly.Location))
+                {
                     _assemblyPathMap[identity.Name] = runtimeAssembly.Location;
+                }
             }
 
             _metadataToRuntimeAssemblyMap[metadataAssembly] = runtimeAssembly;
         }
 
         return runtimeAssembly;
+    }
+
+    private static string? TryMapReferenceAssemblyToRuntimePath(string? metadataAssemblyPath)
+    {
+        if (string.IsNullOrEmpty(metadataAssemblyPath))
+            return null;
+
+        try
+        {
+            var assemblyFileName = Path.GetFileName(metadataAssemblyPath);
+            if (string.IsNullOrEmpty(assemblyFileName))
+                return null;
+
+            var cursor = Path.GetDirectoryName(metadataAssemblyPath);
+            if (cursor is null)
+                return null;
+
+            while (cursor is not null && !string.Equals(Path.GetFileName(cursor), "ref", StringComparison.OrdinalIgnoreCase))
+            {
+                cursor = Path.GetDirectoryName(cursor);
+            }
+
+            if (cursor is null)
+                return null;
+
+            var versionDirectory = Path.GetDirectoryName(cursor);
+            if (versionDirectory is null)
+                return null;
+
+            var version = Path.GetFileName(versionDirectory);
+            if (string.IsNullOrEmpty(version))
+                return null;
+
+            var packDirectory = Path.GetDirectoryName(versionDirectory);
+            if (packDirectory is null)
+                return null;
+
+            var packId = Path.GetFileName(packDirectory);
+            if (string.IsNullOrEmpty(packId))
+                return null;
+
+            var packsRoot = Path.GetDirectoryName(packDirectory);
+            if (packsRoot is null || !string.Equals(Path.GetFileName(packsRoot), "packs", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var dotnetRoot = Path.GetDirectoryName(packsRoot);
+            if (string.IsNullOrEmpty(dotnetRoot))
+                return null;
+
+            var runtimePackId = packId.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase)
+                ? packId[..^4]
+                : packId;
+
+            var runtimeDirectory = Path.Combine(dotnetRoot, "shared", runtimePackId, version);
+            var candidatePath = Path.Combine(runtimeDirectory, assemblyFileName);
+
+            return File.Exists(candidatePath) ? candidatePath : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private Assembly? MapToRuntimeImplementation(AssemblyName identity)
