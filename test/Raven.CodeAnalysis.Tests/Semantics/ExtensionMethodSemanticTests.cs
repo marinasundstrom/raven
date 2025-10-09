@@ -1462,6 +1462,35 @@ func Increment(x: int, amount: int) -> int {
     }
 
     [Fact]
+    public void PipeOperator_WithLambdaLocal_InvokesDelegate()
+    {
+        const string source = """
+let increment = (x: int, amount: int) -> int => x + amount
+let result = 5 |> increment(2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.Equal("Invoke", boundPipeline.Method.Name);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
     public void PipeOperator_WithGenericStaticMethod_InfersTypeArgumentFromPipeline()
     {
         const string source = """
