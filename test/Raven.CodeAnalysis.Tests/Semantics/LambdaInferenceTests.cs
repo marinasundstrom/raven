@@ -173,6 +173,105 @@ class Container {
     }
 
     [Fact]
+    public void Lambda_LocalDeclaration_InfersFuncDelegate()
+    {
+        const string code = """
+import System.*
+class Container {
+    Provide() -> unit {
+        let projector = (value: int) => value + 2
+        let result = projector(1)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .First(d => d.Identifier.Text == "projector");
+        var lambdaSyntax = declarator
+            .DescendantNodes()
+            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .Single();
+
+        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var funcDefinition = compilation.GetTypeByMetadataName("System.Func`2");
+        Assert.NotNull(funcDefinition);
+        INamedTypeSymbol expectedDelegateDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(funcDefinition);
+        INamedTypeSymbol expectedDelegate = (INamedTypeSymbol)expectedDelegateDefinition.Construct(intType, intType);
+
+        INamedTypeSymbol actualDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(localSymbol.Type);
+        var actualArgs = string.Join(", ", actualDelegate.TypeArguments.Select(arg => arg.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
+        var expectedArgs = string.Join(", ", expectedDelegate.TypeArguments.Select(arg => arg.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
+        var actualDisplay = actualDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var expectedDisplay = expectedDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+        Assert.Equal(expectedDisplay, actualDisplay);
+        Assert.Equal(expectedArgs, actualArgs);
+
+        var lambdaTypeInfo = model.GetTypeInfo(lambdaSyntax);
+        INamedTypeSymbol lambdaType = Assert.IsAssignableFrom<INamedTypeSymbol>(lambdaTypeInfo.Type);
+        Assert.Equal(expectedDisplay, lambdaType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        INamedTypeSymbol boundDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.DelegateType);
+        Assert.Equal(expectedDisplay, boundDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+    }
+
+    [Fact]
+    public void Lambda_GlobalDeclaration_UsesFuncDelegate()
+    {
+        const string code = """
+import System.*
+
+let projector = (value: int) => value + 2
+let result = projector(1)
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .First(d => d.Identifier.Text == "projector");
+        var lambdaSyntax = declarator
+            .DescendantNodes()
+            .OfType<ParenthesizedLambdaExpressionSyntax>()
+            .Single();
+
+        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var funcDefinition = compilation.GetTypeByMetadataName("System.Func`2");
+        Assert.NotNull(funcDefinition);
+        INamedTypeSymbol expectedDelegateDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(funcDefinition);
+        INamedTypeSymbol expectedDelegate = (INamedTypeSymbol)expectedDelegateDefinition.Construct(intType, intType);
+
+        INamedTypeSymbol actualDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(localSymbol.Type);
+        var actualDisplay = actualDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var expectedDisplay = expectedDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        Assert.Equal(expectedDisplay, actualDisplay);
+
+        var lambdaTypeInfo = model.GetTypeInfo(lambdaSyntax);
+        INamedTypeSymbol lambdaType = Assert.IsAssignableFrom<INamedTypeSymbol>(lambdaTypeInfo.Type);
+        Assert.Equal(expectedDisplay, lambdaType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+        var boundLambda = Assert.IsType<BoundLambdaExpression>(model.GetBoundNode(lambdaSyntax));
+        INamedTypeSymbol boundDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.DelegateType);
+        Assert.Equal(expectedDisplay, boundDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+    }
+
+    [Fact]
     public void Lambda_WithOverloadSpecificDelegate_RebindsToSelectedMethod()
     {
         const string code = """
