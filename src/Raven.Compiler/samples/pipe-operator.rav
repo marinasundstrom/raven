@@ -1,0 +1,7 @@
+let result = 5 |> MathHelpers.Increment(2)
+
+public static class MathHelpers {
+    public static Increment(x: int, amount: int) -> int {
+        return x + amount
+    }
+}
