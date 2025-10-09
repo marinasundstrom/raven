@@ -1426,6 +1426,45 @@ let result = value |> Abs()
     }
 
     [Fact]
+    public void PipeOperator_WithStaticImportFromSourceType_ResolvesImportedMember()
+    {
+        const string source = """
+import MathHelpers.*
+
+let value = 5
+let result = value |> Increment(2)
+
+public static class MathHelpers {
+    public static Increment(x: int, amount: int) -> int {
+        return x + amount
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<BinaryExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        Assert.False(boundPipeline.Method.IsExtensionMethod);
+        Assert.Null(boundPipeline.ExtensionReceiver);
+        Assert.Equal("Increment", boundPipeline.Method.Name);
+
+        var arguments = boundPipeline.Arguments.ToArray();
+        Assert.Equal(2, arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[0].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, boundPipeline.Method.Parameters[1].Type.SpecialType);
+    }
+
+    [Fact]
     public void PipeOperator_WithFunction_ResolvesTopLevelFunction()
     {
         const string source = """

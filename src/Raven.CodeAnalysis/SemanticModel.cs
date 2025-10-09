@@ -303,6 +303,7 @@ public partial class SemanticModel
         var namespaceImports = new List<INamespaceOrTypeSymbol>();
         var typeImports = new List<ITypeSymbol>();
         var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
+        var deferredWildcardImports = new List<NameSyntax>();
 
         var provisionalImportBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);
 
@@ -316,9 +317,14 @@ public partial class SemanticModel
                     (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, nsName.ToString())
                     ?? ResolveType(targetNamespace, nsName.ToString());
                 if (nsImport != null)
+                {
                     namespaceImports.Add(nsImport);
+                }
                 else
-                    namespaceBinder.Diagnostics.ReportInvalidImportTarget(nsName.GetLocation());
+                {
+                    deferredWildcardImports.Add(nsName);
+                }
+
                 continue;
             }
 
@@ -374,13 +380,29 @@ public partial class SemanticModel
 
         var importBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);
 
-        foreach (var diagnostic in namespaceBinder.Diagnostics.AsEnumerable())
-            importBinder.Diagnostics.Report(diagnostic);
-
         parentBinder = importBinder;
 
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
         RegisterNamespaceMembers(cu, compilationUnitBinder, targetNamespace);
+
+        foreach (var baseName in deferredWildcardImports)
+        {
+            INamespaceOrTypeSymbol? resolved =
+                (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, baseName.ToString())
+                ?? ResolveType(targetNamespace, baseName.ToString());
+
+            if (resolved != null)
+            {
+                namespaceImports.Add(resolved);
+            }
+            else
+            {
+                namespaceBinder.Diagnostics.ReportInvalidImportTarget(baseName.GetLocation());
+            }
+        }
+
+        foreach (var diagnostic in namespaceBinder.Diagnostics.AsEnumerable())
+            importBinder.Diagnostics.Report(diagnostic);
 
         foreach (var diagnostic in compilationUnitBinder.Diagnostics.AsEnumerable())
             importBinder.Diagnostics.Report(diagnostic);
