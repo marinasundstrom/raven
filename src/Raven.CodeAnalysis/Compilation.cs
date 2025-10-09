@@ -24,6 +24,7 @@ public partial class Compilation
     private readonly Dictionary<string, string> _assemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
     private readonly Dictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
+    private bool _trustedPlatformAssembliesCached;
     private MetadataLoadContext _metadataLoadContext;
     private GlobalBinder _globalBinder;
     private bool setup;
@@ -739,6 +740,8 @@ public partial class Compilation
         if (metadataAssembly is null)
             return null;
 
+        EnsureTrustedPlatformAssembliesCached();
+
         var identity = metadataAssembly.GetName();
         if (!string.IsNullOrEmpty(explicitPath) && identity.Name is not null)
             _assemblyPathMap[identity.Name] = explicitPath;
@@ -763,6 +766,20 @@ public partial class Compilation
 
         Assembly? runtimeAssembly = null;
         string? resolvedPath = null;
+
+        if (identity.Name is not null)
+        {
+            var alreadyLoaded = AppDomain.CurrentDomain
+                .GetAssemblies()
+                .FirstOrDefault(a => string.Equals(a.GetName().Name, identity.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (alreadyLoaded is not null)
+            {
+                runtimeAssembly = alreadyLoaded;
+                if (!string.IsNullOrEmpty(alreadyLoaded.Location))
+                    resolvedPath = alreadyLoaded.Location;
+            }
+        }
 
         if (identity.Name is not null && _runtimeAssemblyCache.TryGetValue(identity.Name, out var fromCache))
         {
@@ -838,6 +855,51 @@ public partial class Compilation
         }
 
         return runtimeAssembly;
+    }
+
+    private void EnsureTrustedPlatformAssembliesCached()
+    {
+        if (_trustedPlatformAssembliesCached)
+            return;
+
+        _trustedPlatformAssembliesCached = true;
+
+        if (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") is not string platformAssemblies)
+            return;
+
+        var candidates = platformAssemblies.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate) || !File.Exists(candidate))
+                continue;
+
+            System.Reflection.AssemblyName? candidateIdentity;
+            try
+            {
+                candidateIdentity = System.Reflection.AssemblyName.GetAssemblyName(candidate);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (candidateIdentity.Name is not { Length: > 0 } candidateName)
+                continue;
+
+            if (!_assemblyPathMap.ContainsKey(candidateName))
+                _assemblyPathMap[candidateName] = candidate;
+
+            if (_runtimeAssemblyCache.ContainsKey(candidateName))
+                continue;
+
+            var alreadyLoaded = AppDomain.CurrentDomain
+                .GetAssemblies()
+                .FirstOrDefault(a => string.Equals(a.GetName().Name, candidateName, StringComparison.OrdinalIgnoreCase));
+
+            if (alreadyLoaded is not null)
+                _runtimeAssemblyCache[candidateName] = alreadyLoaded;
+        }
     }
 
     private static string? TryMapReferenceAssemblyToRuntimePath(string? metadataAssemblyPath)
