@@ -4,6 +4,4 @@ let foo = Foo
 
 WriteLine("Foo ${foo(2)}")
 
-func Foo(x: int) -> int {
-    return x + 1
-}
+func Foo(x: int) -> int => x + 1
