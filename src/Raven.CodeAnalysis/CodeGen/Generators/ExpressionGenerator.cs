@@ -2457,17 +2457,19 @@ internal class ExpressionGenerator : Generator
         // Emit the actual call
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
 
+        var runtimeMethod = EnsureGenericMethodInstantiation(target, GetMethodInfo(target));
+
         if (target.IsStatic)
         {
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
+            ILGenerator.Emit(OpCodes.Call, runtimeMethod);
         }
         else if (!target.ContainingType!.IsValueType && (target.IsVirtual || isInterfaceCall))
         {
-            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(target));
+            ILGenerator.Emit(OpCodes.Callvirt, runtimeMethod);
         }
         else
         {
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
+            ILGenerator.Emit(OpCodes.Call, runtimeMethod);
         }
 
         // Special cast for Object.GetType() to MemberInfo
@@ -2539,6 +2541,36 @@ internal class ExpressionGenerator : Generator
                 }
             }
         }
+    }
+
+    private MethodInfo EnsureGenericMethodInstantiation(IMethodSymbol methodSymbol, MethodInfo methodInfo)
+    {
+        if (methodSymbol is null)
+            throw new ArgumentNullException(nameof(methodSymbol));
+        if (methodInfo is null)
+            throw new ArgumentNullException(nameof(methodInfo));
+
+        if (!methodSymbol.IsGenericMethod)
+            return methodInfo;
+
+        var typeArguments = methodSymbol.TypeArguments;
+        if (typeArguments.IsDefaultOrEmpty)
+            return methodInfo;
+
+        var runtimeArguments = typeArguments
+            .Select(MethodBodyGenerator.ResolveClrType)
+            .ToArray();
+
+        if (runtimeArguments.Length == 0)
+            return methodInfo;
+
+        if (methodInfo.IsGenericMethodDefinition || methodInfo.ContainsGenericParameters)
+            return methodInfo.GetGenericMethodDefinition().MakeGenericMethod(runtimeArguments);
+
+        if (methodInfo.IsGenericMethod && methodInfo.GetGenericArguments().Length != runtimeArguments.Length)
+            return methodInfo.GetGenericMethodDefinition().MakeGenericMethod(runtimeArguments);
+
+        return methodInfo;
     }
 
     private void EmitPropertyAccess(BoundPropertyAccess propertyAccess)

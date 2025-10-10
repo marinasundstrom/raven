@@ -63,10 +63,12 @@
 
 6. **Fix address loading for async scheduling.** `ExpressionGenerator` now funnels receiver-address emission through `EmitLoadArgumentAddress`, producing `ldarga.s 0` for struct state machines so async builder calls mutate the real instance.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L894-L926】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2208-L2276】
 
+7. **Normalize async builder method specs.** Invocation emission now rehydrates generic helper invocations with the awaiter and state-machine runtime types, ensuring `AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>` receives distinct metadata instantiations and the new IL regression guards the two-argument shape.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2422-L2473】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2546-L2573】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L152-L178】
+
 #### Upcoming steps
 
-1. **Correct `AwaitUnsafeOnCompleted` method specs.** Ensure the emitter supplies separate generic arguments for the awaiter and state-machine types so the call targets `AsyncTaskMethodBuilder.AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>` with valid metadata.【5063ea†L1-L108】
-2. **Add execution regression coverage.** Extend the samples test to assert the compiled `async-await.rav` assembly runs under `dotnet` without throwing, guarding against future regressions in IL emission.【1fd709†L1-L6】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L149-L209】
+1. **Wire execution smoke tests.** Teach the samples harness to load the emitted async assembly under `dotnet`, asserting the previous `InvalidProgramException` no longer surfaces once the runtime accepts our state machine metadata.【1fd709†L1-L6】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L149-L209】
+2. **Broaden async runtime coverage.** After the core smoke test lands, extend the suite with representative `Task`/`Task<int>` and accessor scenarios so metadata regressions surface before reaching the CLI.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L149-L209】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 

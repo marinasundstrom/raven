@@ -147,7 +147,34 @@ class C {
         Assert.Contains(instructions.Take(setResultCallIndex), instruction =>
             instruction.Opcode == OpCodes.Ldflda &&
             FormatOperand(instruction.Operand) == "_builder");
+    }
 
+    [Fact]
+    public void MoveNext_AwaitUnsafeOnCompleted_SeparatesGenericArguments()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var awaitCall = Assert.Single(
+            instructions,
+            instruction => instruction.Opcode == OpCodes.Call &&
+                instruction.Operand.Value is MethodInfo method &&
+                method.Name.Contains("Await", StringComparison.Ordinal));
+
+        var awaitMethod = Assert.IsType<MethodInfo>(awaitCall.Operand.Value);
+        Assert.True(awaitMethod.IsGenericMethod, "Await helper must be generic.");
+
+        var genericArguments = awaitMethod.GetGenericArguments();
+        Assert.Equal(2, genericArguments.Length);
+
+        var awaiterArgument = genericArguments[0];
+        var stateMachineArgument = genericArguments[1];
+
+        Assert.Contains("Awaiter", awaiterArgument.Name, StringComparison.Ordinal);
+        Assert.True(
+            typeof(IAsyncStateMachine).IsAssignableFrom(stateMachineArgument),
+            $"State-machine argument {stateMachineArgument} does not implement IAsyncStateMachine.");
     }
 
     [Fact]
