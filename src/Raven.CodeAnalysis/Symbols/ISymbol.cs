@@ -402,7 +402,7 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
 
     bool IsValueType => false;
 
-    //bool IsInterface => false;
+    bool IsInterface => false;
 
     bool IsTupleType => MetadataName.Contains("System.ValueTuple");
 
