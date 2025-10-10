@@ -891,7 +891,7 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     pos -= 1;
 
-                ILGenerator.Emit(OpCodes.Ldarga, pos);
+                EmitLoadArgumentAddress(pos);
                 break;
 
             case IFieldSymbol field when field.IsStatic:
@@ -919,7 +919,7 @@ internal class ExpressionGenerator : Generator
                     throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
 
                 if (typeSymbol.IsValueType)
-                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                    EmitLoadArgumentAddress(0);
                 else
                     ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
@@ -2199,6 +2199,21 @@ internal class ExpressionGenerator : Generator
             EmitExpression(receiver);
     }
 
+    private void EmitLoadArgumentAddress(int position)
+    {
+        if (position < 0)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        if (position <= byte.MaxValue)
+        {
+            ILGenerator.Emit(OpCodes.Ldarga_S, (byte)position);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldarga, unchecked((short)position));
+        }
+    }
+
     private bool TryEmitInvocationReceiverAddress(BoundExpression? receiver)
     {
         switch (receiver)
@@ -2214,7 +2229,7 @@ internal class ExpressionGenerator : Generator
                     return false;
 
                 if (MethodSymbol.ContainingType?.IsValueType == true)
-                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                    EmitLoadArgumentAddress(0);
                 else
                     ILGenerator.Emit(OpCodes.Ldarg_0);
                 return true;
@@ -2253,7 +2268,7 @@ internal class ExpressionGenerator : Generator
                     var position = parameterBuilder.Position;
                     if (!MethodSymbol.IsStatic)
                         position -= 1;
-                    ILGenerator.Emit(OpCodes.Ldarga, position);
+                    EmitLoadArgumentAddress(position);
                     return true;
                 }
 
