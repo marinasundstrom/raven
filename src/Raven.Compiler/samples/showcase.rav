@@ -1,8 +1,3 @@
-# Getting Started
-
-The Raven compiler ships with sample programs that highlight the language's design goals. The `showcase.rav` script below walks through a miniature sprint board to demonstrate Raven's emphasis on expression-first control flow, precise types, and easy .NET interop.
-
-```raven
 namespace Samples
 
 import System.*
@@ -102,24 +97,3 @@ for each command in script {
 let report = Summarize(flow)
 
 WriteLine(report)
-```
-
-## Key Raven ideas in the sample
-
-- **Expression-first control flow.** `match` expressions and the `if` inside `Apply` produce values, so transitions are modelled without mutable state machines. Functions such as `Promote`, `DescribeStage`, and `BuildLine` return the final value of their block without an explicit `return` keyword, mirroring Raven's expression-oriented philosophy.
-- **Precise, flow-sensitive typing.** The union aliases (`Stage`, `Priority`, and the nullable command signal) combine with pattern matching to keep state transitions exhaustive and guarded. The `when stage != "Done"` guard shows how Raven narrows patterns while still allowing escape hatches.
-- **Interop without friction.** The sample imports .NET collections, LINQ, and `StringBuilder`, mixing Raven syntax with familiar BCL APIs. Pipeline calls such as `item.stage |> DescribeStage |> BuildLine(...)` flow naturally across Raven and .NET boundaries.
-- **Immutable-by-default design.** Work items are represented as immutable tuples and each transition returns a new tuple rather than mutating existing state. The `var flow` binding is the only mutable variable, used to thread successive board snapshots through the change script.
-
-## Run the sample
-
-From the repository root, regenerate syntax (if needed) and run the compiler against the sample:
-
-```bash
-(cd src/Raven.CodeAnalysis/Syntax && dotnet run --project ../../../tools/NodeGenerator -- -f)
-(cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/BoundNodeGenerator -- -f)
-(cd src/Raven.CodeAnalysis      && dotnet run --project ../../tools/DiagnosticsGenerator -- -f)
-dotnet run --project src/Raven.Compiler -- src/Raven.Compiler/samples/showcase.rav --highlight
-```
-
-The compiler prints a progress report with emoji markers, stage descriptions, and reminders. Use `--highlight` to see Raven's diagnostics styling in action; omit it for plain output once you are comfortable with the sample workflow.
