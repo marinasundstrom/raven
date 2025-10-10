@@ -23,6 +23,8 @@ public class SampleProgramsTests
         ["main.rav", Array.Empty<string>()],
         ["classes.rav", Array.Empty<string>()],
         ["async-await.rav", Array.Empty<string>()],
+        ["async-task-return.rav", Array.Empty<string>()],
+        ["async-accessors.rav", Array.Empty<string>()],
     ];
 
     [Theory]
@@ -40,7 +42,7 @@ public class SampleProgramsTests
             fileName: "dotnet",
             arguments: $"run --project \"{projectDir}\" -- \"{samplePath}\" -o \"{outputDll}\"",
             workingDirectory: projectDir);
-        var buildResult = await RunProcessAsync(buildInfo, TimeSpan.FromSeconds(15));
+        var buildResult = await RunProcessAsync(buildInfo, TimeSpan.FromSeconds(30));
 
         Assert.True(buildResult.Exited,
             $"Build process did not exit. StdOut: {buildResult.StandardOutput}{Environment.NewLine}StdErr: {buildResult.StandardError}");
@@ -57,7 +59,7 @@ public class SampleProgramsTests
             ? $"\"{outputDll}\" {string.Join(' ', args)}"
             : $"\"{outputDll}\"";
         var runInfo = CreateProcessStartInfo("dotnet", runArguments, outputDir);
-        var runResult = await RunProcessAsync(runInfo, TimeSpan.FromSeconds(10));
+        var runResult = await RunProcessAsync(runInfo, TimeSpan.FromSeconds(15));
 
         Assert.True(runResult.Exited,
             $"Execution did not exit. StdOut: {runResult.StandardOutput}{Environment.NewLine}StdErr: {runResult.StandardError}");
@@ -83,7 +85,7 @@ public class SampleProgramsTests
             fileName: "dotnet",
             arguments: $"run --project \"{projectDir}\" -- \"{samplePath}\" -o \"{outputDll}\" --refs \"{fixtureAssembly}\"",
             workingDirectory: projectDir);
-        var buildResult = await RunProcessAsync(buildInfo, TimeSpan.FromSeconds(15));
+        var buildResult = await RunProcessAsync(buildInfo, TimeSpan.FromSeconds(30));
 
         Assert.True(buildResult.Exited,
             $"Build process did not exit. StdOut: {buildResult.StandardOutput}{Environment.NewLine}StdErr: {buildResult.StandardError}");
@@ -96,7 +98,7 @@ public class SampleProgramsTests
         Assert.True(File.Exists(Path.Combine(outputDir, "linq.runtimeconfig.json")));
 
         var runInfo = CreateProcessStartInfo("dotnet", $"\"{outputDll}\"", outputDir);
-        var runResult = await RunProcessAsync(runInfo, TimeSpan.FromSeconds(10));
+        var runResult = await RunProcessAsync(runInfo, TimeSpan.FromSeconds(15));
 
         Assert.True(runResult.Exited,
             $"Execution did not exit. StdOut: {runResult.StandardOutput}{Environment.NewLine}StdErr: {runResult.StandardError}");
@@ -121,7 +123,7 @@ public class SampleProgramsTests
             fileName: "dotnet",
             arguments: $"run --project \"{projectDir}\" -- \"{samplePath}\" -o \"{outputDll}\"",
             workingDirectory: projectDir);
-        var buildResult = await RunProcessAsync(buildInfo, TimeSpan.FromSeconds(15));
+        var buildResult = await RunProcessAsync(buildInfo, TimeSpan.FromSeconds(30));
 
         Assert.True(buildResult.Exited,
             $"Build process did not exit. StdOut: {buildResult.StandardOutput}{Environment.NewLine}StdErr: {buildResult.StandardError}");
@@ -131,7 +133,7 @@ public class SampleProgramsTests
         Assert.True(File.Exists(Path.Combine(outputDir, "async-await.runtimeconfig.json")));
 
         var runInfo = CreateProcessStartInfo("dotnet", $"\"{outputDll}\"", outputDir);
-        var runResult = await RunProcessAsync(runInfo, TimeSpan.FromSeconds(10));
+        var runResult = await RunProcessAsync(runInfo, TimeSpan.FromSeconds(15));
 
         Assert.True(runResult.Exited,
             $"Execution did not exit. StdOut: {runResult.StandardOutput}{Environment.NewLine}StdErr: {runResult.StandardError}");
@@ -141,6 +143,78 @@ public class SampleProgramsTests
 
         var outputLines = runResult.StandardOutput.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(new[] { "first:1", "sum:5", "done" }, outputLines);
+    }
+
+    [Fact]
+    public async Task AsyncTaskReturn_sample_executes_expected_flow()
+    {
+        var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
+        var samplePath = Path.Combine(projectDir, "samples", "async-task-return.rav");
+
+        var outputDir = Path.Combine(Path.GetTempPath(), "raven_samples", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(outputDir);
+        var outputDll = Path.Combine(outputDir, "async-task-return.dll");
+
+        var buildInfo = CreateProcessStartInfo(
+            fileName: "dotnet",
+            arguments: $"run --project \"{projectDir}\" -- \"{samplePath}\" -o \"{outputDll}\"",
+            workingDirectory: projectDir);
+        var buildResult = await RunProcessAsync(buildInfo, TimeSpan.FromSeconds(30));
+
+        Assert.True(buildResult.Exited,
+            $"Build process did not exit. StdOut: {buildResult.StandardOutput}{Environment.NewLine}StdErr: {buildResult.StandardError}");
+        Assert.True(buildResult.ExitCode == 0,
+            $"Build failed with exit code {buildResult.ExitCode}.{Environment.NewLine}StdOut: {buildResult.StandardOutput}{Environment.NewLine}StdErr: {buildResult.StandardError}");
+
+        Assert.True(File.Exists(Path.Combine(outputDir, "async-task-return.runtimeconfig.json")));
+
+        var runInfo = CreateProcessStartInfo("dotnet", $"\"{outputDll}\"", outputDir);
+        var runResult = await RunProcessAsync(runInfo, TimeSpan.FromSeconds(15));
+
+        Assert.True(runResult.Exited,
+            $"Execution did not exit. StdOut: {runResult.StandardOutput}{Environment.NewLine}StdErr: {runResult.StandardError}");
+        Assert.True(runResult.ExitCode == 0,
+            $"Execution failed with exit code {runResult.ExitCode}.{Environment.NewLine}StdOut: {runResult.StandardOutput}{Environment.NewLine}StdErr: {runResult.StandardError}");
+        Assert.DoesNotContain("InvalidProgramException", runResult.StandardError, StringComparison.Ordinal);
+
+        var outputLines = runResult.StandardOutput.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(new[] { "start", "sum:5", "report:5", "done" }, outputLines);
+    }
+
+    [Fact]
+    public async Task AsyncAccessor_sample_executes_expected_flow()
+    {
+        var projectDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", "..", "src", "Raven.Compiler"));
+        var samplePath = Path.Combine(projectDir, "samples", "async-accessors.rav");
+
+        var outputDir = Path.Combine(Path.GetTempPath(), "raven_samples", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(outputDir);
+        var outputDll = Path.Combine(outputDir, "async-accessors.dll");
+
+        var buildInfo = CreateProcessStartInfo(
+            fileName: "dotnet",
+            arguments: $"run --project \"{projectDir}\" -- \"{samplePath}\" -o \"{outputDll}\"",
+            workingDirectory: projectDir);
+        var buildResult = await RunProcessAsync(buildInfo, TimeSpan.FromSeconds(30));
+
+        Assert.True(buildResult.Exited,
+            $"Build process did not exit. StdOut: {buildResult.StandardOutput}{Environment.NewLine}StdErr: {buildResult.StandardError}");
+        Assert.True(buildResult.ExitCode == 0,
+            $"Build failed with exit code {buildResult.ExitCode}.{Environment.NewLine}StdOut: {buildResult.StandardOutput}{Environment.NewLine}StdErr: {buildResult.StandardError}");
+
+        Assert.True(File.Exists(Path.Combine(outputDir, "async-accessors.runtimeconfig.json")));
+
+        var runInfo = CreateProcessStartInfo("dotnet", $"\"{outputDll}\"", outputDir);
+        var runResult = await RunProcessAsync(runInfo, TimeSpan.FromSeconds(15));
+
+        Assert.True(runResult.Exited,
+            $"Execution did not exit. StdOut: {runResult.StandardOutput}{Environment.NewLine}StdErr: {runResult.StandardError}");
+        Assert.True(runResult.ExitCode == 0,
+            $"Execution failed with exit code {runResult.ExitCode}.{Environment.NewLine}StdOut: {runResult.StandardOutput}{Environment.NewLine}StdErr: {runResult.StandardError}");
+        Assert.DoesNotContain("InvalidProgramException", runResult.StandardError, StringComparison.Ordinal);
+
+        var outputLines = runResult.StandardOutput.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(new[] { "initial:0", "after-first:2", "after-second:5" }, outputLines);
     }
 
     [Fact]

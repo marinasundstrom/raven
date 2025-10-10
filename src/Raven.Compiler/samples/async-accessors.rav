@@ -1,0 +1,25 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+class AsyncCounter {
+    var current: int = 0
+
+    public Value: Task<int> {
+        async get => await Task.FromResult(current)
+    }
+
+    public async func IncrementAsync(delta: int) -> Task<int> {
+        current = current + delta
+        return await Value
+    }
+}
+
+let counter = AsyncCounter()
+let initial = await counter.Value
+WriteLine("initial:${initial}")
+
+let afterFirst = await counter.IncrementAsync(2)
+WriteLine("after-first:${afterFirst}")
+
+let afterSecond = await counter.IncrementAsync(3)
+WriteLine("after-second:${afterSecond}")

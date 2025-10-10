@@ -1,0 +1,22 @@
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func AddAsync(first: int, second: int) -> Task<int> {
+    await Task.Delay(1)
+    let sum = first + second
+    return Task.FromResult(sum)
+}
+
+async func ReportAsync(total: int) -> Task {
+    await Task.Delay(1)
+    WriteLine("report:${total}")
+    return Task.CompletedTask
+}
+
+WriteLine("start")
+
+let result = await AddAsync(2, 3)
+WriteLine("sum:${result}")
+
+await ReportAsync(result)
+WriteLine("done")

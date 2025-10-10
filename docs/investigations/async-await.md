@@ -37,7 +37,8 @@
 - The `SpecialType` enumeration already contains the async method builder types, `Task`, and the attribute metadata we will need, indicating the compilation layer can resolve the required framework symbols once lowering consumes them.【F:src/Raven.CodeAnalysis/SpecialType.cs†L39-L58】
 - The sample suite now includes an `async-await.rav` program that exercises the generated state machine and asserts the expected interleaving once the emitted IL executes without runtime faults.【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L14-L224】
 - Sample harness tests now compile each sample through the CLI, execute the emitted assembly under `dotnet`, and flag any `InvalidProgramException` traces so the runtime handshake is verified automatically once metadata emission is corrected.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L26-L224】
-- Running the harness against `async-await.rav` still terminates with `System.InvalidProgramException` (exit code -6), confirming the CLR continues to reject our generated async state machine until the metadata issue is fixed.【d3c443†L1-L10】
+- Additional samples now cover async methods returning both `Task` and `Task<int>` alongside async property getters, with targeted harness tests asserting their CLI output once emission succeeds.【F:src/Raven.Compiler/samples/async-task-return.rav†L1-L19】【F:src/Raven.Compiler/samples/async-accessors.rav†L1-L24】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L118-L206】
+- Running the harness against the new async samples still fails—`dotnet run` times out after 30 seconds while compiling `async-task-return.rav`, underscoring that the emitted state machines remain invalid and prevent the CLI from completing successfully.【1bb3da†L1-L14】
 
 ## Remaining work
 
@@ -67,10 +68,11 @@
 7. **Normalize async builder method specs.** Invocation emission now rehydrates generic helper invocations with the awaiter and state-machine runtime types, ensuring `AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>` receives distinct metadata instantiations and the new IL regression guards the two-argument shape.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2422-L2473】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2546-L2573】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L152-L178】
 
 8. **Wire async execution smoke tests.** The samples harness now compiles each sample through the CLI and executes the emitted assemblies under `dotnet`, asserting both exit codes and the absence of `InvalidProgramException` traces so runtime metadata regressions surface immediately.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L26-L224】
+9. **Broaden async runtime coverage.** Additional CLI samples now validate async `Task`/`Task<int>` flows and async property accessors, giving the runtime harness visibility into the remaining metadata gaps.【F:src/Raven.Compiler/samples/async-task-return.rav†L1-L19】【F:src/Raven.Compiler/samples/async-accessors.rav†L1-L24】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L118-L206】
 
 #### Upcoming steps
 
-1. **Broaden async runtime coverage.** After the core smoke test lands, extend the suite with representative `Task`/`Task<int>` and accessor scenarios so metadata regressions surface before reaching the CLI.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L26-L224】
+1. **Diagnose runtime InvalidProgramException.** Investigate the emitted metadata for async state machines so the CLI samples stop triggering `InvalidProgramException` and the runtime harness can pass end-to-end.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L87-L206】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 
