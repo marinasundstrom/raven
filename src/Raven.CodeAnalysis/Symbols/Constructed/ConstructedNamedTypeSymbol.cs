@@ -116,6 +116,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     public SpecialType SpecialType => _originalDefinition.SpecialType;
     public bool IsNamespace => false;
     public bool IsType => true;
+    public bool IsReferenceType => _originalDefinition.IsReferenceType;
+    public bool IsValueType => _originalDefinition.IsValueType;
     public INamedTypeSymbol? ContainingType => _originalDefinition.ContainingType;
     public INamespaceSymbol? ContainingNamespace => _originalDefinition.ContainingNamespace;
     public ISymbol? ContainingSymbol => _originalDefinition.ContainingSymbol;
