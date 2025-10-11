@@ -918,10 +918,7 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
 
-                if (typeSymbol.IsValueType)
-                    ILGenerator.Emit(OpCodes.Ldarga, 0);
-                else
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 
             default:
@@ -1653,39 +1650,67 @@ internal class ExpressionGenerator : Generator
 
                     if (!fieldSymbol.IsStatic)
                     {
-                        if (needsAddress)
+                        var canDelayReceiver = needsAddress && CanReEmitInvocationReceiverAddress(receiver);
+
+                        if (needsAddress && canDelayReceiver)
                         {
-                            if (TryEmitInvocationReceiverAddress(receiver))
+                            var valueTypeSymbol = right.Type ?? fieldSymbol.Type;
+                            var valueClrType = ResolveClrType(valueTypeSymbol);
+                            var delayedResultType = node.Type;
+                            var delayedNeedsResult = preserveResult
+                                && delayedResultType is not null
+                                && delayedResultType.SpecialType is not SpecialType.System_Unit
+                                and not SpecialType.System_Void;
+                            var delayedNeedsBox = right.Type is { IsValueType: true }
+                                && !fieldSymbol.Type.IsValueType;
+
+                            EmitExpression(right);
+
+                            var valueLocal = ILGenerator.DeclareLocal(valueClrType);
+                            ILGenerator.Emit(OpCodes.Stloc, valueLocal);
+
+                            if (!TryEmitInvocationReceiverAddress(receiver))
                             {
-                                if (receiver is null)
-                                {
-                                    ILGenerator.Emit(OpCodes.Ldarg_0);
-                                }
-                                else
+                                if (receiver is not null)
                                 {
                                     EmitExpression(receiver);
 
-                                    if (fieldSymbol.ContainingType!.IsValueType)
-                                    {
-                                        EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType);
-                                    }
+                                    if (needsReceiverAddress)
+                                        EmitValueTypeAddressIfNeeded(containingType!);
                                 }
-                                // Receiver already loaded with the correct address.
+                                else
+                                {
+                                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                                }
                             }
-                            else if (receiver is not null)
-                            {
-                                EmitExpression(receiver);
 
-                                if (needsReceiverAddress)
-                                    EmitValueTypeAddressIfNeeded(containingType!);
-                            }
-                            else if (needsReceiverAddress)
+                            ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+
+                            if (delayedNeedsBox)
+                                ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type ?? fieldSymbol.Type));
+
+                            if (delayedNeedsResult)
+                                ILGenerator.Emit(OpCodes.Dup);
+
+                            ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
+                            break;
+                        }
+
+                        if (needsAddress)
+                        {
+                            if (!TryEmitInvocationReceiverAddress(receiver))
                             {
-                                ILGenerator.Emit(OpCodes.Ldarga, 0);
-                            }
-                            else
-                            {
-                                ILGenerator.Emit(OpCodes.Ldarg_0);
+                                if (receiver is not null)
+                                {
+                                    EmitExpression(receiver);
+
+                                    if (needsReceiverAddress)
+                                        EmitValueTypeAddressIfNeeded(containingType!);
+                                }
+                                else
+                                {
+                                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                                }
                             }
                         }
                         else if (receiver is not null)
@@ -2096,10 +2121,31 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case IFieldSymbol fieldSymbol:
-                EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
+                if (!fieldSymbol.IsStatic && fieldSymbol.ContainingType!.IsValueType)
+                {
+                    var containingType = fieldSymbol.ContainingType!;
 
-                if (!fieldSymbol.IsStatic)
-                    EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType!);
+                    if (receiverAlreadyLoaded)
+                    {
+                        EmitValueTypeAddressIfNeeded(receiver?.Type ?? containingType, containingType);
+                    }
+                    else if (!TryEmitInvocationReceiverAddress(receiver))
+                    {
+                        if (receiver is not null)
+                        {
+                            EmitExpression(receiver);
+                            EmitValueTypeAddressIfNeeded(receiver.Type, containingType);
+                        }
+                        else
+                        {
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                        }
+                    }
+                }
+                else
+                {
+                    EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
+                }
 
                 if (fieldSymbol.IsLiteral)
                 {
@@ -2254,10 +2300,7 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     return false;
 
-                if (MethodSymbol.ContainingType?.IsValueType == true)
-                    ILGenerator.Emit(OpCodes.Ldarga, 0);
-                else
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
 
                 return true;
 
@@ -2265,10 +2308,7 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     return false;
 
-                if (MethodSymbol.ContainingType?.IsValueType == true)
-                    ILGenerator.Emit(OpCodes.Ldarga, 0);
-                else
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
                 return true;
 
             case BoundAddressOfExpression addressOf:
@@ -2326,6 +2366,39 @@ internal class ExpressionGenerator : Generator
         }
 
         return false;
+    }
+
+    private bool CanReEmitInvocationReceiverAddress(BoundExpression? receiver)
+    {
+        switch (receiver)
+        {
+            case null:
+                return !MethodSymbol.IsStatic;
+
+            case BoundSelfExpression:
+                return !MethodSymbol.IsStatic;
+
+            case BoundAddressOfExpression addressOf:
+                return CanReEmitInvocationReceiverAddress(addressOf.Receiver);
+
+            case BoundLocalAccess localAccess:
+                if (MethodBodyGenerator.TryGetCapturedField(localAccess.Local, out _))
+                    return true;
+
+                return GetLocal(localAccess.Local) is not null;
+
+            case BoundParameterAccess parameterAccess:
+                return true;
+
+            case BoundMemberAccessExpression memberAccess when memberAccess.Member is IFieldSymbol fieldSymbol:
+                if (fieldSymbol.IsStatic)
+                    return true;
+
+                return CanReEmitInvocationReceiverAddress(memberAccess.Receiver);
+
+            default:
+                return false;
+        }
     }
 
     private void EmitBoxIfNeeded(ITypeSymbol type, MethodInfo method)

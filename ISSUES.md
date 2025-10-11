@@ -1,45 +1,45 @@
 # Known Issues
 
 ## Sample compilation and execution
-Re-running every sample with `dotnet run -- samples/<file>.rav -o output/<file>.dll` produced the following results. Successful entries emitted binaries into `src/Raven.Compiler/output/` for inspection.【0dd0c1†L1-L32】
+Re-running every sample with `dotnet run --no-build --project src/Raven.Compiler/Raven.Compiler.csproj -- samples/<file>.rav -o /tmp/raven-samples/<file>/<file>.dll` produced the following results. Successful entries emitted binaries into `/tmp/raven-samples/<file>/` for inspection.【0f5042†L1-L4】
 
 | Sample | Status | Notes |
 | --- | --- | --- |
-| `arrays.rav` | ✅ Emitted / ✅ Ran | Re-verified via `dotnet run --no-build --no-restore -- samples/arrays.rav -o output/arrays.dll`; `dotnet output/arrays.dll` prints the expected 3, 1, 42, 3 sequence.【6eb898†L1-L1】【639047†L1-L1】【0d40e5†L1-L5】 |
-| `async-await.rav` | ✅ Emitted / ❌ Runtime failure | Emitted with `dotnet run --no-build --no-restore -- samples/async-await.rav -o output/async-await.dll`, but running the DLL throws `System.InvalidProgramException` from the async state machine.【119a61†L1-L1】【a11630†L1-L2】【f135b0†L1-L7】 |
-| `catch.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/catch.rav -o output/catch.dll`; `dotnet output/catch.dll` prints `Foo`.【e84da2†L1-L1】【cf1cdf†L1-L2】【dea803†L1-L3】 |
-| `classes.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/classes.rav -o output/classes.dll`; running the DLL prints the sample greetings and record projection results.【e789cb†L1-L1】【a65916†L1-L2】【5e03a0†L1-L5】 |
-| `collections.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/collections.rav -o output/collections.dll`; executing the DLL yields the expected hero roster sequence.【36ed9b†L1-L1】【3f85f3†L1-L2】【9640dc†L1-L8】 |
-| `enums.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/enums.rav -o output/enums.dll`; running the DLL now prints the expected grade sequence (`C`, `Grades`, `B`, `Grades`).【966203†L1-L1】【a3c698†L1-L1】【c148b1†L1-L5】 |
-| `foo.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/foo.rav -o output/foo.dll`; running the DLL prints `1`.【f9bf71†L1-L1】【6e8354†L1-L2】【9a42fe†L1-L3】 |
-| `function-types.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/function-types.rav -o output/function-types.dll`; the DLL reports the composed delegate results (10, 20, 20).【b2312d†L1-L1】【f03fee†L1-L2】【03898f†L1-L4】 |
-| `general.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/general.rav -o output/general.dll`; running prints `Hello, World!` and the sample values 1, 42, 3.【ca59b4†L1-L1】【ecd6d3†L1-L2】【ba615f†L1-L6】 |
-| `generator.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/generator.rav -o output/generator.dll`; the DLL prints 42 followed by the expected odd sequence.【d80754†L1-L1】【bbc94c†L1-L2】【6ff9bd†L1-L6】 |
-| `generics.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/generics.rav -o output/generics.dll`; running returns 2, 2, 3 as expected.【6e0ffc†L1-L1】【63c119†L1-L2】【7206be†L1-L4】 |
-| `generics2.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/generics2.rav -o output/generics2.dll`; `dotnet output/generics2.dll` prints `ok`.【759051†L1-L1】【a1f5b8†L1-L2】【f6b5e1†L1-L3】 |
-| `goto.rav` | ✅ Emitted / ⚠️ Not run | Emitted via `dotnet run --no-build --no-restore -- samples/goto.rav -o output/goto.dll`; runtime execution was skipped because the sample’s `goto` loop never terminates.【f4fcb7†L1-L1】【f304da†L1-L1】【F:src/Raven.Compiler/samples/goto.rav†L1-L5】 |
-| `interfaces.rav` | ✅ Emitted / ✅ Ran | `using let foo = Foo()` no longer reports a duplicate variable, and the sample emits and runs successfully (`Init`, `Do`, `Dispose 1`).【1256cf†L1-L15】【1d8c46†L1-L4】 |
-| `introduction.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/introduction.rav -o output/introduction.dll`; running the DLL prints the expected summary of argument handling.【229406†L1-L1】【c23ee0†L1-L2】【35473e†L1-L4】 |
-| `io.rav` | ✅ Emitted / ⚠️ Requires args | Emitted via `dotnet run --no-build --no-restore -- samples/io.rav -o output/io.dll`; running without an argument reports “Expected 1 argument” and exits after counting zero files.【dd98d4†L1-L1】【da1908†L1-L2】【b18cce†L1-L4】 |
-| `lambda.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/lambda.rav -o output/lambda.dll`; executing the DLL prints the captured lambda results.【1f02b5†L1-L1】【f39f82†L1-L2】【eb68d9†L1-L6】 |
-| `linq.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/linq.rav -o output/linq.dll`; the DLL enumerates 3, 2, 1 as expected.【9b4c4a†L1-L1】【b2c784†L1-L2】【0c8340†L1-L5】 |
-| `main.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/main.rav -o output/main.dll`; executing the DLL prints the critical value banner, status summaries, and tuple projection without error.【18ebc8†L1-L1】【ea73a2†L1-L1】【4eff9d†L1-L7】 |
-| `match.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/match.rav -o output/match.dll`; runtime output shows the expected pattern discriminations (`Int32`, `String`, `foo`).【fb8e0f†L1-L1】【cceef1†L1-L2】【10a7fc†L1-L5】 |
-| `parse-number.rav` | ✅ Emitted / ⚠️ Interactive loop | Emitted via `dotnet run --no-build --no-restore -- samples/parse-number.rav -o output/parse-number.dll`; running the DLL enters an endless prompt loop that accumulates totals until manually interrupted.【45afc8†L1-L1】【d8d5dd†L1-L2】【afe580†L1-L2】【8fdea1†L1-L4】【1b35d3†L1-L1】 |
-| `pattern-matching.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/pattern-matching.rav -o output/pattern-matching.dll`; running prints `else`.【363dbf†L1-L1】【85e426†L1-L2】【a069c2†L1-L3】 |
-| `reflection.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/reflection.rav -o output/reflection.dll`; runtime output lists reflection metadata such as `System.Object` members.【bda6ec†L1-L1】【eac729†L1-L2】【6963f7†L1-L6】 |
-| `string-interpolation.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/string-interpolation.rav -o output/string-interpolation.dll`; the DLL prints the Hebrew greeting as expected.【5b1970†L1-L1】【a31c11†L1-L2】【a2351b†L1-L3】 |
-| `test.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/test.rav -o output/test.dll`; running prints `8`.【e23c86†L1-L1】【56d464†L1-L2】【253cff†L1-L3】 |
-| `test2.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/test2.rav -o output/test2.dll`; running prints `42`, `Hello, World!`, and `Hello, 2`.【f242cf†L1-L1】【573417†L1-L2】【368ad8†L1-L5】 |
-| `test3.rav` | ❌ Fails | Top-level program synthesis still recurses inside `SynthesizedMainMethodSymbol.ResolveReturnType`.【58d0b2†L1-L120】 |
-| `tokenizer.rav` | ⚠️ Hangs | Trivia lexing never terminates; the build must be canceled manually.【55f5d9†L1-L4】 |
-| `try-match.rav` | ✅ Emitted / ⚠️ Input mismatch | Emitted via `dotnet run --no-build --no-restore -- samples/try-match.rav -o output/try-match.dll`; running reports “Format invalid: The input string 'foo' was not in a correct format.” before exiting.【833303†L1-L1】【c66dbd†L1-L2】【222a54†L1-L3】 |
-| `tuples.rav` | ⚠️ Emitted with warning / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/tuples.rav -o output/tuples.dll`, which reiterates the redundant catch-all warning; runtime output prints tuple projections without error.【e87a06†L1-L1】【c0f43e†L1-L4】【e72be4†L1-L6】 |
-| `tuples2.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/tuples2.rav -o output/tuples2.dll`; running prints `tuple False foo`.【4870d9†L1-L1】【2eb57d†L1-L2】【b0b6a1†L1-L3】 |
-| `type-unions.rav` | ✅ Emitted / ⚠️ External dependency | Emitted via `dotnet run --no-build --no-restore -- samples/type-unions.rav -o output/type-unions.dll`, but running the DLL fails unless `TestDep.dll` is copied next to the output; without it `dotnet output/type-unions.dll` throws `FileNotFoundException`, and with the dependency present the program prints the expected union projections.【797dbf†L1-L1】【85469a†L1-L1】【449f5d†L1-L7】【0e17c5†L1-L2】【14dd57†L1-L7】 |
-| `unit.rav` | ✅ Emitted / ✅ Ran | Emitted via `dotnet run --no-build --no-restore -- samples/unit.rav -o output/unit.dll`; running prints `Hello` followed by unit literals.【df4e31†L1-L1】【8c34bb†L1-L1】【714a4c†L1-L6】 |
+| `arrays.rav` | ✅ Emitted / ✅ Ran | Recompiled via the CLI; running the emitted DLL prints 3, 1, 42, 3 as before.【0f5042†L1-L4】【1e4274†L1-L5】 |
+| `async-await.rav` | ✅ Emitted / ✅ Ran | The async sample now executes to completion, printing `first:1`, `sum:6`, and `done`.【5edb92†L1-L9】 |
+| `catch.rav` | ✅ Emitted / ✅ Ran | Running the compiled DLL prints `Foo`.【5edb92†L10-L18】 |
+| `classes.rav` | ✅ Emitted / ✅ Ran | Execution prints `Hello`, `John`, the projected record, and the trailing unit value.【f240ae†L1-L10】 |
+| `collections.rav` | ✅ Emitted / ✅ Ran | Produces the expected hero roster in order when executed.【e1ebe5†L1-L11】 |
+| `enums.rav` | ✅ Emitted / ✅ Ran | Outputs the grade sequence `C`, `Grades`, `B`, `Grades`.【f63261†L1-L10】 |
+| `foo.rav` | ✅ Emitted / ✅ Ran | Invocation prints `1`.【e76f9e†L1-L9】 |
+| `function-types.rav` | ✅ Emitted / ✅ Ran | Displays `result = 10`, `chained = 20`, and `combined = 30` for the delegate composition sample.【e738d3†L1-L10】 |
+| `general.rav` | ✅ Emitted / ✅ Ran | Continues to print `Hello, World!` followed by 1, 42, 3.【8a3f83†L1-L10】 |
+| `generator.rav` | ✅ Emitted / ✅ Ran | Shows 42 and the odd sequence 3, 5, 7, 9 at runtime.【f9ed99†L1-L9】 |
+| `generics.rav` | ✅ Emitted / ✅ Ran | Execution prints `2`, `2`, `3`.【1c023c†L1-L8】 |
+| `generics2.rav` | ✅ Emitted / ✅ Ran | Running the DLL prints `ok`.【36300c†L1-L8】 |
+| `goto.rav` | ✅ Emitted / ⚠️ Not run | Build succeeds but the program would loop forever, so execution is intentionally skipped.【b95219†L1-L4】 |
+| `interfaces.rav` | ✅ Emitted / ✅ Ran | Runtime output remains `Init`, `Do`, `Dispose 1`.【28e112†L1-L9】 |
+| `introduction.rav` | ✅ Emitted / ✅ Ran | The executable prints `Empty input.` followed by the summary lines.【f89672†L1-L8】 |
+| `io.rav` | ✅ Emitted / ⚠️ Requires args | The binary expects a directory argument; running with `src/Raven.Compiler/samples` enumerates files and reports the count.【a15227†L1-L9】【44eca3†L1-L39】 |
+| `lambda.rav` | ✅ Emitted / ✅ Ran | Shows the captured lambda results and closure state transitions.【9d049e†L1-L10】 |
+| `linq.rav` | ✅ Emitted / ✅ Ran | Outputs the reversed list `3`, `2`, `1`.【83c569†L1-L8】 |
+| `main.rav` | ✅ Emitted / ✅ Ran | Prints the critical value banner and tuple projection without error.【3b453c†L1-L10】 |
+| `match.rav` | ✅ Emitted / ✅ Ran | Runtime pattern output stays `Int32`, `String`, `foo`.【09526e†L1-L9】 |
+| `parse-number.rav` | ✅ Emitted / ⚠️ Interactive loop | Compilation succeeds but the program waits for console input, so execution is skipped.【304e7a†L1-L6】 |
+| `pattern-matching.rav` | ✅ Emitted / ✅ Ran | Prints `else` when executed.【97fcb0†L1-L8】 |
+| `reflection.rav` | ✅ Emitted / ❌ Runtime failure | Running the DLL now throws `IndexOutOfRangeException` when accessing `members[1]`, confirming the sample bug.【380b9b†L1-L12】 |
+| `string-interpolation.rav` | ✅ Emitted / ✅ Ran | Outputs the Hebrew greeting from `Console.WriteLine`.【763b30†L1-L8】 |
+| `test.rav` | ✅ Emitted / ✅ Ran | Prints the lambda totals `7`, `5`, and `5`.【9d931e†L1-L8】 |
+| `test2.rav` | ✅ Emitted / ✅ Ran | Produces `42`, `Hello, World!`, and `Hello, 2`.【1f3b53†L1-L8】 |
+| `test3.rav` | ❌ Fails | Top-level program synthesis still recurses in `SynthesizedMainMethodSymbol.ResolveReturnType`.【e14076†L1-L80】 |
+| `tokenizer.rav` | ⚠️ Hangs | `timeout 3` aborts the compiler invocation, indicating the tokenizer still fails to terminate.【328d2e†L1-L1】【65d5e9†L1-L3】 |
+| `try-match.rav` | ✅ Emitted / ⚠️ Input mismatch | Running with the default `'foo'` argument reports the format error and exits. 【c6be6c†L1-L3】 |
+| `tuples.rav` | ⚠️ Emitted with warning / ✅ Ran | Compilation warns about the redundant catch-all, and the program prints the tuple projections.【95e0e1†L9-L24】 |
+| `tuples2.rav` | ✅ Emitted / ✅ Ran | Runtime output remains `tuple False foo`.【95e0e1†L24-L31】 |
+| `type-unions.rav` | ✅ Emitted / ⚠️ External dependency | Copying `TestDep.dll` beside the DLL enables execution, which then prints the expected projections.【594209†L1-L4】【95e0e1†L31-L42】 |
+| `unit.rav` | ✅ Emitted / ✅ Ran | Outputs `Hello` and the unit literals when executed.【95e0e1†L42-L50】 |
 
-**Runtime observations.** `async-await.rav` still emits invalid IL that the CLR rejects, while `type-unions.rav` now emits successfully but requires `TestDep.dll` beside the generated assembly to avoid `FileNotFoundException`.【127f2d†L1-L1】【c9e5b4†L1-L1】【69a027†L1-L7】【797dbf†L1-L1】【85469a†L1-L1】【449f5d†L1-L7】【0e17c5†L1-L2】【14dd57†L1-L7】 The interactive samples remain non-turnkey: `io.rav` expects a directory argument, `parse-number.rav` loops waiting for input, `goto.rav` is an intentional infinite loop, and `try-match.rav` reports a format error for its default `'foo'` argument.【77afea†L1-L1】【c3b959†L1-L3】【80e404†L1-L1】【9c4be1†L1-L1】【e30c5c†L1-L3】【e7c8f9†L1-L2】【330220†L1-L1】【2ec1c5†L1-L1】【F:src/Raven.Compiler/samples/goto.rav†L1-L5】【38fcf5†L1-L1】【8f822d†L1-L1】【5ef497†L1-L2】
+**Runtime observations.** `async-await.rav` now runs to completion after the CompletedTask fix, while `reflection.rav` currently throws because its `members` array only contains a single element; `type-unions.rav` still requires copying `TestDep.dll` next to the emitted assembly. The interactive samples remain non-turnkey: `io.rav` expects a directory argument, `parse-number.rav` loops waiting for input, `goto.rav` is an intentional infinite loop, and `try-match.rav` reports a format error for its default `'foo'` argument.【5edb92†L1-L9】【380b9b†L1-L12】【95e0e1†L31-L42】【a15227†L1-L9】【44eca3†L1-L39】【304e7a†L1-L6】【b95219†L1-L4】【c6be6c†L1-L3】
 
 ## Common problem patterns
 - **Symbol binding recursion (resolved):** `SymbolEqualityComparer` now tracks visited symbol pairs to break cycles when inspecting extension methods, interface defaults, and interpolated strings. The affected samples (`samples/main.rav`, `samples/generator.rav`, `samples/interfaces.rav`, `samples/linq.rav`, and `samples/reflection.rav`) compile successfully again.【F:src/Raven.CodeAnalysis/SymbolEqualityComparer.cs†L1-L215】【4528a4†L1-L4】【2941cf†L1-L3】【152141†L1-L2】【d2560e†L1-L3】【2a10c8†L1-L2】【a8337e†L1-L3】【14c359†L1-L2】【4013ab†L1-L3】【9f9ee0†L1-L2】【6a0816†L1-L3】

@@ -28,6 +28,7 @@
 - The synthesized type implements `System.Runtime.CompilerServices.IAsyncStateMachine`, exposes a forwarding `SetStateMachine`, and the rewriter now drives both `SetException` on failures and `SetResult` on successful returns so the async builder observes the full completion contract.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L49-L260】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L191-L320】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L833-L874】
 - Code generation now materializes synthesized async state machine structs, defines their hoisted fields and builder members, emits the stored `MoveNext`/`SetStateMachine` bodies, and decorates the original async method with `AsyncStateMachineAttribute` and `AsyncMethodBuilderAttribute` so the runtime observes the async metadata.【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L70-L141】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L61-L120】【F:src/Raven.CodeAnalysis/CodeGen/MethodGenerator.cs†L161-L239】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1-L121】
 - Async method bootstraps now reuse the invocation receiver-address helper when loading `_builder`, so returning the builder task emits `ldflda` followed by a `call` to `AsyncTaskMethodBuilder.get_Task` instead of copying the struct into temporaries. The regression test suite asserts the getter call uses `call` and that no `stloc` occurs between the field address load and the invocation, preventing the invalid-program fault from resurfacing.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2056-L2080】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L120-L142】
+- Return statements now detect when the compiler-synthesized `Task.CompletedTask` placeholder flows through a parameterless builder and treat it as an effectively-void return, ensuring the state machine still stamps `_state = -2` and calls `SetResult()` so runtimes observing the builder task see completion instead of hanging on the implicit fall-through. Regression IL tests pin the parameterless `SetResult()` call for both implicit fall-through and explicit `return Task.CompletedTask` paths.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L328-L354】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L147-L195】
 - Constructed async helper invocations (e.g., builder generics) resolve through `ConstructedMethodSymbol.GetMethodInfo`, which translates every type argument into the compilation's `MetadataLoadContext` before asking reflection for the matching runtime method. This keeps emission within the metadata world and avoids falling back to ad-hoc `Assembly.Load` calls when the state machine type itself is synthesized.【F:src/Raven.CodeAnalysis/Symbols/Constructed/ConstructedMethodSymbol.cs†L1-L132】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2640-L2745】
 - Lambda expressions now accept an optional `async` modifier, allowing awaits inside both simple and parenthesized forms. The binder propagates `IsAsync` onto `SourceLambdaSymbol`, infers `Task<T>` or `Task` return types when no annotation is provided, and ensures lambda bodies convert to the awaited result type before defaulting to builder-friendly tasks.【F:src/Raven.CodeAnalysis/Syntax/InternalSyntax/Parser/Parsers/ExpressionSyntaxParser.cs†L393-L521】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceLambdaSymbol.cs†L10-L75】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L12-L279】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L1-L82】
 - Async functions and lambdas surface diagnostics when explicitly annotated with non-`Task` return types so authors receive targeted guidance to use `Task`/`Task<T>` while inference continues to supply the appropriate builder-friendly task shapes.【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L295-L329】【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L36-L87】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L119-L187】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L1-L69】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L1-L120】
@@ -36,7 +37,20 @@
 
 - The `SpecialType` enumeration already contains the async method builder types, `Task`, and the attribute metadata we will need, indicating the compilation layer can resolve the required framework symbols once lowering consumes them.【F:src/Raven.CodeAnalysis/SpecialType.cs†L39-L58】
 - The sample suite now includes an `async-await.rav` program that exercises the generated state machine and asserts the expected interleaving once the emitted IL executes without runtime faults.【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L12-L118】
-- Invoking the CLI on the sample still produces an assembly that throws `InvalidProgramException` when executed, confirming the runtime rejects the generated async state machine.【1fd709†L1-L6】
+- Rebuilding and running `samples/async-await.rav` via `dotnet run --no-build --project src/Raven.Compiler/Raven.Compiler.csproj -- src/Raven.Compiler/samples/async-await.rav -o /tmp/raven-samples/async-await/async-await.dll` now prints `first:1`, `sum:6`, and `done`, confirming the CompletedTask fallthrough fix unblocks runtime execution.【5edb92†L1-L9】
+- `ilverify` no longer reports byref-of-byref faults when inspecting the sample assembly. The remaining verifier noise is limited to `System.Console` load failures because the framework facade is not passed to the tool, confirming the state machine now satisfies structured-exit requirements.【77ab35†L1-L7】
+- Running the generated assembly now prints the awaited lines (`first:1`, `sum:6`, `done`) and exits normally, confirming the state machine advances through every continuation.【5edb92†L1-L9】
+- A reflection harness that loads the emitted `Program.MainAsync` now reports `TaskStatus.RanToCompletion` and prints the awaited output (`first:1`, `sum:6`, `done`), confirming the builder drives the state machine through every continuation. The C# snippet below remains available for future diagnostics if the status regresses.【e2da1b†L1-L4】
+
+  ```csharp
+  var asm = Assembly.LoadFile("/tmp/async-await.dll");
+  var mainAsync = asm.GetType("Program")!.GetMethod("MainAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+  var task = (Task)mainAsync.Invoke(null, new object?[] { Array.Empty<string>() })!;
+    Console.WriteLine(task.Status); // RanToCompletion
+  Console.WriteLine(task.GetType().GetField("m_stateObject", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(task));
+  ```
+
+   Keep this harness on hand in case a future regression reintroduces the hang—the field probes make it easy to inspect builder internals and confirm whether the state machine is still boxed correctly.
 
 ### IL comparison with the C# baseline
 
@@ -68,6 +82,70 @@ IL_003e: ldloc.s 4
 IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter Program/'<Main>d__1'::'<>u__1'
 ```
 
+### Reference: C# state machine layout
+
+- Building the mirrored C# sample in **Release** produces `<MainAsync>d__1` as a `System.ValueType`
+  implementing `IAsyncStateMachine` with hoisted `_state`, `_builder`, awaiter, and spill fields.
+  The runtime handshake we care about mirrors this release layout, so Raven should stay aligned
+  with the struct-based form.【F:docs/investigations/async-await.md†L92-L110】
+  - The **Debug** build emits a reference type whose `SetStateMachine` body immediately returns
+    instead of forwarding to the builder, underscoring that the struct layout is the one that
+    drives `AwaitUnsafeOnCompleted` in production.【F:docs/investigations/async-await.md†L94-L96】
+
+```il
+// C# debug Program.<MainAsync>d__1.SetStateMachine excerpt
+IL_0000: ret
+```
+
+```il
+// C# release Program.MainAsync bootstrap
+IL_0000: newobj instance void Program/'<MainAsync>d__1'::.ctor()
+IL_0005: stloc.0
+IL_0006: ldloc.0
+IL_0007: call valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0>
+                     [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::Create()
+IL_000c: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
+                     Program/'<MainAsync>d__1'::'<>t__builder'
+IL_0011: ldloc.0
+IL_0012: ldc.i4.m1
+IL_0013: stfld int32 Program/'<MainAsync>d__1'::'<>1__state'
+IL_0018: ldloc.0
+IL_0019: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
+                     Program/'<MainAsync>d__1'::'<>t__builder'
+IL_001e: ldloca.s 0
+IL_0020: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::Start
+                     <valuetype Program/'<MainAsync>d__1'>(!!0&)
+```
+
+- Each awaited expression stores its awaiter into the hoisted field, stamps the `_state`, and
+  calls `AwaitUnsafeOnCompleted` with both the awaiter and the state machine passed by reference.
+  When the await completes, the generated code resets `_state` to `-1`, clears the awaiter field,
+  and continues before eventually invoking `SetResult` or `SetException` through the builder.
+
+```il
+IL_002e: ldarg.0
+IL_002f: ldc.i4.0
+IL_0030: dup
+IL_0031: stloc.0
+IL_0032: stfld int32 Program/'<MainAsync>d__1'::'<>1__state'
+IL_0037: ldarg.0
+IL_0038: ldloc.3
+IL_0039: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<int32>
+                     Program/'<MainAsync>d__1'::'<>u__1'
+IL_003e: ldarg.0
+IL_003f: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
+                     Program/'<MainAsync>d__1'::'<>t__builder'
+IL_0044: ldloca.s 3
+IL_0046: ldarg.0
+IL_0047: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::
+                     AwaitUnsafeOnCompleted<valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<int32>,
+                     valuetype Program/'<MainAsync>d__1'>(!!0&, !!1&)
+```
+
+- Because the release pipeline depends on struct semantics for `Start`, `AwaitUnsafeOnCompleted`,
+  and `SetStateMachine`, Raven should keep synthesizing value-type state machines whose builder
+  field is always accessed by address.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L9-L73】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1200-L1264】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1584-L1615】
+
 ## Remaining work
 
 ### Resolved gaps
@@ -92,11 +170,15 @@ IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwa
 5. **Rebuild integration coverage.** Additional regression tests now check that multi-await methods hoist each awaiter, thrown exceptions flow through `SetException`, async accessors emit `SetResult`, and async lambdas synthesize their own state machines.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L375-L508】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L153-L197】
 6. **Return builder tasks by reference.** Property emission shares the invocation address-loading path so async bootstraps invoke `AsyncTaskMethodBuilder.get_Task` via `call` on `_builder`, and IL tests verify the getter consumes the field address without introducing temporary locals.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2056-L2080】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L120-L142】
 7. **Add execution regression coverage.** The samples test suite now captures the async sample's standard streams, fails loudly when the runtime still throws `InvalidProgramException`, and will keep the fix honest once the remaining IL issues are resolved.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L19-L90】
-8. **Write through the real state machine instance.** Field assignments emitted inside async `MoveNext` now load the synthesized struct by reference (`ldarga.s 0`) instead of copying `this` into temporaries. The emitter reuses the shared invocation-address path so `_state`, hoisted locals, and awaiters mutate in place before scheduling continuations, satisfying the CLR verifier.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1658-L1721】
+8. **Write through the real state machine instance.** Field assignments emitted inside async `MoveNext` now reuse the invocation-address helpers to reload `self` via `ldarg.0`, letting `_state`, hoisted locals, and awaiters mutate the original struct without round-tripping through byref locals. The emitter understands address-of expressions that wrap `self`, so await scheduling can re-emit the receiver when it needs to evaluate the RHS first.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1644-L1724】
+9. **Complete implicit `Task` returns.** Async methods that fall through without an explicit `return` previously left the builder task unfinished because the binder injected `Task.CompletedTask`, causing the rewriter to skip `SetResult()`. The lowering pass now recognizes the placeholder and still calls the parameterless builder, allowing runtime execution of the sample program to print `sum`/`done` without hanging.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L328-L354】【db673f†L1-L4】
+10. **Lock in `Task.CompletedTask` coverage.** IL-focused regression tests assert that async state machines call the parameterless `SetResult()` when either falling through or explicitly returning `Task.CompletedTask`, ensuring future lowering tweaks keep the builder task completion contract intact.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L147-L195】
 
 #### Upcoming steps
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
+
+- Expand semantic regression coverage to expression-bodied async members that rely on implicit `Task.CompletedTask` returns so the binder and lowerer continue to co-operate once expression-bodied lowering grows await support.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L12-L354】
 
 > **Testing note:** When expanding the regression suite, prefer the generic notation `Task<int>` (with angle brackets) rather than indexer-style spellings such as `Task[int]` so expectations match the emitted metadata and existing tests.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L23-L27】
 

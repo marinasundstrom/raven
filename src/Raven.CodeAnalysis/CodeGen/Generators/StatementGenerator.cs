@@ -114,6 +114,7 @@ internal class StatementGenerator : Generator
         IILocal? resultTemp = null;
 
         var isVoidLikeReturn = returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
+        var hasExceptionExit = TryGetExceptionExitLabel(out _);
 
         if (expression is not null)
         {
@@ -140,9 +141,22 @@ internal class StatementGenerator : Generator
             {
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
             }
+
+            if (hasExceptionExit)
+            {
+                var returnValueLocal = MethodBodyGenerator.EnsureReturnValueLocal();
+                ILGenerator.Emit(OpCodes.Stloc, returnValueLocal);
+            }
         }
 
-        ILGenerator.Emit(OpCodes.Ret);
+        if (hasExceptionExit)
+        {
+            ILGenerator.Emit(OpCodes.Leave, MethodBodyGenerator.GetOrCreateReturnLabel());
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ret);
+        }
     }
 
     private void EmitThrowStatement(BoundThrowStatement throwStatement)
@@ -460,7 +474,10 @@ internal class StatementGenerator : Generator
     {
         ILGenerator.BeginExceptionBlock();
 
+        var exitLabel = MethodBodyGenerator.GetOrCreateReturnLabel();
+
         var tryScope = new Scope(this);
+        tryScope.SetExceptionExitLabel(exitLabel);
         new StatementGenerator(tryScope, tryStatement.TryBlock).Emit();
 
         foreach (var catchClause in tryStatement.CatchClauses)
@@ -472,6 +489,7 @@ internal class StatementGenerator : Generator
             ILGenerator.BeginCatchBlock(ResolveClrType(catchType));
 
             var catchScope = new Scope(this);
+            catchScope.SetExceptionExitLabel(exitLabel);
 
             if (catchClause.Local is { } localSymbol)
             {
@@ -495,6 +513,7 @@ internal class StatementGenerator : Generator
         {
             ILGenerator.BeginFinallyBlock();
             var finallyScope = new Scope(this);
+            finallyScope.SetExceptionExitLabel(exitLabel);
             new StatementGenerator(finallyScope, finallyBlock).Emit();
         }
 
