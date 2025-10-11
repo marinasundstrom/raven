@@ -57,7 +57,7 @@ import System.Threading.Tasks.*
 
 class C {
     async Work() -> Task {
-        return Task.CompletedTask
+        return
     }
 }
 """;

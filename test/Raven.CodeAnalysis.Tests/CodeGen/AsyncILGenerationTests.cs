@@ -192,36 +192,6 @@ class C {
     }
 
     [Fact]
-    public void MoveNext_WhenReturningCompletedTaskExpression_CallsParameterlessSetResult()
-    {
-        const string source = """
-import System.Threading.Tasks.*
-
-class C {
-    async Work() -> Task {
-        await Task.CompletedTask
-        return Task.CompletedTask
-    }
-}
-""";
-
-        var (_, instructions) = CaptureAsyncInstructions(source, static generator =>
-            generator.MethodSymbol.Name == "MoveNext" &&
-            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
-
-        var setResultCalls = instructions
-            .Where(instruction =>
-                instruction.Opcode == OpCodes.Call &&
-                instruction.Operand.Value is MethodInfo method &&
-                method.Name.Contains("SetResult", StringComparison.Ordinal))
-            .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
-            .ToArray();
-
-        Assert.NotEmpty(setResultCalls);
-        Assert.All(setResultCalls, method => Assert.Empty(method.GetParameters()));
-    }
-
-    [Fact]
     public void AsyncLambda_EmitsStateMachineMetadata()
     {
         const string source = """

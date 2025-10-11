@@ -469,6 +469,13 @@ partial class BlockBinder
 
             if (!skipReturnConversions)
             {
+                if (expr is not null &&
+                    method.IsAsync &&
+                    method.ReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                {
+                    _diagnostics.ReportAsyncTaskMethodCannotReturnExpression(returnStatement.Expression!.GetLocation());
+                }
+
                 if (expr is null)
                 {
                     var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
