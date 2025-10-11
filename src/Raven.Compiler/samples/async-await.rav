@@ -4,7 +4,6 @@ import System.Threading.Tasks.*
 async func PrintDelayed(label: string, value: int) -> Task {
     await Task.Delay(10)
     WriteLine("${label}:${value}")
-    return Task.CompletedTask
 }
 
 await PrintDelayed("first", 1)
