@@ -232,7 +232,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         if (typeArguments.Length != Arity)
             throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments but received {typeArguments.Length}.", nameof(typeArguments));
 
-        return new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
+        var constructed = new ConstructedNamedTypeSymbol(this, typeArguments.ToImmutableArray());
+        var compilation = GetDeclaringCompilation();
+        return compilation is null
+            ? constructed
+            : (INamedTypeSymbol)compilation.NormalizeConstructedNamedType(constructed);
     }
 
     private static TypeKind DetermineTypeKind(TypeKind declaredTypeKind, INamedTypeSymbol? baseType)

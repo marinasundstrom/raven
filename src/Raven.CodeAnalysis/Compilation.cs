@@ -1199,6 +1199,25 @@ public partial class Compilation
         return type ?? (INamedTypeSymbol)ErrorTypeSymbol;
     }
 
+    internal ITypeSymbol NormalizeConstructedNamedType(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return type;
+
+        if (named.SpecialType == SpecialType.System_Threading_Tasks_Task)
+            return named;
+
+        if (named.TypeArguments.Length == 1 &&
+            named.TypeArguments[0].SpecialType == SpecialType.System_Unit &&
+            named.OriginalDefinition is INamedTypeSymbol original &&
+            original.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
+        {
+            return GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+        }
+
+        return named;
+    }
+
     private INamedTypeSymbol CreateTaskOfUnitSpecialType()
     {
         _taskProjectionSuppressionCount++;

@@ -70,7 +70,9 @@ let x: () = ping()
         compilation.EnsureSetup();
 
         var type = (INamedTypeSymbol)compilation.GetType(typeof(Task))!;
+        var special = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
 
+        Assert.Same(special, type);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, type.SpecialType);
         Assert.True(type.IsGenericType);
         Assert.Single(type.TypeArguments);
@@ -89,5 +91,17 @@ let x: () = ping()
         Assert.True(type.IsGenericType);
         Assert.Single(type.TypeArguments);
         Assert.Same(compilation.UnitTypeSymbol, type.TypeArguments[0]);
+    }
+
+    [Fact]
+    public void ConstructingTaskOfUnit_NormalizesToTaskSpecialType()
+    {
+        var compilation = CreateCompilation();
+        compilation.EnsureSetup();
+
+        var taskGeneric = (INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T);
+        var constructed = (INamedTypeSymbol)taskGeneric.Construct(compilation.UnitTypeSymbol);
+
+        Assert.Same(compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task), constructed);
     }
 }

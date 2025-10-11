@@ -13,6 +13,8 @@ internal class TypeResolver(Compilation compilation)
     private readonly Dictionary<MethodBase, PEMethodSymbol> _methodSymbols = new();
     private readonly Dictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
 
+    internal Compilation Compilation => compilation;
+
     public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
         var methodContext = parameterInfo.Member as MethodBase;
@@ -205,7 +207,8 @@ internal class TypeResolver(Compilation compilation)
         {
             var genericTypeDefinition = (INamedTypeSymbol?)ResolveType(type.GetGenericTypeDefinition());
             var args = type.GetGenericArguments().Select(x => ResolveType(x)!);
-            return genericTypeDefinition.Construct(args.ToArray());
+            var constructed = genericTypeDefinition.Construct(args.ToArray());
+            return compilation.NormalizeConstructedNamedType(constructed);
         }
 
         if (type.IsGenericTypeParameter || type.IsGenericMethodParameter)
