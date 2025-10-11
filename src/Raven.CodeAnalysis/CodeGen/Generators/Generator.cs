@@ -51,6 +51,15 @@ internal abstract class Generator
         return Parent?.EnumerateLocalsToDispose() ?? Enumerable.Empty<ILocalSymbol>();
     }
 
+    public virtual bool TryGetExceptionExitLabel(out ILLabel label)
+    {
+        if (Parent is not null)
+            return Parent.TryGetExceptionExitLabel(out label);
+
+        label = default;
+        return false;
+    }
+
     public void EmitDispose(ImmutableArray<ILocalSymbol> locals)
     {
         if (locals.IsDefaultOrEmpty || locals.Length == 0)

@@ -20,6 +20,8 @@ internal class MethodBodyGenerator
     private TypeGenerator.LambdaClosure? _lambdaClosure;
     private readonly Dictionary<ILabelSymbol, ILLabel> _labels = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(SymbolEqualityComparer.Default);
+    private ILLabel? _returnLabel;
+    private IILocal? _returnValueLocal;
 
     public MethodBodyGenerator(MethodGenerator methodGenerator)
     {
@@ -57,6 +59,31 @@ internal class MethodBodyGenerator
         }
 
         return label;
+    }
+
+    internal ILLabel GetOrCreateReturnLabel()
+    {
+        return _returnLabel ??= ILGenerator.DefineLabel();
+    }
+
+    internal IILocal EnsureReturnValueLocal()
+    {
+        if (_returnValueLocal is not null)
+            return _returnValueLocal;
+
+        var returnType = MethodSymbol.ReturnType;
+        if (returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            throw new InvalidOperationException("Void-like methods do not require a return value local.");
+
+        var clrType = returnType.GetClrType(Compilation);
+        _returnValueLocal = ILGenerator.DeclareLocal(clrType);
+        return _returnValueLocal;
+    }
+
+    internal bool TryGetReturnValueLocal(out IILocal? local)
+    {
+        local = _returnValueLocal;
+        return local is not null;
     }
 
     internal void RegisterLabelScope(ILabelSymbol labelSymbol, Scope scope)
@@ -666,6 +693,17 @@ internal class MethodBodyGenerator
 
         if (!treatAsMethodBody || !includeImplicitReturn)
             return;
+
+        if (_returnLabel is ILLabel exitLabel)
+        {
+            ILGenerator.MarkLabel(exitLabel);
+
+            if (TryGetReturnValueLocal(out var returnValueLocal) && returnValueLocal is not null)
+                ILGenerator.Emit(OpCodes.Ldloc, returnValueLocal);
+
+            ILGenerator.Emit(OpCodes.Ret);
+            return;
+        }
 
         var endsWithTerminator = statements.Count > 0 &&
             statements[^1] is BoundReturnStatement or BoundThrowStatement;

@@ -2121,10 +2121,31 @@ internal class ExpressionGenerator : Generator
                 break;
 
             case IFieldSymbol fieldSymbol:
-                EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
+                if (!fieldSymbol.IsStatic && fieldSymbol.ContainingType!.IsValueType)
+                {
+                    var containingType = fieldSymbol.ContainingType!;
 
-                if (!fieldSymbol.IsStatic)
-                    EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType!);
+                    if (receiverAlreadyLoaded)
+                    {
+                        EmitValueTypeAddressIfNeeded(receiver?.Type ?? containingType, containingType);
+                    }
+                    else if (!TryEmitInvocationReceiverAddress(receiver))
+                    {
+                        if (receiver is not null)
+                        {
+                            EmitExpression(receiver);
+                            EmitValueTypeAddressIfNeeded(receiver.Type, containingType);
+                        }
+                        else
+                        {
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+                        }
+                    }
+                }
+                else
+                {
+                    EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
+                }
 
                 if (fieldSymbol.IsLiteral)
                 {

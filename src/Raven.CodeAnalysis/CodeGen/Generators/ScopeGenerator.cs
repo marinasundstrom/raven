@@ -12,6 +12,8 @@ class Scope : Generator
     private ILLabel _breakLabel;
     private bool _hasContinueLabel;
     private ILLabel _continueLabel;
+    private bool _hasExceptionExitLabel;
+    private ILLabel _exceptionExitLabel;
 
     public Scope(Generator parent) : this(parent, ImmutableArray<ILocalSymbol>.Empty)
     {
@@ -82,5 +84,22 @@ class Scope : Generator
 
         label = default;
         return false;
+    }
+
+    public void SetExceptionExitLabel(ILLabel label)
+    {
+        _exceptionExitLabel = label;
+        _hasExceptionExitLabel = true;
+    }
+
+    public override bool TryGetExceptionExitLabel(out ILLabel label)
+    {
+        if (_hasExceptionExitLabel)
+        {
+            label = _exceptionExitLabel;
+            return true;
+        }
+
+        return base.TryGetExceptionExitLabel(out label);
     }
 }

@@ -36,8 +36,8 @@
 
 - The `SpecialType` enumeration already contains the async method builder types, `Task`, and the attribute metadata we will need, indicating the compilation layer can resolve the required framework symbols once lowering consumes them.【F:src/Raven.CodeAnalysis/SpecialType.cs†L39-L58】
 - The sample suite now includes an `async-await.rav` program that exercises the generated state machine and asserts the expected interleaving once the emitted IL executes without runtime faults.【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L12-L118】
-- `ilverify` no longer reports byref-of-byref faults when inspecting the sample assembly, but the verifier still flags direct `ret` instructions leaving `try` blocks and expects matching `leave` edges before the remaining stack can unwind.【57db48†L1-L15】
-- Invoking the CLI on the sample still produces an assembly that throws `InvalidProgramException` when executed, confirming the runtime rejects the generated async state machine.【654d45†L1-L7】
+- `ilverify` no longer reports byref-of-byref faults when inspecting the sample assembly. The remaining verifier noise is limited to `System.Console` load failures because the framework facade is not passed to the tool, confirming the state machine now satisfies structured-exit requirements.【77ab35†L1-L7】
+- Running the generated assembly prints the first awaited line (`first:1`) before stalling indefinitely instead of throwing `InvalidProgramException`, indicating the builder now survives the initial suspension but the continuation never drives the method to completion.【b3f15d†L1-L2】
 
 ### IL comparison with the C# baseline
 
@@ -99,7 +99,7 @@ IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwa
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 
-- Redirect early awaits to structured `leave`/`br` edges so `ilverify` no longer reports `ReturnFromTry` or stack-type mismatches when the state machine exits suspension points.【57db48†L1-L15】
+- Investigate why `MainAsync` never prints `sum`/`done` despite the state machine resuming once, focusing on how the builder schedules continuations after the first await and whether the resumed path races the `_state` dispatch or hoisted locals.【b3f15d†L1-L2】
 
 > **Testing note:** When expanding the regression suite, prefer the generic notation `Task<int>` (with angle brackets) rather than indexer-style spellings such as `Task[int]` so expectations match the emitted metadata and existing tests.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L23-L27】
 
