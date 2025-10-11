@@ -355,6 +355,17 @@ Failing any of these requirements produces a compile-time diagnostic identifying
 the missing member. The compiler also reports an error when `await` appears
 outside an async context.
 
+Evaluation proceeds in three stages. First the operand expression is evaluated
+to a value and `GetAwaiter()` is invoked to obtain the awaiter. If
+`IsCompleted` returns `true`, execution resumes immediately in the current
+method by calling `GetResult()` and replacing the `await` expression with the
+returned value. Otherwise the async state machine stores the awaiter in a
+hoisted field, stamps its state so `MoveNext` can resume at the suspended
+location, and calls `AwaitUnsafeOnCompleted`/`AwaitOnCompleted` on the method
+builder. The continuation re-enters `MoveNext`, reloads the awaiter field,
+calls `GetResult()`, clears the field, and continues with the remainder of the
+async body.
+
 ### Cast expressions
 
 Explicit casts request a conversion to a specific type and use C# syntax.
@@ -1305,6 +1316,21 @@ Async declarations support both block bodies and expression bodies. When an
 expression-bodied member is marked `async`, the compiler lifts the expression
 into the generated state machine so `await` may appear anywhere an expression is
 permitted.
+
+Every `return` inside an async declaration lowers to a call on the synthesized
+method builder so the returned task reflects completion of the state machine.
+For `async Task` members the `return` statement may omit an expression; falling
+off the end of the body is equivalent to `return;` and still stamps `_state =
+-2` before invoking `SetResult()` on the builder. When an expression is
+present, the compiler converts it to the awaited result type and passes it to
+`SetResult(value)`.
+
+Returning an existing task instance such as `Task.CompletedTask` is also
+permitted. The async rewriter detects this well-known singleton when it arises
+from the compiler-synthesized fall-through path or an explicit
+`return Task.CompletedTask;` and still completes the builder via the
+parameterless `SetResult()` call, so observers waiting on the generated task see
+the method transition to `RanToCompletion` without hanging.
 
 ### Lambda expressions and captured variables
 
