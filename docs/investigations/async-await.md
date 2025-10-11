@@ -37,7 +37,56 @@
 
 - The `SpecialType` enumeration already contains the async method builder types, `Task`, and the attribute metadata we will need, indicating the compilation layer can resolve the required framework symbols once lowering consumes them.【F:src/Raven.CodeAnalysis/SpecialType.cs†L39-L58】
 - The sample suite now includes an `async-await.rav` program that exercises the generated state machine and asserts the expected interleaving once the emitted IL executes without runtime faults.【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L12-L118】
-- Rebuilding and running `samples/async-await.rav` via `dotnet run --no-build --project src/Raven.Compiler/Raven.Compiler.csproj -- src/Raven.Compiler/samples/async-await.rav -o /tmp/raven-samples/async-await/async-await.dll` now prints `first:1`, `sum:6`, and `done`, confirming the CompletedTask fallthrough fix unblocks runtime execution.【5edb92†L1-L9】
+- Authors can experiment with the async surface area using the following program, which imports the console and task namespaces, awaits a helper that resumes with the provided value, and writes the awaited result from top-level code:
+
+  ```rav
+  import System.Console.*
+  import System.Threading.Tasks.*
+
+  async func Test(value: int) -> Task<int> {
+      await Task.Delay(10)
+      return value
+  }
+
+  let x = await Test(42)
+
+  WriteLine(x)
+  ```
+- To benchmark the Raven lowering against the C# baseline, we mirrored the snippet as a C# console program and disassembled the
+  resulting assembly with `ilspycmd --ilcode` after a release build. Keeping the C# source in the investigation makes it easy to
+  regenerate IL when compiler changes warrant a fresh comparison:
+
+  ```csharp
+  using System;
+  using System.Threading.Tasks;
+
+  internal static class Program
+  {
+      private static async Task<int> Test(int value)
+      {
+          await Task.Delay(10);
+          return value;
+      }
+
+      private static async Task Main()
+      {
+          var x = await Test(42);
+          Console.WriteLine(x);
+      }
+  }
+  ```
+- The C# compiler produces two nested state-machine structs—`<Test>d__0` for the helper and `<Main>d__1` for the entry point.
+  Each struct carries `<>1__state`, the appropriate `AsyncTaskMethodBuilder` instance, the awaited payload (`value`) or hoisted
+  awaiter, and forwards `SetStateMachine` straight to the builder, matching the invariants Raven relies on.【F:docs/investigations/async-await.md†L143-L208】
+- The async bootstraps materialize the structs on the stack, stamp `_state = -1`, and call `builder.Start(ref stateMachine)`
+  before returning `builder.Task`, confirming the control flow we expect Raven to mirror during emission.【F:docs/investigations/async-await.md†L209-L248】
+- `<Main>d__1.MoveNext` stores the awaited `Task<int>`'s awaiter into `<>u__1`, stamps `_state = 0`, schedules the continuation
+  with `AwaitUnsafeOnCompleted`, and on resume clears the hoist, resets `_state = -1`, and feeds the awaited value into
+  `Console.WriteLine`. The direct `stfld` writes show why Raven must avoid copying the state machine before mutating fields.【F:docs/investigations/async-await.md†L107-L175】
+- `<Test>d__0.MoveNext` follows the same pattern: it caches the `TaskAwaiter` from `Task.Delay(10)`, updates `_state`, calls the
+  generic builder’s `AwaitUnsafeOnCompleted`, and after the await retrieves the preserved `value` field so it can return through
+  `AsyncTaskMethodBuilder<int>.SetResult`.【F:docs/investigations/async-await.md†L176-L248】
+  - Rebuilding and running `samples/async-await.rav` via `dotnet run --no-build --project src/Raven.Compiler/Raven.Compiler.csproj -- src/Raven.Compiler/samples/async-await.rav -o /tmp/raven-samples/async-await/async-await.dll` now prints `first:1`, `sum:6`, and `done`, confirming the CompletedTask fallthrough fix unblocks runtime execution.【5edb92†L1-L9】
 - `ilverify` no longer reports byref-of-byref faults when inspecting the sample assembly. The remaining verifier noise is limited to `System.Console` load failures because the framework facade is not passed to the tool, confirming the state machine now satisfies structured-exit requirements.【77ab35†L1-L7】
 - Running the generated assembly now prints the awaited lines (`first:1`, `sum:6`, `done`) and exits normally, confirming the state machine advances through every continuation.【5edb92†L1-L9】
 - A reflection harness that loads the emitted `Program.MainAsync` now reports `TaskStatus.RanToCompletion` and prints the awaited output (`first:1`, `sum:6`, `done`), confirming the builder drives the state machine through every continuation. The C# snippet below remains available for future diagnostics if the status regresses.【e2da1b†L1-L4】
@@ -81,6 +130,12 @@ IL_003d: ldarg.0
 IL_003e: ldloc.s 4
 IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter Program/'<Main>d__1'::'<>u__1'
 ```
+
+#### Required emitter changes
+
+- `BoundFieldAssignmentExpression` lowering already marks async-state-machine writes as `requiresReceiverAddress: true`, but the emission path still spills value-type receivers before taking their address. When the receiver is `null`/`self`, `EmitAssignmentExpression` calls into `CanReEmitInvocationReceiverAddress` and `TryEmitInvocationReceiverAddress`, yet the `EmitValueTypeAddressIfNeeded` helper invoked afterwards persists in storing `ldarg.0` into a temporary and then loading its address, recreating the problematic `stloc`/`ldloca` sequence.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1180-L1307】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1641-L1709】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2338-L2406】
+- Roslyn sidesteps the copy by emitting `ldarg.0`, immediately using `dup` when it needs to preserve the receiver, and calling `stfld`/`ldflda` directly on the in-place struct. To match that behaviour we need a Raven-side helper that recognises `this`/`BoundSelfExpression`/captured-struct locals and produces the address without spilling. One option is to add an `EmitValueTypeReceiverAddress` that emits `ldarg.0`, `ldflda`, or `ldelema` as appropriate and returns whether the receiver is already on the evaluation stack so callers can decide when to duplicate.【F:docs/investigations/async-await.md†L59-L68】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2284-L2360】
+- Once the receiver stays by-ref we can re-order the store so the awaiter assignment mirrors the Roslyn pattern (`ldarg.0`, `ldc.i4`, `dup`, `stfld ...::_state`, `ldarg.0`, `stfld ...::<>awaiter0`). Updating the IL regression tests to assert there are no intermediary `stloc` opcodes between `ldarg.0` and the `stfld` that updates `_state` (and the hoisted awaiter fields) will keep the fix from regressing.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L120-L195】
 
 ### Reference: C# state machine layout
 
@@ -185,12 +240,11 @@ Implementing async methods and lambdas with C#-equivalent semantics relies on co
 8. **Write through the real state machine instance.** Field assignments emitted inside async `MoveNext` now reuse the invocation-address helpers to reload `self` via `ldarg.0`, letting `_state`, hoisted locals, and awaiters mutate the original struct without round-tripping through byref locals. The emitter understands address-of expressions that wrap `self`, so await scheduling can re-emit the receiver when it needs to evaluate the RHS first.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1644-L1724】
 9. **Complete implicit `Task` returns.** Async methods that fall through without an explicit `return` previously left the builder task unfinished because the binder injected `Task.CompletedTask`, causing the rewriter to skip `SetResult()`. The lowering pass now recognizes the placeholder and still calls the parameterless builder, allowing runtime execution of the sample program to print `sum`/`done` without hanging.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L328-L354】【db673f†L1-L4】
 10. **Lock in `Task.CompletedTask` coverage.** IL-focused regression tests assert that async state machines call the parameterless `SetResult()` when either falling through or explicitly returning `Task.CompletedTask`, ensuring future lowering tweaks keep the builder task completion contract intact.【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L147-L195】
+11. **Cover expression-bodied `Task.CompletedTask` returns.** Semantic regression tests pin the bound trees produced for expression-bodied async methods and getters that return `Task.CompletedTask`, ensuring the implicit return blocks continue to expose the property access that the async lowerer recognizes for parameterless completion.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L229-L274】
 
 #### Upcoming steps
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
-
-- Expand semantic regression coverage to expression-bodied async members that rely on implicit `Task.CompletedTask` returns so the binder and lowerer continue to co-operate once expression-bodied lowering grows await support.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L12-L354】
 
 > **Testing note:** When expanding the regression suite, prefer the generic notation `Task<int>` (with angle brackets) rather than indexer-style spellings such as `Task[int]` so expectations match the emitted metadata and existing tests.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L23-L27】
 
