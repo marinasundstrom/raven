@@ -1,0 +1,9 @@
+import System.Console.*
+import System.IO.*
+import System.Threading.Tasks.*
+
+let text = await File.ReadAllLinesAsync("test.text")
+
+await Task.Delay(100)
+
+WriteLine("Hello ${text}")
