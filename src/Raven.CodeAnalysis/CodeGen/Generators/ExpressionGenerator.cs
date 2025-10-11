@@ -1664,7 +1664,7 @@ internal class ExpressionGenerator : Generator
 
                                     if (fieldSymbol.ContainingType!.IsValueType)
                                     {
-                                        EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
+                                        EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType);
                                     }
                                 }
                             }
@@ -1675,7 +1675,7 @@ internal class ExpressionGenerator : Generator
 
                             if (fieldSymbol.ContainingType!.IsValueType)
                             {
-                                EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
+                                EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType);
                             }
                         }
                         else if (receiver is null)
@@ -1719,13 +1719,13 @@ internal class ExpressionGenerator : Generator
                             EmitExpression(receiver);
 
                             if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                                EmitValueTypeAddressIfNeeded(receiver?.Type, propertySymbol.ContainingType);
                         }
                         else
                         {
                             ILGenerator.Emit(OpCodes.Ldarg_0);
                             if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                                EmitValueTypeAddressIfNeeded(receiver?.Type, propertySymbol.ContainingType);
                         }
                     }
 
@@ -2075,7 +2075,7 @@ internal class ExpressionGenerator : Generator
                 EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
 
                 if (!fieldSymbol.IsStatic)
-                    EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType!);
+                    EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType!);
 
                 if (fieldSymbol.IsLiteral)
                 {
@@ -2204,7 +2204,7 @@ internal class ExpressionGenerator : Generator
         {
             if (receiverAlreadyLoaded)
             {
-                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                EmitValueTypeAddressIfNeeded(receiver?.Type, propertySymbol.ContainingType);
                 return;
             }
 
@@ -2215,7 +2215,7 @@ internal class ExpressionGenerator : Generator
                 throw new InvalidOperationException($"Instance property '{propertySymbol.Name}' requires a receiver.");
 
             EmitExpression(receiver);
-            EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+            EmitValueTypeAddressIfNeeded(receiver.Type, propertySymbol.ContainingType);
             return;
         }
 
@@ -2307,15 +2307,26 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitValueTypeAddressIfNeeded(ITypeSymbol type)
+    private void EmitValueTypeAddressIfNeeded(ITypeSymbol? runtimeType, ITypeSymbol? declaredType = null)
     {
-        if (type.IsValueType)
+        runtimeType ??= declaredType;
+
+        if (runtimeType is null || !runtimeType.IsValueType)
+            return;
+
+        var clrType = ResolveClrType(runtimeType);
+
+        if (clrType.ContainsGenericParameters && declaredType is not null)
         {
-            var clrType = ResolveClrType(type);
-            var tmp = ILGenerator.DeclareLocal(clrType);
-            ILGenerator.Emit(OpCodes.Stloc, tmp);
-            ILGenerator.Emit(OpCodes.Ldloca, tmp);
+            var declaredClrType = ResolveClrType(declaredType);
+
+            if (!declaredClrType.ContainsGenericParameters)
+                clrType = declaredClrType;
         }
+
+        var tmp = ILGenerator.DeclareLocal(clrType);
+        ILGenerator.Emit(OpCodes.Stloc, tmp);
+        ILGenerator.Emit(OpCodes.Ldloca, tmp);
     }
 
     private void EmitLiteral(object? constant)
@@ -2570,7 +2581,7 @@ internal class ExpressionGenerator : Generator
             {
                 ILGenerator.Emit(OpCodes.Ldarg_0);
                 if (propertySymbol.ContainingType.IsValueType)
-                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                    EmitValueTypeAddressIfNeeded(MethodSymbol.ContainingType, propertySymbol.ContainingType);
             }
 
             if (propertySymbol.GetMethod is null)
