@@ -101,6 +101,10 @@
     Title="Async return type must be Task-like"
     Message="Async return type '{returnType}' is not supported; async functions must return System.Threading.Tasks.Task or System.Threading.Tasks.Task&lt;T&gt;"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2705" Identifier="AsyncTaskReturnCannotHaveExpression"
+    Title="Async Task return cannot include a value"
+    Message="Since '{methodName}' is an async method that returns 'Task', a return keyword must not be followed by an object expression"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0234" Identifier="TypeOrNamespaceNameDoesNotExistInTheNamespace"
     Title="Type or namespace does not exist in namespace"
     Message="The type or namespace name '{typeOrNs}' does not exist in the namespace '{container}'"

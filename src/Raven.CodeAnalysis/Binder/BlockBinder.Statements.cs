@@ -478,6 +478,14 @@ partial class BlockBinder
                             method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             returnStatement.GetLocation());
                 }
+                else if (method.IsAsync &&
+                    method.ReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                {
+                    var methodDisplay = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                    _diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
+                        methodDisplay,
+                        returnStatement.Expression!.GetLocation());
+                }
                 else if (ShouldAttemptConversion(expr) && method.ReturnType.TypeKind != TypeKind.Error)
                 {
                     if (!IsAssignable(method.ReturnType, expr.Type, out var conversion))

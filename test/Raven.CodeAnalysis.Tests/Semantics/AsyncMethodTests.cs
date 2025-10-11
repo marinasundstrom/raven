@@ -58,6 +58,23 @@ class C {
     }
 
     [Fact]
+    public void AsyncTaskMethod_WithReturnExpression_ReportsDiagnostic()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async f() {
+        return Task.CompletedTask;
+    }
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.AsyncTaskReturnCannotHaveExpression, diagnostic.Descriptor);
+    }
+
+    [Fact]
     public void TopLevelAwait_PromotesSynthesizedMainToAsyncTask()
     {
         const string source = """

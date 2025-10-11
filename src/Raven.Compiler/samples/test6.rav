@@ -2,8 +2,10 @@ import System.Console.*
 import System.IO.*
 import System.Threading.Tasks.*
 
-let text = await File.ReadAllLinesAsync("test.text")
+let file = await File.ReadAllLinesAsync("samples/tuples.rav")
 
 await Task.Delay(100)
 
-WriteLine("Hello ${text}")
+for each line in file {
+    WriteLine(line)
+}
