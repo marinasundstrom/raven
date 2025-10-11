@@ -216,6 +216,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
 
     internal System.Reflection.TypeInfo GetTypeInfo(CodeGenerator codeGen)
     {
+        if (_specialType == SpecialType.System_Threading_Tasks_Task)
+        {
+            var runtimeTask = TypeSymbolExtensionsForCodeGen.GetClrType(this, codeGen);
+            return runtimeTask.GetTypeInfo();
+        }
+
         if (_originalDefinition is PENamedTypeSymbol pen)
         {
             var genericTypeDef = pen.GetClrType(codeGen);

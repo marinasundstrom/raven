@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.CodeGen;
@@ -76,6 +77,12 @@ class C {
         var builderAttribute = Assert.Single(attributes, attr => attr.AttributeType == typeof(AsyncMethodBuilderAttribute));
         var builderType = Assert.IsAssignableFrom<Type>(builderAttribute.ConstructorArguments[0].Value);
         Assert.Equal(typeof(AsyncTaskMethodBuilder), builderType);
+
+        Assert.Equal(typeof(Task), methodInfo.ReturnType);
+
+        var builderField = stateMachineType.GetField("_builder", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(builderField);
+        Assert.Equal(typeof(AsyncTaskMethodBuilder), builderField!.FieldType);
     }
 
     [Fact]
