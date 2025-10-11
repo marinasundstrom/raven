@@ -167,6 +167,13 @@ partial class BlockBinder
             lambdaBinder.DeclareParameter(param);
 
         var bodyExpr = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+        if (bodyExpr is not null)
+        {
+            lambdaBinder.ReportAsyncTaskMethodCannotReturnExpressionIfNeeded(
+                lambdaSymbol,
+                bodyExpr,
+                syntax.ExpressionBody);
+        }
 
         var inferred = bodyExpr.Type;
         if (returnTypeSyntax is null &&
@@ -725,6 +732,13 @@ partial class BlockBinder
             lambdaBinder.DeclareParameter(parameter);
 
         var body = lambdaBinder.BindExpression(syntax.ExpressionBody, allowReturn: true);
+        if (body is not null)
+        {
+            lambdaBinder.ReportAsyncTaskMethodCannotReturnExpressionIfNeeded(
+                lambdaSymbol,
+                body,
+                syntax.ExpressionBody);
+        }
         var inferred = body.Type ?? ReturnTypeCollector.Infer(body);
         if (inferred is not null && inferred.TypeKind != TypeKind.Error)
             inferred = TypeSymbolNormalization.NormalizeForInference(inferred);

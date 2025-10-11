@@ -469,11 +469,12 @@ partial class BlockBinder
 
             if (!skipReturnConversions)
             {
-                if (expr is not null &&
-                    method.IsAsync &&
-                    method.ReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                if (expr is not null)
                 {
-                    _diagnostics.ReportAsyncTaskMethodCannotReturnExpression(returnStatement.Expression!.GetLocation());
+                    ReportAsyncTaskMethodCannotReturnExpressionIfNeeded(
+                        method,
+                        expr,
+                        returnStatement.Expression!);
                 }
 
                 if (expr is null)
@@ -503,6 +504,29 @@ partial class BlockBinder
         }
 
         return new BoundReturnStatement(expr);
+    }
+
+    private void ReportAsyncTaskMethodCannotReturnExpressionIfNeeded(
+        IMethodSymbol method,
+        BoundExpression expression,
+        SyntaxNode expressionSyntax)
+    {
+        if (expression is BoundErrorExpression)
+            return;
+
+        if (!method.IsAsync)
+            return;
+
+        if (method.ReturnType.SpecialType != SpecialType.System_Threading_Tasks_Task)
+            return;
+
+        if (method is SourceMethodSymbol { HasAsyncReturnTypeError: true } or
+            SourceLambdaSymbol { HasAsyncReturnTypeError: true })
+        {
+            return;
+        }
+
+        _diagnostics.ReportAsyncTaskMethodCannotReturnExpression(expressionSyntax.GetLocation());
     }
 
     private BoundStatement BindYieldReturnStatement(YieldReturnStatementSyntax yieldReturn)

@@ -5191,6 +5191,13 @@ partial class BlockBinder : Binder
         {
             var expressionBinder = (BlockBinder)SemanticModel.GetBinder(function.ExpressionBody, methodBinder);
             var expression = expressionBinder.BindExpression(function.ExpressionBody.Expression, allowReturn: true);
+            if (expression is not null)
+            {
+                expressionBinder.ReportAsyncTaskMethodCannotReturnExpressionIfNeeded(
+                    symbol,
+                    expression,
+                    function.ExpressionBody.Expression);
+            }
             var returnType = symbol.ReturnType;
             var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
             var statements = new List<BoundStatement>(capacity: 1);
