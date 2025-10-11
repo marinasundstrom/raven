@@ -38,7 +38,10 @@ class MethodBodyBinder : BlockBinder
         }
 
         var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
-        if (!SymbolEqualityComparer.Default.Equals(_methodSymbol.ReturnType, unit))
+        var skipTrailingExpressionCheck = ShouldSkipTrailingExpressionCheck(unit);
+
+        if (!skipTrailingExpressionCheck &&
+            !SymbolEqualityComparer.Default.Equals(_methodSymbol.ReturnType, unit))
         {
             if (bound.Statements.LastOrDefault() is BoundExpressionStatement exprStmt && exprStmt.Expression.Type is ITypeSymbol t && !IsAssignable(_methodSymbol.ReturnType, t, out _))
             {
@@ -51,6 +54,28 @@ class MethodBodyBinder : BlockBinder
 
         CacheBoundNode(block, bound);
         return bound;
+    }
+
+    private bool ShouldSkipTrailingExpressionCheck(ITypeSymbol unitType)
+    {
+        if (!_methodSymbol.IsAsync)
+            return false;
+
+        var returnType = _methodSymbol.ReturnType;
+
+        if (returnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
+            return true;
+
+        if (returnType is INamedTypeSymbol named &&
+            named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            named.TypeArguments.Length == 1)
+        {
+            var resultType = named.TypeArguments[0];
+            if (resultType is not null && SymbolEqualityComparer.Default.Equals(resultType, unitType))
+                return true;
+        }
+
+        return false;
     }
 
     public override BoundNode GetOrBind(SyntaxNode node)
