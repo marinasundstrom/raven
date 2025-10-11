@@ -1319,18 +1319,17 @@ permitted.
 
 Every `return` inside an async declaration lowers to a call on the synthesized
 method builder so the returned task reflects completion of the state machine.
-For `async Task` members the `return` statement may omit an expression; falling
-off the end of the body is equivalent to `return;` and still stamps `_state =
--2` before invoking `SetResult()` on the builder. When an expression is
-present, the compiler converts it to the awaited result type and passes it to
+For `async Task` members each `return` statement must omit the expression;
+falling off the end of the body is equivalent to `return;` and still stamps
+`_state = -2` before invoking `SetResult()` on the builder. When an expression
+is present, the compiler converts it to the awaited result type and passes it to
 `SetResult(value)`.
 
-Returning an existing task instance such as `Task.CompletedTask` is also
-permitted. The async rewriter detects this well-known singleton when it arises
-from the compiler-synthesized fall-through path or an explicit
-`return Task.CompletedTask;` and still completes the builder via the
-parameterless `SetResult()` call, so observers waiting on the generated task see
-the method transition to `RanToCompletion` without hanging.
+Returning an existing task instance such as `Task.CompletedTask` is not
+permitted inside an `async Task` body. Authors must `await` the task to observe
+its completion instead of returning it directly. Attempting to return an
+expression from an `async Task` member produces a diagnostic that mirrors the
+behavior of C# (error RAV2705).
 
 ### Lambda expressions and captured variables
 

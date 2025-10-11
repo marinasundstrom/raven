@@ -103,7 +103,7 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2705" Identifier="AsyncTaskReturnCannotHaveExpression"
     Title="Async Task return cannot include a value"
-    Message="Since async method '{methodName}' returns System.Threading.Tasks.Task, its return statements cannot include an expression"
+    Message="Since '{methodName}' is an async method that returns 'Task', a return keyword must not be followed by an object expression"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0234" Identifier="TypeOrNamespaceNameDoesNotExistInTheNamespace"
     Title="Type or namespace does not exist in namespace"
