@@ -80,6 +80,70 @@ IL_003e: ldloc.s 4
 IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter Program/'<Main>d__1'::'<>u__1'
 ```
 
+### Reference: C# state machine layout
+
+- Building the mirrored C# sample in **Release** produces `<MainAsync>d__1` as a `System.ValueType`
+  implementing `IAsyncStateMachine` with hoisted `_state`, `_builder`, awaiter, and spill fields.
+  The runtime handshake we care about mirrors this release layout, so Raven should stay aligned
+  with the struct-based form.【F:docs/investigations/async-await.md†L92-L110】
+  - The **Debug** build emits a reference type whose `SetStateMachine` body immediately returns
+    instead of forwarding to the builder, underscoring that the struct layout is the one that
+    drives `AwaitUnsafeOnCompleted` in production.【F:docs/investigations/async-await.md†L94-L96】
+
+```il
+// C# debug Program.<MainAsync>d__1.SetStateMachine excerpt
+IL_0000: ret
+```
+
+```il
+// C# release Program.MainAsync bootstrap
+IL_0000: newobj instance void Program/'<MainAsync>d__1'::.ctor()
+IL_0005: stloc.0
+IL_0006: ldloc.0
+IL_0007: call valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0>
+                     [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::Create()
+IL_000c: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
+                     Program/'<MainAsync>d__1'::'<>t__builder'
+IL_0011: ldloc.0
+IL_0012: ldc.i4.m1
+IL_0013: stfld int32 Program/'<MainAsync>d__1'::'<>1__state'
+IL_0018: ldloc.0
+IL_0019: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
+                     Program/'<MainAsync>d__1'::'<>t__builder'
+IL_001e: ldloca.s 0
+IL_0020: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::Start
+                     <valuetype Program/'<MainAsync>d__1'>(!!0&)
+```
+
+- Each awaited expression stores its awaiter into the hoisted field, stamps the `_state`, and
+  calls `AwaitUnsafeOnCompleted` with both the awaiter and the state machine passed by reference.
+  When the await completes, the generated code resets `_state` to `-1`, clears the awaiter field,
+  and continues before eventually invoking `SetResult` or `SetException` through the builder.
+
+```il
+IL_002e: ldarg.0
+IL_002f: ldc.i4.0
+IL_0030: dup
+IL_0031: stloc.0
+IL_0032: stfld int32 Program/'<MainAsync>d__1'::'<>1__state'
+IL_0037: ldarg.0
+IL_0038: ldloc.3
+IL_0039: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<int32>
+                     Program/'<MainAsync>d__1'::'<>u__1'
+IL_003e: ldarg.0
+IL_003f: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
+                     Program/'<MainAsync>d__1'::'<>t__builder'
+IL_0044: ldloca.s 3
+IL_0046: ldarg.0
+IL_0047: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::
+                     AwaitUnsafeOnCompleted<valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<int32>,
+                     valuetype Program/'<MainAsync>d__1'>(!!0&, !!1&)
+```
+
+- Because the release pipeline depends on struct semantics for `Start`, `AwaitUnsafeOnCompleted`,
+  and `SetStateMachine`, Raven should keep synthesizing value-type state machines whose builder
+  field is always accessed by address.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L9-L73】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1200-L1264】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1584-L1615】
+
 ## Remaining work
 
 ### Resolved gaps
@@ -110,7 +174,7 @@ IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwa
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 
-- Investigate why `MainAsync` never prints `sum`/`done` despite the state machine resuming once, focusing on how the builder schedules continuations after the first await and whether the resumed path races the `_state` dispatch or hoisted locals.【b3f15d†L1-L2】
+- Investigate why `MainAsync` never prints `sum`/`done` despite the state machine resuming once by confirming the builder sees the same struct instance that C# hands to `AwaitUnsafeOnCompleted` and `SetStateMachine`, and by checking whether our resume path races the `_state` dispatch or hoisted locals.【b3f15d†L1-L2】【F:docs/investigations/async-await.md†L83-L139】
 
 > **Testing note:** When expanding the regression suite, prefer the generic notation `Task<int>` (with angle brackets) rather than indexer-style spellings such as `Task[int]` so expectations match the emitted metadata and existing tests.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L23-L27】
 
