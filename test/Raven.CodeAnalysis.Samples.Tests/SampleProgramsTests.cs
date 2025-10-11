@@ -21,6 +21,7 @@ public class SampleProgramsTests
         ["test2.rav", Array.Empty<string>()],
         ["type-unions.rav", Array.Empty<string>()],
         ["tuples.rav", Array.Empty<string>()],
+        ["tuples2.rav", Array.Empty<string>()],
         ["main.rav", Array.Empty<string>()],
         ["classes.rav", Array.Empty<string>()],
         ["async-await.rav", Array.Empty<string>()],
