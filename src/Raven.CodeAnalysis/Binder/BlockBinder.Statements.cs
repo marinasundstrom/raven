@@ -469,6 +469,8 @@ partial class BlockBinder
 
             if (!skipReturnConversions)
             {
+                var containsAwait = expr is not null && ContainsAwaitExpression(expr);
+
                 if (expr is not null)
                 {
                     ReportAsyncTaskMethodCannotReturnExpressionIfNeeded(
@@ -486,7 +488,7 @@ partial class BlockBinder
                             method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             returnStatement.GetLocation());
                 }
-                else if (ShouldAttemptConversion(expr) && method.ReturnType.TypeKind != TypeKind.Error)
+                else if (!containsAwait && ShouldAttemptConversion(expr) && method.ReturnType.TypeKind != TypeKind.Error)
                 {
                     if (!IsAssignable(method.ReturnType, expr.Type, out var conversion))
                     {
@@ -526,7 +528,53 @@ partial class BlockBinder
             return;
         }
 
+        if (ContainsAwaitExpression(expression))
+            return;
+
         _diagnostics.ReportAsyncTaskMethodCannotReturnExpression(expressionSyntax.GetLocation());
+    }
+
+    private static bool ContainsAwaitExpression(BoundExpression expression)
+    {
+        var finder = new AwaitExpressionDetector();
+        finder.VisitExpression(expression);
+        return finder.FoundAwait;
+    }
+
+    private sealed class AwaitExpressionDetector : BoundTreeWalker
+    {
+        public bool FoundAwait { get; private set; }
+
+        public override void VisitExpression(BoundExpression node)
+        {
+            if (FoundAwait)
+                return;
+
+            base.VisitExpression(node);
+        }
+
+        public override void VisitStatement(BoundStatement statement)
+        {
+            if (FoundAwait)
+                return;
+
+            base.VisitStatement(statement);
+        }
+
+        public override void VisitAwaitExpression(BoundAwaitExpression node)
+        {
+            FoundAwait = true;
+        }
+
+        public override void VisitLambdaExpression(BoundLambdaExpression node)
+        {
+            // Nested lambdas are bound separately; they should not influence the current expression.
+        }
+
+        public override void VisitFunctionStatement(BoundFunctionStatement node)
+        {
+            // Local functions within the expression are handled independently.
+        }
     }
 
     private BoundStatement BindYieldReturnStatement(YieldReturnStatementSyntax yieldReturn)

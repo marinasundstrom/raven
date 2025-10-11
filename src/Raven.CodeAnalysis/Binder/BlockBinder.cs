@@ -5198,6 +5198,7 @@ partial class BlockBinder : Binder
                     expression,
                     function.ExpressionBody.Expression);
             }
+            var containsAwait = expression is not null && ContainsAwaitExpression(expression);
             var returnType = symbol.ReturnType;
             var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
             var statements = new List<BoundStatement>(capacity: 1);
@@ -5212,7 +5213,7 @@ partial class BlockBinder : Binder
                 var converted = expression;
                 var skipReturnConversions = symbol is SourceMethodSymbol { HasAsyncReturnTypeError: true };
 
-                if (!skipReturnConversions && converted.Type is not null && ShouldAttemptConversion(converted) &&
+                if (!containsAwait && !skipReturnConversions && converted.Type is not null && ShouldAttemptConversion(converted) &&
                     returnType.TypeKind != TypeKind.Error)
                 {
                     if (!expressionBinder.IsAssignable(returnType, converted.Type, out var conversion))

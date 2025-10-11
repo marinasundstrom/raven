@@ -76,6 +76,23 @@ class C {
     }
 
     [Fact]
+    public void AsyncMethod_ReturningAwaitedTaskExpression_IsAllowed()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async f() -> Task {
+        return await Task.CompletedTask
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void AsyncMethod_ExpressionBodyReturningTaskExpression_ReportsDiagnostic()
     {
         const string source = """
@@ -89,6 +106,21 @@ class C {
         var (compilation, _) = CreateCompilation(source);
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.AsyncTaskMethodCannotReturnExpression, diagnostic.Descriptor);
+    }
+
+    [Fact]
+    public void AsyncMethod_ExpressionBodyAwaitingTask_IsAllowed()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async f() -> Task => await Task.CompletedTask
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
@@ -107,6 +139,23 @@ class C {
         var (compilation, _) = CreateCompilation(source);
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.AsyncTaskMethodCannotReturnExpression, diagnostic.Descriptor);
+    }
+
+    [Fact]
+    public void AsyncLambda_ExpressionBodyAwaitingTask_IsAllowed()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    f() {
+        let handler = async () -> Task => await Task.CompletedTask
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
