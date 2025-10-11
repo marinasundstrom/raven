@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -60,5 +61,19 @@ let x: () = ping()
         Assert.NotNull(type);
         Assert.Equal(SpecialType.System_Unit, type!.SpecialType);
         Assert.Same(compilation.UnitTypeSymbol, type);
+    }
+
+    [Fact]
+    public void TypeResolver_Wraps_Task_In_TaskOfUnit()
+    {
+        var compilation = CreateCompilation();
+        compilation.EnsureSetup();
+
+        var type = (INamedTypeSymbol)compilation.GetType(typeof(Task))!;
+
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task, type.SpecialType);
+        Assert.True(type.IsGenericType);
+        Assert.Single(type.TypeArguments);
+        Assert.Same(compilation.UnitTypeSymbol, type.TypeArguments[0]);
     }
 }

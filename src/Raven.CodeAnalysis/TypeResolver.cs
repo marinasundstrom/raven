@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Symbols;
@@ -169,6 +170,24 @@ internal class TypeResolver(Compilation compilation)
             var unit = compilation.GetSpecialType(SpecialType.System_Unit);
             _cache[type] = unit;
             return unit;
+        }
+
+        if (type.FullName == "System.Threading.Tasks.Task")
+        {
+            if (_cache.TryGetValue(type, out var taskCached))
+                return taskCached;
+
+            if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) is INamedTypeSymbol taskOfT)
+            {
+                var unit = compilation.GetSpecialType(SpecialType.System_Unit);
+                var constructed = new ConstructedNamedTypeSymbol(
+                    taskOfT,
+                    ImmutableArray.Create<ITypeSymbol>(unit),
+                    specialTypeOverride: SpecialType.System_Threading_Tasks_Task);
+
+                _cache[type] = constructed;
+                return constructed;
+            }
         }
 
         if (type.Name == "Null")

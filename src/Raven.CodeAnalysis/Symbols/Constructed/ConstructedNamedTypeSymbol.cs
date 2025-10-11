@@ -16,14 +16,19 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
     private ImmutableArray<IFieldSymbol>? _tupleElements;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
+    private readonly SpecialType _specialType;
 
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
 
-    public ConstructedNamedTypeSymbol(INamedTypeSymbol originalDefinition, ImmutableArray<ITypeSymbol> typeArguments)
+    public ConstructedNamedTypeSymbol(
+        INamedTypeSymbol originalDefinition,
+        ImmutableArray<ITypeSymbol> typeArguments,
+        SpecialType? specialTypeOverride = null)
     {
         ConstructedFrom = originalDefinition;
         _originalDefinition = originalDefinition;
         TypeArguments = typeArguments;
+        _specialType = specialTypeOverride ?? originalDefinition.SpecialType;
 
         _substitutionMap = originalDefinition.TypeParameters
             .Zip(TypeArguments, (p, a) => (p, a))
@@ -113,7 +118,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol
             return _originalDefinition.TypeKind;
         }
     }
-    public SpecialType SpecialType => _originalDefinition.SpecialType;
+    public SpecialType SpecialType => _specialType;
     public bool IsNamespace => false;
     public bool IsType => true;
     public bool IsReferenceType => _originalDefinition.IsReferenceType;
