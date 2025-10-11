@@ -575,12 +575,14 @@ internal static class AsyncLowerer
         private int _nextState;
         private int _nextHoistedLocalId;
         private int _nextAwaitResultId;
+        private int _nextAwaiterLocalId;
 
         public AwaitLoweringRewriter(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
         {
             _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
             _nextHoistedLocalId = DetermineInitialHoistedLocalId(stateMachine);
             _nextAwaitResultId = 0;
+            _nextAwaiterLocalId = 0;
         }
 
         public ImmutableArray<StateDispatch> Dispatches => _dispatches.ToImmutableArray();
@@ -1264,7 +1266,28 @@ internal static class AsyncLowerer
                 CreateStateAssignment(_stateMachine, -1)
             };
 
-            var getResult = CreateGetResultInvocation(awaitExpression, awaiterField);
+            var awaiterLocal = CreateAwaiterLocal(awaitExpression.AwaiterType);
+            var awaiterDeclarator = new BoundVariableDeclarator(awaiterLocal, initializer: null);
+            resumeStatements.Add(new BoundLocalDeclarationStatement(new[] { awaiterDeclarator }));
+
+            var awaiterFieldAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), awaiterField);
+            var captureAwaiter = new BoundLocalAssignmentExpression(awaiterLocal, awaiterFieldAccess);
+            resumeStatements.Add(new BoundExpressionStatement(captureAwaiter));
+
+            var awaiterDefaultLocal = CreateAwaiterLocal(awaitExpression.AwaiterType);
+            var awaiterDefaultDeclarator = new BoundVariableDeclarator(
+                awaiterDefaultLocal,
+                new BoundDefaultValueExpression(awaiterField.Type));
+            resumeStatements.Add(new BoundLocalDeclarationStatement(new[] { awaiterDefaultDeclarator }));
+
+            var clearAssignment = new BoundFieldAssignmentExpression(
+                new BoundSelfExpression(_stateMachine),
+                awaiterField,
+                new BoundLocalAccess(awaiterDefaultLocal));
+            resumeStatements.Add(new BoundAssignmentStatement(clearAssignment));
+
+            var awaiterAccess = new BoundLocalAccess(awaiterLocal);
+            var getResult = CreateGetResultInvocation(awaitExpression, awaiterAccess);
             resumeStatements.AddRange(createResumeStatements(getResult));
 
             yield return new BoundLabeledStatement(resumeLabel, new BoundBlockStatement(resumeStatements));
@@ -1273,6 +1296,20 @@ internal static class AsyncLowerer
         private SourceLocalSymbol CreateAwaitResultLocal(ITypeSymbol type)
         {
             var name = $"<>awaitResult{_nextAwaitResultId++}";
+            return new SourceLocalSymbol(
+                name,
+                type,
+                isMutable: true,
+                _stateMachine.MoveNextMethod,
+                _stateMachine,
+                _stateMachine.ContainingNamespace,
+                new[] { Location.None },
+                Array.Empty<SyntaxReference>());
+        }
+
+        private SourceLocalSymbol CreateAwaiterLocal(ITypeSymbol type)
+        {
+            var name = $"<>awaiterLocal{_nextAwaiterLocalId++}";
             return new SourceLocalSymbol(
                 name,
                 type,
@@ -1302,10 +1339,13 @@ internal static class AsyncLowerer
             return new BoundMemberAccessExpression(awaiterAccess, awaitExpression.IsCompletedProperty);
         }
 
-        private BoundInvocationExpression CreateGetResultInvocation(BoundAwaitExpression awaitExpression, SourceFieldSymbol awaiterField)
+        private BoundInvocationExpression CreateGetResultInvocation(BoundAwaitExpression awaitExpression, BoundExpression awaiterReceiver)
         {
-            var awaiterAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), awaiterField);
-            return new BoundInvocationExpression(awaitExpression.GetResultMethod, Array.Empty<BoundExpression>(), awaiterAccess);
+            return new BoundInvocationExpression(
+                awaitExpression.GetResultMethod,
+                Array.Empty<BoundExpression>(),
+                awaiterReceiver,
+                requiresReceiverAddress: true);
         }
 
         private BoundStatement CreateAwaitOnCompletedStatement(BoundAwaitExpression awaitExpression, SourceFieldSymbol awaiterField)

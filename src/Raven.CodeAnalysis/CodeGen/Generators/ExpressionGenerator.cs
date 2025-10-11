@@ -89,6 +89,10 @@ internal class ExpressionGenerator : Generator
                 EmitLiteralExpression(literalExpression);
                 break;
 
+            case BoundDefaultValueExpression defaultValueExpression:
+                EmitDefaultValue(defaultValueExpression.Type);
+                break;
+
             case BoundParenthesizedExpression parenthesized:
                 EmitExpression(parenthesized.Expression);
                 break;
@@ -1648,6 +1652,42 @@ internal class ExpressionGenerator : Generator
                     var needsReceiverAddress = containingType?.IsValueType == true;
                     var needsAddress = requiresAddress || needsReceiverAddress;
 
+                    if (right is BoundDefaultValueExpression && fieldSymbol.Type.IsValueType)
+                    {
+                        if (fieldSymbol.IsStatic)
+                        {
+                            ILGenerator.Emit(OpCodes.Ldsflda, GetField(fieldSymbol));
+                        }
+                        else
+                        {
+                            if (!TryEmitInvocationReceiverAddress(receiver))
+                            {
+                                if (receiver is not null)
+                                {
+                                    EmitExpression(receiver);
+
+                                    if (fieldSymbol.ContainingType!.IsValueType)
+                                        EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType);
+
+                                    if (needsReceiverAddress)
+                                        EmitValueTypeAddressIfNeeded(containingType!);
+                                }
+                                else
+                                {
+                                    ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                                    if (needsReceiverAddress)
+                                        EmitValueTypeAddressIfNeeded(containingType!);
+                                }
+                            }
+
+                            ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+                        }
+
+                        ILGenerator.Emit(OpCodes.Initobj, ResolveClrType(fieldSymbol.Type));
+                        break;
+                    }
+
                     if (!fieldSymbol.IsStatic)
                     {
                         var canDelayReceiver = needsAddress && CanReEmitInvocationReceiverAddress(receiver);
@@ -1681,6 +1721,9 @@ internal class ExpressionGenerator : Generator
                                 else
                                 {
                                     ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                                    if (needsReceiverAddress)
+                                        EmitValueTypeAddressIfNeeded(containingType!);
                                 }
                             }
 
@@ -1710,6 +1753,9 @@ internal class ExpressionGenerator : Generator
                                 else
                                 {
                                     ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                                    if (needsReceiverAddress)
+                                        EmitValueTypeAddressIfNeeded(containingType!);
                                 }
                             }
                         }

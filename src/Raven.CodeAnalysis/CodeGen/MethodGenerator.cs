@@ -282,12 +282,49 @@ internal class MethodGenerator
 
     private string GetAssemblyQualifiedMetadataName(ITypeSymbol typeSymbol)
     {
-        var metadataName = typeSymbol.ToFullyQualifiedMetadataName();
-        var assemblyName = typeSymbol.ContainingAssembly?.Name;
+        try
+        {
+            var runtimeType = typeSymbol.GetClrType(TypeGenerator.CodeGen);
+            if (runtimeType.AssemblyQualifiedName is string qualified && (!runtimeType.IsGenericType || !runtimeType.IsGenericTypeDefinition))
+                return qualified;
+        }
+        catch
+        {
+            // Fall back to metadata formatting below when runtime types are unavailable (e.g., synthesized state machine types).
+        }
 
-        return string.IsNullOrEmpty(assemblyName)
-            ? metadataName
-            : $"{metadataName}, {assemblyName}";
+        if (typeSymbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+        {
+            var definition = named.ConstructedFrom;
+            var metadataName = definition.ToFullyQualifiedMetadataName();
+
+            var builder = new StringBuilder(metadataName);
+            builder.Append('[');
+
+            for (var i = 0; i < named.TypeArguments.Length; i++)
+            {
+                if (i > 0)
+                    builder.Append(',');
+
+                builder.Append('[');
+                builder.Append(GetAssemblyQualifiedMetadataName(named.TypeArguments[i]));
+                builder.Append(']');
+            }
+
+            builder.Append(']');
+
+            var assemblyName = named.ContainingAssembly?.Name;
+            return string.IsNullOrEmpty(assemblyName)
+                ? builder.ToString()
+                : $"{builder}, {assemblyName}";
+        }
+
+        var simpleName = typeSymbol.ToFullyQualifiedMetadataName();
+        var simpleAssembly = typeSymbol.ContainingAssembly?.Name;
+
+        return string.IsNullOrEmpty(simpleAssembly)
+            ? simpleName
+            : $"{simpleName}, {simpleAssembly}";
     }
 
     private static byte[] CreateTypeArgumentAttributeBlob(string assemblyQualifiedTypeName)

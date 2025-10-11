@@ -2,6 +2,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis;
@@ -23,6 +26,17 @@ import System.Threading.Tasks.*
 class C {
     async Work() -> Task {
         await Task.CompletedTask
+    }
+}
+""";
+
+    private const string AsyncTaskOfIntCode = """
+import System.Threading.Tasks.*
+
+class C {
+    async Compute(value: int) -> Task<int> {
+        await Task.Delay(10)
+        return value
     }
 }
 """;
@@ -63,8 +77,24 @@ class C {
 
         peStream.Position = 0;
         var assembly = Assembly.Load(peStream.ToArray());
-        var generatedType = Assert.Single(assembly.GetTypes(), type => type.Name == typeSymbol.Name);
-        var methodInfo = generatedType.GetMethod(methodSymbol.Name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+        Type? generatedType;
+        try
+        {
+            generatedType = assembly.GetType(typeSymbol.Name, throwOnError: true, ignoreCase: false);
+        }
+        catch (TypeLoadException ex)
+        {
+            throw new InvalidOperationException($"Failed to load generated type '{typeSymbol.Name}': {ex.Message}", ex);
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            var loaderMessages = string.Join(Environment.NewLine, ex.LoaderExceptions.Select(e => e?.ToString() ?? string.Empty));
+            throw new InvalidOperationException($"Failed to load generated type '{typeSymbol.Name}': {loaderMessages}", ex);
+        }
+
+        Assert.NotNull(generatedType);
+        var methodInfo = generatedType!.GetMethod(methodSymbol.Name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(methodInfo);
 
         var attributes = methodInfo!.GetCustomAttributesData();
@@ -76,6 +106,68 @@ class C {
         var builderAttribute = Assert.Single(attributes, attr => attr.AttributeType == typeof(AsyncMethodBuilderAttribute));
         var builderType = Assert.IsAssignableFrom<Type>(builderAttribute.ConstructorArguments[0].Value);
         Assert.Equal(typeof(AsyncTaskMethodBuilder), builderType);
+    }
+
+    [Fact]
+    public void AsyncMethod_WithTaskOfInt_AppliesGenericBuilderMetadata()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncTaskOfIntCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var classDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var methodDeclaration = classDeclaration.Members.OfType<MethodDeclarationSyntax>().Single();
+
+        var typeSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
+
+        var builderFieldType = Assert.IsAssignableFrom<INamedTypeSymbol>(methodSymbol.AsyncStateMachine!.BuilderField.Type);
+        Assert.True(builderFieldType.IsGenericType);
+        var builderDefinition = builderFieldType.OriginalDefinition;
+        Assert.NotNull(builderDefinition);
+        Assert.Equal(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T, builderDefinition!.SpecialType);
+        var builderTypeArgument = Assert.Single(builderFieldType.TypeArguments);
+        Assert.Equal(SpecialType.System_Int32, builderTypeArgument.SpecialType);
+
+        peStream.Position = 0;
+        using var peReader = new PEReader(peStream, PEStreamOptions.LeaveOpen);
+        var metadataReader = peReader.GetMetadataReader();
+
+        var typeHandle = FindTypeDefinition(metadataReader, typeSymbol.Name);
+        var methodHandle = FindMethodDefinition(metadataReader, typeHandle, methodSymbol.Name);
+
+        var builderAttributeHandle = FindCustomAttribute(metadataReader, methodHandle, "System.Runtime.CompilerServices", "AsyncMethodBuilderAttribute");
+        var builderAttribute = metadataReader.GetCustomAttribute(builderAttributeHandle);
+        var reader = metadataReader.GetBlobReader(builderAttribute.Value);
+
+        Assert.Equal(0x0001, reader.ReadUInt16());
+        var builderTypeName = reader.ReadSerializedString();
+        Assert.NotNull(builderTypeName);
+        Assert.Contains("System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[[", builderTypeName!);
+        Assert.Contains("System.Int32", builderTypeName);
+        Assert.Contains("]]", builderTypeName);
+        Assert.Equal(0, reader.ReadUInt16());
     }
 
     [Fact]
@@ -173,6 +265,57 @@ class C {
     }
 
     [Fact]
+    public void MoveNext_StoresStateAndAwaitersWithoutSpillingStateMachine()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        static bool IsTargetField(string operand)
+            => operand == "_state" || operand.StartsWith("<>awaiter", StringComparison.Ordinal);
+
+        var relevantStores = instructions
+            .Select((instruction, index) => (instruction, index))
+            .Where(pair => pair.instruction.Opcode == OpCodes.Stfld)
+            .Where(pair => IsTargetField(FormatOperand(pair.instruction.Operand)))
+            .ToArray();
+
+        Assert.NotEmpty(relevantStores);
+
+        foreach (var (instruction, index) in relevantStores)
+        {
+            var receiverLoadIndex = FindPrecedingLoadArgumentZero(instructions, index);
+            Assert.True(receiverLoadIndex >= 0, $"ldarg.0 not found before store to {FormatOperand(instruction.Operand)}.");
+
+            for (var i = receiverLoadIndex + 1; i < index; i++)
+            {
+                var intermediate = instructions[i];
+                Assert.False(IsStoreLocal(intermediate.Opcode),
+                    $"State machine spilled before storing {FormatOperand(instruction.Operand)}; found {intermediate.Opcode} at index {i}.");
+            }
+        }
+    }
+
+    [Fact]
+    public void MoveNext_ClearsAwaiterFieldsOnResume()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var awaiterStoreCounts = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Stfld &&
+                FormatOperand(instruction.Operand).StartsWith("<>awaiter", StringComparison.Ordinal))
+            .GroupBy(instruction => FormatOperand(instruction.Operand))
+            .ToDictionary(group => group.Key, group => group.Count());
+
+        Assert.NotEmpty(awaiterStoreCounts);
+        foreach (var (fieldName, count) in awaiterStoreCounts)
+            Assert.True(count >= 2, $"Awaiter field '{fieldName}' was not cleared after resume.");
+    }
+
+    [Fact]
     public void MoveNext_WhenMethodFallsThroughWithCompletedTask_CallsParameterlessSetResult()
     {
         var (_, instructions) = CaptureAsyncInstructions(static generator =>
@@ -219,6 +362,32 @@ class C {
 
         Assert.NotEmpty(setResultCalls);
         Assert.All(setResultCalls, method => Assert.Empty(method.GetParameters()));
+    }
+
+    [Fact]
+    public void MoveNext_WhenReturningValueExpression_CallsSetResultWithArgument()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("SetResult", StringComparison.Ordinal));
+
+        Assert.True(setResultIndex >= 0, "Builder.SetResult call not found in MoveNext body.");
+
+        var setResultMethod = Assert.IsAssignableFrom<MethodInfo>(instructions[setResultIndex].Operand.Value);
+        Assert.Equal(1, setResultMethod.GetParameters().Length);
+
+        Assert.Contains(instructions.Take(setResultIndex), instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.Contains(instructions.Take(setResultIndex), instruction =>
+            instruction.Opcode == OpCodes.Ldfld &&
+            FormatOperand(instruction.Operand) == "_value");
     }
 
     [Fact]
@@ -305,6 +474,41 @@ class C {
         return (method, instructions.ToArray());
     }
 
+    private static int FindPrecedingLoadArgumentZero(RecordedInstruction[] instructions, int startIndex)
+    {
+        for (var i = startIndex - 1; i >= 0; i--)
+        {
+            if (IsLoadArgumentZero(instructions[i]))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static bool IsLoadArgumentZero(RecordedInstruction instruction)
+    {
+        if (instruction.Opcode == OpCodes.Ldarg_0)
+            return true;
+
+        if (instruction.Opcode == OpCodes.Ldarg && instruction.Operand.Kind == RecordedOperandKind.Int32 && instruction.Operand.Value is int ldarg && ldarg == 0)
+            return true;
+
+        if (instruction.Opcode == OpCodes.Ldarg_S && instruction.Operand.Kind == RecordedOperandKind.Int32 && instruction.Operand.Value is int ldargS && ldargS == 0)
+            return true;
+
+        return false;
+    }
+
+    private static bool IsStoreLocal(OpCode opcode)
+    {
+        return opcode == OpCodes.Stloc
+            || opcode == OpCodes.Stloc_0
+            || opcode == OpCodes.Stloc_1
+            || opcode == OpCodes.Stloc_2
+            || opcode == OpCodes.Stloc_3
+            || opcode == OpCodes.Stloc_S;
+    }
+
     private static string FormatOperand(RecordedOperand operand)
     {
         return operand.Kind switch
@@ -320,5 +524,72 @@ class C {
             RecordedOperandKind.Int32 or RecordedOperandKind.Int64 or RecordedOperandKind.Single or RecordedOperandKind.Double or RecordedOperandKind.String => operand.Value?.ToString() ?? string.Empty,
             _ => operand.Value?.ToString() ?? string.Empty
         };
+    }
+
+    private static TypeDefinitionHandle FindTypeDefinition(MetadataReader reader, string name)
+    {
+        foreach (var handle in reader.TypeDefinitions)
+        {
+            var definition = reader.GetTypeDefinition(handle);
+            if (reader.GetString(definition.Name) == name)
+                return handle;
+        }
+
+        throw new InvalidOperationException($"Type '{name}' not found in metadata.");
+    }
+
+    private static MethodDefinitionHandle FindMethodDefinition(MetadataReader reader, TypeDefinitionHandle typeHandle, string name)
+    {
+        var definition = reader.GetTypeDefinition(typeHandle);
+
+        foreach (var methodHandle in definition.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(methodHandle);
+            if (reader.GetString(method.Name) == name)
+                return methodHandle;
+        }
+
+        throw new InvalidOperationException($"Method '{name}' not found on type '{reader.GetString(definition.Name)}'.");
+    }
+
+    private static CustomAttributeHandle FindCustomAttribute(
+        MetadataReader reader,
+        MethodDefinitionHandle methodHandle,
+        string expectedNamespace,
+        string expectedName)
+    {
+        var method = reader.GetMethodDefinition(methodHandle);
+
+        foreach (var attributeHandle in method.GetCustomAttributes())
+        {
+            var attribute = reader.GetCustomAttribute(attributeHandle);
+            var attributeTypeHandle = attribute.Constructor.Kind switch
+            {
+                HandleKind.MethodDefinition => reader.GetMethodDefinition((MethodDefinitionHandle)attribute.Constructor).GetDeclaringType(),
+                HandleKind.MemberReference => reader.GetMemberReference((MemberReferenceHandle)attribute.Constructor).Parent,
+                _ => default
+            };
+
+            if (attributeTypeHandle.Kind == HandleKind.TypeReference)
+            {
+                var typeReference = reader.GetTypeReference((TypeReferenceHandle)attributeTypeHandle);
+                var name = reader.GetString(typeReference.Name);
+                var @namespace = reader.GetString(typeReference.Namespace);
+
+                if (name == expectedName && @namespace == expectedNamespace)
+                    return attributeHandle;
+            }
+            else if (attributeTypeHandle.Kind == HandleKind.TypeDefinition)
+            {
+                var typeDefinition = reader.GetTypeDefinition((TypeDefinitionHandle)attributeTypeHandle);
+                var name = reader.GetString(typeDefinition.Name);
+                var @namespace = reader.GetString(typeDefinition.Namespace);
+
+                if (name == expectedName && @namespace == expectedNamespace)
+                    return attributeHandle;
+            }
+        }
+
+        throw new InvalidOperationException($"Custom attribute '{expectedNamespace}.{expectedName}' not found.");
     }
 }
