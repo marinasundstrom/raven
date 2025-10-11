@@ -14,11 +14,15 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal class StatementGenerator : Generator
 {
     private readonly BoundStatement _statement;
+    private readonly bool _withinException;
 
-    public StatementGenerator(Generator parent, BoundStatement statement) : base(parent)
+    public StatementGenerator(Generator parent, BoundStatement statement, bool withinException = false) : base(parent)
     {
         _statement = statement;
+        _withinException = withinException;
     }
+
+    protected override bool WithinException => _withinException;
 
     public override void Emit()
     {
@@ -90,16 +94,16 @@ internal class StatementGenerator : Generator
         if (hasElse)
         {
             ILGenerator.Emit(OpCodes.Brfalse, elseLabel);
-            new StatementGenerator(scope, ifStatement.ThenNode).Emit();
+            new StatementGenerator(scope, ifStatement.ThenNode, _withinException).Emit();
             ILGenerator.Emit(OpCodes.Br, endLabel);
 
             ILGenerator.MarkLabel(elseLabel);
-            new StatementGenerator(scope, ifStatement.ElseNode!).Emit();
+            new StatementGenerator(scope, ifStatement.ElseNode!, _withinException).Emit();
         }
         else
         {
             ILGenerator.Emit(OpCodes.Brfalse, endLabel);
-            new StatementGenerator(scope, ifStatement.ThenNode).Emit();
+            new StatementGenerator(scope, ifStatement.ThenNode, _withinException).Emit();
         }
 
         ILGenerator.MarkLabel(endLabel);
@@ -117,7 +121,7 @@ internal class StatementGenerator : Generator
 
         if (expression is not null)
         {
-            var preserveResult = !isVoidLikeReturn;
+            var preserveResult = !isVoidLikeReturn || _withinException;
             new ExpressionGenerator(this, expression, preserveResult).Emit();
 
             if (preserveResult && localsToDispose.Length > 0 && expressionType is not null)
@@ -126,9 +130,30 @@ internal class StatementGenerator : Generator
                 resultTemp = ILGenerator.DeclareLocal(clrType);
                 ILGenerator.Emit(OpCodes.Stloc, resultTemp);
             }
+
+            if (_withinException && !isVoidLikeReturn)
+            {
+                if (resultTemp is not null)
+                    ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
+
+                if (expressionType?.IsValueType == true &&
+                    (returnType.SpecialType is SpecialType.System_Object || returnType is IUnionTypeSymbol))
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(expressionType));
+                }
+
+                var returnLocal = MethodBodyGenerator.EnsureReturnLocal(returnType);
+                ILGenerator.Emit(OpCodes.Stloc, returnLocal);
+            }
         }
 
         EmitDispose(localsToDispose);
+
+        if (_withinException)
+        {
+            ILGenerator.Emit(OpCodes.Leave, MethodBodyGenerator.GetReturnLabel());
+            return;
+        }
 
         if (expression is not null && !isVoidLikeReturn)
         {
@@ -311,7 +336,7 @@ internal class StatementGenerator : Generator
         else
             ILGenerator.Emit(OpCodes.Pop);
 
-        new StatementGenerator(scope, forStatement.Body).Emit();
+        new StatementGenerator(scope, forStatement.Body, _withinException).Emit();
 
         ILGenerator.MarkLabel(continueLabel);
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
@@ -386,7 +411,7 @@ internal class StatementGenerator : Generator
         else
             ILGenerator.Emit(OpCodes.Pop);
 
-        new StatementGenerator(scope, forStatement.Body).Emit();
+        new StatementGenerator(scope, forStatement.Body, _withinException).Emit();
 
         ILGenerator.MarkLabel(continueLabel);
         ILGenerator.Emit(OpCodes.Br, beginLabel);
@@ -449,7 +474,7 @@ internal class StatementGenerator : Generator
         else
             ILGenerator.Emit(OpCodes.Pop);
 
-        new StatementGenerator(scope, forStatement.Body).Emit();
+        new StatementGenerator(scope, forStatement.Body, _withinException).Emit();
 
         ILGenerator.MarkLabel(continueLabel);
         ILGenerator.Emit(OpCodes.Br, beginLabel);
@@ -461,7 +486,7 @@ internal class StatementGenerator : Generator
         ILGenerator.BeginExceptionBlock();
 
         var tryScope = new Scope(this);
-        new StatementGenerator(tryScope, tryStatement.TryBlock).Emit();
+        new StatementGenerator(tryScope, tryStatement.TryBlock, withinException: true).Emit();
 
         foreach (var catchClause in tryStatement.CatchClauses)
         {
@@ -488,14 +513,14 @@ internal class StatementGenerator : Generator
                 ILGenerator.Emit(OpCodes.Pop);
             }
 
-            new StatementGenerator(catchScope, catchClause.Block).Emit();
+            new StatementGenerator(catchScope, catchClause.Block, withinException: true).Emit();
         }
 
         if (tryStatement.FinallyBlock is { } finallyBlock)
         {
             ILGenerator.BeginFinallyBlock();
             var finallyScope = new Scope(this);
-            new StatementGenerator(finallyScope, finallyBlock).Emit();
+            new StatementGenerator(finallyScope, finallyBlock, withinException: true).Emit();
         }
 
         ILGenerator.EndExceptionBlock();
@@ -505,7 +530,7 @@ internal class StatementGenerator : Generator
     {
         var scope = new Scope(this, blockStatement.LocalsToDispose);
         foreach (var s in blockStatement.Statements)
-            new StatementGenerator(scope, s).Emit();
+            new StatementGenerator(scope, s, _withinException).Emit();
 
         EmitDispose(blockStatement.LocalsToDispose);
     }
@@ -520,7 +545,7 @@ internal class StatementGenerator : Generator
         var ilLabel = MethodBodyGenerator.GetOrCreateLabel(labeledStatement.Label);
         ILGenerator.MarkLabel(ilLabel);
 
-        new StatementGenerator(scope, labeledStatement.Statement).Emit();
+        new StatementGenerator(scope, labeledStatement.Statement, _withinException).Emit();
     }
 
     private void EmitGotoStatement(BoundGotoStatement gotoStatement)

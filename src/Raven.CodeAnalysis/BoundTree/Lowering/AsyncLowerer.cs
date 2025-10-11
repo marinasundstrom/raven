@@ -126,10 +126,7 @@ internal static class AsyncLowerer
             Array.Empty<Location>(),
             Array.Empty<SyntaxReference>());
 
-        var creation = new BoundObjectCreationExpression(
-            stateMachine.Constructor,
-            Array.Empty<BoundExpression>());
-        var declarator = new BoundVariableDeclarator(asyncLocal, creation);
+        var declarator = new BoundVariableDeclarator(asyncLocal, initializer: null);
         statements.Add(new BoundLocalDeclarationStatement(new[] { declarator }));
 
         if (stateMachine.ThisField is not null)
@@ -405,7 +402,7 @@ internal static class AsyncLowerer
             stateMachine.StateField.Type);
 
         var receiver = new BoundSelfExpression(stateMachine);
-        var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.StateField, literal);
+        var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.StateField, literal, requiresReceiverAddress: true);
         return new BoundAssignmentStatement(assignment);
     }
 
@@ -482,7 +479,11 @@ internal static class AsyncLowerer
         var defaultValue = CreateDefaultValueExpression(field.Type);
         if (defaultValue is not null)
         {
-            var assignment = new BoundFieldAssignmentExpression(new BoundSelfExpression(stateMachine), field, defaultValue);
+            var assignment = new BoundFieldAssignmentExpression(
+                new BoundSelfExpression(stateMachine),
+                field,
+                defaultValue,
+                requiresReceiverAddress: true);
             clearStatement = new BoundAssignmentStatement(assignment);
         }
 
@@ -546,12 +547,14 @@ internal static class AsyncLowerer
         private int _nextState;
         private int _nextHoistedLocalId;
         private int _nextAwaitResultId;
+        private int _nextAwaiterTempId;
 
         public AwaitLoweringRewriter(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
         {
             _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
             _nextHoistedLocalId = DetermineInitialHoistedLocalId(stateMachine);
             _nextAwaitResultId = 0;
+            _nextAwaiterTempId = 0;
         }
 
         public ImmutableArray<StateDispatch> Dispatches => _dispatches.ToImmutableArray();
@@ -662,7 +665,11 @@ internal static class AsyncLowerer
                     if (initializer is not null)
                     {
                         var receiver = new BoundSelfExpression(_stateMachine);
-                        var assignment = new BoundFieldAssignmentExpression(receiver, field, initializer);
+                        var assignment = new BoundFieldAssignmentExpression(
+                            receiver,
+                            field,
+                            initializer,
+                            requiresReceiverAddress: true);
                         hoistedStatements.Add(new BoundAssignmentStatement(assignment));
                     }
                 }
@@ -1154,7 +1161,11 @@ internal static class AsyncLowerer
             var right = VisitExpression(node.Right) ?? node.Right;
 
             if (_hoistedLocals.TryGetValue(node.Local, out var field))
-                return new BoundFieldAssignmentExpression(new BoundSelfExpression(_stateMachine), field, right);
+                return new BoundFieldAssignmentExpression(
+                    new BoundSelfExpression(_stateMachine),
+                    field,
+                    right,
+                    requiresReceiverAddress: true);
 
             if (!ReferenceEquals(right, node.Right))
                 return new BoundLocalAssignmentExpression(node.Local, right);
@@ -1262,9 +1273,32 @@ internal static class AsyncLowerer
                 Array.Empty<BoundExpression>(),
                 awaitExpression.Expression);
 
-            var receiver = new BoundSelfExpression(_stateMachine);
-            var assignment = new BoundFieldAssignmentExpression(receiver, awaiterField, getAwaiter);
-            return new BoundAssignmentStatement(assignment);
+            var awaiterTemp = CreateAwaiterTempLocal(awaitExpression.AwaiterType);
+            var declarator = new BoundVariableDeclarator(awaiterTemp, getAwaiter);
+            var declaration = new BoundLocalDeclarationStatement(new[] { declarator });
+
+            var assignment = new BoundFieldAssignmentExpression(
+                receiver: null,
+                awaiterField,
+                new BoundLocalAccess(awaiterTemp),
+                requiresReceiverAddress: true);
+
+            var storeStatement = new BoundAssignmentStatement(assignment);
+            return new BoundBlockStatement(new BoundStatement[] { declaration, storeStatement });
+        }
+
+        private SourceLocalSymbol CreateAwaiterTempLocal(ITypeSymbol type)
+        {
+            var name = $"<>awaiterTemp{_nextAwaiterTempId++}";
+            return new SourceLocalSymbol(
+                name,
+                type,
+                isMutable: true,
+                _stateMachine.MoveNextMethod,
+                _stateMachine,
+                _stateMachine.ContainingNamespace,
+                new[] { Location.None },
+                Array.Empty<SyntaxReference>());
         }
 
         private BoundExpression CreateIsCompletedAccess(BoundAwaitExpression awaitExpression, SourceFieldSymbol awaiterField)

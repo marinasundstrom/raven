@@ -37,6 +37,9 @@ internal class MethodBodyGenerator
 
     public IILBuilder ILGenerator { get; private set; }
 
+    private ILLabel? _methodReturnLabel;
+    private IILocal? _methodReturnLocal;
+
     internal bool TryGetCapturedField(ISymbol symbol, out FieldBuilder fieldBuilder)
     {
         if (_lambdaClosure is null)
@@ -624,6 +627,37 @@ internal class MethodBodyGenerator
         EmitBlock(block, treatAsMethodBody: true, includeImplicitReturn);
     }
 
+    internal ILLabel GetReturnLabel()
+    {
+        _methodReturnLabel ??= ILGenerator.DefineLabel();
+        return _methodReturnLabel;
+    }
+
+    internal IILocal EnsureReturnLocal(ITypeSymbol returnType)
+    {
+        if (_methodReturnLocal is null)
+        {
+            var clrType = ResolveClrType(returnType);
+            _methodReturnLocal = ILGenerator.DeclareLocal(clrType);
+        }
+
+        return _methodReturnLocal;
+    }
+
+    private bool EmitPendingReturn()
+    {
+        if (_methodReturnLabel is null)
+            return false;
+
+        ILGenerator.MarkLabel(_methodReturnLabel);
+
+        if (_methodReturnLocal is not null)
+            ILGenerator.Emit(OpCodes.Ldloc, _methodReturnLocal);
+
+        ILGenerator.Emit(OpCodes.Ret);
+        return true;
+    }
+
     private void EmitBoundBlock(BoundBlockStatement block)
     {
         EmitBlock(block, treatAsMethodBody: false, includeImplicitReturn: false);
@@ -663,6 +697,9 @@ internal class MethodBodyGenerator
         }
 
         blockScope.EmitDispose(block.LocalsToDispose);
+
+        if (EmitPendingReturn())
+            return;
 
         if (!treatAsMethodBody || !includeImplicitReturn)
             return;
@@ -745,6 +782,9 @@ internal class MethodBodyGenerator
 
         executionScope.EmitDispose(localsToDispose);
 
+        if (EmitPendingReturn())
+            return;
+
         if (withReturn && ShouldEmitImplicitReturn())
         {
             ILGenerator.Emit(OpCodes.Nop);
@@ -795,14 +835,51 @@ internal class MethodBodyGenerator
                 return;
         }
 
+        if ((MethodSymbol.IsImplicitlyDeclared &&
+             MethodSymbol.ContainingType?.BaseType?.SpecialType == SpecialType.System_ValueType) ||
+            MethodSymbol.ContainingType?.TypeKind == TypeKind.Struct ||
+            MethodGenerator.TypeGenerator.TypeSymbol is { IsValueType: true } ||
+            MethodGenerator.TypeGenerator.TypeBuilder?.IsValueType == true)
+            return;
+
+        if (MethodSymbol.ContainingType is { IsValueType: true } containingValueType)
+        {
+            var stateMachineInterface = Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.IAsyncStateMachine");
+            if (stateMachineInterface is not null &&
+                containingValueType.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, stateMachineInterface)))
+            {
+                return;
+            }
+        }
+
+        var baseType = MethodSymbol.ContainingType?.BaseType;
+        if (baseType is not null)
+        {
+            if (baseType.SpecialType == SpecialType.System_ValueType ||
+                (baseType.Name == "ValueType" && baseType.ContainingNamespace?.ToDisplayString() == "System"))
+            {
+                return;
+            }
+        }
+
+        var baseCtor = GetBaseConstructor(baseType);
+        if (baseCtor is null)
+            return;
+
         ILGenerator.Emit(OpCodes.Ldarg_0);
-        var baseCtor = GetBaseConstructor();
         ILGenerator.Emit(OpCodes.Call, baseCtor);
     }
 
-    private ConstructorInfo GetBaseConstructor()
+    private ConstructorInfo? GetBaseConstructor(INamedTypeSymbol? baseTypeOverride = null)
     {
-        var baseType = MethodSymbol.ContainingType!.BaseType!;
+        var baseType = baseTypeOverride ?? MethodSymbol.ContainingType!.BaseType!;
+        if (baseType.SpecialType == SpecialType.System_ValueType ||
+            (baseType.Name == "ValueType" && baseType.ContainingNamespace?.ToDisplayString() == "System") ||
+            SymbolEqualityComparer.Default.Equals(baseType, Compilation.GetSpecialType(SpecialType.System_ValueType)))
+        {
+            return null;
+        }
+
         var ctorSymbol = baseType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0)
             ?? throw new NotSupportedException("Base type requires a parameterless constructor");
 

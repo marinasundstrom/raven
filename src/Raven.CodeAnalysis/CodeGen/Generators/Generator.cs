@@ -36,6 +36,8 @@ internal abstract class Generator
 
     }
 
+    protected virtual bool WithinException => Parent?.WithinException ?? false;
+
     public virtual void AddLocal(ILocalSymbol localSymbol, IILocal builder)
     {
         Parent?.AddLocal(localSymbol, builder);

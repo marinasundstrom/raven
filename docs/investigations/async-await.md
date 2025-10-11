@@ -72,7 +72,7 @@
 
 #### Upcoming steps
 
-1. **Diagnose runtime InvalidProgramException.** Investigate the emitted metadata for async state machines so the CLI samples stop triggering `InvalidProgramException` and the runtime harness can pass end-to-end.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L87-L206】
+1. **Diagnose runtime InvalidProgramException and the pending hang.** Beyond the earlier verification failures, the `async-await.rav` CLI sample now prints the delayed message and then stalls while `MainAsync` waits on a task that never publishes a continuation even though the lowered state machine stores the awaiter and calls `AwaitUnsafeOnCompleted`. We need to capture how the builder loses the continuation and fix the remaining metadata issues so the runtime harness can pass end-to-end.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L87-L206】【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1290-L1338】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 

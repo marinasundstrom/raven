@@ -908,7 +908,14 @@ internal class ExpressionGenerator : Generator
                     if (MethodSymbol.IsStatic)
                         throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
 
-                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    if (MethodSymbol.ContainingType?.IsValueType == true)
+                    {
+                        EmitLoadArgumentAddress(0);
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ldarg_0);
+                    }
                 }
 
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
@@ -918,10 +925,14 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
 
-                if (typeSymbol.IsValueType)
+                if (MethodSymbol.ContainingType?.IsValueType == true)
+                {
                     EmitLoadArgumentAddress(0);
+                }
                 else
+                {
                     ILGenerator.Emit(OpCodes.Ldarg_0);
+                }
                 break;
 
             default:
@@ -1526,7 +1537,7 @@ internal class ExpressionGenerator : Generator
 
         var getter = GetMethodInfo(indexerProperty.GetMethod);
 
-        ILGenerator.Emit(OpCodes.Callvirt, getter);
+        ILGenerator.Emit(GetCallOpCode(indexerProperty), getter);
     }
 
     private void EmitLoadElement(ITypeSymbol elementType)
@@ -1647,53 +1658,85 @@ internal class ExpressionGenerator : Generator
                     var right = fieldAssignmentExpression.Right;
                     var receiver = fieldAssignmentExpression.Receiver;
                     var requiresAddress = fieldAssignmentExpression.RequiresReceiverAddress;
+                    var fieldType = fieldSymbol.Type;
+                    var fieldClrType = ResolveClrType(fieldType);
+                    var fieldNeedsBox = right.Type is { IsValueType: true } && fieldType?.IsValueType == false;
 
-                    if (!fieldSymbol.IsStatic)
+                    if (fieldSymbol.IsStatic)
                     {
-                        if (requiresAddress)
-                        {
-                            if (!TryEmitInvocationReceiverAddress(receiver))
-                            {
-                                if (receiver is null)
-                                {
-                                    ILGenerator.Emit(OpCodes.Ldarg_0);
-                                }
-                                else
-                                {
-                                    EmitExpression(receiver);
+                        EmitExpression(right);
 
-                                    if (fieldSymbol.ContainingType!.IsValueType)
-                                    {
-                                        EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
-                                    }
-                                }
-                            }
-                        }
-                        else if (receiver is not null)
-                        {
-                            EmitExpression(receiver);
+                        if (fieldNeedsBox)
+                            ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
 
-                            if (fieldSymbol.ContainingType!.IsValueType)
-                            {
-                                EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType);
-                            }
-                        }
-                        else if (receiver is null)
-                        {
-                            ILGenerator.Emit(OpCodes.Ldarg_0);
-                        }
+                        if (preserveResult)
+                            ILGenerator.Emit(OpCodes.Dup);
+
+                        ILGenerator.Emit(OpCodes.Stsfld, (FieldInfo)GetField(fieldSymbol));
+                        break;
                     }
 
-                    // Emit RHS value
+                    var containingType = fieldSymbol.ContainingType;
+                    if (containingType?.IsValueType == true)
+                    {
+                        EmitExpression(right);
+
+                        if (fieldNeedsBox)
+                            ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
+
+                        var valueTemp = ILGenerator.DeclareLocal(fieldClrType);
+                        ILGenerator.Emit(OpCodes.Stloc, valueTemp);
+
+                        if (!TryEmitInvocationReceiverAddress(receiver))
+                        {
+                            if (receiver is null)
+                            {
+                                if (MethodSymbol.IsStatic)
+                                    throw new NotSupportedException("Cannot take address of instance field in static context.");
+
+                                if (MethodSymbol.ContainingType?.IsValueType == true)
+                                    EmitLoadArgumentAddress(0);
+                                else
+                                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                            }
+                            else
+                            {
+                                EmitExpression(receiver);
+
+                                EmitValueTypeAddressIfNeeded(containingType, receiver);
+                            }
+                        }
+
+                        ILGenerator.Emit(OpCodes.Ldloc, valueTemp);
+                        ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
+
+                        if (preserveResult)
+                            ILGenerator.Emit(OpCodes.Ldloc, valueTemp);
+
+                        break;
+                    }
+
+                    if (receiver is not null)
+                    {
+                        EmitExpression(receiver);
+
+                        if (containingType?.IsValueType == true)
+                            EmitValueTypeAddressIfNeeded(containingType, receiver);
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(OpCodes.Ldarg_0);
+                    }
+
                     EmitExpression(right);
 
-                    // Box if assigning value type to reference type
-                    if (right.Type is { IsValueType: true } && !fieldSymbol.Type.IsValueType)
-                    {
-                        ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
-                    }
+                        if (fieldNeedsBox)
+                            ILGenerator.Emit(OpCodes.Box, ResolveClrType(right.Type));
 
-                    ILGenerator.Emit(fieldSymbol.IsStatic ? OpCodes.Stsfld : OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
+                    if (preserveResult)
+                        ILGenerator.Emit(OpCodes.Dup);
+
+                    ILGenerator.Emit(OpCodes.Stfld, (FieldInfo)GetField(fieldSymbol));
                     break;
                 }
 
@@ -1719,13 +1762,13 @@ internal class ExpressionGenerator : Generator
                             EmitExpression(receiver);
 
                             if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType, receiver);
                         }
                         else
                         {
                             ILGenerator.Emit(OpCodes.Ldarg_0);
                             if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType, receiver);
                         }
                     }
 
@@ -1747,7 +1790,7 @@ internal class ExpressionGenerator : Generator
                     if (isExtensionProperty)
                         ILGenerator.Emit(OpCodes.Call, setter);
                     else
-                        ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, setter);
+                        ILGenerator.Emit(GetCallOpCode(propertySymbol), setter);
                     break;
                 }
 
@@ -1776,7 +1819,7 @@ internal class ExpressionGenerator : Generator
 
                 var setter2 = GetMethodInfo(indexerProperty.SetMethod);
 
-                ILGenerator.Emit(OpCodes.Callvirt, setter2);
+                ILGenerator.Emit(GetCallOpCode(indexerProperty), setter2);
                 break;
 
             case BoundPatternAssignmentExpression patternAssignmentExpression:
@@ -2067,19 +2110,19 @@ internal class ExpressionGenerator : Generator
 
                 if (!propertySymbol.IsStatic)
                 {
-                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType!);
+                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType!, receiver);
 
                     EmitBoxIfNeeded(propertySymbol.ContainingType!, getter);
                 }
 
-                ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, getter);
+                ILGenerator.Emit(GetCallOpCode(propertySymbol), getter);
                 break;
 
             case IFieldSymbol fieldSymbol:
                 EmitReceiverIfNeeded(receiver, fieldSymbol, receiverAlreadyLoaded);
 
                 if (!fieldSymbol.IsStatic)
-                    EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType!);
+                    EmitValueTypeAddressIfNeeded(fieldSymbol.ContainingType!, receiver);
 
                 if (fieldSymbol.IsLiteral)
                 {
@@ -2204,6 +2247,14 @@ internal class ExpressionGenerator : Generator
         if (position < 0)
             throw new ArgumentOutOfRangeException(nameof(position));
 
+        if (position == 0 &&
+            !MethodSymbol.IsStatic &&
+            MethodSymbol.ContainingType?.IsValueType == true)
+        {
+            ILGenerator.Emit(OpCodes.Ldarg_0);
+            return;
+        }
+
         if (position <= byte.MaxValue)
         {
             ILGenerator.Emit(OpCodes.Ldarga_S, (byte)position);
@@ -2221,7 +2272,14 @@ internal class ExpressionGenerator : Generator
             case null:
                 if (MethodSymbol.IsStatic)
                     return false;
-                ILGenerator.Emit(OpCodes.Ldarg_0);
+                if (MethodSymbol.ContainingType?.IsValueType == true)
+                {
+                    EmitLoadArgumentAddress(0);
+                }
+                else
+                {
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                }
                 return true;
 
             case BoundSelfExpression selfExpression:
@@ -2229,9 +2287,13 @@ internal class ExpressionGenerator : Generator
                     return false;
 
                 if (MethodSymbol.ContainingType?.IsValueType == true)
+                {
                     EmitLoadArgumentAddress(0);
+                }
                 else
+                {
                     ILGenerator.Emit(OpCodes.Ldarg_0);
+                }
                 return true;
 
             case BoundAddressOfExpression addressOf:
@@ -2299,10 +2361,23 @@ internal class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitValueTypeAddressIfNeeded(ITypeSymbol type)
+    private static OpCode GetCallOpCode(IPropertySymbol propertySymbol)
+    {
+        if (propertySymbol.IsStatic)
+            return OpCodes.Call;
+
+        return propertySymbol.ContainingType?.IsValueType == true
+            ? OpCodes.Call
+            : OpCodes.Callvirt;
+    }
+
+    private void EmitValueTypeAddressIfNeeded(ITypeSymbol type, BoundExpression? receiver = null)
     {
         if (type.IsValueType)
         {
+            if (receiver is BoundSelfExpression)
+                return;
+
             var clrType = ResolveClrType(type);
             var tmp = ILGenerator.DeclareLocal(clrType);
             ILGenerator.Emit(OpCodes.Stloc, tmp);
@@ -2592,9 +2667,10 @@ internal class ExpressionGenerator : Generator
         {
             if (!propertySymbol.IsStatic)
             {
-                ILGenerator.Emit(OpCodes.Ldarg_0);
                 if (propertySymbol.ContainingType.IsValueType)
-                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                    EmitLoadArgumentAddress(0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
             }
 
             if (propertySymbol.GetMethod is null)
@@ -2602,7 +2678,7 @@ internal class ExpressionGenerator : Generator
 
             MethodInfo getter = GetMethodInfo(propertySymbol.GetMethod);
 
-            ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, getter);
+            ILGenerator.Emit(GetCallOpCode(propertySymbol), getter);
         }
     }
 
@@ -2889,12 +2965,12 @@ internal class ExpressionGenerator : Generator
 
     private void EmitStatement(BoundStatement statement, Scope scope)
     {
-        new StatementGenerator(scope, statement).Emit();
+        new StatementGenerator(scope, statement, WithinException).Emit();
     }
 
     private void EmitStatement(BoundStatement statement)
     {
-        new StatementGenerator(this, statement).Emit();
+        new StatementGenerator(this, statement, WithinException).Emit();
     }
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
