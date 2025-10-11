@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -72,13 +73,17 @@ public class SampleProgramsTests
         };
         runInfo.Environment["MSBUILDTERMINALLOGGER"] = "false";
         runInfo.EnvironmentVariables["MSBUILDTERMINALLOGGER"] = "false";
-        var run = Process.Start(runInfo)!;
+        using var run = Process.Start(runInfo)!;
 
-        run.WaitForExit(TimeSpan.FromSeconds(2));
-        _ = await run.StandardOutput.ReadToEndAsync();
-        run.WaitForExit();
+        var runStdOutTask = run.StandardOutput.ReadToEndAsync();
+        var runStdErrTask = run.StandardError.ReadToEndAsync();
+        run.WaitForExit(TimeSpan.FromSeconds(5));
+        var runStdOut = await runStdOutTask;
+        var runStdErr = await runStdErrTask;
 
+        Assert.True(run.HasExited, $"Execution did not exit. StdOut: {runStdOut}{Environment.NewLine}StdErr: {runStdErr}");
         Assert.Equal(0, run.ExitCode);
+        Assert.DoesNotContain("InvalidProgramException", runStdErr, StringComparison.Ordinal);
     }
 
     [Fact]
