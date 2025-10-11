@@ -36,7 +36,8 @@
 
 - The `SpecialType` enumeration already contains the async method builder types, `Task`, and the attribute metadata we will need, indicating the compilation layer can resolve the required framework symbols once lowering consumes them.【F:src/Raven.CodeAnalysis/SpecialType.cs†L39-L58】
 - The sample suite now includes an `async-await.rav` program that exercises the generated state machine and asserts the expected interleaving once the emitted IL executes without runtime faults.【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L12-L118】
-- Invoking the CLI on the sample still produces an assembly that throws `InvalidProgramException` when executed, confirming the runtime rejects the generated async state machine.【1fd709†L1-L6】
+- `ilverify` no longer reports byref-of-byref faults when inspecting the sample assembly, but the verifier still flags direct `ret` instructions leaving `try` blocks and expects matching `leave` edges before the remaining stack can unwind.【57db48†L1-L15】
+- Invoking the CLI on the sample still produces an assembly that throws `InvalidProgramException` when executed, confirming the runtime rejects the generated async state machine.【654d45†L1-L7】
 
 ### IL comparison with the C# baseline
 
@@ -92,11 +93,13 @@ IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwa
 5. **Rebuild integration coverage.** Additional regression tests now check that multi-await methods hoist each awaiter, thrown exceptions flow through `SetException`, async accessors emit `SetResult`, and async lambdas synthesize their own state machines.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L375-L508】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L153-L197】
 6. **Return builder tasks by reference.** Property emission shares the invocation address-loading path so async bootstraps invoke `AsyncTaskMethodBuilder.get_Task` via `call` on `_builder`, and IL tests verify the getter consumes the field address without introducing temporary locals.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2056-L2080】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L120-L142】
 7. **Add execution regression coverage.** The samples test suite now captures the async sample's standard streams, fails loudly when the runtime still throws `InvalidProgramException`, and will keep the fix honest once the remaining IL issues are resolved.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L19-L90】
-8. **Write through the real state machine instance.** Field assignments emitted inside async `MoveNext` now load the synthesized struct by reference (`ldarga.s 0`) instead of copying `this` into temporaries. The emitter reuses the shared invocation-address path so `_state`, hoisted locals, and awaiters mutate in place before scheduling continuations, satisfying the CLR verifier.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1658-L1721】
+8. **Write through the real state machine instance.** Field assignments emitted inside async `MoveNext` now reuse the invocation-address helpers to reload `self` via `ldarg.0`, letting `_state`, hoisted locals, and awaiters mutate the original struct without round-tripping through byref locals. The emitter understands address-of expressions that wrap `self`, so await scheduling can re-emit the receiver when it needs to evaluate the RHS first.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1644-L1724】
 
 #### Upcoming steps
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
+
+- Redirect early awaits to structured `leave`/`br` edges so `ilverify` no longer reports `ReturnFromTry` or stack-type mismatches when the state machine exits suspension points.【57db48†L1-L15】
 
 > **Testing note:** When expanding the regression suite, prefer the generic notation `Task<int>` (with angle brackets) rather than indexer-style spellings such as `Task[int]` so expectations match the emitted metadata and existing tests.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L23-L27】
 
