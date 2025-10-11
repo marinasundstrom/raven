@@ -325,10 +325,39 @@ internal static class AsyncLowerer
         if (expression is null)
             return true;
 
-        if (expression is BoundUnitExpression)
-            return true;
+        switch (expression)
+        {
+            case BoundUnitExpression:
+                return true;
+
+            case BoundLiteralExpression literal when literal.Value is null:
+                return true;
+
+            case BoundCastExpression cast when cast.Conversion.IsIdentity && IsEffectivelyVoidExpression(cast.Expression):
+                return true;
+
+            case BoundAsExpression asExpression when asExpression.Conversion.IsIdentity && IsEffectivelyVoidExpression(asExpression.Expression):
+                return true;
+
+            case BoundMemberAccessExpression memberAccess when IsCompletedTaskAccess(memberAccess):
+                return true;
+        }
 
         return false;
+    }
+
+    private static bool IsCompletedTaskAccess(BoundMemberAccessExpression memberAccess)
+    {
+        if (memberAccess.Member is not ISymbol member)
+            return false;
+
+        if (member is not (IPropertySymbol or IFieldSymbol))
+            return false;
+
+        if (member.Name != "CompletedTask")
+            return false;
+
+        return member.ContainingType?.SpecialType == SpecialType.System_Threading_Tasks_Task;
     }
 
     private static BoundExpression? CreateDefaultValueExpression(ITypeSymbol type)
