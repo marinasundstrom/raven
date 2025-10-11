@@ -170,7 +170,55 @@ class C {
         Assert.Contains(instructions.Take(setResultCallIndex), instruction =>
             instruction.Opcode == OpCodes.Ldflda &&
             FormatOperand(instruction.Operand) == "_builder");
+    }
 
+    [Fact]
+    public void MoveNext_WhenMethodFallsThroughWithCompletedTask_CallsParameterlessSetResult()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultCalls = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Call &&
+                instruction.Operand.Value is MethodInfo method &&
+                method.Name.Contains("SetResult", StringComparison.Ordinal))
+            .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
+            .ToArray();
+
+        Assert.NotEmpty(setResultCalls);
+        Assert.All(setResultCalls, method => Assert.Empty(method.GetParameters()));
+    }
+
+    [Fact]
+    public void MoveNext_WhenReturningCompletedTaskExpression_CallsParameterlessSetResult()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async Work() -> Task {
+        await Task.CompletedTask
+        return Task.CompletedTask
+    }
+}
+""";
+
+        var (_, instructions) = CaptureAsyncInstructions(source, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultCalls = instructions
+            .Where(instruction =>
+                instruction.Opcode == OpCodes.Call &&
+                instruction.Operand.Value is MethodInfo method &&
+                method.Name.Contains("SetResult", StringComparison.Ordinal))
+            .Select(instruction => Assert.IsAssignableFrom<MethodInfo>(instruction.Operand.Value))
+            .ToArray();
+
+        Assert.NotEmpty(setResultCalls);
+        Assert.All(setResultCalls, method => Assert.Empty(method.GetParameters()));
     }
 
     [Fact]
@@ -221,7 +269,12 @@ class C {
 
     private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(Func<MethodGenerator, bool> predicate)
     {
-        var syntaxTree = SyntaxTree.ParseText(AsyncCode);
+        return CaptureAsyncInstructions(AsyncCode, predicate);
+    }
+
+    private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(string source, Func<MethodGenerator, bool> predicate)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
 
