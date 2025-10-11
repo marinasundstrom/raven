@@ -84,67 +84,79 @@ IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwa
 
 ### Reference: C# state machine layout
 
-- Building the mirrored C# sample in **Release** produces `<MainAsync>d__1` as a `System.ValueType`
-  implementing `IAsyncStateMachine` with hoisted `_state`, `_builder`, awaiter, and spill fields.
-  The runtime handshake we care about mirrors this release layout, so Raven should stay aligned
-  with the struct-based form.【F:docs/investigations/async-await.md†L92-L110】
-  - The **Debug** build emits a reference type whose `SetStateMachine` body immediately returns
-    instead of forwarding to the builder, underscoring that the struct layout is the one that
-    drives `AwaitUnsafeOnCompleted` in production.【F:docs/investigations/async-await.md†L94-L96】
+- Compiling a release-mode C# sample with both `Task`- and `Task<int>`-returning async methods produces
+  one struct per method: `<ExampleAsync>d__1`, `<ExampleValueAsync>d__2`, and `<Main>d__0`. Each struct
+  implements `IAsyncStateMachine`, hoists a `<>1__state` field, carries an `AsyncTaskMethodBuilder`
+  (or its generic counterpart), and caches every active awaiter in a dedicated `<>u__*` field. The
+  `SetStateMachine` implementation simply forwards to the builder, so the runtime handshake always
+  flows through the builder APIs.【F:docs/investigations/async-await.md†L87-L121】
+- The async method bootstrap allocates the struct, seeds `_state = -1`, initializes the builder, and
+  calls `builder.Start(ref stateMachine)` before returning `builder.Task`. This is the same pattern
+  Raven already emits and underlines why the struct must remain a value type whose builder field is
+  always accessed by address.【F:docs/investigations/async-await.md†L93-L121】
 
 ```il
-// C# debug Program.<MainAsync>d__1.SetStateMachine excerpt
-IL_0000: ret
-```
-
-```il
-// C# release Program.MainAsync bootstrap
-IL_0000: newobj instance void Program/'<MainAsync>d__1'::.ctor()
+// Release Program.Main bootstrap
+IL_0000: newobj instance void Program/'<Main>d__0'::.ctor()
 IL_0005: stloc.0
 IL_0006: ldloc.0
-IL_0007: call valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0>
-                     [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::Create()
-IL_000c: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
-                     Program/'<MainAsync>d__1'::'<>t__builder'
+IL_0007: call valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder
+                     [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::Create()
+IL_000c: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder
+                     Program/'<Main>d__0'::'<>t__builder'
 IL_0011: ldloc.0
 IL_0012: ldc.i4.m1
-IL_0013: stfld int32 Program/'<MainAsync>d__1'::'<>1__state'
+IL_0013: stfld int32 Program/'<Main>d__0'::'<>1__state'
 IL_0018: ldloc.0
-IL_0019: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
-                     Program/'<MainAsync>d__1'::'<>t__builder'
+IL_0019: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder
+                     Program/'<Main>d__0'::'<>t__builder'
 IL_001e: ldloca.s 0
-IL_0020: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::Start
-                     <valuetype Program/'<MainAsync>d__1'>(!!0&)
+IL_0020: call instance void [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::Start
+                     <valuetype Program/'<Main>d__0'>(!!0&)
+IL_0025: ldloc.0
+IL_0026: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder
+                     Program/'<Main>d__0'::'<>t__builder'
+IL_002b: call instance class [System.Runtime]System.Threading.Tasks.Task
+                     [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::get_Task()
 ```
-
-- Each awaited expression stores its awaiter into the hoisted field, stamps the `_state`, and
-  calls `AwaitUnsafeOnCompleted` with both the awaiter and the state machine passed by reference.
-  When the await completes, the generated code resets `_state` to `-1`, clears the awaiter field,
-  and continues before eventually invoking `SetResult` or `SetException` through the builder.
+- Within `MoveNext`, each `await` writes its awaiter into the hoisted field, stamps the continuation
+  state, and schedules `AwaitUnsafeOnCompleted`. Resume paths reload the awaiter, clear the hoisted
+  slot, reset `_state = -1`, and then call `GetResult` before continuing. Success funnels through the
+  builder’s `SetResult`, while exceptions jump to the `catch` block that sets `_state = -2` and calls
+  `SetException`. The `Task<int>` variant mirrors the same structure, but routes the final value into
+  `AsyncTaskMethodBuilder<int>.SetResult(result)`.【F:docs/investigations/async-await.md†L122-L145】
 
 ```il
+// Await scheduling in Program.<Main>d__0.MoveNext
+IL_0025: ldarg.0
+IL_0026: ldc.i4.0
+IL_0027: dup
+IL_0028: stloc.0
+IL_0029: stfld int32 Program/'<Main>d__0'::'<>1__state'
 IL_002e: ldarg.0
-IL_002f: ldc.i4.0
-IL_0030: dup
-IL_0031: stloc.0
-IL_0032: stfld int32 Program/'<MainAsync>d__1'::'<>1__state'
-IL_0037: ldarg.0
-IL_0038: ldloc.3
-IL_0039: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<int32>
-                     Program/'<MainAsync>d__1'::'<>u__1'
-IL_003e: ldarg.0
-IL_003f: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>
-                     Program/'<MainAsync>d__1'::'<>t__builder'
-IL_0044: ldloca.s 3
-IL_0046: ldarg.0
-IL_0047: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<int32>::
-                     AwaitUnsafeOnCompleted<valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<int32>,
-                     valuetype Program/'<MainAsync>d__1'>(!!0&, !!1&)
+IL_002f: ldloc.2
+IL_0030: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter Program/'<Main>d__0'::'<>u__1'
+IL_0035: ldarg.0
+IL_0036: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder Program/'<Main>d__0'::'<>t__builder'
+IL_003b: ldloca.s 2
+IL_003d: ldarg.0
+IL_003e: call instance void [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::AwaitUnsafeOnCompleted
+                     <valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter, valuetype Program/'<Main>d__0'>(!!0&, !!1&)
 ```
+- The synthesized entry point wraps the awaited result in an interpolated string to demonstrate value
+  flow: the state machine builds a `DefaultInterpolatedStringHandler`, stores the awaited integer into
+  a local, and appends it before writing to `Console`. The `Task`-returning helper follows the same
+  awaiter scheduling shape without a result slot, confirming that both builder types produce identical
+  control-flow scaffolding aside from result storage.【F:docs/investigations/async-await.md†L146-L150】
 
-- Because the release pipeline depends on struct semantics for `Start`, `AwaitUnsafeOnCompleted`,
-  and `SetStateMachine`, Raven should keep synthesizing value-type state machines whose builder
-  field is always accessed by address.【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L9-L73】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1200-L1264】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1584-L1615】
+## Requirements to match C# `Task`/`Task<T>` async behaviour
+
+Implementing async methods and lambdas with C#-equivalent semantics relies on coordinated work across the parser, binder, lowering pipeline, and emitter:
+
+1. **Surface the `async` modifier everywhere authors can write it.** The statement parser recognises `async func` declarations so top-level local functions can opt into async lowering, type/member parsers thread the modifier through method and accessor declarations, and the expression parser accepts `async` on both simple and parenthesised lambdas.【F:src/Raven.CodeAnalysis/Syntax/InternalSyntax/Parser/Parsers/StatementSyntaxParser.cs†L28-L33】【F:src/Raven.CodeAnalysis/Syntax/InternalSyntax/Parser/Parsers/TypeDeclarationParser.cs†L635-L668】【F:src/Raven.CodeAnalysis/Syntax/InternalSyntax/Parser/Parsers/ExpressionSyntaxParser.cs†L390-L425】
+2. **Bind async entry points with `Task`-shaped return types.** Function and member binders flip `IsAsync`, default missing annotations to `System.Threading.Tasks.Task`, and fall back to diagnostics plus a task return when authors pick anything else. Lambdas follow the same rule: they reject non-task annotations, infer `Task`/`Task<T>` from the body, and convert the body into the awaited result type. All of these checks flow through `Binder.IsValidAsyncReturnType`, which only admits `Task` and `Task<T>` while allowing error types to keep diagnostics visible.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L51-L117】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L219-L452】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L29-L305】【F:src/Raven.CodeAnalysis/Binder/Binder.cs†L1416-L1434】
+3. **Synthesize a matching async state machine and builder.** When lowering decides a method or lambda is async it materialises a `SynthesizedAsyncStateMachineTypeSymbol`, copies `this`/parameters into hoisted fields, seeds the state slot, and chooses the correct runtime builder—`AsyncTaskMethodBuilder` for `Task`, its generic counterpart for `Task<T>`, or the void builder for async accessors. The rewritten body ultimately returns the builder’s `Task` property so callers observe the expected `Task` or `Task<T>`.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L112-L190】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1658-L1675】【F:src/Raven.CodeAnalysis/Symbols/Synthesized/SynthesizedAsyncStateMachineTypeSymbol.cs†L176-L237】
+4. **Emit runtime metadata and bridge synchronous entry points.** Code generation decorates async methods with `AsyncStateMachineAttribute`/`AsyncMethodBuilderAttribute` so the CLR recognises the generated struct, and the synthesized synchronous `Main` bridge invokes `MainAsync`, awaits its result, and forwards the return value, matching the Task-based entry-point pattern in C#.【F:src/Raven.CodeAnalysis/CodeGen/MethodGenerator.cs†L223-L263】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L116-L188】【F:src/Raven.CodeAnalysis/CodeGen/MethodBodyGenerator.cs†L333-L368】
 
 ## Remaining work
 
