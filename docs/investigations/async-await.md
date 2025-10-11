@@ -38,6 +38,36 @@
 - The sample suite now includes an `async-await.rav` program that exercises the generated state machine and asserts the expected interleaving once the emitted IL executes without runtime faults.【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L12-L118】
 - Invoking the CLI on the sample still produces an assembly that throws `InvalidProgramException` when executed, confirming the runtime rejects the generated async state machine.【1fd709†L1-L6】
 
+### IL comparison with the C# baseline
+
+- Disassembling the Raven generated assembly and the mirrored C# sample shows that our `MoveNext` body repeatedly copies the state machine into temporaries before mutating fields, e.g. `_state`, `<>awaiter0`, and the hoisted locals. Each `stloc`/`ldloca` pair operates on a detached copy, so the actual state machine never observes the updated `_state` or awaiter assignments.【F:docs/investigations/async-await.md†L41-L57】
+- The C# compiler instead writes through the by-ref `this` parameter using `ldarg.0` + `stfld`, ensuring `_state` and hoisted awaiters mutate in place before calling `AwaitUnsafeOnCompleted`. Our emitter must follow suit to avoid verifier failures when the runtime re-enters the method builder.【F:docs/investigations/async-await.md†L59-L68】
+
+```il
+// Raven async-await.rav MoveNext excerpt
+IL_0099: ldarg.0
+IL_009a: stloc.s 4
+IL_009c: ldloca.s 4
+IL_009e: ldc.i4.0
+IL_009f: stfld int32 Program/'Program+<>c__AsyncStateMachine1'::_state
+IL_00a4: ldarga.s 0
+IL_00a6: ldflda valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.AsyncTaskMethodBuilder Program/'Program+<>c__AsyncStateMachine1'::_builder
+IL_00ab: ldarg.0
+IL_00ac: ldflda valuetype [System.Private.CoreLib]System.Runtime.CompilerServices.TaskAwaiter Program/'Program+<>c__AsyncStateMachine1'::'<>awaiter0'
+```
+
+```il
+// C# async-await sample MoveNext excerpt
+IL_0034: ldarg.0
+IL_0035: ldc.i4.0
+IL_0036: dup
+IL_0037: stloc.0
+IL_0038: stfld int32 Program/'<Main>d__1'::'<>1__state'
+IL_003d: ldarg.0
+IL_003e: ldloc.s 4
+IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter Program/'<Main>d__1'::'<>u__1'
+```
+
 ## Remaining work
 
 ### Resolved gaps
@@ -65,7 +95,7 @@
 
 #### Upcoming steps
 
-- _(None at this time.)_
+- Ensure async `MoveNext` bodies update the real state machine instance. Replace the `ldarg/stloc` scratch copies with direct `ldarga.s 0` writes so `_state`, hoisted locals, and awaiters mutate in place before scheduling continuations.【F:docs/investigations/async-await.md†L41-L68】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 
