@@ -2050,7 +2050,7 @@ internal class ExpressionGenerator : Generator
                     break;
                 }
 
-                EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
+                EmitPropertyReceiver(receiver, propertySymbol, receiverAlreadyLoaded);
 
                 if (propertySymbol.ContainingType?.SpecialType == SpecialType.System_Array &&
                     propertySymbol.Name == "Length")
@@ -2065,14 +2065,10 @@ internal class ExpressionGenerator : Generator
 
                 MethodInfo getter = GetMethodInfo(propertySymbol.GetMethod);
 
-                if (!propertySymbol.IsStatic)
-                {
-                    EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType!);
-
+                if (!propertySymbol.IsStatic && !propertySymbol.ContainingType!.IsValueType)
                     EmitBoxIfNeeded(propertySymbol.ContainingType!, getter);
-                }
 
-                ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, getter);
+                ILGenerator.Emit(propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType ? OpCodes.Call : OpCodes.Callvirt, getter);
                 break;
 
             case IFieldSymbol fieldSymbol:
@@ -2197,6 +2193,33 @@ internal class ExpressionGenerator : Generator
             return;
         if (receiver is not null && !symbol.IsStatic)
             EmitExpression(receiver);
+    }
+
+    private void EmitPropertyReceiver(BoundExpression? receiver, IPropertySymbol propertySymbol, bool receiverAlreadyLoaded)
+    {
+        if (propertySymbol.IsStatic)
+            return;
+
+        if (propertySymbol.ContainingType!.IsValueType)
+        {
+            if (receiverAlreadyLoaded)
+            {
+                EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+                return;
+            }
+
+            if (TryEmitInvocationReceiverAddress(receiver))
+                return;
+
+            if (receiver is null)
+                throw new InvalidOperationException($"Instance property '{propertySymbol.Name}' requires a receiver.");
+
+            EmitExpression(receiver);
+            EmitValueTypeAddressIfNeeded(propertySymbol.ContainingType);
+            return;
+        }
+
+        EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
     }
 
     private bool TryEmitInvocationReceiverAddress(BoundExpression? receiver)
@@ -2555,7 +2578,11 @@ internal class ExpressionGenerator : Generator
 
             MethodInfo getter = GetMethodInfo(propertySymbol.GetMethod);
 
-            ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, getter);
+            var callOpCode = propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType
+                ? OpCodes.Call
+                : OpCodes.Callvirt;
+
+            ILGenerator.Emit(callOpCode, getter);
         }
     }
 

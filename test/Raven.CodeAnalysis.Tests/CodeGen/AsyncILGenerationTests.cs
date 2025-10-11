@@ -131,6 +131,29 @@ class C {
     }
 
     [Fact]
+    public void AsyncMethod_ReturnsTaskByCallingBuilderThroughFieldAddress()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "Work" &&
+            generator.MethodSymbol.ContainingType is SourceNamedTypeSymbol);
+
+        var taskCallIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Operand.Value is MethodInfo method && method.Name == "get_Task");
+
+        Assert.True(taskCallIndex >= 0, "Builder.get_Task call not found in async method body.");
+        Assert.Equal(OpCodes.Call, instructions[taskCallIndex].Opcode);
+
+        var builderAddressIndex = Array.FindLastIndex(instructions, taskCallIndex, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex >= 0, "Builder field address not loaded before get_Task call.");
+
+        for (var i = builderAddressIndex + 1; i < taskCallIndex; i++)
+            Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
+    }
+
+    [Fact]
     public void MoveNext_CallsBuilderSetResultByReference()
     {
         var (_, instructions) = CaptureAsyncInstructions(static generator =>
