@@ -92,10 +92,9 @@ IL_0040: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwa
 5. **Rebuild integration coverage.** Additional regression tests now check that multi-await methods hoist each awaiter, thrown exceptions flow through `SetException`, async accessors emit `SetResult`, and async lambdas synthesize their own state machines.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLowererTests.cs†L375-L508】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L153-L197】
 6. **Return builder tasks by reference.** Property emission shares the invocation address-loading path so async bootstraps invoke `AsyncTaskMethodBuilder.get_Task` via `call` on `_builder`, and IL tests verify the getter consumes the field address without introducing temporary locals.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2056-L2080】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L120-L142】
 7. **Add execution regression coverage.** The samples test suite now captures the async sample's standard streams, fails loudly when the runtime still throws `InvalidProgramException`, and will keep the fix honest once the remaining IL issues are resolved.【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L19-L90】
+8. **Write through the real state machine instance.** Field assignments emitted inside async `MoveNext` now load the synthesized struct by reference (`ldarga.s 0`) instead of copying `this` into temporaries. The emitter reuses the shared invocation-address path so `_state`, hoisted locals, and awaiters mutate in place before scheduling continuations, satisfying the CLR verifier.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1658-L1721】
 
 #### Upcoming steps
-
-- Ensure async `MoveNext` bodies update the real state machine instance. Replace the `ldarg/stloc` scratch copies with direct `ldarga.s 0` writes so `_state`, hoisted locals, and awaiters mutate in place before scheduling continuations.【F:docs/investigations/async-await.md†L41-L68】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 
