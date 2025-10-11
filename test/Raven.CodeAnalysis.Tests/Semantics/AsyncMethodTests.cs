@@ -75,6 +75,41 @@ class C {
     }
 
     [Fact]
+    public void AsyncTaskOfIntMethod_WithReturnExpression_IsAccepted()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async f() -> Task[Int32] {
+        return 1;
+    }
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void AsyncTaskOfIntMethod_WithIncompatibleReturnExpression_ReportsDiagnostic()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async f() -> Task[Int32] {
+        return "oops";
+    }
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.CannotConvertFromTypeToType, diagnostic.Descriptor);
+        Assert.Contains("String", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Int32", diagnostic.GetMessage(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void TopLevelAwait_PromotesSynthesizedMainToAsyncTask()
     {
         const string source = """

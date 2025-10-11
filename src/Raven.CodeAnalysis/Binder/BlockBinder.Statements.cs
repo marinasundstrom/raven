@@ -486,18 +486,32 @@ partial class BlockBinder
                         methodDisplay,
                         returnStatement.Expression!.GetLocation());
                 }
-                else if (ShouldAttemptConversion(expr) && method.ReturnType.TypeKind != TypeKind.Error)
+                else
                 {
-                    if (!IsAssignable(method.ReturnType, expr.Type, out var conversion))
+                    var targetType = method.ReturnType;
+
+                    if (method.IsAsync &&
+                        method.ReturnType is INamedTypeSymbol namedReturn &&
+                        namedReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+                        namedReturn.TypeArguments.Length == 1 &&
+                        namedReturn.TypeArguments[0] is { } resultType)
                     {
-                        _diagnostics.ReportCannotConvertFromTypeToType(
-                            expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            method.ReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            returnStatement.Expression!.GetLocation());
+                        targetType = resultType;
                     }
-                    else
+
+                    if (ShouldAttemptConversion(expr) && targetType.TypeKind != TypeKind.Error)
                     {
-                        expr = ApplyConversion(expr, method.ReturnType, conversion, returnStatement.Expression!);
+                        if (!IsAssignable(targetType, expr.Type, out var conversion))
+                        {
+                            _diagnostics.ReportCannotConvertFromTypeToType(
+                                expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                returnStatement.Expression!.GetLocation());
+                        }
+                        else
+                        {
+                            expr = ApplyConversion(expr, targetType, conversion, returnStatement.Expression!);
+                        }
                     }
                 }
             }
