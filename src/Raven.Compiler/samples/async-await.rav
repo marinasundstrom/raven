@@ -6,7 +6,7 @@ async func PrintDelayed(label: string, value: int) -> Task {
     WriteLine("${label}:${value}")
 }
 
-let x = await Test(42)
+await PrintDelayed("first", 1)
 
 let second = await Task.FromResult(2)
 let third = await Task.FromResult(3)
