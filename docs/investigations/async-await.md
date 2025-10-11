@@ -37,19 +37,20 @@
 
 - The `SpecialType` enumeration already contains the async method builder types, `Task`, and the attribute metadata we will need, indicating the compilation layer can resolve the required framework symbols once lowering consumes them.【F:src/Raven.CodeAnalysis/SpecialType.cs†L39-L58】
 - The sample suite now includes an `async-await.rav` program that exercises the generated state machine and asserts the expected interleaving once the emitted IL executes without runtime faults.【F:src/Raven.Compiler/samples/async-await.rav†L1-L17】【F:test/Raven.CodeAnalysis.Samples.Tests/SampleProgramsTests.cs†L12-L118】
+- Rebuilding and running `samples/async-await.rav` via `dotnet run --no-build --project src/Raven.Compiler/Raven.Compiler.csproj -- src/Raven.Compiler/samples/async-await.rav -o /tmp/raven-samples/async-await/async-await.dll` now prints `first:1`, `sum:6`, and `done`, confirming the CompletedTask fallthrough fix unblocks runtime execution.【5edb92†L1-L9】
 - `ilverify` no longer reports byref-of-byref faults when inspecting the sample assembly. The remaining verifier noise is limited to `System.Console` load failures because the framework facade is not passed to the tool, confirming the state machine now satisfies structured-exit requirements.【77ab35†L1-L7】
-- Running the generated assembly prints the first awaited line (`first:1`) before stalling indefinitely instead of throwing `InvalidProgramException`, indicating the builder now survives the initial suspension but the continuation never drives the method to completion.【b3f15d†L1-L2】
-- A reflection harness that loads the emitted `Program.MainAsync` and inspects the returned `Task` via its private fields shows the builder never boxes the state machine: after several seconds `task.Status` remains `WaitingForActivation`, `m_continuationObject` and `m_action` stay `null`, and `m_stateObject` still points at the captured `System.Threading.ExecutionContext` rather than an `IAsyncStateMachineBox`. That confirms the first `AwaitUnsafeOnCompleted` call is not registering the continuation with the builder, leaving the entry-point `Task` forever incomplete. A minimal C# snippet to reproduce is included below for future diagnostics:
+- Running the generated assembly now prints the awaited lines (`first:1`, `sum:6`, `done`) and exits normally, confirming the state machine advances through every continuation.【5edb92†L1-L9】
+- A reflection harness that loads the emitted `Program.MainAsync` now reports `TaskStatus.RanToCompletion` and prints the awaited output (`first:1`, `sum:6`, `done`), confirming the builder drives the state machine through every continuation. The C# snippet below remains available for future diagnostics if the status regresses.【e2da1b†L1-L4】
 
   ```csharp
   var asm = Assembly.LoadFile("/tmp/async-await.dll");
   var mainAsync = asm.GetType("Program")!.GetMethod("MainAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
   var task = (Task)mainAsync.Invoke(null, new object?[] { Array.Empty<string>() })!;
-  Console.WriteLine(task.Status); // WaitingForActivation
+    Console.WriteLine(task.Status); // RanToCompletion
   Console.WriteLine(task.GetType().GetField("m_stateObject", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(task));
   ```
 
-  The `m_stateObject` field reporting an execution context instead of an async state-machine box narrows the investigation to the scheduling path in `AwaitUnsafeOnCompleted`, suggesting the state-machine address passed to the builder still references a transient copy of the struct.
+   Keep this harness on hand in case a future regression reintroduces the hang—the field probes make it easy to inspect builder internals and confirm whether the state machine is still boxed correctly.
 
 ### IL comparison with the C# baseline
 
