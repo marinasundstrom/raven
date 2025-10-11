@@ -8,7 +8,7 @@ class Foo : IDisposable {
     
     public init() => Console.WriteLine("Init")
 
-    public Do() => Console.WriteLine("Do")
+    public Do() -> unit => Console.WriteLine("Do")
 
     public Dispose() -> unit => Console.WriteLine("Dispose ${x}")
 }
