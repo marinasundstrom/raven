@@ -31,6 +31,8 @@ public partial class Compilation
     private ErrorTypeSymbol _errorTypeSymbol;
     private NullTypeSymbol _nullTypeSymbol;
     private UnitTypeSymbol _unitTypeSymbol;
+    private INamedTypeSymbol? _taskOfUnitTypeSymbol;
+    private int _taskProjectionSuppressionCount;
     private TypeResolver _typeResolver;
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
@@ -92,6 +94,8 @@ public partial class Compilation
 
     public ITypeSymbol NullTypeSymbol => _nullTypeSymbol ??= new NullTypeSymbol(this);
     public INamedTypeSymbol UnitTypeSymbol => _unitTypeSymbol ??= CreateUnitTypeSymbol();
+
+    internal bool IsTaskProjectionSuppressed => _taskProjectionSuppressionCount > 0;
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
@@ -1122,6 +1126,9 @@ public partial class Compilation
         if (specialType is SpecialType.System_Unit)
             return UnitTypeSymbol;
 
+        if (specialType is SpecialType.System_Threading_Tasks_Task)
+            return _taskOfUnitTypeSymbol ??= CreateTaskOfUnitSpecialType();
+
         var metadataName = specialType switch
         {
             SpecialType.System_Object => "System.Object",
@@ -1190,6 +1197,25 @@ public partial class Compilation
 
         var type = GetTypeByMetadataName(metadataName);
         return type ?? (INamedTypeSymbol)ErrorTypeSymbol;
+    }
+
+    private INamedTypeSymbol CreateTaskOfUnitSpecialType()
+    {
+        _taskProjectionSuppressionCount++;
+        try
+        {
+            var taskOfT = (INamedTypeSymbol)GetSpecialType(SpecialType.System_Threading_Tasks_Task_T);
+            var unit = UnitTypeSymbol;
+
+            return new ConstructedNamedTypeSymbol(
+                taskOfT,
+                ImmutableArray.Create<ITypeSymbol>(unit),
+                specialTypeOverride: SpecialType.System_Threading_Tasks_Task);
+        }
+        finally
+        {
+            _taskProjectionSuppressionCount--;
+        }
     }
 
     private static void InitializeTypeParameters(SourceNamedTypeSymbol typeSymbol, TypeParameterListSyntax? typeParameterList, SyntaxTree syntaxTree)

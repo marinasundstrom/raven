@@ -76,4 +76,18 @@ let x: () = ping()
         Assert.Single(type.TypeArguments);
         Assert.Same(compilation.UnitTypeSymbol, type.TypeArguments[0]);
     }
+
+    [Fact]
+    public void SpecialType_Task_Maps_To_TaskOfUnit()
+    {
+        var compilation = CreateCompilation();
+        compilation.EnsureSetup();
+
+        var type = (INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task, type.SpecialType);
+        Assert.True(type.IsGenericType);
+        Assert.Single(type.TypeArguments);
+        Assert.Same(compilation.UnitTypeSymbol, type.TypeArguments[0]);
+    }
 }

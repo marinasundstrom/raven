@@ -174,20 +174,15 @@ internal class TypeResolver(Compilation compilation)
 
         if (type.FullName == "System.Threading.Tasks.Task")
         {
+            if (compilation.IsTaskProjectionSuppressed)
+                return ResolveTypeCore(type);
+
             if (_cache.TryGetValue(type, out var taskCached))
                 return taskCached;
 
-            if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) is INamedTypeSymbol taskOfT)
-            {
-                var unit = compilation.GetSpecialType(SpecialType.System_Unit);
-                var constructed = new ConstructedNamedTypeSymbol(
-                    taskOfT,
-                    ImmutableArray.Create<ITypeSymbol>(unit),
-                    specialTypeOverride: SpecialType.System_Threading_Tasks_Task);
-
-                _cache[type] = constructed;
-                return constructed;
-            }
+            var task = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
+            _cache[type] = task;
+            return task;
         }
 
         if (type.Name == "Null")
