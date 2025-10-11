@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -41,7 +42,24 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
 
     public ParameterInfo GetParameterInfo() => _parameterInfo;
 
-    public bool HasExplicitDefaultValue => _parameterInfo.HasDefaultValue;
+    public bool HasExplicitDefaultValue
+    {
+        get
+        {
+            var rawDefaultValue = _parameterInfo.RawDefaultValue;
+            return rawDefaultValue != DBNull.Value && rawDefaultValue != System.Type.Missing;
+        }
+    }
 
-    public object? ExplicitDefaultValue => _parameterInfo.HasDefaultValue ? _parameterInfo.DefaultValue : null;
+    public object? ExplicitDefaultValue
+    {
+        get
+        {
+            var rawDefaultValue = _parameterInfo.RawDefaultValue;
+            if (rawDefaultValue == DBNull.Value || rawDefaultValue == System.Type.Missing)
+                return null;
+
+            return rawDefaultValue;
+        }
+    }
 }
