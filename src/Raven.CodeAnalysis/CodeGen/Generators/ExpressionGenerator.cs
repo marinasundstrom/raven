@@ -1647,12 +1647,15 @@ internal class ExpressionGenerator : Generator
                     var right = fieldAssignmentExpression.Right;
                     var receiver = fieldAssignmentExpression.Receiver;
                     var requiresAddress = fieldAssignmentExpression.RequiresReceiverAddress;
+                    var containingType = fieldSymbol.ContainingType;
+                    var needsReceiverAddress = containingType?.IsValueType == true;
+                    var needsAddress = requiresAddress || needsReceiverAddress;
 
                     if (!fieldSymbol.IsStatic)
                     {
-                        if (requiresAddress)
+                        if (needsAddress)
                         {
-                            if (!TryEmitInvocationReceiverAddress(receiver))
+                            if (TryEmitInvocationReceiverAddress(receiver))
                             {
                                 if (receiver is null)
                                 {
@@ -1667,6 +1670,22 @@ internal class ExpressionGenerator : Generator
                                         EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType);
                                     }
                                 }
+                                // Receiver already loaded with the correct address.
+                            }
+                            else if (receiver is not null)
+                            {
+                                EmitExpression(receiver);
+
+                                if (needsReceiverAddress)
+                                    EmitValueTypeAddressIfNeeded(containingType!);
+                            }
+                            else if (needsReceiverAddress)
+                            {
+                                ILGenerator.Emit(OpCodes.Ldarga, 0);
+                            }
+                            else
+                            {
+                                ILGenerator.Emit(OpCodes.Ldarg_0);
                             }
                         }
                         else if (receiver is not null)
@@ -1677,10 +1696,15 @@ internal class ExpressionGenerator : Generator
                             {
                                 EmitValueTypeAddressIfNeeded(receiver?.Type, fieldSymbol.ContainingType);
                             }
+                            if (needsReceiverAddress)
+                                EmitValueTypeAddressIfNeeded(containingType!);
                         }
-                        else if (receiver is null)
+                        else
                         {
                             ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                            if (needsReceiverAddress)
+                                EmitValueTypeAddressIfNeeded(containingType!);
                         }
                     }
 
@@ -2229,7 +2253,12 @@ internal class ExpressionGenerator : Generator
             case null:
                 if (MethodSymbol.IsStatic)
                     return false;
-                ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                if (MethodSymbol.ContainingType?.IsValueType == true)
+                    ILGenerator.Emit(OpCodes.Ldarga, 0);
+                else
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+
                 return true;
 
             case BoundSelfExpression selfExpression:
