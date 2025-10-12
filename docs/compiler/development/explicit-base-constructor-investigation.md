@@ -37,6 +37,9 @@ The remaining effort now concentrates on validation, diagnostics, and specificat
 * ✅ **Task 4a.3 — Missing/ambiguous base diagnostics**: surface binder diagnostics for `: base(...)` clauses that fail overload resolution and reuse arity-matched candidates to produce conversion errors instead of falling back to `RAV1501`.
 * ✅ **Task 4b — Negative coverage and regression tests**: covered `RAV0312`, `RAV1501`, and `RAV1503` with new semantic tests and added a positive codegen regression proving argument forwarding executes the base constructor exactly once.
 * 🔄 **Task 4c — Documentation refresh** *(immediate)*: update the language specification and proposals with the supported initializer syntax once validation hardens.
+  * `docs/lang/spec/classes-and-members.md` already showcases `: base(...)`, but the normative text still needs to spell out evaluation order, reiterate the static/named constructor restriction, and call out that missing or incompatible overloads surface `RAV1501`/`RAV1503` from the initializer clause.
+  * Mirror that wording in `docs/lang/proposals/class-inheritance.md` so the proposal matches the stabilized behavior and links back to the diagnostics guidance.
+  * Extend `docs/compiler/diagnostics.md` to mention constructor initializers as a source for `RAV1501`/`RAV1503`, highlighting that overload resolution failures now originate from the initializer instead of the generated implicit call.
 
 ### Task 1 — Syntax & tokens
 
