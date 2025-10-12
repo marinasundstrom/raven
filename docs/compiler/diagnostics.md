@@ -343,7 +343,7 @@ method—causes the compiler to reject the program.
 let message = "hi"
 
 class App {
-    Main() -> unit { } // RAV1017: Program has more than one entry point defined
+    static Main() -> unit { } // RAV1017: Program has more than one entry point defined
 }
 ```
 

@@ -23,7 +23,7 @@ class Helper {
 
         var tree2 = SyntaxTree.ParseText("""
 class Program {
-    Main() -> unit {
+    static Main() -> unit {
         let helper = Helper();
         let value = helper.GetValue();
         return;

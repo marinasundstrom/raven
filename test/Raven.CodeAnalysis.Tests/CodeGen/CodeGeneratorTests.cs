@@ -127,7 +127,7 @@ class C {
     {
         var code = """
 class Helper {
-    Main() -> int {
+    static Main() -> int {
         return 0;
     }
 }
@@ -168,13 +168,13 @@ class Helper {
     {
         var code = """
 class Program {
-    Main() -> int {
+    static Main() -> int {
         return 42;
     }
 }
 
 class Helper {
-    Main() -> int {
+    static Main() -> int {
         return 0;
     }
 }
@@ -613,8 +613,6 @@ class Person {
 
     public GetName() -> string => storedName;
 }
-
-func main() -> unit {}
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);

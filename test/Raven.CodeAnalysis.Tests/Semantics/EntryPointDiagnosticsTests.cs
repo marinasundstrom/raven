@@ -1,6 +1,7 @@
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -21,13 +22,13 @@ public class EntryPointDiagnosticsTests
     {
         var code = """
 class Program {
-    Main() -> unit {
+    static Main() -> unit {
         return;
     }
 }
 
 class Helper {
-    Main() -> unit {
+    static Main() -> unit {
         return;
     }
 }
@@ -47,7 +48,7 @@ class Helper {
         var topLevel = SyntaxTree.ParseText("let x = 0");
         var mainClass = SyntaxTree.ParseText("""
 class App {
-    Main() -> unit {
+    static Main() -> unit {
         return;
     }
 }

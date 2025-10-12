@@ -31,7 +31,7 @@ class Program {
         return animal.Speak()
     }
 
-    Main() -> unit {
+    static Main() -> unit {
         return
     }
 }
