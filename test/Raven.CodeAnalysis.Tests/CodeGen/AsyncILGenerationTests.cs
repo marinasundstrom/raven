@@ -276,6 +276,29 @@ let result = await Test(42)
     }
 
     [Fact]
+    public void MoveNext_InvokesClosedGenericSetResultOverload()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultInstruction = instructions.First(instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("SetResult", StringComparison.Ordinal));
+
+        var methodInfo = Assert.IsAssignableFrom<MethodInfo>(setResultInstruction.Operand.Value);
+
+        Assert.True(methodInfo.DeclaringType!.IsGenericType);
+        var genericArgument = Assert.Single(methodInfo.DeclaringType!.GetGenericArguments());
+        Assert.Equal(typeof(int), genericArgument);
+
+        var parameters = methodInfo.GetParameters();
+        var parameter = Assert.Single(parameters);
+        Assert.Equal(typeof(int), parameter.ParameterType);
+    }
+
+    [Fact]
     public void MoveNext_StoresStateAndAwaitersWithoutSpillingStateMachine()
     {
         var (_, instructions) = CaptureAsyncInstructions(static generator =>

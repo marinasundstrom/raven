@@ -190,12 +190,19 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
 
         if (returnType is INamedTypeSymbol named &&
-            named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
+            named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            named.TypeArguments.Length == 1)
         {
+            var awaitedType = named.TypeArguments[0];
+
+            if (awaitedType.TypeKind == TypeKind.Error)
+                return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder);
+
             if (compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
-                is INamedTypeSymbol builderDefinition)
+                is INamedTypeSymbol builderDefinition &&
+                builderDefinition.TypeKind != TypeKind.Error)
             {
-                return builderDefinition.Construct(named.TypeArguments.ToArray());
+                return builderDefinition.Construct(awaitedType);
             }
         }
 

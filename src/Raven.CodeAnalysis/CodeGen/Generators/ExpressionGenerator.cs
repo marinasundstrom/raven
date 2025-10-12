@@ -2525,7 +2525,7 @@ internal class ExpressionGenerator : Generator
 
     public void EmitInvocationExpressionBase(BoundInvocationExpression invocationExpression, bool receiverAlreadyLoaded = false)
     {
-        var target = invocationExpression.Method;
+        var target = GetInvocationTarget(invocationExpression);
         var receiver = invocationExpression.Receiver;
 
         // Emit receiver (for instance methods)
@@ -2624,17 +2624,19 @@ internal class ExpressionGenerator : Generator
         // Emit the actual call
         var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
 
+        var targetMethodInfo = GetMethodInfo(target);
+
         if (target.IsStatic)
         {
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
+            ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
         }
         else if (!target.ContainingType!.IsValueType && (target.IsVirtual || isInterfaceCall))
         {
-            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(target));
+            ILGenerator.Emit(OpCodes.Callvirt, targetMethodInfo);
         }
         else
         {
-            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(target));
+            ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
         }
 
         // Special cast for Object.GetType() to MemberInfo
@@ -2648,6 +2650,108 @@ internal class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
         }
+    }
+
+    private IMethodSymbol GetInvocationTarget(BoundInvocationExpression invocationExpression)
+    {
+        if (TryGetSpecializedAsyncBuilderMethod(invocationExpression, out var specialized))
+            return specialized;
+
+        return invocationExpression.Method;
+    }
+
+    private bool TryGetSpecializedAsyncBuilderMethod(BoundInvocationExpression invocationExpression, out IMethodSymbol specialized)
+    {
+        var original = invocationExpression.Method;
+        specialized = original;
+
+        if (original.ContainingType is not INamedTypeSymbol containingType)
+            return false;
+
+        if (!IsAsyncTaskBuilderType(containingType))
+            return false;
+
+        var receiverType = GetAsyncBuilderReceiverType(invocationExpression);
+        if (receiverType is null)
+            return false;
+
+        if (!IsAsyncTaskBuilderType(receiverType))
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(receiverType, containingType))
+            return false;
+
+        var originalDefinition = original.OriginalDefinition ?? original;
+
+        foreach (var candidate in receiverType.GetMembers(original.Name).OfType<IMethodSymbol>())
+        {
+            if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition ?? candidate, originalDefinition))
+                continue;
+
+            var aligned = AlignMethodTypeArguments(candidate, original);
+            specialized = aligned;
+            return !SymbolEqualityComparer.Default.Equals(aligned, original);
+        }
+
+        return false;
+    }
+
+    private static INamedTypeSymbol? GetAsyncBuilderReceiverType(BoundInvocationExpression invocationExpression)
+    {
+        if (invocationExpression.Method.IsStatic)
+            return null;
+
+        var receiver = invocationExpression.Receiver;
+
+        if (receiver?.Type is INamedTypeSymbol receiverType)
+            return receiverType;
+
+        if (receiver is BoundMemberAccessExpression memberAccess)
+        {
+            if (memberAccess.Member is IFieldSymbol field && field.Type is INamedTypeSymbol fieldType)
+                return fieldType;
+        }
+
+        return null;
+    }
+
+    private static IMethodSymbol AlignMethodTypeArguments(IMethodSymbol candidate, IMethodSymbol original)
+    {
+        if (!original.IsGenericMethod)
+            return candidate;
+
+        var originalArgs = original.TypeArguments;
+        if (originalArgs.IsDefaultOrEmpty)
+            return candidate;
+
+        if (!candidate.IsGenericMethod)
+            return candidate;
+
+        if (candidate.TypeArguments.Length == originalArgs.Length)
+        {
+            bool matches = true;
+            for (var i = 0; i < originalArgs.Length; i++)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[i], originalArgs[i]))
+                {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches)
+                return candidate;
+        }
+
+        return candidate.Construct(originalArgs.ToArray());
+    }
+
+    private static bool IsAsyncTaskBuilderType(INamedTypeSymbol type)
+    {
+        var definition = type.ConstructedFrom as INamedTypeSymbol ?? type;
+
+        return definition.SpecialType is SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder
+            or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T;
     }
 
     private void EmitFieldAccess(BoundFieldAccess fieldAccess)

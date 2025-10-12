@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -292,7 +293,22 @@ internal class TypeGenerator
                     }
                 case IFieldSymbol fieldSymbol:
                     {
-                        var type = fieldSymbol.Type.Equals(TypeSymbol, SymbolEqualityComparer.Default) ? TypeBuilder : ResolveClrType(fieldSymbol.Type);
+                        var fieldTypeSymbol = fieldSymbol.Type;
+                        var type = fieldTypeSymbol.Equals(TypeSymbol, SymbolEqualityComparer.Default) ? TypeBuilder : ResolveClrType(fieldTypeSymbol);
+
+                        if (!(type is TypeBuilder) && type.ContainsGenericParameters && fieldTypeSymbol is INamedTypeSymbol namedFieldType &&
+                            namedFieldType.ConstructedFrom is INamedTypeSymbol constructedFrom &&
+                            !namedFieldType.TypeArguments.IsDefaultOrEmpty)
+                        {
+                            var argumentTypes = namedFieldType.TypeArguments.Select(ResolveClrType).ToArray();
+
+                            var definitionType = constructedFrom.SpecialType == SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T
+                                ? typeof(AsyncTaskMethodBuilder<int>).GetGenericTypeDefinition()
+                                : ResolveClrType(constructedFrom);
+
+                            if (definitionType.IsGenericTypeDefinition || definitionType.ContainsGenericParameters)
+                                type = definitionType.MakeGenericType(argumentTypes);
+                        }
 
                         FieldAttributes attr = GetFieldAccessibilityAttributes(fieldSymbol);
 
