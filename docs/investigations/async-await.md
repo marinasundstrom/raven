@@ -242,6 +242,23 @@ Implementing async methods and lambdas with C#-equivalent semantics relies on co
   return binder to skip conversions that previously emitted cascading `RAV1503`
   errors. Regression tests now assert only the primary async diagnostic surfaces for
   both expression-bodied and block-bodied returns.【F:src/Raven.CodeAnalysis/Binder/FunctionBinder.cs†L49-L114】【F:src/Raven.CodeAnalysis/Binder/TypeMemberBinder.cs†L258-L347】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L455-L492】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L126-L180】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L25-L205】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceLambdaSymbol.cs†L6-L98】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L63】【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncLambdaTests.cs†L76-L114】
+- **Generic `Task<T>` parity audit.** The language specification now mirrors C# by
+  stating that async bodies convert returned expressions to the awaited result type
+  before calling `SetResult(value)`, covering both `Task` and `Task<T>` members.【F:docs/lang/spec/language-specification.md†L1296-L1326】
+  Binder checks line up with that rule: when binding `return` statements inside async
+  methods or lambdas, `BlockBinder.BindReturnStatement` unwraps the generic builder
+  target, converts the expression to `T`, and reports diagnostics when a bare
+  `return;` would leave a `Task<T>` without a value.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L454-L515】
+  `MethodBodyBinder` follows up by skipping trailing-expression checks only for
+  `async Task` and `async Task<Unit>` bodies so expression-bodied wrappers cannot leak
+  non-unit results through implicit task completion.【F:src/Raven.CodeAnalysis/Binder/MethodBodyBinder.cs†L40-L79】
+  On the lowering side, `AsyncLowerer` threads any converted expression into
+  `AsyncTaskMethodBuilder<T>.SetResult(result)` and falls back to default values when
+  the builder expects a parameter but the bound return had no result, matching C#'s
+  contract for both explicit and implicit completions.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L268-L347】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L861-L907】
+  Remaining investigation work focuses on filling coverage gaps (e.g., conversions
+  from tuple expressions and nullable annotations) so future regressions cannot break
+  the parity we now rely on.
 
 ### Step-by-step plan
 
@@ -262,6 +279,11 @@ Implementing async methods and lambdas with C#-equivalent semantics relies on co
 13. **Clear hoisted awaiters before resuming execution.** The async lowerer now copies each hoisted awaiter into a temporary on resume, zeroes the state-machine field, and then evaluates `GetResult` through the cached awaiter. Regression IL coverage asserts every awaiter field receives a second store after scheduling to keep resumptions from retaining completed awaiters.【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L1236-L1293】【F:src/Raven.CodeAnalysis/BoundTree/BoundDefaultValueExpression.cs†L1-L26】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L208-L223】
 
 #### Upcoming steps
+
+1. **Close tuple conversion coverage.** Add semantic and lowering regression tests that return tuple expressions from `async Task<T>` members, ensuring `BlockBinder.BindReturnStatement` and `AsyncLowerer` preserve tuple element typing when forwarding the awaited result.【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L454-L515】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L268-L354】
+2. **Exercise nullable annotations.** Extend the async method/lambda suites with scenarios such as `async Task<int?>` returning nullable literals, conversions, and `default`, pinning both the binder diagnostics and emitted `SetResult` invocations so nullable metadata flows through unchanged.【F:test/Raven.CodeAnalysis.Tests/Semantics/AsyncMethodTests.cs†L38-L274】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L147-L223】
+3. **Spec sync for conversion rules.** Update the language specification’s async-return section to explicitly call out tuple and nullable conversions so the documented behaviour matches the binder/lowerer coverage being added.【F:docs/lang/spec/language-specification.md†L1296-L1326】
+4. **Audit async lambda inference.** Add targeted tests for `async` lambdas returning `Task<T>` in delegate and expression-tree contexts to make sure `SourceLambdaSymbol` inference keeps the awaited result type intact when conversions apply.【F:src/Raven.CodeAnalysis/Symbols/Source/SourceLambdaSymbol.cs†L10-L75】【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Lambda.cs†L12-L279】
 
 This roadmap keeps momentum on polishing the shipped async surface while sequencing runtime validation and documentation in tandem with the remaining binder/lowerer work.
 
