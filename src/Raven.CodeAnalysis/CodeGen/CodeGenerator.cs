@@ -747,8 +747,24 @@ internal class CodeGenerator
         if (globalStatements.Length == 0)
             return;
 
-        var binder = semanticModel.GetBinder(globalStatements[0]);
-        if (binder is not TopLevelBinder topLevelBinder)
+        static TopLevelBinder? FindTopLevelBinder(Binder? binder)
+        {
+            for (var current = binder; current is not null; current = current.ParentBinder)
+            {
+                if (current is TopLevelBinder topLevel)
+                    return topLevel;
+            }
+
+            return null;
+        }
+
+        var binder = semanticModel.GetBinder(compilationUnit);
+        var topLevelBinder = FindTopLevelBinder(binder);
+
+        if (topLevelBinder is null)
+            topLevelBinder = FindTopLevelBinder(semanticModel.GetBinder(globalStatements[0]));
+
+        if (topLevelBinder is null)
             return;
 
         if (topLevelBinder.MainMethod is not SourceMethodSymbol mainMethod)
