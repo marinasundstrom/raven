@@ -1660,7 +1660,7 @@ internal class ExpressionGenerator : Generator
                         }
                         else
                         {
-                            if (!TryEmitInvocationReceiverAddress(receiver))
+                            if (!TryEmitValueTypeReceiverAddress(receiver, receiver?.Type, containingType))
                             {
                                 if (receiver is not null)
                                 {
@@ -1709,7 +1709,7 @@ internal class ExpressionGenerator : Generator
                             var valueLocal = ILGenerator.DeclareLocal(valueClrType);
                             ILGenerator.Emit(OpCodes.Stloc, valueLocal);
 
-                            if (!TryEmitInvocationReceiverAddress(receiver))
+                            if (!TryEmitValueTypeReceiverAddress(receiver, receiver?.Type, containingType))
                             {
                                 if (receiver is not null)
                                 {
@@ -1741,7 +1741,7 @@ internal class ExpressionGenerator : Generator
 
                         if (needsAddress)
                         {
-                            if (!TryEmitInvocationReceiverAddress(receiver))
+                            if (!TryEmitValueTypeReceiverAddress(receiver, receiver?.Type, containingType))
                             {
                                 if (receiver is not null)
                                 {
@@ -2338,6 +2338,30 @@ internal class ExpressionGenerator : Generator
         EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
     }
 
+    private bool TryEmitValueTypeReceiverAddress(BoundExpression? receiver, ITypeSymbol? runtimeType, ITypeSymbol? declaredType = null)
+    {
+        var effectiveType = runtimeType ?? declaredType;
+
+        if (effectiveType is null || !effectiveType.IsValueType)
+            return TryEmitInvocationReceiverAddress(receiver);
+
+        if (TryEmitInvocationReceiverAddress(receiver))
+            return true;
+
+        if (receiver is BoundMemberAccessExpression { Member: IFieldSymbol fieldSymbol } member && !fieldSymbol.IsStatic)
+        {
+            var containingType = fieldSymbol.ContainingType;
+
+            if (TryEmitValueTypeReceiverAddress(member.Receiver, member.Receiver?.Type, containingType))
+            {
+                ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool TryEmitInvocationReceiverAddress(BoundExpression? receiver)
     {
         switch (receiver)
@@ -2536,7 +2560,7 @@ internal class ExpressionGenerator : Generator
 
             if (!receiverAlreadyLoaded)
             {
-                if (requiresAddress && TryEmitInvocationReceiverAddress(receiver))
+                if (requiresAddress && TryEmitValueTypeReceiverAddress(receiver, receiver?.Type, target.ContainingType))
                 {
                     receiverAlreadyLoaded = true;
                     receiverAddressLoaded = true;
