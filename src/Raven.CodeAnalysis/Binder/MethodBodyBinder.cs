@@ -80,6 +80,9 @@ class MethodBodyBinder : BlockBinder
 
     public override BoundNode GetOrBind(SyntaxNode node)
     {
+        if (TryGetCachedBoundNode(node) is BoundNode cached)
+            return cached;
+
         if (node is BlockStatementSyntax blockStmt)
             return BindBlockStatement(blockStmt);
         if (node is BlockSyntax block)

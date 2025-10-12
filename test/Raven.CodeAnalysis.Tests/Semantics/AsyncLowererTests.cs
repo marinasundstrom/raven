@@ -84,13 +84,83 @@ class C {
     }
 
     [Fact]
+    public void Analyze_TopLevelAsyncFunction_RequiresStateMachine()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+async func Test(value: int) -> Task<Int32> {
+    await Task.Delay(1)
+    return value
+}
+
+let result = await Test(42)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var functionSyntax = root
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "Test");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(functionSyntax.Body!));
+
+        var analysis = AsyncLowerer.Analyze(methodSymbol, boundBody);
+
+        Assert.True(analysis.ContainsAwait);
+        Assert.True(analysis.RequiresStateMachine);
+        Assert.True(methodSymbol.ContainsAwait);
+    }
+
+    [Fact]
+    public void Rewrite_TopLevelAsyncFunction_UpdatesCachedBody()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+async func Test(value: int) -> Task<Int32> {
+    await Task.Delay(1)
+    return value
+}
+
+let result = await Test(42)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var functionSyntax = root
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "Test");
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(functionSyntax.Body!));
+
+        var rewritten = AsyncLowerer.Rewrite(methodSymbol, boundBody);
+        model.CacheBoundNode(functionSyntax.Body!, rewritten);
+
+        var rebound = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(functionSyntax.Body!));
+        Assert.Same(rewritten, rebound);
+    }
+
+    [Fact]
     public void Rewrite_AwaitInReturnExpression_LowersToBlockExpression()
     {
         const string source = """
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task[Int32] {
+    async Work() -> Task<Int32> {
         return await Task.FromResult(42)
     }
 }
@@ -158,7 +228,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task[Int32] => await Task.FromResult(1)
+    async Work() -> Task<Int32> => await Task.FromResult(1)
 }
 """;
 
@@ -194,7 +264,7 @@ import System.Threading.Tasks.*
 class C {
     private let backing: Int32
 
-    public Value: Task[Int32] {
+    public Value: Task<Int32> {
         async get => await Task.FromResult(backing)
     }
 }
@@ -232,7 +302,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task[Int32] {
+    async Work() -> Task<Int32> {
         return 1 + await Task.FromResult(2)
     }
 }
@@ -278,7 +348,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task[Int32] {
+    async Work() -> Task<Int32> {
         return Wrap(await Task.FromResult(5))
     }
 

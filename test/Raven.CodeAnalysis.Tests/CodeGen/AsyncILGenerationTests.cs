@@ -41,6 +41,17 @@ class C {
 }
 """;
 
+    private const string TopLevelAsyncFunctionCode = """
+import System.Threading.Tasks.*
+
+async func Test(value: int) -> Task<Int32> {
+    await Task.Delay(5)
+    return value
+}
+
+let result = await Test(42)
+""";
+
     [Fact]
     public void AsyncMethod_AppliesStateMachineMetadata()
     {
@@ -434,6 +445,42 @@ class C {
             .Single(stateMachine => stateMachine.AsyncMethod.MethodKind == MethodKind.LambdaMethod);
 
         Assert.NotNull(lambdaStateMachine.MoveNextBody);
+    }
+
+    [Fact]
+    public void TopLevelAsyncFunction_EmitsStateMachine()
+    {
+        var syntaxTree = SyntaxTree.ParseText(TopLevelAsyncFunctionCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var functionSyntax = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(functionSyntax));
+        Assert.NotNull(methodSymbol.AsyncStateMachine);
     }
 
     private static (IMethodSymbol Method, RecordedInstruction[] Instructions) CaptureAsyncInstructions(Func<MethodGenerator, bool> predicate)
