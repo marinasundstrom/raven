@@ -384,6 +384,32 @@ WriteLine(value)
     }
 
     [Fact]
+    public void MoveNext_AwaitUnsafeOnCompleted_UsesBuilderAddress()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var awaitUnsafeIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("AwaitUnsafeOnCompleted", StringComparison.Ordinal));
+
+        Assert.True(awaitUnsafeIndex >= 0, "AwaitUnsafeOnCompleted call not found in MoveNext body.");
+
+        var builderAddressIndex = Array.FindLastIndex(instructions, awaitUnsafeIndex, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex >= 0, "Builder field address not loaded before AwaitUnsafeOnCompleted call.");
+
+        for (var i = builderAddressIndex + 1; i < awaitUnsafeIndex; i++)
+        {
+            Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
+        }
+    }
+
+    [Fact]
     public void MoveNext_ClearsAwaiterFieldsOnResume()
     {
         var (_, instructions) = CaptureAsyncInstructions(static generator =>
