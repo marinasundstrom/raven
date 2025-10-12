@@ -94,6 +94,33 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundTypeOfExpression typeOfExpression:
                 VisitTypeOfExpression(typeOfExpression);
                 break;
+            case BoundConditionalAccessExpression conditionalAccess:
+                VisitConditionalAccessExpression(conditionalAccess);
+                break;
+            case BoundIfExpression ifExpression:
+                VisitIfExpression(ifExpression);
+                break;
+            case BoundIndexerAccessExpression indexerAccess:
+                VisitIndexerAccessExpression(indexerAccess);
+                break;
+            case BoundArrayAccessExpression arrayAccess:
+                VisitArrayAccessExpression(arrayAccess);
+                break;
+            case BoundCollectionExpression collection:
+                VisitCollectionExpression(collection);
+                break;
+            case BoundSpreadElement spread:
+                VisitSpreadElement(spread);
+                break;
+            case BoundIsPatternExpression isPattern:
+                VisitIsPatternExpression(isPattern);
+                break;
+            case BoundMatchExpression match:
+                VisitMatchExpression(match);
+                break;
+            case BoundAddressOfExpression addressOf:
+                VisitAddressOfExpression(addressOf);
+                break;
             // Add others as needed
             default:
                 break;
@@ -281,6 +308,67 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public virtual void VisitDelegateCreationExpression(BoundDelegateCreationExpression node)
     {
         VisitMethodGroupExpression(node.MethodGroup);
+    }
+
+    public virtual void VisitConditionalAccessExpression(BoundConditionalAccessExpression node)
+    {
+        VisitExpression(node.Receiver);
+        VisitExpression(node.WhenNotNull);
+    }
+
+    public virtual void VisitIfExpression(BoundIfExpression node)
+    {
+        VisitExpression(node.Condition);
+        VisitExpression(node.ThenBranch);
+        if (node.ElseBranch is not null)
+            VisitExpression(node.ElseBranch);
+    }
+
+    public virtual void VisitIndexerAccessExpression(BoundIndexerAccessExpression node)
+    {
+        VisitExpression(node.Receiver);
+        foreach (var argument in node.Arguments)
+            VisitExpression(argument);
+    }
+
+    public virtual void VisitArrayAccessExpression(BoundArrayAccessExpression node)
+    {
+        VisitExpression(node.Receiver);
+        foreach (var index in node.Indices)
+            VisitExpression(index);
+    }
+
+    public virtual void VisitCollectionExpression(BoundCollectionExpression node)
+    {
+        foreach (var element in node.Elements)
+            VisitExpression(element);
+    }
+
+    public virtual void VisitSpreadElement(BoundSpreadElement node)
+    {
+        VisitExpression(node.Expression);
+    }
+
+    public virtual void VisitIsPatternExpression(BoundIsPatternExpression node)
+    {
+        VisitExpression(node.Expression);
+    }
+
+    public virtual void VisitMatchExpression(BoundMatchExpression node)
+    {
+        VisitExpression(node.Expression);
+        foreach (var arm in node.Arms)
+        {
+            if (arm.Guard is not null)
+                VisitExpression(arm.Guard);
+            VisitExpression(arm.Expression);
+        }
+    }
+
+    public virtual void VisitAddressOfExpression(BoundAddressOfExpression node)
+    {
+        if (node.Receiver is not null)
+            VisitExpression(node.Receiver);
     }
 
     public virtual void VisitMethodGroupExpression(BoundMethodGroupExpression node)
