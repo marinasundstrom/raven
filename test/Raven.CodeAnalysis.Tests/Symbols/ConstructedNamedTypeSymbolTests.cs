@@ -46,6 +46,54 @@ public class ConstructedNamedTypeSymbolTests
     }
 
     [Fact]
+    public void GetMembers_SubstitutedMethod_UsesConstructedContainingType()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var listOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(stringType));
+
+        var addRange = Assert.Single(
+            listOfString.GetMembers("AddRange").OfType<IMethodSymbol>());
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(listOfString, addRange.ContainingType));
+
+        var parameter = Assert.Single(addRange.Parameters);
+        var enumerable = Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+
+        Assert.Equal("IEnumerable", enumerable.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, enumerable.TypeArguments[0]));
+    }
+
+    [Fact]
+    public void SubstitutedMethod_ReturnType_UsesTypeArgument()
+    {
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var listOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(stringType));
+
+        var find = Assert.Single(
+            listOfString.GetMembers("Find").OfType<IMethodSymbol>());
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, find.ReturnType));
+
+        var predicate = Assert.Single(find.Parameters);
+        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicate.Type);
+
+        Assert.Equal("Predicate", predicateType.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(stringType, predicateType.TypeArguments[0]));
+    }
+
+    [Fact]
     public void TupleElements_AreSubstitutedFromDefinition()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
