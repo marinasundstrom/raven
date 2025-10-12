@@ -89,7 +89,7 @@ class C {
         const string source = """
 import System.Threading.Tasks.*
 
-async func Test(value: int) -> Task[Int32] {
+async func Test(value: int) -> Task<Int32> {
     await Task.Delay(1)
     return value
 }
@@ -124,7 +124,7 @@ let result = await Test(42)
         const string source = """
 import System.Threading.Tasks.*
 
-async func Test(value: int) -> Task[Int32] {
+async func Test(value: int) -> Task<Int32> {
     await Task.Delay(1)
     return value
 }
@@ -160,7 +160,7 @@ let result = await Test(42)
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task[Int32] {
+    async Work() -> Task<Int32> {
         return await Task.FromResult(42)
     }
 }
@@ -228,7 +228,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task[Int32] => await Task.FromResult(1)
+    async Work() -> Task<Int32> => await Task.FromResult(1)
 }
 """;
 
@@ -264,7 +264,7 @@ import System.Threading.Tasks.*
 class C {
     private let backing: Int32
 
-    public Value: Task[Int32] {
+    public Value: Task<Int32> {
         async get => await Task.FromResult(backing)
     }
 }
@@ -302,7 +302,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task[Int32] {
+    async Work() -> Task<Int32> {
         return 1 + await Task.FromResult(2)
     }
 }
@@ -348,7 +348,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async Work() -> Task[Int32] {
+    async Work() -> Task<Int32> {
         return Wrap(await Task.FromResult(5))
     }
 

@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -81,7 +83,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async f() -> Task[Int32] {
+    async f() -> Task<Int32> {
         return 1;
     }
 }
@@ -97,7 +99,7 @@ class C {
 import System.Threading.Tasks.*
 
 class C {
-    async f() -> Task[Int32] {
+    async f() -> Task<Int32> {
         return "oops";
     }
 }

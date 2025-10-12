@@ -44,7 +44,7 @@ class C {
     private const string TopLevelAsyncFunctionCode = """
 import System.Threading.Tasks.*
 
-async func Test(value: int) -> Task[Int32] {
+async func Test(value: int) -> Task<Int32> {
     await Task.Delay(5)
     return value
 }
