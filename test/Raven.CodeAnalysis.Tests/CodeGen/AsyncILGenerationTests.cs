@@ -52,6 +52,20 @@ async func Test(value: int) -> Task<Int32> {
 let result = await Test(42)
 """;
 
+    private const string AsyncTaskOfIntEntryPointCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test(value: int) -> Task<int> {
+    await Task.Delay(10)
+    return value
+}
+
+let value = await Test(42)
+
+WriteLine(value)
+""";
+
     [Fact]
     public void AsyncMethod_AppliesStateMachineMetadata()
     {
@@ -197,6 +211,45 @@ let result = await Test(42)
         Assert.Contains(instructions, instruction =>
             instruction.Opcode == OpCodes.Ldflda && FormatOperand(instruction.Operand) == "_state" ||
             instruction.Opcode == OpCodes.Ldfld && FormatOperand(instruction.Operand) == "_state");
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_WithTaskOfInt_ThrowsBadImageFormatException()
+    {
+        var syntaxTree = SyntaxTree.ParseText(AsyncTaskOfIntEntryPointCode);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async_entry", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        peStream.Position = 0;
+        var assembly = Assembly.Load(peStream.ToArray());
+
+        var programType = assembly.GetType("Program", throwOnError: true, ignoreCase: false);
+        Assert.NotNull(programType);
+
+        var main = programType!.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(main);
+
+        var exception = Assert.Throws<TargetInvocationException>(() => main!.Invoke(null, new object?[] { Array.Empty<string>() }));
+        Assert.IsType<BadImageFormatException>(exception.InnerException);
     }
 
     [Fact]
