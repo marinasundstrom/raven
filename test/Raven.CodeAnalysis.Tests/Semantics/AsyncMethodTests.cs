@@ -137,6 +137,31 @@ await Task.CompletedTask
     }
 
     [Fact]
+    public void TopLevelAwait_InVariableInitializer_PromotesSynthesizedMainToAsyncTask()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+let value = await Task.FromResult(1)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var program = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.GetMembers("Program").Single());
+        var main = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("Main").Single());
+        var asyncMain = Assert.IsAssignableFrom<IMethodSymbol>(program.GetMembers("MainAsync").Single());
+
+        Assert.False(main.IsAsync);
+        Assert.Equal(SpecialType.System_Unit, main.ReturnType.SpecialType);
+
+        Assert.True(asyncMain.IsAsync);
+        Assert.Equal(SpecialType.System_Threading_Tasks_Task, asyncMain.ReturnType.SpecialType);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void TopLevelWithoutAwait_DoesNotProduceAsyncImplementation()
     {
         const string source = "let x = 0";

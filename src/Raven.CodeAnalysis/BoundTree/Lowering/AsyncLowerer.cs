@@ -1623,6 +1623,21 @@ internal static class AsyncLowerer
         {
             // Nested lambdas are lowered independently.
         }
+
+        public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
+        {
+            if (FoundAwait)
+                return;
+
+            foreach (var declarator in node.Declarators)
+            {
+                if (declarator.Initializer is not null)
+                    VisitExpression(declarator.Initializer);
+
+                if (FoundAwait)
+                    break;
+            }
+        }
     }
 
     private static BoundStatement? CreateBuilderInitializationStatement(SourceLocalSymbol asyncLocal, SynthesizedAsyncStateMachineTypeSymbol stateMachine)
