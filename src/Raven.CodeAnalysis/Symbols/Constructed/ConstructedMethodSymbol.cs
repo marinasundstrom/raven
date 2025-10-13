@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 
 using Raven.CodeAnalysis;
 
@@ -201,6 +202,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
         var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var isTypeBuilderInstantiation = string.Equals(
+            containingClrType.GetType().FullName,
+            "System.Reflection.Emit.TypeBuilderInstantiation",
+            StringComparison.Ordinal);
+        var methodSearchType = isTypeBuilderInstantiation
+            ? containingClrType.GetGenericTypeDefinition()
+            : containingClrType;
         var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
         var runtimeTypeArguments = TypeArguments
@@ -208,26 +216,35 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        foreach (var method in containingClrType.GetMethods(Flags))
+        foreach (var method in methodSearchType.GetMethods(Flags))
         {
-            if (!string.Equals(method.Name, _definition.Name, StringComparison.Ordinal))
-                continue;
-
-            if (method.IsGenericMethodDefinition != _definition.IsGenericMethod)
-            {
-                if (!method.IsGenericMethodDefinition)
-                    continue;
-            }
-
             MethodInfo candidate = method;
 
-            if (method.IsGenericMethodDefinition)
+            if (isTypeBuilderInstantiation)
             {
-                if (method.GetGenericArguments().Length != runtimeTypeArguments.Length)
+                var instantiated = TypeBuilder.GetMethod(containingClrType, method);
+                if (instantiated is null)
                     continue;
-                candidate = method.MakeGenericMethod(runtimeTypeArguments);
+
+                candidate = instantiated;
             }
-            else if (method.ContainsGenericParameters)
+
+            if (!string.Equals(candidate.Name, _definition.Name, StringComparison.Ordinal))
+                continue;
+
+            if (candidate.IsGenericMethodDefinition != _definition.IsGenericMethod)
+            {
+                if (!candidate.IsGenericMethodDefinition)
+                    continue;
+            }
+
+            if (candidate.IsGenericMethodDefinition)
+            {
+                if (candidate.GetGenericArguments().Length != runtimeTypeArguments.Length)
+                    continue;
+                candidate = candidate.MakeGenericMethod(runtimeTypeArguments);
+            }
+            else if (candidate.ContainsGenericParameters)
             {
                 continue;
             }
