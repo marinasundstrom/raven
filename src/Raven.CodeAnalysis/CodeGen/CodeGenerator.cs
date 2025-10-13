@@ -26,7 +26,26 @@ internal class CodeGenerator
 
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo) => _mappings[symbol] = memberInfo;
 
-    public MemberInfo? GetMemberBuilder(SourceSymbol symbol) => _mappings[symbol];
+    public MemberInfo? GetMemberBuilder(SourceSymbol symbol)
+    {
+        if (_mappings.TryGetValue(symbol, out var memberInfo))
+            return memberInfo;
+
+        if (symbol is SourceFieldSymbol fieldSymbol)
+        {
+            if (fieldSymbol.ContainingType is not INamedTypeSymbol containingType)
+                throw new KeyNotFoundException($"Missing containing type for field '{fieldSymbol.Name}'.");
+
+            var typeGenerator = GetOrCreateTypeGenerator(containingType);
+
+            if (typeGenerator.TypeBuilder is null)
+                typeGenerator.DefineTypeBuilder();
+
+            return typeGenerator.EnsureFieldBuilder(fieldSymbol);
+        }
+
+        throw new KeyNotFoundException($"Missing member builder for '{symbol.Name}'.");
+    }
 
     internal bool TryGetRuntimeMethod(IMethodSymbol symbol, out MethodInfo methodInfo)
         => _runtimeMethodCache.TryGetValue(symbol, out methodInfo);

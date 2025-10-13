@@ -297,6 +297,9 @@ internal class TypeMemberBinder : Binder
         if (isExtensionContainer)
             methodSymbol.MarkDeclaredInExtension();
 
+        if (isAsync && methodDecl.ReturnType is null)
+            methodSymbol.RequireAsyncReturnTypeInference();
+
         if (methodDecl.TypeParameterList is not null)
         {
             var typeParametersBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(methodDecl.TypeParameterList.Parameters.Count);

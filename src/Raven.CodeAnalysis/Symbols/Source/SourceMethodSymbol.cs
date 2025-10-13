@@ -28,6 +28,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _containsAwait;
     private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
     private bool _hasAsyncReturnTypeError;
+    private bool _requiresAsyncReturnTypeInference;
+    private bool _asyncReturnTypeInferenceComplete;
 
     public SourceMethodSymbol(
         string name,
@@ -89,6 +91,10 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     public bool ContainsAwait => _containsAwait;
 
     internal bool HasAsyncReturnTypeError => _hasAsyncReturnTypeError;
+    internal bool RequiresAsyncReturnTypeInference => _requiresAsyncReturnTypeInference;
+    internal bool AsyncReturnTypeInferenceComplete => _asyncReturnTypeInferenceComplete;
+    internal bool ShouldDeferAsyncReturnDiagnostics =>
+        _requiresAsyncReturnTypeInference && !_asyncReturnTypeInferenceComplete;
 
     public bool IsCheckedBuiltin { get; }
 
@@ -200,6 +206,20 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     internal void MarkAsyncReturnTypeError()
     {
         _hasAsyncReturnTypeError = true;
+    }
+
+    internal void RequireAsyncReturnTypeInference()
+    {
+        _requiresAsyncReturnTypeInference = true;
+        _asyncReturnTypeInferenceComplete = false;
+    }
+
+    internal void CompleteAsyncReturnTypeInference()
+    {
+        if (!_requiresAsyncReturnTypeInference)
+            return;
+
+        _asyncReturnTypeInferenceComplete = true;
     }
 
     internal void SetIteratorStateMachine(SynthesizedIteratorTypeSymbol stateMachine)

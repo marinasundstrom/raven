@@ -29,6 +29,30 @@ class C {
     }
 
     [Fact]
+    public void AsyncMethod_WithoutReturnType_WithReturnExpression_InfersTaskOfResult()
+    {
+        const string source = """
+class C {
+    async f() {
+        return 42;
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+
+        Assert.True(symbol.IsAsync);
+        Assert.Equal(
+            "System.Threading.Tasks.Task<System.Int32>",
+            symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void AsyncMethod_WithExplicitNonTaskReturnType_ReportsDiagnostic()
     {
         const string source = """
@@ -74,6 +98,44 @@ class C {
         var (compilation, _) = CreateCompilation(source);
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
         Assert.Equal(CompilerDiagnostics.AsyncTaskReturnCannotHaveExpression, diagnostic.Descriptor);
+    }
+
+    [Fact]
+    public void AsyncMethod_WithoutReturnType_ReturningTaskExpression_ReportsDiagnostic()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+class C {
+    async f() {
+        return Task.CompletedTask;
+    }
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.AsyncTaskReturnCannotHaveExpression, diagnostic.Descriptor);
+    }
+
+    [Fact]
+    public void AsyncMethod_ExpressionBody_WithReturnValue_InferredTaskOfResult()
+    {
+        const string source = """
+class C {
+    async f() => 5;
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+
+        Assert.Equal(
+            "System.Threading.Tasks.Task<System.Int32>",
+            symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]

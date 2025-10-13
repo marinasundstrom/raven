@@ -42,6 +42,30 @@ func outer() {
     }
 
     [Fact]
+    public void AsyncFunction_WithoutReturnType_WithReturnExpression_InfersTaskOfResult()
+    {
+        var source = """
+func outer() {
+    async func inner() {
+        return 1
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
+
+        Assert.True(symbol.IsAsync);
+        Assert.Equal(
+            "System.Threading.Tasks.Task<System.Int32>",
+            symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void DuplicateFunction_DiagnosticReported()
     {
         var source = """

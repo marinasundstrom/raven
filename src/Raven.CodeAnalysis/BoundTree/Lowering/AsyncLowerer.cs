@@ -433,9 +433,20 @@ internal static class AsyncLowerer
             state,
             stateMachine.StateField.Type);
 
-        var receiver = new BoundSelfExpression(stateMachine);
-        var assignment = new BoundFieldAssignmentExpression(receiver, stateMachine.StateField, literal);
+        var assignment = CreateStateMachineFieldAssignment(stateMachine, stateMachine.StateField, literal);
         return new BoundAssignmentStatement(assignment);
+    }
+
+    private static BoundFieldAssignmentExpression CreateStateMachineFieldAssignment(
+        SynthesizedAsyncStateMachineTypeSymbol stateMachine,
+        SourceFieldSymbol field,
+        BoundExpression value)
+    {
+        return new BoundFieldAssignmentExpression(
+            new BoundSelfExpression(stateMachine),
+            field,
+            value,
+            requiresReceiverAddress: true);
     }
 
     private static BoundStatement? CreateBuilderSetExceptionStatement(SynthesizedAsyncStateMachineTypeSymbol stateMachine, ILocalSymbol exceptionLocal)
@@ -511,7 +522,7 @@ internal static class AsyncLowerer
         var defaultValue = CreateDefaultValueExpression(field.Type);
         if (defaultValue is not null)
         {
-            var assignment = new BoundFieldAssignmentExpression(new BoundSelfExpression(stateMachine), field, defaultValue);
+            var assignment = CreateStateMachineFieldAssignment(stateMachine, field, defaultValue);
             clearStatement = new BoundAssignmentStatement(assignment);
         }
 
@@ -693,7 +704,7 @@ internal static class AsyncLowerer
                     if (initializer is not null)
                     {
                         var receiver = new BoundSelfExpression(_stateMachine);
-                        var assignment = new BoundFieldAssignmentExpression(receiver, field, initializer);
+                        var assignment = new BoundFieldAssignmentExpression(receiver, field, initializer, requiresReceiverAddress: true);
                         hoistedStatements.Add(new BoundAssignmentStatement(assignment));
                     }
                 }
@@ -1185,7 +1196,7 @@ internal static class AsyncLowerer
             var right = VisitExpression(node.Right) ?? node.Right;
 
             if (_hoistedLocals.TryGetValue(node.Local, out var field))
-                return new BoundFieldAssignmentExpression(new BoundSelfExpression(_stateMachine), field, right);
+                return CreateStateMachineFieldAssignment(_stateMachine, field, right);
 
             if (!ReferenceEquals(right, node.Right))
                 return new BoundLocalAssignmentExpression(node.Local, right);
@@ -1283,7 +1294,8 @@ internal static class AsyncLowerer
             var clearAssignment = new BoundFieldAssignmentExpression(
                 new BoundSelfExpression(_stateMachine),
                 awaiterField,
-                new BoundLocalAccess(awaiterDefaultLocal));
+                new BoundLocalAccess(awaiterDefaultLocal),
+                requiresReceiverAddress: true);
             resumeStatements.Add(new BoundAssignmentStatement(clearAssignment));
 
             var awaiterAccess = new BoundLocalAccess(awaiterLocal);
@@ -1329,7 +1341,7 @@ internal static class AsyncLowerer
                 awaitExpression.Expression);
 
             var receiver = new BoundSelfExpression(_stateMachine);
-            var assignment = new BoundFieldAssignmentExpression(receiver, awaiterField, getAwaiter);
+            var assignment = new BoundFieldAssignmentExpression(receiver, awaiterField, getAwaiter, requiresReceiverAddress: true);
             return new BoundAssignmentStatement(assignment);
         }
 

@@ -20,6 +20,20 @@ class MethodBodyBinder : BlockBinder
     {
         var bound = base.BindBlockStatement(block);
 
+        if (_methodSymbol is SourceMethodSymbol
+            {
+                RequiresAsyncReturnTypeInference: true,
+                AsyncReturnTypeInferenceComplete: false
+            } sourceMethod)
+        {
+            var inferredReturnType = AsyncReturnTypeUtilities.InferAsyncReturnType(Compilation, bound);
+            sourceMethod.SetReturnType(inferredReturnType);
+            sourceMethod.CompleteAsyncReturnTypeInference();
+
+            RemoveCachedBoundNode(block);
+            bound = base.BindBlockStatement(block);
+        }
+
         if (_methodSymbol.IsNamedConstructor && !_namedConstructorRewritten)
         {
             var selfLocal = new SourceLocalSymbol(
@@ -58,6 +72,9 @@ class MethodBodyBinder : BlockBinder
 
     private bool ShouldSkipTrailingExpressionCheck(ITypeSymbol unitType)
     {
+        if (_methodSymbol is SourceMethodSymbol { ShouldDeferAsyncReturnDiagnostics: true })
+            return true;
+
         if (!_methodSymbol.IsAsync)
             return false;
 

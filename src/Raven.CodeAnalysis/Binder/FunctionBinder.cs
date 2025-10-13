@@ -84,6 +84,9 @@ class FunctionBinder : Binder
         if (hasInvalidAsyncReturnType)
             _methodSymbol.MarkAsyncReturnTypeError();
 
+        if (isAsync && _syntax.ReturnType is null)
+            _methodSymbol.RequireAsyncReturnTypeInference();
+
         var parameters = _syntax.ParameterList.Parameters
             .Select(p =>
             {
