@@ -63,7 +63,7 @@ internal sealed class AttributeBinder : BlockBinder
         var argumentList = attribute.ArgumentList;
         var argumentSyntaxes = argumentList?.Arguments ?? SeparatedSyntaxList<ArgumentSyntax>.Empty;
 
-        var boundArguments = ImmutableArray.CreateBuilder<BoundExpression>(argumentSyntaxes.Count);
+        var boundArguments = ImmutableArray.CreateBuilder<BoundArgument>(argumentSyntaxes.Count);
         bool hasErrors = false;
 
         for (int i = 0; i < argumentSyntaxes.Count; i++)
@@ -74,7 +74,11 @@ internal sealed class AttributeBinder : BlockBinder
             if (boundArgument is BoundErrorExpression)
                 hasErrors = true;
 
-            boundArguments.Add(boundArgument);
+            var name = argumentSyntax.NameColon?.Name.Identifier.ValueText;
+            if (string.IsNullOrEmpty(name))
+                name = null;
+
+            boundArguments.Add(new BoundArgument(boundArgument, RefKind.None, name, argumentSyntax));
         }
 
         if (hasErrors)
@@ -90,7 +94,7 @@ internal sealed class AttributeBinder : BlockBinder
             if (!EnsureMemberAccessible(constructor, attribute.Name.GetLocation(), "constructor"))
                 return new BoundErrorExpression(attributeType, constructor, BoundExpressionReason.Inaccessible);
 
-            var converted = ConvertArguments(constructor.Parameters, arguments, argumentSyntaxes);
+            var converted = ConvertArguments(constructor.Parameters, arguments);
             return new BoundObjectCreationExpression(constructor, converted);
         }
 

@@ -11,7 +11,7 @@ internal sealed class OverloadResolver
 {
     public static OverloadResolutionResult ResolveOverload(
         IEnumerable<IMethodSymbol> methods,
-        BoundExpression[] arguments,
+        BoundArgument[] arguments,
         Compilation compilation,
         BoundExpression? receiver = null,
         Func<IParameterSymbol, BoundLambdaExpression, bool>? canBindLambda = null)
@@ -88,7 +88,7 @@ internal sealed class OverloadResolver
     internal static IMethodSymbol? ApplyTypeArgumentInference(
         IMethodSymbol method,
         BoundExpression? receiver,
-        BoundExpression[] arguments,
+        BoundArgument[] arguments,
         Compilation compilation)
     {
         if (!method.IsGenericMethod || method.TypeParameters.IsDefaultOrEmpty || method.TypeParameters.Length == 0)
@@ -104,7 +104,7 @@ internal sealed class OverloadResolver
     private static IMethodSymbol? TryConstructMethodWithInference(
         IMethodSymbol method,
         BoundExpression? receiver,
-        BoundExpression[] arguments,
+        BoundArgument[] arguments,
         bool treatAsExtension,
         Compilation compilation)
     {
@@ -123,16 +123,24 @@ internal sealed class OverloadResolver
             parameterIndex++;
         }
 
-        for (int i = 0; i < arguments.Length && parameterIndex < parameters.Length; i++, parameterIndex++)
+        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments))
+            return null;
+
+        for (; parameterIndex < parameters.Length; parameterIndex++)
         {
-            var argumentType = arguments[i].Type;
+            var mapped = mappedArguments[parameterIndex];
+            if (mapped is null)
+                continue;
+
+            var expression = mapped.Value.Expression;
+            var argumentType = expression.Type;
             if (argumentType is null)
                 continue;
 
             if (argumentType.TypeKind == TypeKind.Error)
                 continue;
 
-            if (arguments[i] is BoundLambdaExpression)
+            if (expression is BoundLambdaExpression)
                 continue;
 
             if (!TryInferFromTypes(compilation, parameters[parameterIndex].Type, argumentType, substitutions))
@@ -353,7 +361,7 @@ internal sealed class OverloadResolver
     private static bool IsMoreSpecific(
         IMethodSymbol candidate,
         IMethodSymbol current,
-        BoundExpression[] arguments,
+        BoundArgument[] arguments,
         BoundExpression? receiver,
         Compilation compilation)
     {
@@ -367,16 +375,13 @@ internal sealed class OverloadResolver
         if (candidateIsExtension != currentIsExtension)
             return !currentIsExtension;
 
-        int candParamIndex = candidateIsExtension ? 1 : 0;
-        int currentParamIndex = currentIsExtension ? 1 : 0;
-
-        if (candidateIsExtension && currentIsExtension && receiver is not null && receiver.Type is not null)
+        if (candidateIsExtension && currentIsExtension && receiver?.Type is ITypeSymbol receiverType)
         {
             var candParamType = candParams[0].Type;
             var currentParamType = currentParams[0].Type;
 
-            var candImplicit = IsImplicitConversion(compilation, receiver.Type, candParamType);
-            var currentImplicit = IsImplicitConversion(compilation, receiver.Type, currentParamType);
+            var candImplicit = IsImplicitConversion(compilation, receiverType, candParamType);
+            var currentImplicit = IsImplicitConversion(compilation, receiverType, currentParamType);
 
             if (candImplicit && !currentImplicit)
             {
@@ -387,8 +392,8 @@ internal sealed class OverloadResolver
                 return false;
             }
 
-            var candDist = GetInheritanceDistance(GetUnderlying(receiver.Type), GetUnderlying(candParamType));
-            var currDist = GetInheritanceDistance(GetUnderlying(receiver.Type), GetUnderlying(currentParamType));
+            var candDist = GetInheritanceDistance(GetUnderlying(receiverType), GetUnderlying(candParamType));
+            var currDist = GetInheritanceDistance(GetUnderlying(receiverType), GetUnderlying(currentParamType));
 
             if (candDist < currDist)
                 better = true;
@@ -396,18 +401,28 @@ internal sealed class OverloadResolver
                 return false;
         }
 
+        if (!TryMapArguments(candParams, arguments, candidateIsExtension, out var candidateMapped))
+            return false;
+        if (!TryMapArguments(currentParams, arguments, currentIsExtension, out var currentMapped))
+            return false;
+
+        var candidateMap = BuildArgumentParameterMap(candidateMapped, arguments, candidateIsExtension);
+        var currentMap = BuildArgumentParameterMap(currentMapped, arguments, currentIsExtension);
+
         for (int i = 0; i < arguments.Length; i++)
         {
-            var argType = arguments[i].Type;
-            var candParamType = candParams[candParamIndex].Type;
-            var currentParamType = currentParams[currentParamIndex].Type;
+            var candidateParameterIndex = candidateMap[i];
+            var currentParameterIndex = currentMap[i];
 
-            if (argType is null)
-            {
-                candParamIndex++;
-                currentParamIndex++;
+            if (candidateParameterIndex < 0 || currentParameterIndex < 0)
                 continue;
-            }
+
+            var argType = arguments[i].Expression.Type;
+            if (argType is null)
+                continue;
+
+            var candParamType = candParams[candidateParameterIndex].Type;
+            var currentParamType = currentParams[currentParameterIndex].Type;
 
             if (argType.TypeKind == TypeKind.Null)
             {
@@ -423,8 +438,6 @@ internal sealed class OverloadResolver
                     return false;
                 }
 
-                candParamIndex++;
-                currentParamIndex++;
                 continue;
             }
 
@@ -439,9 +452,6 @@ internal sealed class OverloadResolver
                 better = true;
             else if (currDist < candDist)
                 return false;
-
-            candParamIndex++;
-            currentParamIndex++;
         }
 
         return better;
@@ -455,7 +465,7 @@ internal sealed class OverloadResolver
 
     private static bool TryMatch(
         IMethodSymbol method,
-        BoundExpression[] arguments,
+        BoundArgument[] arguments,
         BoundExpression? receiver,
         bool treatAsExtension,
         Compilation compilation,
@@ -477,19 +487,119 @@ internal sealed class OverloadResolver
             parameterIndex++;
         }
 
-        for (int i = 0; i < arguments.Length; i++, parameterIndex++)
-        {
-            if (!TryEvaluateArgument(parameters[parameterIndex], arguments[i], compilation, canBindLambda, ref score))
-                return false;
-        }
+        if (!TryMapArguments(parameters, arguments, treatAsExtension, out var mappedArguments))
+            return false;
 
         for (; parameterIndex < parameters.Length; parameterIndex++)
         {
-            if (!parameters[parameterIndex].HasExplicitDefaultValue)
+            var mapped = mappedArguments[parameterIndex];
+            if (mapped is null)
+            {
+                if (!parameters[parameterIndex].HasExplicitDefaultValue)
+                    return false;
+
+                continue;
+            }
+
+            if (!TryEvaluateArgument(parameters[parameterIndex], mapped.Value.Expression, compilation, canBindLambda, ref score))
                 return false;
         }
 
         return true;
+    }
+
+    internal static bool TryMapArguments(
+        ImmutableArray<IParameterSymbol> parameters,
+        IReadOnlyList<BoundArgument> arguments,
+        bool treatAsExtension,
+        out BoundArgument?[] orderedArguments)
+    {
+        orderedArguments = new BoundArgument?[parameters.Length];
+
+        var nextPositional = treatAsExtension ? 1 : 0;
+        var maxNamedIndex = -1;
+        var seenNamed = false;
+
+        foreach (var argument in arguments)
+        {
+            if (argument.Name is { } name)
+            {
+                var parameterIndex = FindParameterIndex(parameters, name);
+                if (parameterIndex < 0)
+                    return false;
+
+                if (treatAsExtension && parameterIndex == 0)
+                    return false;
+
+                if (orderedArguments[parameterIndex] is not null)
+                    return false;
+
+                orderedArguments[parameterIndex] = argument;
+                seenNamed = true;
+                if (parameterIndex > maxNamedIndex)
+                    maxNamedIndex = parameterIndex;
+                continue;
+            }
+
+            while (nextPositional < parameters.Length && orderedArguments[nextPositional] is not null)
+                nextPositional++;
+
+            if (nextPositional >= parameters.Length)
+                return false;
+
+            if (seenNamed && nextPositional <= maxNamedIndex)
+                return false;
+
+            orderedArguments[nextPositional] = argument;
+            nextPositional++;
+        }
+
+        var requiredStart = treatAsExtension ? 1 : 0;
+        for (var i = requiredStart; i < parameters.Length; i++)
+        {
+            if (orderedArguments[i] is null && !parameters[i].HasExplicitDefaultValue)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static int[] BuildArgumentParameterMap(
+        BoundArgument?[] orderedArguments,
+        BoundArgument[] originalArguments,
+        bool treatAsExtension)
+    {
+        var map = new int[originalArguments.Length];
+        Array.Fill(map, -1);
+
+        for (int parameterIndex = treatAsExtension ? 1 : 0; parameterIndex < orderedArguments.Length; parameterIndex++)
+        {
+            var argument = orderedArguments[parameterIndex];
+            if (argument is null)
+                continue;
+
+            for (int argumentIndex = 0; argumentIndex < originalArguments.Length; argumentIndex++)
+            {
+                if (ReferenceEquals(originalArguments[argumentIndex].Expression, argument.Value.Expression))
+                {
+                    map[argumentIndex] = parameterIndex;
+                    break;
+                }
+            }
+        }
+
+        return map;
+    }
+
+    private static int FindParameterIndex(ImmutableArray<IParameterSymbol> parameters, string name)
+    {
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            if (string.Equals(parameters[i].Name, name, StringComparison.Ordinal))
+                return i;
+        }
+
+        return -1;
     }
 
     private static bool TryEvaluateArgument(
