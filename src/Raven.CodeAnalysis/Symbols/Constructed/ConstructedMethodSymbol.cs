@@ -206,6 +206,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
             .ToArray();
 
+        RegisterMethodTypeParameters(runtimeTypeArguments, codeGen);
+
         if (containingClrType is TypeBuilder typeBuilder)
         {
             var builderMethod = ResolveMethodOnTypeBuilder(typeBuilder, codeGen);
@@ -424,6 +426,22 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         return runtimeType;
+    }
+
+    private void RegisterMethodTypeParameters(Type[] runtimeTypeArguments, CodeGen.CodeGenerator codeGen)
+    {
+        if (runtimeTypeArguments.Length == 0)
+            return;
+
+        var typeParameters = _definition.TypeParameters;
+        var length = Math.Min(typeParameters.Length, runtimeTypeArguments.Length);
+
+        for (var i = 0; i < length; i++)
+        {
+            var runtimeType = runtimeTypeArguments[i];
+            if (runtimeType is not null)
+                codeGen.CacheRuntimeTypeParameter(typeParameters[i], runtimeType);
+        }
     }
 
     private static Type? SubstituteTypeParameterFromDeclaringType(Type genericParameter, Type declaringType, Type[] typeRuntimeArguments, Type[] methodRuntimeArguments)
