@@ -276,6 +276,18 @@ Print(42)
 Print("hi")
 ```
 
+### Default parameter values
+
+Methods, constructors, and other function-like members may specify default
+values for trailing parameters using `= expression`. Optional parameters follow
+the same rules as top-level functions: once a parameter provides a default, all
+subsequent parameters in the list must also supply defaults. The expression is
+restricted to compile-time constants—literals (including `null`), parenthesized
+literals, or unary `+`/`-` applied to numeric literals—and the resulting value
+must convert to the parameter type using an implicit conversion. When the
+expression fails these checks, the compiler reports an error and treats the
+parameter as required.
+
 ### Invocation operator
 
 Declaring a method named `self` makes instances of the type invocable with the

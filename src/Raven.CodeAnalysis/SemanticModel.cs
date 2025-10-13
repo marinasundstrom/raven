@@ -1336,6 +1336,7 @@ public partial class SemanticModel
 
         var parameters = new List<SourceParameterSymbol>();
 
+        var seenOptionalParameter = false;
         foreach (var parameterSyntax in classDecl.ParameterList!.Parameters)
         {
             var refKind = RefKind.None;
@@ -1354,7 +1355,12 @@ public partial class SemanticModel
                     ? classBinder.ResolveType(typeSyntax, refKindForType)
                     : classBinder.ResolveType(typeSyntax);
 
-            var hasDefaultValue = TypeMemberBinder.TryEvaluateParameterDefaultValue(parameterSyntax, parameterType, out var defaultValue);
+            var defaultResult = TypeMemberBinder.ProcessParameterDefault(
+                parameterSyntax,
+                parameterType,
+                parameterSyntax.Identifier.ValueText,
+                classBinder.Diagnostics,
+                ref seenOptionalParameter);
             var parameterSymbol = new SourceParameterSymbol(
                 parameterSyntax.Identifier.ValueText,
                 parameterType,
@@ -1364,8 +1370,8 @@ public partial class SemanticModel
                 [parameterSyntax.GetLocation()],
                 [parameterSyntax.GetReference()],
                 refKind,
-                hasDefaultValue,
-                defaultValue);
+                defaultResult.HasExplicitDefaultValue,
+                defaultResult.ExplicitDefaultValue);
 
             parameters.Add(parameterSymbol);
 
