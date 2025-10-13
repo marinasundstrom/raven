@@ -153,6 +153,11 @@ for (int i = 0; i < args.Length; i++)
 
 if (showHelp || hasInvalidOption)
 {
+    if (hasInvalidOption)
+        Environment.ExitCode = 1;
+    else
+        Environment.ExitCode = 0;
+
     PrintHelp();
     return;
 }
@@ -166,6 +171,7 @@ for (int i = 0; i < sourceFiles.Count; i++)
     if (!File.Exists(sourceFiles[i]))
     {
         AnsiConsole.MarkupLine($"[red]Input file '{sourceFiles[i]}' doesn't exist.[/]");
+        Environment.ExitCode = 1;
         return;
     }
 }
@@ -416,9 +422,16 @@ if (diagnostics.Length > 0)
 }
 
 var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error && d.Descriptor.Id != "RAV1011");
-if (errors.Any() || ilVerifyFailed)
+var emitFailed = result is { Success: false };
+
+if (errors.Any() || emitFailed || ilVerifyFailed)
 {
-    if (errors.Any() && result is not null)
+    Environment.ExitCode = 1;
+    if (emitFailed && result is not null)
+    {
+        Failed(result);
+    }
+    else if (errors.Any() && result is not null)
         Failed(result);
     else if (errors.Any())
         Failed(errors.Count());
@@ -429,9 +442,15 @@ else
 {
     var warningsCount = diagnostics.Count(x => x.Severity == DiagnosticSeverity.Warning);
     if (warningsCount > 0)
+    {
+        Environment.ExitCode = 0;
         SucceededWithWarnings(warningsCount, stopwatch.Elapsed);
+    }
     else
+    {
+        Environment.ExitCode = 0;
         Succeeded(stopwatch.Elapsed);
+    }
 
     if (result is not null)
         CreateAppHost(compilation, outputFilePath, targetFramework);
