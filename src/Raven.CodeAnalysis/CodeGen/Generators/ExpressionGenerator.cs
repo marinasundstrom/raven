@@ -922,7 +922,7 @@ internal class ExpressionGenerator : Generator
                 if (MethodSymbol.IsStatic)
                     throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
 
-                ILGenerator.Emit(OpCodes.Ldarga, 0);
+                ILGenerator.Emit(OpCodes.Ldarg_0);
                 break;
 
             default:

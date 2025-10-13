@@ -392,30 +392,11 @@ internal class TypeGenerator
                     }
                 case IFieldSymbol fieldSymbol:
                     {
-                        var type = ResolveFieldClrType(fieldSymbol);
-
-                        FieldAttributes attr = GetFieldAccessibilityAttributes(fieldSymbol);
-
-                        if (fieldSymbol.IsLiteral)
+                        if (fieldSymbol is SourceFieldSymbol sourceField)
                         {
-                            attr |= FieldAttributes.Literal;
+                            _ = EnsureFieldBuilder(sourceField);
                         }
 
-                        if (fieldSymbol.IsStatic)
-                        {
-                            attr |= FieldAttributes.Static;
-                        }
-
-                        var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, type, attr);
-                        if (fieldSymbol.IsLiteral)
-                            fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
-                        var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
-                        if (nullableAttr is not null)
-                            fieldBuilder.SetCustomAttribute(nullableAttr);
-                        CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => fieldBuilder.SetCustomAttribute(attribute));
-                        _fieldBuilders[fieldSymbol] = fieldBuilder;
-
-                        CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);
                         break;
                     }
                 case IPropertySymbol propertySymbol:

@@ -43,6 +43,12 @@ remains to match the behaviour of C#.
 * Builders and hoisted awaiters now use `TryEmitValueTypeReceiverAddress`, keeping
   `_state`, `_builder`, and awaiter fields operating on the in-place struct so
   mutations do not spill through temporaries.
+* Synthesized async state machines reuse `EnsureFieldBuilder` when materialising
+  `_state`, `_builder`, and hoisted-awaiters so emission no longer defines the
+  same field twice before IL generation resolves the handle. 【F:src/Raven.CodeAnalysis/CodeGen/TypeGenerator.cs†L243-L399】
+* Taking the address of the state machine now always pushes `ldarg.0`, ensuring
+  builder calls receive a managed pointer to the struct rather than a by-value
+  copy when the receiver is omitted. 【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L905-L926】
 
 ## `async Task<T>` entry points
 
@@ -111,6 +117,10 @@ remains to match the behaviour of C#.
    * Flip existing failing tests to assert successful execution and add new
      IL baselines validating builder construction, `_state` management, and
      awaited value flow.
+   * Introduce runtime smoke tests starting with a minimal `await
+     Task.CompletedTask` console program before scaling up to the
+     `samples/async-await.rav` scenario so each behaviour change can be
+     validated incrementally.
    * Integrate runtime execution tests that await `Task<T>` entry points and
      confirm the returned result matches the awaited expression.
 6. **Tooling and documentation**
@@ -147,8 +157,9 @@ remains to match the behaviour of C#.
 * Revisit await scheduling heuristics to eliminate the redundant receiver loads
   that still show up in IL when lowering complex control-flow (captured in
   Step 3’s remaining gaps).
-* Expand runtime execution coverage beyond entry points once async lambdas and
-  generic methods participate in the same lowering pipeline.
+* Restore runtime execution coverage by fixing the minimal `await
+  Task.CompletedTask` program and the `samples/async-await.rav` regression so
+  smoke tests can assert the generated state machines reach completion.
 * Integrate the new `ravenc --ilverify` switch (or `peverify`) into CI once the
   state machine passes the runtime verifier to catch drift automatically.
 
