@@ -204,13 +204,28 @@ internal static class MethodSymbolExtensionsForCodeGen
         if (symbolParameter.RefKind == RefKind.Out && !runtimeParameter.IsOut)
             return false;
 
-        if (symbolParameter.RefKind == RefKind.Ref && !runtimeParameter.ParameterType.IsByRef)
-            return false;
+        var runtimeType = runtimeParameter.ParameterType;
+        var symbolType = symbolParameter.Type;
+
+        if (symbolParameter.RefKind == RefKind.Ref || symbolParameter.RefKind == RefKind.Out || symbolParameter.RefKind == RefKind.In)
+        {
+            if (!runtimeType.IsByRef && !runtimeParameter.IsIn)
+                return false;
+
+            runtimeType = runtimeType.IsByRef ? runtimeType.GetElementType()! : runtimeType;
+
+            if (symbolType is ByRefTypeSymbol byRefSymbol)
+                symbolType = byRefSymbol.ElementType;
+        }
+        else if (runtimeType.IsByRef)
+        {
+            runtimeType = runtimeType.GetElementType()!;
+        }
 
         if (symbolParameter.RefKind == RefKind.In && !(runtimeParameter.IsIn || runtimeParameter.ParameterType.IsByRef))
             return false;
 
-        return TypesEquivalent(runtimeParameter.ParameterType, symbolParameter.Type, codeGen);
+        return TypesEquivalent(runtimeType, symbolType, codeGen);
     }
 
     internal static bool ReturnTypesMatch(Type runtimeReturnType, ITypeSymbol symbolReturnType, CodeGenerator codeGen)
