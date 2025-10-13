@@ -202,18 +202,52 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
         var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var containingClrTypeInfo = containingClrType.GetType();
+        var isTypeBuilder = containingClrType is TypeBuilder;
         var isTypeBuilderInstantiation = string.Equals(
-            containingClrType.GetType().FullName,
+            containingClrTypeInfo.FullName,
             "System.Reflection.Emit.TypeBuilderInstantiation",
             StringComparison.Ordinal);
+        var runtimeTypeArguments = TypeArguments.IsDefaultOrEmpty
+            ? Array.Empty<Type>()
+            : TypeArguments
+                .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
+                .ToArray();
+
+        if (isTypeBuilder)
+        {
+            var definitionMethod = _definition.GetClrMethodInfo(codeGen);
+            MethodInfo instantiatedMethod = definitionMethod;
+
+            if (_definition.IsGenericMethod && runtimeTypeArguments.Length > 0)
+            {
+                if (definitionMethod.IsGenericMethodDefinition)
+                {
+                    instantiatedMethod = definitionMethod.MakeGenericMethod(runtimeTypeArguments);
+                }
+                else if (definitionMethod.IsGenericMethod && definitionMethod.ContainsGenericParameters)
+                {
+                    instantiatedMethod = definitionMethod
+                        .GetGenericMethodDefinition()
+                        .MakeGenericMethod(runtimeTypeArguments);
+                }
+            }
+
+            if (!ReferenceEquals(instantiatedMethod.DeclaringType, containingClrType))
+            {
+                var resolved = TypeBuilder.GetMethod(containingClrType, instantiatedMethod);
+                if (resolved is not null)
+                    instantiatedMethod = resolved;
+            }
+
+            return instantiatedMethod;
+        }
+
         var methodSearchType = isTypeBuilderInstantiation
             ? containingClrType.GetGenericTypeDefinition()
             : containingClrType;
         var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
-        var runtimeTypeArguments = TypeArguments
-            .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
-            .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         foreach (var method in methodSearchType.GetMethods(Flags))

@@ -91,6 +91,21 @@ let value = await Test(42)
 WriteLine(value)
 """;
 
+    private const string GenericAsyncInvocationCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+async func main() -> Task {
+    let value = await Test(42)
+    WriteLine(value)
+}
+""";
+
     private const string TryAwaitAsyncCode = """
 import System.Threading.Tasks.*
 
@@ -116,6 +131,22 @@ class C {
         {
             var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
             Assert.True(succeeded, "IL verification failed. Run ravenc --ilverify for detailed output.");
+        }
+        finally
+        {
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void GenericAsyncInvocation_EmitsSuccessfully()
+    {
+        var assemblyPath = EmitAsyncAssemblyToDisk(GenericAsyncInvocationCode, out var compilation);
+
+        try
+        {
+            Assert.True(File.Exists(assemblyPath));
         }
         finally
         {
