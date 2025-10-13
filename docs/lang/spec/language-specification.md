@@ -281,7 +281,7 @@ func example(x: int) -> {
 When a lambda expression is assigned to a binding without an explicit type, Raven
 still materialises a concrete delegate. The compiler synthesises an appropriate
 `System.Func`/`System.Action` definition using the lambda's parameter types and
-the inferred return type (treating `unit`/`void` as an action). Captured
+the inferred return type (treating `unit` results as actions). Captured
 variables participate in the enclosing flow analysis before the delegate type is
 constructed, so the lambda observes the same declared type as any other use of
 the variable.
@@ -348,7 +348,7 @@ bridge invokes `MainAsync(args).GetAwaiter().GetResult()` before returning to
 the host. The awaited
 expression must expose an instance method `GetAwaiter()` whose return type
 provides an accessible `bool IsCompleted { get; }` property and a parameterless
-`GetResult()` method. If the awaiter’s `GetResult` returns `void`, the await
+`GetResult()` method. If the awaiter’s `GetResult` produces no value, the await
 expression’s type is `unit`; otherwise it matches the `GetResult` return type.
 
 Failing any of these requirements produces a compile-time diagnostic identifying
@@ -1212,7 +1212,7 @@ project does not contain file-scope statements, the compiler instead looks for a
 user-defined entry point. Any
 static method named `Main` qualifies when it meets the following requirements:
 
-* The method returns `unit`, `void`, `int`, `Task`, or `Task<int>`.
+* The method returns `unit`, `int`, `Task`, or `Task<int>`.
 * It has no type parameters.
 * It declares either no parameters or a single parameter of type `string[]`
   (representing the command-line arguments).
@@ -1227,8 +1227,8 @@ When the selected entry point returns `Task` or `Task<int>`, the compiler emits
 the synchronous `Program.Main` bridge that invokes the async body, awaits it via
 `GetAwaiter().GetResult()`, and forwards the resulting value (if any) to the host
 environment. A `Task`-returning entry point produces a bridge whose CLR
-signature is `void`; the helper awaits the async body, discards the awaited
-`Unit` value, and only returns after the async work (such as console writes)
+signature omits a return value; the helper awaits the async body, discards the
+awaited `Unit` value, and only returns after the async work (such as console writes)
 completes. Exceptions thrown from the async body bubble through the same
 `GetResult()` call so the process exits with the same failure semantics as a
 purely synchronous entry point. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】
@@ -1353,8 +1353,8 @@ analysis as though the return type were `Task`. This rule applies uniformly to
 methods, file-scoped functions, and local functions declared inside other
 bodies. Property and indexer accessors may also carry `async`; getters must
 expose a task-shaped return type to remain valid, while setters lower through
-the `async void` builder so authors can await asynchronous work before storing
-values.
+the builder for asynchronous setters so authors can await asynchronous work
+before storing values.
 
 Async declarations support both block bodies and expression bodies. When an
 expression-bodied member is marked `async`, the compiler lifts the expression
@@ -1400,9 +1400,9 @@ The synthesized `_builder` field is emitted as the constructed
 `AsyncTaskMethodBuilder<T>` so metadata consumers observe the awaited result
 type. Reflection therefore reports `_builder : AsyncTaskMethodBuilder<int>` for
 an `async Task<int>` member rather than the nongeneric builder. The state
-machine also exposes `void MoveNext()` and `void SetStateMachine(IAsyncStateMachine)`
-so the CLR can bind the `IAsyncStateMachine` implementations without relying on
-name mangling.
+machine also exposes parameterless `MoveNext()` and `SetStateMachine(IAsyncStateMachine)`
+methods so the CLR can bind the `IAsyncStateMachine` implementations without
+relying on name mangling.
 
 Nested async lambdas and local functions synthesize the same struct layout. When
 the closure produces a nested state machine, code generation registers `_state`,
@@ -1730,7 +1730,7 @@ families), the compiler binds to that delegate. Otherwise it synthesizes an
 internal delegate with the appropriate signature so interop with .NET remains
 transparent. Parameter modifiers and names are not permitted inside a function
 type; specify only the types that flow into and out of the delegate. A `unit`
-return represents `void`.
+return represents an action with no meaningful result.
 
 ### Union types
 
