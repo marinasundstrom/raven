@@ -120,4 +120,58 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void TryExpression_WithAwait_AllowsPatternMatching()
+    {
+        var code = """
+import System.*
+import System.Threading.Tasks.*
+
+class C {
+    async Work() -> Task<string> {
+        return try await Task.FromResult(1) match {
+            int value => value.ToString()
+            Exception ex => ex.Message
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var tryExpression = root
+            .DescendantNodes()
+            .OfType<TryExpressionSyntax>()
+            .Single();
+
+        var tryType = Assert.IsAssignableFrom<IUnionTypeSymbol>(model.GetTypeInfo(tryExpression).Type);
+        Assert.Contains(
+            tryType.Types,
+            type => type.SpecialType == SpecialType.System_Int32);
+
+        var exceptionType = result.Compilation.GetTypeByMetadataName("System.Exception");
+        Assert.NotNull(exceptionType);
+        Assert.Contains(
+            tryType.Types,
+            type => SymbolEqualityComparer.Default.Equals(
+                TypeSymbolNormalization.NormalizeForInference(type),
+                exceptionType));
+
+        var matchExpression = root
+            .DescendantNodes()
+            .OfType<MatchExpressionSyntax>()
+            .Single();
+
+        var matchType = model.GetTypeInfo(matchExpression).Type;
+        Assert.NotNull(matchType);
+        Assert.Equal(SpecialType.System_String, matchType.SpecialType);
+
+        verifier.Verify();
+    }
 }
