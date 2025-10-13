@@ -1,0 +1,10 @@
+import System.*
+import System.IO.*
+
+let result = try await File.ReadAllLinesAsync("samples/tuples.rav") match {
+        //string[] no => "Test"
+        Exception ex => "Format invalid: ${ex.Message}"
+        _ => "unknown"
+    }
+
+Console.WriteLine(result)
