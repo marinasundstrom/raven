@@ -2909,7 +2909,7 @@ partial class BlockBinder : Binder
         InvocationExpressionSyntax invocation,
         ExpressionSyntax pipelineSyntax,
         BoundExpression pipelineValue,
-        BoundExpression[] boundArguments)
+        BoundArgument[] boundArguments)
     {
         var methodName = methodGroup.Methods[0].Name;
         var extensionCandidates = methodGroup.Methods
@@ -2928,7 +2928,6 @@ partial class BlockBinder : Binder
                 var converted = ConvertInvocationArguments(
                     method,
                     boundArguments,
-                    invocation.ArgumentList.Arguments,
                     pipelineValue,
                     pipelineSyntax,
                     out var convertedExtensionReceiver);
@@ -2944,8 +2943,8 @@ partial class BlockBinder : Binder
 
         if (!staticCandidates.IsDefaultOrEmpty)
         {
-            var totalArguments = new BoundExpression[boundArguments.Length + 1];
-            totalArguments[0] = pipelineValue;
+            var totalArguments = new BoundArgument[boundArguments.Length + 1];
+            totalArguments[0] = new BoundArgument(pipelineValue, RefKind.None, name: null, pipelineSyntax);
             Array.Copy(boundArguments, 0, totalArguments, 1, boundArguments.Length);
 
             var resolution = OverloadResolver.ResolveOverload(staticCandidates, totalArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
@@ -2967,7 +2966,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        ReportSuppressedLambdaDiagnostics(new[] { pipelineValue }.Concat(boundArguments));
+        ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
         _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length + 1, invocation.GetLocation());
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
@@ -2977,7 +2976,7 @@ partial class BlockBinder : Binder
         InvocationExpressionSyntax invocation,
         ExpressionSyntax pipelineSyntax,
         BoundExpression pipelineValue,
-        BoundExpression[] boundArguments)
+        BoundArgument[] boundArguments)
     {
         if (memberExpr.Member is not IMethodSymbol method)
         {
@@ -2990,7 +2989,6 @@ partial class BlockBinder : Binder
             var converted = ConvertInvocationArguments(
                 method,
                 boundArguments,
-                invocation.ArgumentList.Arguments,
                 pipelineValue,
                 pipelineSyntax,
                 out var convertedExtensionReceiver);
@@ -3006,7 +3004,7 @@ partial class BlockBinder : Binder
         var totalCount = boundArguments.Length + 1;
         if (!SupportsArgumentCount(method.Parameters, totalCount))
         {
-            ReportSuppressedLambdaDiagnostics(new[] { pipelineValue }.Concat(boundArguments));
+            ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
             _diagnostics.ReportNoOverloadForMethod(method.Name, totalCount, invocation.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
@@ -3020,7 +3018,7 @@ partial class BlockBinder : Binder
         InvocationExpressionSyntax invocation,
         ExpressionSyntax pipelineSyntax,
         BoundExpression pipelineValue,
-        BoundExpression[] boundArguments)
+        BoundArgument[] boundArguments)
     {
         var rawType = target.Type;
         var targetType = rawType.UnwrapLiteralType() ?? rawType;
@@ -3041,7 +3039,7 @@ partial class BlockBinder : Binder
         var totalCount = boundArguments.Length + 1;
         if (!SupportsArgumentCount(invokeMethod.Parameters, totalCount))
         {
-            ReportSuppressedLambdaDiagnostics(new[] { pipelineValue }.Concat(boundArguments));
+            ReportSuppressedLambdaDiagnostics(PrependPipelineArgument(pipelineValue, pipelineSyntax, boundArguments));
             _diagnostics.ReportNoOverloadForMethod(invokeMethod.Name, totalCount, invocation.GetLocation());
             return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
         }
@@ -3054,7 +3052,7 @@ partial class BlockBinder : Binder
         IMethodSymbol method,
         BoundExpression pipelineValue,
         ExpressionSyntax pipelineSyntax,
-        BoundExpression[] remainingArguments,
+        BoundArgument[] remainingArguments,
         InvocationExpressionSyntax invocation)
     {
         var parameters = method.Parameters;
@@ -3068,7 +3066,7 @@ partial class BlockBinder : Binder
         if (parameters.Length == 1)
             return converted;
 
-        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments, invocation.ArgumentList.Arguments);
+        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments);
         Array.Copy(rest, 0, converted, 1, rest.Length);
         for (int i = 1 + rest.Length; i < converted.Length; i++)
             converted[i] = CreateOptionalArgument(parameters[i]);
@@ -3076,12 +3074,31 @@ partial class BlockBinder : Binder
         return converted;
     }
 
+    private static IEnumerable<BoundArgument> PrependPipelineArgument(
+        BoundExpression pipelineValue,
+        ExpressionSyntax pipelineSyntax,
+        IEnumerable<BoundArgument> remainingArguments)
+    {
+        yield return new BoundArgument(pipelineValue, RefKind.None, null, pipelineSyntax);
+
+        foreach (var argument in remainingArguments)
+            yield return argument;
+    }
+
     private IMethodSymbol? ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
     {
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
 
-        var resolution = OverloadResolver.ResolveOverload(candidates.ToArray(), [left, right], Compilation, canBindLambda: EnsureLambdaCompatible);
+        var resolution = OverloadResolver.ResolveOverload(
+            candidates.ToArray(),
+            new[]
+            {
+                new BoundArgument(left, RefKind.None, null),
+                new BoundArgument(right, RefKind.None, null)
+            },
+            Compilation,
+            canBindLambda: EnsureLambdaCompatible);
 
         if (resolution.Success && resolution.Method is not null)
             return resolution.Method;
@@ -3195,22 +3212,27 @@ partial class BlockBinder : Binder
 
             if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
-                var argExprs = new List<BoundExpression>();
+                var argExprs = new List<BoundArgument>();
                 bool argErrors = false;
                 foreach (var arg in syntax.ArgumentList.Arguments)
                 {
                     var boundArg = BindExpression(arg.Expression);
                     if (boundArg is BoundErrorExpression)
                         argErrors = true;
-                    argExprs.Add(boundArg);
+                    var name = arg.NameColon?.Name.Identifier.ValueText;
+                    if (string.IsNullOrEmpty(name))
+                        name = null;
+                    argExprs.Add(new BoundArgument(boundArg, RefKind.None, name, arg));
                 }
 
                 if (argErrors)
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
-                if (AreArgumentsCompatibleWithMethod(method, argExprs.Count, memberExpr.Receiver))
+                var argArray = argExprs.ToArray();
+
+                if (AreArgumentsCompatibleWithMethod(method, argArray.Length, memberExpr.Receiver, argArray))
                 {
-                    var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax.ArgumentList.Arguments);
+                    var convertedArgs = ConvertArguments(method.Parameters, argArray);
                     return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
                 }
 
@@ -3219,14 +3241,17 @@ partial class BlockBinder : Binder
             }
             else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
             {
-                var argExprs = new List<BoundExpression>();
+                var argExprs = new List<BoundArgument>();
                 bool argErrors = false;
                 foreach (var arg in syntax.ArgumentList.Arguments)
                 {
                     var boundArg = BindExpression(arg.Expression);
                     if (boundArg is BoundErrorExpression)
                         argErrors = true;
-                    argExprs.Add(boundArg);
+                    var name = arg.NameColon?.Name.Identifier.ValueText;
+                    if (string.IsNullOrEmpty(name))
+                        name = null;
+                    argExprs.Add(new BoundArgument(boundArg, RefKind.None, name, arg));
                 }
 
                 if (argErrors)
@@ -3252,22 +3277,27 @@ partial class BlockBinder : Binder
 
             if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
-                var argExprs = new List<BoundExpression>();
+                var argExprs = new List<BoundArgument>();
                 bool argErrors = false;
                 foreach (var arg in syntax.ArgumentList.Arguments)
                 {
                     var boundArg = BindExpression(arg.Expression);
                     if (boundArg is BoundErrorExpression)
                         argErrors = true;
-                    argExprs.Add(boundArg);
+                    var name = arg.NameColon?.Name.Identifier.ValueText;
+                    if (string.IsNullOrEmpty(name))
+                        name = null;
+                    argExprs.Add(new BoundArgument(boundArg, RefKind.None, name, arg));
                 }
 
                 if (argErrors)
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
 
-                if (AreArgumentsCompatibleWithMethod(method, argExprs.Count, memberExpr.Receiver))
+                var argArray = argExprs.ToArray();
+
+                if (AreArgumentsCompatibleWithMethod(method, argArray.Length, memberExpr.Receiver, argArray))
                 {
-                    var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax.ArgumentList.Arguments);
+                    var convertedArgs = ConvertArguments(method.Parameters, argArray);
                     return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
                 }
 
@@ -3321,7 +3351,7 @@ partial class BlockBinder : Binder
                 }
             }
 
-            var genericBoundArguments = new BoundExpression[syntax.ArgumentList.Arguments.Count];
+            var genericBoundArguments = new BoundArgument[syntax.ArgumentList.Arguments.Count];
             bool genericHasErrors = false;
             int genericIndex = 0;
             foreach (var arg in syntax.ArgumentList.Arguments)
@@ -3329,7 +3359,10 @@ partial class BlockBinder : Binder
                 var boundArg = BindExpression(arg.Expression);
                 if (boundArg is BoundErrorExpression)
                     genericHasErrors = true;
-                genericBoundArguments[genericIndex++] = boundArg;
+                var name = arg.NameColon?.Name.Identifier.ValueText;
+                if (string.IsNullOrEmpty(name))
+                    name = null;
+                genericBoundArguments[genericIndex++] = new BoundArgument(boundArg, RefKind.None, name, arg);
             }
 
             if (genericHasErrors)
@@ -3351,14 +3384,17 @@ partial class BlockBinder : Binder
         }
 
         // Bind arguments
-        var boundArgumentsList = new List<BoundExpression>();
+        var boundArgumentsList = new List<BoundArgument>();
         bool hasErrors = false;
         foreach (var arg in syntax.ArgumentList.Arguments)
         {
             var boundArg = BindExpression(arg.Expression);
             if (boundArg is BoundErrorExpression)
                 hasErrors = true;
-            boundArgumentsList.Add(boundArg);
+            var name = arg.NameColon?.Name.Identifier.ValueText;
+            if (string.IsNullOrEmpty(name))
+                name = null;
+            boundArgumentsList.Add(new BoundArgument(boundArg, RefKind.None, name, arg));
         }
 
         if (hasErrors)
@@ -3377,14 +3413,14 @@ partial class BlockBinder : Binder
                 if (!EnsureMemberAccessible(invokeMethod, syntax.Expression.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.Inaccessible);
 
-                if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver))
+                if (!AreArgumentsCompatibleWithMethod(invokeMethod, boundArguments.Length, receiver, boundArguments))
                 {
                     ReportSuppressedLambdaDiagnostics(boundArguments);
                     _diagnostics.ReportNoOverloadForMethod(methodName, boundArguments.Length, syntax.GetLocation());
                     return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
                 }
 
-                var converted = ConvertArguments(invokeMethod.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+                var converted = ConvertArguments(invokeMethod.Parameters, boundArguments);
                 return new BoundInvocationExpression(invokeMethod, converted, receiver);
             }
         }
@@ -3423,7 +3459,7 @@ partial class BlockBinder : Binder
                 if (resolution.Success)
                 {
                     var method = resolution.Method!;
-                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
                     return new BoundInvocationExpression(method, convertedArgs, receiver);
                 }
 
@@ -3484,7 +3520,7 @@ partial class BlockBinder : Binder
             if (resolution.Success)
             {
                 var method = resolution.Method!;
-                var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+                var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
                 return new BoundInvocationExpression(method, convertedArgs, receiver);
             }
 
@@ -3512,7 +3548,7 @@ partial class BlockBinder : Binder
             if (resolution.Success)
             {
                 var method = resolution.Method!;
-                var convertedArgs = ConvertArguments(method.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+                var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
                 return new BoundInvocationExpression(method, convertedArgs, null);
             }
 
@@ -3540,24 +3576,29 @@ partial class BlockBinder : Binder
         return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.NotFound);
     }
 
-    private BoundExpression[] BindInvocationArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, out bool hasErrors)
+    private BoundArgument[] BindInvocationArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, out bool hasErrors)
     {
         if (arguments.Count == 0)
         {
             hasErrors = false;
-            return Array.Empty<BoundExpression>();
+            return Array.Empty<BoundArgument>();
         }
 
-        var boundArguments = new BoundExpression[arguments.Count];
+        var boundArguments = new BoundArgument[arguments.Count];
         var seenErrors = false;
 
         for (int i = 0; i < arguments.Count; i++)
         {
-            var boundArg = BindExpression(arguments[i].Expression);
+            var syntax = arguments[i];
+            var boundArg = BindExpression(syntax.Expression);
             if (boundArg is BoundErrorExpression)
                 seenErrors = true;
 
-            boundArguments[i] = boundArg;
+            var name = syntax.NameColon?.Name.Identifier.ValueText;
+            if (string.IsNullOrEmpty(name))
+                name = null;
+
+            boundArguments[i] = new BoundArgument(boundArg, RefKind.None, name, syntax);
         }
 
         hasErrors = seenErrors;
@@ -3582,12 +3623,11 @@ partial class BlockBinder : Binder
             {
                 selected = inferred;
 
-                if (AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, extensionReceiver))
+                if (AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, extensionReceiver, boundArguments))
                 {
                     var converted = ConvertInvocationArguments(
                         selected,
                         boundArguments,
-                        syntax.ArgumentList.Arguments,
                         extensionReceiver,
                         receiverSyntax,
                         out var convertedExtensionReceiver);
@@ -3604,7 +3644,6 @@ partial class BlockBinder : Binder
             var convertedArgs = ConvertInvocationArguments(
                 method,
                 boundArguments,
-                syntax.ArgumentList.Arguments,
                 extensionReceiver,
                 receiverSyntax,
                 out var convertedExtensionReceiver);
@@ -3629,7 +3668,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindConstructorInvocation(
         INamedTypeSymbol typeSymbol,
-        BoundExpression[] boundArguments,
+        BoundArgument[] boundArguments,
         InvocationExpressionSyntax syntax,
         BoundExpression? receiver = null)
     {
@@ -3639,7 +3678,7 @@ partial class BlockBinder : Binder
             var constructor = resolution.Method!;
             if (!EnsureMemberAccessible(constructor, syntax.Expression.GetLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
-            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
             return new BoundObjectCreationExpression(constructor, convertedArgs, receiver);
         }
 
@@ -3690,7 +3729,7 @@ partial class BlockBinder : Binder
         }
 
         // Bind arguments
-        var boundArguments = new BoundExpression[syntax.ArgumentList.Arguments.Count];
+        var boundArguments = new BoundArgument[syntax.ArgumentList.Arguments.Count];
         bool hasErrors = false;
         int i = 0;
         foreach (var arg in syntax.ArgumentList.Arguments)
@@ -3698,7 +3737,10 @@ partial class BlockBinder : Binder
             var boundArg = BindExpression(arg.Expression);
             if (boundArg is BoundErrorExpression)
                 hasErrors = true;
-            boundArguments[i++] = boundArg;
+            var name = arg.NameColon?.Name.Identifier.ValueText;
+            if (string.IsNullOrEmpty(name))
+                name = null;
+            boundArguments[i++] = new BoundArgument(boundArg, RefKind.None, name, arg);
         }
 
         if (hasErrors)
@@ -3712,7 +3754,7 @@ partial class BlockBinder : Binder
             if (!EnsureMemberAccessible(constructor, syntax.Type.GetLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
 
-            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, syntax.ArgumentList.Arguments);
+            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
             return new BoundObjectCreationExpression(constructor, convertedArgs);
         }
 
@@ -3769,7 +3811,16 @@ partial class BlockBinder : Binder
             case InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax memberBinding } invocation:
                 {
                     var name = memberBinding.Name.Identifier.ValueText;
-                    var boundArguments = invocation.ArgumentList.Arguments.Select(a => BindExpression(a.Expression)).ToArray();
+                    var boundArguments = invocation.ArgumentList.Arguments
+                        .Select(a =>
+                        {
+                            var expr = BindExpression(a.Expression);
+                            var name = a.NameColon?.Name.Identifier.ValueText;
+                            if (string.IsNullOrEmpty(name))
+                                name = null;
+                            return new BoundArgument(expr, RefKind.None, name, a);
+                        })
+                        .ToArray();
 
                     var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
 
@@ -3792,10 +3843,11 @@ partial class BlockBinder : Binder
                         }
                         else
                         {
-                            var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
+                        var resolution = OverloadResolver.ResolveOverload(accessibleCandidates, boundArguments, Compilation, canBindLambda: EnsureLambdaCompatible);
                             if (resolution.Success)
                             {
-                                whenNotNull = new BoundInvocationExpression(resolution.Method!, boundArguments, receiver);
+                                var converted = ConvertArguments(resolution.Method!.Parameters, boundArguments);
+                                whenNotNull = new BoundInvocationExpression(resolution.Method!, converted, receiver);
                             }
                             else if (resolution.IsAmbiguous)
                             {
@@ -4553,17 +4605,36 @@ partial class BlockBinder : Binder
             BoundExpressionReason.OverloadResolutionFailed);
     }
 
-    protected BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundExpression> arguments, SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes)
+    protected BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundArgument> arguments)
     {
         var converted = new BoundExpression[parameters.Length];
 
-        int i = 0;
-        for (; i < arguments.Count && i < parameters.Length; i++)
+        if (!OverloadResolver.TryMapArguments(parameters, arguments, treatAsExtension: false, out var mappedArguments))
         {
-            var argument = arguments[i];
-            var parameter = parameters[i];
+            mappedArguments = new BoundArgument?[parameters.Length];
 
-            if (parameter.Type is INamedTypeSymbol delegateType && argument is BoundLambdaExpression lambdaArgument)
+            var limit = Math.Min(arguments.Count, parameters.Length);
+            for (int i = 0; i < limit; i++)
+            {
+                mappedArguments[i] = arguments[i];
+            }
+        }
+
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var parameter = parameters[i];
+            var argument = mappedArguments[i];
+
+            if (argument is null)
+            {
+                converted[i] = CreateOptionalArgument(parameter);
+                continue;
+            }
+
+            var boundArgument = argument.Value;
+            var expression = boundArgument.Expression;
+
+            if (parameter.Type is INamedTypeSymbol delegateType && expression is BoundLambdaExpression lambdaArgument)
             {
                 var rebound = ReplayLambda(lambdaArgument, delegateType);
                 if (rebound is null)
@@ -4573,31 +4644,38 @@ partial class BlockBinder : Binder
                     continue;
                 }
 
-                argument = rebound;
+                expression = rebound;
             }
 
             if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
             {
-                converted[i] = argument;
+                converted[i] = expression;
                 continue;
             }
 
-            if (!ShouldAttemptConversion(argument) ||
-                parameter.Type.TypeKind == TypeKind.Error)
+            if (!ShouldAttemptConversion(expression) ||
+                parameter.Type.TypeKind == TypeKind.Error ||
+                expression.Type is null)
             {
-                converted[i] = argument;
+                converted[i] = expression;
                 continue;
             }
 
-            if (!IsAssignable(parameter.Type, argument.Type, out var conversion))
+            var syntaxNode = boundArgument.Syntax switch
             {
-                var syntax = i < argumentSyntaxes.Count ? argumentSyntaxes[i].Expression : null;
-                var location = syntax?.GetLocation() ?? parameter.Locations.FirstOrDefault();
+                ArgumentSyntax argumentSyntax => argumentSyntax.Expression,
+                SyntaxNode node => node,
+                _ => null
+            };
+
+            if (!IsAssignable(parameter.Type, expression.Type, out var conversion))
+            {
+                var location = syntaxNode?.GetLocation() ?? parameter.Locations.FirstOrDefault();
 
                 if (location is not null)
                 {
                     _diagnostics.ReportCannotConvertFromTypeToType(
-                        argument.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        expression.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         location);
                 }
@@ -4606,13 +4684,7 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            var syntaxNode = i < argumentSyntaxes.Count ? argumentSyntaxes[i].Expression : null;
-            converted[i] = ApplyConversion(argument, parameter.Type, conversion, syntaxNode);
-        }
-
-        for (; i < parameters.Length; i++)
-        {
-            converted[i] = CreateOptionalArgument(parameters[i]);
+            converted[i] = ApplyConversion(expression, parameter.Type, conversion, syntaxNode);
         }
 
         return converted;
@@ -4652,8 +4724,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression[] ConvertInvocationArguments(
         IMethodSymbol method,
-        BoundExpression[] invocationArguments,
-        SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes,
+        BoundArgument[] invocationArguments,
         BoundExpression? extensionReceiver,
         SyntaxNode receiverSyntax,
         out BoundExpression? convertedExtensionReceiver)
@@ -4671,10 +4742,10 @@ partial class BlockBinder : Binder
             if (parameters.Length == 1)
                 return Array.Empty<BoundExpression>();
 
-            return ConvertArguments(parameters.RemoveAt(0), invocationArguments, argumentSyntaxes);
+            return ConvertArguments(parameters.RemoveAt(0), invocationArguments);
         }
 
-        return ConvertArguments(method.Parameters, invocationArguments, argumentSyntaxes);
+        return ConvertArguments(method.Parameters, invocationArguments);
     }
 
     private BoundExpression ConvertSingleArgument(BoundExpression argument, IParameterSymbol parameter, SyntaxNode syntax)
@@ -4702,14 +4773,28 @@ partial class BlockBinder : Binder
         return ApplyConversion(argument, parameter.Type, conversion, syntax);
     }
 
-    protected static bool AreArgumentsCompatibleWithMethod(IMethodSymbol method, int argumentCount, BoundExpression? receiver)
+    protected static bool AreArgumentsCompatibleWithMethod(
+        IMethodSymbol method,
+        int argumentCount,
+        BoundExpression? receiver,
+        BoundArgument[]? arguments = null)
     {
         var providedCount = argumentCount;
 
         if (method.IsExtensionMethod && IsExtensionReceiver(receiver))
             providedCount++;
 
-        return SupportsArgumentCount(method.Parameters, providedCount);
+        if (!SupportsArgumentCount(method.Parameters, providedCount))
+            return false;
+
+        if (arguments is null)
+            return true;
+
+        return OverloadResolver.TryMapArguments(
+            method.Parameters,
+            arguments,
+            method.IsExtensionMethod && IsExtensionReceiver(receiver),
+            out _);
     }
 
     protected static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int providedCount)

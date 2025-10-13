@@ -168,8 +168,7 @@ class C {
             .OfType<MatchExpressionSyntax>()
             .Single();
 
-        var matchType = model.GetTypeInfo(matchExpression).Type;
-        Assert.NotNull(matchType);
+        var matchType = Assert.IsAssignableFrom<ITypeSymbol>(model.GetTypeInfo(matchExpression).Type);
         Assert.Equal(SpecialType.System_String, matchType.SpecialType);
 
         verifier.Verify();

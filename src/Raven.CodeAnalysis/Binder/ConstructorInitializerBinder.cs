@@ -32,7 +32,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         if (baseType is null)
             return null;
 
-        var boundArguments = new List<BoundExpression>();
+        var boundArguments = new List<BoundArgument>();
         var hasErrors = false;
 
         foreach (var argument in initializerSyntax.ArgumentList.Arguments)
@@ -41,14 +41,18 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
             if (boundArgument is BoundErrorExpression)
                 hasErrors = true;
 
-            boundArguments.Add(boundArgument);
+            var name = argument.NameColon?.Name.Identifier.ValueText;
+            if (string.IsNullOrEmpty(name))
+                name = null;
+            boundArguments.Add(new BoundArgument(boundArgument, RefKind.None, name, argument));
         }
 
         if (hasErrors)
             return null;
 
         var constructors = baseType.Constructors.Where(c => !c.IsStatic).ToImmutableArray();
-        var resolution = OverloadResolver.ResolveOverload(constructors, boundArguments.ToArray(), Compilation);
+        var argumentArray = boundArguments.ToArray();
+        var resolution = OverloadResolver.ResolveOverload(constructors, argumentArray, Compilation);
 
         if (!resolution.Success)
         {
@@ -64,7 +68,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
             if (matchingByArity.Length == 1)
             {
                 var candidate = matchingByArity[0];
-                var converted = ConvertArguments(candidate.Parameters, boundArguments, initializerSyntax.ArgumentList.Arguments);
+                var converted = ConvertArguments(candidate.Parameters, argumentArray);
                 if (converted.Any(static argument => argument is BoundErrorExpression))
                     return null;
             }
@@ -74,7 +78,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
         }
 
         var constructor = resolution.Method!;
-        var convertedArguments = ConvertArguments(constructor.Parameters, boundArguments, initializerSyntax.ArgumentList.Arguments);
+        var convertedArguments = ConvertArguments(constructor.Parameters, argumentArray);
         if (convertedArguments.Any(static argument => argument is BoundErrorExpression))
             return null;
 

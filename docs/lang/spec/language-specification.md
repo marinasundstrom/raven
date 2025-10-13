@@ -535,6 +535,15 @@ When the target has optional parameters, omitted trailing arguments are filled
 in using the defaults declared on the parameter list. The supplied arguments are
 matched positionally before defaults are considered.
 
+Arguments may also be written with an explicit name using the `name: expression`
+syntax. Named arguments may appear in any order, and each one must match a
+parameter declared by the target. After a named argument is used, any remaining
+positional arguments must correspond to parameters that have not already been
+specified by name and that occur after the right-most named argument. Duplicate
+or unknown names cause overload resolution to reject the candidate. Named
+arguments are supported anywhere an argument list appears, including function
+invocations, object creation, constructor initializers, and attribute usage.
+
 #### Extension declarations
 
 An `extension` declaration groups helpers for a specific receiver type and is

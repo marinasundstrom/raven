@@ -819,11 +819,11 @@ partial class BlockBinder
         return null;
     }
 
-    private void ReportSuppressedLambdaDiagnostics(IEnumerable<BoundExpression> arguments)
+    private void ReportSuppressedLambdaDiagnostics(IEnumerable<BoundArgument> arguments)
     {
         foreach (var argument in arguments)
         {
-            if (argument is BoundLambdaExpression { Unbound: { } unbound })
+            if (argument.Expression is BoundLambdaExpression { Unbound: { } unbound })
                 unbound.ReportSuppressedDiagnostics(_diagnostics);
         }
     }

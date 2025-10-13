@@ -183,7 +183,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
             compilation.GetSpecialType(SpecialType.System_Unit),
             ImmutableArray.Create<IParameterSymbol>(optionalParameter));
 
-        var result = OverloadResolver.ResolveOverload([optionalMethod], Array.Empty<BoundExpression>(), compilation);
+        var result = OverloadResolver.ResolveOverload([optionalMethod], Array.Empty<BoundArgument>(), compilation);
 
         Assert.True(result.Success);
         Assert.Same(optionalMethod, result.Method);
@@ -210,7 +210,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var result = OverloadResolver.ResolveOverload(
             tryParseMethods,
-            [stringArgument, outArgument],
+            CreateArguments(stringArgument, outArgument),
             compilation);
 
         Assert.True(result.Success);
@@ -272,8 +272,10 @@ public sealed class OverloadResolverTests : CompilationTestBase
             isExtensionMethod: true);
     }
 
-    private static BoundExpression[] CreateArguments(params BoundExpression[] expressions)
-        => expressions;
+    private static BoundArgument[] CreateArguments(params BoundExpression[] expressions)
+        => expressions
+            .Select(expr => new BoundArgument(expr, RefKind.None, name: null))
+            .ToArray();
 
     private sealed class TestBoundExpression : BoundExpression
     {
