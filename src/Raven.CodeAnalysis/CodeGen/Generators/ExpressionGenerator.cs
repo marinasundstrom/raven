@@ -3127,10 +3127,20 @@ internal class ExpressionGenerator : Generator
 
         var expressionType = tryExpression.Expression.Type ?? Compilation.ErrorTypeSymbol;
 
-        ILGenerator.BeginExceptionBlock();
+        var exitLabel = MethodBodyGenerator.GetOrCreateReturnLabel();
 
         var tryScope = new Scope(this);
-        new ExpressionGenerator(tryScope, tryExpression.Expression).Emit();
+        tryScope.SetExceptionExitLabel(exitLabel);
+
+        if (tryExpression.Expression is BoundBlockExpression blockExpression)
+        {
+            EmitTryExpressionBlock(tryScope, blockExpression);
+        }
+        else
+        {
+            ILGenerator.BeginExceptionBlock();
+            new ExpressionGenerator(tryScope, tryExpression.Expression).Emit();
+        }
 
         if (!SymbolEqualityComparer.Default.Equals(expressionType, resultType))
         {
@@ -3152,6 +3162,70 @@ internal class ExpressionGenerator : Generator
         ILGenerator.EndExceptionBlock();
 
         ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
+    }
+
+    private void EmitTryExpressionBlock(Scope tryScope, BoundBlockExpression blockExpression)
+    {
+        var blockScope = new Scope(tryScope, blockExpression.LocalsToDispose);
+        var statements = blockExpression.Statements.ToArray();
+
+        if (statements.Length > 0)
+            MethodBodyGenerator.DeclareLocals(blockScope, statements);
+
+        BoundExpression? resultExpression = null;
+        var count = statements.Length;
+
+        if (count > 0 &&
+            statements[^1] is BoundExpressionStatement exprStmt &&
+            exprStmt.Expression.Type?.SpecialType is not SpecialType.System_Void)
+        {
+            resultExpression = exprStmt.Expression;
+            count--;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            if (statements[i] is BoundLabeledStatement labeled)
+            {
+                MethodBodyGenerator.RegisterLabelScope(labeled.Label, blockScope);
+                var ilLabel = MethodBodyGenerator.GetOrCreateLabel(labeled.Label);
+                ILGenerator.MarkLabel(ilLabel);
+            }
+        }
+
+        ILGenerator.BeginExceptionBlock();
+
+        for (int i = 0; i < count; i++)
+        {
+            var statement = statements[i];
+            if (statement is BoundLabeledStatement labeled)
+            {
+                new StatementGenerator(blockScope, labeled.Statement).Emit();
+            }
+            else
+            {
+                new StatementGenerator(blockScope, statement).Emit();
+            }
+        }
+
+        IILocal? resultTemp = null;
+        if (resultExpression is not null)
+        {
+            new ExpressionGenerator(blockScope, resultExpression).Emit();
+
+            var resultExprType = resultExpression.Type;
+            if (resultExprType is not null)
+            {
+                var clrType = ResolveClrType(resultExprType);
+                resultTemp = ILGenerator.DeclareLocal(clrType);
+                ILGenerator.Emit(OpCodes.Stloc, resultTemp);
+            }
+        }
+
+        EmitDispose(blockExpression.LocalsToDispose);
+
+        if (resultTemp is not null)
+            ILGenerator.Emit(OpCodes.Ldloc, resultTemp);
     }
 
     private void EmitStatement(BoundStatement statement, Scope scope)

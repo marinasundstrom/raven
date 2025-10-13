@@ -91,6 +91,16 @@ let value = await Test(42)
 WriteLine(value)
 """;
 
+    private const string TryAwaitAsyncCode = """
+import System.Threading.Tasks.*
+
+class C {
+    async Work() -> Task {
+        var attempt = try await Task.FromResult(1)
+    }
+}
+""";
+
     [Fact]
     public void AsyncAssembly_PassesIlVerifyWhenToolAvailable()
     {
@@ -106,6 +116,40 @@ WriteLine(value)
         {
             var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
             Assert.True(succeeded, "IL verification failed. Run ravenc --ilverify for detailed output.");
+        }
+        finally
+        {
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void TryAwaitExpressionAsyncAssembly_PassesIlVerifyWhenToolAvailable()
+    {
+        if (!IlVerifyTestHelper.TryResolve(_output))
+        {
+            _output.WriteLine("Skipping IL verification because ilverify was not found.");
+            return;
+        }
+
+        var (_, instructions) = CaptureAsyncInstructions(TryAwaitAsyncCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var retCount = instructions.Count(instruction => instruction.Opcode == OpCodes.Ret);
+        Assert.Equal(1, retCount);
+
+        Assert.Contains(
+            instructions,
+            instruction => instruction.Opcode == OpCodes.Leave || instruction.Opcode == OpCodes.Leave_S);
+
+        var assemblyPath = EmitAsyncAssemblyToDisk(TryAwaitAsyncCode, out var compilation);
+
+        try
+        {
+            var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
+            Assert.True(succeeded, "IL verification failed for try-await expression. Run ravenc --ilverify for detailed output.");
         }
         finally
         {
