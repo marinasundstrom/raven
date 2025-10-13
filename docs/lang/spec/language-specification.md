@@ -544,6 +544,22 @@ or unknown names cause overload resolution to reject the candidate. Named
 arguments are supported anywhere an argument list appears, including function
 invocations, object creation, constructor initializers, and attribute usage.
 
+```raven
+func makePoint(x: int, y: int, label: string = "origin") -> string
+{
+    return $"{label}: ({x}, {y})";
+}
+
+let swapped = makePoint(y: 2, x: 1);
+let mixed = makePoint(3, label: "axis", y: 0);
+let invalid = makePoint(x: 1, 2);  // error: positional argument cannot follow `x:`
+```
+
+The compiler binds each named argument to its declared parameter. The call to
+`makePoint` named `mixed` demonstrates that positional arguments may precede the
+first named argument, while the `invalid` call is rejected because it attempts
+to supply a positional argument (`2`) after specifying `x` by name.
+
 #### Extension declarations
 
 An `extension` declaration groups helpers for a specific receiver type and is
