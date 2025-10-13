@@ -353,6 +353,39 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithArrayTypePattern_BindsArrayType()
+    {
+        const string code = """
+let value: object = [1, 2, 3]
+
+let result = value match {
+    int[] numbers => numbers.Length
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var declarationPattern = Assert.IsType<BoundDeclarationPattern>(bound.Arms[0].Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(declarationPattern.Designator);
+        Assert.Equal("numbers", designator.Local.Name);
+
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(declarationPattern.Type);
+        var intType = result.Compilation.GetSpecialType(SpecialType.System_Int32);
+        Assert.True(SymbolEqualityComparer.Default.Equals(arrayType.ElementType, intType));
+    }
+
+    [Fact]
     public void MatchExpression_WithGuard_UsesDesignation()
     {
         const string code = """
