@@ -150,7 +150,7 @@ BreakStatement           ::= 'break' ;
 
 ContinueStatement        ::= 'continue' ;
 
-FunctionStatement        ::= 'async'? 'func' Identifier '(' ParameterList? ')' ReturnTypeClause? Block ;
+FunctionStatement        ::= 'async'? 'func' Identifier TypeParameterList? '(' ParameterList? ')' ReturnTypeClause? Block ;
 
 ExpressionStatement      ::= Expression ;
 

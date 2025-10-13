@@ -1302,7 +1302,8 @@ unique solution from the arguments and expected return type. When inference
 fails—for example, because multiple type choices satisfy the call—the type
 arguments must be provided explicitly.
 
-Method declarations use the same syntax:
+Method declarations use the same syntax, and local functions follow the exact
+rules when they introduce type parameters inside another body:
 
 ```raven
 class Cache
@@ -1322,12 +1323,17 @@ type argument and the unmet requirement.
 ### Nested functions
 
 Functions may be declared inside other functions. Such a function is
-scoped to its containing body and can capture local variables.
+scoped to its containing body and can capture local variables. Local functions
+support the same generic syntax and constraints as file-scoped functions: place
+an optional type parameter list after the function name and declare constraints
+using the `:` syntax when needed.
 
 ```raven
 func outer() {
-    func inner(x: int) -> int { x + 1 }
+    func inner<T: struct>(value: T) -> T { value }
+
     let y = inner(2)
+    let point = inner((x: 1, y: 2))
 }
 ```
 
