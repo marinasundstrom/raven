@@ -1226,9 +1226,17 @@ compiler to emit `RAV1017` *Program has more than one entry point defined*.
 When the selected entry point returns `Task` or `Task<int>`, the compiler emits
 the synchronous `Program.Main` bridge that invokes the async body, awaits it via
 `GetAwaiter().GetResult()`, and forwards the resulting value (if any) to the host
-environment. Exceptions thrown from the async body bubble through the same
+environment. A `Task`-returning entry point produces a bridge whose CLR
+signature is `void`; the helper awaits the async body, discards the awaited
+`Unit` value, and only returns after the async work (such as console writes)
+completes. Exceptions thrown from the async body bubble through the same
 `GetResult()` call so the process exits with the same failure semantics as a
-purely synchronous entry point.
+purely synchronous entry point. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】
+
+Entry points that return `Task<int>` produce a bridge that awaits the async body
+and returns the awaited integer as the process exit code. The bridge also leaves
+console writes intact so the awaited value can be observed by both the caller
+and the host operating system. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L405-L476】
 
 Library and script output kinds ignore the entry point search; they never report
 missing or ambiguous entry-point diagnostics.

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -7,6 +8,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 using Raven;
 using Raven.CodeAnalysis;
@@ -49,6 +51,19 @@ class C {
         return value
     }
 }
+""";
+
+    private const string AsyncTaskEntryPointCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Print(label: string, value: int) -> Task {
+    await Task.Delay(1)
+    WriteLine("${label}:${value}")
+}
+
+await Print("first", 1)
+WriteLine("done")
 """;
 
     private const string TopLevelAsyncFunctionCode = """
@@ -382,6 +397,162 @@ WriteLine(value)
 
         var output = writer.ToString().Replace("\r\n", "\n").Trim();
         Assert.Equal("42", output);
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_WithTask_ExecutesSuccessfully()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var projectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.rav");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+        var runtimeConfigPath = Path.ChangeExtension(assemblyPath, ".runtimeconfig.json");
+
+        File.WriteAllText(sourcePath, AsyncTaskEntryPointCode);
+
+        try
+        {
+            var compilerArgs = $"run --project \"{projectPath}\" -- {sourcePath} -o {assemblyPath}";
+            var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            {
+                var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
+                var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
+                compilerProcess.WaitForExit();
+
+                if (compilerProcess.ExitCode != 0)
+                {
+                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine(compilerStdOut);
+                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine(compilerStdErr);
+                }
+
+                Assert.Equal(0, compilerProcess.ExitCode);
+            }
+
+            var runInfo = new ProcessStartInfo("dotnet", assemblyPath)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetDirectoryName(assemblyPath)
+            };
+
+            using var runProcess = Process.Start(runInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
+            var runStdOut = runProcess.StandardOutput.ReadToEnd();
+            var runStdErr = runProcess.StandardError.ReadToEnd();
+            runProcess.WaitForExit();
+
+            if (runProcess.ExitCode != 0 || !string.IsNullOrWhiteSpace(runStdErr))
+            {
+                _output.WriteLine("dotnet stdout:");
+                _output.WriteLine(runStdOut);
+                _output.WriteLine("dotnet stderr:");
+                _output.WriteLine(runStdErr);
+            }
+
+            Assert.Equal(0, runProcess.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(runStdErr), "dotnet emitted unexpected stderr output.");
+
+            var normalizedOutput = runStdOut.Replace("\r\n", "\n").Trim();
+            Assert.Equal("first:1\ndone", normalizedOutput);
+        }
+        finally
+        {
+            if (File.Exists(sourcePath))
+                File.Delete(sourcePath);
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+            if (File.Exists(runtimeConfigPath))
+                File.Delete(runtimeConfigPath);
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_WithTaskOfInt_ExecutesViaCliSuccessfully()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var projectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.rav");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+        var runtimeConfigPath = Path.ChangeExtension(assemblyPath, ".runtimeconfig.json");
+
+        File.WriteAllText(sourcePath, AsyncTaskOfIntEntryPointCode);
+
+        try
+        {
+            var compilerArgs = $"run --project \"{projectPath}\" -- {sourcePath} -o {assemblyPath}";
+            var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            {
+                var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
+                var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
+                compilerProcess.WaitForExit();
+
+                if (compilerProcess.ExitCode != 0)
+                {
+                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine(compilerStdOut);
+                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine(compilerStdErr);
+                }
+
+                Assert.Equal(0, compilerProcess.ExitCode);
+            }
+
+            var runInfo = new ProcessStartInfo("dotnet", assemblyPath)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetDirectoryName(assemblyPath)
+            };
+
+            using var runProcess = Process.Start(runInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
+            var runStdOut = runProcess.StandardOutput.ReadToEnd();
+            var runStdErr = runProcess.StandardError.ReadToEnd();
+            runProcess.WaitForExit();
+
+            if (runProcess.ExitCode != 42 || !string.IsNullOrWhiteSpace(runStdErr))
+            {
+                _output.WriteLine("dotnet stdout:");
+                _output.WriteLine(runStdOut);
+                _output.WriteLine("dotnet stderr:");
+                _output.WriteLine(runStdErr);
+            }
+
+            Assert.Equal(42, runProcess.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(runStdErr), "dotnet emitted unexpected stderr output.");
+
+            var normalizedOutput = runStdOut.Replace("\r\n", "\n").Trim();
+            Assert.Equal("42", normalizedOutput);
+        }
+        finally
+        {
+            if (File.Exists(sourcePath))
+                File.Delete(sourcePath);
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+            if (File.Exists(runtimeConfigPath))
+                File.Delete(runtimeConfigPath);
+        }
     }
 
     [Fact]

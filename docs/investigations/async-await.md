@@ -391,6 +391,9 @@ remains to match the behaviour of C#.
   invokes the synthesized `Program.Main` bridge, and asserts that
   `MainAsync().GetAwaiter().GetResult()` returns the awaited value while
   `Console.WriteLine` observes the same output. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L318-L352】
+* `AsyncEntryPoint_WithTask_ExecutesSuccessfully` exercises the non-generic
+  `Task` projection, proving the bridge awaits `MainAsync`, returns `void`, and
+  flushes awaited console writes before the process exits. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】
 * IL regression coverage for `Program.Main` ensures the bridge calls the async
   helper, retrieves the awaiter, and synchronously awaits the result, proving
   that the entry-point handshake mirrors Roslyn’s lowering. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L355-L369】
@@ -497,4 +500,34 @@ remains to match the behaviour of C#.
 
 * Wire the CI harness to set `RAVEN_ILVERIFY_PATH` (or rely on the restored tool)
   so verification failures surface as red builds instead of optional skips.
+
+## Step 10 – Runtime smoke tests for non-generic `Task`
+
+### Current status
+
+* `AsyncEntryPoint_WithTask_ExecutesSuccessfully` covers the simplest async
+  entry point that returns `Task`, validating the synthesized `Program.Main`
+  bridge awaits the helper, returns `void`, and preserves awaited console output
+  before terminating. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】
+
+### Next actions
+
+* Extend the smoke suite with chained awaits and nested async helpers so `Task`
+  state machines remain exercised once lambdas and local functions flow through
+  the runtime path.
+
+## Step 11 – Runtime smoke tests for `Task<T>`
+
+### Current status
+
+* `AsyncEntryPoint_WithTaskOfInt_ExecutesViaCliSuccessfully` compiles the
+  top-level `Task<int>` sample via the CLI and executes it with `dotnet`,
+  asserting the process exits with the awaited value (`42`) and prints the same
+  value to the console. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L405-L476】
+
+### Next actions
+
+* Scale the CLI-driven smoke tests to cover multiple awaits, error paths, and
+  nested async helpers so generic state machines stay validated as new features
+  land.
 
