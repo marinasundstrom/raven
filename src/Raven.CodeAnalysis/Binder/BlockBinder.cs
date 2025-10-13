@@ -2250,6 +2250,25 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(type);
         }
 
+        if (syntax is ArrayTypeSyntax arrayTypeSyntax)
+        {
+            if (BindTypeSyntax(arrayTypeSyntax.ElementType) is not BoundTypeExpression elementTypeExpression)
+                return new BoundErrorExpression(Compilation.ErrorTypeSymbol, null, BoundExpressionReason.TypeMismatch);
+
+            var elementType = elementTypeExpression.Type;
+
+            if (elementType.ContainsErrorType())
+                return new BoundTypeExpression(elementType);
+
+            foreach (var rankSpecifier in arrayTypeSyntax.RankSpecifiers)
+            {
+                var rank = rankSpecifier.CommaTokens.Count + 1;
+                elementType = Compilation.CreateArrayTypeSymbol(elementType, rank);
+            }
+
+            return new BoundTypeExpression(elementType);
+        }
+
         if (syntax is TupleTypeSyntax tupleTypeSyntax)
         {
             var boundElements = new List<(string? name, ITypeSymbol type)>();
