@@ -95,7 +95,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, parameterList, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
 
-    private TypeParameterListSyntax ParseTypeParameterList()
+    internal TypeParameterListSyntax ParseTypeParameterList()
     {
         var lessThanToken = ReadToken();
 

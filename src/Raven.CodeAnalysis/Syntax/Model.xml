@@ -692,6 +692,7 @@
     <Slot Name="Modifiers" Type="TokenList" />
     <Slot Name="FuncKeyword" Type="Token" DefaultToken="FuncKeyword"/>
     <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" />

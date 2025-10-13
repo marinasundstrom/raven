@@ -382,6 +382,24 @@ public class ParserNewlineTests
     }
 
     [Fact]
+    public void Function_WithTypeParameters_ParsesTypeParameterList()
+    {
+        var source = "func foo<T, U>(value: T) {}";
+        var lexer = new Lexer(new StringReader(source));
+        var context = new BaseParseContext(lexer);
+        var parser = new StatementSyntaxParser(context);
+
+        var statement = (FunctionStatementSyntax)parser.ParseStatement().CreateRed();
+
+        var typeParameters = Assert.IsType<TypeParameterListSyntax>(statement.TypeParameterList);
+        Assert.Equal(2, typeParameters.Parameters.Count);
+        Assert.Equal("T", typeParameters.Parameters[0].Identifier.Text);
+        Assert.Equal("U", typeParameters.Parameters[1].Identifier.Text);
+        Assert.Equal("value", statement.ParameterList.Parameters[0].Identifier.Text);
+        Assert.Equal("T", statement.ParameterList.Parameters[0].TypeAnnotation!.Type.ToString());
+    }
+
+    [Fact]
     public void VariableDeclaration_MissingIdentifier_ProducesMissingToken()
     {
         var source = "let = 1";

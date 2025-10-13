@@ -68,13 +68,69 @@ partial class BlockBinder
         if (first.Parameters.Length != second.Parameters.Length)
             return false;
 
+        if (first.TypeParameters.Length != second.TypeParameters.Length)
+            return false;
+
         for (int i = 0; i < first.Parameters.Length; i++)
         {
-            if (!SymbolEqualityComparer.Default.Equals(first.Parameters[i].Type, second.Parameters[i].Type))
+            var firstType = first.Parameters[i].Type;
+            var secondType = second.Parameters[i].Type;
+
+            if (!AreTypesEquivalent(firstType, secondType, first, second))
                 return false;
         }
 
         return true;
+
+        static bool AreTypesEquivalent(ITypeSymbol firstType, ITypeSymbol secondType, IMethodSymbol firstMethod, IMethodSymbol secondMethod)
+        {
+            if (SymbolEqualityComparer.Default.Equals(firstType, secondType))
+                return true;
+
+            if (firstType is ITypeParameterSymbol firstParam && secondType is ITypeParameterSymbol secondParam)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(firstParam.ContainingSymbol, firstMethod) ||
+                    !SymbolEqualityComparer.Default.Equals(secondParam.ContainingSymbol, secondMethod))
+                {
+                    return false;
+                }
+
+                if (firstParam is SourceTypeParameterSymbol firstSource && secondParam is SourceTypeParameterSymbol secondSource)
+                    return firstSource.Ordinal == secondSource.Ordinal;
+
+                return SymbolEqualityComparer.Default.Equals(firstParam, secondParam);
+            }
+
+            if (firstType is INamedTypeSymbol firstNamed && secondType is INamedTypeSymbol secondNamed)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(firstNamed.ConstructedFrom, secondNamed.ConstructedFrom))
+                    return false;
+
+                var firstArguments = firstNamed.TypeArguments;
+                var secondArguments = secondNamed.TypeArguments;
+
+                if (firstArguments.Length != secondArguments.Length)
+                    return false;
+
+                for (int i = 0; i < firstArguments.Length; i++)
+                {
+                    if (!AreTypesEquivalent(firstArguments[i], secondArguments[i], firstMethod, secondMethod))
+                        return false;
+                }
+
+                return true;
+            }
+
+            if (firstType is IArrayTypeSymbol firstArray && secondType is IArrayTypeSymbol secondArray)
+            {
+                if (firstArray.Rank != secondArray.Rank)
+                    return false;
+
+                return AreTypesEquivalent(firstArray.ElementType, secondArray.ElementType, firstMethod, secondMethod);
+            }
+
+            return false;
+        }
     }
 
     public virtual BoundBlockStatement BindBlockStatement(BlockStatementSyntax block)
