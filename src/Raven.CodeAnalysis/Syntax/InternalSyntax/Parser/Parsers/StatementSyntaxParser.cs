@@ -412,6 +412,13 @@ internal class StatementSyntaxParser : SyntaxParser
             identifier = ExpectToken(SyntaxKind.IdentifierToken);
         }
 
+        TypeParameterListSyntax? typeParameterList = null;
+        if (IsNextToken(SyntaxKind.LessThanToken, out _))
+        {
+            var typeParameterParser = new TypeDeclarationParser(this);
+            typeParameterList = typeParameterParser.ParseTypeParameterList();
+        }
+
         var parameterList = ParseParameterList();
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
@@ -438,6 +445,7 @@ internal class StatementSyntaxParser : SyntaxParser
             modifiers,
             funcKeyword,
             identifier,
+            typeParameterList,
             parameterList,
             returnParameterAnnotation,
             block,

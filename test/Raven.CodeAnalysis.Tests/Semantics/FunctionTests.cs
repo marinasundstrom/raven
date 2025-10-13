@@ -66,6 +66,53 @@ func outer() {
     }
 
     [Fact]
+    public void GenericFunction_CanInferTypeArgumentsForInvocation()
+    {
+        var source = """
+import System.Threading.Tasks.*
+
+async func Test<T>(value: T) -> Task<T> {
+    await Task.Delay(10)
+    return value
+}
+
+async func Outer() -> Task<int> {
+    let result = await Test(42)
+    return result
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        var functions = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().ToArray();
+        var testFunction = functions.Single(f => f.Identifier.Text == "Test");
+        var testSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(testFunction));
+        Assert.True(testSymbol.IsGenericMethod);
+        Assert.Single(testSymbol.TypeParameters);
+        Assert.Equal("T", testSymbol.TypeParameters[0].Name);
+        Assert.Equal(
+            "System.Threading.Tasks.Task<T>",
+            testSymbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+        var invocation = tree
+            .GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression is IdentifierNameSyntax id && id.Identifier.Text == "Test");
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        var invokedSymbol = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.Equal(testSymbol, invokedSymbol.OriginalDefinition);
+        Assert.Single(invokedSymbol.TypeArguments);
+        Assert.Equal(
+            compilation.GetSpecialType(SpecialType.System_Int32),
+            invokedSymbol.TypeArguments[0]);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void DuplicateFunction_DiagnosticReported()
     {
         var source = """
