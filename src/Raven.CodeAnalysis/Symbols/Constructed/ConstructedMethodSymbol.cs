@@ -25,7 +25,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (typeParameters.Length != typeArguments.Length)
             throw new ArgumentException($"Method '{definition.Name}' expects {typeParameters.Length} type arguments, but got {typeArguments.Length}.", nameof(typeArguments));
 
-        _substitutionMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(typeParameters.Length);
+        _substitutionMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(typeParameters.Length, SymbolEqualityComparer.Default);
         for (int i = 0; i < typeParameters.Length; i++)
             _substitutionMap[typeParameters[i]] = typeArguments[i];
     }
