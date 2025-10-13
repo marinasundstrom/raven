@@ -918,7 +918,7 @@ internal class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(field));
                 break;
 
-            case ITypeSymbol typeSymbol:
+            case ITypeSymbol:
                 if (MethodSymbol.IsStatic)
                     throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
 

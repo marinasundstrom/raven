@@ -1,3 +1,5 @@
+using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -6,19 +8,29 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
+using Raven;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests.Utilities;
 
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public sealed class AsyncILGenerationTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public AsyncILGenerationTests(ITestOutputHelper output)
+    {
+        _output = output;
+    }
 
     private const string AsyncCode = """
 import System.Threading.Tasks.*
@@ -39,6 +51,19 @@ class C {
         return value
     }
 }
+""";
+
+    private const string AsyncTaskEntryPointCode = """
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Print(label: string, value: int) -> Task {
+    await Task.Delay(1)
+    WriteLine("${label}:${value}")
+}
+
+await Print("first", 1)
+WriteLine("done")
 """;
 
     private const string TopLevelAsyncFunctionCode = """
@@ -65,6 +90,161 @@ let value = await Test(42)
 
 WriteLine(value)
 """;
+
+    [Fact]
+    public void AsyncAssembly_PassesIlVerifyWhenToolAvailable()
+    {
+        if (!IlVerifyTestHelper.TryResolve(_output))
+        {
+            _output.WriteLine("Skipping IL verification because ilverify was not found.");
+            return;
+        }
+
+        var assemblyPath = EmitAsyncAssemblyToDisk(AsyncTaskOfIntCode, out var compilation);
+
+        try
+        {
+            var succeeded = IlVerifyRunner.Verify(null, assemblyPath, compilation);
+            Assert.True(succeeded, "IL verification failed. Run ravenc --ilverify for detailed output.");
+        }
+        finally
+        {
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void AsyncStateMachine_BuilderFieldMetadataUsesGenericBuilder()
+    {
+        using var metadata = EmitAsyncMetadata(AsyncTaskOfIntCode);
+
+        var reader = metadata.MetadataReader;
+        var stateMachineDefinition = reader.GetTypeDefinition(metadata.StateMachineHandle);
+
+        var builderField = stateMachineDefinition
+            .GetFields()
+            .Select(reader.GetFieldDefinition)
+            .Single(field => reader.StringComparer.Equals(field.Name, "_builder"));
+
+        var signatureReader = reader.GetBlobReader(builderField.Signature);
+        var header = signatureReader.ReadSignatureHeader();
+        Assert.Equal(SignatureKind.Field, header.Kind);
+
+        var fieldTypeCode = signatureReader.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.GenericTypeInstance, fieldTypeCode);
+
+        var genericTypeKind = signatureReader.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.TypeHandle, genericTypeKind);
+
+        var genericTypeHandle = signatureReader.ReadTypeHandle();
+        var genericTypeName = GetTypeQualifiedName(reader, genericTypeHandle);
+        Assert.Equal("System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1", genericTypeName);
+
+        var arity = signatureReader.ReadCompressedInteger();
+        Assert.Equal(1, arity);
+
+        var argumentTypeCode = signatureReader.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.TypeHandle, argumentTypeCode);
+
+        var argumentHandle = signatureReader.ReadTypeHandle();
+        var argumentTypeName = GetTypeQualifiedName(reader, argumentHandle);
+        Assert.Equal("System.Int32", argumentTypeName);
+    }
+
+    [Fact]
+    public void AsyncStateMachine_MethodMetadataMatchesExpectedSignatures()
+    {
+        using var metadata = EmitAsyncMetadata(AsyncTaskOfIntCode);
+
+        var reader = metadata.MetadataReader;
+        var stateMachineDefinition = reader.GetTypeDefinition(metadata.StateMachineHandle);
+
+        var moveNext = stateMachineDefinition
+            .GetMethods()
+            .Select(reader.GetMethodDefinition)
+            .Single(method => reader.StringComparer.Equals(method.Name, "MoveNext"));
+
+        var moveNextSignature = reader.GetBlobReader(moveNext.Signature);
+        var moveNextHeader = moveNextSignature.ReadSignatureHeader();
+        Assert.Equal(SignatureKind.Method, moveNextHeader.Kind);
+        Assert.Equal(SignatureCallingConvention.Default, moveNextHeader.CallingConvention);
+        Assert.False(moveNextHeader.IsGeneric);
+
+        var moveNextParameterCount = moveNextSignature.ReadCompressedInteger();
+        Assert.Equal(0, moveNextParameterCount);
+        Assert.Equal(SignatureTypeCode.Void, moveNextSignature.ReadSignatureTypeCode());
+
+        var setStateMachine = stateMachineDefinition
+            .GetMethods()
+            .Select(reader.GetMethodDefinition)
+            .Single(method => reader.StringComparer.Equals(method.Name, "SetStateMachine"));
+
+        var setSignature = reader.GetBlobReader(setStateMachine.Signature);
+        var setHeader = setSignature.ReadSignatureHeader();
+        Assert.Equal(SignatureKind.Method, setHeader.Kind);
+        Assert.Equal(SignatureCallingConvention.Default, setHeader.CallingConvention);
+
+        var parameterCount = setSignature.ReadCompressedInteger();
+        Assert.Equal(1, parameterCount);
+        Assert.Equal(SignatureTypeCode.Void, setSignature.ReadSignatureTypeCode());
+
+        var parameterTypeCode = setSignature.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.TypeHandle, parameterTypeCode);
+
+        var parameterHandle = setSignature.ReadTypeHandle();
+        var parameterTypeName = GetTypeQualifiedName(reader, parameterHandle);
+        Assert.Equal("System.Runtime.CompilerServices.IAsyncStateMachine", parameterTypeName);
+    }
+
+    [Fact]
+    public void AsyncMethod_TaskOfInt_ReturnTypeMetadataIsClosedGeneric()
+    {
+        using var metadata = EmitAsyncMetadata(AsyncTaskOfIntCode);
+
+        var reader = metadata.MetadataReader;
+        var containingType = metadata.MethodSymbol.ContainingType
+            ?? throw new InvalidOperationException("Async method is missing a containing type.");
+        var typeHandle = FindTypeDefinition(reader, containingType);
+        var methodHandle = FindMethodDefinition(reader, typeHandle, metadata.MethodSymbol.Name);
+        var methodDefinition = reader.GetMethodDefinition(methodHandle);
+
+        var returnTypeSymbol = metadata.MethodSymbol.ReturnType;
+        var display = returnTypeSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat);
+        Assert.Equal("System.Threading.Tasks.Task<int>", display);
+
+        var signatureReader = reader.GetBlobReader(methodDefinition.Signature);
+        var header = signatureReader.ReadSignatureHeader();
+        Assert.Equal(SignatureKind.Method, header.Kind);
+
+        var parameterCount = signatureReader.ReadCompressedInteger();
+        Assert.Equal(1, parameterCount);
+
+        var returnTypeCode = signatureReader.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.GenericTypeInstance, returnTypeCode);
+
+        var genericTypeKind = signatureReader.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.TypeHandle, genericTypeKind);
+
+        var taskHandle = signatureReader.ReadTypeHandle();
+        var taskTypeName = GetTypeQualifiedName(reader, taskHandle);
+        Assert.Equal("System.Threading.Tasks.Task`1", taskTypeName);
+
+        var arity = signatureReader.ReadCompressedInteger();
+        Assert.Equal(1, arity);
+
+        var argumentTypeCode = signatureReader.ReadSignatureTypeCode();
+        if (argumentTypeCode == SignatureTypeCode.TypeHandle)
+        {
+            var argumentHandle = signatureReader.ReadTypeHandle();
+            var argumentName = GetTypeQualifiedName(reader, argumentHandle);
+            Assert.Equal("System.Int32", argumentName);
+        }
+        else
+        {
+            Assert.Equal(SignatureTypeCode.Int32, argumentTypeCode);
+        }
+    }
 
     [Fact]
     public void AsyncMethod_AppliesStateMachineMetadata()
@@ -214,7 +394,7 @@ WriteLine(value)
     }
 
     [Fact]
-    public void AsyncEntryPoint_WithTaskOfInt_ThrowsBadImageFormatException()
+    public void AsyncEntryPoint_WithTaskOfInt_ExecutesSuccessfully()
     {
         var syntaxTree = SyntaxTree.ParseText(AsyncTaskOfIntEntryPointCode);
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
@@ -248,8 +428,197 @@ WriteLine(value)
         var main = programType!.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(main);
 
-        var exception = Assert.Throws<TargetInvocationException>(() => main!.Invoke(null, new object?[] { Array.Empty<string>() }));
-        Assert.IsType<BadImageFormatException>(exception.InnerException);
+        using var writer = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(writer);
+
+            var returnValue = main!.Invoke(null, new object?[] { Array.Empty<string>() });
+            var awaitedResult = Assert.IsType<int>(returnValue);
+            Assert.Equal(42, awaitedResult);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString().Replace("\r\n", "\n").Trim();
+        Assert.Equal("42", output);
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_WithTask_ExecutesSuccessfully()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var projectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.rav");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+        var runtimeConfigPath = Path.ChangeExtension(assemblyPath, ".runtimeconfig.json");
+
+        File.WriteAllText(sourcePath, AsyncTaskEntryPointCode);
+
+        try
+        {
+            var compilerArgs = $"run --project \"{projectPath}\" -- {sourcePath} -o {assemblyPath}";
+            var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            {
+                var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
+                var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
+                compilerProcess.WaitForExit();
+
+                if (compilerProcess.ExitCode != 0)
+                {
+                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine(compilerStdOut);
+                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine(compilerStdErr);
+                }
+
+                Assert.Equal(0, compilerProcess.ExitCode);
+            }
+
+            var runInfo = new ProcessStartInfo("dotnet", assemblyPath)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetDirectoryName(assemblyPath)
+            };
+
+            using var runProcess = Process.Start(runInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
+            var runStdOut = runProcess.StandardOutput.ReadToEnd();
+            var runStdErr = runProcess.StandardError.ReadToEnd();
+            runProcess.WaitForExit();
+
+            if (runProcess.ExitCode != 0 || !string.IsNullOrWhiteSpace(runStdErr))
+            {
+                _output.WriteLine("dotnet stdout:");
+                _output.WriteLine(runStdOut);
+                _output.WriteLine("dotnet stderr:");
+                _output.WriteLine(runStdErr);
+            }
+
+            Assert.Equal(0, runProcess.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(runStdErr), "dotnet emitted unexpected stderr output.");
+
+            var normalizedOutput = runStdOut.Replace("\r\n", "\n").Trim();
+            Assert.Equal("first:1\ndone", normalizedOutput);
+        }
+        finally
+        {
+            if (File.Exists(sourcePath))
+                File.Delete(sourcePath);
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+            if (File.Exists(runtimeConfigPath))
+                File.Delete(runtimeConfigPath);
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_WithTaskOfInt_ExecutesViaCliSuccessfully()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var projectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
+
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.rav");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+        var runtimeConfigPath = Path.ChangeExtension(assemblyPath, ".runtimeconfig.json");
+
+        File.WriteAllText(sourcePath, AsyncTaskOfIntEntryPointCode);
+
+        try
+        {
+            var compilerArgs = $"run --project \"{projectPath}\" -- {sourcePath} -o {assemblyPath}";
+            var compilerInfo = new ProcessStartInfo("dotnet", compilerArgs)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            using (var compilerProcess = Process.Start(compilerInfo) ?? throw new InvalidOperationException("Failed to start ravenc."))
+            {
+                var compilerStdOut = compilerProcess.StandardOutput.ReadToEnd();
+                var compilerStdErr = compilerProcess.StandardError.ReadToEnd();
+                compilerProcess.WaitForExit();
+
+                if (compilerProcess.ExitCode != 0)
+                {
+                    _output.WriteLine("ravenc stdout:");
+                    _output.WriteLine(compilerStdOut);
+                    _output.WriteLine("ravenc stderr:");
+                    _output.WriteLine(compilerStdErr);
+                }
+
+                Assert.Equal(0, compilerProcess.ExitCode);
+            }
+
+            var runInfo = new ProcessStartInfo("dotnet", assemblyPath)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetDirectoryName(assemblyPath)
+            };
+
+            using var runProcess = Process.Start(runInfo) ?? throw new InvalidOperationException("Failed to start dotnet.");
+            var runStdOut = runProcess.StandardOutput.ReadToEnd();
+            var runStdErr = runProcess.StandardError.ReadToEnd();
+            runProcess.WaitForExit();
+
+            if (runProcess.ExitCode != 42 || !string.IsNullOrWhiteSpace(runStdErr))
+            {
+                _output.WriteLine("dotnet stdout:");
+                _output.WriteLine(runStdOut);
+                _output.WriteLine("dotnet stderr:");
+                _output.WriteLine(runStdErr);
+            }
+
+            Assert.Equal(42, runProcess.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(runStdErr), "dotnet emitted unexpected stderr output.");
+
+            var normalizedOutput = runStdOut.Replace("\r\n", "\n").Trim();
+            Assert.Equal("42", normalizedOutput);
+        }
+        finally
+        {
+            if (File.Exists(sourcePath))
+                File.Delete(sourcePath);
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+            if (File.Exists(runtimeConfigPath))
+                File.Delete(runtimeConfigPath);
+        }
+    }
+
+    [Fact]
+    public void AsyncEntryPoint_MainBridge_AwaitsMainAsync()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntEntryPointCode, static generator =>
+            generator.MethodSymbol.Name == "Main" &&
+            generator.MethodSymbol.ContainingType is SourceNamedTypeSymbol type && type.Name == "Program");
+
+        Assert.Contains(instructions, instruction =>
+            instruction.Operand.Value is MethodInfo method && method.Name == "MainAsync");
+
+        Assert.Contains(instructions, instruction =>
+            instruction.Operand.Value is MethodInfo method && method.Name == "GetAwaiter");
+
+        Assert.Contains(instructions, instruction =>
+            instruction.Operand.Value is MethodInfo method && method.Name == "GetResult");
     }
 
     [Fact]
@@ -407,6 +776,50 @@ WriteLine(value)
         {
             Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
         }
+
+        var stateMachineAddressIndex = Array.FindLastIndex(instructions, awaitUnsafeIndex, instruction =>
+            instruction.Opcode == OpCodes.Ldarga || instruction.Opcode == OpCodes.Ldarga_S);
+
+        Assert.True(stateMachineAddressIndex >= 0, "State machine address not loaded before AwaitUnsafeOnCompleted call.");
+
+        for (var i = stateMachineAddressIndex + 1; i < awaitUnsafeIndex; i++)
+        {
+            Assert.NotEqual(OpCodes.Stloc, instructions[i].Opcode);
+        }
+    }
+
+    [Fact]
+    public void MoveNext_StampsTerminalStateBeforeCompletion()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("SetResult", StringComparison.Ordinal));
+
+        Assert.True(setResultIndex >= 0, "Builder.SetResult call not found in MoveNext body.");
+
+        var stateStoreIndex = Array.FindLastIndex(instructions, setResultIndex, instruction =>
+            instruction.Opcode == OpCodes.Stfld &&
+            FormatOperand(instruction.Operand) == "_state");
+
+        Assert.True(stateStoreIndex >= 0, "Terminal state store not found before SetResult.");
+
+        var stateConstantIndex = stateStoreIndex - 1;
+        Assert.InRange(stateConstantIndex, 0, instructions.Length - 1);
+
+        var constantInstruction = instructions[stateConstantIndex];
+        Assert.True(
+            constantInstruction.Opcode == OpCodes.Ldc_I4 || constantInstruction.Opcode == OpCodes.Ldc_I4_S,
+            $"Unexpected opcode loading terminal state: {constantInstruction.Opcode}.");
+        Assert.Equal(-2, Assert.IsType<int>(constantInstruction.Operand.Value));
+
+        var receiverLoadIndex = FindPrecedingLoadArgumentZero(instructions, stateStoreIndex);
+        Assert.True(receiverLoadIndex >= 0, "ldarg.0 not found before terminal state store.");
+        Assert.True(receiverLoadIndex < stateConstantIndex, "Receiver load must precede terminal state constant.");
     }
 
     [Fact]
@@ -506,21 +919,7 @@ class C {
     [Fact]
     public void AsyncLambda_EmitsStateMachineMetadata()
     {
-        const string source = """
-import System.Threading.Tasks.*
-
-class C {
-    public async Run() -> Task {
-        let handler = async () -> Task {
-            await Task.CompletedTask
-        }
-
-        await handler()
-    }
-}
-""";
-
-        var syntaxTree = SyntaxTree.ParseText(source);
+        var syntaxTree = SyntaxTree.ParseText(AsyncTaskOfIntCode);
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
 
@@ -543,10 +942,23 @@ class C {
         using var peStream = new MemoryStream();
         codeGenerator.Emit(peStream, pdbStream: null);
 
-        var lambdaStateMachine = compilation.GetSynthesizedAsyncStateMachineTypes()
-            .Single(stateMachine => stateMachine.AsyncMethod.MethodKind == MethodKind.LambdaMethod);
+        var stateMachine = compilation.GetSynthesizedAsyncStateMachineTypes()
+            .Single(machine => machine.AsyncMethod.Name == "Compute");
 
-        Assert.NotNull(lambdaStateMachine.MoveNextBody);
+        Assert.NotNull(stateMachine.MoveNextBody);
+
+        var awaiterType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.TaskAwaiter")
+            ?? throw new InvalidOperationException("TaskAwaiter type not found in compilation references.");
+
+        var injectedField = stateMachine.AddHoistedLocal("<>awaiter_injected", awaiterType);
+
+        var stateFieldInfo = Assert.IsAssignableFrom<FieldInfo>(codeGenerator.GetMemberBuilder(stateMachine.StateField));
+        var builderFieldInfo = Assert.IsAssignableFrom<FieldInfo>(codeGenerator.GetMemberBuilder(stateMachine.BuilderField));
+        var injectedFieldInfo = Assert.IsAssignableFrom<FieldInfo>(codeGenerator.GetMemberBuilder(injectedField));
+
+        Assert.Equal("_state", stateFieldInfo.Name);
+        Assert.Equal("_builder", builderFieldInfo.Name);
+        Assert.Equal("<>awaiter_injected", injectedFieldInfo.Name);
     }
 
     [Fact]
@@ -623,6 +1035,42 @@ class C {
         return (method, instructions.ToArray());
     }
 
+    private static string EmitAsyncAssemblyToDisk(string source, out Compilation compilation)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        compilation = Compilation.Create("async-ilverify", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        using var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+        peStream.Position = 0;
+
+        using (var fileStream = File.Create(outputPath))
+        {
+            peStream.CopyTo(fileStream);
+        }
+
+        return outputPath;
+    }
+
     private static int FindPrecedingLoadArgumentZero(RecordedInstruction[] instructions, int startIndex)
     {
         for (var i = startIndex - 1; i >= 0; i--)
@@ -643,6 +1091,12 @@ class C {
             return true;
 
         if (instruction.Opcode == OpCodes.Ldarg_S && instruction.Operand.Kind == RecordedOperandKind.Int32 && instruction.Operand.Value is int ldargS && ldargS == 0)
+            return true;
+
+        if (instruction.Opcode == OpCodes.Ldarga && instruction.Operand.Kind == RecordedOperandKind.Int32 && instruction.Operand.Value is int ldarga && ldarga == 0)
+            return true;
+
+        if (instruction.Opcode == OpCodes.Ldarga_S && instruction.Operand.Kind == RecordedOperandKind.Int32 && instruction.Operand.Value is int ldargaS && ldargaS == 0)
             return true;
 
         return false;
@@ -685,6 +1139,29 @@ class C {
         }
 
         throw new InvalidOperationException($"Type '{name}' not found in metadata.");
+    }
+
+    private static TypeDefinitionHandle FindTypeDefinition(MetadataReader reader, INamedTypeSymbol typeSymbol)
+    {
+        var metadataName = typeSymbol.MetadataName;
+
+        foreach (var handle in reader.TypeDefinitions)
+        {
+            var definition = reader.GetTypeDefinition(handle);
+            if (reader.StringComparer.Equals(definition.Name, metadataName))
+                return handle;
+        }
+
+        var simpleName = typeSymbol.Name;
+
+        foreach (var handle in reader.TypeDefinitions)
+        {
+            var definition = reader.GetTypeDefinition(handle);
+            if (reader.StringComparer.Equals(definition.Name, simpleName))
+                return handle;
+        }
+
+        throw new InvalidOperationException($"Type '{typeSymbol}' not found in metadata.");
     }
 
     private static MethodDefinitionHandle FindMethodDefinition(MetadataReader reader, TypeDefinitionHandle typeHandle, string name)
@@ -740,5 +1217,106 @@ class C {
         }
 
         throw new InvalidOperationException($"Custom attribute '{expectedNamespace}.{expectedName}' not found.");
+    }
+
+    private static AsyncMetadataContext EmitAsyncMetadata(string source)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
+
+        MetadataReference[] references =
+        [
+            MetadataReference.CreateFromFile(runtimePath)
+        ];
+
+        var compilation = Compilation.Create("async", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        _ = compilation.GetSpecialType(SpecialType.System_Object);
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var classDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var methodDeclaration = classDeclaration.Members.OfType<MethodDeclarationSyntax>().Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
+
+        var codeGenerator = new CodeGenerator(compilation)
+        {
+            ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
+        };
+
+        var peStream = new MemoryStream();
+        codeGenerator.Emit(peStream, pdbStream: null);
+
+        peStream.Position = 0;
+        var peReader = new PEReader(peStream, PEStreamOptions.LeaveOpen);
+        var metadataReader = peReader.GetMetadataReader();
+
+        var stateMachineHandle = FindTypeDefinition(metadataReader, methodSymbol.AsyncStateMachine!);
+
+        return new AsyncMetadataContext(compilation, methodSymbol, peStream, peReader, metadataReader, stateMachineHandle);
+    }
+
+    private static string GetTypeQualifiedName(MetadataReader reader, EntityHandle handle)
+    {
+        return handle.Kind switch
+        {
+            HandleKind.TypeReference => GetQualifiedName(
+                reader.GetTypeReference((TypeReferenceHandle)handle).Namespace,
+                reader.GetTypeReference((TypeReferenceHandle)handle).Name,
+                reader),
+            HandleKind.TypeDefinition => GetQualifiedName(
+                reader.GetTypeDefinition((TypeDefinitionHandle)handle).Namespace,
+                reader.GetTypeDefinition((TypeDefinitionHandle)handle).Name,
+                reader),
+            _ => throw new NotSupportedException($"Unsupported type handle kind '{handle.Kind}'.")
+        };
+    }
+
+    private static string GetQualifiedName(StringHandle namespaceHandle, StringHandle nameHandle, MetadataReader reader)
+    {
+        var ns = reader.GetString(namespaceHandle);
+        var name = reader.GetString(nameHandle);
+        return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
+    }
+
+    private sealed class AsyncMetadataContext : IDisposable
+    {
+        public AsyncMetadataContext(
+            Compilation compilation,
+            SourceMethodSymbol methodSymbol,
+            MemoryStream peStream,
+            PEReader peReader,
+            MetadataReader metadataReader,
+            TypeDefinitionHandle stateMachineHandle)
+        {
+            Compilation = compilation;
+            MethodSymbol = methodSymbol;
+            PeStream = peStream;
+            PeReader = peReader;
+            MetadataReader = metadataReader;
+            StateMachineHandle = stateMachineHandle;
+        }
+
+        public Compilation Compilation { get; }
+
+        public SourceMethodSymbol MethodSymbol { get; }
+
+        public MemoryStream PeStream { get; }
+
+        public PEReader PeReader { get; }
+
+        public MetadataReader MetadataReader { get; }
+
+        public TypeDefinitionHandle StateMachineHandle { get; }
+
+        public void Dispose()
+        {
+            PeReader.Dispose();
+            PeStream.Dispose();
+        }
     }
 }

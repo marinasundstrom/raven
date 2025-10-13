@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
+using Raven;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
@@ -48,6 +49,8 @@ var showHelp = false;
 var noEmit = false;
 var hasInvalidOption = false;
 var highlightDiagnostics = false;
+var runIlVerify = false;
+string? ilVerifyPath = null;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -112,6 +115,15 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--highlight":
             highlightDiagnostics = true;
+            break;
+        case "--ilverify":
+            runIlVerify = true;
+            break;
+        case "--ilverify-path":
+            if (i + 1 < args.Length)
+                ilVerifyPath = args[++i];
+            else
+                hasInvalidOption = true;
             break;
         case "--ref":
         case "--refs":
@@ -206,11 +218,12 @@ var diagnostics = workspace.GetDiagnostics(projectId);
 
 outputPath = !string.IsNullOrEmpty(outputPath) ? outputPath : compilation.AssemblyName;
 outputPath = !Path.HasExtension(outputPath) ? $"{outputPath}.dll" : outputPath;
+var outputFilePath = Path.GetFullPath(outputPath);
 
 EmitResult? result = null;
 if (!noEmit)
 {
-    using (var stream = File.OpenWrite($"{outputPath}"))
+    using (var stream = File.Open(outputFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
     {
         result = compilation.Emit(stream);
     }
@@ -222,6 +235,7 @@ stopwatch.Stop();
 
 var allowConsoleOutput = sourceFiles.Count == 1;
 var debugDir = FindDebugDirectory();
+var ilVerifyFailed = false;
 
 if (debugDir is not null)
 {
@@ -378,6 +392,23 @@ if (symbolDumpMode != SymbolDumpMode.None)
     }
 }
 
+if (runIlVerify)
+{
+    if (noEmit)
+    {
+        AnsiConsole.MarkupLine("[red]--ilverify requires the assembly to be emitted. Remove --no-emit to run the verifier.[/]");
+        ilVerifyFailed = true;
+    }
+    else if (result is null)
+    {
+        ilVerifyFailed = true;
+    }
+    else if (result.Success)
+    {
+        ilVerifyFailed = !IlVerifyRunner.Verify(ilVerifyPath, outputFilePath, compilation);
+    }
+}
+
 if (diagnostics.Length > 0)
 {
     PrintDiagnostics(diagnostics, compilation, highlightDiagnostics);
@@ -385,12 +416,14 @@ if (diagnostics.Length > 0)
 }
 
 var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error && d.Descriptor.Id != "RAV1011");
-if (errors.Any())
+if (errors.Any() || ilVerifyFailed)
 {
-    if (result is not null)
+    if (errors.Any() && result is not null)
         Failed(result);
-    else
+    else if (errors.Any())
         Failed(errors.Count());
+    else
+        Failed(1);
 }
 else
 {
@@ -401,7 +434,7 @@ else
         Succeeded(stopwatch.Elapsed);
 
     if (result is not null)
-        CreateAppHost(compilation, outputPath, targetFramework);
+        CreateAppHost(compilation, outputFilePath, targetFramework);
 }
 
 static string? FindDebugDirectory()
@@ -442,6 +475,9 @@ static void PrintHelp()
     Console.WriteLine("                     'list' dumps properties, 'hierarchy' prints the tree.");
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
+    Console.WriteLine("  --ilverify       Verify emitted IL using the 'ilverify' tool");
+    Console.WriteLine("  --ilverify-path <path>");
+    Console.WriteLine("                    Path to the ilverify executable when not on PATH");
     Console.WriteLine("  -h, --help         Display help");
 }
 

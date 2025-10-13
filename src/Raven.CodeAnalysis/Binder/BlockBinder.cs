@@ -5195,6 +5195,16 @@ partial class BlockBinder : Binder
             var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
             var statements = new List<BoundStatement>(capacity: 1);
 
+            if (symbol is SourceMethodSymbol sourceMethod &&
+                sourceMethod.RequiresAsyncReturnTypeInference &&
+                !sourceMethod.AsyncReturnTypeInferenceComplete)
+            {
+                var inferredReturnType = AsyncReturnTypeUtilities.InferAsyncReturnType(Compilation, expression.Type);
+                sourceMethod.SetReturnType(inferredReturnType);
+                sourceMethod.CompleteAsyncReturnTypeInference();
+                returnType = sourceMethod.ReturnType;
+            }
+
             if (SymbolEqualityComparer.Default.Equals(returnType, unitType) || returnType.SpecialType == SpecialType.System_Void)
             {
                 var statement = expressionBinder.ExpressionToStatement(expression);
@@ -5203,21 +5213,44 @@ partial class BlockBinder : Binder
             else
             {
                 var converted = expression;
-                var skipReturnConversions = symbol is SourceMethodSymbol { HasAsyncReturnTypeError: true };
+                var skipReturnConversions = symbol switch
+                {
+                    SourceMethodSymbol { HasAsyncReturnTypeError: true } => true,
+                    SourceMethodSymbol { ShouldDeferAsyncReturnDiagnostics: true } => true,
+                    _ => false,
+                };
 
                 if (!skipReturnConversions && converted.Type is not null && ShouldAttemptConversion(converted) &&
                     returnType.TypeKind != TypeKind.Error)
                 {
-                    if (!expressionBinder.IsAssignable(returnType, converted.Type, out var conversion))
+                    if (symbol.IsAsync && returnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
                     {
-                        expressionBinder.Diagnostics.ReportCannotConvertFromTypeToType(
-                            converted.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        var methodDisplay = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        expressionBinder.Diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
+                            methodDisplay,
                             function.ExpressionBody.Expression.GetLocation());
                     }
                     else
                     {
-                        converted = expressionBinder.ApplyConversion(converted, returnType, conversion, function.ExpressionBody.Expression);
+                        var targetType = returnType;
+
+                        if (symbol.IsAsync &&
+                            AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) is { } awaitedType)
+                        {
+                            targetType = awaitedType;
+                        }
+
+                        if (!expressionBinder.IsAssignable(targetType, converted.Type, out var conversion))
+                        {
+                            expressionBinder.Diagnostics.ReportCannotConvertFromTypeToType(
+                                converted.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                function.ExpressionBody.Expression.GetLocation());
+                        }
+                        else
+                        {
+                            converted = expressionBinder.ApplyConversion(converted, targetType, conversion, function.ExpressionBody.Expression);
+                        }
                     }
                 }
 

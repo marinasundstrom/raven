@@ -29,7 +29,26 @@
     <ProjectReference
       Include="..\..\src\Raven.CodeAnalysis.Testing\Raven.CodeAnalysis.Testing.csproj" />
     <ProjectReference Include="..\..\src\Raven.CodeAnalysis.Console\Raven.CodeAnalysis.Console.csproj" />
+    <ProjectReference Include="..\..\src\Raven.Compiler\Raven.Compiler.csproj" />
     <ProjectReference Include="..\MetadataFixtures\ExtensionMethodsFixture\ExtensionMethodsFixture.csproj" />
   </ItemGroup>
+
+  <Target Name="EnsureRavenGenerators" BeforeTargets="Build">
+    <Exec Command="dotnet run --project ../../../tools/NodeGenerator -- -f"
+          WorkingDirectory="..\..\src\Raven.CodeAnalysis\Syntax"
+          Condition="!Exists('..\..\src\Raven.CodeAnalysis\Syntax\generated\.stamp')" />
+
+    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator -- -f"
+          WorkingDirectory="..\..\src\Raven.CodeAnalysis"
+          Condition="!Exists('..\..\src\Raven.CodeAnalysis\BoundTree\generated\.stamp')" />
+
+    <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator -- -f"
+          WorkingDirectory="..\..\src\Raven.CodeAnalysis"
+          Condition="!Exists('..\..\src\Raven.CodeAnalysis\.diagnostics.stamp')" />
+
+    <Exec Command="dotnet tool restore"
+          WorkingDirectory="..\.."
+          Condition="Exists('..\..\.config\dotnet-tools.json')" />
+  </Target>
 
 </Project>

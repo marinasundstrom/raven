@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "dotnet-ilverify": {
+      "version": "9.0.9",
+      "commands": [
+        "ilverify"
+      ]
+    },
+    "ilspycmd": {
+      "version": "9.1.0.7988",
+      "commands": [
+        "ilspycmd"
+      ]
+    }
+  }
+}

@@ -240,6 +240,105 @@ internal class TypeGenerator
         };
     }
 
+    internal FieldBuilder EnsureFieldBuilder(SourceFieldSymbol fieldSymbol)
+    {
+        if (fieldSymbol is null)
+            throw new ArgumentNullException(nameof(fieldSymbol));
+
+        if (_fieldBuilders.TryGetValue(fieldSymbol, out var existing))
+            return existing;
+
+        if (TypeBuilder is null)
+            DefineTypeBuilder();
+
+        if (TypeBuilder is null)
+            throw new InvalidOperationException("Type builder must be defined before creating field builders.");
+
+        var fieldType = ResolveFieldClrType(fieldSymbol);
+        var attributes = GetFieldAccessibilityAttributes(fieldSymbol);
+
+        if (fieldSymbol.IsLiteral)
+            attributes |= FieldAttributes.Literal;
+
+        if (fieldSymbol.IsStatic)
+            attributes |= FieldAttributes.Static;
+
+        var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, fieldType, attributes);
+
+        if (fieldSymbol.IsLiteral)
+            fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
+
+        var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
+        if (nullableAttr is not null)
+            fieldBuilder.SetCustomAttribute(nullableAttr);
+
+        CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => fieldBuilder.SetCustomAttribute(attribute));
+
+        _fieldBuilders[fieldSymbol] = fieldBuilder;
+        CodeGen.AddMemberBuilder(fieldSymbol, fieldBuilder);
+
+        return fieldBuilder;
+    }
+
+    private Type ResolveFieldClrType(IFieldSymbol fieldSymbol)
+    {
+        if (fieldSymbol is null)
+            throw new ArgumentNullException(nameof(fieldSymbol));
+
+        var fieldTypeSymbol = fieldSymbol.Type;
+
+        if (fieldTypeSymbol.Equals(TypeSymbol, SymbolEqualityComparer.Default))
+        {
+            if (TypeBuilder is null)
+                throw new InvalidOperationException("Type builder must be created before resolving field types.");
+
+            return TypeBuilder;
+        }
+
+        var resolved = ResolveClrType(fieldTypeSymbol);
+
+        if (resolved is TypeBuilder)
+            return resolved;
+
+        if (fieldTypeSymbol is INamedTypeSymbol named &&
+            named.IsGenericType &&
+            !named.TypeArguments.IsDefaultOrEmpty)
+        {
+            var definition = named.ConstructedFrom;
+
+            try
+            {
+                var argumentTypes = named.TypeArguments
+                    .Select(ResolveClrType)
+                    .ToArray();
+
+                Type definitionType;
+
+                if (definition.SpecialType == SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
+                {
+                    definitionType = typeof(AsyncTaskMethodBuilder<int>).GetGenericTypeDefinition();
+                }
+                else
+                {
+                    definitionType = ResolveClrType(definition);
+                }
+
+                if (definitionType.IsGenericTypeDefinition || definitionType.ContainsGenericParameters)
+                    return definitionType.MakeGenericType(argumentTypes);
+
+                if (resolved.IsGenericType && resolved.ContainsGenericParameters)
+                    return resolved.GetGenericTypeDefinition().MakeGenericType(argumentTypes);
+            }
+            catch
+            {
+                // Fall back to the initially resolved type when the runtime types for the
+                // generic arguments cannot be materialised (e.g. for unsupported type parameters).
+            }
+        }
+
+        return resolved;
+    }
+
     public void DefineMemberBuilders()
     {
         if (TypeSymbol is SynthesizedDelegateTypeSymbol synthesizedDelegate)
@@ -293,45 +392,11 @@ internal class TypeGenerator
                     }
                 case IFieldSymbol fieldSymbol:
                     {
-                        var fieldTypeSymbol = fieldSymbol.Type;
-                        var type = fieldTypeSymbol.Equals(TypeSymbol, SymbolEqualityComparer.Default) ? TypeBuilder : ResolveClrType(fieldTypeSymbol);
-
-                        if (!(type is TypeBuilder) && type.ContainsGenericParameters && fieldTypeSymbol is INamedTypeSymbol namedFieldType &&
-                            namedFieldType.ConstructedFrom is INamedTypeSymbol constructedFrom &&
-                            !namedFieldType.TypeArguments.IsDefaultOrEmpty)
+                        if (fieldSymbol is SourceFieldSymbol sourceField)
                         {
-                            var argumentTypes = namedFieldType.TypeArguments.Select(ResolveClrType).ToArray();
-
-                            var definitionType = constructedFrom.SpecialType == SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T
-                                ? typeof(AsyncTaskMethodBuilder<int>).GetGenericTypeDefinition()
-                                : ResolveClrType(constructedFrom);
-
-                            if (definitionType.IsGenericTypeDefinition || definitionType.ContainsGenericParameters)
-                                type = definitionType.MakeGenericType(argumentTypes);
+                            _ = EnsureFieldBuilder(sourceField);
                         }
 
-                        FieldAttributes attr = GetFieldAccessibilityAttributes(fieldSymbol);
-
-                        if (fieldSymbol.IsLiteral)
-                        {
-                            attr |= FieldAttributes.Literal;
-                        }
-
-                        if (fieldSymbol.IsStatic)
-                        {
-                            attr |= FieldAttributes.Static;
-                        }
-
-                        var fieldBuilder = TypeBuilder.DefineField(fieldSymbol.Name, type, attr);
-                        if (fieldSymbol.IsLiteral)
-                            fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
-                        var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
-                        if (nullableAttr is not null)
-                            fieldBuilder.SetCustomAttribute(nullableAttr);
-                        CodeGen.ApplyCustomAttributes(fieldSymbol.GetAttributes(), attribute => fieldBuilder.SetCustomAttribute(attribute));
-                        _fieldBuilders[fieldSymbol] = fieldBuilder;
-
-                        CodeGen.AddMemberBuilder((SourceSymbol)fieldSymbol, fieldBuilder);
                         break;
                     }
                 case IPropertySymbol propertySymbol:

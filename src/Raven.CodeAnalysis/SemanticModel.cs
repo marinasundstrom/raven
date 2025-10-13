@@ -1396,6 +1396,9 @@ public partial class SemanticModel
     internal void CacheBoundNode(SyntaxNode node, BoundNode bound)
         => _boundNodeCache[node] = bound;
 
+    internal void RemoveCachedBoundNode(SyntaxNode node)
+        => _boundNodeCache.Remove(node);
+
     private readonly Dictionary<ClassDeclarationSyntax, SourceNamedTypeSymbol> _classSymbols = new();
 
     internal void RegisterClassSymbol(ClassDeclarationSyntax node, SourceNamedTypeSymbol symbol)

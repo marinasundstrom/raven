@@ -463,6 +463,7 @@ partial class BlockBinder
             var skipReturnConversions = method switch
             {
                 SourceMethodSymbol { HasAsyncReturnTypeError: true } => true,
+                SourceMethodSymbol { ShouldDeferAsyncReturnDiagnostics: true } => true,
                 SourceLambdaSymbol { HasAsyncReturnTypeError: true } => true,
                 _ => false,
             };

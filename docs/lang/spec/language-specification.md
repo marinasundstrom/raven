@@ -366,6 +366,29 @@ builder. The continuation re-enters `MoveNext`, reloads the awaiter field,
 calls `GetResult()`, clears the field, and continues with the remainder of the
 async body.
 
+### Try expressions
+
+`try expression` evaluates its operand and captures either the resulting value
+or an exception into a discriminated union. The operand must be any expression
+that is valid in the current context. The compiler assigns the `try` expression
+the union type formed by its operand type and `System.Exception`, enabling
+pattern matching on successful results versus failures. Nested `try`
+expressions are disallowed and produce `RAV1906`.
+
+Execution enters a `try`/`catch` block that stores the operand’s value in a
+temporary. If evaluation completes without throwing, the temporary value is
+converted to the union’s result case and becomes the expression’s final value.
+If evaluation throws an exception, the runtime catches the `System.Exception`
+instance, converts it into the union’s exception case, and yields that value
+instead. The union conversions follow the same rules as other union expressions
+when targeting explicitly typed variables. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L1007-L1022】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L3118-L3156】
+
+`await` may appear inside a `try` expression when used in an async method or
+lambda. Async lowering rewrites the await into a block expression while keeping
+the surrounding `try` intact, ensuring the state machine stores the awaited
+value on success and publishes the captured exception on failure without losing
+the expression shape. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/AsyncLowerer.cs†L916-L951】【F:test/Raven.CodeAnalysis.Tests/Semantics/ExceptionHandlingTests.cs†L89-L123】
+
 ### Cast expressions
 
 Explicit casts request a conversion to a specific type and use C# syntax.
@@ -1200,6 +1223,21 @@ the compilation. When no method qualifies, the compiler reports
 `Main` (including mixing top-level statements with a matching method) causes the
 compiler to emit `RAV1017` *Program has more than one entry point defined*.
 
+When the selected entry point returns `Task` or `Task<int>`, the compiler emits
+the synchronous `Program.Main` bridge that invokes the async body, awaits it via
+`GetAwaiter().GetResult()`, and forwards the resulting value (if any) to the host
+environment. A `Task`-returning entry point produces a bridge whose CLR
+signature is `void`; the helper awaits the async body, discards the awaited
+`Unit` value, and only returns after the async work (such as console writes)
+completes. Exceptions thrown from the async body bubble through the same
+`GetResult()` call so the process exits with the same failure semantics as a
+purely synchronous entry point. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L352-L403】
+
+Entry points that return `Task<int>` produce a bridge that awaits the async body
+and returns the awaited integer as the process exit code. The bridge also leaves
+console writes intact so the awaited value can be observed by both the caller
+and the host operating system. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L405-L476】
+
 Library and script output kinds ignore the entry point search; they never report
 missing or ambiguous entry-point diagnostics.
 
@@ -1330,6 +1368,85 @@ permitted inside an `async Task` body. Authors must `await` the task to observe
 its completion instead of returning it directly. Attempting to return an
 expression from an `async Task` member produces a diagnostic that mirrors the
 behavior of C# (error RAV2705).
+
+#### Task completion semantics
+
+`async` members returning `Task<T>` produce a task that represents the entire
+execution of the method body. The segment of the body that executes before the
+first `await` runs synchronously on the caller's stack. If no suspension point
+is encountered, the builder transitions directly to completion and the returned
+task is already marked as successfully finished when observed by the caller.
+
+Every completion path must stamp the synthesized state machine with `_state =
+-2` before invoking `AsyncTaskMethodBuilder<T>.SetResult(value)`. The builder
+stores the converted return value until `GetAwaiter().GetResult()` is called on
+the task. Falling off the end of the body is equivalent to `return;`, so methods
+that produce no value pass `default(T)` to `SetResult`.
+
+The state machine itself is always mutated by reference. Lowering materialises a
+single receiver load and passes that managed pointer to
+`AsyncTaskMethodBuilder<T>` members as well as to `AwaitUnsafeOnCompleted`. The
+builder therefore observes the original struct instance for every `_state`
+update, awaiter field store, and completion call, matching the verifier-safe IL
+pattern emitted by C# compilers.
+
+The synthesized `_builder` field is emitted as the constructed
+`AsyncTaskMethodBuilder<T>` so metadata consumers observe the awaited result
+type. Reflection therefore reports `_builder : AsyncTaskMethodBuilder<int>` for
+an `async Task<int>` member rather than the nongeneric builder. The state
+machine also exposes `void MoveNext()` and `void SetStateMachine(IAsyncStateMachine)`
+so the CLR can bind the `IAsyncStateMachine` implementations without relying on
+name mangling.
+
+Nested async lambdas and local functions synthesize the same struct layout. When
+the closure produces a nested state machine, code generation registers `_state`,
+`_builder`, and each hoisted awaiter before emitting `MoveNext` so the nested
+body reuses the by-reference pattern established for methods. This guarantees
+`AwaitUnsafeOnCompleted` receives the original state-machine receiver even when
+the async body lives inside a lambda. 【F:src/Raven.CodeAnalysis/CodeGen/CodeGenerator.cs†L27-L45】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L700-L738】
+
+Exceptions that escape before the first `await` propagate directly to the
+caller and prevent a task instance from being produced. After the state machine
+has been initialized, any uncaught exception routes through
+`AsyncTaskMethodBuilder<T>.SetException`. Awaiting the resulting task rethrows
+the original exception; synchronously blocking on `Task<T>.Result` wraps the
+exception in an `AggregateException`, preserving the .NET async contract.
+Throwing `OperationCanceledException` follows the same path and results in a
+faulted task until dedicated cancellation support is introduced. `finally`
+clauses and `using` disposals execute before completion or faulting so their
+side effects remain observable even when an exception occurs.
+
+#### Tooling guidance
+
+The command-line compiler provides an `--ilverify` flag that invokes the
+[`ilverify`](https://github.com/dotnet/runtime/tree/main/src/coreclr/tools/IlVerify)
+tool on the emitted assembly. The switch automatically forwards every metadata
+reference supplied during compilation, including `System.Private.CoreLib`, so
+verification succeeds without additional arguments. When the executable is not
+on the current `PATH`, pass `--ilverify-path <path>` or set the
+`RAVEN_ILVERIFY_PATH` environment variable; the runner falls back to the system
+`PATH` and prints actionable guidance when resolution fails. Successful
+verification proves the async state machine honours the by-reference builder
+invariants and that the lowered IL matches the CLR contract captured earlier in
+this section. 【F:src/Raven.Compiler/IlVerifyRunner.cs†L17-L136】
+
+Setting the `RAVEN_ILVERIFY_PATH` environment variable allows the regression test
+suite to invoke the same verifier. When present, `AsyncILGenerationTests` emits
+an async assembly to disk and calls `IlVerifyRunner.Verify` directly so CI can
+fail fast on invalid IL without relying on manual runs of `ravenc --ilverify`.
+The helper falls back to skipping the verification test if the executable cannot
+be located, keeping local developer workflows unblocked. 【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L77-L119】【F:test/Raven.CodeAnalysis.Tests/Utilities/IlVerifyTestHelper.cs†L1-L24】
+
+The repository’s tool manifest pins `dotnet-ilverify`, and both the CLI runner
+and regression suite launch `dotnet tool run ilverify` when no explicit path or
+environment override is provided. The test project restores the manifest before
+build so contributors can rely on `dotnet tool restore` rather than configuring
+verifier paths by hand. 【F:.config/dotnet-tools.json†L1-L9】【F:src/Raven.Compiler/IlVerifyRunner.cs†L17-L220】【F:test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj†L36-L47】
+
+When the first `await` is reached, the generated state machine captures the
+current `SynchronizationContext` and `TaskScheduler.Current`. Continuations
+resume on the captured context unless `ConfigureAwait(false)` is applied to the
+awaited task, mirroring the behaviour of C#.
 
 ### Lambda expressions and captured variables
 

@@ -159,7 +159,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     private SourceFieldSymbol CreateField(string name, ITypeSymbol type)
     {
-        return new SourceFieldSymbol(
+        var field = new SourceFieldSymbol(
             name,
             type,
             isStatic: false,
@@ -171,6 +171,9 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             s_emptyLocations,
             s_emptySyntax,
             declaredAccessibility: Accessibility.Internal);
+
+        AddMember(field);
+        return field;
     }
 
     private SourceFieldSymbol CreateBuilderField(Compilation compilation, SourceMethodSymbol asyncMethod)

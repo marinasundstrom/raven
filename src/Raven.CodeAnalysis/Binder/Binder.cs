@@ -1123,6 +1123,11 @@ internal abstract class Binder
         SemanticModel?.CacheBoundNode(node, bound);
     }
 
+    protected void RemoveCachedBoundNode(SyntaxNode node)
+    {
+        SemanticModel?.RemoveCachedBoundNode(node);
+    }
+
     public virtual BoundNode GetOrBind(SyntaxNode node)
     {
         if (TryGetCachedBoundNode(node) is BoundNode cached)
