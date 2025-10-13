@@ -7,6 +7,12 @@
       "commands": [
         "ilverify"
       ]
+    },
+    "ilspycmd": {
+      "version": "8.1.0",
+      "commands": [
+        "ilspycmd"
+      ]
     }
   }
 }
