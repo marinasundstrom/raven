@@ -202,18 +202,33 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             ?? throw new InvalidOperationException("Constructed method is missing a containing type.");
 
         var containingClrType = containingType.GetClrTypeTreatingUnitAsVoid(codeGen);
+        var runtimeTypeArguments = TypeArguments
+            .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
+            .ToArray();
+
+        if (containingClrType is TypeBuilder typeBuilder)
+        {
+            var builderMethod = ResolveMethodOnTypeBuilder(typeBuilder, codeGen);
+            return InstantiateGenericMethod(builderMethod, runtimeTypeArguments);
+        }
+
         var isTypeBuilderInstantiation = string.Equals(
             containingClrType.GetType().FullName,
             "System.Reflection.Emit.TypeBuilderInstantiation",
             StringComparison.Ordinal);
+
+        if (isTypeBuilderInstantiation)
+        {
+            var instantiatedMethod = ResolveMethodOnTypeBuilderInstantiation(containingClrType, codeGen);
+            if (instantiatedMethod is not null)
+                return InstantiateGenericMethod(instantiatedMethod, runtimeTypeArguments);
+        }
+
         var methodSearchType = isTypeBuilderInstantiation
             ? containingClrType.GetGenericTypeDefinition()
             : containingClrType;
         var parameterSymbols = Parameters;
         var returnTypeSymbol = ReturnType;
-        var runtimeTypeArguments = TypeArguments
-            .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid: false))
-            .ToArray();
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         foreach (var method in methodSearchType.GetMethods(Flags))
@@ -268,6 +283,52 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         throw new InvalidOperationException($"Unable to resolve constructed method '{_definition.Name}'.");
+    }
+
+    private MethodInfo ResolveMethodOnTypeBuilder(TypeBuilder containingTypeBuilder, CodeGen.CodeGenerator codeGen)
+    {
+        var definitionInfo = _definition.GetClrMethodInfo(codeGen);
+
+        if (ReferenceEquals(definitionInfo.DeclaringType, containingTypeBuilder))
+            return definitionInfo;
+
+        var resolved = TypeBuilder.GetMethod(containingTypeBuilder, definitionInfo);
+        if (resolved is not null)
+            return resolved;
+
+        throw new InvalidOperationException($"Unable to map method '{_definition.Name}' onto type builder '{containingTypeBuilder}'.");
+    }
+
+    private MethodInfo? ResolveMethodOnTypeBuilderInstantiation(Type containingClrType, CodeGen.CodeGenerator codeGen)
+    {
+        if (containingClrType.GetGenericTypeDefinition() is TypeBuilder genericDefinition)
+        {
+            var definitionMethod = ResolveMethodOnTypeBuilder(genericDefinition, codeGen);
+            var instantiated = TypeBuilder.GetMethod(containingClrType, definitionMethod);
+            if (instantiated is not null)
+                return instantiated;
+        }
+
+        var definitionInfo = _definition.GetClrMethodInfo(codeGen);
+        return TypeBuilder.GetMethod(containingClrType, definitionInfo);
+    }
+
+    private static MethodInfo InstantiateGenericMethod(MethodInfo method, Type[] runtimeTypeArguments)
+    {
+        if (runtimeTypeArguments.Length == 0)
+            return method;
+
+        if (method.IsGenericMethodDefinition)
+            return method.MakeGenericMethod(runtimeTypeArguments);
+
+        if (method.ContainsGenericParameters)
+        {
+            var definition = method.IsGenericMethod ? method.GetGenericMethodDefinition() : method;
+            if (definition.IsGenericMethodDefinition)
+                return definition.MakeGenericMethod(runtimeTypeArguments);
+        }
+
+        return method;
     }
 
     private bool ParametersMatch(
