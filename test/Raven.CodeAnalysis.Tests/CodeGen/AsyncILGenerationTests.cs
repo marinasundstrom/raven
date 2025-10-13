@@ -142,17 +142,53 @@ class C {
     [Fact]
     public void GenericAsyncInvocation_EmitsSuccessfully()
     {
-        var assemblyPath = EmitAsyncAssemblyToDisk(GenericAsyncInvocationCode, out var compilation);
+        var syntaxTree = SyntaxTree.ParseText(GenericAsyncInvocationCode);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create(
+                "async-generic-entry",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Position = 0;
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var entryPoint = loaded.Assembly.EntryPoint ?? throw new InvalidOperationException("Missing entry point.");
+
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+
+        object? invocationResult = null;
 
         try
         {
-            Assert.True(File.Exists(assemblyPath));
+            Console.SetOut(writer);
+
+            var parameters = entryPoint.GetParameters().Length == 0
+                ? null
+                : new object?[] { Array.Empty<string>() };
+
+            invocationResult = entryPoint.Invoke(null, parameters);
+
+            if (invocationResult is Task task)
+                task.GetAwaiter().GetResult();
         }
         finally
         {
-            if (File.Exists(assemblyPath))
-                File.Delete(assemblyPath);
+            Console.SetOut(originalOut);
         }
+
+        var output = writer.ToString();
+
+        Assert.True(invocationResult is null or Task);
+        if (!string.IsNullOrWhiteSpace(output))
+            Assert.Contains("42", output, StringComparison.Ordinal);
     }
 
     [Fact]

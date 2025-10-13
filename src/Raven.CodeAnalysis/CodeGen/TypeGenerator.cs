@@ -165,6 +165,7 @@ internal class TypeGenerator
                     synthesizedType.MetadataName,
                     synthesizedAttributes,
                     baseClrType);
+                DefineTypeGenericParameters(synthesizedType);
             }
             else
             {
@@ -174,6 +175,8 @@ internal class TypeGenerator
 
                 if (baseClrType is not null)
                     TypeBuilder.SetParent(baseClrType);
+
+                DefineTypeGenericParameters(synthesizedType);
             }
         }
 

@@ -14,6 +14,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private ImmutableArray<SourceFieldSymbol> _hoistedLocals;
     private ImmutableArray<SourceFieldSymbol> _hoistedLocalsToDispose;
     private readonly ImmutableDictionary<IParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
+    private readonly ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _methodTypeParameterMap;
 
     public SynthesizedAsyncStateMachineTypeSymbol(
         Compilation compilation,
@@ -38,6 +39,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         Compilation = compilation;
         AsyncMethod = asyncMethod;
+
+        _methodTypeParameterMap = InitializeTypeParameters(asyncMethod);
 
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
 
@@ -157,11 +160,157 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return orderedFields.ToImmutable();
     }
 
+    private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> InitializeTypeParameters(SourceMethodSymbol asyncMethod)
+    {
+        if (asyncMethod.TypeParameters.IsDefaultOrEmpty)
+            return ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty;
+
+        var mapBuilder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+        var parameterBuilder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(asyncMethod.TypeParameters.Length);
+
+        for (var i = 0; i < asyncMethod.TypeParameters.Length; i++)
+        {
+            var typeParameter = asyncMethod.TypeParameters[i];
+            var constraintReferences = typeParameter is SourceTypeParameterSymbol sourceParameter
+                ? sourceParameter.ConstraintTypeReferences
+                : ImmutableArray<SyntaxReference>.Empty;
+
+            var synthesized = new SourceTypeParameterSymbol(
+                typeParameter.Name,
+                this,
+                this,
+                ContainingNamespace,
+                s_emptyLocations,
+                s_emptySyntax,
+                i,
+                typeParameter.ConstraintKind,
+                constraintReferences,
+                typeParameter.Variance);
+
+            mapBuilder.Add(typeParameter, synthesized);
+            parameterBuilder.Add(synthesized);
+        }
+
+        var map = mapBuilder.ToImmutable();
+        SetTypeParameters(parameterBuilder.ToImmutable());
+
+        foreach (var typeParameter in asyncMethod.TypeParameters)
+        {
+            if (typeParameter.ConstraintTypes.IsDefaultOrEmpty)
+                continue;
+
+            if (map[typeParameter] is SourceTypeParameterSymbol synthesized)
+            {
+                var substitutedConstraints = typeParameter.ConstraintTypes
+                    .Select(constraint => SubstituteMethodTypeParameters(constraint, map))
+                    .ToImmutableArray();
+
+                synthesized.SetConstraintTypes(substitutedConstraints);
+            }
+        }
+
+        return map;
+    }
+
+    private ITypeSymbol SubstituteMethodTypeParameters(ITypeSymbol type)
+        => SubstituteMethodTypeParameters(type, _methodTypeParameterMap);
+
+    private ITypeSymbol SubstituteMethodTypeParameters(
+        ITypeSymbol type,
+        ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> substitutionMap)
+    {
+        if (substitutionMap.IsEmpty)
+            return type;
+
+        return Substitute(type);
+
+        ITypeSymbol Substitute(ITypeSymbol symbol)
+        {
+            if (symbol is ITypeParameterSymbol typeParameter && substitutionMap.TryGetValue(typeParameter, out var replacement))
+                return replacement;
+
+            if (symbol is ByRefTypeSymbol byRef)
+            {
+                var substitutedElement = Substitute(byRef.ElementType);
+                if (!SymbolEqualityComparer.Default.Equals(byRef.ElementType, substitutedElement))
+                    return new ByRefTypeSymbol(substitutedElement, byRef.RefKind);
+
+                return symbol;
+            }
+
+            if (symbol is IArrayTypeSymbol array)
+            {
+                var substitutedElement = Substitute(array.ElementType);
+                if (!SymbolEqualityComparer.Default.Equals(array.ElementType, substitutedElement))
+                    return Compilation.CreateArrayTypeSymbol(substitutedElement, array.Rank);
+
+                return symbol;
+            }
+
+            if (symbol is NullableTypeSymbol nullable)
+            {
+                var substitutedUnderlying = Substitute(nullable.UnderlyingType);
+                if (!SymbolEqualityComparer.Default.Equals(nullable.UnderlyingType, substitutedUnderlying))
+                    return new NullableTypeSymbol(substitutedUnderlying, this, this, ContainingNamespace, s_emptyLocations);
+
+                return symbol;
+            }
+
+            if (symbol is LiteralTypeSymbol literal)
+            {
+                var substitutedUnderlying = Substitute(literal.UnderlyingType);
+                if (!SymbolEqualityComparer.Default.Equals(literal.UnderlyingType, substitutedUnderlying))
+                    return new LiteralTypeSymbol(substitutedUnderlying, literal.ConstantValue, Compilation);
+
+                return symbol;
+            }
+
+            if (symbol is ITupleTypeSymbol tuple)
+            {
+                var substitutedUnderlying = Substitute(tuple.UnderlyingTupleType);
+                var elementTypes = tuple.TupleElements
+                    .Select(element => Substitute(element.Type))
+                    .ToArray();
+
+                var changed = !SymbolEqualityComparer.Default.Equals(tuple.UnderlyingTupleType, substitutedUnderlying)
+                    || elementTypes.Where((t, i) => !SymbolEqualityComparer.Default.Equals(t, tuple.TupleElements[i].Type)).Any();
+
+                if (changed)
+                {
+                    var elements = tuple.TupleElements
+                        .Select((element, index) => (element.Name, elementTypes[index]))
+                        .ToArray();
+
+                    return Compilation.CreateTupleTypeSymbol(elements);
+                }
+
+                return symbol;
+            }
+
+            if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+            {
+                var substitutedArguments = named.TypeArguments
+                    .Select(Substitute)
+                    .ToArray();
+
+                for (var i = 0; i < substitutedArguments.Length; i++)
+                {
+                    if (!SymbolEqualityComparer.Default.Equals(substitutedArguments[i], named.TypeArguments[i]))
+                        return named.Construct(substitutedArguments);
+                }
+            }
+
+            return symbol;
+        }
+    }
+
     private SourceFieldSymbol CreateField(string name, ITypeSymbol type)
     {
+        var substitutedType = SubstituteMethodTypeParameters(type);
+
         var field = new SourceFieldSymbol(
             name,
-            type,
+            substitutedType,
             isStatic: false,
             isLiteral: false,
             constantValue: null,
