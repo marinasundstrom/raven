@@ -415,6 +415,7 @@ internal class TypeMemberBinder : Binder
             methodSymbol.SetExplicitInterfaceImplementations(ImmutableArray.Create(explicitInterfaceMember));
 
         var parameters = new List<SourceParameterSymbol>();
+        var seenOptionalParameter = false;
 
         if (isExtensionContainer && receiverType is not null && _extensionReceiverTypeSyntax is not null)
         {
@@ -432,7 +433,12 @@ internal class TypeMemberBinder : Binder
 
         foreach (var (paramName, paramType, refKind, syntax) in resolvedParamInfos)
         {
-            var hasDefaultValue = TryEvaluateParameterDefaultValue(syntax, paramType, out var defaultValue);
+            var defaultResult = ProcessParameterDefault(
+                syntax,
+                paramType,
+                paramName,
+                _diagnostics,
+                ref seenOptionalParameter);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 paramType,
@@ -442,8 +448,8 @@ internal class TypeMemberBinder : Binder
                 [syntax.GetLocation()],
                 [syntax.GetReference()],
                 refKind,
-                hasDefaultValue,
-                defaultValue
+                defaultResult.HasExplicitDefaultValue,
+                defaultResult.ExplicitDefaultValue
             );
             parameters.Add(pSymbol);
         }
@@ -576,9 +582,15 @@ internal class TypeMemberBinder : Binder
             declaredAccessibility: ctorAccessibility);
 
         var parameters = new List<SourceParameterSymbol>();
+        var seenOptionalParameter = false;
         foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
         {
-            var hasDefaultValue = TryEvaluateParameterDefaultValue(syntax, paramType, out var defaultValue);
+            var defaultResult = ProcessParameterDefault(
+                syntax,
+                paramType,
+                paramName,
+                _diagnostics,
+                ref seenOptionalParameter);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 paramType,
@@ -588,8 +600,8 @@ internal class TypeMemberBinder : Binder
                 [syntax.GetLocation()],
                 [syntax.GetReference()],
                 refKind,
-                hasDefaultValue,
-                defaultValue
+                defaultResult.HasExplicitDefaultValue,
+                defaultResult.ExplicitDefaultValue
             );
             parameters.Add(pSymbol);
         }
@@ -657,9 +669,15 @@ internal class TypeMemberBinder : Binder
             declaredAccessibility: ctorAccessibility);
 
         var parameters = new List<SourceParameterSymbol>();
+        var seenOptionalParameter = false;
         foreach (var (paramName, paramType, refKind, syntax) in paramInfos)
         {
-            var hasDefaultValue = TryEvaluateParameterDefaultValue(syntax, paramType, out var defaultValue);
+            var defaultResult = ProcessParameterDefault(
+                syntax,
+                paramType,
+                paramName,
+                _diagnostics,
+                ref seenOptionalParameter);
             var pSymbol = new SourceParameterSymbol(
                 paramName,
                 paramType,
@@ -669,8 +687,8 @@ internal class TypeMemberBinder : Binder
                 [syntax.GetLocation()],
                 [syntax.GetReference()],
                 refKind,
-                hasDefaultValue,
-                defaultValue
+                defaultResult.HasExplicitDefaultValue,
+                defaultResult.ExplicitDefaultValue
             );
             parameters.Add(pSymbol);
         }
@@ -1071,23 +1089,32 @@ internal class TypeMemberBinder : Binder
         var explicitInterfaceSpecifier = indexerDecl.ExplicitInterfaceSpecifier;
         var identifierToken = ResolveExplicitInterfaceIdentifier(indexerDecl.Identifier, explicitInterfaceSpecifier);
 
-        var indexerParameters = indexerDecl.ParameterList.Parameters
-            .Select(p =>
-            {
-                var typeSyntax = p.TypeAnnotation!.Type;
-                var refKind = RefKind.None;
-                var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
-                if (isByRefSyntax)
-                    refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+        var indexerParametersBuilder = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool HasDefaultValue, object? DefaultValue)>();
+        var seenOptionalParameter = false;
+        foreach (var p in indexerDecl.ParameterList.Parameters)
+        {
+            var typeSyntax = p.TypeAnnotation!.Type;
+            var refKind = RefKind.None;
+            var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
+            if (isByRefSyntax)
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
 
-                var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
-                var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? ResolveType(typeSyntax, refKindForType)
-                    : ResolveType(typeSyntax);
-                var hasDefaultValue = TryEvaluateParameterDefaultValue(p, type, out var defaultValue);
-                return new { Syntax = p, Type = type, RefKind = refKind, HasDefaultValue = hasDefaultValue, DefaultValue = defaultValue };
-            })
-            .ToArray();
+            var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
+            var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                ? ResolveType(typeSyntax, refKindForType)
+                : ResolveType(typeSyntax);
+
+            var defaultResult = ProcessParameterDefault(
+                p,
+                type,
+                p.Identifier.ValueText,
+                _diagnostics,
+                ref seenOptionalParameter);
+
+            indexerParametersBuilder.Add((p, type, refKind, defaultResult.HasExplicitDefaultValue, defaultResult.ExplicitDefaultValue));
+        }
+
+        var indexerParameters = indexerParametersBuilder.ToArray();
 
         var overrideParameters = indexerParameters.Select(p => (p.Type, p.RefKind)).ToArray();
         var metadataName = "Item";
@@ -1451,20 +1478,110 @@ internal class TypeMemberBinder : Binder
         return identifier;
     }
 
-    internal static bool TryEvaluateParameterDefaultValue(
+    internal readonly struct ParameterDefaultEvaluationResult
+    {
+        public ParameterDefaultEvaluationResult(
+            bool hasDefaultSyntax,
+            bool success,
+            object? value,
+            ParameterDefaultEvaluationFailure failure)
+        {
+            HasDefaultSyntax = hasDefaultSyntax;
+            Success = success;
+            Value = value;
+            Failure = failure;
+        }
+
+        public bool HasDefaultSyntax { get; }
+
+        public bool Success { get; }
+
+        public object? Value { get; }
+
+        public ParameterDefaultEvaluationFailure Failure { get; }
+    }
+
+    internal enum ParameterDefaultEvaluationFailure
+    {
+        None,
+        NotConstant,
+        NotConvertible,
+    }
+
+    internal readonly struct ParameterDefaultProcessingResult
+    {
+        public static readonly ParameterDefaultProcessingResult None = new(false, null);
+
+        public ParameterDefaultProcessingResult(bool hasExplicitDefaultValue, object? explicitDefaultValue)
+        {
+            HasExplicitDefaultValue = hasExplicitDefaultValue;
+            ExplicitDefaultValue = explicitDefaultValue;
+        }
+
+        public bool HasExplicitDefaultValue { get; }
+
+        public object? ExplicitDefaultValue { get; }
+    }
+
+    internal static ParameterDefaultProcessingResult ProcessParameterDefault(
         ParameterSyntax parameterSyntax,
         ITypeSymbol parameterType,
-        out object? defaultValue)
+        string parameterName,
+        DiagnosticBag diagnostics,
+        ref bool seenOptionalParameter)
     {
-        defaultValue = null;
+        var evaluation = EvaluateParameterDefaultValue(parameterSyntax, parameterType);
 
+        if (!evaluation.HasDefaultSyntax)
+        {
+            if (seenOptionalParameter)
+            {
+                diagnostics.ReportOptionalParameterMustBeTrailing(parameterName, parameterSyntax.Identifier.GetLocation());
+            }
+
+            return ParameterDefaultProcessingResult.None;
+        }
+
+        seenOptionalParameter = true;
+
+        if (!evaluation.Success)
+        {
+            var defaultLocation = parameterSyntax.DefaultValue!.Value.GetLocation();
+
+            switch (evaluation.Failure)
+            {
+                case ParameterDefaultEvaluationFailure.NotConstant:
+                    diagnostics.ReportParameterDefaultValueMustBeConstant(parameterName, defaultLocation);
+                    break;
+                case ParameterDefaultEvaluationFailure.NotConvertible:
+                    if (parameterType.TypeKind != TypeKind.Error)
+                    {
+                        var parameterTypeDisplay = parameterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        diagnostics.ReportParameterDefaultValueCannotConvert(parameterName, parameterTypeDisplay, defaultLocation);
+                    }
+                    break;
+            }
+
+            return ParameterDefaultProcessingResult.None;
+        }
+
+        return new ParameterDefaultProcessingResult(true, evaluation.Value);
+    }
+
+    internal static ParameterDefaultEvaluationResult EvaluateParameterDefaultValue(
+        ParameterSyntax parameterSyntax,
+        ITypeSymbol parameterType)
+    {
         if (parameterSyntax.DefaultValue is null)
-            return false;
+            return new ParameterDefaultEvaluationResult(false, success: false, value: null, ParameterDefaultEvaluationFailure.None);
 
         if (!TryEvaluateDefaultExpression(parameterSyntax.DefaultValue.Value, out var rawValue))
-            return false;
+            return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConstant);
 
-        return TryConvertParameterDefault(parameterType, rawValue, out defaultValue);
+        if (!TryConvertParameterDefault(parameterType, rawValue, out var defaultValue))
+            return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConvertible);
+
+        return new ParameterDefaultEvaluationResult(true, success: true, defaultValue, ParameterDefaultEvaluationFailure.None);
     }
 
     private static bool TryEvaluateDefaultExpression(ExpressionSyntax expression, out object? value)

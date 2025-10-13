@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -122,34 +123,41 @@ class FunctionBinder : Binder
         if (isAsync && _syntax.ReturnType is null)
             _methodSymbol.RequireAsyncReturnTypeInference();
 
-        var parameters = _syntax.ParameterList.Parameters
-            .Select(p =>
-            {
-                var typeSyntax = p.TypeAnnotation.Type;
-                var refKind = RefKind.None;
-                var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
+        var parameters = new List<SourceParameterSymbol>();
+        var seenOptionalParameter = false;
+        foreach (var p in _syntax.ParameterList.Parameters)
+        {
+            var typeSyntax = p.TypeAnnotation.Type;
+            var refKind = RefKind.None;
+            var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
 
-                if (isByRefSyntax)
-                    refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
+            if (isByRefSyntax)
+                refKind = p.Modifiers.Any(m => m.Kind == SyntaxKind.OutKeyword) ? RefKind.Out : RefKind.Ref;
 
-                var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
-                var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
-                    ? methodBinder.ResolveType(typeSyntax, refKindForType)
-                    : methodBinder.ResolveType(typeSyntax);
-                var hasDefaultValue = TypeMemberBinder.TryEvaluateParameterDefaultValue(p, type, out var defaultValue);
-                return new SourceParameterSymbol(
-                    p.Identifier.ValueText,
-                    type,
-                    _methodSymbol,
-                    container.ContainingType,
-                    container.ContainingNamespace,
-                    [p.GetLocation()],
-                    [p.GetReference()],
-                    refKind,
-                    hasDefaultValue,
-                    defaultValue);
-            })
-            .ToArray();
+            var refKindForType = refKind == RefKind.None && isByRefSyntax ? RefKind.Ref : refKind;
+            var type = refKindForType is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
+                ? methodBinder.ResolveType(typeSyntax, refKindForType)
+                : methodBinder.ResolveType(typeSyntax);
+
+            var defaultResult = TypeMemberBinder.ProcessParameterDefault(
+                p,
+                type,
+                p.Identifier.ValueText,
+                _diagnostics,
+                ref seenOptionalParameter);
+
+            parameters.Add(new SourceParameterSymbol(
+                p.Identifier.ValueText,
+                type,
+                _methodSymbol,
+                container.ContainingType,
+                container.ContainingNamespace,
+                [p.GetLocation()],
+                [p.GetReference()],
+                refKind,
+                defaultResult.HasExplicitDefaultValue,
+                defaultResult.ExplicitDefaultValue));
+        }
 
         _methodSymbol.SetParameters(parameters);
         return _methodSymbol;

@@ -158,6 +158,18 @@
     Title="Explicit interface specifier must name an interface"
     Message="Explicit interface specifier must name an interface type" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0317" Identifier="OptionalParameterMustBeTrailing"
+    Title="Optional parameters must be trailing"
+    Message="Optional parameter '{parameterName}' must be the last parameter in the list" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0318" Identifier="ParameterDefaultValueMustBeConstant"
+    Title="Default value must be a compile-time constant"
+    Message="Default value for parameter '{parameterName}' must be a compile-time constant" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0319" Identifier="ParameterDefaultValueCannotConvert"
+    Title="Default value cannot convert to parameter type"
+    Message="Default value for parameter '{parameterName}' cannot be converted to '{parameterType}'" Category="compiler"
+    Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0314" Identifier="ContainingTypeDoesNotImplementInterface"
     Title="Type does not implement interface"
     Message="Type '{typeName}' does not implement interface '{interfaceName}'" Category="compiler"
