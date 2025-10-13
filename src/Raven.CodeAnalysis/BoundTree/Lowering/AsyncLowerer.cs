@@ -114,6 +114,28 @@ internal static class AsyncLowerer
         SourceMethodSymbol method,
         SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
+        if (method.ReturnType is INamedTypeSymbol methodReturn &&
+            methodReturn.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+            methodReturn.TypeArguments.Length == 1 &&
+            stateMachine.BuilderField.Type is INamedTypeSymbol builderType &&
+            builderType.OriginalDefinition.SpecialType == SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
+        {
+            var awaitedType = builderType switch
+            {
+                ConstructedNamedTypeSymbol constructed when constructed.TypeArguments.Length == 1 => constructed.TypeArguments[0],
+                _ when builderType.TypeArguments.Length == 1 => builderType.TypeArguments[0],
+                _ => null
+            };
+
+            if (awaitedType is not null &&
+                !SymbolEqualityComparer.Default.Equals(methodReturn.TypeArguments[0], awaitedType) &&
+                methodReturn.OriginalDefinition is INamedTypeSymbol taskDefinition)
+            {
+                var closedTask = taskDefinition.Construct(awaitedType);
+                method.SetReturnType(closedTask);
+            }
+        }
+
         var statements = new List<BoundStatement>();
 
         var asyncLocal = new SourceLocalSymbol(
@@ -409,7 +431,7 @@ internal static class AsyncLowerer
         foreach (var member in builderType.GetMembers("SetResult"))
         {
             if (member is IMethodSymbol method)
-                return method;
+                return SubstituteBuilderMethodIfNeeded(builderType, method);
         }
 
         return null;
@@ -554,7 +576,7 @@ internal static class AsyncLowerer
         foreach (var member in builderType.GetMembers("SetException"))
         {
             if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return method;
+                return SubstituteBuilderMethodIfNeeded(builderType, method);
         }
 
         return null;
@@ -571,10 +593,34 @@ internal static class AsyncLowerer
         foreach (var member in builderType.GetMembers(name))
         {
             if (member is IMethodSymbol { Parameters.Length: 2 } method)
-                return method;
+                return SubstituteBuilderMethodIfNeeded(builderType, method);
         }
 
         return null;
+    }
+
+    private static IMethodSymbol? SubstituteBuilderMethodIfNeeded(INamedTypeSymbol builderType, IMethodSymbol method)
+    {
+        if (builderType is ConstructedNamedTypeSymbol constructed &&
+            method is not SubstitutedMethodSymbol &&
+            !SymbolEqualityComparer.Default.Equals(method.ContainingType, constructed))
+        {
+            return new SubstitutedMethodSymbol(method, constructed);
+        }
+
+        return method;
+    }
+
+    private static IPropertySymbol? SubstituteBuilderPropertyIfNeeded(INamedTypeSymbol builderType, IPropertySymbol property)
+    {
+        if (builderType is ConstructedNamedTypeSymbol constructed &&
+            property is not SubstitutedPropertySymbol &&
+            !SymbolEqualityComparer.Default.Equals(property.ContainingType, constructed))
+        {
+            return new SubstitutedPropertySymbol(property, constructed);
+        }
+
+        return property;
     }
 
     private sealed class AwaitLoweringRewriter : BoundTreeRewriter
@@ -1739,6 +1785,12 @@ internal static class AsyncLowerer
         var builderAccess = new BoundMemberAccessExpression(new BoundLocalAccess(asyncLocal), stateMachine.BuilderField);
         var taskAccess = new BoundMemberAccessExpression(builderAccess, taskProperty);
 
+        if (!SymbolEqualityComparer.Default.Equals(taskProperty.Type, method.ReturnType))
+        {
+            var conversion = new Conversion(isImplicit: true, isIdentity: true);
+            return new BoundCastExpression(taskAccess, method.ReturnType, conversion);
+        }
+
         return taskAccess;
     }
 
@@ -1747,7 +1799,7 @@ internal static class AsyncLowerer
         foreach (var member in type.GetMembers(name))
         {
             if (member is IMethodSymbol { Parameters.Length: 0, IsStatic: true } method)
-                return method;
+                return SubstituteBuilderMethodIfNeeded(type, method);
         }
 
         return null;
@@ -1758,7 +1810,7 @@ internal static class AsyncLowerer
         foreach (var member in builderType.GetMembers())
         {
             if (member is IPropertySymbol { Name: "Task" } property)
-                return property;
+                return SubstituteBuilderPropertyIfNeeded(builderType, property);
         }
 
         return null;
@@ -1769,7 +1821,7 @@ internal static class AsyncLowerer
         foreach (var member in builderType.GetMembers("Start"))
         {
             if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return method;
+                return SubstituteBuilderMethodIfNeeded(builderType, method);
         }
 
         return null;
@@ -1780,7 +1832,7 @@ internal static class AsyncLowerer
         foreach (var member in builderType.GetMembers("SetStateMachine"))
         {
             if (member is IMethodSymbol { Parameters.Length: 1 } method)
-                return method;
+                return SubstituteBuilderMethodIfNeeded(builderType, method);
         }
 
         return null;

@@ -222,13 +222,25 @@ public static partial class SymbolExtensions
 
         if (symbol is INamedTypeSymbol typeSymbol)
         {
-            // Handle generics
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
-                typeSymbol.TypeParameters != null && !typeSymbol.TypeParameters.IsEmpty)
+                typeSymbol.TypeParameters is { IsDefaultOrEmpty: false })
             {
+                IEnumerable<string> arguments;
+
+                if (!typeSymbol.TypeArguments.IsDefaultOrEmpty &&
+                    typeSymbol.TypeArguments.Length == typeSymbol.TypeParameters.Length)
+                {
+                    arguments = typeSymbol.TypeArguments
+                        .Select(arg => arg.ToDisplayStringKeywordAware(format));
+                }
+                else
+                {
+                    arguments = typeSymbol.TypeParameters
+                        .Select(p => EscapeIdentifierIfNeeded(p.Name, format));
+                }
+
                 result.Append("<");
-                result.Append(string.Join(", ",
-                    typeSymbol.TypeParameters.Select(p => EscapeIdentifierIfNeeded(p.Name, format))));
+                result.Append(string.Join(", ", arguments));
                 result.Append(">");
             }
         }

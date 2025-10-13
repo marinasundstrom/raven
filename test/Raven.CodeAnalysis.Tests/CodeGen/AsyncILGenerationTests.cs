@@ -198,6 +198,55 @@ WriteLine(value)
     }
 
     [Fact]
+    public void AsyncMethod_TaskOfInt_ReturnTypeMetadataIsClosedGeneric()
+    {
+        using var metadata = EmitAsyncMetadata(AsyncTaskOfIntCode);
+
+        var reader = metadata.MetadataReader;
+        var containingType = metadata.MethodSymbol.ContainingType
+            ?? throw new InvalidOperationException("Async method is missing a containing type.");
+        var typeHandle = FindTypeDefinition(reader, containingType);
+        var methodHandle = FindMethodDefinition(reader, typeHandle, metadata.MethodSymbol.Name);
+        var methodDefinition = reader.GetMethodDefinition(methodHandle);
+
+        var returnTypeSymbol = metadata.MethodSymbol.ReturnType;
+        var display = returnTypeSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat);
+        Assert.Equal("System.Threading.Tasks.Task<int>", display);
+
+        var signatureReader = reader.GetBlobReader(methodDefinition.Signature);
+        var header = signatureReader.ReadSignatureHeader();
+        Assert.Equal(SignatureKind.Method, header.Kind);
+
+        var parameterCount = signatureReader.ReadCompressedInteger();
+        Assert.Equal(1, parameterCount);
+
+        var returnTypeCode = signatureReader.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.GenericTypeInstance, returnTypeCode);
+
+        var genericTypeKind = signatureReader.ReadSignatureTypeCode();
+        Assert.Equal(SignatureTypeCode.TypeHandle, genericTypeKind);
+
+        var taskHandle = signatureReader.ReadTypeHandle();
+        var taskTypeName = GetTypeQualifiedName(reader, taskHandle);
+        Assert.Equal("System.Threading.Tasks.Task`1", taskTypeName);
+
+        var arity = signatureReader.ReadCompressedInteger();
+        Assert.Equal(1, arity);
+
+        var argumentTypeCode = signatureReader.ReadSignatureTypeCode();
+        if (argumentTypeCode == SignatureTypeCode.TypeHandle)
+        {
+            var argumentHandle = signatureReader.ReadTypeHandle();
+            var argumentName = GetTypeQualifiedName(reader, argumentHandle);
+            Assert.Equal("System.Int32", argumentName);
+        }
+        else
+        {
+            Assert.Equal(SignatureTypeCode.Int32, argumentTypeCode);
+        }
+    }
+
+    [Fact]
     public void AsyncMethod_AppliesStateMachineMetadata()
     {
         var syntaxTree = SyntaxTree.ParseText(AsyncCode);
@@ -1187,6 +1236,13 @@ class C {
 
         _ = compilation.GetSpecialType(SpecialType.System_Object);
 
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var classDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var methodDeclaration = classDeclaration.Members.OfType<MethodDeclarationSyntax>().Single();
+
+        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
+
         var codeGenerator = new CodeGenerator(compilation)
         {
             ILBuilderFactory = ReflectionEmitILBuilderFactory.Instance
@@ -1194,13 +1250,6 @@ class C {
 
         var peStream = new MemoryStream();
         codeGenerator.Emit(peStream, pdbStream: null);
-
-        var model = compilation.GetSemanticModel(syntaxTree);
-        var root = syntaxTree.GetRoot();
-        var classDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var methodDeclaration = classDeclaration.Members.OfType<MethodDeclarationSyntax>().Single();
-
-        var methodSymbol = Assert.IsType<SourceMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
 
         peStream.Position = 0;
         var peReader = new PEReader(peStream, PEStreamOptions.LeaveOpen);
