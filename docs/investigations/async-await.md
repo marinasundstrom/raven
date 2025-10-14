@@ -280,6 +280,12 @@ This parity baseline leads to a four-part remediation plan:
    already have the receiver in scope and avoid reloading `ldarg.0`. When the
    field lives on the state machine, the emitter should duplicate the borrowed
    receiver and use `ldflda` just like Roslyn’s `IL_0049` sequence.
+   * ✅ `EmitAddressOfExpression` now keeps the duplicated state-machine receiver
+     on the evaluation stack whenever a hoisted awaiter or the builder field is
+     addressed, so subsequent loads borrow the existing `ldarg.0` instead of
+     emitting a new one. Regression coverage walks the `AwaitUnsafeOnCompleted`
+     sequence to confirm no additional `ldarg.0` appears between the builder and
+     awaiter address loads. 【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L905-L939】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1338-L1381】
 4. **Lock in parity with IL and runtime tests.** Augment the existing
    regression suite with IL baselines that assert the `dup` and `ldflda`
    ordering above, then wire the async sample back into the execution harness to

@@ -1337,6 +1337,34 @@ class C {
         Assert.Equal(OpCodes.Ldflda, awaiterLoadInstruction.Opcode);
     }
 
+    [Fact]
+    public void MoveNext_AwaitUnsafeOnCompleted_DoesNotReloadReceiverBetweenBuilderAndAwaiter()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var builderAddressIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex >= 0, "Builder address load not found.");
+
+        var awaiterAddressIndex = Array.FindIndex(instructions, builderAddressIndex + 1, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand).StartsWith("<>awaiter", StringComparison.Ordinal));
+
+        Assert.True(awaiterAddressIndex > builderAddressIndex, "Awaiter address load not found after builder.");
+
+        for (var index = builderAddressIndex + 1; index < awaiterAddressIndex; index++)
+        {
+            var instruction = instructions[index];
+            Assert.False(
+                IsLoadArgumentZero(instruction),
+                $"Receiver reloaded with {instruction.Opcode} at index {index} before awaiter address load.");
+        }
+    }
+
 
     [Fact]
     public void MoveNext_AwaitUnsafeOnCompleted_BorrowsReceiverForBuilder()

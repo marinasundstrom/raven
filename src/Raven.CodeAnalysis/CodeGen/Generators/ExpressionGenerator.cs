@@ -924,7 +924,7 @@ internal class ExpressionGenerator : Generator
             var fieldInfo = (FieldInfo)GetField(instanceField);
             ILGenerator.Emit(OpCodes.Ldflda, fieldInfo);
 
-            asyncFrame.AfterFieldAccess(receiverRemainsOnTop: false);
+            asyncFrame.AfterFieldAccess(receiverRemainsOnTop: keepAlive);
 
             if (keepAlive)
                 asyncFrame.SuppressNextRelease();
