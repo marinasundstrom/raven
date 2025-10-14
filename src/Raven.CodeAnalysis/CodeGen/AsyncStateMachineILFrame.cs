@@ -12,6 +12,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
     private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
 
     private int _receiverDepth;
+    private bool _receiverOnTop;
     private bool _suppressNextRelease;
 
     public AsyncStateMachineILFrame(MethodBodyGenerator methodBodyGenerator, SynthesizedAsyncStateMachineTypeSymbol stateMachine)
@@ -58,25 +59,34 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
 
     public void EnsureReceiverLoaded(bool keepAlive)
     {
-        if (_receiverDepth == 0)
+        if (_receiverDepth == 0 || !_receiverOnTop)
         {
             IL.Emit(OpCodes.Ldarg_0);
             _receiverDepth = 1;
+            _receiverOnTop = true;
         }
 
-        if (keepAlive)
-        {
-            IL.Emit(OpCodes.Dup);
-            _receiverDepth++;
-        }
-    }
-
-    public void AfterFieldStore()
-    {
-        if (_receiverDepth == 0)
+        if (!keepAlive)
             return;
 
-        _receiverDepth--;
+        IL.Emit(OpCodes.Dup);
+        _receiverDepth++;
+    }
+
+    public void AfterFieldAccess(bool receiverRemainsOnTop)
+    {
+        if (receiverRemainsOnTop)
+        {
+            if (_receiverDepth == 0)
+                return;
+
+            _receiverDepth--;
+            _receiverOnTop = _receiverDepth > 0;
+            return;
+        }
+
+        _receiverDepth = 0;
+        _receiverOnTop = false;
     }
 
     public bool TryConsumeReceiver()
@@ -85,6 +95,7 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
             return false;
 
         _receiverDepth--;
+        _receiverOnTop = _receiverDepth > 0;
         return true;
     }
 
@@ -95,6 +106,8 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
             IL.Emit(OpCodes.Pop);
             _receiverDepth--;
         }
+
+        _receiverOnTop = false;
     }
 
     public bool HasReceiverOnStack => _receiverDepth > 0;
@@ -103,5 +116,6 @@ internal sealed class AsyncStateMachineILFrame : IDisposable
     {
         ReleaseReceiver();
         _suppressNextRelease = false;
+        _receiverOnTop = false;
     }
 }

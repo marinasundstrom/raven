@@ -923,7 +923,7 @@ internal class ExpressionGenerator : Generator
             var fieldInfo = (FieldInfo)GetField(instanceField);
             ILGenerator.Emit(OpCodes.Ldflda, fieldInfo);
 
-            asyncFrame.AfterFieldStore();
+            asyncFrame.AfterFieldAccess(receiverRemainsOnTop: false);
 
             if (keepAlive)
                 asyncFrame.SuppressNextRelease();
@@ -2411,29 +2411,43 @@ internal class ExpressionGenerator : Generator
         EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
     }
 
-    private bool TryEmitValueTypeReceiverAddress(BoundExpression? receiver, ITypeSymbol? runtimeType, ITypeSymbol? declaredType = null)
+    private bool TryEmitValueTypeReceiverAddress(
+        BoundExpression? receiver,
+        ITypeSymbol? runtimeType,
+        ITypeSymbol? declaredType = null,
+        bool keepAlive = false)
     {
         var effectiveType = runtimeType ?? declaredType;
 
         if (effectiveType is null || !effectiveType.IsValueType)
-            return TryEmitInvocationReceiverAddress(receiver);
+            return TryEmitInvocationReceiverAddress(receiver, keepAlive);
 
-        if (TryEmitInvocationReceiverAddress(receiver))
+        if (TryEmitInvocationReceiverAddress(receiver, keepAlive))
             return true;
 
         if (receiver is BoundMemberAccessExpression { Member: IFieldSymbol fieldSymbol } member && !fieldSymbol.IsStatic)
         {
             var containingType = fieldSymbol.ContainingType;
 
-            if (TryEmitValueTypeReceiverAddress(member.Receiver, member.Receiver?.Type, containingType))
+            var shouldKeepAlive = false;
+            AsyncStateMachineILFrame? frame = null;
+            if (MethodBodyGenerator.AsyncIlFrame is { } candidateFrame &&
+                MethodGenerator.AsyncStateMachineContext is { } asyncContext &&
+                SymbolEqualityComparer.Default.Equals(containingType, asyncContext.Definition))
+            {
+                shouldKeepAlive = true;
+                frame = candidateFrame;
+            }
+
+            if (TryEmitValueTypeReceiverAddress(member.Receiver, member.Receiver?.Type, containingType, shouldKeepAlive))
             {
                 ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
 
-                if (MethodBodyGenerator.AsyncIlFrame is { } frame &&
-                    MethodGenerator.AsyncStateMachineContext is { } asyncContext &&
-                    SymbolEqualityComparer.Default.Equals(fieldSymbol.ContainingType, asyncContext.Definition))
+                if (frame is not null)
                 {
-                    frame.AfterFieldStore();
+                    frame.AfterFieldAccess(receiverRemainsOnTop: false);
+                    if (shouldKeepAlive)
+                        frame.SuppressNextRelease();
                 }
 
                 return true;
@@ -2443,7 +2457,7 @@ internal class ExpressionGenerator : Generator
         return false;
     }
 
-    private bool TryEmitInvocationReceiverAddress(BoundExpression? receiver)
+    private bool TryEmitInvocationReceiverAddress(BoundExpression? receiver, bool keepAlive = false)
     {
         switch (receiver)
         {
@@ -2456,7 +2470,9 @@ internal class ExpressionGenerator : Generator
                     SymbolEqualityComparer.Default.Equals(frame.StateMachine, asyncContext.Definition))
                 {
                     if (!frame.HasReceiverOnStack)
-                        frame.EnsureReceiverLoaded(keepAlive: false);
+                        frame.EnsureReceiverLoaded(keepAlive);
+                    else if (keepAlive)
+                        frame.EnsureReceiverLoaded(keepAlive);
 
                     return true;
                 }
@@ -2472,7 +2488,9 @@ internal class ExpressionGenerator : Generator
                     SymbolEqualityComparer.Default.Equals(asyncFrame.StateMachine, selfExpression.Type))
                 {
                     if (!asyncFrame.HasReceiverOnStack)
-                        asyncFrame.EnsureReceiverLoaded(keepAlive: false);
+                        asyncFrame.EnsureReceiverLoaded(keepAlive);
+                    else if (keepAlive)
+                        asyncFrame.EnsureReceiverLoaded(keepAlive);
 
                     return true;
                 }
@@ -2526,7 +2544,7 @@ internal class ExpressionGenerator : Generator
                         return true;
                     }
 
-                    if (!TryEmitInvocationReceiverAddress(memberAccess.Receiver))
+                    if (!TryEmitInvocationReceiverAddress(memberAccess.Receiver, keepAlive))
                         return false;
 
                     ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
@@ -3443,7 +3461,7 @@ internal class ExpressionGenerator : Generator
         var fieldInfo = (FieldInfo)GetField(field);
         ILGenerator.Emit(OpCodes.Stfld, fieldInfo);
 
-        frame.AfterFieldStore();
+        frame.AfterFieldAccess(receiverRemainsOnTop: true);
 
         if (keepAlive)
             frame.SuppressNextRelease();
@@ -3495,7 +3513,7 @@ internal class ExpressionGenerator : Generator
         var fieldInfo = (FieldInfo)GetField(field);
         ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
 
-        frame.AfterFieldStore();
+        frame.AfterFieldAccess(receiverRemainsOnTop: false);
 
         if (keepAlive)
             frame.SuppressNextRelease();
@@ -3519,7 +3537,7 @@ internal class ExpressionGenerator : Generator
         var fieldInfo = (FieldInfo)GetField(field);
         ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
 
-        frame.AfterFieldStore();
+        frame.AfterFieldAccess(receiverRemainsOnTop: false);
         return true;
     }
 

@@ -256,6 +256,14 @@ This parity baseline leads to a four-part remediation plan:
    `_builder`, and awaiter access. The frame should own the `dup`/`stfld`
    pattern Roslyn uses so statement emission no longer reloads or discards the
    struct between operations.
+   * ✅ Updated the frame to track whether the state machine is currently on
+     top of the evaluation stack, reset that state after `_builder` and
+     awaiter loads, and emit a fresh `ldarg.0` when the next field access needs
+     the receiver. Await scheduling now pushes the state-machine address back
+     onto the stack before calling `AwaitUnsafeOnCompleted`, matching Roslyn’s
+     by-ref discipline and unblocking the runtime verifier. Regression coverage
+     asserts that the builder load, awaiter address, and subsequent helper call
+     all observe `ldarg.0` in between. 【F:src/Raven.CodeAnalysis/CodeGen/AsyncStateMachineILFrame.cs†L13-L90】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1225-L1299】
 2. **Centralise async helper calls behind a stack-aware emitter.** Introduce a
    dedicated helper that emits `Start`, `AwaitUnsafeOnCompleted`,
    `SetResult`, and `SetException`. The helper should take the borrowed

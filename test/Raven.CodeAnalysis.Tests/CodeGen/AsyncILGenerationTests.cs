@@ -1264,6 +1264,39 @@ class C {
     }
 
     [Fact]
+    public void MoveNext_AwaitUnsafeOnCompleted_ReusesStateMachineForAwaiter()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var builderAddressIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex >= 0, "Builder field address not found.");
+
+        var awaiterAddressIndex = Array.FindIndex(instructions, builderAddressIndex + 1, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand).StartsWith("<>awaiter", StringComparison.Ordinal));
+
+        Assert.True(awaiterAddressIndex > builderAddressIndex, "Awaiter address load not found after builder access.");
+
+        var awaitCallIndex = Array.FindIndex(instructions, builderAddressIndex + 1, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("AwaitUnsafeOnCompleted", StringComparison.Ordinal));
+
+        Assert.True(awaitCallIndex > awaiterAddressIndex, "AwaitUnsafeOnCompleted call not found after awaiter address load.");
+
+        var betweenBuilderAndAwait = instructions[(builderAddressIndex + 1)..awaitCallIndex];
+        Assert.Contains(betweenBuilderAndAwait, instruction => instruction.Opcode == OpCodes.Ldarg_0);
+
+        var awaiterLoadInstruction = instructions[awaiterAddressIndex];
+        Assert.Equal(OpCodes.Ldflda, awaiterLoadInstruction.Opcode);
+    }
+
+    [Fact]
     public void MoveNext_StampsTerminalStateBeforeCompletion()
     {
         var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
