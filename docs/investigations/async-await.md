@@ -223,6 +223,54 @@ already has it cached, or by extending `AsyncStateMachineILFrame` with an explic
 for the state machine. Once the stack management is fixed we should add IL
 assertions for the await path and flip the sample execution tests to expect the
 printed output instead of an abort.
+
+#### Re-evaluated remediation plan
+
+To turn the runtime investigation into actionable work we compared the IL that
+Roslyn emits for `Program.<Test>d__1<T>` and distilled the critical stack
+discipline we still lack:
+
+```il
+IL_0018: ldarg.0
+IL_0019: dup
+IL_001a: ldc.i4.0
+IL_001b: stfld      int32 Program/'<Test>d__1`1'<!T>::'<>1__state'
+IL_0020: ldarg.0
+IL_0021: ldflda     valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!T>
+                             Program/'<Test>d__1`1'<!T>::'<>t__builder'
+IL_0026: ldarg.0
+IL_0027: call       instance void [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!T>::Start<valuetype Program/'<Test>d__1`1'<!T>>(!!0&)
+IL_0042: ldarg.0
+IL_0043: ldflda     valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!T>
+                             Program/'<Test>d__1`1'<!T>::'<>t__builder'
+IL_0048: ldarg.0
+IL_0049: ldflda     valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter Program/'<Test>d__1`1'<!T>::'<>u__1'
+IL_0051: call       instance void [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!T>::AwaitUnsafeOnCompleted<valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter, valuetype Program/'<Test>d__1`1'<!T>>(!!0&, !!1&)
+```
+
+This parity baseline leads to a four-part remediation plan:
+
+1. **Give the IL frame a first-class “borrowed receiver” handle.** Extend
+   `AsyncStateMachineILFrame` so it records when `ldarg.0` has been pushed and
+   exposes helpers that duplicate the receiver before every `_state`,
+   `_builder`, and awaiter access. The frame should own the `dup`/`stfld`
+   pattern Roslyn uses so statement emission no longer reloads or discards the
+   struct between operations.
+2. **Centralise async helper calls behind a stack-aware emitter.** Introduce a
+   dedicated helper that emits `Start`, `AwaitUnsafeOnCompleted`,
+   `SetResult`, and `SetException`. The helper should take the borrowed
+   receiver and guarantee `ldflda` is performed with the receiver still on the
+   stack so the IL mirrors Roslyn’s operand ordering.
+3. **Tighten address-of emission for hoisted awaiters.** Teach
+   `ExpressionGenerator.EmitAddressOfExpression` to detect awaiter fields that
+   already have the receiver in scope and avoid reloading `ldarg.0`. When the
+   field lives on the state machine, the emitter should duplicate the borrowed
+   receiver and use `ldflda` just like Roslyn’s `IL_0049` sequence.
+4. **Lock in parity with IL and runtime tests.** Augment the existing
+   regression suite with IL baselines that assert the `dup` and `ldflda`
+   ordering above, then wire the async sample back into the execution harness to
+   confirm the InvalidProgramException disappears once the new stack discipline
+   lands.
 * Invokes `AsyncTaskMethodBuilder<T>.Start` and
   `AwaitUnsafeOnCompleted<…, C.<M>d__0<T>>` with the fully constructed state
   machine so `!!0` and `!!1` tokens already reflect the closed generic
@@ -405,6 +453,11 @@ through metadata caching.
   the async method, `MoveNext`, and `SetStateMachine` now invoke
   `AsyncTaskMethodBuilder<T>` with the cloned type parameter, confirming the
   constructed metadata is preserved end-to-end for generic async methods.
+* Roslyn’s `Program.<Test>d__1<T>` state machine keeps the receiver on the stack
+  through `ldarg.0`, `dup`, and paired `ldflda` instructions before calling
+  `Start` and `AwaitUnsafeOnCompleted`, proving Raven needs a first-class
+  “borrowed receiver” abstraction plus stack-aware builder helpers to eliminate
+  the InvalidProgramException observed in the samples.【F:docs/investigations/async-await.md†L247-L283】
 
 ## Step 1 – Desired semantics for `async Task<T>`
 
