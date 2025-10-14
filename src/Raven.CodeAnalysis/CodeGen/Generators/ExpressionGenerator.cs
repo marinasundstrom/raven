@@ -2667,6 +2667,11 @@ internal class ExpressionGenerator : Generator
     public void EmitInvocationExpressionBase(BoundInvocationExpression invocationExpression, bool receiverAlreadyLoaded = false)
     {
         var target = GetInvocationTarget(invocationExpression);
+        if (!receiverAlreadyLoaded &&
+            TryEmitAsyncBuilderHelperInvocation(invocationExpression, target))
+        {
+            return;
+        }
         var receiver = invocationExpression.Receiver;
 
         // Emit receiver (for instance methods)
@@ -2791,6 +2796,106 @@ internal class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(memberInfo));
         }
+    }
+
+    private bool TryEmitAsyncBuilderHelperInvocation(
+        BoundInvocationExpression invocationExpression,
+        IMethodSymbol target)
+    {
+        if (MethodBodyGenerator.AsyncIlFrame is not { } frame)
+            return false;
+
+        if (MethodGenerator.AsyncStateMachineContext is not { } asyncContext)
+            return false;
+
+        if (target.ContainingType is not INamedTypeSymbol builderType)
+            return false;
+
+        if (!IsAsyncTaskBuilderType(builderType))
+            return false;
+
+        if (!IsAsyncBuilderHelper(target))
+            return false;
+
+        if (invocationExpression.Receiver is not BoundMemberAccessExpression { Member: IFieldSymbol builderField })
+            return false;
+
+        if (!SymbolEqualityComparer.Default.Equals(builderField.ContainingType, asyncContext.Definition))
+            return false;
+
+        EmitAsyncStateMachineFieldAddress(frame, builderField);
+
+        var parameters = target.Parameters.ToArray();
+        var arguments = invocationExpression.Arguments.ToArray();
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var parameter = parameters[i];
+            var argument = arguments[i];
+
+            if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
+            {
+                switch (argument)
+                {
+                    case BoundAddressOfExpression addressOf:
+                        EmitAddressOfExpression(addressOf);
+                        break;
+                    case BoundLocalAccess { Symbol: ILocalSymbol local }:
+                        ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                        break;
+                    default:
+                        EmitExpression(argument);
+                        break;
+                }
+            }
+            else
+            {
+                EmitExpression(argument);
+
+                if (argument?.Type is { IsValueType: true } && !parameter.Type.IsValueType)
+                {
+                    ILGenerator.Emit(OpCodes.Box, ResolveClrType(argument.Type));
+                }
+            }
+        }
+
+        var isInterfaceCall = target.ContainingType?.TypeKind == TypeKind.Interface;
+        var targetMethodInfo = GetMethodInfo(target);
+
+        if (target.IsStatic)
+        {
+            ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
+        }
+        else if (!target.ContainingType!.IsValueType && (target.IsVirtual || isInterfaceCall))
+        {
+            ILGenerator.Emit(OpCodes.Callvirt, targetMethodInfo);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Call, targetMethodInfo);
+        }
+
+        return true;
+    }
+
+    private static bool IsAsyncBuilderHelper(IMethodSymbol method)
+    {
+        return method.Name switch
+        {
+            "Start" or "AwaitOnCompleted" or "AwaitUnsafeOnCompleted" or "SetResult" or "SetException" => true,
+            _ => false,
+        };
+    }
+
+    private void EmitAsyncStateMachineFieldAddress(AsyncStateMachineILFrame frame, IFieldSymbol field)
+    {
+        frame.EnsureReceiverLoaded(keepAlive: true);
+
+        var fieldInfo = (FieldInfo)GetField(field);
+        ILGenerator.Emit(OpCodes.Ldflda, fieldInfo);
+
+        frame.AfterFieldAccess(receiverRemainsOnTop: false);
+        frame.SuppressNextRelease();
     }
 
     private IMethodSymbol GetInvocationTarget(BoundInvocationExpression invocationExpression)

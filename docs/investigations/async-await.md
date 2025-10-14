@@ -269,6 +269,12 @@ This parity baseline leads to a four-part remediation plan:
    `SetResult`, and `SetException`. The helper should take the borrowed
    receiver and guarantee `ldflda` is performed with the receiver still on the
    stack so the IL mirrors Roslyn’s operand ordering.
+   * ✅ Added `TryEmitAsyncBuilderHelperInvocation` so every builder helper now
+     routes through `AsyncStateMachineILFrame`, borrowing the state-machine
+     receiver before loading `_builder` and threading the specialized
+     invocation through a single code path. IL regression tests pin the
+     `ldarg.0`, `ldflda _builder` ordering for `AwaitUnsafeOnCompleted`,
+     `SetResult`, and `SetException`, matching Roslyn’s operand discipline.
 3. **Tighten address-of emission for hoisted awaiters.** Teach
    `ExpressionGenerator.EmitAddressOfExpression` to detect awaiter fields that
    already have the receiver in scope and avoid reloading `ldarg.0`. When the
@@ -466,6 +472,10 @@ through metadata caching.
   `Start` and `AwaitUnsafeOnCompleted`, proving Raven needs a first-class
   “borrowed receiver” abstraction plus stack-aware builder helpers to eliminate
   the InvalidProgramException observed in the samples.【F:docs/investigations/async-await.md†L247-L283】
+* Centralising async builder helpers behind a dedicated emitter keeps the
+  `_builder` field loads paired with the cached receiver, and new IL baselines
+  assert `ldarg.0` precedes every `ldflda _builder` before `AwaitUnsafeOnCompleted`,
+  `SetResult`, and `SetException`. 【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L2643-L2698】【F:test/Raven.CodeAnalysis.Tests/CodeGen/AsyncILGenerationTests.cs†L1163-L1353】
 
 ## Step 1 – Desired semantics for `async Task<T>`
 

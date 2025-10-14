@@ -1172,6 +1172,34 @@ class C {
             FormatOperand(instruction.Operand) == "_builder");
     }
 
+
+    [Fact]
+    public void MoveNext_SetResult_BorrowsReceiverBeforeBuilderLoad()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setResultIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("SetResult", StringComparison.Ordinal));
+
+        Assert.True(setResultIndex >= 0, "Builder.SetResult call not found in MoveNext body.");
+
+        var builderAddressIndex = Array.FindLastIndex(instructions, setResultIndex, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex > 0, "Builder field address not loaded before SetResult call.");
+
+        var receiverLoadIndex = FindPrecedingLoadArgumentZero(instructions, builderAddressIndex);
+        Assert.True(receiverLoadIndex >= 0, "ldarg.0 not found before builder field address load.");
+
+        var betweenReceiverAndBuilder = instructions[(receiverLoadIndex + 1)..builderAddressIndex];
+        Assert.Contains(betweenReceiverAndBuilder, instruction => instruction.Opcode == OpCodes.Dup);
+    }
+
     [Fact]
     public void MoveNext_InvokesClosedGenericSetResultOverload()
     {
@@ -1296,6 +1324,27 @@ class C {
         Assert.Equal(OpCodes.Ldflda, awaiterLoadInstruction.Opcode);
     }
 
+
+    [Fact]
+    public void MoveNext_AwaitUnsafeOnCompleted_BorrowsReceiverForBuilder()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var builderAddressIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex > 0, "Builder address load not found before await scheduling.");
+
+        var receiverLoadIndex = FindPrecedingLoadArgumentZero(instructions, builderAddressIndex);
+        Assert.True(receiverLoadIndex >= 0, "ldarg.0 not found before builder field address load.");
+
+        var betweenReceiverAndBuilder = instructions[(receiverLoadIndex + 1)..builderAddressIndex];
+        Assert.Contains(betweenReceiverAndBuilder, instruction => instruction.Opcode == OpCodes.Dup);
+    }
+
     [Fact]
     public void MoveNext_StampsTerminalStateBeforeCompletion()
     {
@@ -1328,6 +1377,34 @@ class C {
         var receiverLoadIndex = FindPrecedingLoadArgumentZero(instructions, stateStoreIndex);
         Assert.True(receiverLoadIndex >= 0, "ldarg.0 not found before terminal state store.");
         Assert.True(receiverLoadIndex < stateConstantIndex, "Receiver load must precede terminal state constant.");
+    }
+
+
+    [Fact]
+    public void MoveNext_SetException_BorrowsReceiverBeforeBuilderLoad()
+    {
+        var (_, instructions) = CaptureAsyncInstructions(AsyncTaskOfIntCode, static generator =>
+            generator.MethodSymbol.Name == "MoveNext" &&
+            generator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol);
+
+        var setExceptionIndex = Array.FindIndex(instructions, instruction =>
+            instruction.Opcode == OpCodes.Call &&
+            instruction.Operand.Value is MethodInfo method &&
+            method.Name.Contains("SetException", StringComparison.Ordinal));
+
+        Assert.True(setExceptionIndex >= 0, "Builder.SetException call not found in MoveNext body.");
+
+        var builderAddressIndex = Array.FindLastIndex(instructions, setExceptionIndex, instruction =>
+            instruction.Opcode == OpCodes.Ldflda &&
+            FormatOperand(instruction.Operand) == "_builder");
+
+        Assert.True(builderAddressIndex > 0, "Builder address not loaded before SetException call.");
+
+        var receiverLoadIndex = FindPrecedingLoadArgumentZero(instructions, builderAddressIndex);
+        Assert.True(receiverLoadIndex >= 0, "ldarg.0 not found before builder field address load.");
+
+        var betweenReceiverAndBuilder = instructions[(receiverLoadIndex + 1)..builderAddressIndex];
+        Assert.Contains(betweenReceiverAndBuilder, instruction => instruction.Opcode == OpCodes.Dup);
     }
 
     [Fact]
